@@ -11,13 +11,6 @@ This roadmap is a placeholder for planning the project.
 
 ## Proposed phases
 
-### Milestone 1: KDE / Qt6 compatibility
-
-- Confirm the project builds and runs against KDE and Qt 6 tooling
-- Identify required porting work for deprecated APIs and platform assumptions
-- Define compatibility targets for Plasma desktop integration and mail client behavior
-- Establish a baseline release gate for KDE / Qt6 support before feature expansion
-
 ### Phase 1: Foundation
 
 - Project structure and build flow
@@ -35,6 +28,15 @@ This roadmap is a placeholder for planning the project.
 - Accessibility, notifications, and keyboard support
 - Performance and layout tuning
 - Translation and localization coverage
+
+## Milestones
+
+### M1: KDE / Qt6 compatibility
+
+- Confirm the project builds and runs against KDE and Qt 6 tooling
+- Identify required porting work for deprecated APIs and platform assumptions
+- Define compatibility targets for Plasma desktop integration and mail client behavior
+- Establish a baseline release gate for KDE / Qt6 support before feature expansion
 
 ## Notes
 
