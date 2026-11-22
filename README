@@ -8,7 +8,19 @@ Plasma Mail is a KDE-inspired IMAP mail client designed for focused reading, eff
 
 ## Installation
 
-To build and run the project locally:
+For a local automated setup, use the project install script:
+
+```bash
+./install.sh
+```
+
+You can also configure a custom prefix or build directory:
+
+```bash
+./install.sh --prefix "$HOME/.local" --build-dir "$HOME/plasma-mail-build"
+```
+
+To build and run the project manually:
 
 ```bash
 cmake -S . -B build
