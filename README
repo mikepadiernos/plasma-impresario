@@ -54,6 +54,68 @@ notifications:
 - Search and sorting behavior
 - Mailbox organization and folder visibility
 
+### Features to explore from the inspiration set
+
+#### KDE / Trojitá-inspired features
+
+- IMAP-first account model and accurate folder synchronization
+- Desktop-native message navigation and protocol reliability
+- Strong focus on low-footprint local operations and clear account state
+- Clean separation between list, preview, and account navigation panes
+
+#### Aqua Mail-inspired features
+
+- Quick actions for archive, move, mark read, and reply without leaving the list
+- Compact reading modes for fast triage and low-friction scanning
+- Clear search and filter workflows for inbox triage
+- Simplified message grouping that prioritizes readability and cadence
+
+#### The Bat!-inspired features
+
+- Power-user bulk actions for flagging, moving, and organizing mail
+- Keyboard-driven workflows for message management and filters
+- Folder and rule organization patterns that preserve high information density
+- Flexible view modes for users who want a classic desktop-mail workflow
+
+#### Kontact-inspired features
+
+- KDE and Plasma integration patterns for notifications and desktop behavior
+- User workflows that fit naturally with contact and calendar-oriented mail use
+- Cross-application consistency in actions, state, and desktop polish
+- Better system integration for account state, reminders, and mail actions
+
+### Customization blueprint
+
+```yaml
+ui:
+  density: "compact"
+  accent: "plasma-blue"
+  theme: "plasma" 
+  sidebar: "visible"
+  preview_pane: true
+  threading: true
+  focus_mode: false
+
+mail:
+  default_reply_mode: "reply-all"
+  mark_read_on_open: true
+  archive_after_reply: false
+  show_sender_avatar: true
+
+notifications:
+  enabled: true
+  desktop_toasts: true
+  sound: false
+  sync_status_alerts: true
+
+workflow:
+  quick_actions: ["reply", "archive", "flag", "move"]
+  keyboard_shortcuts: true
+  folder_order: ["Inbox", "Sent", "Archive", "Trash"]
+```
+
+These settings make the app feel similar to a configurable Plasma Opus-style product layer: a clean default interface, optional denser modes, themeable UX, and feature toggles that can evolve with the app without changing the underlying architecture.
+
 ### Local workflow
 
 1. Configure an IMAP account
