@@ -1,4 +1,76 @@
-This is Trojitá, a Qt IMAP e-mail client.
+# Plasma Mail
 
-More information about Trojitá are avilable from its homepage at
+<p align="center">
+  <img src="./logo.svg" alt="Plasma Mail logo" width="480" />
+</p>
+
+Plasma Mail is a KDE-inspired IMAP mail client designed for focused reading, efficient account management, and desktop integration. It follows a clean, configurable workflow that can be extended with UI, personalization, and workflow customizations that fit the needs of a modern email experience.
+
+## Installation
+
+To build and run the project locally:
+
+```bash
+cmake -S . -B build
+cmake --build build
+./build/src/Gui/trojita
+```
+
+More information about the project is available from the KDE homepage:
+
 http://apps.kde.org/trojita/
+
+## Customizing your experience
+
+Plasma Mail can be customized in a few practical ways:
+
+### Configuration structure
+
+```yaml
+account:
+  provider: "gmail"
+  maildir: "~/Mail"
+  folders:
+    - "INBOX"
+    - "Archive"
+    - "Sent"
+
+ui:
+  compact_mode: true
+  accent: "plasma-blue"
+  threading: true
+
+notifications:
+  enabled: true
+  desktop_alerts: true
+```
+
+### Common customization areas
+
+- Account setup and folder sync
+- Reader layout and thread grouping
+- Compact/comfortable density mode
+- Notification and message alert preferences
+- Search and sorting behavior
+- Mailbox organization and folder visibility
+
+### Local workflow
+
+1. Configure an IMAP account
+2. Refresh folder listings and sync messages
+3. Use the message list and viewer for daily reading
+4. Extend the interface or workflow for desktop-specific behavior
+
+## Project layout
+
+This repository follows a standard KDE-style application structure:
+
+- `src/` — application source and GUI code
+- `po/` — translation resources
+- `docs/` — planning, roadmap, and reference material
+- `tests/` — test coverage and verification cases
+- `cmake/` — build configuration and modules
+
+## Contributing
+
+This project is intended to evolve with input from both core mail-client workflows and Plasma desktop-specific improvements. Feature work should stay grounded in maintainability, account compatibility, and user experience clarity.
