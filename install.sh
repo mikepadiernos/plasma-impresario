@@ -72,6 +72,101 @@ detect_package_manager() {
   return 1
 }
 
+package_installed() {
+  local pkg="$1"
+
+  case "${PACKAGE_MANAGER}" in
+    pacman|paru|yay)
+      "${PACKAGE_MANAGER}" -Qq "${pkg}" >/dev/null 2>&1
+      ;;
+    pamac)
+      pamac list --installed --quiet | grep -Fxq "${pkg}"
+      ;;
+    apt-get)
+      dpkg-query -W -f='${Status}' "${pkg}" 2>/dev/null | grep -q "install ok installed"
+      ;;
+    dnf)
+      dnf list installed "${pkg}" >/dev/null 2>&1
+      ;;
+    zypper)
+      zypper search --installed-only --quiet "${pkg}" >/dev/null 2>&1
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+install_missing_packages() {
+  local -a packages=("$@")
+  local -a missing=()
+  local pkg
+
+  for pkg in "${packages[@]}"; do
+    if ! package_installed "${pkg}"; then
+      missing+=("${pkg}")
+    fi
+  done
+
+  if [[ ${#missing[@]} -eq 0 ]]; then
+    echo "[${APP_NAME}] All build dependencies are already installed."
+    return 0
+  fi
+
+  echo "[${APP_NAME}] Installing missing build dependencies: ${missing[*]}"
+
+  case "${PACKAGE_MANAGER}" in
+    pacman)
+      if [[ -n "${SUDO}" ]]; then
+        ${SUDO} pacman -Syu --noconfirm "${missing[@]}"
+      else
+        pacman -Syu --noconfirm "${missing[@]}"
+      fi
+      ;;
+    paru|yay)
+      if [[ -n "${SUDO}" ]]; then
+        ${SUDO} "${PACKAGE_MANAGER}" -Syu --noconfirm "${missing[@]}"
+      else
+        "${PACKAGE_MANAGER}" -Syu --noconfirm "${missing[@]}"
+      fi
+      ;;
+    pamac)
+      if [[ -n "${SUDO}" ]]; then
+        ${SUDO} pamac install -y "${missing[@]}"
+      else
+        pamac install -y "${missing[@]}"
+      fi
+      ;;
+    apt-get)
+      if [[ -n "${SUDO}" ]]; then
+        ${SUDO} apt-get update
+        ${SUDO} DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${missing[@]}"
+      else
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${missing[@]}"
+      fi
+      ;;
+    dnf)
+      if [[ -n "${SUDO}" ]]; then
+        ${SUDO} dnf install -y "${missing[@]}"
+      else
+        dnf install -y "${missing[@]}"
+      fi
+      ;;
+    zypper)
+      if [[ -n "${SUDO}" ]]; then
+        ${SUDO} zypper install -y "${missing[@]}"
+      else
+        zypper install -y "${missing[@]}"
+      fi
+      ;;
+    *)
+      echo "[${APP_NAME}] No supported package manager found. Please install CMake, Qt 6, KDE Frameworks, and build tools manually."
+      return 0
+      ;;
+  esac
+}
+
 install_dependencies() {
   if [[ "${INSTALL_DEPS}" != "true" ]]; then
     return 0
@@ -85,214 +180,73 @@ install_dependencies() {
   require_root_or_sudo
 
   case "${PACKAGE_MANAGER}" in
-    pacman)
-      echo "[${APP_NAME}] Installing Arch build dependencies with pacman..."
-      if [[ -n "${SUDO}" ]]; then
-        ${SUDO} pacman -Syu --noconfirm \
-          base-devel \
-          cmake \
-          ninja \
-          pkgconf \
-          extra-cmake-modules \
-          qt6-base \
-          qt6-svg \
-          qt6-tools \
-          qt6-5compat \
-          qt6-webengine \
-          kitemmodels \
-          sonnet
-      else
-        pacman -Syu --noconfirm \
-          base-devel \
-          cmake \
-          ninja \
-          pkgconf \
-          extra-cmake-modules \
-          qt6-base \
-          qt6-svg \
-          qt6-tools \
-          qt6-5compat \
-          qt6-webengine \
-          kitemmodels \
-          sonnet
-      fi
-      return 0
-      ;;
-    paru|yay)
-      echo "[${APP_NAME}] Installing Arch build dependencies with ${PACKAGE_MANAGER}..."
-      if [[ -n "${SUDO}" ]]; then
-        ${SUDO} "${PACKAGE_MANAGER}" -Syu --noconfirm \
-          base-devel \
-          cmake \
-          ninja \
-          pkgconf \
-          extra-cmake-modules \
-          qt6-base \
-          qt6-svg \
-          qt6-tools \
-          qt6-5compat \
-          qt6-webengine \
-          kitemmodels \
-          sonnet
-      else
-        "${PACKAGE_MANAGER}" -Syu --noconfirm \
-          base-devel \
-          cmake \
-          ninja \
-          pkgconf \
-          extra-cmake-modules \
-          qt6-base \
-          qt6-svg \
-          qt6-tools \
-          qt6-5compat \
-          qt6-webengine \
-          kitemmodels \
-          sonnet
-      fi
-      return 0
-      ;;
-    pamac)
-      echo "[${APP_NAME}] Installing Arch build dependencies with pamac..."
-      if [[ -n "${SUDO}" ]]; then
-        ${SUDO} pamac install -y \
-          base-devel \
-          cmake \
-          ninja \
-          pkgconf \
-          extra-cmake-modules \
-          qt6-base \
-          qt6-svg \
-          qt6-tools \
-          qt6-5compat \
-          qt6-webengine \
-          kitemmodels \
-          sonnet
-      else
-        pamac install -y \
-          base-devel \
-          cmake \
-          ninja \
-          pkgconf \
-          extra-cmake-modules \
-          qt6-base \
-          qt6-svg \
-          qt6-tools \
-          qt6-5compat \
-          qt6-webengine \
-          kitemmodels \
-          sonnet
-      fi
+    pacman|paru|yay|pamac)
+      install_missing_packages \
+        base-devel \
+        cmake \
+        ninja \
+        pkgconf \
+        extra-cmake-modules \
+        qt6-base \
+        qt6-svg \
+        qt6-tools \
+        qt6-5compat \
+        qt6-webengine \
+        kitemmodels \
+        sonnet
       return 0
       ;;
     apt-get)
-      echo "[${APP_NAME}] Installing Debian/Ubuntu build dependencies..."
-      if [[ -n "${SUDO}" ]]; then
-        ${SUDO} apt-get update
-        ${SUDO} DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-          build-essential \
-          cmake \
-          ninja-build \
-          pkg-config \
-          extra-cmake-modules \
-          qt6-base-dev \
-          qt6-base-private-dev \
-          qt6-tools-dev \
-          qt6-tools-dev-tools \
-          qt6-svg-dev \
-          qt6-5compat-dev \
-          libqt6sql6-dev \
-          libqt6dbus6-dev \
-          libkf6itemmodels-dev \
-          libkf6sonnet-dev \
-          qt6-webengine-dev
-      else
-        apt-get update
-        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-          build-essential \
-          cmake \
-          ninja-build \
-          pkg-config \
-          extra-cmake-modules \
-          qt6-base-dev \
-          qt6-base-private-dev \
-          qt6-tools-dev \
-          qt6-tools-dev-tools \
-          qt6-svg-dev \
-          qt6-5compat-dev \
-          libqt6sql6-dev \
-          libqt6dbus6-dev \
-          libkf6itemmodels-dev \
-          libkf6sonnet-dev \
-          qt6-webengine-dev
-      fi
+      install_missing_packages \
+        build-essential \
+        cmake \
+        ninja-build \
+        pkg-config \
+        extra-cmake-modules \
+        qt6-base-dev \
+        qt6-base-private-dev \
+        qt6-tools-dev \
+        qt6-tools-dev-tools \
+        qt6-svg-dev \
+        qt6-5compat-dev \
+        libqt6sql6-dev \
+        libqt6dbus6-dev \
+        libkf6itemmodels-dev \
+        libkf6sonnet-dev \
+        qt6-webengine-dev
       return 0
       ;;
     dnf)
-      echo "[${APP_NAME}] Installing Fedora/RHEL build dependencies..."
-      if [[ -n "${SUDO}" ]]; then
-        ${SUDO} dnf install -y \
-          gcc-c++ \
-          cmake \
-          ninja-build \
-          make \
-          pkgconf-pkg-config \
-          extra-cmake-modules \
-          qt6-qtbase-devel \
-          qt6-qtsvg-devel \
-          qt6-qttools-devel \
-          qt6-qt5compat-devel \
-          qt6-qtwebengine-devel \
-          kf6-kitemmodels-devel \
-          kf6-sonnet-devel
-      else
-        dnf install -y \
-          gcc-c++ \
-          cmake \
-          ninja-build \
-          make \
-          pkgconf-pkg-config \
-          extra-cmake-modules \
-          qt6-qtbase-devel \
-          qt6-qtsvg-devel \
-          qt6-qttools-devel \
-          qt6-qt5compat-devel \
-          qt6-qtwebengine-devel \
-          kf6-kitemmodels-devel \
-          kf6-sonnet-devel
-      fi
+      install_missing_packages \
+        gcc-c++ \
+        cmake \
+        ninja-build \
+        make \
+        pkgconf-pkg-config \
+        extra-cmake-modules \
+        qt6-qtbase-devel \
+        qt6-qtsvg-devel \
+        qt6-qttools-devel \
+        qt6-qt5compat-devel \
+        qt6-qtwebengine-devel \
+        kf6-kitemmodels-devel \
+        kf6-sonnet-devel
       return 0
       ;;
     zypper)
-      echo "[${APP_NAME}] Installing openSUSE build dependencies..."
-      if [[ -n "${SUDO}" ]]; then
-        ${SUDO} zypper install -y \
-          gcc-c++ \
-          cmake \
-          ninja \
-          pkg-config \
-          extra-cmake-modules \
-          libqt6-qtbase-common-devel \
-          libQt6Svg6-devel \
-          qt6-tools-devel \
-          libqt6-qt5compat-devel \
-          libqt6-qtwebengine-devel \
-          kitemmodels-devel \
-          sonnet-devel
-      else
-        zypper install -y \
-          gcc-c++ \
-          cmake \
-          ninja \
-          pkg-config \
-          extra-cmake-modules \
-          libqt6-qtbase-common-devel \
-          libQt6Svg6-devel \
-          qt6-tools-devel \
-          libqt6-qt5compat-devel \
-          libqt6-qtwebengine-devel \
-          kitemmodels-devel \
-          sonnet-devel
-      fi
+      install_missing_packages \
+        gcc-c++ \
+        cmake \
+        ninja \
+        pkg-config \
+        extra-cmake-modules \
+        libqt6-qtbase-common-devel \
+        libQt6Svg6-devel \
+        qt6-tools-devel \
+        libqt6-qt5compat-devel \
+        libqt6-qtwebengine-devel \
+        kitemmodels-devel \
+        sonnet-devel
       return 0
       ;;
   esac
