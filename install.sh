@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${BUILD_DIR:-${ROOT_DIR}/build}"
 PREFIX="${PREFIX:-/usr/local}"
 INSTALL_DEPS="${INSTALL_DEPS:-true}"
+WITH_WEBKIT="${WITH_WEBKIT:-auto}"
 SUDO=""
 PACKAGE_MANAGER=""
 
@@ -19,6 +20,8 @@ Options:
   --no-deps           Skip installing system dependencies
   --prefix PATH       Install into PATH instead of /usr/local
   --build-dir PATH    Use a custom build directory
+  --with-webkit       Enable Qt WebKit support when available
+  --without-webkit    Disable Qt WebKit support (recommended on systems without Qt6WebKitWidgets)
   --help              Show this help message
 EOF
 }
@@ -188,12 +191,15 @@ install_dependencies() {
         pkgconf \
         extra-cmake-modules \
         qt6-base \
+        qt6-declarative \
         qt6-svg \
         qt6-tools \
         qt6-5compat \
         qt6-webengine \
         kitemmodels \
-        sonnet
+        sonnet \
+        akonadi \
+        akonadi-contacts
       return 0
       ;;
     apt-get)
@@ -204,6 +210,7 @@ install_dependencies() {
         pkg-config \
         extra-cmake-modules \
         qt6-base-dev \
+        qt6-declarative-dev \
         qt6-base-private-dev \
         qt6-tools-dev \
         qt6-tools-dev-tools \
@@ -213,7 +220,9 @@ install_dependencies() {
         libqt6dbus6-dev \
         libkf6itemmodels-dev \
         libkf6sonnet-dev \
-        qt6-webengine-dev
+        qt6-webengine-dev \
+        libkf6akonadicore-dev \
+        libkf6akonadimime-dev
       return 0
       ;;
     dnf)
@@ -225,12 +234,14 @@ install_dependencies() {
         pkgconf-pkg-config \
         extra-cmake-modules \
         qt6-qtbase-devel \
+        qt6-qtdeclarative-devel \
         qt6-qtsvg-devel \
         qt6-qttools-devel \
         qt6-qt5compat-devel \
         qt6-qtwebengine-devel \
         kf6-kitemmodels-devel \
-        kf6-sonnet-devel
+        kf6-sonnet-devel \
+        kf6-akonadi-devel
       return 0
       ;;
     zypper)
@@ -241,12 +252,14 @@ install_dependencies() {
         pkg-config \
         extra-cmake-modules \
         libqt6-qtbase-common-devel \
+        libqt6-qtdeclarative-devel \
         libQt6Svg6-devel \
         qt6-tools-devel \
         libqt6-qt5compat-devel \
         libqt6-qtwebengine-devel \
         kitemmodels-devel \
-        sonnet-devel
+        sonnet-devel \
+        akonadi-devel
       return 0
       ;;
   esac
@@ -256,12 +269,20 @@ install_dependencies() {
 }
 
 configure_and_build() {
-  echo "[${APP_NAME}] Configuring project..."
+  local webkit_flag="-DWITH_WEBKIT=OFF"
+  if [[ "${WITH_WEBKIT}" == "true" ]]; then
+    webkit_flag="-DWITH_WEBKIT=ON"
+  elif [[ "${WITH_WEBKIT}" == "auto" ]]; then
+    webkit_flag="-DWITH_WEBKIT=OFF"
+  fi
+
+  echo "[${APP_NAME}] Configuring project with ${webkit_flag}..."
   cmake -S "${ROOT_DIR}" -B "${BUILD_DIR}" \
     -G Ninja \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DBUILD_TESTING=OFF \
-    -DCMAKE_INSTALL_PREFIX="${PREFIX}"
+    -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
+    "${webkit_flag}"
 
   echo "[${APP_NAME}] Building project..."
   cmake --build "${BUILD_DIR}" --parallel "$(nproc 2>/dev/null || echo 2)"
@@ -283,6 +304,14 @@ while [[ $# -gt 0 ]]; do
     --build-dir)
       BUILD_DIR="$2"
       shift 2
+      ;;
+    --with-webkit)
+      WITH_WEBKIT="true"
+      shift
+      ;;
+    --without-webkit)
+      WITH_WEBKIT="false"
+      shift
       ;;
     --help|-h)
       usage
