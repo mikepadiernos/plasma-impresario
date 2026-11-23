@@ -43,14 +43,14 @@ and project status before acting.
 
 ### M02 shell and account foundation
 
-- **Current state:** M02 #4, shell #35, skeleton #74, density #75 and
-  connection status #79 are in Development. Dependency gate #77 is in Review;
-  other M02 issues are Defined. The
+- **Current state:** M02 #4, shell #35, skeleton #74 and connection status #79
+  are in Development. Density #75 is in Review and dependency gate #77 is
+  Completed; other M02 issues are Defined. The
   `feature/m02-shell-accounts` branch adds a row-density selector; the
   continuation branch adds left/right folder sidebar placement in the compact
   and wide layouts. A further continuation adds persistent connection status
-  in the footer. The five-region shell, full density behavior, and per-account
-  status and error recovery still need implementation.
+  in the footer. The five-region shell and per-account status and error
+  recovery still need implementation.
 - **Account acceptance:** #78 requires setup and recovery with an isolated live
   IMAP account. No such account or local IMAP server has been verified for
   this work. Provision an isolated server and disposable credentials, then
