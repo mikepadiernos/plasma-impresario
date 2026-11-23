@@ -144,9 +144,12 @@ installation depends on the working renderer.
   - [x] Check package-manager selection, already-installed and missing dependencies,
     failure handling, and explicit renderer options without modifying the
     system during automated tests. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568832)
-  - [ ] Smoke-test launch, account setup, message reading, replies, attachments,
-    desktop integration, and recovery from failures. Run renderer and privacy
-    regression tests. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498915)
+  - [x] Smoke-test launch and application startup in the supported target
+    environment. Run renderer and privacy regression tests and verify recovery
+    from build, startup, installer, and configuration failures.
+    Account setup, live mailbox reading, replies and attachment workflows are
+    deferred to M02 and M04; Plasma session integration is deferred to M05.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498915)
   - [ ] Establish reproducible warning, formatting, test coverage, and dynamic
     analysis commands for clean Debug builds. Use AddressSanitizer and
     UndefinedBehaviorSanitizer for supported desktop configurations; use
@@ -172,6 +175,8 @@ installation depends on the working renderer.
 - [ ] Add folder counts, unread counts, and saved-search entry points to the mailbox foundation [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568869)
 - [ ] Keep this milestone as the blocker for all later mailbox productivity work [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569071)
 - [ ] Provide account setup, editing, removal, identities, and secure credential storage for IMAP and sending accounts [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569080)
+- [ ] Verify baseline account setup and recovery with an isolated test account,
+  as the M01.04 live-account acceptance handoff. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569080)
 - [ ] Expose connection, authentication, offline, and loading states without blocking the interface [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569089)
 - [ ] Support account grouping, collapsible folder navigation, and keyboard focus across the shell [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569100)
 - [ ] Preserve pane layout, selection, and density preferences across sessions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569110)
@@ -207,6 +212,9 @@ installation depends on the working renderer.
 - [ ] Improve the preview panel for readability and fast triage [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569371)
 - [ ] Ensure keyboard navigation works for desktop-heavy usage [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569380)
 - [ ] Validate the full reading flow from list selection through reading and response actions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569544)
+- [ ] Exercise live message reading, replies, attachments, and failure recovery
+  with isolated test mail, completing the M01.04 live-reader smoke handoff.
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569544)
 - [ ] Load message bodies and attachments on demand and show clear loading, unavailable, and error states [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569551)
 - [ ] Support compose, reply, reply-all, forward, drafts, sending, and failed-send recovery [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540653)
 - [ ] Preserve the originating account and sending identity in reading, replies, drafts, and composition across individual and unified mail views [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314607717)
@@ -232,6 +240,8 @@ installation depends on the working renderer.
 - [ ] Keep service integrations in this milestone so provider and desktop features are not mixed into core app deliverables [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569594)
 - [ ] Use KDE-native file, credential, session, and notification services where supported [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569603)
 - [ ] Implement KDE Plasma desktop integration for session lifecycle, file dialogs, KIO, KConfig, KWallet, and Plasma notification conventions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569755)
+- [ ] Verify live desktop-session startup, recovery, and integration behavior
+  as the M01.04 Plasma-session smoke handoff. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569755)
 - [ ] Define Plasma mail integration expectations for rich desktop feedback without interrupting the reading workflow [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569766)
 - [ ] Support accessibility and theming parity with KDE/Plasma, including contrast, focus visibility, localization, and icon consistency [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569771)
 - [ ] Document provider authentication, capabilities, limitations, and setup for Gmail, Outlook, and generic IMAP/SMTP [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569776)

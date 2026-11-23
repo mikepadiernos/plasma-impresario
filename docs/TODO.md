@@ -43,11 +43,11 @@ and project status before acting.
 
 ### M01 release gate and integration
 
-- **Blocked:** M01.04 still needs an isolated test account and a
-  Plasma session for account setup, message reading, replies, attachments,
-  desktop integration, and failure recovery. No real account has been used.
-  Exercise these workflows with test mail and record the results before
-  advancing issues #13 and #34 or marking M01 fully complete.
+- **Deferred by milestone scope:** Live account setup belongs to M02 issue #78.
+  Live message reading, replies and attachments belong to M04 issue #93.
+  Plasma desktop-session startup and recovery belong to M05 issue #101.
+  M01.04 is complete from automated build, installer, launch and privacy
+  evidence without an isolated account or live Plasma session.
 - **Pending:** Verify renderer-enabled and renderer-free installs at system
   prefixes and validate package-manager branches on distribution families other
   than CachyOS before claiming them as supported. Run and document sanitizer
