@@ -49,6 +49,8 @@ protected:
     qint64 readData(char *data, qint64 maxSize) override;
 private:
     void disconnectBufferIfVanished() const;
+    void failIfPartVanished();
+    void failForVanishedPart();
 
     QPersistentModelIndex part;
     mutable QBuffer buffer;

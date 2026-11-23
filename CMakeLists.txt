@@ -53,6 +53,7 @@ trojita_option(BUILD_TESTING "Build tests" ON)
 trojita_option(WITH_MIMETIC "Build with client-side MIME parsing" AUTO)
 trojita_option(WITH_GPGMEPP "Use GpgME's native C++ bindings" AUTO)
 trojita_option(WITH_WEBKIT "Build with support for viewing mails" ON)
+option(WITH_WEBENGINE_BRIDGE "Build the experimental WebEngine resource bridge (not a message viewer)" OFF)
 
 if(WIN32)
     trojita_option(WITH_NSIS "Build Windows NSIS installer" AUTO "WITH_DESKTOP")
@@ -83,6 +84,9 @@ find_package(KF6 REQUIRED
 
 if(WITH_WEBKIT)
     trojita_find_package(Qt6WebKitWidgets "" "" "Qt6 WebKit" "Required for displaying mail contents" WITH_WEBKIT)
+endif()
+if(WITH_WEBENGINE_BRIDGE)
+    find_package(Qt6 ${QT_REQUIRED_VERSION} REQUIRED COMPONENTS WebEngineWidgets)
 endif()
 
 trojita_find_package(KPim6AkonadiContactCore "" "" "" "Required for building Akonadi address book plugin")
@@ -704,6 +708,19 @@ target_link_libraries(Cryptography
         UiUtils
 )
 
+if(WITH_WEBENGINE_BRIDGE)
+    add_library(WebEngineMessageBridge STATIC
+        src/Gui/WebEngineMessagePage.cpp
+        src/Gui/WebEngineMessagePage.h
+        src/Gui/WebEngineMessageProfile.cpp
+        src/Gui/WebEngineMessageProfile.h
+    )
+    target_link_libraries(WebEngineMessageBridge
+        PUBLIC Qt6::WebEngineWidgets Imap
+    )
+    target_compile_definitions(WebEngineMessageBridge PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+endif()
+
 if(WITH_MIMETIC)
     target_link_libraries(Cryptography
         PRIVATE
@@ -937,6 +954,15 @@ if(BUILD_TESTING)
     set(UBSAN_ENV_SUPPRESSIONS "UBSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/tests/ubsan.supp")
 
     enable_testing()
+    if(WITH_WEBENGINE_BRIDGE)
+        add_executable(test_WebEngineMessageProfile tests/Gui/test_WebEngineMessageProfile.cpp)
+        target_link_libraries(test_WebEngineMessageProfile PRIVATE WebEngineMessageBridge Qt6::Test)
+        if(NOT CMAKE_CROSSCOMPILING)
+            add_test(NAME test_WebEngineMessageProfile COMMAND test_WebEngineMessageProfile)
+            set_tests_properties(test_WebEngineMessageProfile PROPERTIES ENVIRONMENT
+                "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu")
+        endif()
+    endif()
     trojita_test(Composer Composer_Submission)
     trojita_test(Composer Composer_Existing)
     trojita_test(Composer Composer_responses)
