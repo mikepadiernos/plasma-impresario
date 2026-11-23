@@ -8,6 +8,7 @@
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MsgListView.h"
 #include "Gui/Window.h"
+#include "Imap/Model/Model.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -19,10 +20,12 @@
 #include <KLocalizedString>
 #include <KSharedConfig>
 #include <QApplication>
+#include <QLabel>
 #include <QSettings>
 #include <QSplitter>
 #include <QStandardItemModel>
 #include <QStandardPaths>
+#include <QStatusBar>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -44,6 +47,32 @@ private slots:
         QVERIFY(config->sync());
         config->reparseConfiguration();
         Gui::MainWindow window(&settings);
+        auto *status = window.statusBar()->findChild<QLabel *>(QStringLiteral("connectionStatus"));
+        QVERIFY(status);
+        window.show();
+        QVERIFY(status->isVisible());
+        QVERIFY(QMetaObject::invokeMethod(&window, "networkPolicyOffline"));
+        QCOMPARE(status->text(), Gui::MainWindow::tr("Offline"));
+        QVERIFY(QMetaObject::invokeMethod(&window, "showConnectionStatus",
+                                          Q_ARG(uint, 1u), Q_ARG(Imap::ConnectionState, Imap::CONN_STATE_NONE)));
+        QCOMPARE(status->text(), Gui::MainWindow::tr("Offline"));
+        QVERIFY(QMetaObject::invokeMethod(&window, "networkPolicyOnline"));
+        QVERIFY(QMetaObject::invokeMethod(&window, "showConnectionStatus",
+                                          Q_ARG(uint, 1u), Q_ARG(Imap::ConnectionState, Imap::CONN_STATE_LOGIN)));
+        QCOMPARE(status->text(), Imap::connectionStateToString(Imap::CONN_STATE_LOGIN));
+        window.imapModel()->authAttemptFailed(QStringLiteral("TLS rejected <details>"));
+        QCOMPARE(status->text(), i18nc("@info:status", "Connection or authentication failed"));
+        QVERIFY(status->toolTip().contains(QStringLiteral("&lt;details&gt;")));
+        QCOMPARE(status->accessibleDescription(), QStringLiteral("TLS rejected <details>"));
+        QVERIFY(QMetaObject::invokeMethod(&window, "showConnectionStatus",
+                                          Q_ARG(uint, 1u), Q_ARG(Imap::ConnectionState, Imap::CONN_STATE_SELECTED)));
+        QVERIFY(QMetaObject::invokeMethod(&window, "showConnectionStatus",
+                                          Q_ARG(uint, 1u), Q_ARG(Imap::ConnectionState, Imap::CONN_STATE_SELECTED)));
+        QCOMPARE(status->text(), Imap::connectionStateToString(Imap::CONN_STATE_SELECTED));
+        QVERIFY(status->toolTip().isEmpty());
+        QVERIFY(status->accessibleDescription().isEmpty());
+        QVERIFY(QMetaObject::invokeMethod(&window, "networkPolicyOffline"));
+
         auto *menu = window.findChild<Gui::DensityMenu *>();
         auto *mailboxes = window.findChild<Gui::MailBoxTreeView *>();
         auto *messages = window.findChild<Gui::MsgListView *>();

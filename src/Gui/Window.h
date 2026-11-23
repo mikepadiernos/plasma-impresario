@@ -248,6 +248,9 @@ private:
     /** Place the mailbox sidebar on the requested side of the current layout. */
     void setMailboxSidebarRight(bool right);
 
+    /** Display the current connection status in the window footer. */
+    void updateConnectionStatus(const QString &message);
+
     void applySizesAndState();
     QString layoutToString(const LayoutMode layout) const;
     void convertSizesAndStateSettings();
@@ -287,6 +290,7 @@ private:
     QPointer<QSplitter> m_mainHSplitter;
     QPointer<QSplitter> m_mainVSplitter;
     QPointer<QStackedWidget> m_mainStack;
+    QLabel *m_connectionStatus;
 
     LayoutMode m_layoutMode;
     bool m_mailboxSidebarOnRight = false;

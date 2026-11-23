@@ -31,6 +31,7 @@
 #include <QHeaderView>
 #include <QItemSelectionModel>
 #include <QKeyEvent>
+#include <QLabel>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPainter>
@@ -848,6 +849,12 @@ void MainWindow::createMenus()
 
 void MainWindow::createWidgets()
 {
+    m_connectionStatus = new QLabel(statusBar());
+    m_connectionStatus->setObjectName(QStringLiteral("connectionStatus"));
+    m_connectionStatus->setAccessibleName(i18nc("@label", "Connection status"));
+    m_connectionStatus->setText(i18nc("@info:status", "Not connected"));
+    statusBar()->addPermanentWidget(m_connectionStatus);
+
     // The state of the GUI is only saved after a certain time has passed. This is just an optimization to make sure
     // we do not hit the disk continually when e.g. resizing some random widget.
     m_delayedStateSaving = new QTimer(this);
@@ -978,8 +985,11 @@ void MainWindow::setupModels()
     connect(imapModel(), &Imap::Mailbox::Model::imapError, this, &MainWindow::imapError);
     connect(imapModel(), &Imap::Mailbox::Model::networkError, this, &MainWindow::networkError);
     connect(imapModel(), &Imap::Mailbox::Model::authRequested, this, &MainWindow::authenticationRequested, Qt::QueuedConnection);
-    connect(imapModel(), &Imap::Mailbox::Model::authAttemptFailed, this, [this]() {
+    connect(imapModel(), &Imap::Mailbox::Model::authAttemptFailed, this, [this](const QString &message) {
         m_ignoreStoredPassword = true;
+        updateConnectionStatus(i18nc("@info:status", "Connection or authentication failed"));
+        m_connectionStatus->setToolTip(Qt::convertFromPlainText(message));
+        m_connectionStatus->setAccessibleDescription(message);
     });
 
     connect(imapModel(), &Imap::Mailbox::Model::networkPolicyOffline, this, &MainWindow::networkPolicyOffline);
@@ -1445,6 +1455,7 @@ void MainWindow::networkPolicyOffline()
     netOnline->setChecked(false);
     netOffline->setChecked(true);
     updateActionsOnlineOffline(false);
+    updateConnectionStatus(tr("Offline"));
     showStatusMessage(tr("Offline"));
     handleTrayIconChange();
 }
@@ -1455,6 +1466,7 @@ void MainWindow::networkPolicyExpensive()
     netOnline->setChecked(false);
     netExpensive->setChecked(true);
     updateActionsOnlineOffline(true);
+    updateConnectionStatus(i18nc("@info:status", "Network access enabled"));
     handleTrayIconChange();
 }
 
@@ -1464,6 +1476,7 @@ void MainWindow::networkPolicyOnline()
     netExpensive->setChecked(false);
     netOnline->setChecked(true);
     updateActionsOnlineOffline(true);
+    updateConnectionStatus(i18nc("@info:status", "Network access enabled"));
     handleTrayIconChange();
 }
 
@@ -2152,6 +2165,11 @@ void MainWindow::showConnectionStatus(uint parserId, Imap::ConnectionState state
     Q_UNUSED(parserId);
     static Imap::ConnectionState previousState = Imap::ConnectionState::CONN_STATE_NONE;
     QString message = connectionStateToString(state);
+
+    if (netOffline->isChecked())
+        updateConnectionStatus(tr("Offline"));
+    else
+        updateConnectionStatus(message.isEmpty() ? i18nc("@info:status", "Not connected") : message);
 
     if (state == Imap::ConnectionState::CONN_STATE_SELECTED && previousState >= Imap::ConnectionState::CONN_STATE_SELECTED) {
         // prevent excessive popups when we "reset the state" to something which is shown quite often
@@ -3069,6 +3087,13 @@ void MainWindow::updateNetworkIndication()
             m_netToolbarDefaultAction->setIcon(action->icon());
         }
     }
+}
+
+void MainWindow::updateConnectionStatus(const QString &message)
+{
+    m_connectionStatus->setText(message);
+    m_connectionStatus->setToolTip(QString());
+    m_connectionStatus->setAccessibleDescription(QString());
 }
 
 void MainWindow::showStatusMessage(const QString &message)
