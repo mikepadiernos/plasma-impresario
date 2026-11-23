@@ -10,16 +10,15 @@ built with C++, Qt 6 and KDE Frameworks. Other desktop environments are outside
 the supported product scope. This roadmap orders foundational mailbox work
 before desktop integration, productivity features and release-quality refinements.
 
-> [!NOTE] Feature completion is synchronized with the project board. An item
+> [!NOTE]
+>
+> Feature completion is synchronized with the project board. An item
 > is checked only when its issue is **Completed** or **Merged** and its
 > implementation is verified. Blocked or unverifiable work remains recorded
 > in [pending tasks](TODO.md).
-> Check the checkbox only after the roadmap item is completed, following issue
-> review and merge state. Do not mark it complete solely because implementation
-> work has started or is in review.
-> The source already contains a substantial Trojitá IMAP client; the
-> [backend](parity/backend.md) and [UI](parity/ui.md) references distinguish
-> that baseline from planned Plasma Impresario features.
+
+The [backend](parity/backend.md) and [UI](parity/ui.md) references distinguish
+the existing Trojitá client from planned Plasma Impresario features.
 
 ## Contents
 
@@ -39,7 +38,7 @@ foundational mailbox functionality as entirely new.
 | Priority | Focus | Recommended next work |
 | --- | --- | --- |
 | **P0** | Reproducible, safe baseline | Confirm product identity and supported build matrix; establish verified TLS and safe credential defaults; document cache and logging behavior; add focused connection/security and launch smoke tests |
-| **P1** | Supported rendering and account boundaries | Complete the Qt WebEngine reader or provide a safe text fallback; design stable per-account settings, cache and credentials before adding simultaneous accounts |
+| **P1** | Rendering and account boundaries | Verify live reader workflows; design stable per-account settings, cache and credentials before adding simultaneous accounts |
 | **P2** | Shell and reliability | Prototype the Plasma Impresario layout over existing mailbox/list/reader behavior; validate accessibility, keyboard use, responsive layouts and partial-failure recovery |
 | **P3** | Optional productivity features | Add provider APIs, rules, Nextcloud, calendar/contacts and workspace features only after core reliability, permissions and privacy behavior are defined |
 
@@ -57,11 +56,9 @@ The issue synchronization handoff is tracked in [TODO](TODO.md#milestone-feature
 launch, and use to read mail. Establish the compatibility and smoke-test gate
 for later milestones.
 
-**Current blocker:** The WebEngine reader builds, installs to a temporary
-prefix, launches, and passes the full test suite. A live message-reading flow
-with an account remains unverified, so the M01.02 feature and M01 release gate
-remain in Development.
-The remaining release checks and integration handoff are in
+**Verification handoff:** The renderer and M01.04 release-gate issues are
+merged. Live account, message-reading and Plasma-session checks remain
+unverified and are deferred to M02, M04 and M05. See
 [TODO](TODO.md#m01-release-gate-and-integration).
 
 Work through the supported environment, renderer, installer, and verification
@@ -88,11 +85,10 @@ installation depends on the working renderer.
   **Project:** [Renderer port](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314539659)
 
   The WebEngine reader is integrated with per-message profiles and request
-  policy. The renderer-enabled build, all 35 CTest cases, temporary-prefix
+  policy. The renderer-enabled build, CTest suite, temporary-prefix
   installation, executable startup, and installer checks passed. Live
-  message-reading, reply, and attachment smoke tests remain unverified; the
-  issues remain in Development and their roadmap items unchecked. See
-  [TODO](TODO.md#in-progress).
+  message-reading, reply, and attachment smoke tests remain unverified; see
+  [TODO](TODO.md#m01-release-gate-and-integration).
 
   1. [x] Define the WebEngine profile and request lifecycle, including per-message isolation, cancellation, and cleanup when switching messages. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568588)
   2. [x] Add regression tests for MIME loading, cancellation, message switching, remote-content policy, navigation, quoting, and rendering failures. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568809)
@@ -127,10 +123,9 @@ installation depends on the working renderer.
 
   The installer checks for installed packages and provides explicit WebEngine
   and renderer-free options. The latter is an opt-in incomplete build, not the
-  default or a substitute for the reader. Remaining validation
-  and compatibility work is tracked in
-  [mikepadiernos/plasma-impresario#2](https://github.com/mikepadiernos/plasma-impresario/issues/2)
-  and [mikepadiernos/plasma-impresario#3](https://github.com/mikepadiernos/plasma-impresario/issues/3).
+  default or a substitute for the reader. Remaining validation and
+  compatibility work is tracked in
+  [TODO](TODO.md#m01-release-gate-and-integration).
 
 - **M01.04: Verification and release gate**
 

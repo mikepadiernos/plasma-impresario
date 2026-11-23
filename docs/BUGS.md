@@ -10,7 +10,8 @@ This log records confirmed user-visible bugs and reliability issues.
 
 ### [bug] Installed app missing from Plasma application menu
 
-- **Issue:** [#228](https://github.com/mikepadiernos/plasma-impresario/issues/228)
+- **Issue:**
+  [#228](https://github.com/mikepadiernos/plasma-impresario/issues/228)
 - **Status:** Merged
 - **Reproduction:** Install to `~/.local` and open the Plasma app menu when the
   session PATH does not include `~/.local/bin`.
@@ -20,9 +21,10 @@ This log records confirmed user-visible bugs and reliability issues.
 - **Fix:** Install launchers with absolute executable paths and refresh the
   Plasma application database after upgrading.
 
-> [!IMPORTANT] An issue is complete only when its project status is
-> **Completed** or **Merged**. **Completed** does not necessarily mean merged
-> into `main`.
+> [!IMPORTANT]
+>
+> An issue is complete only when its project status is **Completed** or
+> **Merged**. **Completed** does not necessarily mean merged into `main`.
 
 ## Report template
 
