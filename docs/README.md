@@ -16,15 +16,15 @@ tracking.
 
 ## Start here
 
-| Guide                                                 | What it covers                                                            |
-| ----------------------------------------------------- | ------------------------------------------------------------------------- |
-| [Project README](../README.md)                        | Quick start, current features and product direction                       |
-| [Installation](INSTALL.md)                            | Installer options, custom prefixes and troubleshooting                    |
-| [Compatibility baseline](philosophy/compatibility.md) | M01 target environment, dependencies and verification limits              |
-| [Scope and objective](philosophy/scope.md)            | Target workflows and product boundaries                                   |
-| [Design direction](philosophy/designs.md)             | Shell structure, reading flow and interface principles                    |
-| [Inspirations](philosophy/inspirations.md)            | Trojitá, Aqua Mail, Vivaldi Mail, The Bat!, Kontact and Plasma influences |
-| [Project instructions](../CLAUDE.md)                  | Development conventions and project workflow                              |
+| Guide                                                 | What it covers                                                         |
+| ----------------------------------------------------- | ---------------------------------------------------------------------- |
+| [Project README](../README.md)                        | Quick start, current features and product direction                    |
+| [Installation](INSTALL.md)                            | Installer options, custom prefixes and troubleshooting                 |
+| [Compatibility baseline](philosophy/compatibility.md) | M01 target environment, dependencies and verification limits           |
+| [Scope and objective](philosophy/scope.md)            | Target workflows and product boundaries                                |
+| [Design direction](philosophy/designs.md)             | Shell structure, proposed interface widgets and interaction principles |
+| [Inspirations](philosophy/inspirations.md)            | Mail-client and Plasma influences                                      |
+| [Project instructions](../CLAUDE.md)                  | Development conventions and project workflow                           |
 
 ## Plan and track
 
