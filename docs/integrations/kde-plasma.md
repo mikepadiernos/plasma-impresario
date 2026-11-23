@@ -42,6 +42,27 @@ that every service is implemented.
 - **Verify:** Exercise notification suppression, grouped new mail, unavailable
   notification services and retry after a sync failure.
 
+## Plasma widgets
+
+- **What:** Offer optional Plasma widgets for the desktop or panel, such as an
+  unread-count summary, account sync status, a compose shortcut and a scrolling
+  unread-mail marquee. The marquee can draw inspiration from
+  [The Bat!'s MailTicker](https://www.ritlabs.com/en/support/tips-and-tricks/7593/),
+  which displays sender and subject information for unread messages.
+- **How:** Design Plasma widget interfaces around a verified, minimal
+  application service rather than direct access to mail storage or credentials.
+  Allow users to choose accounts and folders, visible fields, display timing and
+  whether the ticker scrolls. A message action should open the corresponding
+  message in the mail client.
+- **Recommendations:** Keep widgets optional and respect Plasma themes, panel
+  sizes, keyboard access and reduced-motion preferences. Avoid exposing sender
+  or subject details by default without a privacy choice. Show unavailable or
+  stale status clearly when the client or its service is not running; never
+  report failed synchronization as successful.
+- **Verify:** Test account and folder filtering, message navigation, privacy
+  settings, non-scrolling operation, panel and desktop layouts, service shutdown
+  and recovery using isolated mail data.
+
 ## Files and attachments
 
 - **What:** Save, open, preview and share attachments using familiar Plasma file
