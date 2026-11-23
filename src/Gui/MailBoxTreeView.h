@@ -42,6 +42,8 @@ class MailBoxTreeView : public QTreeView
 public:
     explicit MailBoxTreeView(QWidget *parent, QSettings *settings);
     void setDesiredExpansion(const QStringList &mailboxNames);
+    /** Restore the selected mailbox when it becomes available. */
+    void restoreMailbox(const QString &mailboxName);
     void setModel(QAbstractItemModel *model) override;
 signals:
     /** @short User has changed their mind about the expanded/collapsed state of the mailbox tree
@@ -50,15 +52,20 @@ signals:
     the code will not forget about those mailboxes which "aren't there yet".
     */
     void mailboxExpansionChanged(const QStringList &mailboxNames);
+    /** Emitted when a saved mailbox becomes selected. */
+    void mailboxRestored(const QModelIndex &index);
 protected:
     void dragMoveEvent(QDragMoveEvent *event) override;
     void dropEvent(QDropEvent *event) override;
     void dragEnterEvent(QDragEnterEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
     void resetWatchedMailboxes();
     Qt::DropAction defaultDropAction();
 private:
     Imap::Mailbox::MailboxFinder *m_mailboxFinder;
     QSet<QString> m_desiredExpansionState;
+    QString m_pendingMailbox;
     QSettings *m_settings;
 };
 }

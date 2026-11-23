@@ -980,6 +980,17 @@ void MainWindow::setupModels()
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::modelReset, msgListWidget, &MessageListWidget::slotAutoEnableDisableSearch);
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::modelReset, this, &MainWindow::updateMessageFlags);
     connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, this, &MainWindow::slotMailboxChanged);
+    KConfigGroup selection(KSharedConfig::openStateConfig(), QStringLiteral("MailboxSelection"));
+    KConfigGroup accountSelection = selection.group(m_imapAccess->credentialAccountId());
+    connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, this,
+            [accountSelection](const QModelIndex &mailbox) mutable {
+        const QString name = mailbox.data(Imap::Mailbox::RoleMailboxName).toString();
+        if (!name.isEmpty()) {
+            accountSelection.writeEntry("Mailbox", name);
+            if (!accountSelection.sync())
+                qWarning() << "Could not save mailbox selection";
+        }
+    });
 
     connect(imapModel(), &Imap::Mailbox::Model::alertReceived, this, &MainWindow::alertReceived);
     connect(imapModel(), &Imap::Mailbox::Model::imapError, this, &MainWindow::imapError);
@@ -1035,6 +1046,9 @@ void MainWindow::setupModels()
     //ModelTest* tester = new ModelTest( prettyMboxModel, this ); // when testing, test just one model at time
 
     mboxTree->setModel(prettyMboxModel);
+    connect(mboxTree, &MailBoxTreeView::mailboxRestored, realMsgListModel,
+            static_cast<void (Imap::Mailbox::MsgListModel::*)(const QModelIndex &)>(&Imap::Mailbox::MsgListModel::setMailbox));
+    mboxTree->restoreMailbox(accountSelection.readEntry("Mailbox", QString()));
     msgListWidget->tree->setModel(prettyMsgListModel);
     connect(msgListWidget->tree->selectionModel(), &QItemSelectionModel::selectionChanged, this, &MainWindow::updateMessageFlags);
 

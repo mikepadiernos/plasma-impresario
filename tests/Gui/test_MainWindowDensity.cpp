@@ -10,7 +10,10 @@
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MsgListView.h"
 #include "Gui/Window.h"
+#include "Imap/Model/ImapAccess.h"
+#include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/Model.h"
+#include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -56,6 +59,23 @@ private slots:
         QVERIFY(status->isVisible());
         QCoreApplication::processEvents();
         QCOMPARE(status->text(), Gui::MainWindow::tr("Offline"));
+        auto *messageModel = qobject_cast<Imap::Mailbox::MsgListModel *>(window.imapAccess()->msgListModel());
+        QVERIFY(messageModel);
+        QStandardItemModel mailboxModel;
+        mailboxModel.appendRow(new QStandardItem(QStringLiteral("Archive")));
+        const QModelIndex mailbox = mailboxModel.index(0, 0);
+        mailboxModel.setData(mailbox, QStringLiteral("Archive"), Imap::Mailbox::RoleMailboxName);
+        auto state = KSharedConfig::openStateConfig();
+        KConfigGroup selection(state, QStringLiteral("MailboxSelection"));
+        KConfigGroup accountSelection = selection.group(window.imapAccess()->credentialAccountId());
+        KConfigGroup otherAccount = selection.group(QStringLiteral("another-account"));
+        otherAccount.writeEntry("Mailbox", QStringLiteral("Other"));
+        accountSelection.deleteGroup();
+        messageModel->mailboxChanged(mailbox);
+        QVERIFY(accountSelection.sync());
+        state->reparseConfiguration();
+        QCOMPARE(accountSelection.readEntry("Mailbox", QString()), QStringLiteral("Archive"));
+        QCOMPARE(otherAccount.readEntry("Mailbox", QString()), QStringLiteral("Other"));
         window.imapModel()->connectionStateChanged(1u, Imap::CONN_STATE_NONE);
         QCOMPARE(status->text(), Gui::MainWindow::tr("Offline"));
         window.imapModel()->networkPolicyOnline();

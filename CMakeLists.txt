@@ -1002,9 +1002,13 @@ if(BUILD_TESTING)
         target_link_libraries(test_DensityMenu PRIVATE Qt6::Widgets Qt6::Test KF6::ConfigCore KF6::I18n)
         add_executable(test_MainWindowDensity tests/Gui/test_MainWindowDensity.cpp)
         target_link_libraries(test_MainWindowDensity PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_MailBoxTreeView tests/Gui/test_MailBoxTreeView.cpp)
+        target_link_libraries(test_MailBoxTreeView PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         if(NOT CMAKE_CROSSCOMPILING)
             add_test(NAME test_DensityMenu COMMAND test_DensityMenu)
             set_tests_properties(test_DensityMenu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_MailBoxTreeView COMMAND test_MailBoxTreeView)
+            set_tests_properties(test_MailBoxTreeView PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MainWindowDensity COMMAND test_MainWindowDensity)
             set_tests_properties(test_MainWindowDensity PROPERTIES
                 TIMEOUT 30
