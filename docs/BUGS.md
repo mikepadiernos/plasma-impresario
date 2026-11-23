@@ -11,7 +11,7 @@ This log records confirmed user-visible bugs and reliability issues.
 ### [bug] Installed app missing from Plasma application menu
 
 - **Issue:** [#228](https://github.com/mikepadiernos/plasma-impresario/issues/228)
-- **Status:** Completed
+- **Status:** Merged
 - **Reproduction:** Install to `~/.local` and open the Plasma app menu when the
   session PATH does not include `~/.local/bin`.
 - **Expected:** Plasma Impresario appears and can be launched.
