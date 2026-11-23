@@ -44,8 +44,8 @@ and project status before acting.
 ### M02 shell and account foundation
 
 - **Current state:** M02 #4, shell #35, skeleton #74, connection status #79,
-  session persistence #81, account foundation #36 and protocol-aware account
-  #215 are in Development.
+  session persistence #81, account setup #78, account foundation #36 and
+  protocol-aware account #215 are in Development.
   Density #75 is in Review and dependency gate #77 is Completed; other M02
   issues are Defined. The
   `feature/m02-shell-accounts` branch adds a row-density selector; the
@@ -53,11 +53,14 @@ and project status before acting.
   and wide layouts. A further continuation adds persistent connection status
   in the footer. The five-region shell and per-account status and error
   recovery still need implementation.
-- **Account acceptance:** #78 requires setup and recovery with an isolated live
-  IMAP account. No such account or local IMAP server has been verified for
-  this work. Provision an isolated server and disposable credentials, then
-  verify setup, failure, recovery and credential removal without using real
-  home-directory mail or configuration.
+- **Account acceptance:** #78 has been exercised against a disposable Dovecot
+  2.4.4 container using temporary configuration and synthetic credentials.
+  The application saved IMAP settings, recovered from a rejected password,
+  selected INBOX and reconnected after going offline. Secure credential
+  storage and account removal still require implementation and verification.
+  The opt-in `test_LiveImap` executable uses `PLASMA_TEST_IMAPS_PORT` for a
+  loopback-only Dovecot IMAPS listener configured with the synthetic password
+  `synthetic-test-only`; never point it at a real account or service.
 - **Resume:** Implement and test the remaining M02 shell, account,
   protocol-capability and OAuth issues. Advance each issue through Review and
   Completed before checking its roadmap item; merge the milestone only when
