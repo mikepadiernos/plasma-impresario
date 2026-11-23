@@ -4,152 +4,83 @@
   <img src="src/icons/plasma-impresario.svg" alt="Plasma Impresario envelope and golden spiral icon" width="240" height="240">
 </p>
 
-**Plasma Impresario is a mail client for the KDE Plasma desktop only.**
-Other desktop environments are outside its supported product scope.
-This checkout currently builds a Trojitá-based Qt 6 IMAP client; the proposed
-Plasma Impresario workflows and redesign are not all implemented yet.
+**A focused IMAP mail client for the KDE Plasma desktop**, built with Qt 6 and
+KDE Frameworks. Other desktop environments are outside the supported scope.
 
-**[Build and run](#build-and-run)** · **[Current features](#implemented-today)** ·
-**[Icon](#application-icon)** ·
-**[Security and limitations](docs/CAVEATS.md#security-and-data-protection)** ·
-**[Roadmap](docs/ROADMAP.md)** ·
-**[Documentation](docs/README.md)**
+**[Get started](#build-and-run)** · **[Features](#implemented-today)** ·
+**[Roadmap](docs/ROADMAP.md)** · **[Documentation](docs/README.md)** ·
+**[Security and limitations](docs/CAVEATS.md#security-and-data-protection)**
 
-> [!NOTE] The main window and source architecture are based on Trojitá.
-> The [backend](docs/parity/backend.md) and
-> [UI](docs/parity/ui.md) references distinguish existing behavior from
-> product goals; [caveats](docs/CAVEATS.md) records current limitations.
+> [!NOTE]
+>
+> The current application is based on Trojitá. Mail workflows are implemented,
+> but live account and desktop-session verification is pending; the Plasma
+> Impresario redesign and several integrations remain planned. See the
+> [UI](docs/parity/ui.md) and [backend](docs/parity/backend.md) baselines.
 
 ## Build and run
 
-**Requirements:** CMake, Ninja, a C++ compiler, Qt 6, Qt WebEngineWidgets and KF6 ItemModels.
-OpenPGP, QtKeychain, Sonnet
-and other integrations depend on the configured build. See `CMakeLists.txt`
-for exact requirements and the
-[compatibility baseline](docs/philosophy/compatibility.md) for tested
-environments and remaining limits.
+**Requirements:** CMake, Ninja, a C++20 compiler, Qt 6, Qt WebEngineWidgets and
+KF6 ItemModels. Optional integrations have additional dependencies; see the
+[compatibility baseline](docs/philosophy/compatibility.md).
 
-For a local build:
+To install locally:
 
 ```bash
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DWITH_WEBENGINE=ON
+./install.sh
+```
+
+The default prefix is `~/.local`. See the [installation guide](docs/INSTALL.md)
+for dependency checks, build-only mode, custom prefixes and troubleshooting.
+
+To build and test manually:
+
+```bash
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DQT_MAJOR_VERSION=6 -DBUILD_TESTING=ON -DWITH_WEBENGINE=ON
 cmake --build build
 QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure
 ./build/plasma-impresario
 ```
 
-For an explicitly renderer-free development build, use `-DWITH_WEBENGINE=OFF`
-instead. It cannot display message contents.
-
-The WebEngine reader uses a private profile for each message. Its tests cover
-IMAP and `cid:` loading, remote-content consent, navigation restrictions,
-cancellation, message switching and asynchronous quoting. Custom URL schemes
-are registered before creating `QApplication`.
-
-For the local automated setup:
-
-```bash
-./install.sh
-./install.sh --help
-```
-
-The installer defaults to `$HOME/.local`, including the executable in
-`$HOME/.local/bin`. Add that directory to your `PATH` for command-line use;
-the application-menu launcher does not depend on it. It requests
-privileges for missing system packages or a protected installation prefix and
-skips packages it detects as already installed. Use `--no-deps` to skip
-dependency checks and package installation, `--check-deps` to check installed
-packages without installing or building, or `--build-only` to build
-without installing the application. Build-only mode may still install missing
-dependencies; combine it with `--no-deps` to avoid that. The check-only mode
-reports missing packages the installer would install, including available
-optional packages, and exits nonzero if any are missing. It does not check
-versions or CMake-only requirements.
-Package-manager selection uses `/etc/os-release` and fails rather than trying
-an unrelated distribution's package manager. On unsupported distributions,
-install dependencies manually and use `--no-deps`.
-For `pacman`, unavailable optional integration packages are reported and
-skipped; installing missing packages runs a full `pacman -Syu` system upgrade.
-`PLASMA_IMPRESARIO_OS_RELEASE` can point to an alternate os-release file when
-necessary; the old `PLASMA_MAIL_OS_RELEASE` name remains supported.
-Qt WebEngineWidgets is required for the default reader build. Use
-`--without-webengine` only for an explicitly incomplete build that cannot
-display message contents.
-
-The installer also supports custom build and installation locations:
-
-```bash
-./install.sh --prefix "$HOME/apps/plasma-impresario" --build-dir "$HOME/plasma-impresario-build"
-```
-
-For a custom prefix, Plasma must search its `share` directory (through
-`XDG_DATA_HOME` or `XDG_DATA_DIRS`) to discover the desktop entry. Configure
-the session environment before logging in, or use the default prefix.
-
-The installed Trojitá handbook and man page come from `docs/old` and may
-describe historical behavior.
-
-An in-place upgrade may leave the old
-`share/metainfo/org.kde.trojita.appdata.xml` under the installation prefix.
-Remove that obsolete metadata if it remains after the upgrade.
-
-Installer checks can be run separately with `bash tests/test_install.sh`;
-they use mock commands rather than installing packages.
+> [!WARNING]
+>
+> A renderer-free build (`-DWITH_WEBENGINE=OFF` or
+> `./install.sh --without-webengine`) cannot display message contents.
 
 ## Implemented today
 
-The current Trojitá-based application provides:
+- IMAP mailbox discovery, synchronization, offline modes, caching and threading.
+- Folder navigation, search, sorting, flags and tags.
+- Message reading, MIME alternatives, HTML rendering and attachments.
+- Composition, replies and forwards, local drafts and configurable delivery.
+- Compact, wide and one-panel layouts; optional password, address-book,
+  spell-check and OpenPGP plugins.
 
-- IMAP mailbox discovery, synchronization, offline modes, caching and threading;
-- folder navigation, message search/sorting and common flag/tag operations;
-- message reading, MIME alternatives, HTML rendering and attachment handling;
-- composition, replies/forwards, local drafts and configurable message delivery;
-- compact, wide and one-panel layouts with persisted window state;
-- optional password, address-book, spell-check and OpenPGP plugins.
-
-The current application is single-account per instance. Rules, provider OAuth,
-workspace workflows, a redesigned Plasma shell and several cross-app
-integrations remain planned rather than shipped.
-
-The IMAP client separates protocol parsing, tasks, Qt item models, cache and
-widgets. It fetches message parts on demand and can cache them for later reads.
-Profiles (`-p NAME`) run as separate configurations, not as multiple accounts
-in one window. Use `./build/plasma-impresario --help` for all launch options; `-c`
-composes a message, `-a` opens the address book when available, and
-`mailto:...` opens a prefilled composer.
+An application instance uses one account model. Profiles (`-p NAME`) are
+separate configurations, not simultaneous accounts in one window. Run
+`./build/plasma-impresario --help` for launch options; `-c` opens the composer,
+`-a` opens the address book when available, and `mailto:...` prefills a message.
 
 ## Product direction
 
-The planned product builds on this baseline with a clearer, Plasma-native
-reading and triage experience. Priorities include a reproducible installation
-and secure baseline, a maintained message renderer, account isolation, and a
-more reliable desktop shell. Provider, productivity and cross-app workflows
-follow the core mail experience. See the [roadmap](docs/ROADMAP.md) for
-milestones and priority order.
+The roadmap prioritizes reliable mail and account boundaries before the
+Plasma-native shell, provider integrations and productivity workflows.
+Multi-account management, rules, provider OAuth and workspace features remain
+planned. See the [roadmap](docs/ROADMAP.md) for milestones and status.
 
 ## Application icon
 
-The [Plasma Impresario SVG](src/icons/plasma-impresario.svg) combines an envelope
-with the Plasma Opus golden-spiral motif at 256 × 256 pixels. The application
-and desktop entry use this icon.
+The [application icon](src/icons/plasma-impresario.svg) combines an envelope
+with the Plasma Opus golden spiral. It is used by the application and its
+desktop entry.
 
 ## Documentation
 
-Start with the [documentation index](docs/README.md) for project philosophy,
-plans, implementation references and tracking.
-
-| Guide | Purpose |
-| --- | --- |
-| [Roadmap](docs/ROADMAP.md) | Milestones, architecture and delivery order |
-| [Pending tasks](docs/TODO.md) | Current blockers and resumable handoffs |
-| [Reported bugs](docs/BUGS.md) | Confirmed regressions and resolution status |
-| [Caveats](docs/CAVEATS.md) | Current limitations and workarounds |
-| [Edge cases](docs/EDGE.md) | Scenarios requiring validation or testing |
-| [Refinements](docs/refinements/README.md) | Quality plans, menu specifications and toolbar specifications |
-| [Integrations](docs/integrations/README.md) | Planned KDE Plasma and Plasma Opus workflows |
-| [Backend parity](docs/parity/backend.md) and [UI parity](docs/parity/ui.md) | Existing functionality and target behavior |
-| [Contributing](CONTRIBUTING.md) | Contribution workflow and project contact points |
-
-> [!IMPORTANT] Roadmap items are not feature-complete merely because they are
-> implemented. Completion status follows issue review and merge state recorded
-> in the project tracking documents.
+| Start with                                          | For                                                |
+| --------------------------------------------------- | -------------------------------------------------- |
+| [Installation](docs/INSTALL.md)                     | Options, prerequisites and troubleshooting         |
+| [Documentation index](docs/README.md)               | Product guides, architecture and specifications    |
+| [Roadmap](docs/ROADMAP.md)                          | Milestones and project-board links                 |
+| [Pending tasks](docs/TODO.md)                       | Blockers and handoffs                              |
+| [Bugs](docs/BUGS.md) and [caveats](docs/CAVEATS.md) | Reported issues, limitations and security guidance |
+| [Contributing](CONTRIBUTING.md)                     | Development workflow                               |

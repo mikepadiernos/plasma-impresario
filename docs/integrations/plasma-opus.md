@@ -1,57 +1,93 @@
 # Plasma Opus integrations
 
-This page defines the cross-app productivity and workspace integrations that Plasma Impresario can benefit from when the broader Plasma Opus ecosystem is available.
+**[Integrations](README.md)** · **[KDE Plasma](kde-plasma.md)** ·
+**[Workspace settings: M07](../ROADMAP.md#m07-settings-and-workspace-configuration)**
+· **[Refinements: M12](../ROADMAP.md#m12-refinements)**
 
-## What Plasma Opus means here
+These are proposed cross-app workflows, not implemented integration contracts.
+Plasma Impresario should remain useful without a companion application.
 
-Plasma Opus is not a separate mail app; it is a broader desktop-product layer that connects work surfaces, tasks, and personal productivity tools. Plasma Impresario would benefit when it can participate in that shared context without becoming tightly coupled to any single app.
+> [!NOTE]
+>
+> Select and verify companion-app interfaces, authentication and service
+> discovery before implementation. The approaches below do not assume that a
+> particular Plasma Opus API or service already exists.
 
-## Integration areas
+## Calendar and scheduling
 
-### 1. Mail-to-calendar coordination
-- Offer quick scheduling and event creation from message context.
-- Surface calendar availability when replying to meeting invites or planning follow-up.
-- Benefit: users can move from mail to scheduling without losing their task context.
+- **What:** Create or update an event from a message, review meeting context and
+  consult availability when the calendar service supports it.
+- **How:** Offer an explicit action that passes selected message context to a
+  calendar integration. Let the user review the target calendar, title, time,
+  time zone, attendees and any copied message content before saving.
+- **Recommendations:** Avoid automatically creating events or exposing message
+  contents. Show unavailable calendars, permission errors, time-zone ambiguity
+  and conflicts without changing the original message.
+- **Verify:** Exercise cancellation, unavailable services, denied access,
+  conflicting events and event creation with isolated data.
 
-### 2. Contacts and address book continuity
-- Let users open contact details directly from sender or recipient data.
-- Allow contact creation, quick lookup, and address reuse across mail and other Plasma productivity tools.
-- Benefit: mail handling becomes faster and more contextual for communication workflows.
+## Contacts and address books
 
-### 3. Notes and journaling
-- Support sending selected message content to notes or journal entries for later review.
-- Offer lightweight capture flows for follow-up, action items, and project notes.
-- Benefit: Plasma Impresario becomes useful in a broader knowledge and personal productivity stack.
+- **What:** Find or open a sender or recipient, create a contact and reuse
+  addresses when composing.
+- **How:** Use an available address-book provider or a verified companion
+  interface. Pass only the selected address and fields needed for the action;
+  let users choose the destination address book and review edits.
+- **Recommendations:** Distinguish duplicate contacts and account-specific
+  sources. Do not silently upload address data or assume every provider is
+  writable.
+- **Verify:** Test duplicate matches, read-only sources, missing contacts,
+  denied access and a provider becoming unavailable.
 
-### 4. Workspace-aware context
-- Track the user’s current workspace, task state, or activity context when relevant.
-- Use context-aware routing for triage, focus mode, and worktime-specific mail handling.
-- Benefit: the app adapts to how people actually work instead of forcing one-size-fits-all mail patterns.
+## Notes and journal
 
-### 5. File and document handoff
-- Open attachments or related documents in the correct app or desktop workflow.
-- Allow forwarding or sharing from mail into shared productivity and file-management flows.
-- Benefit: documents and messages feel like parts of one system rather than separate islands.
+- **What:** Capture selected message text or a follow-up as a note or journal
+  entry without losing the mail context.
+- **How:** Provide an explicit capture action with a preview, destination and
+  editable content. Where supported, include a stable reference back to the
+  source message rather than copying the whole message by default.
+- **Recommendations:** Make copied content and destination visible before
+  saving. If a link cannot be resolved later, explain the failure rather than
+  exposing unrelated mail or treating the link as a durable backup.
+- **Verify:** Check cancellation, permission failures, deleted or moved source
+  messages and recovery of unsaved note content.
 
-### 6. Unified action surfaces
-- Reuse common quick actions such as “Open,” “Share,” “Save,” “Schedule,” and “Add contact.”
-- Provide a consistent pattern across mail, docs, contacts, and workspace tools.
-- Benefit: users gain a coherent desktop experience instead of separate app-specific behaviors.
+## Workspaces and Plasma Activities
 
-### 7. Notification and status coordination
-- Share subtle status signals with broader Plasma productivity surfaces without noisy interruption.
-- Coordinate reminders, follow-up prompts, and unread mail state with the rest of the workflow.
-- Benefit: mail remains visible without dominating the desktop experience.
+- **What:** Allow email accounts to be attached to workspaces and thereby
+  associated with the corresponding Plasma Activities.
+- **How:** Provide settings to manage the account-to-workspace association and
+  use verified workspace and Activity context to restore the relevant view. Keep
+  account identity and authorization separate from the workspace mapping.
+- **Recommendations:** Make the active context and any filtering visible.
+  Changing an Activity must not silently delete, move or modify mail; do not
+  assume a workspace is an account or that every account belongs to one. Define
+  behavior for unassigned accounts and unavailable context services.
+- **Verify:** Switch and restore contexts, edit or remove associations, and test
+  unavailable services without leaking account data between contexts.
 
-## Desired product behavior
+## Files and document handoff
 
-Plasma Impresario should benefit from Plasma Opus-style integration as a supportive layer, not as a redesign of the mail app itself. The integration model should emphasize:
+- **What:** Open, share or forward attachments and related documents through
+  suitable desktop or companion applications.
+- **How:** Use the desktop file workflow for local files and a verified
+  companion interface for other handoffs. Show the selected files, destination,
+  progress and errors before completing an action.
+- **Recommendations:** Treat attachments as untrusted and require explicit
+  sharing. Explain permissions and link visibility; do not claim a file was
+  shared if upload or handoff failed.
+- **Verify:** Test cancellation, unavailable applications, denied permissions,
+  incomplete downloads and failed uploads with isolated files.
 
-- cross-app continuity
-- compact, context-aware actions
-- desktop-native productivity flows
-- graceful degradation when another app or service is unavailable
+## Actions, reminders and status
 
-## Practical benefit to Plasma Impresario
-
-When Plasma Impresario participates in a Plasma Opus-aware environment, it becomes more than a message reader. It becomes a task-aware communication surface connected to scheduling, contacts, notes, files, and the user’s ongoing work context.
+- **What:** Keep shared actions such as Open, Share, Save, Schedule and Add
+  contact consistent; coordinate reminders and unread status without noise.
+- **How:** Map each action to the appropriate available service and keep its
+  account and message context explicit. Apply user notification preferences and
+  group repetitive status updates.
+- **Recommendations:** Keep sync and delivery failures visible in the mail
+  client even when companion status surfaces are unavailable. Avoid duplicating
+  reminders or sending message previews to another app without user control.
+- **Verify:** Exercise missing services, disabled notifications, duplicate
+  events, account switching and action failures.

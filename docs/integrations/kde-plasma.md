@@ -1,46 +1,97 @@
 # KDE Plasma integrations
 
-This page defines the KDE and Plasma integration targets for Plasma Impresario, a KDE Plasma-only desktop mail client. Other desktop environments are outside the supported product scope.
+**[Integrations](README.md)** · **[Plasma Opus](plasma-opus.md)** ·
+**[Roadmap: M05](../ROADMAP.md#m05-desktop-integration-and-provider-support)** ·
+**[Caveats](../CAVEATS.md)**
 
-## Primary integration areas
+Plasma Impresario targets KDE Plasma. The items below describe intended
+integration, suggested approaches and decisions to validate; they do not assert
+that every service is implemented.
 
-### 1. Desktop shell and session behavior
-- Integrate with Plasma window, session, and app lifecycle conventions.
-- Respect KDE desktop expectations for startup, shutdown, and multi-window behavior.
-- Benefit: mail remains stable and familiar in a desktop workflow without feeling like a web app or mobile port.
+> [!IMPORTANT]
+>
+> Verify service availability, privacy and recovery in a real Plasma session.
+> The existing client uses Qt settings and optional plugins; consult
+> [caveats](../CAVEATS.md) for the current behavior.
 
-### 2. System notifications and status surfaces
-- Use KDE notification patterns for sync failures, new mail summaries, and account state changes.
-- Keep notifications actionable, compact, and dismissible without interrupting reading flow.
-- Benefit: users receive timely mail state updates without losing focus in a long message session.
+## Windows and session lifecycle
 
-### 3. File and document handling
-- Use KIO, file dialogs, and KDE file associations for attachments, downloads, and local file workflows.
-- Support drag-and-drop, file previews, and standard Open With behavior.
-- Benefit: attachment management feels native to desktop users and works well with the rest of the KDE ecosystem.
+- **What:** Start and restore the app predictably, preserve window and pane
+  state, and handle shutdown without losing drafts or unfinished work.
+- **How:** Follow Plasma window and session conventions. Store persistent
+  preferences with KConfig and session-specific state with
+  `KSharedConfig::openStateConfig()`. Restore windows and navigation only after
+  their account context is available.
+- **Recommendations:** Keep window state separate from account credentials. Make
+  unfinished sends and background tasks visible before exit; do not imply that
+  an interrupted operation succeeded.
+- **Verify:** Restart and restore multiple windows, unavailable accounts and
+  interrupted drafts in a Plasma session.
 
-### 4. Account and configuration services
-- Respect KConfig, KWallet, and KDE account conventions for secure storage and settings persistence.
-- Keep account configuration and network settings aligned with KDE expectations.
-- Benefit: mail setup is more trustworthy and easier to maintain across Plasma sessions.
+## Notifications and status
 
-### 5. Accessibility and theme consistency
-- Follow KDE standards for high contrast, iconography, accent colors, and dynamic theming.
-- Support keyboard shortcuts, focus visibility, and localized UI patterns.
-- Benefit: mail remains usable for power users and accessible by default in a Plasma desktop context.
+- **What:** Report new mail, sync failures and account state without
+  interrupting reading. Provide per-account and per-folder controls.
+- **How:** Use KDE notification facilities and desktop preferences. Group
+  repeated events, expose useful actions when available, and keep persistent
+  errors visible in the application.
+- **Recommendations:** Offer privacy-conscious previews, honor notification
+  settings and do-not-disturb behavior, and avoid placing credentials or message
+  bodies in diagnostic output. Do not rely on a notification as the only record
+  of a failure.
+- **Verify:** Exercise notification suppression, grouped new mail, unavailable
+  notification services and retry after a sync failure.
 
-### 6. KDE application ecosystem consistency
-- Match the visual and interaction conventions used by other KDE apps when appropriate.
-- Keep service actions consistent with the wider Plasma experience.
-- Benefit: Plasma Impresario feels like part of the KDE desktop rather than a separate tool bolted on.
+## Files and attachments
 
-## Suggested integration standards
+- **What:** Save, open, preview and share attachments using familiar Plasma file
+  workflows.
+- **How:** Prefer KDE file dialogs, KIO and desktop file associations where
+  appropriate. Support drag-and-drop and Open With while preserving download
+  progress, cancellation and error reporting.
+- **Recommendations:** Treat message content and filenames as untrusted. Confirm
+  risky actions, avoid exposing incomplete files as completed downloads, and
+  clean up temporary files at the appropriate lifecycle point. Use user-selected
+  destinations rather than silently overwriting files.
+- **Verify:** Test local and KIO destinations, unavailable or read-only
+  locations, interrupted downloads, duplicate filenames and missing file
+  associations with isolated attachments.
 
-- Use KDE Frameworks where feasible instead of custom desktop plumbing.
-- Treat notifications and background service updates as supportive, not disruptive.
-- Prefer consistent desktop interaction patterns over app-specific novelty.
-- Keep account and attachment workflows compatible with the rest of the KDE file and application model.
+## Settings and credentials
 
-## Practical benefit to Plasma Impresario
+- **What:** Integrate account preferences and credentials with KDE settings and
+  credential storage while keeping accounts isolated.
+- **How:** Use KConfig for preferences and a KWallet-compatible credential
+  provider where available. Migrate existing settings and secrets explicitly; do
+  not treat an optional plugin as a guaranteed secure store.
+- **Recommendations:** Prefer secure credential storage, explain when a wallet
+  is locked or unavailable, and require explicit consent for cleartext storage.
+  Never silently retry authentication over plaintext after TLS fails.
+- **Verify:** Test wallet unavailable, locked and unlocked states; account
+  removal; migration; and restart without exposing credentials in logs.
 
-These integrations help Plasma Impresario feel trusted, coherent, and efficient in a KDE environment: better desktop responsiveness, cleaner user feedback, and tighter alignment with the mail workflows users already expect from a Plasma app.
+## Appearance and accessibility
+
+- **What:** Follow the active Plasma color scheme, accent, icon theme and light
+  or dark appearance, including high-contrast and scaled displays.
+- **How:** Use theme-provided colors and icons, prefer symbolic icons at small
+  sizes, and react to appearance changes. Keep menu and status semantics
+  available to keyboard and assistive technologies.
+- **Recommendations:** Do not rely on color alone for focus, selection or
+  status. Keep layout density and optional symbolic tray icons configurable;
+  preserve meaningful tree disclosure indicators.
+- **Verify:** Check keyboard focus, screen-reader names, localized labels,
+  scaling and light, dark and high-contrast themes.
+
+## Desktop actions and availability
+
+- **What:** Provide predictable application-menu, file-association and `mailto:`
+  entry points alongside ordinary in-app actions.
+- **How:** Install desktop metadata for the chosen prefix and use desktop
+  services for external links and file associations. Check whether optional
+  services are available before offering dependent actions.
+- **Recommendations:** Surface failed launches and invalid destinations; do not
+  silently discard requests. Keep core mail usable when a desktop service is
+  unavailable.
+- **Verify:** Test menu discovery, custom-prefix discovery, `mailto:` launch and
+  missing-handler errors on the supported Plasma session.

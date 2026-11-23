@@ -1,12 +1,12 @@
 # Plasma Impresario interface design
 
 **[Documentation](../README.md)** · **[Scope](scope.md)** ·
-**[UI parity](../parity/ui.md)** ·
-**[Roadmap](../ROADMAP.md)** · **[Inspirations](inspirations.md)**
+**[UI parity](../parity/ui.md)** · **[Roadmap](../ROADMAP.md)** ·
+**[Inspirations](inspirations.md)**
 
 This guide separates the current Trojitá interface from the proposed Plasma
-Mail experience. The [UI parity guide](../parity/ui.md) records the current
-layout; target designs here are not implementation claims.
+Impresario experience. The [UI parity guide](../parity/ui.md) records the
+current layout; target designs here are not implementation claims.
 
 ## Current interface
 
@@ -21,9 +21,9 @@ Toolbar / menu
 └────────────────────┴──────────────────────────────────────────┘
 ```
 
-The compact pane layout stacks the list above the reader beside the folder
-tree. Wide layout places all three side by side. One-panel-at-a-time navigation
-is also available. Splitter sizes and the selected layout are saved.
+The compact pane layout stacks the list above the reader beside the folder tree.
+Wide layout places all three side by side. One-panel-at-a-time navigation is
+also available. Splitter sizes and the selected layout are saved.
 
 ## Proposed Plasma Impresario shell
 
@@ -39,13 +39,13 @@ is also available. Splitter sizes and the selected layout are saved.
 └──────────────────────────────────────────────────────────────┘
 ```
 
-| Region | Design responsibility |
-| --- | --- |
-| Header | Global search, compose, common actions and account/connection state |
-| Navigation | Account groups, folder hierarchy and saved views |
-| Message list | Sender, subject, date, unread state, threading and selection |
-| Reader | Message metadata and body, attachments and context-aware actions |
-| Status | Actionable sync, connection and background-task feedback |
+| Region       | Design responsibility                                               |
+| ------------ | ------------------------------------------------------------------- |
+| Header       | Global search, compose, common actions and account/connection state |
+| Navigation   | Account groups, folder hierarchy and saved views                    |
+| Message list | Sender, subject, date, unread state, threading and selection        |
+| Reader       | Message metadata and body, attachments and context-aware actions    |
+| Status       | Actionable sync, connection and background-task feedback            |
 
 Account groups, saved views, workspace context and rich status surfaces remain
 planned. Evolve the working mailbox/list/reader flow instead of replacing it
@@ -75,8 +75,7 @@ selection while switching layouts.
 ## Implementation sequence
 
 1. Record the current main-window behavior and its acceptance tests.
-2. Prototype the new shell without changing IMAP, cache or composition
-   behavior.
+2. Prototype the new shell without changing IMAP, cache or composition behavior.
 3. Validate layouts, accessibility and navigation with representative data.
 4. Migrate settings and saved window state only after the new behavior is
    tested.
