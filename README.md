@@ -56,7 +56,8 @@ For the local automated setup (requires Qt6WebKitWidgets):
 ```
 
 The installer defaults to `$HOME/.local`, including the executable in
-`$HOME/.local/bin`. Ensure that directory is on your `PATH`. It requests
+`$HOME/.local/bin`. Add that directory to your `PATH` for command-line use;
+the application-menu launcher does not depend on it. It requests
 privileges for missing system packages or a protected installation prefix and
 skips packages it detects as already installed. Use `--no-deps` to skip
 package installation.
@@ -78,6 +79,10 @@ The installer also supports custom build and installation locations:
 ```bash
 ./install.sh --prefix "$HOME/apps/plasma-impresario" --build-dir "$HOME/plasma-impresario-build"
 ```
+
+For a custom prefix, Plasma must search its `share` directory (through
+`XDG_DATA_HOME` or `XDG_DATA_DIRS`) to discover the desktop entry. Configure
+the session environment before logging in, or use the default prefix.
 
 The installed Trojitá handbook and man page come from `docs/old` and may
 describe historical behavior.
