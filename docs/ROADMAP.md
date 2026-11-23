@@ -150,11 +150,6 @@ installation depends on the working renderer.
     Account setup, live mailbox reading, replies and attachment workflows are
     deferred to M02 and M04; Plasma session integration is deferred to M05.
     [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498915)
-  - [ ] Establish reproducible warning, formatting, test coverage, and dynamic
-    analysis commands for clean Debug builds. Use AddressSanitizer and
-    UndefinedBehaviorSanitizer for supported desktop configurations; use
-    ThreadSanitizer for targeted concurrency investigations where it is
-    practical. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498915)
   - [x] Record tested environments, reproducible verification steps, and remaining
     protocol, storage, rendering, and desktop-service limitations. Later
     milestones depend on this gate. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568837)
