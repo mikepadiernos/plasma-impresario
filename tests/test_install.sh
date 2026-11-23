@@ -16,6 +16,9 @@ EOF
 cat > "${tmp}/bin/pacman" <<'EOF'
 #!/usr/bin/env bash
 printf 'pacman %s\n' "$*" >> "${INSTALL_TEST_CALLS}"
+if [[ "${1:-}" == "-Syu" && "${INSTALL_SUCCEEDS:-false}" == "true" ]]; then
+  exit 0
+fi
 if [[ "${1:-}" == "-Qq" ]]; then
   [[ "${2:-}" != "mimetic" && "${2:-}" != "${MISSING_REQUIRED:-}" ]]
   exit
@@ -43,6 +46,67 @@ printf 'ID=cachyos\nID_LIKE=arch\n' > "${PLASMA_MAIL_OS_RELEASE}"
 
 "${root}/install.sh" --help > "${tmp}/output"
 grep -Fq "Install and build Plasma Impresario locally." "${tmp}/output"
+grep -Fq -- "--check-deps" "${tmp}/output"
+grep -Fq -- "--build-only" "${tmp}/output"
+
+: > "${INSTALL_TEST_CALLS}"
+WITH_WEBKIT=false "${root}/install.sh" --check-deps --build-dir "${tmp}/build" \
+  --prefix "${tmp}/install" > "${tmp}/output" 2>&1
+grep -Fq "All installer-listed dependency packages are already installed" "${tmp}/output"
+grep -Fq "CMake requirements were not verified" "${tmp}/output"
+if grep -Eq '(^pacman -Syu |^-S |^--build |^--install |^sudo )' "${INSTALL_TEST_CALLS}"; then
+  echo "Dependency check unexpectedly installed packages or built the app" >&2
+  exit 1
+fi
+
+: > "${INSTALL_TEST_CALLS}"
+if WITH_WEBKIT=false MISSING_REQUIRED=qt6-svg "${root}/install.sh" --check-deps \
+  --build-dir "${tmp}/build" --prefix "${tmp}/install" > "${tmp}/output" 2>&1; then
+  echo "Dependency check unexpectedly succeeded with missing packages" >&2
+  exit 1
+fi
+grep -Fq "qt6-svg" "${tmp}/output"
+if grep -Eq '(^pacman -Syu |^-S |^--build |^--install |^sudo )' "${INSTALL_TEST_CALLS}"; then
+  echo "Dependency check unexpectedly installed packages or built the app" >&2
+  exit 1
+fi
+
+: > "${INSTALL_TEST_CALLS}"
+if "${root}/install.sh" --no-deps --check-deps > "${tmp}/output" 2>&1; then
+  echo "Conflicting dependency options unexpectedly succeeded" >&2
+  exit 1
+fi
+grep -Fq "cannot be combined" "${tmp}/output"
+[[ ! -s "${INSTALL_TEST_CALLS}" ]]
+
+: > "${INSTALL_TEST_CALLS}"
+if "${root}/install.sh" --build-only --check-deps > "${tmp}/output" 2>&1; then
+  echo "Conflicting operation modes unexpectedly succeeded" >&2
+  exit 1
+fi
+grep -Fq "cannot be combined" "${tmp}/output"
+[[ ! -s "${INSTALL_TEST_CALLS}" ]]
+
+: > "${INSTALL_TEST_CALLS}"
+WITH_WEBKIT=false "${root}/install.sh" --no-deps --build-only \
+  --build-dir "${tmp}/build" --prefix "${tmp}/install" > "${tmp}/output" 2>&1
+grep -Fq -- "--build ${tmp}/build --parallel 2" "${INSTALL_TEST_CALLS}"
+if grep -Eq '(^pacman |^--install |^sudo )' "${INSTALL_TEST_CALLS}"; then
+  echo "Build-only mode unexpectedly checked dependencies or installed the app" >&2
+  exit 1
+fi
+grep -Fq "Build complete; application was not installed" "${tmp}/output"
+
+: > "${INSTALL_TEST_CALLS}"
+WITH_WEBKIT=false MISSING_REQUIRED=qt6-svg INSTALL_SUCCEEDS=true \
+  "${root}/install.sh" --build-only --build-dir "${tmp}/build" \
+  --prefix "${tmp}/install" > "${tmp}/output" 2>&1
+grep -Fq "pacman -Syu --noconfirm qt6-svg" "${INSTALL_TEST_CALLS}"
+grep -Fq -- "--build ${tmp}/build --parallel 2" "${INSTALL_TEST_CALLS}"
+if grep -Fq -- "--install ${tmp}/build" "${INSTALL_TEST_CALLS}"; then
+  echo "Build-only mode installed the app after dependency setup" >&2
+  exit 1
+fi
 
 : > "${INSTALL_TEST_CALLS}"
 if MISSING_REQUIRED=qt6-svg PLASMA_IMPRESARIO_OS_RELEASE="${tmp}/os-release" PLASMA_MAIL_OS_RELEASE="${tmp}/missing" \

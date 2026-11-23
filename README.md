@@ -60,7 +60,13 @@ The installer defaults to `$HOME/.local`, including the executable in
 the application-menu launcher does not depend on it. It requests
 privileges for missing system packages or a protected installation prefix and
 skips packages it detects as already installed. Use `--no-deps` to skip
-package installation.
+dependency checks and package installation, `--check-deps` to check installed
+packages without installing or building, or `--build-only` to build
+without installing the application. Build-only mode may still install missing
+dependencies; combine it with `--no-deps` to avoid that. The check-only mode
+reports missing packages the installer would install, including available
+optional packages, and exits nonzero if any are missing. It does not check
+versions or CMake-only requirements such as Qt6WebKitWidgets.
 Package-manager selection uses `/etc/os-release` and fails rather than trying
 an unrelated distribution's package manager. On unsupported distributions,
 install dependencies manually and use `--no-deps`.

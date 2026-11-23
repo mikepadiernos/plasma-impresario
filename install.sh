@@ -6,6 +6,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${BUILD_DIR:-${ROOT_DIR}/build}"
 PREFIX="${PREFIX:-${HOME}/.local}"
 INSTALL_DEPS="${INSTALL_DEPS:-true}"
+CHECK_DEPS_ONLY=false
+BUILD_ONLY=false
 WITH_WEBKIT="${WITH_WEBKIT:-true}"
 OS_RELEASE_FILE="${PLASMA_IMPRESARIO_OS_RELEASE:-${PLASMA_MAIL_OS_RELEASE:-/etc/os-release}}"
 SUDO=""
@@ -18,7 +20,9 @@ Usage: ./install.sh [options]
 Install and build ${APP_NAME} locally.
 
 Options:
-  --no-deps           Skip installing system dependencies
+  --no-deps           Skip dependency checks and package installation
+  --check-deps        Check dependency packages only; do not install or build
+  --build-only        Build without installing the app (dependencies may be installed)
   --prefix PATH       Install into PATH instead of \$HOME/.local
   --build-dir PATH    Use a custom build directory
   --with-webkit       Require Qt6WebKitWidgets (default; needed to read mail)
@@ -120,8 +124,17 @@ install_missing_packages() {
   done
 
   if [[ ${#missing[@]} -eq 0 ]]; then
-    echo "[${APP_NAME}] All build dependencies are already installed."
+    if [[ "${CHECK_DEPS_ONLY}" == "true" ]]; then
+      echo "[${APP_NAME}] All installer-listed dependency packages are already installed."
+    else
+      echo "[${APP_NAME}] All build dependencies are already installed."
+    fi
     return 0
+  fi
+
+  if [[ "${CHECK_DEPS_ONLY}" == "true" ]]; then
+    echo "[${APP_NAME}] Missing dependency packages: ${missing[*]}" >&2
+    return 1
   fi
 
   echo "[${APP_NAME}] Installing missing build dependencies: ${missing[*]}"
@@ -323,6 +336,10 @@ configure_and_build() {
   echo "[${APP_NAME}] Building project..."
   cmake --build "${BUILD_DIR}" --parallel "${CMAKE_BUILD_PARALLEL_LEVEL:-$(nproc 2>/dev/null || echo 2)}"
 
+  if [[ "${BUILD_ONLY}" == "true" ]]; then
+    return 0
+  fi
+
   echo "[${APP_NAME}] Installing project..."
   local install_parent="${PREFIX}"
   while [[ ! -e "${install_parent}" ]]; do
@@ -341,6 +358,14 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-deps)
       INSTALL_DEPS=false
+      shift
+      ;;
+    --check-deps)
+      CHECK_DEPS_ONLY=true
+      shift
+      ;;
+    --build-only)
+      BUILD_ONLY=true
       shift
       ;;
     --prefix)
@@ -373,6 +398,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ "${CHECK_DEPS_ONLY}" == "true" && ( "${INSTALL_DEPS}" != "true" || "${BUILD_ONLY}" == "true" ) ]]; then
+  echo "[${APP_NAME}] --check-deps cannot be combined with --no-deps or --build-only." >&2
+  exit 1
+fi
+
 if [[ "${PREFIX}" != /* ]]; then
   echo "[${APP_NAME}] The installation prefix must be an absolute path." >&2
   exit 1
@@ -381,12 +411,20 @@ fi
 echo "[${APP_NAME}] Preparing installation for ${ROOT_DIR}"
 select_renderer
 install_dependencies
+if [[ "${CHECK_DEPS_ONLY}" == "true" ]]; then
+  echo "[${APP_NAME}] Package check complete; CMake requirements were not verified."
+  exit 0
+fi
 configure_and_build
 
-if [[ "${WITH_WEBKIT}" == "false" ]]; then
+if [[ "${BUILD_ONLY}" == "true" ]]; then
+  echo "[${APP_NAME}] Build complete; application was not installed."
+elif [[ "${WITH_WEBKIT}" == "false" ]]; then
   echo "[${APP_NAME}] Incomplete installation: message viewing is unavailable." >&2
 else
   echo "[${APP_NAME}] Installation complete."
 fi
 echo "[${APP_NAME}] Build directory: ${BUILD_DIR}"
-echo "[${APP_NAME}] Installed prefix: ${PREFIX}"
+if [[ "${BUILD_ONLY}" != "true" ]]; then
+  echo "[${APP_NAME}] Installed prefix: ${PREFIX}"
+fi

@@ -25,6 +25,11 @@ and project status before acting.
   unrelated one. Pacman skips unavailable optional packages with a warning;
   package lists and real installations still need verification across
   supported distribution families.
+- M01.03 [#61](https://github.com/mikepadiernos/plasma-impresario/issues/61):
+  installer flags provide package check-only, dependency skipping, and
+  build-only modes on `feature/GH061-installer-options`. The broader installer
+  feature remains in Development; reconcile this branch with the WebEngine
+  renderer work before validating complete installs and closing the issue.
 - M01 renderer: an opt-in experimental WebEngine bridge loads IMAP parts and
   `cid:` images with a per-message profile, reports blocked remote images, and
   delegates permitted links instead of navigating to them. It is not connected

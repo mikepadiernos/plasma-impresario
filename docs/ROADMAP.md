@@ -100,8 +100,11 @@ installation depends on the working renderer.
   [Renderer fallback](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314446004)
 
   - [ ] Complete the existing installer for dependency setup, configuration, build,
-    and installation. Surface errors and request administrator privileges only
-    when needed. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568548)
+    and installation. Provide flags for check-only dependency inspection,
+    skipping dependency handling, and building without installing the app.
+    Surface errors and request administrator privileges only when needed.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568548) ·
+    [Handoff](TODO.md#in-progress)
   - [ ] Detect the appropriate supported package manager, prefer Arch/CachyOS
     tooling where applicable, and install only missing dependencies without
     falling back to an unrelated package manager. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314445891)
