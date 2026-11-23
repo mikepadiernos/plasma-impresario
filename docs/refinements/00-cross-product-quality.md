@@ -16,6 +16,11 @@ This section covers the overall quality bar for the cross-product refinement mil
 - Exercise successful operations, cancellation, partial failure, recovery, and persistence with isolated test data and synthetic credentials
 - Review accessibility, translations, display scaling, optional dependencies, and representative desktop configurations; record environments not tested
 - Run suitable static analysis and dependency checks and document security findings and residual risks without claiming testing proves security
+- Use C++ Core Guidelines and project-specific KDE/Qt conventions for findings
+- Evaluate open static analyzers and PVS-Studio only where licensing and host support allow
+- Establish reproducible formatting, warning, test coverage, and dynamic-analysis commands
+- Use AddressSanitizer and UndefinedBehaviorSanitizer for supported desktop configurations
+- Use ThreadSanitizer for targeted concurrency investigations where practical
 
 ## Acceptance criteria
 

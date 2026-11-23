@@ -19,19 +19,19 @@ recommended parity goals.
 | --- | --- |
 | Product identity | The application remains based on Trojitá; the Plasma Impresario product redesign is not complete |
 | Accounts | The application instance has one IMAP account model; profiles are separate configurations, not simultaneous account management |
-| Message rendering | HTML display depends on optional Qt WebKit; a maintained replacement is not established |
+| Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents |
 | Credentials | QtKeychain is optional; the cleartext password plugin stores secrets in `QSettings` |
 | Transport | Cleartext IMAP remains selectable; account configuration determines whether TLS is used |
 | Local data | Persistent SQL cache stores message metadata and fetched parts; the application does not encrypt cache contents |
 | Integrations | Plasma notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned |
-| Compatibility | The [baseline](compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified |
+| Compatibility | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified |
 | Quality evidence | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded |
 
 ## Before reporting results
 
 - confirm the desktop environment and display server;
 - record the selected account transport and password plugin;
-- identify the provider, server capabilities and whether optional WebKit or
+- identify the provider, server capabilities and whether WebEngine or
   OpenPGP support is enabled;
 - isolate test credentials and mail data;
 - record Qt, KF6, compiler, distribution and build options;
@@ -46,7 +46,7 @@ with account settings and optional build features.
 | --- | --- | --- |
 | IMAP transport | Supports cleartext, STARTTLS, dedicated TLS and process-backed connections. Qt certificate errors prompt the user; a previously accepted matching public key can be remembered. | Cleartext is selectable; the active connection method determines whether traffic is encrypted. Certificate decisions and policy need focused regression tests. |
 | Credentials | The password-plugin interface supports retrieval and storage. QtKeychain can provide encrypted storage when built and selected. | QtKeychain is optional. The cleartext plugin stores IMAP/SMTP secrets in `QSettings`. |
-| Message rendering | The optional WebKit view disables JavaScript, Java, plugins and local/offline web storage. External message entities are blocked until the user chooses **Load**. | HTML display depends on Qt WebKit. Allowing external entities applies to the current message as a whole, not a per-origin allowlist. |
+| Message rendering | The reader uses a private profile per message, disables scripts, plugins and persistent storage, blocks local-file and remote requests by default, and delegates permitted external links. Remote images require explicit per-message consent. Switching messages destroys the profile, discarding loaded content and cancelling pending requests. | Renderer behavior has not been smoke-tested in a live Plasma session or across the documented distribution matrix. |
 | Cached data | Persistent SQL cache can hold message metadata and fetched parts; cache directory permissions are restricted on supported Unix systems. | Application-level cache encryption is not present. Directory permissions do not protect mail from a compromised account or unencrypted disk. |
 | OpenPGP | Optional GpgME++/Mimetic MIME handling and decryption tests are present. | Availability depends on build options; complete signature-status UX and verification policy are not established. |
 | Diagnostics | Persistent protocol logging is opt-in at startup; an in-app protocol log is available. | Treat protocol logs as sensitive and review them before sharing. |
@@ -76,7 +76,8 @@ with account settings and optional build features.
 
 **P1 — reduce message-content risk**
 
-- Replace Qt WebKit with a maintained renderer or a plain-text-first fallback.
+- Verify the Qt WebEngine reader in live Plasma sessions and across the
+  supported distribution matrix.
 - Keep scripts, plugins and remote content disabled by default; show external
   destinations before enabling requests where practical and reset consent
   when changing messages.
