@@ -56,7 +56,6 @@ void FetchMsgPartTask::perform()
 bool FetchMsgPartTask::handleFetch(const Imap::Responses::Fetch *const resp)
 {
     if (!mailboxIndex.isValid()) {
-        _failed(tr("Mailbox disappeared"));
         return false;
     }
 
@@ -71,13 +70,10 @@ bool FetchMsgPartTask::handleStateHelper(const Imap::Responses::State *const res
     if (resp->tag.isEmpty())
         return false;
 
-    if (!mailboxIndex.isValid()) {
-        _failed(tr("Mailbox disappeared"));
-        return false;
-    }
-
     if (resp->tag == tag) {
-        if (resp->respCode == Responses::UNKNOWN_CTE) {
+        if (!mailboxIndex.isValid()) {
+            _failed(tr("Mailbox disappeared"));
+        } else if (resp->respCode == Responses::UNKNOWN_CTE) {
             doForAllParts([this](TreeItemPart *part, const QByteArray &partId, const uint uid) {
                 handleUnknownCTE(part, partId, uid);
             });

@@ -21,6 +21,7 @@
 */
 
 #include "test_Imap_Offline.h"
+#include "data.h"
 #include "Streams/FakeSocket.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/MailboxTree.h"
@@ -74,6 +75,32 @@ void OfflineTest::testStatusVsExistsCached()
     QCOMPARE(model->rowCount(msgListA), static_cast<int>(existsA));
     helperVerifyUidMapA();
     helperCheckCache();
+}
+
+void OfflineTest::testFinishedFetchDoesNotLeaveLogout()
+{
+    model->setProperty("trojita-imap-delayed-fetch-part", 0);
+    helperSyncBNoMessages();
+    cServer("* 1 EXISTS\r\n");
+    cClient(t.mk("UID FETCH 1:* (FLAGS)\r\n"));
+    cServer("* 1 FETCH (UID 333 FLAGS ())\r\n" + t.last("OK fetched\r\n"));
+    const QModelIndex message = model->index(0, 0, msgListB);
+    QCOMPARE(model->rowCount(message), 0);
+    cClient(t.mk("UID FETCH 333 (" FETCH_METADATA_ITEMS ")\r\n"));
+    cServer("* 1 FETCH (UID 333 BODYSTRUCTURE (" + bsPlaintext + "))\r\n" + t.last("OK fetched\r\n"));
+    const QModelIndex part = model->index(0, 0, message);
+    QVERIFY(part.isValid());
+    part.data(RolePartData);
+    cClient(t.mk("UID FETCH 333 (BODY.PEEK[1])\r\n"));
+    const QByteArray fetchComplete = t.last("OK fetched\r\n");
+    LibMailboxSync::setModelNetworkPolicy(model, NETWORK_OFFLINE);
+    cClient(t.mk("LOGOUT\r\n"));
+    QSignalSpy stateChanges(model, &Model::connectionStateChanged);
+    cServer(fetchComplete);
+    for (const auto &state : stateChanges)
+        QVERIFY(state.at(1).value<Imap::ConnectionState>() != Imap::CONN_STATE_SELECTED);
+    cServer("* BYE logging out\r\n" + t.last("OK logged out\r\n"));
+    QVERIFY(errorSpy->isEmpty());
 }
 
 QTEST_GUILESS_MAIN(OfflineTest)
