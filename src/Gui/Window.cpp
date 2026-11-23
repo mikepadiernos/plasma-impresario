@@ -52,6 +52,10 @@
 #include <QUrl>
 #include <QWheelEvent>
 
+#include <KConfigGroup>
+#include <KLocalizedString>
+#include <KSharedConfig>
+
 #include "configure.cmake.h"
 #include "Common/Application.h"
 #include "Common/InvokeMethod.h"
@@ -750,8 +754,33 @@ void MainWindow::createMenus()
             ADD_ACTION(layoutMenu, m_actionLayoutCompact);
             ADD_ACTION(layoutMenu, m_actionLayoutWide);
             ADD_ACTION(layoutMenu, m_actionLayoutOneAtTime);
+        auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        KConfigGroup appearance(config, QStringLiteral("Appearance"));
+        const QString sidebarPosition = appearance.readEntry("MailboxSidebarPosition", QStringLiteral("left"));
+        if (sidebarPosition != QLatin1String("left") && sidebarPosition != QLatin1String("right"))
+            qWarning() << "Unknown mailbox sidebar position:" << sidebarPosition;
+        m_mailboxSidebarOnRight = sidebarPosition == QLatin1String("right");
+        QMenu *sidebarMenu = viewMenu->addMenu(i18nc("@title:menu", "Folder Sidebar Position"));
+        auto *sidebarGroup = new QActionGroup(sidebarMenu);
+        auto *sidebarLeft = sidebarMenu->addAction(i18nc("@option:radio", "Left"));
+        auto *sidebarRight = sidebarMenu->addAction(i18nc("@option:radio", "Right"));
+        sidebarLeft->setObjectName(QStringLiteral("mailboxSidebarLeft"));
+        sidebarRight->setObjectName(QStringLiteral("mailboxSidebarRight"));
+        for (auto *action : {sidebarLeft, sidebarRight}) {
+            action->setCheckable(true);
+            sidebarGroup->addAction(action);
+        }
+        (m_mailboxSidebarOnRight ? sidebarRight : sidebarLeft)->setChecked(true);
+        connect(sidebarGroup, &QActionGroup::triggered, this, [this, config, sidebarRight](QAction *action) {
+            const bool right = action == sidebarRight;
+            setMailboxSidebarRight(right);
+            KConfigGroup appearance(config, QStringLiteral("Appearance"));
+            appearance.writeEntry("MailboxSidebarPosition", right ? QStringLiteral("right") : QStringLiteral("left"));
+            if (!config->sync())
+                qWarning() << "Unable to save mailbox sidebar position";
+        });
         viewMenu->addMenu(new DensityMenu(mboxTree, msgListWidget->tree,
-                                          KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), viewMenu));
+                                          config, viewMenu));
         viewMenu->addSeparator();
         ADD_ACTION(viewMenu, m_actionShowOnlySubscribed);
 
@@ -2613,6 +2642,23 @@ void MainWindow::slotUpdateWindowTitle()
     }
 }
 
+void MainWindow::setMailboxSidebarRight(bool right)
+{
+    m_mailboxSidebarOnRight = right;
+    if (!m_mainHSplitter)
+        return;
+    const int oldIndex = m_mainHSplitter->indexOf(mboxTree);
+    if (oldIndex < 0)
+        return;
+    const int newIndex = right ? m_mainHSplitter->count() - 1 : 0;
+    if (oldIndex == newIndex)
+        return;
+    auto sizes = m_mainHSplitter->sizes();
+    sizes.move(oldIndex, newIndex);
+    m_mainHSplitter->insertWidget(newIndex, mboxTree);
+    m_mainHSplitter->setSizes(sizes);
+}
+
 void MainWindow::slotLayoutCompact()
 {
     saveSizesAndState();
@@ -2645,6 +2691,7 @@ void MainWindow::slotLayoutCompact()
     m_mainHSplitter->setStretchFactor(1, 1);
     // The CompleteMessageWidget shall not not collapse
     m_mainVSplitter->setCollapsible(m_mainVSplitter->indexOf(m_messageWidget), false);
+    setMailboxSidebarRight(m_mailboxSidebarOnRight);
 
     setCentralWidget(m_mainHSplitter);
 
@@ -2667,6 +2714,7 @@ void MainWindow::slotLayoutWide()
     m_mainHSplitter->addWidget(mboxTree);
     m_mainHSplitter->addWidget(msgListWidget);
     m_mainHSplitter->addWidget(m_messageWidget);
+    delete m_mainVSplitter;
     msgListWidget->resize(mboxTree->size());
     m_messageWidget->resize(mboxTree->size());
     m_mainHSplitter->setStretchFactor(0, 0);
@@ -2674,6 +2722,7 @@ void MainWindow::slotLayoutWide()
     m_mainHSplitter->setStretchFactor(2, 1);
 
     m_mainHSplitter->setCollapsible(m_mainHSplitter->indexOf(m_messageWidget), false);
+    setMailboxSidebarRight(m_mailboxSidebarOnRight);
 
     mboxTree->show();
     msgListWidget->show();
@@ -2683,7 +2732,6 @@ void MainWindow::slotLayoutWide()
     setCentralWidget(m_mainHSplitter);
 
     delete m_mainStack;
-    delete m_mainVSplitter;
 
     m_layoutMode = LAYOUT_WIDE;
     m_settings->setValue(Common::SettingsNames::guiMainWindowLayout, Common::SettingsNames::guiMainWindowLayoutWide);
@@ -2752,6 +2800,7 @@ void MainWindow::saveSizesAndState()
                          m_mainVSplitter ? m_mainVSplitter->saveState() : QByteArray());
     m_settings->setValue(Common::SettingsNames::mainHSplitterState,
                          m_mainHSplitter ? m_mainHSplitter->saveState() : QByteArray());
+    m_settings->setValue(QStringLiteral("mailboxSidebarOnRight"), m_mailboxSidebarOnRight);
 
     m_settings->setValue(Common::SettingsNames::messageListState, msgListWidget->tree->header()->saveState());
     m_settings->beginWriteArray(Common::SettingsNames::messageListHeader);
@@ -2826,7 +2875,15 @@ void MainWindow::applySizesAndState()
 
     if (m_mainHSplitter) {
         const auto s = m_settings->value(Common::SettingsNames::mainHSplitterState).toByteArray();
-        m_mainHSplitter->restoreState(s);
+        if (m_mainHSplitter->restoreState(s) &&
+            m_settings->value(QStringLiteral("mailboxSidebarOnRight"), false).toBool() != m_mailboxSidebarOnRight) {
+            auto sizes = m_mainHSplitter->sizes();
+            if (m_mailboxSidebarOnRight)
+                sizes.move(0, sizes.size() - 1);
+            else
+                sizes.move(sizes.size() - 1, 0);
+            m_mainHSplitter->setSizes(sizes);
+        }
     }
 
     const auto s = m_settings->value(Common::SettingsNames::messageListState).toByteArray();

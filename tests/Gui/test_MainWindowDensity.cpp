@@ -15,9 +15,12 @@
 #endif
 #include "static_plugins.h"
 
+#include <KConfigGroup>
 #include <KLocalizedString>
+#include <KSharedConfig>
 #include <QApplication>
 #include <QSettings>
+#include <QSplitter>
 #include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -36,13 +39,37 @@ private slots:
         settings.setValue(Common::SettingsNames::imapStartMode, Common::SettingsNames::netOffline);
         settings.setValue(Common::SettingsNames::guiShowSystray, false);
 
+        auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        KConfigGroup(config, QStringLiteral("Appearance")).writeEntry("MailboxSidebarPosition", QStringLiteral("right"));
+        QVERIFY(config->sync());
+        config->reparseConfiguration();
         Gui::MainWindow window(&settings);
         auto *menu = window.findChild<Gui::DensityMenu *>();
         auto *mailboxes = window.findChild<Gui::MailBoxTreeView *>();
         auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *left = window.findChild<QAction *>(QStringLiteral("mailboxSidebarLeft"));
+        auto *right = window.findChild<QAction *>(QStringLiteral("mailboxSidebarRight"));
         QVERIFY(menu);
         QVERIFY(mailboxes);
         QVERIFY(messages);
+        QVERIFY(left);
+        QVERIFY(right);
+        auto *splitter = qobject_cast<QSplitter *>(mailboxes->parentWidget());
+        QVERIFY(splitter);
+        QCOMPARE(splitter->indexOf(mailboxes), splitter->count() - 1);
+        QVERIFY(right->isChecked());
+        window.resize(1000, 700);
+        window.show();
+        QCoreApplication::processEvents();
+        splitter->setSizes({700, 200});
+        const int sidebarWidth = splitter->sizes().last();
+        QVERIFY(sidebarWidth > 0);
+        left->trigger();
+        QCOMPARE(splitter->indexOf(mailboxes), 0);
+        QVERIFY(qAbs(splitter->sizes().first() - sidebarWidth) <= 2);
+        config->reparseConfiguration();
+        QCOMPARE(KConfigGroup(config, QStringLiteral("Appearance")).readEntry("MailboxSidebarPosition", QString()),
+                 QStringLiteral("left"));
         QCOMPARE(menu->actions().size(), 2);
 
         QStandardItemModel model(1, 1);
@@ -61,6 +88,22 @@ private slots:
         QVERIFY(mailboxDelegate->sizeHint(option, index).height() > mailboxHeight);
         QVERIFY(messageDelegate->sizeHint(option, index).height() > messageHeight);
         QVERIFY(QMetaObject::invokeMethod(&window, "slotLayoutWide"));
+        splitter = qobject_cast<QSplitter *>(mailboxes->parentWidget());
+        QVERIFY(splitter);
+        QCOMPARE(splitter->count(), 3);
+        QCOMPARE(splitter->indexOf(mailboxes), 0);
+        right->trigger();
+        QCOMPARE(splitter->indexOf(mailboxes), splitter->count() - 1);
+        QVERIFY(QMetaObject::invokeMethod(&window, "slotLayoutCompact"));
+        splitter = qobject_cast<QSplitter *>(mailboxes->parentWidget());
+        QVERIFY(splitter);
+        QCOMPARE(splitter->indexOf(mailboxes), splitter->count() - 1);
+        QVERIFY(splitter->sizes().last() < splitter->sizes().first());
+        QVERIFY(QMetaObject::invokeMethod(&window, "slotLayoutOneAtTime"));
+        QVERIFY(QMetaObject::invokeMethod(&window, "slotLayoutWide"));
+        splitter = qobject_cast<QSplitter *>(mailboxes->parentWidget());
+        QVERIFY(splitter);
+        QCOMPARE(splitter->indexOf(mailboxes), splitter->count() - 1);
         QVERIFY(menu->actions().at(1)->isChecked());
     }
 };

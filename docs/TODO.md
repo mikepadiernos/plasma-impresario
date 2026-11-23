@@ -46,16 +46,19 @@ and project status before acting.
 - **Current state:** M02 #4, shell #35, skeleton #74 and density #75 are in
   Development. Other M02 issues are Defined. The
   `feature/m02-shell-accounts` branch adds a row-density selector; the
-  five-region shell and the full density behavior still need implementation.
+  continuation branch adds left/right folder sidebar placement in the compact
+  and wide layouts. The five-region shell and the full density behavior still
+  need implementation.
 - **Account acceptance:** #78 requires setup and recovery with an isolated live
   IMAP account. No such account or local IMAP server has been verified for
   this work. Provision an isolated server and disposable credentials, then
   verify setup, failure, recovery and credential removal without using real
   home-directory mail or configuration.
-- **Resume:** Implement and test the remaining M02 shell, tab, account,
+- **Resume:** Implement and test the remaining M02 shell, account,
   protocol-capability and OAuth issues. Advance each issue through Review and
   Completed before checking its roadmap item; merge the milestone only when
-  all items and acceptance checks are complete.
+  all items and acceptance checks are complete. Reconcile the pending roadmap
+  changes in #250 and #252 before merging.
 
 ### M01 release gate and integration
 

@@ -245,6 +245,9 @@ private:
 
     void updateActionsOnlineOffline(bool online);
 
+    /** Place the mailbox sidebar on the requested side of the current layout. */
+    void setMailboxSidebarRight(bool right);
+
     void applySizesAndState();
     QString layoutToString(const LayoutMode layout) const;
     void convertSizesAndStateSettings();
@@ -286,6 +289,7 @@ private:
     QPointer<QStackedWidget> m_mainStack;
 
     LayoutMode m_layoutMode;
+    bool m_mailboxSidebarOnRight = false;
     bool m_skipSavingOfUI;
     QTimer *m_delayedStateSaving;
 
