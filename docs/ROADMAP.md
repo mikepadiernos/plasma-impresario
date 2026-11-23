@@ -94,13 +94,13 @@ installation depends on the working renderer.
   issues remain in Development and their roadmap items unchecked. See
   [TODO](TODO.md#in-progress).
 
-  1. [ ] Define the WebEngine profile and request lifecycle, including per-message isolation, cancellation, and cleanup when switching messages. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568588)
-  2. [ ] Add regression tests for MIME loading, cancellation, message switching, remote-content policy, navigation, quoting, and rendering failures. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568809)
-  3. [ ] Update CMake to use Qt6::WebEngineWidgets and retain the explicitly labeled renderer-free build. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568819)
-  4. [ ] Register and implement MIME-part and `cid:` URL handling using the existing IMAP model, including asynchronous fetching, errors, and inline images. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568598)
-  5. [ ] Enforce message privacy: disable scripts, plugins, and persistent web storage; block remote and local-file access by default; allow remote content only after explicit per-message consent, including redirects. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568610)
-  6. [ ] Port the message view, headers, source view, and rendering layout to WebEngine while preserving MIME alternatives, nested messages, and attachments. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568620)
-  7. [ ] Replace synchronous WebKit APIs for reply quoting, selection, search, links, context menus, zoom, and styling with WebEngine-compatible behavior. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568798)
+  1. [x] Define the WebEngine profile and request lifecycle, including per-message isolation, cancellation, and cleanup when switching messages. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568588)
+  2. [x] Add regression tests for MIME loading, cancellation, message switching, remote-content policy, navigation, quoting, and rendering failures. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568809)
+  3. [x] Update CMake to use Qt6::WebEngineWidgets and retain the explicitly labeled renderer-free build. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568819)
+  4. [x] Register and implement MIME-part and `cid:` URL handling using the existing IMAP model, including asynchronous fetching, errors, and inline images. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568598)
+  5. [x] Enforce message privacy: disable scripts, plugins, and persistent web storage; block remote and local-file access by default; allow remote content only after explicit per-message consent, including redirects. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568610)
+  6. [x] Port the message view, headers, source view, and rendering layout to WebEngine while preserving MIME alternatives, nested messages, and attachments. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568620)
+  7. [x] Replace synchronous WebKit APIs for reply quoting, selection, search, links, context menus, zoom, and styling with WebEngine-compatible behavior. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568798)
 
 - **M01.03: Installer**
 
@@ -279,13 +279,15 @@ installation depends on the working renderer.
 
 - [ ] Rename the application, installed identity, documentation, repository, and project board to Plasma Impresario while preserving Trojitá configuration and compatibility aliases [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314606649)
 - [ ] Define the default visual language, palette, and KDE-native desktop styling [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541568)
-- [ ] Establish spacing, density, and readability rules for all mail panes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541647)
+- [ ] Establish spacing, density, and readability rules for all mail panes.
+  Provide theme spacing options for compact, normal, comfortable, and custom
+  spacing. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541647)
 - [ ] Align the product shell with Plasma visual expectations for polish and
-  clarity. Replace the left sidebar navigation icons' selection caret with a
-  theme-accented corner or edge marker; prefer a short accent bar with a subtle
-  selected background if the corner is hard to distinguish. Preserve keyboard
-  focus, accessible selection state, and contrast without relying on color
-  alone; retain disclosure indicators for expandable trees.
+  clarity. Replace the carets beside left sidebar icons that open menus with
+  small theme-accented corner markers on the icons. The marker indicates an
+  available menu, not selection. Preserve contrast, accessible menu semantics,
+  keyboard access, and visible focus; retain disclosure indicators for
+  expandable trees.
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570268)
 - [ ] Follow the active Plasma color scheme, accent, icon theme, and light or dark appearance [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570286)
 - [ ] Validate contrast, text scaling, focus indicators, and high-contrast behavior across panes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570471)
