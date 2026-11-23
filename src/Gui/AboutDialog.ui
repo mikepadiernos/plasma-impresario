@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>About Trojitá</string>
+   <string>About Plasma Impresario</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <property name="rightMargin">
@@ -39,7 +39,7 @@
           </size>
          </property>
          <property name="pixmap">
-          <pixmap resource="../icons.qrc">:/icons/trojita-144.png</pixmap>
+          <pixmap resource="../icons.qrc">:/icons/plasma-impresario.svg</pixmap>
          </property>
          <property name="alignment">
           <set>Qt::AlignHCenter|Qt::AlignTop</set>
@@ -149,7 +149,7 @@
        <item>
         <widget class="QLabel" name="descriptionLabel">
          <property name="text">
-          <string>&lt;p&gt;This is &lt;b&gt;Trojitá&lt;/b&gt;, a fast Qt IMAP e-mail client&lt;/p&gt;</string>
+          <string>&lt;p&gt;This is &lt;b&gt;Plasma Impresario&lt;/b&gt;, a fast Qt IMAP e-mail client based on Trojitá.&lt;/p&gt;</string>
          </property>
          <property name="wordWrap">
           <bool>true</bool>

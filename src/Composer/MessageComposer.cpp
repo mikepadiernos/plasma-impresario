@@ -548,10 +548,10 @@ void MessageComposer::writeCommonMessageBeginning(QIODevice *target) const
         target->write(encodeHeaderField(QLatin1String("Organization: ") + m_organization) + "\r\n");
     }
     if (m_reportTrojitaVersions) {
-        target->write(QStringLiteral("User-Agent: Trojita/%1; %2\r\n").arg(
+        target->write(QStringLiteral("User-Agent: Plasma-Impresario/%1; %2\r\n").arg(
                       Common::Application::version, Imap::Mailbox::systemPlatformVersion()).toUtf8());
     } else {
-        target->write("User-Agent: Trojita\r\n");
+        target->write("User-Agent: Plasma-Impresario\r\n");
     }
 
     // Headers depending on actual message body data

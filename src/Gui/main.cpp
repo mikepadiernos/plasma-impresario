@@ -52,14 +52,17 @@ int main(int argc, char **argv)
 
     AppVersion::setGitVersion();
     AppVersion::setCoreApplicationData();
+    app.setApplicationDisplayName(QStringLiteral("Plasma Impresario"));
 
-    app.setDesktopFileName(QStringLiteral("org.kde.trojita"));
-    app.setWindowIcon(UiUtils::loadIcon(QStringLiteral("trojita")));
+    app.setDesktopFileName(QStringLiteral("io.github.mikepadiernos.plasma_impresario"));
+    app.setWindowIcon(QIcon(QStringLiteral(":/icons/plasma-impresario.svg")));
 
     QCommandLineParser parser;
-    parser.setApplicationDescription(QObject::tr("Trojitá %1 - fast Qt IMAP e-mail client").arg(Common::Application::version));
+    parser.setApplicationDescription(QObject::tr("Plasma Impresario %1 - fast Qt IMAP e-mail client").arg(Common::Application::version));
     parser.addHelpOption();
-    parser.addVersionOption();
+    QCommandLineOption versionOption(QStringList() << QLatin1String("v") << QLatin1String("version"),
+                                     QObject::tr("Displays version information."));
+    parser.addOption(versionOption);
 
     QCommandLineOption addressbookOption(QStringList() << QLatin1String("a") << QLatin1String("addressbook"),
                                          QObject::tr("Show addressbook window."));
@@ -88,6 +91,11 @@ int main(int argc, char **argv)
 
     QTextStream qOut(stdout, QIODevice::WriteOnly);
     QTextStream qErr(stderr, QIODevice::WriteOnly);
+
+    if (parser.isSet(versionOption)) {
+        qOut << app.applicationDisplayName() << QLatin1Char(' ') << app.applicationVersion() << Qt::endl;
+        return 0;
+    }
 
     bool error = false;
     bool showMainWindow = false;

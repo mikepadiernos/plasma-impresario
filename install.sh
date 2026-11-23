@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_NAME="Plasma Mail"
+APP_NAME="Plasma Impresario"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${BUILD_DIR:-${ROOT_DIR}/build}"
 PREFIX="${PREFIX:-${HOME}/.local}"
 INSTALL_DEPS="${INSTALL_DEPS:-true}"
 WITH_WEBKIT="${WITH_WEBKIT:-true}"
+OS_RELEASE_FILE="${PLASMA_IMPRESARIO_OS_RELEASE:-${PLASMA_MAIL_OS_RELEASE:-/etc/os-release}}"
 SUDO=""
 PACKAGE_MANAGER=""
 
@@ -42,36 +43,43 @@ require_root_or_sudo() {
 }
 
 detect_package_manager() {
-  local candidate
-  for candidate in pacman paru yay pamac apt-get dnf zypper; do
+  local ID="" ID_LIKE="" distro candidate
+  local -a candidates=() distros=()
+
+  if [[ ! -r "${OS_RELEASE_FILE}" ]]; then
+    echo "[${APP_NAME}] Cannot identify the distribution: ${OS_RELEASE_FILE} is not readable. Use --no-deps after installing dependencies manually." >&2
+    return 1
+  fi
+  # os-release is specified as shell-compatible variable assignments.
+  if ! source "${OS_RELEASE_FILE}"; then
+    echo "[${APP_NAME}] Could not read distribution information from ${OS_RELEASE_FILE}." >&2
+    return 1
+  fi
+
+  read -r -a distros <<< "${ID} ${ID_LIKE}"
+  for distro in "${distros[@]}"; do
+    case "${distro}" in
+      arch|cachyos|manjaro) candidates=(pacman paru yay pamac) ;;
+      debian|ubuntu) candidates=(apt-get) ;;
+      fedora|rhel|centos|rocky|almalinux) candidates=(dnf) ;;
+      opensuse*|suse|sles) candidates=(zypper) ;;
+      *) continue ;;
+    esac
+    break
+  done
+
+  if [[ ${#candidates[@]} -eq 0 ]]; then
+    echo "[${APP_NAME}] Unsupported distribution '${ID}'. Use --no-deps after installing dependencies manually." >&2
+    return 1
+  fi
+  for candidate in "${candidates[@]}"; do
     if command -v "${candidate}" >/dev/null 2>&1; then
-      case "${candidate}" in
-        pacman)
-          PACKAGE_MANAGER="pacman"
-          ;;
-        paru)
-          PACKAGE_MANAGER="paru"
-          ;;
-        yay)
-          PACKAGE_MANAGER="yay"
-          ;;
-        pamac)
-          PACKAGE_MANAGER="pamac"
-          ;;
-        apt-get)
-          PACKAGE_MANAGER="apt-get"
-          ;;
-        dnf)
-          PACKAGE_MANAGER="dnf"
-          ;;
-        zypper)
-          PACKAGE_MANAGER="zypper"
-          ;;
-      esac
+      PACKAGE_MANAGER="${candidate}"
       return 0
     fi
   done
 
+  echo "[${APP_NAME}] No supported package manager found for '${ID}' (expected: ${candidates[*]}). Use --no-deps after installing dependencies manually." >&2
   return 1
 }
 
@@ -117,7 +125,15 @@ install_missing_packages() {
   fi
 
   echo "[${APP_NAME}] Installing missing build dependencies: ${missing[*]}"
-  require_root_or_sudo
+  case "${PACKAGE_MANAGER}" in
+    pacman|apt-get|dnf|zypper) require_root_or_sudo ;;
+    paru|yay)
+      if [[ "${EUID}" -eq 0 ]]; then
+        echo "[${APP_NAME}] ${PACKAGE_MANAGER} must be run as a regular user." >&2
+        return 1
+      fi
+      ;;
+  esac
 
   case "${PACKAGE_MANAGER}" in
     pacman)
@@ -128,18 +144,10 @@ install_missing_packages() {
       fi
       ;;
     paru|yay)
-      if [[ -n "${SUDO}" ]]; then
-        ${SUDO} "${PACKAGE_MANAGER}" -Syu --noconfirm "${missing[@]}"
-      else
-        "${PACKAGE_MANAGER}" -Syu --noconfirm "${missing[@]}"
-      fi
+      "${PACKAGE_MANAGER}" -Syu --noconfirm "${missing[@]}"
       ;;
     pamac)
-      if [[ -n "${SUDO}" ]]; then
-        ${SUDO} pamac install -y "${missing[@]}"
-      else
-        pamac install -y "${missing[@]}"
-      fi
+      pamac install -y "${missing[@]}"
       ;;
     apt-get)
       if [[ -n "${SUDO}" ]]; then
@@ -165,8 +173,8 @@ install_missing_packages() {
       fi
       ;;
     *)
-      echo "[${APP_NAME}] No supported package manager found. Please install CMake, Qt 6, KDE Frameworks, and build tools manually."
-      return 0
+      echo "[${APP_NAME}] Unsupported package manager '${PACKAGE_MANAGER}'." >&2
+      return 1
       ;;
   esac
 }
@@ -177,12 +185,28 @@ install_dependencies() {
   fi
 
   if ! detect_package_manager; then
-    echo "[${APP_NAME}] No supported package manager found. Please install CMake, Qt 6, KDE Frameworks, and build tools manually."
-    return 0
+    return 1
   fi
 
   case "${PACKAGE_MANAGER}" in
-    pacman|paru|yay|pamac)
+    pacman)
+      local pkg
+      local -a available_optional=()
+      local -a optional_packages=(mimetic gpgme gpgmepp qgpgme qtkeychain-qt6 kdoctools sonnet akonadi akonadi-contacts)
+      for pkg in "${optional_packages[@]}"; do
+        if package_installed "${pkg}" || pacman -Si "${pkg}" >/dev/null 2>&1; then
+          available_optional+=("${pkg}")
+        else
+          echo "[${APP_NAME}] Optional package '${pkg}' is not installed and could not be found in configured repositories; check repository metadata or install it manually if needed." >&2
+        fi
+      done
+      install_missing_packages \
+        base-devel cmake ninja pkgconf extra-cmake-modules qt6-base \
+        qt6-declarative qt6-svg qt6-tools qt6-5compat kitemmodels \
+        "${available_optional[@]}"
+      return 0
+      ;;
+    paru|yay|pamac)
       install_missing_packages \
         base-devel \
         cmake \
@@ -265,8 +289,8 @@ install_dependencies() {
       ;;
   esac
 
-  echo "[${APP_NAME}] No supported package manager found. Please install CMake, Qt 6, KDE Frameworks, and build tools manually."
-  return 0
+  echo "[${APP_NAME}] Unsupported package manager '${PACKAGE_MANAGER}'." >&2
+  return 1
 }
 
 select_renderer() {

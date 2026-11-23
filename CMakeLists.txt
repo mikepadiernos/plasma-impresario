@@ -53,6 +53,7 @@ trojita_option(BUILD_TESTING "Build tests" ON)
 trojita_option(WITH_MIMETIC "Build with client-side MIME parsing" AUTO)
 trojita_option(WITH_GPGMEPP "Use GpgME's native C++ bindings" AUTO)
 trojita_option(WITH_WEBKIT "Build with support for viewing mails" ON)
+option(WITH_WEBENGINE_BRIDGE "Build the experimental WebEngine resource bridge (not a message viewer)" OFF)
 
 if(WIN32)
     trojita_option(WITH_NSIS "Build Windows NSIS installer" AUTO "WITH_DESKTOP")
@@ -83,6 +84,9 @@ find_package(KF6 REQUIRED
 
 if(WITH_WEBKIT)
     trojita_find_package(Qt6WebKitWidgets "" "" "Qt6 WebKit" "Required for displaying mail contents" WITH_WEBKIT)
+endif()
+if(WITH_WEBENGINE_BRIDGE)
+    find_package(Qt6 ${QT_REQUIRED_VERSION} REQUIRED COMPONENTS WebEngineWidgets)
 endif()
 
 trojita_find_package(KPim6AkonadiContactCore "" "" "" "Required for building Akonadi address book plugin")
@@ -550,7 +554,7 @@ set(trojita_desktop_SOURCES
 if(WIN32)
     list(APPEND trojita_desktop_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/trojita_win32.rc)
     set_property(SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/src/trojita_win32.rc APPEND PROPERTY OBJECT_DEPENDS
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/trojita.ico
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/plasma-impresario.ico
         ${CMAKE_CURRENT_BINARY_DIR}/trojita-git-version.h
         ${CMAKE_CURRENT_BINARY_DIR}/trojita-version.h
     )
@@ -704,6 +708,19 @@ target_link_libraries(Cryptography
         UiUtils
 )
 
+if(WITH_WEBENGINE_BRIDGE)
+    add_library(WebEngineMessageBridge STATIC
+        src/Gui/WebEngineMessagePage.cpp
+        src/Gui/WebEngineMessagePage.h
+        src/Gui/WebEngineMessageProfile.cpp
+        src/Gui/WebEngineMessageProfile.h
+    )
+    target_link_libraries(WebEngineMessageBridge
+        PUBLIC Qt6::WebEngineWidgets Imap
+    )
+    target_compile_definitions(WebEngineMessageBridge PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+endif()
+
 if(WITH_MIMETIC)
     target_link_libraries(Cryptography
         PRIVATE
@@ -851,6 +868,14 @@ if(WITH_DESKTOP)
     # On Windows build a real Win32 GUI application without console window
     # On other platforms WIN32 flag is ignored
     add_executable(trojita WIN32 ${trojita_desktop_SOURCES})
+    set_target_properties(trojita PROPERTIES OUTPUT_NAME plasma-impresario)
+    if(UNIX AND NOT APPLE)
+        if(IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}")
+            set_target_properties(trojita PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_LIBDIR}")
+        else()
+            set_target_properties(trojita PROPERTIES INSTALL_RPATH "\$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
+        endif()
+    endif()
     set_property(TARGET trojita APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
     target_link_libraries(trojita
         PRIVATE
@@ -882,10 +907,23 @@ if(WITH_ABOOKADDRESSBOOK_PLUGIN)
 endif()
 
 if(WITH_DESKTOP)
-    copy_desktop_file_without_cruft("${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/org.kde.trojita.desktop" "${CMAKE_CURRENT_BINARY_DIR}/org.kde.trojita-DesktopGui.desktop")
+    copy_desktop_file_without_cruft("${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/io.github.mikepadiernos.plasma_impresario.desktop" "${CMAKE_CURRENT_BINARY_DIR}/io.github.mikepadiernos.plasma_impresario.desktop")
     install(TARGETS trojita RUNTIME DESTINATION bin)
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/org.kde.trojita-DesktopGui.desktop DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications/" RENAME org.kde.trojita.desktop)
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/org.kde.trojita.appdata.xml DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/metainfo/")
+    if(UNIX)
+        install(CODE "execute_process(
+            COMMAND \"${CMAKE_COMMAND}\" -E create_symlink \"plasma-impresario${CMAKE_EXECUTABLE_SUFFIX}\"
+                \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/bin/trojita${CMAKE_EXECUTABLE_SUFFIX}\"
+            RESULT_VARIABLE alias_result)
+            if(NOT alias_result STREQUAL \"0\")
+                message(FATAL_ERROR \"Could not install trojita compatibility alias: \${alias_result}\")
+            endif()")
+    else()
+        install(PROGRAMS $<TARGET_FILE:trojita> DESTINATION bin RENAME trojita${CMAKE_EXECUTABLE_SUFFIX})
+    endif()
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/io.github.mikepadiernos.plasma_impresario.desktop
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/org.kde.trojita.desktop DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications/")
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/io.github.mikepadiernos.plasma_impresario.metainfo.xml DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/metainfo/")
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/plasma-impresario.svg DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps/")
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/trojita.png DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/32x32/apps/")
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/trojita.svg DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps/")
 endif()
@@ -937,6 +975,15 @@ if(BUILD_TESTING)
     set(UBSAN_ENV_SUPPRESSIONS "UBSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/tests/ubsan.supp")
 
     enable_testing()
+    if(WITH_WEBENGINE_BRIDGE)
+        add_executable(test_WebEngineMessageProfile tests/Gui/test_WebEngineMessageProfile.cpp)
+        target_link_libraries(test_WebEngineMessageProfile PRIVATE WebEngineMessageBridge Qt6::Test)
+        if(NOT CMAKE_CROSSCOMPILING)
+            add_test(NAME test_WebEngineMessageProfile COMMAND test_WebEngineMessageProfile)
+            set_tests_properties(test_WebEngineMessageProfile PROPERTIES ENVIRONMENT
+                "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu")
+        endif()
+    endif()
     trojita_test(Composer Composer_Submission)
     trojita_test(Composer Composer_Existing)
     trojita_test(Composer Composer_responses)

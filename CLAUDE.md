@@ -1,6 +1,6 @@
-# Plasma Mail
+# Plasma Impresario
 
-Plasma Mail is a KDE-inspired desktop mail client for IMAP-based workflows, built with Qt and KDE Frameworks and designed for focused reading, account management, and desktop integration.
+Plasma Impresario is a KDE Plasma-only desktop mail client for IMAP-based workflows, built with Qt and KDE Frameworks and designed for focused reading, account management, and desktop integration. Other desktop environments are outside the supported product scope.
 
 Apply the shared instructions in `~/Library/Projects/CLAUDE.md` first. These project instructions supplement them and take precedence where they conflict.
 
@@ -21,7 +21,7 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure
 cmake --build build --target clang-format   # format all C++ sources
-./build/src/Gui/trojita
+./build/plasma-impresario
 ```
 
 ## Development
@@ -46,22 +46,21 @@ cmake --build build --target clang-format   # format all C++ sources
 - Keep the detailed milestone headings, subheadings and individual feature
   bullets. Do not strike milestone headings, replace feature lists with
   completion paragraphs, or add a "Done so far" summary.
-- Use strikethrough (`~~...~~`) as the only feature completion marker. Strike
-  a feature only after its issue moves to **Completed** or is already
-  **Merged**. Leave features in **Review** or earlier unstruck, even when
-  implemented.
+- Use checkboxes as feature completion markers. Check a roadmap item only
+  after its issue moves to **Completed** or is already **Merged**. Leave
+  features in **Review** or earlier unchecked, even when implemented.
 - Before marking a feature complete, verify its implementation in the current
   checkout and check its issue status. Leave unimplemented or unverified
-  features unstruck.
+  features unchecked.
 - A completed feature can have caveats. Record each outstanding caveat as
   described below and reference it at the end of the milestone; do not leave
-  an otherwise completed feature unstruck solely because of a caveat.
+  an otherwise completed feature unchecked solely because of a caveat.
 - Keep the roadmap focused on milestones and architecture. Put blocked work and
   detailed handoffs in `docs/TODO.md` and link to them briefly from the roadmap.
 
 ## Project workflow
 
-Use the [Plasma Mail project board](https://github.com/users/mikepadiernos/projects/4)
+Use the [Plasma Impresario project board](https://github.com/users/mikepadiernos/projects/4)
 for milestone parent issues and feature sub-issues. Follow **Backlog →
 Defined → Development → Review → Completed → Merged**; never move an item
 backward.
@@ -75,14 +74,14 @@ backward.
    along.
 3. **Finish implementation:** Move the feature to Review, set its **Target
    date** to the completion date, and check it in the parent issue. Leave its
-   roadmap item unstruck.
+   roadmap item unchecked.
 4. **Advance the previous feature:** When the next feature in the same
    milestone enters Review, move the previous feature from Review to
    Completed. Move the final feature to Completed when it is ready.
 5. **Complete an issue:** When moving an issue to Completed, close it with the
-   completed reason. For a milestone feature, strike its roadmap item in the
+   completed reason. For a milestone feature, check its roadmap item in the
    same change.
-6. **Complete a milestone:** When all feature items are struck, set the
+6. **Complete a milestone:** When all feature items are checked, set the
    parent issue's **Target date** to the completion date.
 7. **Merge:** When an issue's changes are merged into `main`, move it to
    Merged and keep it closed as completed. After merging a feature-complete
@@ -112,7 +111,7 @@ backward.
 - Work on each milestone in its `feature/<short-name>` branch. Work on bug and
   caveat issues in their own branches.
 - A milestone is feature-complete only when all its roadmap feature items are
-  struck through. Once complete, commit changes by scope, push the branch, and
+  checked. Once complete, commit changes by scope, push the branch, and
   merge it into `main`.
 - For a fixed bug or caveat, likewise commit changes by scope, push its branch,
   and merge it into `main`.
@@ -124,7 +123,7 @@ backward.
   for resuming. Add a brief link to the relevant TODO section in the roadmap
   near the affected milestone, or in Tracking for cross-cutting work.
 - For blocked GitHub Projects access, record the affected issues, intended
-  board actions, and relevant dates in TODO. Do not strike a feature before
+  board actions, and relevant dates in TODO. Do not check a roadmap feature before
   its issue is confirmed in Completed or Merged.
 - When work resumes, verify the current state before acting. Reconcile project
   and issue states without moving items backward. Update or remove resolved

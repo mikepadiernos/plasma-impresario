@@ -48,6 +48,9 @@ MsgPartNetworkReply::MsgPartNetworkReply(MsgPartNetAccessManager *parent, const 
     Q_ASSERT(part.isValid());
 
     connect(part.model(), &QAbstractItemModel::dataChanged, this, &MsgPartNetworkReply::slotModelDataChanged);
+    connect(part.model(), &QAbstractItemModel::rowsRemoved, this, [this] { failIfPartVanished(); });
+    connect(part.model(), &QAbstractItemModel::modelReset, this, [this] { failIfPartVanished(); });
+    connect(part.model(), &QObject::destroyed, this, &MsgPartNetworkReply::failForVanishedPart);
 
     // We have to ask for contents before we check whether it's already fetched
     part.data(Imap::Mailbox::RolePartData);
@@ -59,6 +62,24 @@ MsgPartNetworkReply::MsgPartNetworkReply(MsgPartNetAccessManager *parent, const 
     Q_ASSERT(bufferPtr);
     buffer.setBuffer(bufferPtr);
     buffer.open(QIODevice::ReadOnly);
+}
+
+void MsgPartNetworkReply::failIfPartVanished()
+{
+    if (!part.isValid())
+        failForVanishedPart();
+}
+
+void MsgPartNetworkReply::failForVanishedPart()
+{
+    if (isFinished())
+        return;
+    buffer.close();
+    buffer.setBuffer(nullptr);
+    setError(ContentNotFoundError, tr("Message part is no longer available"));
+    setFinished(true);
+    emit errorOccurred(error());
+    emit finished();
 }
 
 /** @short Check to see whether the data which concern this object has arrived already */

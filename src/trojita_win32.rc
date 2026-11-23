@@ -20,14 +20,14 @@
 #define VERNUM4 TROJITA_VERNUM4
 #endif
 
-#define NAME "Trojit\341"
+#define NAME "Plasma Impresario"
 #define DESCRIPTION NAME " - Qt IMAP e-mail client"
 #define HOMEPAGE "http://trojita.flaska.net/"
 #define LICENSE "GPLv2/GPLv3"
 #define COPYRIGHT "https://commits.kde.org/trojita?path=LICENSE"
 
-#define EXE "trojita.exe"
-#define ICO "icons/trojita.ico"
+#define EXE "plasma-impresario.exe"
+#define ICO "icons/plasma-impresario.ico"
 
 IDI_ICON1	ICON	DISCARDABLE	ICO
 

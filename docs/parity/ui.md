@@ -6,7 +6,7 @@ a secondary reference for KDE integration and polish.
 
 > [!NOTE] The current executable still presents the Trojitá Qt Widgets
 > interface. The expectations below describe product goals, not features of a
-> completed Plasma Mail redesign.
+> completed Plasma Impresario redesign.
 
 ## Current baseline
 

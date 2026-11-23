@@ -1,0 +1,566 @@
+/* Copyright (C) 2026 Plasma Mail contributors
+
+   This program is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by the Free
+   Software Foundation; either version 2 of the License or (at your option)
+   version 3 or any later version accepted by the membership of KDE e.V.
+   (or its successor approved by the membership of KDE e.V.).
+*/
+#include "Gui/WebEngineMessagePage.h"
+#include "Gui/WebEngineMessageProfile.h"
+#include "Imap/Model/ItemRoles.h"
+#include "Imap/Model/MailboxTree.h"
+
+#include <QApplication>
+#include <QBuffer>
+#include <QDesktopServices>
+#include <QImage>
+#include <QSignalSpy>
+#include <QStandardItemModel>
+#include <QTcpServer>
+#include <QTcpSocket>
+#include <QTemporaryFile>
+#include <QTest>
+#include <QWebEnginePage>
+#include <QWebEngineScript>
+#include <QWebEngineSettings>
+#include <QWebEngineView>
+
+#include <memory>
+
+class ExternalUrlHandler : public QObject
+{
+    Q_OBJECT
+public:
+    int calls = 0;
+public slots:
+    void handleUrl(const QUrl &) { ++calls; }
+};
+
+class MessagePart : public QStandardItem
+{
+public:
+    QVariant data(int role = Qt::UserRole + 1) const override
+    {
+        if (role == Imap::Mailbox::RolePartData)
+            ++fetchRequests;
+        return QStandardItem::data(role);
+    }
+
+    mutable int fetchRequests = 0;
+};
+
+class MessageModel
+{
+public:
+    MessageModel()
+    {
+        message = new QStandardItem;
+        model.appendRow(message);
+        body = addPart(QStringLiteral("text/html"), &bodyData);
+        image = addPart(QStringLiteral("image/png"), &imageData);
+        image->setData(QByteArrayLiteral("<logo@example>"), Imap::Mailbox::RolePartBodyFldId);
+        QImage picture(1, 1, QImage::Format_RGB32);
+        picture.fill(Qt::red);
+        QBuffer buffer(&imageData);
+        buffer.open(QIODevice::WriteOnly);
+        picture.save(&buffer, "PNG");
+    }
+
+    MessagePart *addPart(const QString &mime, QByteArray *data)
+    {
+        auto *part = new MessagePart;
+        part->setData(mime, Imap::Mailbox::RolePartMimeType);
+        part->setData(QVariant::fromValue(data), Imap::Mailbox::RolePartBufferPtr);
+        part->setData(true, Imap::Mailbox::RoleIsFetched);
+        message->appendRow(part);
+        return part;
+    }
+
+    QStandardItemModel model;
+    QStandardItem *message = nullptr;
+    MessagePart *body = nullptr;
+    MessagePart *image = nullptr;
+    QByteArray bodyData;
+    QByteArray imageData;
+};
+
+class WebEngineMessageProfileTest : public QObject
+{
+    Q_OBJECT
+private slots:
+    void delegatesLinksWithoutNavigating()
+    {
+        MessageModel message;
+        message.bodyData = QByteArrayLiteral(
+            "<html><body><a id=\"web\" href=\"https://example.org/path\">Web</a>"
+            "<a id=\"mail\" href=\"mailto:someone@example.org\">Mail</a>"
+            "<a id=\"file\" href=\"file:///etc/passwd\">File</a>"
+            "<a id=\"part\" href=\"trojita-imap://msg/1\">Other part</a></body></html>");
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        Gui::WebEngineMessagePage page(&profile);
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        QSignalSpy links(&page, &Gui::WebEngineMessagePage::externalLinkRequested);
+        QVERIFY(!page.loadMessagePart(QUrl(QStringLiteral("https://example.org"))));
+        QVERIFY(!page.loadMessagePart(QUrl(QStringLiteral("trojita-imap://msg/0?query"))));
+        QVERIFY(page.loadMessagePart(QUrl(QStringLiteral("trojita-imap://msg/0"))));
+        QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+        QVERIFY(finished.last().at(0).toBool());
+
+        page.runJavaScript(QStringLiteral("document.getElementById('web').click()"), QWebEngineScript::ApplicationWorld);
+        QTRY_COMPARE_WITH_TIMEOUT(links.size(), 1, 10000);
+        QCOMPARE(links.at(0).at(0).toUrl(), QUrl(QStringLiteral("https://example.org/path")));
+        page.runJavaScript(QStringLiteral("document.getElementById('mail').click()"), QWebEngineScript::ApplicationWorld);
+        QTRY_COMPARE_WITH_TIMEOUT(links.size(), 2, 10000);
+        QCOMPARE(links.at(1).at(0).toUrl(), QUrl(QStringLiteral("mailto:someone@example.org")));
+        page.runJavaScript(QStringLiteral("document.getElementById('file').click(); document.getElementById('part').click()"),
+                           QWebEngineScript::ApplicationWorld);
+        QTest::qWait(300);
+        QCOMPARE(links.size(), 2);
+        QCOMPARE(page.url(), QUrl(QStringLiteral("trojita-imap://msg/0")));
+    }
+
+    void delegatesUserInitiatedNewWindow_data()
+    {
+        QTest::addColumn<QString>("url");
+        QTest::newRow("https") << QStringLiteral("https://example.org/new");
+        QTest::newRow("mailto") << QStringLiteral("mailto:someone@example.org");
+    }
+
+    void delegatesUserInitiatedNewWindow()
+    {
+        QFETCH(QString, url);
+        MessageModel message;
+        message.bodyData = QStringLiteral(
+            "<html><body style=\"margin:0\"><a href=\"%1\" target=\"_blank\" "
+            "style=\"display:block;width:200px;height:80px\">Open link</a></body></html>").arg(url).toUtf8();
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        Gui::WebEngineMessagePage page(&profile);
+        QWebEngineView view;
+        view.resize(300, 150);
+        view.setPage(&page);
+        view.show();
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        QSignalSpy links(&page, &Gui::WebEngineMessagePage::externalLinkRequested);
+        QVERIFY(page.loadMessagePart(QUrl(QStringLiteral("trojita-imap://msg/0"))));
+        QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+        QVERIFY(finished.last().at(0).toBool());
+        auto clicked = std::make_shared<bool>(false);
+        page.runJavaScript(QStringLiteral("document.querySelector('a').click()"), QWebEngineScript::ApplicationWorld,
+                           [clicked](const QVariant &) { *clicked = true; });
+        QTRY_VERIFY_WITH_TIMEOUT(*clicked, 10000);
+        QTest::qWait(300);
+        QVERIFY(links.isEmpty());
+        QTRY_VERIFY_WITH_TIMEOUT(view.focusProxy(), 10000);
+        QTest::mouseClick(view.focusProxy(), Qt::LeftButton, Qt::NoModifier, QPoint(20, 20));
+        QTRY_COMPARE_WITH_TIMEOUT(links.size(), 1, 10000);
+        QCOMPARE(links.at(0).at(0).toUrl(), QUrl(url));
+        QCOMPARE(page.url(), QUrl(QStringLiteral("trojita-imap://msg/0")));
+    }
+
+    void blocksUnknownExternalProtocols()
+    {
+        ExternalUrlHandler handler;
+        const QString scheme = QStringLiteral("trojita-test-external");
+        QDesktopServices::setUrlHandler(scheme, &handler, "handleUrl");
+        connect(&handler, &QObject::destroyed, [scheme] { QDesktopServices::unsetUrlHandler(scheme); });
+        MessageModel message;
+        message.bodyData = QByteArrayLiteral(
+            "<html><body style=\"margin:0\"><a href=\"trojita-test-external:payload\" "
+            "style=\"display:block;width:200px;height:80px\">Open link</a></body></html>");
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        Gui::WebEngineMessagePage page(&profile);
+        QWebEngineView view;
+        view.resize(300, 150);
+        view.setPage(&page);
+        view.show();
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        QSignalSpy links(&page, &Gui::WebEngineMessagePage::externalLinkRequested);
+        QVERIFY(page.loadMessagePart(QUrl(QStringLiteral("trojita-imap://msg/0"))));
+        QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+        QVERIFY(finished.last().at(0).toBool());
+        QTRY_VERIFY_WITH_TIMEOUT(view.focusProxy(), 10000);
+        QTest::mouseClick(view.focusProxy(), Qt::LeftButton, Qt::NoModifier, QPoint(20, 20));
+        QTest::qWait(300);
+        QCOMPARE(handler.calls, 0);
+        QVERIFY(links.isEmpty());
+        QCOMPARE(page.url(), QUrl(QStringLiteral("trojita-imap://msg/0")));
+    }
+
+    void blocksUnsolicitedNavigation()
+    {
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        MessageModel message;
+        const QUrl remote(QStringLiteral("http://127.0.0.1:%1/submit").arg(server.serverPort()));
+        message.bodyData = QStringLiteral(
+            "<html><body><form id=\"form\" action=\"%1\"><input name=\"message\" value=\"secret\"></form>"
+            "Original message</body></html>").arg(remote.toString()).toUtf8();
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        profile.setRemoteImagesAllowed(true);
+        Gui::WebEngineMessagePage page(&profile);
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        QSignalSpy links(&page, &Gui::WebEngineMessagePage::externalLinkRequested);
+        QVERIFY(page.loadMessagePart(QUrl(QStringLiteral("trojita-imap://msg/0"))));
+        QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+        QVERIFY(finished.last().at(0).toBool());
+        auto submitted = std::make_shared<bool>(false);
+        page.runJavaScript(QStringLiteral("document.getElementById('form').submit()"), QWebEngineScript::ApplicationWorld,
+                           [submitted](const QVariant &) { *submitted = true; });
+        QTRY_VERIFY_WITH_TIMEOUT(*submitted, 10000);
+        QTest::qWait(300);
+        QVERIFY(!server.hasPendingConnections());
+        QVERIFY(links.isEmpty());
+        QCOMPARE(page.url(), QUrl(QStringLiteral("trojita-imap://msg/0")));
+        const auto previousLoads = finished.size();
+        page.load(remote);
+        QTRY_VERIFY_WITH_TIMEOUT(finished.size() > previousLoads, 10000);
+        QVERIFY(!server.hasPendingConnections());
+        QVERIFY(links.isEmpty());
+        QCOMPARE(page.url(), QUrl(QStringLiteral("trojita-imap://msg/0")));
+    }
+
+    void blocksAutomaticRedirect()
+    {
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        MessageModel message;
+        const QString remote = QStringLiteral("http://127.0.0.1:%1/track").arg(server.serverPort());
+        message.bodyData = QStringLiteral(
+            "<html><head><meta http-equiv=\"refresh\" content=\"0;url=%1\"></head><body>Original message</body></html>")
+            .arg(remote).toUtf8();
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        profile.setRemoteImagesAllowed(true);
+        Gui::WebEngineMessagePage page(&profile);
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        QSignalSpy links(&page, &Gui::WebEngineMessagePage::externalLinkRequested);
+        QVERIFY(page.loadMessagePart(QUrl(QStringLiteral("trojita-imap://msg/0"))));
+        QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+        QTest::qWait(500);
+        QVERIFY(!server.hasPendingConnections());
+        QVERIFY(links.isEmpty());
+        QCOMPARE(page.url(), QUrl(QStringLiteral("trojita-imap://msg/0")));
+    }
+
+    void blocksRemoteImagesInSubframesWithoutConsent()
+    {
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        MessageModel message;
+        const QString remote = QStringLiteral("http://127.0.0.1:%1/track").arg(server.serverPort());
+        message.bodyData = QStringLiteral(
+            "<html><body><iframe srcdoc=\"&lt;img src='%1'&gt;\"></iframe>Original message</body></html>")
+            .arg(remote).toUtf8();
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        Gui::WebEngineMessagePage page(&profile);
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        QSignalSpy blockedImages(&profile, &Gui::WebEngineMessageProfile::remoteImageBlocked);
+        QVERIFY(page.loadMessagePart(QUrl(QStringLiteral("trojita-imap://msg/0"))));
+        QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+        QTRY_VERIFY_WITH_TIMEOUT(!blockedImages.isEmpty(), 10000);
+        QVERIFY(!server.hasPendingConnections());
+    }
+
+    void loadsMessageAndCid()
+    {
+        MessageModel message;
+        message.bodyData = QByteArrayLiteral("<html><body>Message body<img src=\"cid:logo@example\">"
+                                             "<img src=\"trojita-imap://cid/logo%40example\"></body></html>");
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        QVERIFY(profile.isOffTheRecord());
+        QVERIFY(!profile.settings()->testAttribute(QWebEngineSettings::JavascriptEnabled));
+        QVERIFY(!profile.settings()->testAttribute(QWebEngineSettings::LocalStorageEnabled));
+        QWebEnginePage page(&profile);
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        page.load(QUrl(QStringLiteral("trojita-imap://msg/0")));
+        QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+        QVERIFY(finished.last().at(0).toBool());
+
+        auto text = std::make_shared<QString>();
+        auto received = std::make_shared<bool>(false);
+        page.toPlainText([text, received](const QString &result) { *text = result; *received = true; });
+        QTRY_VERIFY_WITH_TIMEOUT(*received, 10000);
+        QVERIFY(text->contains(QStringLiteral("Message body")));
+
+        auto width = std::make_shared<int>(-1);
+        page.runJavaScript(QStringLiteral("document.images[0].naturalWidth + document.images[1].naturalWidth"),
+                           QWebEngineScript::ApplicationWorld,
+                           [width](const QVariant &result) { *width = result.toInt(); });
+        QTRY_COMPARE_WITH_TIMEOUT(*width, 2, 10000);
+    }
+
+    void remoteImagesRequirePerProfileConsent()
+    {
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        int requests = 0;
+        connect(&server, &QTcpServer::newConnection, &server, [&] {
+            while (auto *socket = server.nextPendingConnection()) {
+                connect(socket, &QTcpSocket::readyRead, socket, [socket, &requests] {
+                    if (socket->readAll().isEmpty())
+                        return;
+                    ++requests;
+                    socket->write("HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+                    socket->disconnectFromHost();
+                });
+            }
+        });
+
+        MessageModel message;
+        message.bodyData = QStringLiteral("<html><body><img src=\"http://127.0.0.1:%1/pixel\"></body></html>")
+                               .arg(server.serverPort()).toUtf8();
+        Gui::WebEngineMessageProfile allowed(message.message->index());
+        Gui::WebEngineMessageProfile blocked(message.message->index());
+        QWebEnginePage allowedPage(&allowed);
+        QWebEnginePage blockedPage(&blocked);
+        QSignalSpy blockedImages(&allowed, &Gui::WebEngineMessageProfile::remoteImageBlocked);
+        QSignalSpy first(&allowedPage, &QWebEnginePage::loadFinished);
+        allowedPage.load(QUrl(QStringLiteral("trojita-imap://msg/0")));
+        QTRY_VERIFY_WITH_TIMEOUT(!first.isEmpty(), 15000);
+        QTest::qWait(300);
+        QCOMPARE(requests, 0);
+        QTRY_COMPARE_WITH_TIMEOUT(blockedImages.size(), 1, 10000);
+        QCOMPARE(blockedImages.at(0).at(0).toUrl(),
+                 QUrl(QStringLiteral("http://127.0.0.1:%1/pixel").arg(server.serverPort())));
+
+        allowed.setRemoteImagesAllowed(true);
+        allowedPage.triggerAction(QWebEnginePage::Reload);
+        QTRY_COMPARE_WITH_TIMEOUT(requests, 1, 10000);
+        QSignalSpy second(&blockedPage, &QWebEnginePage::loadFinished);
+        blockedPage.load(QUrl(QStringLiteral("trojita-imap://msg/0")));
+        QTRY_VERIFY_WITH_TIMEOUT(!second.isEmpty(), 15000);
+        QTest::qWait(300);
+        QCOMPARE(requests, 1);
+        QCOMPARE(blockedImages.size(), 1);
+    }
+
+    void waitsForImapPart()
+    {
+        MessageModel message;
+        message.bodyData = QByteArrayLiteral("<html><body>Fetched later</body></html>");
+        message.body->setData(false, Imap::Mailbox::RoleIsFetched);
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        QWebEnginePage page(&profile);
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        page.load(QUrl(QStringLiteral("trojita-imap://msg/0")));
+        QTRY_VERIFY_WITH_TIMEOUT(message.body->fetchRequests > 0, 10000);
+        QVERIFY(finished.isEmpty());
+        message.body->setData(true, Imap::Mailbox::RoleIsFetched);
+        QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+        QVERIFY(finished.last().at(0).toBool());
+        auto text = std::make_shared<QString>();
+        auto received = std::make_shared<bool>(false);
+        page.toPlainText([text, received](const QString &result) { *text = result; *received = true; });
+        QTRY_VERIFY_WITH_TIMEOUT(*received, 10000);
+        QVERIFY(text->contains(QStringLiteral("Fetched later")));
+    }
+
+    void preservesMessageCharset()
+    {
+        MessageModel message;
+        message.bodyData = QByteArray("<html><body>caf\xe9</body></html>");
+        message.body->setData(QStringLiteral("ISO-8859-1"), Imap::Mailbox::RolePartCharset);
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        QWebEnginePage page(&profile);
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        page.load(QUrl(QStringLiteral("trojita-imap://msg/0")));
+        QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+        QVERIFY(finished.last().at(0).toBool());
+        auto text = std::make_shared<QString>();
+        auto received = std::make_shared<bool>(false);
+        page.toPlainText([text, received](const QString &result) { *text = result; *received = true; });
+        QTRY_VERIFY_WITH_TIMEOUT(*received, 10000);
+        QVERIFY(text->contains(QString::fromUtf8("caf\xc3\xa9")));
+    }
+
+    void blocksScriptsFilesAndNonImageRequests()
+    {
+        MessageModel message;
+        QTemporaryFile localImage;
+        QVERIFY(localImage.open());
+        QCOMPARE(localImage.write(message.imageData), message.imageData.size());
+        QVERIFY(localImage.flush());
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        int requests = 0;
+        connect(&server, &QTcpServer::newConnection, &server, [&] {
+            while (auto *socket = server.nextPendingConnection()) {
+                connect(socket, &QTcpSocket::readyRead, socket, [socket, &requests, &localImage] {
+                    if (socket->readAll().isEmpty())
+                        return;
+                    ++requests;
+                    socket->write("HTTP/1.1 302 Found\r\nLocation: " +
+                                  QUrl::fromLocalFile(localImage.fileName()).toEncoded() +
+                                  "\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+                    socket->disconnectFromHost();
+                });
+            }
+        });
+        const QString base = QStringLiteral("http://127.0.0.1:%1").arg(server.serverPort());
+        message.bodyData = QStringLiteral(
+            "<html><head><title>Safe</title><link rel=\"stylesheet\" href=\"%1/style\">"
+            "<script>document.title='Script ran'</script><script src=\"%1/script\"></script></head>"
+            "<body><iframe src=\"%1/frame\"></iframe><img src=\"%1/redirect\">"
+            "<img src=\"%2\"></body></html>")
+            .arg(base, QUrl::fromLocalFile(localImage.fileName()).toString()).toUtf8();
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        profile.setRemoteImagesAllowed(true);
+        QWebEnginePage page(&profile);
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        page.load(QUrl(QStringLiteral("trojita-imap://msg/0")));
+        QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+        QVERIFY(finished.last().at(0).toBool());
+        QTRY_COMPARE_WITH_TIMEOUT(requests, 1, 10000);
+        QCOMPARE(page.title(), QStringLiteral("Safe"));
+        auto widths = std::make_shared<QString>();
+        auto received = std::make_shared<bool>(false);
+        page.runJavaScript(QStringLiteral("Array.from(document.images, i => i.naturalWidth).join(',')"),
+                           QWebEngineScript::ApplicationWorld,
+                           [widths, received](const QVariant &result) { *widths = result.toString(); *received = true; });
+        QTRY_VERIFY_WITH_TIMEOUT(*received, 10000);
+        QCOMPARE(*widths, QStringLiteral("0,0"));
+        QTest::qWait(300);
+        QCOMPARE(requests, 1);
+    }
+
+    void revokingConsentBlocksNewImages()
+    {
+        MessageModel message;
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        int requests = 0;
+        connect(&server, &QTcpServer::newConnection, &server, [&] {
+            while (auto *socket = server.nextPendingConnection()) {
+                connect(socket, &QTcpSocket::readyRead, socket, [socket, &requests, &message] {
+                    if (socket->readAll().isEmpty())
+                        return;
+                    ++requests;
+                    socket->write("HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nCache-Control: max-age=3600\r\nContent-Length: " +
+                                  QByteArray::number(message.imageData.size()) +
+                                  "\r\nConnection: close\r\n\r\n" + message.imageData);
+                    socket->disconnectFromHost();
+                });
+            }
+        });
+        message.bodyData = QStringLiteral("<html><body><img src=\"http://127.0.0.1:%1/pixel\"></body></html>")
+                               .arg(server.serverPort()).toUtf8();
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        profile.setRemoteImagesAllowed(true);
+        QWebEnginePage page(&profile);
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        page.load(QUrl(QStringLiteral("trojita-imap://msg/0")));
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 15000);
+        QTRY_COMPARE_WITH_TIMEOUT(requests, 1, 10000);
+        auto width = std::make_shared<int>(-1);
+        page.runJavaScript(QStringLiteral("document.images[0].naturalWidth"), QWebEngineScript::ApplicationWorld,
+                           [width](const QVariant &result) { *width = result.toInt(); });
+        QTRY_COMPARE_WITH_TIMEOUT(*width, 1, 10000);
+        profile.setRemoteImagesAllowed(false);
+        message.bodyData = QStringLiteral(
+            "<html><body><img src=\"http://127.0.0.1:%1/pixel\">"
+            "<img src=\"http://127.0.0.1:%1/new-pixel\"></body></html>")
+            .arg(server.serverPort()).toUtf8();
+        page.triggerAction(QWebEnginePage::Reload);
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 2, 15000);
+        *width = -1;
+        page.runJavaScript(QStringLiteral("document.images[1].naturalWidth"),
+                           QWebEngineScript::ApplicationWorld,
+                           [width](const QVariant &result) { *width = result.toInt(); });
+        QTRY_COMPARE_WITH_TIMEOUT(*width, 0, 10000);
+        QCOMPARE(requests, 1);
+    }
+
+    void missingPartFails()
+    {
+        MessageModel message;
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        QWebEnginePage page(&profile);
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        page.load(QUrl(QStringLiteral("trojita-imap://msg/99")));
+        QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+        QVERIFY(!finished.last().at(0).toBool());
+    }
+
+    void removedPartFailsPendingRequest()
+    {
+        MessageModel message;
+        message.body->setData(false, Imap::Mailbox::RoleIsFetched);
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        QWebEnginePage page(&profile);
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        page.load(QUrl(QStringLiteral("trojita-imap://msg/0")));
+        QTRY_VERIFY_WITH_TIMEOUT(message.body->fetchRequests > 0, 10000);
+        message.message->removeRow(0);
+        QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+        QVERIFY(!finished.last().at(0).toBool());
+    }
+
+    void modelDestructionFailsPendingRequest()
+    {
+        auto message = std::make_unique<MessageModel>();
+        message->body->setData(false, Imap::Mailbox::RoleIsFetched);
+        Gui::WebEngineMessageProfile profile(message->message->index());
+        QWebEnginePage page(&profile);
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        page.load(QUrl(QStringLiteral("trojita-imap://msg/0")));
+        QTRY_VERIFY_WITH_TIMEOUT(message->body->fetchRequests > 0, 10000);
+        message.reset();
+        QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+        QVERIFY(!finished.last().at(0).toBool());
+    }
+
+    void switchingMessageCancelsPendingResult()
+    {
+        MessageModel message;
+        message.bodyData = QByteArrayLiteral("<html><body>Stale message</body></html>");
+        message.body->setData(false, Imap::Mailbox::RoleIsFetched);
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        QWebEnginePage page(&profile);
+        page.load(QUrl(QStringLiteral("trojita-imap://msg/0")));
+        QTRY_VERIFY_WITH_TIMEOUT(message.body->fetchRequests > 0, 10000);
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        page.setHtml(QStringLiteral("<html><body>Replacement</body></html>"));
+        QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+        message.body->setData(true, Imap::Mailbox::RoleIsFetched);
+
+        auto text = std::make_shared<QString>();
+        auto received = std::make_shared<bool>(false);
+        page.toPlainText([text, received](const QString &result) { *text = result; *received = true; });
+        QTRY_VERIFY_WITH_TIMEOUT(*received, 10000);
+        QVERIFY(text->contains(QStringLiteral("Replacement")));
+        QVERIFY(!text->contains(QStringLiteral("Stale message")));
+    }
+
+    void switchingPartCancelsPendingPage()
+    {
+        MessageModel message;
+        message.bodyData = QByteArrayLiteral("<html><body>Stale part</body></html>");
+        message.body->setData(false, Imap::Mailbox::RoleIsFetched);
+        QByteArray nextData = QByteArrayLiteral("<html><body>Current part</body></html>");
+        message.addPart(QStringLiteral("text/html"), &nextData);
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        Gui::WebEngineMessagePage page(&profile);
+        QVERIFY(page.loadMessagePart(QUrl(QStringLiteral("trojita-imap://msg/0"))));
+        QTRY_VERIFY_WITH_TIMEOUT(message.body->fetchRequests > 0, 10000);
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        QVERIFY(page.loadMessagePart(QUrl(QStringLiteral("trojita-imap://msg/2"))));
+        QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty() && finished.last().at(0).toBool(), 15000);
+        message.body->setData(true, Imap::Mailbox::RoleIsFetched);
+        auto text = std::make_shared<QString>();
+        auto received = std::make_shared<bool>(false);
+        page.toPlainText([text, received](const QString &result) { *text = result; *received = true; });
+        QTRY_VERIFY_WITH_TIMEOUT(*received, 10000);
+        QVERIFY(text->contains(QStringLiteral("Current part")));
+        QVERIFY(!text->contains(QStringLiteral("Stale part")));
+    }
+};
+
+int main(int argc, char **argv)
+{
+    Gui::WebEngineMessageProfile::registerScheme();
+    QApplication app(argc, argv);
+    WebEngineMessageProfileTest test;
+    return QTest::qExec(&test, argc, argv);
+}
+
+#include "test_WebEngineMessageProfile.moc"

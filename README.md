@@ -1,12 +1,13 @@
-# Plasma Mail
+# Plasma Impresario
 
 <p align="center">
-  <img src="src/icons/plasma-mail.svg" alt="Plasma Mail envelope and golden spiral icon" width="240" height="240">
+  <img src="src/icons/plasma-impresario.svg" alt="Plasma Impresario envelope and golden spiral icon" width="240" height="240">
 </p>
 
-**Plasma Mail is the product direction for this KDE desktop mail client.**
+**Plasma Impresario is a mail client for the KDE Plasma desktop only.**
+Other desktop environments are outside its supported product scope.
 This checkout currently builds a Trojitá-based Qt 6 IMAP client; the proposed
-Plasma Mail workflows and redesign are not all implemented yet.
+Plasma Impresario workflows and redesign are not all implemented yet.
 
 **[Build and run](#build-and-run)** · **[Current features](#implemented-today)** ·
 **[Icon](#application-icon)** ·
@@ -14,8 +15,8 @@ Plasma Mail workflows and redesign are not all implemented yet.
 **[Roadmap](docs/ROADMAP.md)** ·
 **[Documentation](docs/README.md)**
 
-> [!NOTE] The app identity, main window and source architecture are still
-> Trojitá. The [backend](docs/parity/backend.md) and
+> [!NOTE] The main window and source architecture are based on Trojitá.
+> The [backend](docs/parity/backend.md) and
 > [UI](docs/parity/ui.md) references distinguish existing behavior from
 > product goals; [caveats](docs/CAVEATS.md) records current limitations.
 
@@ -25,7 +26,9 @@ Plasma Mail workflows and redesign are not all implemented yet.
 Reading messages requires Qt6WebKitWidgets, which is not provided by Qt
 WebEngine and may not be available in your distribution. OpenPGP, QtKeychain,
 Sonnet and other integrations depend on the configured build. See
-`CMakeLists.txt` for exact requirements.
+`CMakeLists.txt` for exact requirements and the
+[compatibility baseline](docs/compatibility.md) for tested environments and
+remaining limits.
 
 For a local build:
 
@@ -33,11 +36,17 @@ For a local build:
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DWITH_WEBKIT=ON
 cmake --build build
 QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure
-./build/trojita
+./build/plasma-impresario
 ```
 
 For an explicitly renderer-free development build, use `-DWITH_WEBKIT=OFF`
 instead. It cannot display message contents.
+
+To develop the experimental WebEngine resource bridge, configure with
+`-DWITH_WEBKIT=OFF -DWITH_WEBENGINE_BRIDGE=ON -DBUILD_TESTING=ON`, then build
+and run the `test_WebEngineMessageProfile` target. This bridge is not yet
+connected to the message viewer. It includes a message-page navigation policy;
+custom schemes must be registered before creating `QApplication`.
 
 For the local automated setup (requires Qt6WebKitWidgets):
 
@@ -47,9 +56,17 @@ For the local automated setup (requires Qt6WebKitWidgets):
 ```
 
 The installer defaults to `$HOME/.local`, including the executable in
-`$HOME/.local/bin`. Ensure that directory is on your `PATH`. It uses sudo for
-missing system packages or a protected installation prefix and skips packages
-it detects as already installed. Use `--no-deps` to skip package installation.
+`$HOME/.local/bin`. Ensure that directory is on your `PATH`. It requests
+privileges for missing system packages or a protected installation prefix and
+skips packages it detects as already installed. Use `--no-deps` to skip
+package installation.
+Package-manager selection uses `/etc/os-release` and fails rather than trying
+an unrelated distribution's package manager. On unsupported distributions,
+install dependencies manually and use `--no-deps`.
+For `pacman`, unavailable optional integration packages are reported and
+skipped; installing missing packages runs a full `pacman -Syu` system upgrade.
+`PLASMA_IMPRESARIO_OS_RELEASE` can point to an alternate os-release file when
+necessary; the old `PLASMA_MAIL_OS_RELEASE` name remains supported.
 Qt6WebKitWidgets may need to be installed separately.
 
 If Qt6WebKitWidgets is unavailable, `./install.sh --without-webkit` installs
@@ -59,11 +76,15 @@ not a substitute for a working mail reader.
 The installer also supports custom build and installation locations:
 
 ```bash
-./install.sh --prefix "$HOME/apps/plasma-mail" --build-dir "$HOME/plasma-mail-build"
+./install.sh --prefix "$HOME/apps/plasma-impresario" --build-dir "$HOME/plasma-impresario-build"
 ```
 
 The installed Trojitá handbook and man page come from `docs/old` and may
 describe historical behavior.
+
+An in-place upgrade may leave the old
+`share/metainfo/org.kde.trojita.appdata.xml` under the installation prefix.
+Remove that obsolete metadata if it remains after the upgrade.
 
 Installer checks can be run separately with `bash tests/test_install.sh`;
 they use mock commands rather than installing packages.
@@ -86,7 +107,7 @@ integrations remain planned rather than shipped.
 The IMAP client separates protocol parsing, tasks, Qt item models, cache and
 widgets. It fetches message parts on demand and can cache them for later reads.
 Profiles (`-p NAME`) run as separate configurations, not as multiple accounts
-in one window. Use `./build/trojita --help` for all launch options; `-c`
+in one window. Use `./build/plasma-impresario --help` for all launch options; `-c`
 composes a message, `-a` opens the address book when available, and
 `mailto:...` opens a prefilled composer.
 
@@ -101,11 +122,9 @@ milestones and priority order.
 
 ## Application icon
 
-The new [Plasma Mail SVG](src/icons/plasma-mail.svg) combines an envelope
-with the Plasma Opus golden-spiral motif at 256 × 256 pixels. KDE's icon
-loader can apply the Plasma accent color; other SVG renderers use the default
-blue. It is an artwork asset only: the application and installed desktop
-entry still use the existing Trojitá icon.
+The [Plasma Impresario SVG](src/icons/plasma-impresario.svg) combines an envelope
+with the Plasma Opus golden-spiral motif at 256 × 256 pixels. The application
+and desktop entry use this icon.
 
 ## Documentation
 

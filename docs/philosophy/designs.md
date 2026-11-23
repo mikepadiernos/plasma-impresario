@@ -1,4 +1,4 @@
-# Plasma Mail interface design
+# Plasma Impresario interface design
 
 **[Documentation](../README.md)** · **[Scope](scope.md)** ·
 **[UI parity](../parity/ui.md)** ·
@@ -25,7 +25,7 @@ The compact pane layout stacks the list above the reader beside the folder
 tree. Wide layout places all three side by side. One-panel-at-a-time navigation
 is also available. Splitter sizes and the selected layout are saved.
 
-## Proposed Plasma Mail shell
+## Proposed Plasma Impresario shell
 
 ```text
 ┌──────────────────────────────────────────────────────────────┐

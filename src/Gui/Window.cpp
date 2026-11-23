@@ -606,7 +606,7 @@ void MainWindow::createActions()
     m_actionSubscribeMailbox->setEnabled(false);
     connect(m_actionSubscribeMailbox, &QAction::triggered, this, &MainWindow::slotSubscribeCurrentMailbox);
 
-    aboutTrojita = new QAction(tr("&About Trojitá..."), this);
+    aboutTrojita = new QAction(tr("&About Plasma Impresario..."), this);
     connect(aboutTrojita, &QAction::triggered, this, &MainWindow::slotShowAboutTrojita);
 
     connectModelActions();
@@ -1000,7 +1000,7 @@ void MainWindow::setupModels()
 
     auto accountIconName = m_settings->value(Common::SettingsNames::imapAccountIcon).toString();
     if (accountIconName.isEmpty()) {
-        qApp->setWindowIcon(UiUtils::loadIcon(QStringLiteral("trojita")));
+        qApp->setWindowIcon(QIcon(QStringLiteral(":/icons/plasma-impresario.svg")));
     } else if (accountIconName.contains(QDir::separator())) {
         // Absolute paths are OK for users, but unsupported by our icon loader
         qApp->setWindowIcon(QIcon(accountIconName));
@@ -1065,9 +1065,9 @@ void MainWindow::handleTrayIconChange()
     QString tooltip;
     auto profileName = QString::fromUtf8(qgetenv("TROJITA_PROFILE"));
     if (profileName.isEmpty()) {
-        tooltip = QStringLiteral("Trojitá");
+        tooltip = QStringLiteral("Plasma Impresario");
     } else {
-        tooltip = QStringLiteral("Trojitá [%1]").arg(profileName);
+        tooltip = QStringLiteral("Plasma Impresario [%1]").arg(profileName);
     }
 
     int unreadCount = 0;
@@ -1148,7 +1148,7 @@ void MainWindow::handleTrayIconChange()
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     if (m_trayIcon && m_trayIcon->isVisible()) {
-        Util::askForSomethingUnlessTold(tr("Trojitá"),
+        Util::askForSomethingUnlessTold(tr("Plasma Impresario"),
                                         tr("The application will continue in systray. This can be disabled within the settings."),
                                         Common::SettingsNames::guiOnSystrayClose, QMessageBox::Ok, this, m_settings);
         hide();
@@ -1453,7 +1453,7 @@ void MainWindow::slotShowSettings()
     if (method != Common::SettingsNames::methodTCP && method != Common::SettingsNames::methodSSL &&
             method != Common::SettingsNames::methodProcess ) {
         Gui::Util::messageBoxCritical(this, tr("No Configuration"),
-                                      tr("No IMAP account is configured. Trojitá cannot do much without one."));
+                                      tr("No IMAP account is configured. Plasma Impresario cannot do much without one."));
     }
     applySizesAndState();
 }
@@ -2591,15 +2591,15 @@ void MainWindow::slotUpdateWindowTitle()
         profileName = QLatin1String(" [") + profileName + QLatin1Char(']');
     if (mailbox.isValid()) {
         if (mailbox.data(Imap::Mailbox::RoleUnreadMessageCount).toInt()) {
-            //~ singular %1 - %n unread - Trojitá
-            //~ plural %1 - %n unread - Trojitá
-            setWindowTitle(tr("%1 - %n unread - Trojitá", nullptr, mailbox.data(Imap::Mailbox::RoleUnreadMessageCount).toInt())
+            //~ singular %1 - %n unread - Plasma Impresario
+            //~ plural %1 - %n unread - Plasma Impresario
+            setWindowTitle(tr("%1 - %n unread - Plasma Impresario", nullptr, mailbox.data(Imap::Mailbox::RoleUnreadMessageCount).toInt())
                            .arg(mailbox.data(Imap::Mailbox::RoleShortMailboxName).toString()) + profileName);
         } else {
-            setWindowTitle(tr("%1 - Trojitá").arg(mailbox.data(Imap::Mailbox::RoleShortMailboxName).toString()) + profileName);
+            setWindowTitle(tr("%1 - Plasma Impresario").arg(mailbox.data(Imap::Mailbox::RoleShortMailboxName).toString()) + profileName);
         }
     } else {
-        setWindowTitle(tr("Trojitá") + profileName);
+        setWindowTitle(tr("Plasma Impresario") + profileName);
     }
 }
 

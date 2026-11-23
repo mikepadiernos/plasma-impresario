@@ -1,4 +1,4 @@
-# Plasma Mail documentation
+# Plasma Impresario documentation
 
 **[Application](../README.md)** · **[Roadmap](ROADMAP.md)** ·
 **[Pending tasks](TODO.md)** · **[Bugs](BUGS.md)** ·
@@ -19,9 +19,10 @@ development status.
 | Guide | What it covers |
 | --- | --- |
 | [Project README](../README.md) | Installation, feature direction and desktop integration |
+| [Compatibility baseline](compatibility.md) | M01 target environment, dependencies and verification limits |
 | [Scope and objective](philosophy/scope.md) | Target workflows and product boundaries |
 | [Design direction](philosophy/designs.md) | Shell structure, reading flow and interface principles |
-| [Inspirations](philosophy/inspirations.md) | Trojitá, Aqua Mail, The Bat!, Kontact and Plasma influences |
+| [Inspirations](philosophy/inspirations.md) | Trojitá, Aqua Mail, Vivaldi Mail, The Bat!, Kontact and Plasma influences |
 | [Project instructions](../CLAUDE.md) | Development conventions and project workflow |
 
 ## Plan and track

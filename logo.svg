@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 240" role="img" aria-labelledby="title desc">
-  <title id="title">Plasma Mail</title>
+  <title id="title">Plasma Impresario</title>
   <desc id="desc">A stylized app icon representing a mail client.</desc>
   <defs>
     <linearGradient id="bg" x1="0" x2="1">
@@ -11,6 +11,6 @@
   <rect x="90" y="52" width="160" height="136" rx="22" fill="url(#bg)"/>
   <path d="M112 95 l68 54 68-54" fill="none" stroke="#eff6ff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M114 110 v57 h124 v-57" fill="none" stroke="#eff6ff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="300" y="124" fill="#f8fafc" font-family="DejaVu Sans, Arial, sans-serif" font-size="58" font-weight="700">Plasma Mail</text>
+  <text x="300" y="124" fill="#f8fafc" font-family="DejaVu Sans, Arial, sans-serif" font-size="30" font-weight="700">Plasma Impresario</text>
   <text x="302" y="168" fill="#cbd5e1" font-family="DejaVu Sans, Arial, sans-serif" font-size="22">KDE-inspired messaging workflow</text>
 </svg>
