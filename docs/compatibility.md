@@ -12,37 +12,67 @@ configuration can be advertised as verified.
 | Distribution and architecture | CachyOS on x86_64, using its Arch-family `pacman` packages | A renderer-free build and user-prefix install were performed on CachyOS. Other Arch derivatives and other architectures are not verified. |
 | Desktop and session | KDE Plasma 6, Wayland | Plasma Workspace 6.8.3 and a KDE Wayland session were present on the observed host. Account setup and message reading in the desktop session have not been verified. X11 is not yet a release target. |
 | Compiler | GCC with C++20 support | GCC 16.2.1 built the renderer-free application on the observed host. No older GCC minimum or Clang version has been validated. |
-| Qt | Qt 6.7 or newer as required by CMake | Qt Core 6.12.0 was used for the observed build; the experimental WebEngine tests used the installed WebEngine package reporting 6.140.0. These results do not validate every version from 6.7 onward. |
-| KDE Frameworks | KF6 ItemModels and ECM compatible with the selected Qt | ItemModels and ECM 6.32.0 were present. CMake does not currently declare a minimum version for either package; earlier versions are not verified. |
+| Qt | Qt 6.7 or newer as required by CMake | Qt Core 6.12.0 configured the renderer-free build. This does not validate every version from 6.7 onward. |
+| KDE Frameworks | KF6 ItemModels and ECM compatible with the selected Qt | ItemModels and ECM 6.32.0 were used. The project does not declare explicit minimums; CMake's package summary reports an effective 6.25.0 minimum for both. |
 | Build tools | CMake and Ninja | CMake 4.5.1 and Ninja 1.13.2 were used. CMake declares 3.16 as its minimum, but that minimum has not been tested with the required ECM/Qt toolchain. |
 
-Debian/Ubuntu (`apt-get`), Fedora/RHEL-family (`dnf`), and openSUSE/SUSE
-(`zypper`) have installer branches but are **not verified release targets**.
-The installer can also select `paru`, `yay`, or `pamac` on Arch-derived systems
-when earlier candidates are unavailable; those paths are not equivalent to a
-verified installation. Package names and repository availability vary between
-releases. Unsupported distributions must install dependencies manually and
-use `--no-deps`.
+For M01.01, CachyOS x86_64 with `pacman` is the only verified distribution and
+package-manager target. This records a build environment, not support for a
+complete reader; the M01 release gate remains open. Debian/Ubuntu (`apt-get`),
+Fedora/RHEL-family (`dnf`), and openSUSE/SUSE (`zypper`) have installer
+branches but are **not verified release targets**. The installer can select
+`paru`, `yay`, or `pamac` on Arch-derived systems, but those paths are also
+unverified. Package names and repository availability vary between releases.
+Unsupported distributions must install dependencies manually and use
+`--no-deps`.
 
 ## Dependencies and limitations
 
-The current CMake configuration requires Qt Core, Core5Compat, DBus, Network,
-Sql, Svg, Test and Widgets, plus ECM and KF6 ItemModels. Qt Test and DBus are
-currently found unconditionally even when tests or DBus integration are
-disabled. The minimum effective versions can be raised by the installed Qt or
-KF6 packages.
+### CMake and CachyOS package audit
 
-On the observed CachyOS host the installer names `base-devel`, `cmake`,
-`ninja`, `pkgconf`, `extra-cmake-modules`, `qt6-base`, `qt6-declarative`,
-`qt6-svg`, `qt6-tools`, `qt6-5compat`, and `kitemmodels` were installed.
-That observation does not establish that all of these are minimal CMake
-requirements or that the installer package list works on every repository
-configuration. On `pacman`, the installer attempts to install optional
-integrations only when they are installed or available in configured
-repositories, and warns about unavailable ones. `mimetic` was absent locally
-and its availability depends on configured repositories. Other package-manager
-branches have not yet been audited for this behavior. With `pacman`, installing
-missing packages runs `pacman -Syu`, which also upgrades the system.
+The project declares CMake 3.16, C++20 and Qt 6.7.0 as its minimums. ECM and
+KF6 ItemModels are required without explicit project-level minimum versions;
+the current configure reports an effective minimum of 6.25.0 for both. The
+observed toolchain used CMake 4.5.1, Ninja 1.13.2, GCC 16.2.1, ECM 6.32.0,
+KF6 ItemModels 6.32.0 and Qt 6.12.0. No minimum GCC version or tested Clang
+version is established. Qt Test and DBus are required unconditionally by
+CMake, even if `BUILD_TESTING` or `WITH_DBUS` is disabled.
+
+| Required build dependency | CachyOS package | Observed package version |
+| --- | --- | --- |
+| CMake 3.16 or newer | `cmake` | 4.5.1 |
+| C++20 compiler | `base-devel` | GCC 16.2.1 |
+| Ninja generator | `ninja` | 1.13.2 |
+| ECM CMake modules | `extra-cmake-modules` | 6.32.0 |
+| Qt Core, DBus, Network, Sql, Test and Widgets, Qt 6.7.0 or newer | `qt6-base` | 6.12.0 |
+| Qt Core5Compat, Qt 6.7.0 or newer | `qt6-5compat` | 6.12.0 |
+| Qt Svg, Qt 6.7.0 or newer | `qt6-svg` | 6.12.0 |
+| KF6 ItemModels | `kitemmodels` | 6.32.0 |
+
+The installer also installs `pkgconf` 3.0.11, `qt6-tools` 6.12.0 and
+`qt6-declarative` 6.12.0. These are not direct components of the root CMake Qt
+requirement; `qt6-declarative` is used by the optional WebEngine bridge
+dependency chain. The installer does not pin package versions, so the versions
+above are observations from the tested rolling CachyOS repositories, not
+package constraints.
+
+| Optional feature | CMake dependency and constraint | CachyOS package and evidence |
+| --- | --- | --- |
+| Message display | Qt6WebKitWidgets when `WITH_WEBKIT=ON` (the default) | Not installed on the observed host; a complete reader build is not verified. |
+| Experimental WebEngine bridge | Qt6 WebEngineWidgets, Qt 6.7.0 or newer | `qt6-webengine` 6.140.0 is installed, but bridge configuration fails in Qt's QML package setup with Qt 6.12.0. This bridge is not a message viewer. |
+| MIME parsing | Mimetic | `mimetic` is not installed and is disabled by CMake. |
+| OpenPGP messages | Gpgmepp and QGpgmeQt6, each at least 1.24.0 | `gpgme` 2.3.1, `gpgmepp` 2.2.0 and `qgpgme` 2.2.0 are installed and detected by CMake. |
+| Secure credential plugin | Qt6Keychain | `qtkeychain-qt6` 0.18.0 is installed and detected by CMake. |
+| Spell checking | KF6Sonnet at least 6.21.0 | `sonnet` 6.32.0 is installed and detected by CMake. |
+| Akonadi address book plugin | KPim6AkonadiContactCore | `akonadi` and `akonadi-contacts` 26.08.3 are installed and detected by CMake. |
+| Handbook generation | KF6DocTools at least 6.26.0 | `kdoctools` 6.32.0 is installed and detected by CMake. |
+
+The CMake package summary is the source for effective dependency constraints;
+the installer does not validate package versions before building. Other
+installer package lists have not been audited and must not be treated as
+supported distribution targets. On `pacman`, unavailable optional integration
+packages are skipped with a warning. Installing missing packages runs
+`pacman -Syu`, which also upgrades the system.
 
 | Area | Dependency or behavior | Current limitation |
 | --- | --- | --- |
@@ -59,15 +89,14 @@ separate development build directory so an existing installation is untouched:
 
 ```bash
 cmake -S . -B build-m01 -G Ninja \
-  -DWITH_WEBKIT=OFF -DWITH_WEBENGINE_BRIDGE=ON -DBUILD_TESTING=ON
-cmake --build build-m01 --target test_SqlCache test_Imap_Tasks_OpenConnection \
-  test_Imap_MsgPartNetAccessManager test_WebEngineMessageProfile
-QT_QPA_PLATFORM=offscreen ctest --test-dir build-m01 \
-  -R '^(test_SqlCache|test_Imap_Tasks_OpenConnection|test_Imap_MsgPartNetAccessManager|test_WebEngineMessageProfile)$' \
-  --output-on-failure
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DWITH_WEBKIT=OFF -DWITH_WEBENGINE_BRIDGE=OFF -DBUILD_TESTING=ON
+cmake --build build-m01 --parallel 2
+QT_QPA_PLATFORM=offscreen ctest --test-dir build-m01 --output-on-failure
 ```
 
-These are component tests, including WebEngine with synthetic message data;
-they do not verify a real IMAP account, Plasma desktop integration, an
-installed application's plugins, or message-reading workflows. Full
-distribution, session, installation, and account smoke tests remain open.
+This renderer-free configuration does not verify message rendering, a real
+IMAP account, Plasma desktop integration, installed plugins, or message-reading
+workflows. The bridge-enabled configuration is currently blocked by the
+installed Qt WebEngine/QML package combination. Full distribution, session,
+installation, and account smoke tests remain open.
