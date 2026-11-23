@@ -267,7 +267,11 @@ installation depends on the working renderer.
 - [ ] Provide compact, comfortable, and focus layout preferences with accessible defaults [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570223)
 - [ ] Support per-account and per-folder behavior where appropriate and explain inherited defaults [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570232)
 - [ ] Validate settings persistence, account isolation, and behavior when an integration is unavailable [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570240)
-- [ ] Define product-level workspace settings for mail, notes, contacts, and cross-app context as part of a Plasma Opus-aware workflow [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541421)
+- [ ] Define product-level workspace settings for mail, notes, contacts, and
+  cross-app context as part of a Plasma Opus-aware workflow. Allow email
+  accounts to be attached to workspaces and thereby associated with the
+  corresponding Plasma Activities.
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541421)
 - [ ] Add defaults and toggles for mail-to-calendar, mail-to-notes, and work-context-aware productivity actions when those integrations are enabled [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570247)
 - [ ] Keep unavailable or optional integrations gracefully hidden and clearly explained in the settings surface [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570281)
 
@@ -289,7 +293,10 @@ installation depends on the working renderer.
   keyboard access, and visible focus; retain disclosure indicators for
   expandable trees.
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570268)
-- [ ] Follow the active Plasma color scheme, accent, icon theme, and light or dark appearance [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570286)
+- [ ] Follow the active Plasma color scheme, accent, icon theme, and light or
+  dark appearance. Provide an option to use a symbolic icon from the active
+  icon theme in the system tray.
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570286)
 - [ ] Validate contrast, text scaling, focus indicators, and high-contrast behavior across panes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570471)
 - [ ] Keep compact and comfortable layouts readable across common window sizes and display scales [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570493)
 

@@ -22,9 +22,10 @@ and project status before acting.
   with project-board decisions.
 - M01 installer: package-manager selection now follows distribution identity
   and fails for unsupported or missing managers instead of selecting an
-  unrelated one. Pacman skips unavailable optional packages with a warning;
-  package lists and real installations still need verification across
-  supported distribution families.
+  unrelated one. The installer supports dependency-only checks, build-only
+  builds and explicit renderer selection. Its mock suite and real temporary-prefix
+  renderer-free/WebEngine installations passed on CachyOS. Package lists and
+  real installations still need verification across supported distribution families.
 - M01.02 renderer: the WebEngine reader is integrated with MIME parts,
   alternatives, attachments, headers, source, asynchronous quoting and search.
   The renderer-enabled build, all 35 CTest cases, temporary-prefix installation,
