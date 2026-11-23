@@ -28,9 +28,10 @@ private slots:
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
         auto config = KSharedConfig::openConfig(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
-        QStandardItemModel model(2, 1);
+        QStandardItemModel model(3, 1);
         model.setData(model.index(0, 0), QStringLiteral("Inbox"));
-        model.setData(model.index(1, 0), QStringLiteral("A message"));
+        model.setData(model.index(1, 0), QStringLiteral("Projects / Quarterly Reports / Regional Archive / Long Folder Name"));
+        model.setData(model.index(2, 0), QStringLiteral("Re: Meeting notes and the attached quarterly status report"));
         QTreeView mailboxes;
         QTreeView messages;
         for (auto *view : {&mailboxes, &messages}) {
@@ -57,30 +58,41 @@ private slots:
         QVERIFY(messages.visualRect(model.index(0, 0)).height() > compactMessageHeight);
         QCOMPARE(mailboxes.currentIndex(), model.index(1, 0));
         QCOMPARE(messages.currentIndex(), model.index(1, 0));
+        QTest::keyClick(&mailboxes, Qt::Key_Down);
+        QTest::keyClick(&messages, Qt::Key_Down);
+        QCOMPARE(mailboxes.currentIndex(), model.index(2, 0));
+        QCOMPARE(messages.currentIndex(), model.index(2, 0));
 
         menu.actions().at(0)->trigger();
         QCoreApplication::processEvents();
         QCOMPARE(mailboxes.visualRect(model.index(0, 0)).height(), compactMailboxHeight);
         QCOMPARE(messages.visualRect(model.index(0, 0)).height(), compactMessageHeight);
+        QCOMPARE(mailboxes.currentIndex(), model.index(2, 0));
+        QCOMPARE(messages.currentIndex(), model.index(2, 0));
+        QTest::keyClick(&mailboxes, Qt::Key_Up);
+        QTest::keyClick(&messages, Qt::Key_Up);
+        QCOMPARE(mailboxes.currentIndex(), model.index(1, 0));
+        QCOMPARE(messages.currentIndex(), model.index(1, 0));
     }
 
     void restoresDensityAcrossMenus()
     {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        auto config = KSharedConfig::openConfig(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        const QString path = directory.filePath(QStringLiteral("settings"));
         QTreeView mailboxes;
         QTreeView messages;
         mailboxes.setItemDelegate(new Gui::DensityDelegate(&mailboxes));
         messages.setItemDelegate(new Gui::DensityDelegate(&messages));
         {
+            auto config = KSharedConfig::openConfig(path, KConfig::SimpleConfig);
             Gui::DensityMenu menu(&mailboxes, &messages, config);
             QCOMPARE(menu.actions().size(), 2);
             QVERIFY(menu.actions().at(0)->isChecked());
             menu.actions().at(1)->trigger();
+            QVERIFY(config->sync());
         }
-        QVERIFY(config->sync());
-        config->reparseConfiguration();
+        auto config = KSharedConfig::openConfig(path, KConfig::SimpleConfig);
         Gui::DensityMenu restored(&mailboxes, &messages, config);
         QVERIFY(restored.actions().at(1)->isChecked());
     }

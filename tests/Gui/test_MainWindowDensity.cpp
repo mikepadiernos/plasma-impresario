@@ -109,9 +109,11 @@ private slots:
         const int mailboxHeight = mailboxDelegate->sizeHint(option, index).height();
         const int messageHeight = messageDelegate->sizeHint(option, index).height();
 
+        const auto sizesBeforeDensityChange = splitter->sizes();
         menu->actions().at(1)->trigger();
         QVERIFY(mailboxDelegate->sizeHint(option, index).height() > mailboxHeight);
         QVERIFY(messageDelegate->sizeHint(option, index).height() > messageHeight);
+        QCOMPARE(splitter->sizes(), sizesBeforeDensityChange);
         QVERIFY(QMetaObject::invokeMethod(&window, "slotLayoutWide"));
         splitter = qobject_cast<QSplitter *>(mailboxes->parentWidget());
         QVERIFY(splitter);
