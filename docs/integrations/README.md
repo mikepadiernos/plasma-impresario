@@ -3,8 +3,9 @@
 **[Documentation](../README.md)** · **[Roadmap](../ROADMAP.md)** ·
 **[Scope](../philosophy/scope.md)**
 
-Integration guides separate desktop and service behavior from core mail
-workflows.
+Integration guides itemize the intended behavior, suggested implementation
+approaches, recommendations and verification scenarios for each integration.
+They separate planned work from the current mail baseline.
 
 | Guide                         | Purpose                                               |
 | ----------------------------- | ----------------------------------------------------- |
