@@ -3,6 +3,8 @@
 */
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
+#include "Composer/Submission.h"
+#include "Gui/ComposeWidget.h"
 #include "Gui/DensityDelegate.h"
 #include "Gui/DensityMenu.h"
 #include "Gui/MailBoxTreeView.h"
@@ -41,6 +43,7 @@ private slots:
         settings.setValue(Common::SettingsNames::imapMethodKey, Common::SettingsNames::methodSSL);
         settings.setValue(Common::SettingsNames::imapStartMode, Common::SettingsNames::netOffline);
         settings.setValue(Common::SettingsNames::guiShowSystray, false);
+        settings.setValue(Common::SettingsNames::msaMethodKey, Common::SettingsNames::methodSMTP);
 
         auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
         KConfigGroup(config, QStringLiteral("Appearance")).writeEntry("MailboxSidebarPosition", QStringLiteral("right"));
@@ -132,6 +135,19 @@ private slots:
         QVERIFY(splitter);
         QCOMPARE(splitter->indexOf(mailboxes), splitter->count() - 1);
         QVERIFY(menu->actions().at(1)->isChecked());
+
+        const QByteArray initialProfile = qgetenv("TROJITA_PROFILE");
+        qputenv("TROJITA_PROFILE", "different-profile");
+        auto *composer = Gui::ComposeWidget::createBlank(&window);
+        if (initialProfile.isEmpty())
+            qunsetenv("TROJITA_PROFILE");
+        else
+            qputenv("TROJITA_PROFILE", initialProfile);
+        QVERIFY(composer);
+        auto *submission = composer->findChild<Composer::Submission *>();
+        QVERIFY(submission);
+        QCOMPARE(submission->accountId(), initialProfile.isEmpty() ? QStringLiteral("account-0") : QString::fromUtf8(initialProfile));
+        delete composer;
     }
 };
 
@@ -145,7 +161,7 @@ int main(int argc, char **argv)
     qputenv("XDG_DATA_HOME", home.filePath(QStringLiteral("data")).toUtf8());
     qputenv("XDG_CACHE_HOME", home.filePath(QStringLiteral("cache")).toUtf8());
     qputenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent/plasma-impresario-test");
-    qunsetenv("TROJITA_PROFILE");
+    qputenv("TROJITA_PROFILE", qgetenv("PLASMA_TEST_PROFILE") == "named" ? QByteArray("work-profile") : QByteArray());
     QStandardPaths::setTestModeEnabled(true);
 #ifdef TROJITA_HAVE_WEBENGINE
     Gui::WebEngineMessageProfile::registerScheme();

@@ -1009,6 +1009,10 @@ if(BUILD_TESTING)
             set_tests_properties(test_MainWindowDensity PROPERTIES
                 TIMEOUT 30
                 ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
+            add_test(NAME test_MainWindowDensityNamedProfile COMMAND test_MainWindowDensity)
+            set_tests_properties(test_MainWindowDensityNamedProfile PROPERTIES
+                TIMEOUT 30
+                ENVIRONMENT "PLASMA_TEST_PROFILE=named;QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
         endif()
     endif()
     if(WITH_DESKTOP AND UNIX AND NOT APPLE)

@@ -1028,11 +1028,7 @@ OutgoingPage::OutgoingPage(SettingsDialog *parent, QSettings &s): QScrollArea(pa
 {
     using Common::SettingsNames;
     Ui_OutgoingPage::setupUi(this);
-    // FIXME: use another account-id at some point in future
-    //        we are now using the profile to avoid overwriting passwords of
-    //        other profiles in secure storage
-    QString profileName = QString::fromUtf8(qgetenv("TROJITA_PROFILE"));
-    m_smtpAccountSettings = new MSA::Account(this, &s, profileName);
+    m_smtpAccountSettings = new MSA::Account(this, &s, m_parent->imapAccess()->accountName());
 
     portWarningLabel->setStyleSheet(SettingsDialog::warningStyleSheet);
 
@@ -1065,7 +1061,7 @@ OutgoingPage::OutgoingPage(SettingsDialog *parent, QSettings &s): QScrollArea(pa
     connect(sendmail, &LineEdit::textEditingFinished, m_smtpAccountSettings, &MSA::Account::setPathToSendmail);
 
     m_pwWatcher = new UiUtils::PasswordWatcher(this, m_parent->pluginManager(),
-                                               profileName.isEmpty() ? QStringLiteral("account-0") : profileName,
+                                               m_parent->imapAccess()->credentialAccountId(),
                                                QStringLiteral("smtp"));
     connect(m_pwWatcher, &UiUtils::PasswordWatcher::stateChanged, this, &OutgoingPage::updateWidgets);
     connect(m_pwWatcher, &UiUtils::PasswordWatcher::savingFailed, this, &OutgoingPage::saved);

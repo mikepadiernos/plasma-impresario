@@ -105,6 +105,9 @@ public:
 
     QString accountName() const;
 
+    /** Return the account identifier used for credential storage. */
+    QString credentialAccountId() const;
+
     QString accountIconName() const;
     void setAccountIconName(const QString &iconName);
 

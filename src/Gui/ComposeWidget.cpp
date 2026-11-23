@@ -174,9 +174,8 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
 
     Q_ASSERT(m_mainWindow);
     m_mainWindow->registerComposeWindow(this);
-    QString profileName = QString::fromUtf8(qgetenv("TROJITA_PROFILE"));
-    QString accountId = profileName.isEmpty() ? QStringLiteral("account-0") : profileName;
-    m_submission = new Composer::Submission(this, m_composer, m_mainWindow->imapModel(), msaFactory, accountId);
+    m_submission = new Composer::Submission(this, m_composer, m_mainWindow->imapModel(), msaFactory,
+                                             m_mainWindow->imapAccess()->credentialAccountId());
     connect(m_submission, &Composer::Submission::succeeded, this, &ComposeWidget::sent);
     connect(m_submission, &Composer::Submission::failed, this, &ComposeWidget::gotError);
     connect(m_submission, &Composer::Submission::failed, this, [this](const QString& message) {
