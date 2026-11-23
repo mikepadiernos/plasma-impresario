@@ -155,7 +155,19 @@ installation depends on the working renderer.
 [Mail shell](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314539964) ·
 [Accounts and mailbox state](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540057)
 
-- [ ] Build the header, left navigation, main message list, preview pane, and footer/status layout [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314539964)
+- [ ] Build a Plasma Opus-inspired shell with a header, left column, main
+  column, right column, and footer. Place sidebar panels on either side;
+  arrange message-list and reading panes side by side or stacked in the main
+  column; and support configurable embedded panels for metadata, attachments,
+  contact information, and related content. See the
+  [shell and interface widget designs](philosophy/designs.md).
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314539964)
+- [ ] Provide Thunderbird-inspired tabs for mail views and messages as an
+  optional setting, **off by default**. Allow the tab bar in any shell region,
+  horizontally or vertically; when first enabled, place it in the header by
+  default. Save its placement and orientation. Preserve tab context, keyboard
+  access, drafts and pending work when switching, closing or disabling tabs.
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=315436993)
 - [ ] Define account models, connection state, folder structure, and mailbox lifecycle [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540057)
 - [ ] Support multiple simultaneous mail accounts in one window with independent account state and configuration [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314607650)
 - [ ] Design protocol-aware account and capability models that preserve existing IMAP behavior and allow POP3 and JMAP integrations in M05 [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314594590)
@@ -220,6 +232,12 @@ installation depends on the working renderer.
 [Security and privacy](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540934)
 
 - [ ] Connect the app to KDE and Plasma system services, notifications, and account lifecycle behavior [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540788)
+- [ ] Provide optional Plasma desktop and panel widgets, including an
+  unread-mail marquee inspired by The Bat!'s MailTicker. Support configurable
+  scope, privacy, accessibility, and unavailable-service feedback; consider
+  unread-count, sync-status, and compose widgets. See the
+  [integration design](integrations/kde-plasma.md#plasma-widgets).
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=315433787)
 - [ ] Add provider support for Gmail, Outlook, and other major mail services alongside IMAP [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540857)
 - [ ] Support consumer Outlook.com, Hotmail, and Live accounts using provider-supported OAuth and mail interfaces [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314595964)
 - [ ] Support Exchange Online and on-premises Exchange Server mail accounts using supported interfaces and authentication, subject to server and tenant policies [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314595997)
@@ -261,7 +279,10 @@ installation depends on the working renderer.
 [Workspace integrations](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541421)
 
 - [ ] Design the settings surface using a Plasma Opus-style layout: grouped, readable, and extensible [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541330)
-- [ ] Cover appearance, density, mail behavior, notifications, workspaces, and productivity preferences [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570018)
+- [ ] Cover appearance, density, mail behavior, notifications, workspaces, and
+  productivity preferences. Include tabs settings for enablement (off by
+  default), placement (header by default) and orientation.
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570018)
 - [ ] Define account-specific options and default configuration for the app shell [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570030)
 - [ ] Keep the settings model separate from the core feature work so it can evolve after the app is working [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570033)
 - [ ] Group account, appearance, reading, composition, privacy, notifications, and integration settings consistently [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570214)
@@ -283,12 +304,18 @@ installation depends on the working renderer.
 [Accessible density](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541647)
 
 - [ ] Rename the application, installed identity, documentation, repository, and project board to Plasma Impresario while preserving Trojitá configuration and compatibility aliases [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314606649)
+- [ ] Transition project-owned functions, symbols, namespaces, filenames, and
+  code conventions to Plasma Impresario. Preserve historical Trojitá references
+  in parity documents, old folders, `inspirations.md`, and README files, as
+  well as required copyright and license attribution. Plan and verify
+  migration of existing configuration and launch compatibility.
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=315412467)
 - [ ] Define the default visual language, palette, and KDE-native desktop styling [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541568)
 - [ ] Establish spacing, density, and readability rules for all mail panes.
   Provide theme spacing options for compact, normal, comfortable, and custom
   spacing. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541647)
 - [ ] Align the product shell with Plasma visual expectations for polish and
-  clarity. Replace the carets beside left sidebar icons that open menus with
+  clarity. Replace the carets beside navigation toolbar icons that open menus with
   small theme-accented corner markers on the icons. The marker indicates an
   available menu, not selection. Preserve contrast, accessible menu semantics,
   keyboard access, and visible focus; retain disclosure indicators for
@@ -388,7 +415,15 @@ to mail workflows without blocking this milestone on unavailable features.
 
   - [ ] Refine navigation, panes, toolbars, layouts, density, focus states, and keyboard interaction [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571161)
   - [ ] Preserve pane sizes, visibility, and focus across restarts and layout changes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571171)
-  - [ ] Make primary actions discoverable without crowding compact layouts; allow toolbar customization [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571181)
+  - [ ] Make primary actions discoverable without crowding compact layouts.
+    Adopt Plasma Opus-style toolbar placement, mixed toolbar items and widgets,
+    and a shared customization mode. Provide
+    an Impresario-specific navigation icon toolbar that can occupy any shell
+    region. In either side column, support placement at the top, bottom,
+    left, or right edge, including vertical placement. Also support a vertical
+    full-app-height placement at either window edge, from the top of the header
+    to the bottom of the status bar; other toolbars remain horizontal.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571181)
   - [ ] Verify keyboard-only navigation, visible focus, and predictable focus restoration after dialogs and actions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571193)
   - [ ] Validate compact, comfortable, and focus modes at narrow window sizes and different display scales [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571207)
   - [ ] Keep menu and toolbar actions synchronized with the active account, folder, and selection, including while views refresh [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571217)
