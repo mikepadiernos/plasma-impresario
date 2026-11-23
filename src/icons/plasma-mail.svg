@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 48 48">
+  <defs>
+    <style id="current-color-scheme" type="text/css">
+      .ColorScheme-Accent { color: #3daee9; }
+    </style>
+    <linearGradient id="envelope" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#f9fafb"/>
+      <stop offset="1" stop-color="#dce4e8"/>
+    </linearGradient>
+  </defs>
+  <path d="M4 20.5 24 8l20 12.5L24 35z" fill="#bbc6cc"/>
+  <path d="M10 4h20l8 8v29H10z" class="ColorScheme-Accent" fill="currentColor"/>
+  <path d="M30 4v8h8z" fill="#000000" fill-opacity=".26"/>
+  <g fill="none" stroke="#ffffff" stroke-width=".8">
+    <circle cx="23" cy="19" r="7"/>
+    <circle cx="25.67" cy="19" r="4.33"/>
+    <circle cx="25.67" cy="20.65" r="2.68"/>
+    <circle cx="24.65" cy="20.65" r="1.66"/>
+    <circle cx="24.65" cy="20.02" r="1.02"/>
+    <circle cx="25.04" cy="20.02" r=".63"/>
+  </g>
+  <path d="M4 20.5 20 32h8l16-11.5V44H4z" fill="url(#envelope)"/>
+  <path d="M4 44 20 32h8l16 12z" fill="#000000" fill-opacity=".08"/>
+  <path d="M4 20.5 20 32M44 20.5 28 32" fill="none" stroke="#ffffff" stroke-opacity=".5" stroke-width=".35"/>
+  <path d="M4 43.8h40" fill="none" stroke="#8e9ba2" stroke-opacity=".35" stroke-width=".4"/>
+</svg>

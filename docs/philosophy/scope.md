@@ -1,43 +1,71 @@
 # Plasma Mail scope and objective
 
-This page is a placeholder for product scope.
+**[Documentation](../README.md)** · **[Roadmap](../ROADMAP.md)** ·
+**[Designs](designs.md)** · **[Inspirations](inspirations.md)**
 
-## Objective
+Plasma Mail is a desktop-first mail client for KDE users who need reliable
+account management, fast triage and readable conversations.
 
-Plasma Mail should provide a clear, reliable, desktop-first mail experience for KDE users.
+> [!IMPORTANT] IMAP and SMTP reliability, account isolation and predictable
+> message state are foundational. Provider-specific, workspace and desktop
+> integrations expand the product after those fundamentals are complete.
 
-## Questions to answer
+## Current baseline
 
-- Who is the target user?
-- Which account types and protocols are in scope?
-- What defines the minimum viable feature set?
-- How should the app integrate with Plasma and KDE services?
+This checkout currently contains a Trojitá-based, IMAP-first client, not the
+proposed multi-provider Plasma Mail product. IMAP mailboxes remain server-side;
+the application synchronizes metadata and fetches message parts on demand,
+with an optional local cache. SMTP and other submission paths handle outgoing
+mail. The [backend parity guide](../parity/backend.md) describes the current
+implementation; [caveats](../CAVEATS.md) records its security and platform
+limitations.
 
-## Draft direction
+## Target experience
 
-Document the product priorities, constraints, and design boundaries here as the project matures.
+- configure and manage multiple mail identities;
+- synchronize folders and preserve unread and offline state;
+- read, search and organize threaded conversations;
+- compose and recover drafts without losing account context;
+- perform bulk actions with clear progress and failure recovery;
+- use Plasma-native notifications, credentials, files and settings.
 
-## Feature directions from the inspiration set
+## Scope boundaries
 
-- IMAP reliability and folder accuracy, modeled after Trojitá
-- Compact triage flows and quick actions, inspired by Aqua Mail
-- Powerful desktop mail management and keyboard-first habits, inspired by The Bat!
-- KDE-native polish and system integration, aligned with Kontact and Plasma conventions
+| In scope | Requires explicit validation |
+| --- | --- |
+| Desktop Qt/QWidget and KDE Frameworks application | Initial supported distribution and dependency matrix |
+| IMAP and SMTP workflows | Provider-specific authentication and capability differences |
+| Local cache and optional Maildir organization | Cache retention, storage limits and migration behavior |
+| Plasma and KDE desktop services | Session, notification and service availability |
+| Accessibility, localization and keyboard workflows | Screen-reader and scaled-display coverage |
 
-## Customization directions
+## Product principles
 
-- Theme presets: light, dark, plasma-accent, and high-contrast modes
-- Layout presets: compact, comfortable, and focus modes
-- Sidebar configuration: account list, folder tree, smart folders, and saved searches
-- Preview pane behavior: show preview, hide preview, split layout, and message reading focus
-- Message actions: reply, reply-all, forward, archive, flag, delete, and move-to-folder actions
-- Notification settings: desktop alerts, summary banners, and sync progress reporting
-- Mail workflow settings: threading, unread handling, conversation grouping, and default sorting
-- Accessibility options: large text, increased contrast, keyboard navigation, and reduced motion
+- **Native:** Follow Plasma conventions and KDE facilities rather than
+  duplicating desktop services.
+- **Reliable:** Surface connection, authentication and partial-operation state;
+  never imply that failed work completed.
+- **Readable:** Keep default layouts compact but prioritize hierarchy,
+  selection and focus visibility.
+- **User-controlled:** Make remote content, external services and destructive
+  actions explicit.
+- **Composable:** Separate account, mailbox, desktop and cross-app behavior so
+  integrations remain optional.
 
-## Suggested customizations for the product layer
+## Reference model
 
-These customizations should feel intentionally similar to a Plasma Opus-style configuration model, but adapted to a mail client:
+The project combines the strengths of:
+
+- Trojitá for IMAP correctness and a lightweight KDE-native baseline;
+- Aqua Mail for quick, readable triage and low-friction navigation;
+- The Bat! for dense desktop operations and keyboard-first workflows;
+- Kontact for personal-information management and Plasma integration.
+
+## Configuration model
+
+> [!NOTE] The following YAML is an illustrative product concept, not a
+> supported configuration file or the application's current settings format.
+> The existing client stores preferences through `QSettings`.
 
 ```yaml
 appearance:

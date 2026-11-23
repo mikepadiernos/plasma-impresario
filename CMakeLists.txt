@@ -38,8 +38,9 @@ include(KDEInstallDirs)
 include(TrojitaOption)
 
 # ECMPoQMTools includes QtVersionOption which creates an option to build against either
-# Qt 5 or Qt 6 if QT_MAJOR_VERSION is not set.
-set(QT_MAJOR_VERSION 6)
+# Qt 5 or Qt 6 if QT_MAJOR_VERSION is not set. Force Qt 6 explicitly so KDE packages
+# and QML macros do not inherit an older cached value from a prior configure.
+set(QT_MAJOR_VERSION 6 CACHE STRING "Qt major version to use" FORCE)
 include(ECMDeprecationSettings)
 include(ECMPoQmTools)
 
@@ -80,7 +81,10 @@ find_package(KF6 REQUIRED
         ItemModels
 )
 
-trojita_find_package(Qt6WebKitWidgets "" "" "Qt6 WebKit" "Required for displaying mail contents" WITH_WEBKIT)
+if(WITH_WEBKIT)
+    trojita_find_package(Qt6WebKitWidgets "" "" "Qt6 WebKit" "Required for displaying mail contents" WITH_WEBKIT)
+endif()
+
 trojita_find_package(KPim6AkonadiContactCore "" "" "" "Required for building Akonadi address book plugin")
 trojita_plugin_option(WITH_AKONADIADDRESSBOOK_PLUGIN "Build AkonadiAddressbook plugin" KPim6AkonadiContactCore_FOUND)
 
@@ -860,10 +864,10 @@ if(WITH_DESKTOP)
 
     if(KF6DocTools_FOUND)
         kdoctools_install(po)
-        kdoctools_create_handbook(${CMAKE_CURRENT_SOURCE_DIR}/docs/index.docbook INSTALL_DESTINATION ${KDE_INSTALL_DOCBUNDLEDIR}/en SUBDIR trojita)
+        kdoctools_create_handbook(${CMAKE_CURRENT_SOURCE_DIR}/docs/old/index.docbook INSTALL_DESTINATION ${KDE_INSTALL_DOCBUNDLEDIR}/en SUBDIR trojita)
     endif()
 
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/docs/trojita.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/docs/old/trojita.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
 endif()
 
 

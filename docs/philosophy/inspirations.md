@@ -1,6 +1,11 @@
 # Mail client inspirations
 
-This page records the main product and UX inspirations for Plasma Mail. These are reference points for workflow and layout, not direct feature cloning.
+**[Documentation](../README.md)** · **[Scope](scope.md)** ·
+**[Design](designs.md)** · **[Roadmap](../ROADMAP.md)** ·
+**[Contributing](../../CONTRIBUTING.md)**
+
+These products inform workflow and layout decisions. They are references, not
+feature-cloning specifications.
 
 ## KDE / Trojitá
 
@@ -41,6 +46,48 @@ This page records the main product and UX inspirations for Plasma Mail. These ar
   - Integration-minded interaction modes and common desktop patterns
   - Clean treatment of personal information management tasks
   - Strong alignment with KDE account and system integration expectations
+
+## Adoptable Aqua Mail features
+
+The following Aqua Mail patterns are useful to adopt selectively for Plasma Mail:
+
+- Quick actions directly in the message list: archive, move, flag, mark read, and delete
+- Compact triage workflow: clear, low-noise reading and fast inbox scanning
+- Fast search and filter patterns for inbox triage and quick retrieval
+- Message grouping and conversation visibility with reduced visual clutter
+- Strong focus on readable density without losing action clarity
+- Per-account and per-folder notification settings for low interruption and better focus
+- Lightweight, low-friction mailbox navigation that keeps actions close to the message list
+- Attachment and message-loading behavior that loads content on demand rather than overwhelming the UI
+
+These should be adapted to a desktop-first KDE layout rather than copied as a mobile design pattern.
+
+## The Bat! power-user workflow patterns
+
+- Project: https://www.ritlabs.com/en/products/thebat/
+- Why it matters: The Bat! is a strong reference for classic desktop-mail power-user behavior and rule-driven organization.
+- Takeaways:
+  - Rule-based filtering and automatic sorting for incoming mail
+  - Folder-based organization for large mail volumes and active queues
+  - Power-user bulk actions and keyboard-first processing flows
+  - Strong emphasis on structured, high-density message handling
+  - Flexible attachment handling, batching, and workflow automation
+  - Advanced sorting models with rules, prioritization, and message triage logic
+  - Thread-aware behavior that keeps conversations coherent while preserving dense desktop organization
+
+Plasma Mail should adapt The Bat! patterns as a desktop-first productivity layer rather than copy its full classic workflow. The goal is to keep advanced organization, batching, and filtering available without creating a cluttered or intimidating interface.
+
+## ePim and workspace-oriented patterns
+
+- Project: https://www.epim.com/
+- Why it matters: ePim is a useful reference for structured mail organization, local-mail workflow discipline, and richer personal-information management patterns.
+- Takeaways:
+  - Strong support for organized mail structures and local storage patterns
+  - Useful conventions for tags, grouping, and personal organization systems
+  - Practical ideas for message categorization beyond basic folders
+  - A desktop-oriented mindset that can complement KDE and Plasma workflows
+
+Plasma Mail should borrow the organization ideas from ePim without forcing a heavy enterprise-style system. The goal is a cleaner mail model that supports tags, local mail organization, and workspace-aware context.
 
 ## Design synthesis
 

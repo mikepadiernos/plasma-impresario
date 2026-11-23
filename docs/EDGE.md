@@ -1,19 +1,29 @@
 # Mail workflow edge cases
 
-This document captures scenarios that should be reviewed during implementation.
+**[Documentation](README.md)** · **[Roadmap](ROADMAP.md)** ·
+**[Reported bugs](BUGS.md)** · **[Caveats](CAVEATS.md)** ·
+**[Pending tasks](TODO.md)**
 
-## Placeholder scenarios
+This log captures boundary and failure scenarios that need validation. Record
+a reproduced and confirmed defect in [reported bugs](BUGS.md); keep
+unconfirmed scenarios here.
 
-- Empty mailboxes
-- Very large folders
-- Offline synchronization retries
-- Invalid or malformed message content
-- Special folders and account-specific labels
-- High-contrast or accessibility modes
+## Candidate scenarios
 
-## Test checklist
+| Area | Scenario |
+| --- | --- |
+| Mailboxes | Empty folders, sparse folders and very large folders |
+| Synchronization | Offline retries, expired sessions and partial server responses |
+| Message content | Malformed MIME, missing bodies, invalid dates and unusual encodings |
+| Account structure | Special folders, provider labels and duplicate folder names |
+| Attachments | Large files, missing downloads and unsupported or unsafe types |
+| Interface | Narrow windows, display scaling, RTL locales and high-contrast modes |
+| Background work | Cancellation, retry, overlapping sync and process restarts |
 
-- Confirm the UI remains usable with minimal content
-- Validate behavior under large-message volumes
-- Check fallback states for network and authentication failures
-- Confirm notifications and threading remain understandable
+## Validation checklist
+
+- confirm the UI remains usable with little or no content;
+- verify behavior under realistic message and attachment volumes;
+- check network, credential and authentication recovery;
+- ensure notifications and threading remain understandable;
+- isolate test data and record the exact environment for each result.
