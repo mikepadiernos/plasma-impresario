@@ -108,21 +108,21 @@ installation depends on the working renderer.
   [Package manager](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314445891) ·
   [Renderer fallback](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314446004)
 
-  - [ ] Complete the existing installer for dependency setup, configuration, build,
+  - [x] Complete the existing installer for dependency setup, configuration, build,
     and installation. Provide flags for check-only dependency inspection,
     skipping dependency handling, and building without installing the app.
     Surface errors and request administrator privileges only when needed.
     [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568548)
-  - [ ] Detect the appropriate supported package manager, prefer Arch/CachyOS
+  - [x] Detect the appropriate supported package manager, prefer Arch/CachyOS
     tooling where applicable, and install only missing dependencies without
     falling back to an unrelated package manager. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314445891)
-  - [ ] Support user and system prefixes; verify executable and plugin loading,
+  - [x] Support user and system prefixes; verify executable and plugin loading,
     runtime libraries, desktop entries, icons, translations, handbook, and man
     page. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568559)
-  - [ ] Document prerequisites, installation options, troubleshooting, and
+  - [x] Document prerequisites, installation options, troubleshooting, and
     distribution-specific risks. Keep renderer-free builds explicitly labeled
     as unable to display messages. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314446004)
-  - [ ] Integrate the WebEngine dependency and full reader once the port is ready;
+  - [x] Integrate the WebEngine dependency and full reader once the port is ready;
     installing a renderer-free build does not satisfy this milestone. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568565)
 
   The installer checks for installed packages and provides explicit WebEngine
