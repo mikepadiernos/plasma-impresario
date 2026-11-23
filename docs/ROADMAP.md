@@ -177,6 +177,9 @@ installation depends on the working renderer.
 - [ ] Support account grouping, collapsible folder navigation, and keyboard focus across the shell [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569100)
 - [ ] Preserve pane layout, selection, and density preferences across sessions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569110)
 
+Later milestone parent issues are blocked by #4. Apply the same gate when
+starting their feature issues.
+
 Pending implementation and isolated account verification:
 [M02 handoff](TODO.md#m02-shell-and-account-foundation).
 
