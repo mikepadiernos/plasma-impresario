@@ -988,6 +988,7 @@ void MainWindow::setupModels()
     connect(imapModel(), &Imap::Mailbox::Model::authAttemptFailed, this, [this](const QString &message) {
         m_ignoreStoredPassword = true;
         updateConnectionStatus(i18nc("@info:status", "Connection or authentication failed"));
+        m_connectionError = true;
         m_connectionStatus->setToolTip(Qt::convertFromPlainText(message));
         m_connectionStatus->setAccessibleDescription(message);
     });
@@ -1422,6 +1423,10 @@ void MainWindow::imapError(const QString &message)
 
 void MainWindow::networkError(const QString &message)
 {
+    updateConnectionStatus(i18nc("@info:status", "Network error"));
+    m_connectionError = true;
+    m_connectionStatus->setToolTip(Qt::convertFromPlainText(message));
+    m_connectionStatus->setAccessibleDescription(message);
     const QString title = tr("Network Error");
     if (!m_networkErrorMessageBox) {
         m_networkErrorMessageBox = new QMessageBox(QMessageBox::Critical, title,
@@ -2161,7 +2166,7 @@ void MainWindow::showConnectionStatus(uint parserId, Imap::ConnectionState state
 
     if (netOffline->isChecked())
         updateConnectionStatus(tr("Offline"));
-    else
+    else if (state != Imap::CONN_STATE_NONE || !m_connectionError)
         updateConnectionStatus(message.isEmpty() ? i18nc("@info:status", "Not connected") : message);
 
     if (state == Imap::ConnectionState::CONN_STATE_SELECTED && previousState >= Imap::ConnectionState::CONN_STATE_SELECTED) {
@@ -3084,6 +3089,7 @@ void MainWindow::updateNetworkIndication()
 
 void MainWindow::updateConnectionStatus(const QString &message)
 {
+    m_connectionError = false;
     m_connectionStatus->setText(message);
     m_connectionStatus->setToolTip(QString());
     m_connectionStatus->setAccessibleDescription(QString());

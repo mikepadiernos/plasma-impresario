@@ -25,9 +25,9 @@ The compact pane layout stacks the list above the reader beside the folder tree.
 Wide layout places all three side by side. One-panel-at-a-time navigation is
 also available. The folder sidebar can be placed on either side in compact and
 wide layouts. Splitter sizes, sidebar position and the selected layout are
-saved. The footer reports IMAP connection activity, offline state and
-connection or authentication failures; richer per-account and background-task
-status remains planned.
+saved. The footer reports IMAP connection activity, offline state, network
+errors and connection or authentication failures; richer per-account and
+background-task status remains planned.
 
 ## Proposed Plasma Impresario shell
 

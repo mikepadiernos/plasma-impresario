@@ -291,6 +291,7 @@ private:
     QPointer<QSplitter> m_mainVSplitter;
     QPointer<QStackedWidget> m_mainStack;
     QLabel *m_connectionStatus;
+    bool m_connectionError = false;
 
     LayoutMode m_layoutMode;
     bool m_mailboxSidebarOnRight = false;
