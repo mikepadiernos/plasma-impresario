@@ -44,7 +44,8 @@ and project status before acting.
 ### M02 shell and account foundation
 
 - **Current state:** M02 #4, shell #35, skeleton #74, connection status #79,
-  account foundation #36 and protocol-aware account #215 are in Development.
+  session persistence #81, account foundation #36 and protocol-aware account
+  #215 are in Development.
   Density #75 is in Review and dependency gate #77 is Completed; other M02
   issues are Defined. The
   `feature/m02-shell-accounts` branch adds a row-density selector; the
