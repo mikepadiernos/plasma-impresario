@@ -162,12 +162,6 @@ installation depends on the working renderer.
   contact information, and related content. See the
   [shell and interface widget designs](philosophy/designs.md).
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314539964)
-- [ ] Provide Thunderbird-inspired tabs for mail views and messages as an
-  optional setting, **off by default**. Allow the tab bar in any shell region,
-  horizontally or vertically; when first enabled, place it in the header by
-  default. Save its placement and orientation. Preserve tab context, keyboard
-  access, drafts and pending work when switching, closing or disabling tabs.
-  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=315436993)
 - [ ] Define account models, connection state, folder structure, and mailbox lifecycle [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540057)
 - [ ] Support multiple simultaneous mail accounts in one window with independent account state and configuration [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314607650)
 - [ ] Design protocol-aware account and capability models that preserve existing IMAP behavior and allow POP3 and JMAP integrations in M05 [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314594590)
@@ -282,6 +276,12 @@ Pending implementation and isolated account verification:
 [Workspace integrations](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541421)
 
 - [ ] Design the settings surface using a Plasma Opus-style layout: grouped, readable, and extensible [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541330)
+- [ ] Provide Thunderbird-inspired tabs for mail views and messages as an
+  optional setting, **off by default**. Allow the tab bar in any shell region,
+  horizontally or vertically; when first enabled, place it in the header by
+  default. Save its placement and orientation. Preserve tab context, keyboard
+  access, drafts and pending work when switching, closing or disabling tabs.
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=315436993)
 - [ ] Cover appearance, density, mail behavior, notifications, workspaces, and
   productivity preferences. Include tabs settings for enablement (off by
   default), placement (header by default) and orientation.
