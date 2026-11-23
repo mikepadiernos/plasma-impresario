@@ -46,7 +46,7 @@ void IdTask::perform()
     IMAP_TASK_CHECK_ABORT_DIE;
 
     QMap<QByteArray,QByteArray> identification;
-    identification["name"] = "Trojita";
+    identification["name"] = "Plasma Impresario";
     if (!model->property("trojita-imap-id-no-versions").toBool()) {
         identification["version"] = Common::Application::version.toUtf8();
         identification["os"] = systemPlatformVersion().toUtf8();

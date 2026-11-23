@@ -364,10 +364,10 @@ void ImapModelOpenConnectionTest::testCompressDeflateOk()
 #if TROJITA_COMPRESS_DEFLATE
     cClient(t.mk("COMPRESS DEFLATE\r\n"));
     cServer(t.last("OK compressing\r\n"));
-    cClient("[*** DEFLATE ***]" + t.mk("ID (\"name\" \"Trojita\")\r\n"));
+    cClient("[*** DEFLATE ***]" + t.mk("ID (\"name\" \"Plasma Impresario\")\r\n"));
     cServer("* ID nil\r\n" + t.last("OK you courious peer\r\n"));
 #else
-    cClient(t.mk("ID (\"name\" \"Trojita\")\r\n"));
+    cClient(t.mk("ID (\"name\" \"Plasma Impresario\")\r\n"));
     cServer("* ID nil\r\n" + t.last("OK you courious peer\r\n"));
 #endif
     cEmpty();
@@ -391,11 +391,11 @@ void ImapModelOpenConnectionTest::testCompressDeflateNo()
 #if TROJITA_COMPRESS_DEFLATE
     cClient(t.mk("COMPRESS DEFLATE\r\n"));
     cServer(t.last("NO I just don't want to\r\n"));
-    cClient(t.mk("ID (\"name\" \"Trojita\")\r\n"));
+    cClient(t.mk("ID (\"name\" \"Plasma Impresario\")\r\n"));
     cServer("* ID nil\r\n"
             + t.last("OK you courious peer\r\n"));
 #else
-    cClient(t.mk("ID (\"name\" \"Trojita\")\r\n"));
+    cClient(t.mk("ID (\"name\" \"Plasma Impresario\")\r\n"));
     cServer("* ID nil\r\n"
             + t.last("OK you courious peer\r\n"));
 #endif
@@ -425,7 +425,7 @@ void ImapModelOpenConnectionTest::testOpenConnectionShallBlock()
     QCoreApplication::processEvents();
     QCoreApplication::processEvents();
 #endif
-    auto c1 = t.mk("ID (\"name\" \"Trojita\")\r\n");
+    auto c1 = t.mk("ID (\"name\" \"Plasma Impresario\")\r\n");
     auto r1 = t.last("OK you courious peer\r\n");
     auto c2 = t.mk("LIST \"\" \"%\"\r\n");
     auto r2 = t.last("OK listed, nothing like that in there\r\n");

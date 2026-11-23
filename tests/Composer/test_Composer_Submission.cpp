@@ -21,6 +21,7 @@
 */
 
 #include <QtTest>
+#include <QBuffer>
 #include<QStringView>
 #include "test_Composer_Submission.h"
 #include "Utils/FakeCapabilitiesInjector.h"
@@ -118,6 +119,22 @@ void ComposerSubmissionTest::testEmptySubmission()
     QCOMPARE(submissionSucceededSpy->size(), 1);
     QCOMPARE(submissionFailedSpy->size(), 0);
     cEmpty();
+}
+
+void ComposerSubmissionTest::testUserAgentIdentity()
+{
+    for (bool revealVersions : {false, true}) {
+        m_composer->setReportTrojitaVersions(revealVersions);
+        QByteArray message;
+        QBuffer buffer(&message);
+        QVERIFY(buffer.open(QIODevice::WriteOnly));
+        QString error;
+        QVERIFY2(m_composer->asRawMessage(&buffer, &error), qPrintable(error));
+        if (revealVersions)
+            QVERIFY(message.contains("User-Agent: Plasma-Impresario/"));
+        else
+            QVERIFY(message.contains("User-Agent: Plasma-Impresario\r\n"));
+    }
 }
 
 void ComposerSubmissionTest::testSimpleSubmission()

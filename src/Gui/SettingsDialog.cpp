@@ -825,11 +825,11 @@ void ImapPage::updateWidgets()
     if (m_pwWatcher->isStorageEncrypted()) {
         passwordWarning->setStyleSheet(QString());
         passwordWarning->setText(tr("This password will be saved in encrypted storage. "
-            "If you do not enter password here, Trojitá will prompt for one when needed."));
+            "If you do not enter password here, Plasma Impresario will prompt for one when needed."));
     } else {
         passwordWarning->setStyleSheet(SettingsDialog::warningStyleSheet);
         passwordWarning->setText(tr("This password will be saved in clear text. "
-            "If you do not enter password here, Trojitá will prompt for one when needed."));
+            "If you do not enter password here, Plasma Impresario will prompt for one when needed."));
     }
 
     passwordPluginStatus->setVisible(!m_pwWatcher->isPluginAvailable() || m_pwWatcher->isWaitingForPlugin() || !m_pwWatcher->didReadOk() || !m_pwWatcher->didWriteOk());
@@ -1187,11 +1187,11 @@ void OutgoingPage::updateWidgets()
         if (m_pwWatcher->isStorageEncrypted()) {
             passwordWarning->setStyleSheet(QString());
             passwordWarning->setText(tr("This password will be saved in encrypted storage. "
-                "If you do not enter password here, Trojitá will prompt for one when needed."));
+                "If you do not enter password here, Plasma Impresario will prompt for one when needed."));
         } else {
             passwordWarning->setStyleSheet(SettingsDialog::warningStyleSheet);
             passwordWarning->setText(tr("This password will be saved in clear text. "
-                "If you do not enter password here, Trojitá will prompt for one when needed."));
+                "If you do not enter password here, Plasma Impresario will prompt for one when needed."));
         }
 
         passwordPluginStatus->setVisible(authEnabled && !reuseImapCreds &&

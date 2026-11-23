@@ -75,7 +75,7 @@ p, li { white-space: pre-wrap; }
        <string>Hostname of the IMAP server</string>
       </property>
       <property name="whatsThis">
-       <string>This is the name of the IMAP server that Trojitá should connect to.</string>
+       <string>This is the name of the IMAP server that Plasma Impresario should connect to.</string>
       </property>
       <property name="text">
        <string/>
@@ -128,7 +128,7 @@ p, li { white-space: pre-wrap; }
     <item row="6" column="0">
      <widget class="QLabel" name="imapNeedsNetworkLabel">
       <property name="toolTip">
-       <string>Check if Trojitá should connect to a network in order to access this account. You will stay offline if there is no network connectivity.</string>
+       <string>Check if Plasma Impresario should connect to a network in order to access this account. You will stay offline if there is no network connectivity.</string>
       </property>
       <property name="text">
        <string>Needs Network</string>
@@ -188,7 +188,7 @@ p, li { white-space: pre-wrap; }
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;This password will be saved in &lt;span style=&quot; font-weight:600;&quot;&gt;clear text&lt;/span&gt; on this device, without any encryption. Unless you use a very safe form of a full disk encryption, it is a &lt;span style=&quot; font-weight:600;&quot;&gt;bad idea&lt;/span&gt; to save your password here.&lt;/p&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;If you don't save the password, Trojitá will prompt for one when it needs it, but only once per session.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;If you don't save the password, Plasma Impresario will prompt for one when it needs it, but only once per session.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
       </property>
       <property name="text">
        <string/>
@@ -201,7 +201,7 @@ p, li { white-space: pre-wrap; }
     <item row="9" column="0" colspan="2">
      <widget class="QLabel" name="passwordWarning">
       <property name="text">
-       <string>The password will be stored in plaintext. Leave it blank for Trojitá to prompt when needed.</string>
+       <string>The password will be stored in plaintext. Leave it blank for Plasma Impresario to prompt when needed.</string>
       </property>
       <property name="wordWrap">
        <bool>true</bool>
@@ -329,7 +329,7 @@ The default value is 300 seconds (5 minutes).</string>
     <item row="16" column="1">
      <widget class="QLineEdit" name="accountIcon">
       <property name="placeholderText">
-       <string>Default Trojitá icon</string>
+       <string>Default Plasma Impresario icon</string>
       </property>
       <property name="clearButtonEnabled">
        <bool>true</bool>

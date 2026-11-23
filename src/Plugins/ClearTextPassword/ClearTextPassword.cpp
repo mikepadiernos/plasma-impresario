@@ -120,7 +120,7 @@ QString trojita_plugin_ClearTextPasswordPlugin::name() const
 
 QString trojita_plugin_ClearTextPasswordPlugin::description() const
 {
-    return tr("Trojitá's settings");
+    return tr("Plasma Impresario's settings");
 }
 
 Plugins::PasswordPlugin *trojita_plugin_ClearTextPasswordPlugin::create(QObject *parent, QSettings *settings)

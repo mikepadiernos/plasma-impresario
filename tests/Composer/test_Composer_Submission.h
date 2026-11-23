@@ -37,6 +37,7 @@ public:
 
 private slots:
     void testEmptySubmission();
+    void testUserAgentIdentity();
     void testSimpleSubmission();
     void testSimpleSubmissionWithAppendFailed();
     void testSimpleSubmissionWithAppendNoAppenduid();

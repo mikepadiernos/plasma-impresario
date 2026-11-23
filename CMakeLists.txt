@@ -554,7 +554,7 @@ set(trojita_desktop_SOURCES
 if(WIN32)
     list(APPEND trojita_desktop_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/trojita_win32.rc)
     set_property(SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/src/trojita_win32.rc APPEND PROPERTY OBJECT_DEPENDS
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/trojita.ico
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/plasma-impresario.ico
         ${CMAKE_CURRENT_BINARY_DIR}/trojita-git-version.h
         ${CMAKE_CURRENT_BINARY_DIR}/trojita-version.h
     )
@@ -868,6 +868,14 @@ if(WITH_DESKTOP)
     # On Windows build a real Win32 GUI application without console window
     # On other platforms WIN32 flag is ignored
     add_executable(trojita WIN32 ${trojita_desktop_SOURCES})
+    set_target_properties(trojita PROPERTIES OUTPUT_NAME plasma-impresario)
+    if(UNIX AND NOT APPLE)
+        if(IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}")
+            set_target_properties(trojita PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_LIBDIR}")
+        else()
+            set_target_properties(trojita PROPERTIES INSTALL_RPATH "\$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
+        endif()
+    endif()
     set_property(TARGET trojita APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
     target_link_libraries(trojita
         PRIVATE
@@ -899,10 +907,23 @@ if(WITH_ABOOKADDRESSBOOK_PLUGIN)
 endif()
 
 if(WITH_DESKTOP)
-    copy_desktop_file_without_cruft("${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/org.kde.trojita.desktop" "${CMAKE_CURRENT_BINARY_DIR}/org.kde.trojita-DesktopGui.desktop")
+    copy_desktop_file_without_cruft("${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/io.github.mikepadiernos.plasma_impresario.desktop" "${CMAKE_CURRENT_BINARY_DIR}/io.github.mikepadiernos.plasma_impresario.desktop")
     install(TARGETS trojita RUNTIME DESTINATION bin)
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/org.kde.trojita-DesktopGui.desktop DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications/" RENAME org.kde.trojita.desktop)
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/org.kde.trojita.appdata.xml DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/metainfo/")
+    if(UNIX)
+        install(CODE "execute_process(
+            COMMAND \"${CMAKE_COMMAND}\" -E create_symlink \"plasma-impresario${CMAKE_EXECUTABLE_SUFFIX}\"
+                \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/bin/trojita${CMAKE_EXECUTABLE_SUFFIX}\"
+            RESULT_VARIABLE alias_result)
+            if(NOT alias_result STREQUAL \"0\")
+                message(FATAL_ERROR \"Could not install trojita compatibility alias: \${alias_result}\")
+            endif()")
+    else()
+        install(PROGRAMS $<TARGET_FILE:trojita> DESTINATION bin RENAME trojita${CMAKE_EXECUTABLE_SUFFIX})
+    endif()
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/io.github.mikepadiernos.plasma_impresario.desktop
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/org.kde.trojita.desktop DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications/")
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/io.github.mikepadiernos.plasma_impresario.metainfo.xml DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/metainfo/")
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/plasma-impresario.svg DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps/")
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/trojita.png DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/32x32/apps/")
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/trojita.svg DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps/")
 endif()

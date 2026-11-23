@@ -34,7 +34,7 @@ ShortcutConfigDialog::ShortcutConfigDialog(QWidget *parent)
     : QDialog(parent)
 {
     setModal(true);
-    setWindowTitle(tr("Configure Shortcuts") + QLatin1String(" - ") + tr("Trojitá"));
+    setWindowTitle(tr("Configure Shortcuts") + QLatin1String(" - ") + tr("Plasma Impresario"));
 
     m_shortcutConfigWidget = new ShortcutConfigWidget(this);
     connect(m_shortcutConfigWidget, &ShortcutConfigWidget::shortcutsChanged, this, &ShortcutConfigDialog::shortcutsChanged);
