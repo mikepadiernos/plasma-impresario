@@ -251,6 +251,9 @@ private:
     /** Display the current connection status in the window footer. */
     void updateConnectionStatus(const QString &message);
 
+    /** Resume the selected mailbox when network access returns. */
+    void resumeCurrentMailbox();
+
     void applySizesAndState();
     QString layoutToString(const LayoutMode layout) const;
     void convertSizesAndStateSettings();

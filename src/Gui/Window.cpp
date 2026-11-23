@@ -1481,6 +1481,8 @@ void MainWindow::networkPolicyOffline()
 
 void MainWindow::networkPolicyExpensive()
 {
+    if (netOffline->isChecked())
+        resumeCurrentMailbox();
     netOffline->setChecked(false);
     netOnline->setChecked(false);
     netExpensive->setChecked(true);
@@ -1491,12 +1493,22 @@ void MainWindow::networkPolicyExpensive()
 
 void MainWindow::networkPolicyOnline()
 {
+    if (netOffline->isChecked())
+        resumeCurrentMailbox();
     netOffline->setChecked(false);
     netExpensive->setChecked(false);
     netOnline->setChecked(true);
     updateActionsOnlineOffline(true);
     updateConnectionStatus(i18nc("@info:status", "Network access enabled"));
     handleTrayIconChange();
+}
+
+void MainWindow::resumeCurrentMailbox()
+{
+    auto *model = qobject_cast<Imap::Mailbox::MsgListModel *>(m_imapAccess->msgListModel());
+    const QString name = model->currentMailbox().data(Imap::Mailbox::RoleMailboxName).toString();
+    if (!name.isEmpty())
+        mboxTree->restoreMailbox(name);
 }
 
 /** @short Deletes a network error message box instance upon resetting of reconnect state */
