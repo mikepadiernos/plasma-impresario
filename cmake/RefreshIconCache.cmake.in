@@ -1,0 +1,20 @@
+set(data_dir "@CMAKE_INSTALL_DATAROOTDIR@")
+if(NOT IS_ABSOLUTE "${data_dir}")
+    set(data_dir "${CMAKE_INSTALL_PREFIX}/${data_dir}")
+endif()
+set(theme_dir "$ENV{DESTDIR}${data_dir}/icons/hicolor")
+
+if(EXISTS "${theme_dir}/icon-theme.cache")
+    find_program(icon_cache_tool NAMES gtk-update-icon-cache)
+    if(icon_cache_tool)
+        execute_process(
+            COMMAND "${icon_cache_tool}" --force --ignore-theme-index --quiet "${theme_dir}"
+            RESULT_VARIABLE result
+            ERROR_VARIABLE error)
+        if(NOT result STREQUAL "0")
+            message(WARNING "Could not refresh icon cache in ${theme_dir}: ${result} ${error}")
+        endif()
+    else()
+        message(WARNING "Icon cache in ${theme_dir} may be stale; install gtk-update-icon-cache and refresh it.")
+    endif()
+endif()

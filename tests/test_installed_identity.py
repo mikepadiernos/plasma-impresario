@@ -32,7 +32,7 @@ for desktop_id in (app_id, "org.kde.trojita"):
     assert shutil.which(try_exec, path="/usr/bin:/bin") == str(binary)
     exec_line = entry["Exec"].replace("\\\\", "\\").replace("\\s", " ")
     assert shlex.split(exec_line) == [str(binary).replace("%", "%%"), "%u"]
-    assert entry["Icon"] == "plasma-impresario"
+    assert entry["Icon"] == app_id
     composer = desktop["Desktop Action Composer"]["Exec"].replace("\\\\", "\\").replace("\\s", " ")
     assert shlex.split(composer) == [str(binary).replace("%", "%%"), "-c"]
     assert (entry.get("NoDisplay") == "true") == (desktop_id == "org.kde.trojita")
@@ -42,6 +42,6 @@ assert metadata.findtext("id") == app_id
 assert metadata.findtext("name") == "Plasma Impresario"
 assert metadata.findtext("launchable") == f"{app_id}.desktop"
 assert {"plasma-impresario", "trojita"} <= {x.text for x in metadata.findall("provides/binary")}
-assert (data / "icons/hicolor/scalable/apps/plasma-impresario.svg").is_file()
+assert (data / "icons/hicolor/scalable/apps" / f"{app_id}.svg").is_file()
 assert (data / "icons/hicolor/scalable/apps/trojita.svg").is_file()
 print("Installed identity and compatibility aliases verified")

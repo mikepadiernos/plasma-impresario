@@ -917,16 +917,23 @@ if(WITH_DESKTOP)
         install(PROGRAMS $<TARGET_FILE:trojita> DESTINATION bin RENAME trojita${CMAKE_EXECUTABLE_SUFFIX})
     endif()
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/io.github.mikepadiernos.plasma_impresario.desktop
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/org.kde.trojita.desktop DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications/")
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/org.kde.trojita.desktop DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications/"
+        COMPONENT DesktopLaunchers)
     if(UNIX AND NOT APPLE)
         configure_file(cmake/InstallDesktopLaunchers.cmake.in
             "${CMAKE_CURRENT_BINARY_DIR}/InstallDesktopLaunchers.cmake" @ONLY)
-        install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/InstallDesktopLaunchers.cmake")
+        install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/InstallDesktopLaunchers.cmake" COMPONENT DesktopLaunchers)
     endif()
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/io.github.mikepadiernos.plasma_impresario.metainfo.xml DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/metainfo/")
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/plasma-impresario.svg DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps/")
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/plasma-impresario.svg DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps/"
+        RENAME io.github.mikepadiernos.plasma_impresario.svg COMPONENT ApplicationIcon)
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/trojita.png DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/32x32/apps/")
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/trojita.svg DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps/")
+    if(UNIX AND NOT APPLE)
+        configure_file(cmake/RefreshIconCache.cmake.in "${CMAKE_CURRENT_BINARY_DIR}/RefreshIconCache.cmake" @ONLY)
+        install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/RefreshIconCache.cmake" COMPONENT ApplicationIcon)
+    endif()
 endif()
 
 if(WITH_NSIS)
@@ -976,6 +983,16 @@ if(BUILD_TESTING)
     set(UBSAN_ENV_SUPPRESSIONS "UBSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/tests/ubsan.supp")
 
     enable_testing()
+    if(WITH_DESKTOP AND UNIX AND NOT APPLE)
+        find_package(Python3 QUIET COMPONENTS Interpreter)
+        find_program(GTK_UPDATE_ICON_CACHE_TEST_EXECUTABLE NAMES gtk-update-icon-cache)
+        if(Python3_Interpreter_FOUND AND GTK_UPDATE_ICON_CACHE_TEST_EXECUTABLE AND NOT CMAKE_CROSSCOMPILING)
+            add_test(NAME test_ApplicationIconInstall COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_icon_install.py ${CMAKE_COMMAND}
+                ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_INSTALL_DATAROOTDIR}
+                ${GTK_UPDATE_ICON_CACHE_TEST_EXECUTABLE})
+        endif()
+    endif()
     if(WITH_WEBENGINE)
         add_executable(test_WebEngineMessageProfile tests/Gui/test_WebEngineMessageProfile.cpp)
         target_link_libraries(test_WebEngineMessageProfile PRIVATE WebEngineMessageRenderer UiUtils Qt6::Test)
