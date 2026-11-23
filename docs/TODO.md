@@ -41,6 +41,22 @@ and project status before acting.
 
 ## Pending verification
 
+### M02 shell and account foundation
+
+- **Current state:** M02 #4, shell #35, skeleton #74 and density #75 are in
+  Development. Other M02 issues are Defined. The
+  `feature/m02-shell-accounts` branch adds a row-density selector; the
+  five-region shell and the full density behavior still need implementation.
+- **Account acceptance:** #78 requires setup and recovery with an isolated live
+  IMAP account. No such account or local IMAP server has been verified for
+  this work. Provision an isolated server and disposable credentials, then
+  verify setup, failure, recovery and credential removal without using real
+  home-directory mail or configuration.
+- **Resume:** Implement and test the remaining M02 shell, tab, account,
+  protocol-capability and OAuth issues. Advance each issue through Review and
+  Completed before checking its roadmap item; merge the milestone only when
+  all items and acceptance checks are complete.
+
 ### M01 release gate and integration
 
 - **Deferred by milestone scope:** Live account setup belongs to M02 issue #78.

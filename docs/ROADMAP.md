@@ -183,6 +183,9 @@ installation depends on the working renderer.
 - [ ] Support account grouping, collapsible folder navigation, and keyboard focus across the shell [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569100)
 - [ ] Preserve pane layout, selection, and density preferences across sessions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569110)
 
+Pending implementation and isolated account verification:
+[M02 handoff](TODO.md#m02-shell-and-account-foundation).
+
 ### M03: Mail operations, sorting, and folder management
 
 **Project:** [M03 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314497950) ·
