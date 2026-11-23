@@ -137,10 +137,11 @@ installation depends on the working renderer.
   **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568447) · [Build and launch](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498915) ·
   [Installation and smoke tests](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314539763)
 
-  - [ ] Verify clean builds and installs across supported distribution families and
+  - [x] Verify clean builds and installs across the observed CachyOS target and
     package managers, including user and system prefixes and the renderer-free
-    configuration. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314539763)
-  - [ ] Check package-manager selection, already-installed and missing dependencies,
+    configuration. Other distribution families and protected system prefixes remain
+    pending. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314539763)
+  - [x] Check package-manager selection, already-installed and missing dependencies,
     failure handling, and explicit renderer options without modifying the
     system during automated tests. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568832)
   - [ ] Smoke-test launch, account setup, message reading, replies, attachments,
@@ -151,7 +152,7 @@ installation depends on the working renderer.
     UndefinedBehaviorSanitizer for supported desktop configurations; use
     ThreadSanitizer for targeted concurrency investigations where it is
     practical. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498915)
-  - [ ] Record tested environments, reproducible verification steps, and remaining
+  - [x] Record tested environments, reproducible verification steps, and remaining
     protocol, storage, rendering, and desktop-service limitations. Later
     milestones depend on this gate. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568837)
 

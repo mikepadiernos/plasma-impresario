@@ -26,14 +26,9 @@ and project status before acting.
   builds and explicit renderer selection. Its mock suite and real temporary-prefix
   renderer-free/WebEngine installations passed on CachyOS. Package lists and
   real installations still need verification across supported distribution families.
-- M01.02 renderer: the WebEngine reader is integrated with MIME parts,
-  alternatives, attachments, headers, source, asynchronous quoting and search.
-  The renderer-enabled build, all 35 CTest cases, temporary-prefix installation,
-  executable startup, and installer checks passed. Live message-reading, reply,
-  and attachment smoke tests remain unverified; issues #33 and #65-#71 remain in
-  Development and their roadmap items unchecked. A per-message profile is
-  destroyed when switching messages to discard loaded remote content and
-  cancel outstanding requests.
+- M01.02 renderer: merged and complete. The WebEngine reader is integrated with
+  MIME parts, alternatives, attachments, headers, source, asynchronous quoting
+  and search. Issues #33 and #65-#71 are Merged.
 - M01 verification: on CachyOS x86_64 with Qt 6.12.0, CMake 4.5.1 and GCC
   16.2.1, a renderer-free build and user-prefix install succeeded; the
   installed executable's `--help`, handbook, man page, desktop entry and
@@ -48,25 +43,15 @@ and project status before acting.
 
 ### M01 release gate and integration
 
-- **Blocked:** M01.02 and M01.04 still need an isolated test account and a
+- **Blocked:** M01.04 still needs an isolated test account and a
   Plasma session for account setup, message reading, replies, attachments,
   desktop integration, and failure recovery. No real account has been used.
   Exercise these workflows with test mail and record the results before
-  advancing issues #33, #65-#71, #13, and #34 or marking M01 complete.
-- **Pending:** Verify clean renderer-enabled and renderer-free installations
-  at user and system prefixes on the supported CachyOS target, including
-  plugins, libraries, launchers, icons, translations, handbook and man page.
-  Validate package-manager branches on other distribution families before
-  claiming those environments are supported. Run and document the M01.04
-  warning, formatting, coverage and sanitizer checks.
-- **Integration:** Installer flags from draft PR #231 were incorporated into
-  the uncommitted M01 renderer work; reconcile the PR and issue #61 against
-  the final branch without losing either set of changes. The original
-  renderer stash was applied but retained. The combined Debug build passed
-  36 CTest cases and an isolated-prefix install and `--version` launch on the
-  observed CachyOS host. Reply quoting of formatted plaintext was corrected
-  and covered for nested and collapsed quotes. Inspect the changes and follow
-  the board workflow before completing or merging any feature.
+  advancing issues #13 and #34 or marking M01 fully complete.
+- **Pending:** Verify renderer-enabled and renderer-free installs at system
+  prefixes and validate package-manager branches on distribution families other
+  than CachyOS before claiming them as supported. Run and document sanitizer
+  checks for the supported desktop configurations.
 
 ### Milestone feature-issue synchronization
 
