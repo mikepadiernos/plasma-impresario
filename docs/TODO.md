@@ -61,6 +61,14 @@ and project status before acting.
   The opt-in `test_LiveImap` executable uses `PLASMA_TEST_IMAPS_PORT` for a
   loopback-only Dovecot IMAPS listener configured with the synthetic password
   `synthetic-test-only`; never point it at a real account or service.
+- **Session selection:** #81 saves a message's account, mailbox, UIDVALIDITY
+  and UID, restores it after asynchronous mailbox loading, and cancels pending
+  restoration on navigation. Synthetic live IMAP checks exercised restoration
+  and rapid offline/reconnect with and without WebEngine. To include message
+  restoration in `test_LiveImap`, seed INBOX with a synthetic message and set
+  `PLASMA_TEST_IMAP_RESTORE_UID` and `PLASMA_TEST_IMAP_RESTORE_VALIDITY`.
+  Full application restart, multi-account isolation and complete pane layout
+  persistence still need verification before #81 can advance.
 - **Resume:** Implement and test the remaining M02 shell, account,
   protocol-capability and OAuth issues. Advance each issue through Review and
   Completed before checking its roadmap item; merge the milestone only when
