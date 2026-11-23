@@ -34,7 +34,7 @@ holds utility and application-menu entry points.
 - Use compact theme icons, visible focus, accessible names and tooltips. Clearly
   distinguish unavailable actions from active ones.
 - Indicate icons that open menus with the theme-accented corner marker described
-  in [M08](../../ROADMAP.md#m08-themes-and-branding-foundation), not a selection
+  in [M09](../../ROADMAP.md#m09-themes-and-branding-foundation), not a selection
   marker. Preserve keyboard access to those menus.
 - Keep actions scoped to the active account, folder, message or pane; update
   availability when context changes. Make destructive actions recognizable and

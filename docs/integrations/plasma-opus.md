@@ -1,8 +1,8 @@
 # Plasma Opus integrations
 
 **[Integrations](README.md)** · **[KDE Plasma](kde-plasma.md)** ·
-**[Workspace settings: M07](../ROADMAP.md#m07-settings-and-workspace-configuration)**
-· **[Refinements: M12](../ROADMAP.md#m12-refinements)**
+**[Workspace settings: M08](../ROADMAP.md#m08-settings-and-workspace-configuration)**
+· **[Refinements: M11](../ROADMAP.md#m11-refinements)**
 
 These are proposed cross-app workflows, not implemented integration contracts.
 Plasma Impresario should remain useful without a companion application.

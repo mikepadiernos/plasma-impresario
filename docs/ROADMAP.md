@@ -27,21 +27,20 @@ the existing Trojitá client from planned Plasma Impresario features.
 - [M02: Shell and accounts](#m02-shell-accounts-and-core-mailbox-foundation)
 - [M03: Mail operations](#m03-mail-operations-sorting-and-folder-management)
 - [M04: Reading and composition](#m04-reading-search-and-conversation-flow)
-- [M09: Reliability and sync](#m09-reliability-sync-and-notification-quality)
+- [M05: Reliability and sync](#m05-reliability-sync-and-notification-quality)
 - [M06: Notifications and rules](#m06-output-notifications-and-rules-automation)
-- [M05: Desktop and providers](#m05-desktop-integration-and-provider-support)
-- [M07: Settings and workspaces](#m07-settings-and-workspace-configuration)
-- [M08: Themes and branding](#m08-themes-and-branding-foundation)
-- [M11: Nextcloud assets](#m11-nextcloud-and-digital-asset-management)
-- [M12: Refinements](#m12-refinements)
-- [M10: Release readiness](#m10-release-readiness-and-polish)
+- [M07: Desktop and providers](#m07-desktop-integration-and-provider-support)
+- [M08: Settings and workspaces](#m08-settings-and-workspace-configuration)
+- [M09: Themes and branding](#m09-themes-and-branding-foundation)
+- [M10: Nextcloud assets](#m10-nextcloud-and-digital-asset-management)
+- [M11: Refinements](#m11-refinements)
+- [M12: Release readiness](#m12-release-readiness-and-polish)
 
 ## Milestones
 
-Milestones appear in execution order, not numerical order. Their identifiers
-remain stable so existing issues, project links, and handoffs stay valid. Compare
-proposed milestones with the current baseline described in the parity guides
-before treating foundational mailbox functionality as entirely new.
+Milestones appear in execution order. Compare proposed milestones with the
+current baseline described in the parity guides before treating foundational
+mailbox functionality as entirely new.
 
 ## Recommended priority
 
@@ -52,13 +51,13 @@ before treating foundational mailbox functionality as entirely new.
 | **P2** | Shell and reliability | Prototype the Plasma Impresario layout over existing mailbox/list/reader behavior; validate accessibility, keyboard use, responsive layouts and partial-failure recovery |
 | **P3** | Optional productivity features | Add provider APIs, rules, Nextcloud, calendar/contacts and workspace features only after core reliability, permissions and privacy behavior are defined |
 
-After M02-M04 establish the core mail workflow, M09 stabilizes it before M06
-adds rules and notification controls. M05 then adds desktop and provider
+After M02-M04 establish the core mail workflow, M05 stabilizes it before M06
+adds rules and notification controls. M07 then adds desktop and provider
 integrations, including spam hooks that can use those rules. M06's scanning
 activity reporting applies when a scanner is available; it does not require
-M05's scanner integration to exist first. M07 and M08 consolidate settings
-and visual behavior, followed by M11 assets and M12 cross-feature refinements.
-M10 is the final release gate for the resulting workflows.
+M07's scanner integration to exist first. M08 and M09 consolidate settings
+and visual behavior, followed by M10 assets and M11 cross-feature refinements.
+M12 is the final release gate for the resulting workflows.
 
 These are sequencing priorities, not issue statuses or feature completion
 markers. Follow the project workflow before updating milestone completion.
@@ -75,7 +74,7 @@ for later milestones.
 
 **Verification handoff:** The renderer and M01.04 release-gate issues are
 merged. Live account, message-reading and Plasma-session checks remain
-unverified and are deferred to M02, M04 and M05. See
+unverified and are deferred to M02, M04 and M07. See
 [TODO](TODO.md#m01-release-gate-and-integration).
 
 Work through the supported environment, renderer, installer, and verification
@@ -160,7 +159,7 @@ installation depends on the working renderer.
     environment. Run renderer and privacy regression tests and verify recovery
     from build, startup, installer, and configuration failures.
     Account setup, live mailbox reading, replies and attachment workflows are
-    deferred to M02 and M04; Plasma session integration is deferred to M05.
+    deferred to M02 and M04; Plasma session integration is deferred to M07.
     [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498915)
   - [x] Record tested environments, reproducible verification steps, and remaining
     protocol, storage, rendering, and desktop-service limitations. Later
@@ -179,15 +178,9 @@ installation depends on the working renderer.
   contact information, and related content. See the
   [shell and interface widget designs](philosophy/designs.md).
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314539964)
-- [ ] Provide Thunderbird-inspired tabs for mail views and messages as an
-  optional setting, **off by default**. Allow the tab bar in any shell region,
-  horizontally or vertically; when first enabled, place it in the header by
-  default. Save its placement and orientation. Preserve tab context, keyboard
-  access, drafts and pending work when switching, closing or disabling tabs.
-  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=315436993)
 - [ ] Define account models, connection state, folder structure, and mailbox lifecycle [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540057)
 - [ ] Support multiple simultaneous mail accounts in one window with independent account state and configuration [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314607650)
-- [ ] Design protocol-aware account and capability models that preserve existing IMAP behavior and allow POP3 and JMAP integrations in M05 [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314594590)
+- [ ] Design protocol-aware account and capability models that preserve existing IMAP behavior and allow POP3 and JMAP integrations in M07 [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314594590)
 - [ ] Support OAuth account authentication with secure desktop authorization, per-account token storage, renewal, and recovery [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314595922)
 - [ ] Implement the app skeleton in the same overall layout as the design spec [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568848)
 - [ ] Support compact and comfortable density modes before moving into feature-heavy workflows [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568860)
@@ -241,9 +234,9 @@ installation depends on the working renderer.
 - [ ] Keep threaded and flat views navigable and preserve conversation context across filters [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569569)
 - [ ] Protect reading privacy with explicit remote-content and external-link handling [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569578)
 
-### M09: Reliability, sync, and notification quality
+### M05: Reliability, sync, and notification quality
 
-**Project:** [M09 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498466) ·
+**Project:** [M05 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498466) ·
 [Connection and recovery](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541795) ·
 [Mailbox performance](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541868)
 
@@ -275,9 +268,9 @@ installation depends on the working renderer.
 - [ ] Preview or test rule matches and report execution failures before rules perform destructive actions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569999)
 - [ ] Make background sync, scanning, and rule activity visible with actionable error and progress states [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570007)
 
-### M05: Desktop integration and provider support
+### M07: Desktop integration and provider support
 
-**Project:** [M05 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498116) ·
+**Project:** [M07 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498116) ·
 [KDE and Plasma](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540788) ·
 [Mail providers](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540857) ·
 [Security and privacy](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540934)
@@ -307,12 +300,18 @@ installation depends on the working renderer.
 - [ ] Define how scan results, unavailable scanners, spam classification, and user overrides are surfaced [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569785)
 - [ ] Avoid exposing message content or attachments to external services without informed user action [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569792)
 
-### M07: Settings and workspace configuration
+### M08: Settings and workspace configuration
 
-**Project:** [M07 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498306) ·
+**Project:** [M08 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498306) ·
 [Mail settings](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541330) ·
 [Workspace integrations](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541421)
 
+- [ ] Provide Thunderbird-inspired tabs for mail views and messages as an
+  optional setting, **off by default**. Allow the tab bar in any shell region,
+  horizontally or vertically; when first enabled, place it in the header by
+  default. Save its placement and orientation. Preserve tab context, keyboard
+  access, drafts and pending work when switching, closing or disabling tabs.
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=315436993)
 - [ ] Design the settings surface using a Plasma Opus-style layout: grouped, readable, and extensible [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541330)
 - [ ] Cover appearance, density, mail behavior, notifications, workspaces, and
   productivity preferences. Include tabs settings for enablement (off by
@@ -332,9 +331,9 @@ installation depends on the working renderer.
 - [ ] Add defaults and toggles for mail-to-calendar, mail-to-notes, and work-context-aware productivity actions when those integrations are enabled [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570247)
 - [ ] Keep unavailable or optional integrations gracefully hidden and clearly explained in the settings surface [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570281)
 
-### M08: Themes and branding foundation
+### M09: Themes and branding foundation
 
-**Project:** [M08 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498380) ·
+**Project:** [M09 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498380) ·
 [Plasma visual language](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541568) ·
 [Accessible density](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541647)
 
@@ -363,9 +362,9 @@ installation depends on the working renderer.
 - [ ] Validate contrast, text scaling, focus indicators, and high-contrast behavior across panes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570471)
 - [ ] Keep compact and comfortable layouts readable across common window sizes and display scales [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570493)
 
-### M11: Nextcloud and digital asset management
+### M10: Nextcloud and digital asset management
 
-**Project:** [M11 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314506848) ·
+**Project:** [M10 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314506848) ·
 [Nextcloud assets](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542272) ·
 [Permissions and transfers](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542357)
 
@@ -376,15 +375,15 @@ installation depends on the working renderer.
 - [ ] Respect access permissions and make shared-link visibility explicit before sending [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570751)
 - [ ] Validate asset workflows with local and provider-backed mail accounts and document offline limitations [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570921)
 
-### M12: Refinements
+### M11: Refinements
 
-**Project:** [M12 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314499855)
+**Project:** [M11 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314499855)
 
 Adapt the menu, layout, interaction, settings, performance, and testing principles
 from [Plasma Opus refinements](https://github.com/mikepadiernos/plasma-opus-file-manager/blob/main/docs/ROADMAP.md#m32-refinements)
 to mail workflows without blocking this milestone on unavailable features.
 
-- **M12.01: Cross-product quality**
+- **M11.01: Cross-product quality**
 
   **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568448) · [Workflow friction](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314500156) ·
   [Usability and accessibility](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314500285) ·
@@ -409,7 +408,7 @@ to mail workflows without blocking this milestone on unavailable features.
     licensing and host support allow. Report every analyzer limitation
     explicitly. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570972)
 
-- **M12.02: Shell and interaction**
+- **M11.02: Shell and interaction**
 
   **Project:** [Shell and interaction](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314502413)
 
@@ -431,7 +430,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Restore windows to a usable visible position after display changes without overriding window-manager placement [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571245)
   - [ ] Keep controls usable with long translations, right-to-left layouts, and reduced-motion preferences [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571407)
 
-- **M12.03: Accounts, sync, and storage**
+- **M11.03: Accounts, sync, and storage**
 
   **Project:** [Accounts, sync, and storage](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314502624)
 
@@ -441,7 +440,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Preserve local changes during interruptions and make conflicts or unsent changes visible before recovery [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571437)
   - [ ] Explain local cache usage and allow users to manage storage without deleting server messages unintentionally [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571443)
 
-- **M12.04: Mail organization and triage**
+- **M11.04: Mail organization and triage**
 
   **Project:** [Mail organization and triage](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314502794)
 
@@ -453,7 +452,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Keep context-menu actions bound to the messages for which the menu opened, even if the selection changes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571660)
   - [ ] Distinguish cancellation from rollback and identify completed, skipped, and failed messages in batch results [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571675)
 
-- **M12.05: Reading, composition, and attachments**
+- **M11.05: Reading, composition, and attachments**
 
   **Project:** [Reading, composition, and attachments](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314502998)
 
@@ -464,7 +463,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Validate reply, reply-all, and forward behavior, including recipient visibility and attachment handling [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571856)
   - [ ] Prevent delayed message or attachment results from replacing the current view after selection changes or cancellation [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571865)
 
-- **M12.06: Search, sorting, and automation**
+- **M11.06: Search, sorting, and automation**
 
   **Project:** [Search, sorting, and automation](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314503192)
 
@@ -474,7 +473,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Allow users to inspect rule order and test matches before applying potentially destructive actions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571912)
   - [ ] Define how potential tags and advanced automation would interact with folders, search, and existing rules [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571919)
 
-- **M12.07: Security and privacy**
+- **M11.07: Security and privacy**
 
   **Project:** [Security and privacy](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314503352)
 
@@ -486,7 +485,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Test untrusted message content, attachment names, links, and imported data across validation, permissions, and error boundaries [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314572134)
   - [ ] Check that settings, logs, temporary files, and backups do not inadvertently expose credentials or message contents [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314572145)
 
-- **M12.08: Settings and notifications**
+- **M11.08: Settings and notifications**
 
   **Project:** [Settings and notifications](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314503553)
 
@@ -500,7 +499,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Confirm page-specific or global resets and distinguish app-owned settings from shared KDE data and credentials [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314572372)
   - [ ] Keep settings search, keyboard navigation, and unsaved edits responsive while loading larger account or provider lists [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314572381)
 
-- **M12.09: Desktop, services, and assets**
+- **M11.09: Desktop, services, and assets**
 
   **Project:** [Desktop, services, and assets](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314503752)
 
@@ -512,7 +511,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Review mail integration with KDE Plasma services such as notifications, KIO, file handling, session integration, account storage, and desktop-level actions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314572563)
   - [ ] Define the user-facing contract for Plasma Opus-aware mail flows: calendar handoff, notes capture, contact lookup, workspace-aware context, and graceful fallback when a companion app is unavailable [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314572568)
 
-- **M12.10: Calendar and contacts**
+- **M11.10: Calendar and contacts**
 
   **Project:** [Calendar and contacts](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314503888)
 
@@ -522,7 +521,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Define privacy, permissions, and error expectations for provider-backed event and contact data [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314572749)
   - [ ] Describe how potential mail-to-event and contact-to-compose workflows should preserve context [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314572758)
 
-- **M12.11: Notes, journal, and workspaces**
+- **M11.11: Notes, journal, and workspaces**
 
   **Project:** [Notes, journal, and workspaces](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314504035)
 
@@ -534,9 +533,9 @@ to mail workflows without blocking this milestone on unavailable features.
 
 This milestone follows the core app and Nextcloud integration. Refine implemented features here and document criteria for potential future work.
 
-### M10: Release readiness and polish
+### M12: Release readiness and polish
 
-**Project:** [M10 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498549) ·
+**Project:** [M12 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498549) ·
 [Accessible workflows](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542030) ·
 [Release guidance and triage](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542126)
 

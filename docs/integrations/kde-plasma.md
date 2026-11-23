@@ -1,7 +1,7 @@
 # KDE Plasma integrations
 
 **[Integrations](README.md)** · **[Plasma Opus](plasma-opus.md)** ·
-**[Roadmap: M05](../ROADMAP.md#m05-desktop-integration-and-provider-support)** ·
+**[Roadmap: M07](../ROADMAP.md#m07-desktop-integration-and-provider-support)** ·
 **[Caveats](../CAVEATS.md)**
 
 Plasma Impresario targets KDE Plasma. The items below describe intended

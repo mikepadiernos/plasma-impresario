@@ -1,7 +1,7 @@
 # Refinements
 
 **[Documentation](../README.md)** · **[Roadmap](../ROADMAP.md)** ·
-**[M12 in roadmap](../ROADMAP.md#m12-refinements)**
+**[M11 in roadmap](../ROADMAP.md#m11-refinements)**
 
 These plans define the release-quality pass after core mail and integration work
 becomes available.

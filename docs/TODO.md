@@ -45,7 +45,7 @@ and project status before acting.
 
 - **Deferred by milestone scope:** Live account setup belongs to M02 issue #78.
   Live message reading, replies and attachments belong to M04 issue #93.
-  Plasma desktop-session startup and recovery belong to M05 issue #101.
+  Plasma desktop-session startup and recovery belong to M07 issue #101.
   M01.04 is complete from automated build, installer, launch and privacy
   evidence without an isolated account or live Plasma session.
 - **Pending:** Verify renderer-enabled and renderer-free installs at system
