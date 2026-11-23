@@ -174,8 +174,9 @@ separate desktop and panel widget proposals.
 ## Layout recommendations
 
 The existing **compact**, **wide** and **one-panel-at-a-time** modes describe
-pane arrangement. Proposed compact/comfortable density and focus-reading modes
-are separate product settings and are not implemented density controls.
+pane arrangement. The separate **Row Density** menu selects compact or
+comfortable spacing for folder and message rows and saves the preference.
+Focus-reading mode remains planned.
 
 Prototype each density with realistic mail data and long folder names. Preserve
 saved splitter sizes where practical, and test keyboard navigation and message

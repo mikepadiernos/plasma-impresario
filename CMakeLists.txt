@@ -82,6 +82,11 @@ find_package(KF6 REQUIRED
         ItemModels
 )
 
+if(WITH_DESKTOP)
+    find_package(KF6 REQUIRED COMPONENTS Config I18n)
+    ki18n_install(po)
+endif()
+
 if(WITH_WEBENGINE)
     find_package(Qt6 ${QT_REQUIRED_VERSION} REQUIRED COMPONENTS WebEngineWidgets)
 endif()
@@ -378,6 +383,8 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/ComposeWidget.cpp
     ${path_DesktopGui}/ComposerAttachmentsList.cpp
     ${path_DesktopGui}/ComposerTextEdit.cpp
+    ${path_DesktopGui}/DensityDelegate.cpp
+    ${path_DesktopGui}/DensityMenu.cpp
     ${path_DesktopGui}/ExternalElementsWidget.cpp
     ${path_DesktopGui}/FlowLayout.cpp
     ${path_DesktopGui}/FromAddressProxyModel.cpp
@@ -846,6 +853,8 @@ if(WITH_DESKTOP)
             Imap
         PRIVATE
             Qt::Network
+            KF6::ConfigCore
+            KF6::I18n
             Cryptography
             IPC
             MSA
@@ -880,6 +889,7 @@ if(WITH_DESKTOP)
             DesktopGui
             IPC
             UiUtils
+            KF6::I18n
             ${STATIC_PLUGINS}
     )
 
@@ -983,6 +993,24 @@ if(BUILD_TESTING)
     set(UBSAN_ENV_SUPPRESSIONS "UBSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/tests/ubsan.supp")
 
     enable_testing()
+    if(WITH_DESKTOP)
+        add_executable(test_DensityMenu tests/Gui/test_DensityMenu.cpp
+            src/Gui/ColoredItemDelegate.cpp src/Gui/ColoredItemDelegate.h
+            src/Gui/DensityDelegate.cpp src/Gui/DensityDelegate.h
+            src/Gui/DensityMenu.cpp src/Gui/DensityMenu.h)
+        target_compile_definitions(test_DensityMenu PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+        target_link_libraries(test_DensityMenu PRIVATE Qt6::Widgets Qt6::Test KF6::ConfigCore KF6::I18n)
+        add_executable(test_MainWindowDensity tests/Gui/test_MainWindowDensity.cpp)
+        target_link_libraries(test_MainWindowDensity PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        if(NOT CMAKE_CROSSCOMPILING)
+            add_test(NAME test_DensityMenu COMMAND test_DensityMenu)
+            set_tests_properties(test_DensityMenu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_MainWindowDensity COMMAND test_MainWindowDensity)
+            set_tests_properties(test_MainWindowDensity PROPERTIES
+                TIMEOUT 30
+                ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
+        endif()
+    endif()
     if(WITH_DESKTOP AND UNIX AND NOT APPLE)
         find_package(Python3 QUIET COMPONENTS Interpreter)
         find_program(GTK_UPDATE_ICON_CACHE_TEST_EXECUTABLE NAMES gtk-update-icon-cache)

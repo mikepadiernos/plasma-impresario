@@ -28,6 +28,7 @@
 #include <QObject>
 #include <QSettings>
 #include <QTextStream>
+#include <KLocalizedString>
 
 #include "AppVersion/SetCoreApplication.h"
 #include "Common/Application.h"
@@ -59,6 +60,7 @@ int main(int argc, char **argv)
 
     AppVersion::setGitVersion();
     AppVersion::setCoreApplicationData();
+    KLocalizedString::setApplicationDomain("plasma-impresario");
     app.setApplicationDisplayName(QStringLiteral("Plasma Impresario"));
 
     app.setDesktopFileName(QStringLiteral("io.github.mikepadiernos.plasma_impresario"));

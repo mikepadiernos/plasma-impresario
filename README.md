@@ -21,8 +21,8 @@ KDE Frameworks. Other desktop environments are outside the supported scope.
 ## Build and run
 
 **Requirements:** CMake, Ninja, a C++20 compiler, Qt 6, Qt WebEngineWidgets and
-KF6 ItemModels. Optional integrations have additional dependencies; see the
-[compatibility baseline](docs/philosophy/compatibility.md).
+KF6 ItemModels, Config and I18n. Optional integrations have additional
+dependencies; see the [compatibility baseline](docs/philosophy/compatibility.md).
 
 To install locally:
 

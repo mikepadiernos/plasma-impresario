@@ -13,7 +13,7 @@ live account and desktop workflows remain deferred.
 | Desktop and session           | KDE Plasma 6, Wayland                                      | Plasma Workspace 6.8.3 and a KDE Wayland session were present on the observed host. Account setup and message reading in the desktop session have not been verified. X11 is not yet a release target. |
 | Compiler                      | GCC with C++20 support                                     | GCC 16.2.1 built the renderer-free application on the observed host. No older GCC minimum or Clang version has been validated.                                                                        |
 | Qt                            | Qt 6.7 or newer as required by CMake                       | Qt Core 6.12.0 configured the renderer-free build. This does not validate every version from 6.7 onward.                                                                                              |
-| KDE Frameworks                | KF6 ItemModels and ECM compatible with the selected Qt     | ItemModels and ECM 6.32.0 were used. The project does not declare explicit minimums; CMake's package summary reports an effective 6.25.0 minimum for both.                                            |
+| KDE Frameworks                | KF6 ItemModels, Config, I18n and ECM compatible with the selected Qt | ItemModels and ECM 6.32.0 were used. The project does not declare explicit minimums; CMake's package summary reports an effective 6.25.0 minimum for ItemModels and ECM. |
 | Build tools                   | CMake and Ninja                                            | CMake 4.5.1 and Ninja 1.13.2 were used. CMake declares 3.16 as its minimum, but that minimum has not been tested with the required ECM/Qt toolchain.                                                  |
 
 For M01.01, CachyOS x86_64 with `pacman` is the only verified distribution and
@@ -47,6 +47,7 @@ established. Qt Test and DBus are required unconditionally by CMake, even if
 | Qt Core5Compat, Qt 6.7.0 or newer                                | `qt6-5compat`         | 6.12.0                   |
 | Qt Svg, Qt 6.7.0 or newer                                        | `qt6-svg`             | 6.12.0                   |
 | KF6 ItemModels                                                   | `kitemmodels`         | 6.32.0                   |
+| KF6 Config and I18n                                              | `kconfig`, `ki18n`    | 6.32.0                   |
 
 The installer also installs `pkgconf` 3.0.11, `qt6-tools` 6.12.0 and
 `qt6-declarative` 6.12.0. These are not direct components of the root CMake Qt

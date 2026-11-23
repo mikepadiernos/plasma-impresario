@@ -25,8 +25,9 @@
 
 #include <QModelIndex>
 #include <QPainter>
-#include <QStyledItemDelegate>
 #include <QStyleOptionViewItem>
+
+#include "DensityDelegate.h"
 
 namespace Gui {
 
@@ -34,7 +35,7 @@ namespace Gui {
  *
  * The main role is to propagate text color on highlight.
  */
-class ColoredItemDelegate: public QStyledItemDelegate
+class ColoredItemDelegate: public DensityDelegate
 {
     Q_OBJECT
 public:

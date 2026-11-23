@@ -87,6 +87,8 @@
 #include "Plugins/PluginManager.h"
 #include "CompleteMessageWidget.h"
 #include "ComposeWidget.h"
+#include "DensityDelegate.h"
+#include "DensityMenu.h"
 #include "MailBoxTreeView.h"
 #include "MessageListWidget.h"
 #include "MessageView.h"
@@ -748,6 +750,8 @@ void MainWindow::createMenus()
             ADD_ACTION(layoutMenu, m_actionLayoutCompact);
             ADD_ACTION(layoutMenu, m_actionLayoutWide);
             ADD_ACTION(layoutMenu, m_actionLayoutOneAtTime);
+        viewMenu->addMenu(new DensityMenu(mboxTree, msgListWidget->tree,
+                                          KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), viewMenu));
         viewMenu->addSeparator();
         ADD_ACTION(viewMenu, m_actionShowOnlySubscribed);
 
@@ -823,6 +827,7 @@ void MainWindow::createWidgets()
     connect(m_delayedStateSaving, &QTimer::timeout, this, &MainWindow::saveSizesAndState);
 
     mboxTree = new MailBoxTreeView(nullptr, m_settings);
+    mboxTree->setItemDelegate(new DensityDelegate(mboxTree));
     mboxTree->setDesiredExpansion(m_settings->value(Common::SettingsNames::guiExpandedMailboxes).toStringList());
     connect(mboxTree, &QWidget::customContextMenuRequested, this, &MainWindow::showContextMenuMboxTree);
     connect(mboxTree, &MailBoxTreeView::mailboxExpansionChanged, this, [this](const QStringList &mailboxNames) {
