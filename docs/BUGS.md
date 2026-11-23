@@ -8,6 +8,19 @@ This log records confirmed user-visible bugs and reliability issues.
 
 ## Fixed issues
 
+### [bug] Plasma displays a generic icon instead of the application icon
+
+- **Issue:**
+  [#241](https://github.com/mikepadiernos/plasma-impresario/issues/241)
+- **Status:** Completed
+- **Reproduction:** Launch the installed application in Plasma with an icon
+  theme containing a generic `plasma` icon, such as Breeze.
+- **Expected:** The launcher and task manager show the project icon.
+- **Actual:** The `plasma-impresario` icon name can resolve to the generic
+  `plasma` icon instead of the application icon in the hicolor theme.
+- **Fix:** Use the application ID as the icon name and refresh an existing
+  hicolor cache during installation.
+
 ### [bug] Installed app missing from Plasma application menu
 
 - **Issue:**
