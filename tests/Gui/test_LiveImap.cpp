@@ -5,6 +5,7 @@
 #include "Common/SettingsNames.h"
 #include "Composer/SenderIdentitiesModel.h"
 #include "Gui/MailBoxTreeView.h"
+#include "Gui/MsgListView.h"
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/ItemRoles.h"
@@ -13,11 +14,14 @@
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
+#include "Gui/MessageView.h"
 #include "Gui/WebEngineMessageProfile.h"
 #endif
 #include "static_plugins.h"
 
+#include <KConfigGroup>
 #include <KLocalizedString>
+#include <KSharedConfig>
 #include <QApplication>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -51,6 +55,22 @@ private slots:
         settings.setValue(Common::SettingsNames::cacheOfflineKey, Common::SettingsNames::cacheOfflineNone);
         settings.setValue(Common::SettingsNames::guiShowSystray, false);
         settings.setValue(Common::SettingsNames::msaMethodKey, Common::SettingsNames::methodSENDMAIL);
+
+        bool haveUid = false;
+        bool haveValidity = false;
+        const uint savedUid = qgetenv("PLASMA_TEST_IMAP_RESTORE_UID").toUInt(&haveUid);
+        const uint savedValidity = qgetenv("PLASMA_TEST_IMAP_RESTORE_VALIDITY").toUInt(&haveValidity);
+        QVERIFY(haveUid == haveValidity);
+        if (haveUid) {
+            QVERIFY(savedUid && savedValidity);
+            KConfigGroup selection(KSharedConfig::openStateConfig(), QStringLiteral("MailboxSelection"));
+            KConfigGroup account = selection.group(QStringLiteral("account-0"));
+            account.writeEntry("Mailbox", QStringLiteral("INBOX"));
+            account.writeEntry("MessageMailbox", QStringLiteral("INBOX"));
+            account.writeEntry("MessageUidValidity", savedValidity);
+            account.writeEntry("MessageUid", savedUid);
+            QVERIFY(account.sync());
+        }
 
         int passwordsEntered = 0;
         bool certificateAccepted = false;
@@ -102,6 +122,7 @@ private slots:
         QCOMPARE(settings.value(Common::SettingsNames::imapUserKey).toString(), QStringLiteral("synthetic@example.test"));
         QCoreApplication::processEvents();
         QSignalSpy failures(window.imapModel(), &Imap::Mailbox::Model::authAttemptFailed);
+        QSignalSpy errors(window.imapModel(), &Imap::Mailbox::Model::imapError);
         connect(window.imapModel(), &Imap::Mailbox::Model::connectionStateChanged, this,
                 [&mailboxSelected](uint, Imap::ConnectionState state) {
             if (state == Imap::CONN_STATE_SELECTED)
@@ -120,14 +141,28 @@ private slots:
                                                      QStringLiteral("INBOX"), 1).size() == 1, 10000);
         const QModelIndex inbox = tree->model()->match(tree->model()->index(0, 0), Imap::Mailbox::RoleMailboxName,
                                                        QStringLiteral("INBOX"), 1).first();
+        if (haveUid) {
+            auto *messages = window.findChild<Gui::MsgListView *>();
+            QVERIFY(messages);
+            QTRY_COMPARE_WITH_TIMEOUT(messages->currentIndex().data(Imap::Mailbox::RoleMessageUid).toUInt(), savedUid, 10000);
+            QCOMPARE(messages->currentIndex().data(Imap::Mailbox::RoleMailboxUidValidity).toUInt(), savedValidity);
+#ifdef TROJITA_HAVE_WEBENGINE
+            auto *reader = window.findChild<Gui::MessageView *>();
+            QVERIFY(reader);
+            QTRY_COMPARE_WITH_TIMEOUT(reader->currentMessage().data(Imap::Mailbox::RoleMessageUid).toUInt(), savedUid, 10000);
+#endif
+        }
+        QVERIFY2(errors.isEmpty(), qPrintable(errors.isEmpty() ? QString() : errors.first().first().toString()));
         tree->scrollTo(inbox);
         QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(inbox).center());
         QTRY_VERIFY_WITH_TIMEOUT(mailboxSelected, 10000);
+        QVERIFY2(errors.isEmpty(), qPrintable(errors.isEmpty() ? QString() : errors.first().first().toString()));
         watcher->setNetworkOffline();
         QCOMPARE(watcher->effectiveNetworkPolicy(), Imap::Mailbox::NETWORK_OFFLINE);
         mailboxSelected = false;
         watcher->setNetworkOnline();
         QTRY_VERIFY_WITH_TIMEOUT(mailboxSelected, 10000);
+        QVERIFY2(errors.isEmpty(), qPrintable(errors.isEmpty() ? QString() : errors.first().first().toString()));
     }
 };
 

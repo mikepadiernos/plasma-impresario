@@ -100,6 +100,7 @@
 #include "MessageSourceWidget.h"
 #include "Gui/MessageHeadersWidget.h"
 #include "MsgListView.h"
+#include "MessageSelectionRestorer.h"
 #include "OnePanelAtTimeWidget.h"
 #include "PasswordDialog.h"
 #include "ProtocolLoggerWidget.h"
@@ -1045,11 +1046,26 @@ void MainWindow::setupModels()
 
     //ModelTest* tester = new ModelTest( prettyMboxModel, this ); // when testing, test just one model at time
 
+    msgListWidget->tree->setModel(prettyMsgListModel);
+    auto *messageRestorer = new MessageSelectionRestorer(msgListWidget->tree, prettyMsgListModel);
+    connect(messageRestorer, &MessageSelectionRestorer::messageRestored, this, &MainWindow::msgListClicked);
+    connect(imapModel(), &QAbstractItemModel::dataChanged, messageRestorer, &MessageSelectionRestorer::scheduleCheck);
+    connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, messageRestorer,
+            [messageRestorer](const QModelIndex &) { messageRestorer->cancel(); });
+    connect(mboxTree, &MailBoxTreeView::clicked, messageRestorer, [messageRestorer](const QModelIndex &) { messageRestorer->cancel(); });
+    connect(mboxTree, &MailBoxTreeView::activated, messageRestorer, [messageRestorer](const QModelIndex &) { messageRestorer->cancel(); });
     mboxTree->setModel(prettyMboxModel);
     connect(mboxTree, &MailBoxTreeView::mailboxRestored, realMsgListModel,
             static_cast<void (Imap::Mailbox::MsgListModel::*)(const QModelIndex &)>(&Imap::Mailbox::MsgListModel::setMailbox));
+    connect(mboxTree, &MailBoxTreeView::mailboxRestored, messageRestorer,
+            [messageRestorer, accountSelection](const QModelIndex &mailbox) {
+        const QString name = mailbox.data(Imap::Mailbox::RoleMailboxName).toString();
+        if (name == accountSelection.readEntry("MessageMailbox", QString())) {
+            messageRestorer->restore(name, accountSelection.readEntry("MessageUidValidity", 0u),
+                                     accountSelection.readEntry("MessageUid", 0u));
+        }
+    });
     mboxTree->restoreMailbox(accountSelection.readEntry("Mailbox", QString()));
-    msgListWidget->tree->setModel(prettyMsgListModel);
     connect(msgListWidget->tree->selectionModel(), &QItemSelectionModel::selectionChanged, this, &MainWindow::updateMessageFlags);
 
     allTree->setModel(imapModel());
@@ -1274,6 +1290,26 @@ void MainWindow::showMainWindow()
     raise();
 }
 
+void MainWindow::saveMessageSelection(const QModelIndex &index)
+{
+    KConfigGroup selection(KSharedConfig::openStateConfig(), QStringLiteral("MailboxSelection"));
+    KConfigGroup accountSelection = selection.group(m_imapAccess->credentialAccountId());
+    const QString mailbox = index.data(Imap::Mailbox::RoleMailboxName).toString();
+    const uint uidValidity = index.data(Imap::Mailbox::RoleMailboxUidValidity).toUInt();
+    const uint uid = index.data(Imap::Mailbox::RoleMessageUid).toUInt();
+    if (!mailbox.isEmpty() && uidValidity && uid) {
+        accountSelection.writeEntry("MessageMailbox", mailbox);
+        accountSelection.writeEntry("MessageUidValidity", uidValidity);
+        accountSelection.writeEntry("MessageUid", uid);
+    } else {
+        accountSelection.deleteEntry("MessageMailbox");
+        accountSelection.deleteEntry("MessageUidValidity");
+        accountSelection.deleteEntry("MessageUid");
+    }
+    if (!accountSelection.sync())
+        qWarning() << "Could not save message selection";
+}
+
 void MainWindow::msgListClicked(const QModelIndex &index)
 {
     Q_ASSERT(index.isValid());
@@ -1281,6 +1317,8 @@ void MainWindow::msgListClicked(const QModelIndex &index)
     if (qApp->keyboardModifiers() & Qt::ShiftModifier || qApp->keyboardModifiers() & Qt::ControlModifier)
         return;
 
+    if (index.column() != Imap::Mailbox::MsgListModel::SEEN && index.column() != Imap::Mailbox::MsgListModel::FLAGGED)
+        saveMessageSelection(index);
     if (! index.data(Imap::Mailbox::RoleMessageUid).isValid())
         return;
 #ifdef TROJITA_HAVE_WEBENGINE

@@ -392,6 +392,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/MailBoxTreeView.cpp
     ${path_DesktopGui}/MessageActionHandler.cpp
     ${path_DesktopGui}/MessageListWidget.cpp
+    ${path_DesktopGui}/MessageSelectionRestorer.cpp
     ${path_DesktopGui}/MsgItemDelegate.cpp
     ${path_DesktopGui}/MsgListView.cpp
     ${path_DesktopGui}/OnePanelAtTimeWidget.cpp
@@ -1006,11 +1007,15 @@ if(BUILD_TESTING)
         target_link_libraries(test_MailBoxTreeView PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_LiveImap tests/Gui/test_LiveImap.cpp)
         target_link_libraries(test_LiveImap PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_MessageSelectionRestorer tests/Gui/test_MessageSelectionRestorer.cpp)
+        target_link_libraries(test_MessageSelectionRestorer PRIVATE DesktopGui Qt6::Test)
         if(NOT CMAKE_CROSSCOMPILING)
             add_test(NAME test_DensityMenu COMMAND test_DensityMenu)
             set_tests_properties(test_DensityMenu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MailBoxTreeView COMMAND test_MailBoxTreeView)
             set_tests_properties(test_MailBoxTreeView PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_MessageSelectionRestorer COMMAND test_MessageSelectionRestorer)
+            set_tests_properties(test_MessageSelectionRestorer PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MainWindowDensity COMMAND test_MainWindowDensity)
             set_tests_properties(test_MainWindowDensity PROPERTIES
                 TIMEOUT 30

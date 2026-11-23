@@ -165,6 +165,7 @@ private slots:
     void slotNextUnread();
     void slotPreviousUnread();
     void msgListClicked(const QModelIndex &);
+    void saveMessageSelection(const QModelIndex &);
     void openCompleteMessageWidget();
     void slotCreateMailboxBelowCurrent();
     void slotMarkCurrentMailboxRead();
