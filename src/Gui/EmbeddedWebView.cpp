@@ -22,23 +22,22 @@
 #include "Common/SettingsNames.h"
 #include "EmbeddedWebView.h"
 #include "MessageView.h"
-#include "Gui/Util.h"
+#include "Gui/WebEngineMessagePage.h"
+#include "Gui/WebEngineMessageProfile.h"
 
 #include <QAbstractScrollArea>
 #include <QAction>
 #include <QApplication>
 #include <QDesktopServices>
+#include <QJsonArray>
+#include <QJsonDocument>
 #include <QLayout>
 #include <QMouseEvent>
-#include <QNetworkReply>
 #include <QScrollBar>
 #include <QStyle>
-#include <QStyleFactory>
 #include <QTimer>
-#include <QWebFrame>
-#include <QWebHistory>
-
-#include <QDebug>
+#include <QtMath>
+#include <QWebEnginePage>
 
 namespace {
 
@@ -62,41 +61,29 @@ public:
 namespace Gui
 {
 
-EmbeddedWebView::EmbeddedWebView(QWidget *parent, QNetworkAccessManager *networkManager, QSettings *profileSettings)
-    : QWebView(parent)
+EmbeddedWebView::EmbeddedWebView(QWidget *parent, WebEngineMessageProfile *profile, QSettings *profileSettings)
+    : QWebEngineView(parent)
+    , m_page(new WebEngineMessagePage(profile, this))
     , m_scrollParent(nullptr)
+    , m_scrollParentPadding(0)
     , m_resizeInProgress(0)
+    , m_autoScrollPixels(0)
     , m_staticWidth(0)
     , m_settings(profileSettings)
+    , m_colorScheme(ColorScheme::System)
 {
+    setPage(m_page);
     // set to expanding, ie. "freely" - this is important so the widget will attempt to shrink below the sizehint!
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     setFocusPolicy(Qt::StrongFocus); // not by the wheel
-    setPage(new ErrorCheckingPage(this));
-    page()->setNetworkAccessManager(networkManager);
-
-    QWebSettings *s = settings();
-    s->setAttribute(QWebSettings::JavascriptEnabled, false);
-    s->setAttribute(QWebSettings::JavaEnabled, false);
-    s->setAttribute(QWebSettings::PluginsEnabled, false);
-    s->setAttribute(QWebSettings::PrivateBrowsingEnabled, true);
-    s->setAttribute(QWebSettings::JavaEnabled, false);
-    s->setAttribute(QWebSettings::OfflineStorageDatabaseEnabled, false);
-    s->setAttribute(QWebSettings::OfflineWebApplicationCacheEnabled, false);
-    s->setAttribute(QWebSettings::LocalStorageDatabaseEnabled, false);
-    s->clearMemoryCaches();
-
-    page()->setLinkDelegationPolicy(QWebPage::DelegateAllLinks);
-    connect(this, &QWebView::linkClicked, this, &EmbeddedWebView::slotLinkClicked);
-    connect(this, &QWebView::loadFinished, this, &EmbeddedWebView::handlePageLoadFinished);
-    connect(page()->mainFrame(), &QWebFrame::contentsSizeChanged, this, &EmbeddedWebView::handlePageLoadFinished);
-
-    // Scrolling is implemented on upper layers
-    page()->mainFrame()->setScrollBarPolicy(Qt::Horizontal, Qt::ScrollBarAlwaysOff);
-    page()->mainFrame()->setScrollBarPolicy(Qt::Vertical, Qt::ScrollBarAlwaysOff);
+    connect(m_page, &WebEngineMessagePage::externalLinkRequested, this, &EmbeddedWebView::slotLinkClicked);
+    connect(this, &QWebEngineView::loadFinished, this, &EmbeddedWebView::handlePageLoadFinished);
+    connect(m_page, &QWebEnginePage::contentsSizeChanged, this, [this] {
+        m_sizeContrainTimer->start();
+    });
 
     // Setup shortcuts for standard actions
-    QAction *copyAction = page()->action(QWebPage::Copy);
+    QAction *copyAction = pageAction(QWebEnginePage::Copy);
     copyAction->setShortcut(tr("Ctrl+C"));
     addAction(copyAction);
 
@@ -112,8 +99,6 @@ EmbeddedWebView::EmbeddedWebView(QWidget *parent, QNetworkAccessManager *network
     setContextMenuPolicy(Qt::NoContextMenu);
     findScrollParent();
 
-    addCustomStylesheet(QString());
-
     loadColorScheme();
 }
 
@@ -121,35 +106,18 @@ void EmbeddedWebView::constrainSize()
 {
     Incrementor dummy(&m_resizeInProgress);
 
-    if (!(m_scrollParent && page() && page()->mainFrame()))
-        return; // should not happen but who knows
+    if (!m_scrollParent || !m_page)
+        return;
 
-    // Prevent expensive operation where a resize triggers one extra resizing operation.
-    // This is very visible on large attachments, and in fact could possibly lead to recursion as the
-    // contentsSizeChanged signal is connected to handlePageLoadFinished.
     if (m_resizeInProgress > 1)
         return;
 
-    // the m_scrollParentPadding measures the summed up horizontal paddings of this view compared to
-    // its m_scrollParent
-    setMinimumSize(0,0);
+    setMinimumSize(0, 0);
     setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
-    if (m_staticWidth) {
-        resize(m_staticWidth, QWIDGETSIZE_MAX - 1);
-        page()->setViewportSize(QSize(m_staticWidth, 32));
-    } else {
-        // resize so that the viewport has much vertical and wanted horizontal space
-        resize(m_scrollParent->width() - m_scrollParentPadding, QWIDGETSIZE_MAX);
-        // resize the PAGES viewport to this width and a minimum height
-        page()->setViewportSize(QSize(m_scrollParent->width() - m_scrollParentPadding, 32));
-    }
-    // now the page has an idea about it's demanded size
-    const QSize bestSize = page()->mainFrame()->contentsSize();
-    // set the viewport to that size! - Otherwise it'd still be our "suggestion"
-    page()->setViewportSize(bestSize);
-    // fix the widgets size so the layout doesn't have much choice
-    setFixedSize(bestSize);
-    m_sizeContrainTimer->stop(); // we caused spurious resize events
+    const int width = m_staticWidth ? m_staticWidth : qMax(1, m_scrollParent->width() - m_scrollParentPadding);
+    resize(width, qMax(32, height()));
+    setFixedSize(width, qMax(32, qCeil(m_page->contentsSize().height())));
+    m_sizeContrainTimer->stop();
 }
 
 void EmbeddedWebView::slotLinkClicked(const QUrl &url)
@@ -167,22 +135,15 @@ void EmbeddedWebView::slotLinkClicked(const QUrl &url)
     }
 }
 
-void EmbeddedWebView::handlePageLoadFinished()
+void EmbeddedWebView::handlePageLoadFinished(bool)
 {
     loadColorScheme();
     constrainSize();
-
-    // We've already set it in our constructor, but apparently it isn't enough (Qt 4.8.0 on X11).
-    // Let's do it again here, it works.
-    Qt::ScrollBarPolicy policy = isWindow() ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff;
-    page()->mainFrame()->setScrollBarPolicy(Qt::Horizontal, policy);
-    page()->mainFrame()->setScrollBarPolicy(Qt::Vertical, policy);
-    page()->setLinkDelegationPolicy(QWebPage::DelegateAllLinks);
 }
 
 void EmbeddedWebView::changeEvent(QEvent *e)
 {
-    QWebView::changeEvent(e);
+    QWebEngineView::changeEvent(e);
     if (e->type() == QEvent::ParentChange)
         findScrollParent();
 }
@@ -198,7 +159,7 @@ bool EmbeddedWebView::eventFilter(QObject *o, QEvent *e)
             m_autoScrollTimer->stop();
         }
     }
-    return QWebView::eventFilter(o, e);
+    return QWebEngineView::eventFilter(o, e);
 }
 
 void EmbeddedWebView::autoScroll()
@@ -217,7 +178,7 @@ void EmbeddedWebView::mouseMoveEvent(QMouseEvent *e)
 {
     if ((e->buttons() & Qt::LeftButton) && m_scrollParent) {
         m_autoScrollPixels = 0;
-        const QPoint pos = mapTo(m_scrollParent, e->pos());
+        const QPoint pos = mapTo(m_scrollParent, e->position().toPoint());
         if (pos.y() < 0)
             m_autoScrollPixels = pos.y();
         else if (pos.y() > m_scrollParent->rect().height())
@@ -225,7 +186,7 @@ void EmbeddedWebView::mouseMoveEvent(QMouseEvent *e)
         autoScroll();
         m_autoScrollTimer->start();
     }
-    QWebView::mouseMoveEvent(e);
+    QWebEngineView::mouseMoveEvent(e);
 }
 
 void EmbeddedWebView::mouseReleaseEvent(QMouseEvent *e)
@@ -234,7 +195,7 @@ void EmbeddedWebView::mouseReleaseEvent(QMouseEvent *e)
         m_autoScrollPixels = 0;
         m_autoScrollTimer->stop();
     }
-    QWebView::mouseReleaseEvent(e);
+    QWebEngineView::mouseReleaseEvent(e);
 }
 
 void EmbeddedWebView::findScrollParent()
@@ -276,10 +237,7 @@ void EmbeddedWebView::findScrollParent()
 
 void EmbeddedWebView::showEvent(QShowEvent *se)
 {
-    QWebView::showEvent(se);
-    Qt::ScrollBarPolicy policy = isWindow() ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff;
-    page()->mainFrame()->setScrollBarPolicy(Qt::Horizontal, Qt::ScrollBarAsNeeded);
-    page()->mainFrame()->setScrollBarPolicy(Qt::Vertical, policy);
+    QWebEngineView::showEvent(se);
     if (isWindow()) {
         resize(640,480);
     } else if (!m_scrollParent) // it would be much easier if the parents were just passed with the constructor ;-)
@@ -288,7 +246,7 @@ void EmbeddedWebView::showEvent(QShowEvent *se)
 
 QSize EmbeddedWebView::sizeHint() const
 {
-    return QSize(32,32); // QWebView returns 800x600 what will lead to too wide pages for our implementation
+    return QSize(32, 32);
 }
 
 QWidget *EmbeddedWebView::scrollParent() const
@@ -296,63 +254,20 @@ QWidget *EmbeddedWebView::scrollParent() const
     return m_scrollParent;
 }
 
+WebEngineMessagePage *EmbeddedWebView::messagePage() const
+{
+    return m_page;
+}
+
 void EmbeddedWebView::setStaticWidth(int staticWidth)
 {
     m_staticWidth = staticWidth;
+    m_sizeContrainTimer->start();
 }
 
 int EmbeddedWebView::staticWidth() const
 {
     return m_staticWidth;
-}
-
-ErrorCheckingPage::ErrorCheckingPage(QObject *parent): QWebPage(parent)
-{
-}
-
-bool ErrorCheckingPage::supportsExtension(Extension extension) const
-{
-    if (extension == ErrorPageExtension)
-        return true;
-    else
-        return false;
-}
-
-bool ErrorCheckingPage::extension(Extension extension, const ExtensionOption *option, ExtensionReturn *output)
-{
-    if (extension != ErrorPageExtension)
-        return false;
-
-    const ErrorPageExtensionOption *input = static_cast<const ErrorPageExtensionOption *>(option);
-    ErrorPageExtensionReturn *res = static_cast<ErrorPageExtensionReturn *>(output);
-    if (input && res) {
-        if (input->url.scheme() == QLatin1String("trojita-imap")) {
-            QString emblem;
-            if (input->domain == QtNetwork) {
-                switch (input->error) {
-                case QNetworkReply::TimeoutError:
-                    emblem = QStringLiteral("network-disconnect");
-                    break;
-                case QNetworkReply::ContentNotFoundError:
-                    emblem = QStringLiteral("emblem-error");
-                    break;
-                case QNetworkReply::UnknownProxyError:
-                    emblem = QStringLiteral("emblem-error");
-                    break;
-                }
-            }
-            if (!emblem.isNull()) {
-                res->content = QStringLiteral(
-                            "<img src=\"%2\" style=\"vertical-align: middle\"/>"
-                            "<span style=\"font-family: sans-serif; color: gray; margin-left: 0.5em\">%1</span>")
-                        .arg(input->errorString, Util::resizedImageAsDataUrl(QStringLiteral(":/icons/%1.svg").arg(emblem), 32)).toUtf8();
-                return true;
-            }
-        }
-        res->content = input->errorString.toUtf8();
-        res->contentType = QStringLiteral("text/plain");
-    }
-    return true;
 }
 
 std::map<EmbeddedWebView::ColorScheme, QString> EmbeddedWebView::supportedColorSchemes()
@@ -392,7 +307,6 @@ void EmbeddedWebView::addCustomStylesheet(const QString &css)
 {
     m_customCss = css;
 
-    QWebSettings *s = settings();
     QString bgName, fgName;
     QColor bg = palette().color(QPalette::Active, QPalette::Base),
            fg = palette().color(QPalette::Active, QPalette::Text);
@@ -427,9 +341,16 @@ void EmbeddedWebView::addCustomStylesheet(const QString &css)
     }
 
 
-    const QString urlPrefix(QStringLiteral("data:text/css;charset=utf-8;base64,"));
     const QString myColors(QStringLiteral("body { background-color: %1; color: %2; }\n").arg(bgName, fgName));
-    s->setUserStyleSheetUrl(QString::fromUtf8(urlPrefix.toUtf8() + (myColors + m_customCss).toUtf8().toBase64()));
+    QJsonArray cssValue;
+    cssValue.append(QString(myColors + m_customCss));
+    const QByteArray encodedCss = QJsonDocument(cssValue).toJson(QJsonDocument::Compact);
+    const QString cssLiteral = QString::fromUtf8(encodedCss.mid(1, encodedCss.size() - 2));
+    const QString script = QStringLiteral(
+        "(()=>{let s=document.getElementById('trojita-user-style');"
+        "if(!s){s=document.createElement('style');s.id='trojita-user-style';document.head.appendChild(s);}"
+        "s.textContent=%1;})()").arg(cssLiteral);
+    m_page->runJavaScript(script);
 }
 
 }

@@ -25,10 +25,14 @@
 #include <QLabel>
 #include <QMessageBox>
 #include <QModelIndex>
+#include <QPointer>
 #include <QPushButton>
 #include <QStyle>
 #include <QTabBar>
 #include <QVBoxLayout>
+
+#include <memory>
+#include <utility>
 
 #include "EnvelopeView.h"
 #include "LoadablePartWidget.h"
@@ -62,6 +66,53 @@ QString quoteMeHelper(const QObjectList &children)
             res += w->quoteMe();
     }
     return res.join(QStringLiteral("\n"));
+}
+
+namespace
+{
+
+class AsyncQuoteCollector : public std::enable_shared_from_this<AsyncQuoteCollector>
+{
+public:
+    AsyncQuoteCollector(const QObjectList &children, AbstractPartWidget::QuoteCallback callback)
+        : m_callback(std::move(callback))
+    {
+        for (QObject *child : children)
+            m_children.append(child);
+    }
+
+    void next()
+    {
+        while (m_position < m_children.size()) {
+            QObject *child = m_children.at(m_position++).data();
+            auto *part = dynamic_cast<const AbstractPartWidget *>(child);
+            if (!part)
+                continue;
+
+            const auto self = shared_from_this();
+            part->quoteMeAsync([self](const QString &text) {
+                self->m_quotes.append(text);
+                self->next();
+            });
+            return;
+        }
+
+        m_callback(m_quotes.join(QStringLiteral("\n")));
+    }
+
+private:
+    QList<QPointer<QObject>> m_children;
+    QStringList m_quotes;
+    AbstractPartWidget::QuoteCallback m_callback;
+    qsizetype m_position = 0;
+};
+
+void quoteMeAsyncHelper(const QObjectList &children, const AbstractPartWidget::QuoteCallback &callback)
+{
+    auto collector = std::make_shared<AsyncQuoteCollector>(children, callback);
+    collector->next();
+}
+
 }
 
 bool searchDialogRequestedHelper(const QObjectList &children)
@@ -185,6 +236,14 @@ QString MultipartAlternativeWidget::quoteMe() const
 {
     const AbstractPartWidget *w = dynamic_cast<const AbstractPartWidget *>(currentWidget());
     return w ? w->quoteMe() : QString();
+}
+
+void MultipartAlternativeWidget::quoteMeAsync(const QuoteCallback &callback) const
+{
+    if (const auto *part = dynamic_cast<const AbstractPartWidget *>(currentWidget()))
+        part->quoteMeAsync(callback);
+    else
+        callback(QString());
 }
 
 bool MultipartAlternativeWidget::searchDialogRequested()
@@ -389,6 +448,15 @@ QString MultipartSignedEncryptedWidget::quoteMe() const
     return quoteMeHelper(children());
 }
 
+void MultipartSignedEncryptedWidget::quoteMeAsync(const QuoteCallback &callback) const
+{
+    if (m_partIndex.data(Imap::Mailbox::RolePartDecryptionSupported).toBool()) {
+        callback(tr("[Encrypted message]"));
+        return;
+    }
+    quoteMeAsyncHelper(children(), callback);
+}
+
 bool MultipartSignedEncryptedWidget::searchDialogRequested()
 {
     return searchDialogRequestedHelper(children());
@@ -432,6 +500,11 @@ QString GenericMultipartWidget::quoteMe() const
     return quoteMeHelper(children());
 }
 
+void GenericMultipartWidget::quoteMeAsync(const QuoteCallback &callback) const
+{
+    quoteMeAsyncHelper(children(), callback);
+}
+
 bool GenericMultipartWidget::searchDialogRequested()
 {
     return searchDialogRequestedHelper(children());
@@ -459,6 +532,11 @@ Message822Widget::Message822Widget(QWidget *parent,
 QString Message822Widget::quoteMe() const
 {
     return quoteMeHelper(children());
+}
+
+void Message822Widget::quoteMeAsync(const QuoteCallback &callback) const
+{
+    quoteMeAsyncHelper(children(), callback);
 }
 
 bool Message822Widget::searchDialogRequested()

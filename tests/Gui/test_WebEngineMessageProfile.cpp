@@ -10,6 +10,7 @@
 #include "Gui/WebEngineMessageProfile.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/MailboxTree.h"
+#include "UiUtils/PlainTextFormatter.h"
 
 #include <QApplication>
 #include <QBuffer>
@@ -17,6 +18,7 @@
 #include <QImage>
 #include <QSignalSpy>
 #include <QStandardItemModel>
+#include <QStandardPaths>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QTemporaryFile>
@@ -553,10 +555,137 @@ private slots:
         QVERIFY(text->contains(QStringLiteral("Current part")));
         QVERIFY(!text->contains(QStringLiteral("Stale part")));
     }
+
+    void quotesRenderedTextAsynchronously()
+    {
+        MessageModel message;
+        message.bodyData = QByteArrayLiteral("<html><body>Quoted &amp; rendered text</body></html>");
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        Gui::WebEngineMessagePage page(&profile);
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        QVERIFY(page.loadMessagePart(QUrl(QStringLiteral("trojita-imap://msg/0"))));
+        QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+        QVERIFY(finished.last().at(0).toBool());
+
+        QString quoted;
+        bool received = false;
+        page.quoteText([&](const QString &text) {
+            quoted = text;
+            received = true;
+        });
+        QTRY_VERIFY_WITH_TIMEOUT(received, 10000);
+        QCOMPARE(quoted, QStringLiteral("Quoted & rendered text"));
+    }
+
+    void quotesSelectedText()
+    {
+        MessageModel message;
+        message.bodyData = QByteArrayLiteral("<html><body>Selected message text</body></html>");
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        Gui::WebEngineMessagePage page(&profile);
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        QVERIFY(page.loadMessagePart(QUrl(QStringLiteral("trojita-imap://msg/0"))));
+        QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+        QVERIFY(finished.last().at(0).toBool());
+
+        bool selected = false;
+        page.runJavaScript(QStringLiteral("window.getSelection().selectAllChildren(document.body)"),
+                           QWebEngineScript::ApplicationWorld,
+                           [&](const QVariant &) { selected = true; });
+        QTRY_VERIFY_WITH_TIMEOUT(selected, 10000);
+
+        QString quoted;
+        bool received = false;
+        page.quoteText([&](const QString &text) {
+            quoted = text;
+            received = true;
+        });
+        QTRY_VERIFY_WITH_TIMEOUT(received, 10000);
+        QCOMPARE(quoted, QStringLiteral("Selected message text"));
+    }
+
+    void quotesFormattedPlainText_data()
+    {
+        QTest::addColumn<QString>("original");
+        QTest::addColumn<QString>("expected");
+        QTest::newRow("nested") << QStringLiteral("Plain\n> Outer\n>> Inner\nEnd")
+                                << QStringLiteral("Plain\n> Outer\n>> Inner\nEnd");
+        QTest::newRow("collapsed") << QStringLiteral("Foo bar.\n> blesmrt\n>> 333\n>> 666\n>> 666-2\n>> 666-3\n>> 666-4")
+                                   << QStringLiteral("Foo bar.\n> blesmrt ...");
+    }
+
+    void quotesFormattedPlainText()
+    {
+        QFETCH(QString, original);
+        QFETCH(QString, expected);
+        MessageModel message;
+        message.body->setData(original, Imap::Mailbox::RolePartUnicodeText);
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        Gui::WebEngineMessagePage page(&profile);
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        const QString html = UiUtils::htmlizedTextPart(message.body->index(), QFontInfo(QFont()),
+                                                       Qt::white, Qt::black, Qt::blue, Qt::blue);
+        QVERIFY(page.setMessageHtml(html, QUrl(QStringLiteral("trojita-imap://msg/0"))));
+        QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+        QVERIFY(finished.last().at(0).toBool());
+
+        QString quoted;
+        bool received = false;
+        page.quoteText([&](const QString &text) {
+            quoted = text;
+            received = true;
+        });
+        QTRY_VERIFY_WITH_TIMEOUT(received, 10000);
+        QCOMPARE(quoted, expected);
+    }
+
+    void displaysGeneratedMarkupWithMessageBaseUrl()
+    {
+        MessageModel message;
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        Gui::WebEngineMessagePage page(&profile);
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        QVERIFY(page.loadMessagePart(QUrl(QStringLiteral("trojita-imap://msg/0"))));
+        QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+        QVERIFY(finished.last().at(0).toBool());
+
+        page.setMessageHtml(QStringLiteral("<html><body><pre>Formatted plain text</pre></body></html>"),
+                            QUrl(QStringLiteral("trojita-imap://msg/0")));
+        QTRY_VERIFY_WITH_TIMEOUT(finished.size() >= 2, 15000);
+        QVERIFY(finished.last().at(0).toBool());
+
+        auto text = std::make_shared<QString>();
+        auto received = std::make_shared<bool>(false);
+        page.toPlainText([text, received](const QString &result) { *text = result; *received = true; });
+        QTRY_VERIFY_WITH_TIMEOUT(*received, 10000);
+        QCOMPARE(*text, QStringLiteral("Formatted plain text"));
+
+        QString quoted;
+        bool quotedReceived = false;
+        page.quoteText([&](const QString &result) {
+            quoted = result;
+            quotedReceived = true;
+        });
+        QTRY_VERIFY_WITH_TIMEOUT(quotedReceived, 10000);
+        QCOMPARE(quoted, QStringLiteral("Formatted plain text"));
+    }
+
+    void rejectsGeneratedMarkupWithoutMessageBaseUrl()
+    {
+        MessageModel message;
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        Gui::WebEngineMessagePage page(&profile);
+        const QString html = QStringLiteral("<html><body>Generated text</body></html>");
+
+        QVERIFY(!page.setMessageHtml(html, QUrl(QStringLiteral("https://example.com/"))));
+        QVERIFY(!page.setMessageHtml(html, QUrl(QStringLiteral("trojita-imap://msg/0?query"))));
+        QVERIFY(page.loadMessagePart(QUrl(QStringLiteral("trojita-imap://msg/0"))));
+    }
 };
 
 int main(int argc, char **argv)
 {
+    QStandardPaths::setTestModeEnabled(true);
     Gui::WebEngineMessageProfile::registerScheme();
     QApplication app(argc, argv);
     WebEngineMessageProfileTest test;

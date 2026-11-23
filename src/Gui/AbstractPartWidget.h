@@ -23,6 +23,7 @@
 #define GUI_ABSTRACTPARTWIDGET_H
 
 #include <QString>
+#include <functional>
 
 namespace Gui
 {
@@ -31,7 +32,13 @@ namespace Gui
 class AbstractPartWidget
 {
 public:
+    using QuoteCallback = std::function<void(const QString &)>;
+
     virtual QString quoteMe() const = 0;
+    /** Returns the part's quote text, allowing rendered content to complete asynchronously.
+     * @param callback Receives the quote text.
+     */
+    virtual void quoteMeAsync(const QuoteCallback &callback) const { callback(quoteMe()); }
     virtual bool searchDialogRequested() = 0;
     virtual ~AbstractPartWidget() {}
     virtual void reloadContents() = 0;

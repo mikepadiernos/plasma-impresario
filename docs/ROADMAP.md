@@ -14,6 +14,9 @@ before desktop integration, productivity features and release-quality refinement
 > is checked only when its issue is **Completed** or **Merged** and its
 > implementation is verified. Blocked or unverifiable work remains recorded
 > in [pending tasks](TODO.md).
+> Check the checkbox only after the roadmap item is completed, following issue
+> review and merge state. Do not mark it complete solely because implementation
+> work has started or is in review.
 > The source already contains a substantial Trojitá IMAP client; the
 > [backend](parity/backend.md) and [UI](parity/ui.md) references distinguish
 > that baseline from planned Plasma Impresario features.
@@ -36,7 +39,7 @@ foundational mailbox functionality as entirely new.
 | Priority | Focus | Recommended next work |
 | --- | --- | --- |
 | **P0** | Reproducible, safe baseline | Confirm product identity and supported build matrix; establish verified TLS and safe credential defaults; document cache and logging behavior; add focused connection/security and launch smoke tests |
-| **P1** | Supported rendering and account boundaries | Replace legacy Qt WebKit or provide a safe text fallback; design stable per-account settings, cache and credentials before adding simultaneous accounts |
+| **P1** | Supported rendering and account boundaries | Complete the Qt WebEngine reader or provide a safe text fallback; design stable per-account settings, cache and credentials before adding simultaneous accounts |
 | **P2** | Shell and reliability | Prototype the Plasma Impresario layout over existing mailbox/list/reader behavior; validate accessibility, keyboard use, responsive layouts and partial-failure recovery |
 | **P3** | Optional productivity features | Add provider APIs, rules, Nextcloud, calendar/contacts and workspace features only after core reliability, permissions and privacy behavior are defined |
 
@@ -54,9 +57,12 @@ The issue synchronization handoff is tracked in [TODO](TODO.md#milestone-feature
 launch, and use to read mail. Establish the compatibility and smoke-test gate
 for later milestones.
 
-**Current blocker:** The existing Qt 6 build has no working message viewer
-without Qt6WebKitWidgets. Qt WebEngine is not a drop-in replacement; the
-viewer must be ported before a full installer can be considered complete.
+**Current blocker:** The WebEngine reader builds, installs to a temporary
+prefix, launches, and passes the full test suite. A live message-reading flow
+with an account remains unverified, so the M01.02 feature and M01 release gate
+remain in Development.
+The remaining release checks and integration handoff are in
+[TODO](TODO.md#m01-release-gate-and-integration).
 
 Work through the supported environment, renderer, installer, and verification
 in that order. Installer improvements can proceed in parallel, but a complete
@@ -74,15 +80,18 @@ installation depends on the working renderer.
     integrations and report unsupported or missing requirements clearly. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314499124)
   - [x] Verify dependencies and compatibility limitations for IMAP, local storage,
     message rendering, and desktop services. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568575)
-
-  The [initial compatibility baseline](compatibility.md) records the first
-  target, component evidence, and outstanding full-reader verification.
+  The [initial compatibility baseline](philosophy/compatibility.md) records the
+  first target, component evidence, and outstanding full-reader verification.
 
 - **M01.02: Qt WebEngine message renderer**
 
   **Project:** [Renderer port](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314539659)
 
-  The current Qt/WebEngine configuration blocker is tracked in
+  The WebEngine reader is integrated with per-message profiles and request
+  policy. The renderer-enabled build, all 35 CTest cases, temporary-prefix
+  installation, executable startup, and installer checks passed. Live
+  message-reading, reply, and attachment smoke tests remain unverified; the
+  issues remain in Development and their roadmap items unchecked. See
   [TODO](TODO.md#in-progress).
 
   1. [ ] Define the WebEngine profile and request lifecycle, including per-message isolation, cancellation, and cleanup when switching messages. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568588)
@@ -100,8 +109,10 @@ installation depends on the working renderer.
   [Renderer fallback](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314446004)
 
   - [ ] Complete the existing installer for dependency setup, configuration, build,
-    and installation. Surface errors and request administrator privileges only
-    when needed. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568548)
+    and installation. Provide flags for check-only dependency inspection,
+    skipping dependency handling, and building without installing the app.
+    Surface errors and request administrator privileges only when needed.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568548)
   - [ ] Detect the appropriate supported package manager, prefer Arch/CachyOS
     tooling where applicable, and install only missing dependencies without
     falling back to an unrelated package manager. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314445891)
@@ -114,9 +125,9 @@ installation depends on the working renderer.
   - [ ] Integrate the WebEngine dependency and full reader once the port is ready;
     installing a renderer-free build does not satisfy this milestone. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568565)
 
-  The installer already checks for installed packages and provides explicit
-  WebKit and renderer-free options. The latter is an opt-in incomplete build,
-  not the default or a substitute for the WebEngine port. Remaining validation
+  The installer checks for installed packages and provides explicit WebEngine
+  and renderer-free options. The latter is an opt-in incomplete build, not the
+  default or a substitute for the reader. Remaining validation
   and compatibility work is tracked in
   [mikepadiernos/plasma-impresario#2](https://github.com/mikepadiernos/plasma-impresario/issues/2)
   and [mikepadiernos/plasma-impresario#3](https://github.com/mikepadiernos/plasma-impresario/issues/3).
@@ -135,6 +146,11 @@ installation depends on the working renderer.
   - [ ] Smoke-test launch, account setup, message reading, replies, attachments,
     desktop integration, and recovery from failures. Run renderer and privacy
     regression tests. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498915)
+  - [ ] Establish reproducible warning, formatting, test coverage, and dynamic
+    analysis commands for clean Debug builds. Use AddressSanitizer and
+    UndefinedBehaviorSanitizer for supported desktop configurations; use
+    ThreadSanitizer for targeted concurrency investigations where it is
+    practical. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498915)
   - [ ] Record tested environments, reproducible verification steps, and remaining
     protocol, storage, rendering, and desktop-service limitations. Later
     milestones depend on this gate. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568837)
@@ -264,7 +280,13 @@ installation depends on the working renderer.
 - [ ] Rename the application, installed identity, documentation, repository, and project board to Plasma Impresario while preserving Trojitá configuration and compatibility aliases [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314606649)
 - [ ] Define the default visual language, palette, and KDE-native desktop styling [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541568)
 - [ ] Establish spacing, density, and readability rules for all mail panes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541647)
-- [ ] Align the product shell with Plasma visual expectations for polish and clarity [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570268)
+- [ ] Align the product shell with Plasma visual expectations for polish and
+  clarity. Replace the left sidebar navigation icons' selection caret with a
+  theme-accented corner or edge marker; prefer a short accent bar with a subtle
+  selected background if the corner is hard to distinguish. Preserve keyboard
+  focus, accessible selection state, and contrast without relying on color
+  alone; retain disclosure indicators for expandable trees.
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570268)
 - [ ] Follow the active Plasma color scheme, accent, icon theme, and light or dark appearance [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570286)
 - [ ] Validate contrast, text scaling, focus indicators, and high-contrast behavior across panes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570471)
 - [ ] Keep compact and comfortable layouts readable across common window sizes and display scales [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570493)
@@ -283,6 +305,9 @@ installation depends on the working renderer.
 - [ ] Verify folder and unread counts remain consistent across multiple accounts and concurrent changes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570519)
 - [ ] Measure responsiveness and resource use for large mailboxes, long threads, bulk actions, and attachments [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570539)
 - [ ] Confirm failed background operations remain visible and can be retried or resolved [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570527)
+- [ ] Exercise memory, lifetime, undefined-behavior, and data-race-sensitive
+  network, cache, and Qt background-task paths with suitable sanitizers before
+  extending concurrency or sync behavior [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570499)
 
 ### M10: Release readiness and polish
 
@@ -297,6 +322,9 @@ installation depends on the working renderer.
 - [ ] Verify accessible navigation, screen-reader labels, keyboard-only workflows, localization, and scaled displays [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570702)
 - [ ] Publish installation, upgrade, troubleshooting, security, and supported-platform guidance [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570712)
 - [ ] Triage outstanding bugs and caveats against explicit release criteria before shipping [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570728)
+- [ ] Require clean formatting, reproducible CMake builds, test coverage,
+  supported dependency checks, and static analysis results in the release CI
+  gate; document tools, environment, findings, and residual risk [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542126)
 
 ### M11: Nextcloud and digital asset management
 
@@ -339,6 +367,10 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Exercise successful operations, cancellation, partial failure, recovery, and persistence with isolated test data and synthetic credentials [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570959)
   - [ ] Review accessibility, translations, display scaling, optional dependencies, and representative desktop configurations; record environments not tested [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570967)
   - [ ] Run suitable static analysis and dependency checks and document security findings and residual risks without claiming testing proves security [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570972)
+  - [ ] Use C++ Core Guidelines and project-specific KDE/Qt conventions for
+    findings, and evaluate open static analyzers plus PVS-Studio only where
+    licensing and host support allow. Report every analyzer limitation
+    explicitly. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570972)
 
 - **M12.02: Shell and interaction**
 

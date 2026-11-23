@@ -22,33 +22,31 @@ Plasma Impresario workflows and redesign are not all implemented yet.
 
 ## Build and run
 
-**Requirements:** CMake, Ninja, a C++ compiler, Qt 6 and KF6 ItemModels.
-Reading messages requires Qt6WebKitWidgets, which is not provided by Qt
-WebEngine and may not be available in your distribution. OpenPGP, QtKeychain,
-Sonnet and other integrations depend on the configured build. See
-`CMakeLists.txt` for exact requirements and the
-[compatibility baseline](docs/compatibility.md) for tested environments and
-remaining limits.
+**Requirements:** CMake, Ninja, a C++ compiler, Qt 6, Qt WebEngineWidgets and KF6 ItemModels.
+OpenPGP, QtKeychain, Sonnet
+and other integrations depend on the configured build. See `CMakeLists.txt`
+for exact requirements and the
+[compatibility baseline](docs/philosophy/compatibility.md) for tested
+environments and remaining limits.
 
 For a local build:
 
 ```bash
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DWITH_WEBKIT=ON
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DWITH_WEBENGINE=ON
 cmake --build build
 QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure
 ./build/plasma-impresario
 ```
 
-For an explicitly renderer-free development build, use `-DWITH_WEBKIT=OFF`
+For an explicitly renderer-free development build, use `-DWITH_WEBENGINE=OFF`
 instead. It cannot display message contents.
 
-To develop the experimental WebEngine resource bridge, configure with
-`-DWITH_WEBKIT=OFF -DWITH_WEBENGINE_BRIDGE=ON -DBUILD_TESTING=ON`, then build
-and run the `test_WebEngineMessageProfile` target. This bridge is not yet
-connected to the message viewer. It includes a message-page navigation policy;
-custom schemes must be registered before creating `QApplication`.
+The WebEngine reader uses a private profile for each message. Its tests cover
+IMAP and `cid:` loading, remote-content consent, navigation restrictions,
+cancellation, message switching and asynchronous quoting. Custom URL schemes
+are registered before creating `QApplication`.
 
-For the local automated setup (requires Qt6WebKitWidgets):
+For the local automated setup:
 
 ```bash
 ./install.sh
@@ -60,7 +58,13 @@ The installer defaults to `$HOME/.local`, including the executable in
 the application-menu launcher does not depend on it. It requests
 privileges for missing system packages or a protected installation prefix and
 skips packages it detects as already installed. Use `--no-deps` to skip
-package installation.
+dependency checks and package installation, `--check-deps` to check installed
+packages without installing or building, or `--build-only` to build
+without installing the application. Build-only mode may still install missing
+dependencies; combine it with `--no-deps` to avoid that. The check-only mode
+reports missing packages the installer would install, including available
+optional packages, and exits nonzero if any are missing. It does not check
+versions or CMake-only requirements.
 Package-manager selection uses `/etc/os-release` and fails rather than trying
 an unrelated distribution's package manager. On unsupported distributions,
 install dependencies manually and use `--no-deps`.
@@ -68,11 +72,9 @@ For `pacman`, unavailable optional integration packages are reported and
 skipped; installing missing packages runs a full `pacman -Syu` system upgrade.
 `PLASMA_IMPRESARIO_OS_RELEASE` can point to an alternate os-release file when
 necessary; the old `PLASMA_MAIL_OS_RELEASE` name remains supported.
-Qt6WebKitWidgets may need to be installed separately.
-
-If Qt6WebKitWidgets is unavailable, `./install.sh --without-webkit` installs
-an **incomplete build that cannot display message contents**. This option is
-not a substitute for a working mail reader.
+Qt WebEngineWidgets is required for the default reader build. Use
+`--without-webengine` only for an explicitly incomplete build that cannot
+display message contents.
 
 The installer also supports custom build and installation locations:
 
@@ -100,7 +102,7 @@ The current Trojitá-based application provides:
 
 - IMAP mailbox discovery, synchronization, offline modes, caching and threading;
 - folder navigation, message search/sorting and common flag/tag operations;
-- message reading, MIME parts, attachment handling and optional HTML rendering;
+- message reading, MIME alternatives, HTML rendering and attachment handling;
 - composition, replies/forwards, local drafts and configurable message delivery;
 - compact, wide and one-panel layouts with persisted window state;
 - optional password, address-book, spell-check and OpenPGP plugins.

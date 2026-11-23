@@ -19,7 +19,7 @@ development status.
 | Guide | What it covers |
 | --- | --- |
 | [Project README](../README.md) | Installation, feature direction and desktop integration |
-| [Compatibility baseline](compatibility.md) | M01 target environment, dependencies and verification limits |
+| [Compatibility baseline](philosophy/compatibility.md) | M01 target environment, dependencies and verification limits |
 | [Scope and objective](philosophy/scope.md) | Target workflows and product boundaries |
 | [Design direction](philosophy/designs.md) | Shell structure, reading flow and interface principles |
 | [Inspirations](philosophy/inspirations.md) | Trojitá, Aqua Mail, Vivaldi Mail, The Bat!, Kontact and Plasma influences |

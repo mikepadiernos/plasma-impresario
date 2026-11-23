@@ -34,7 +34,7 @@
 class QCheckBox;
 class QLineEdit;
 class QString;
-class QWebView;
+class QWebEngineView;
 
 namespace Gui {
 
@@ -51,7 +51,7 @@ public:
     bool highlightAllState() const;
 
     void setVisible(bool visible) override;
-    void setAssociatedWebView(QWebView *webView);
+    void setAssociatedWebView(QWebEngineView *webView);
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;
@@ -76,7 +76,7 @@ private:
     QCheckBox *m_highlightAll;
 
     QString _lastStringSearched;
-    QPointer<QWebView> m_associatedWebView;
+    QPointer<QWebEngineView> m_associatedWebView;
 };
 
 }

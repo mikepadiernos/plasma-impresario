@@ -526,9 +526,9 @@ QString htmlizedTextPart(const QModelIndex &partIndex, const QFontInfo &font, co
                          const QColor &linkColor, const QColor &visitedLinkColor)
 {
     static const QString defaultStyle = QString::fromUtf8(
-        "pre{word-wrap: break-word; white-space: pre-wrap;}"
+        ".plain-text{word-wrap: break-word; white-space: pre-wrap;}"
         // The following line, sadly, produces a warning "QFont::setPixelSize: Pixel size <= 0 (0)".
-        // However, if it is not in place or if the font size is set higher, even to 0.1px, WebKit reserves space for the
+        // However, if it is not in place or if the font size is set higher, even to 0.1px, WebEngine reserves space for the
         // quotation characters and therefore a weird white area appears. Even width: 0px doesn't help, so it looks like
         // we will have to live with this warning for the time being.
         ".quotemarks{color:transparent;font-size:0px;}"
@@ -556,7 +556,7 @@ QString htmlizedTextPart(const QModelIndex &partIndex, const QFontInfo &font, co
         "span.shortquote > blockquote > label {display: none}"
     );
 
-    QString fontSpecification(QStringLiteral("pre{"));
+    QString fontSpecification(QStringLiteral(".plain-text{"));
     if (font.italic())
         fontSpecification += QLatin1String("font-style: italic; ");
     if (font.bold())
@@ -582,12 +582,12 @@ QString htmlizedTextPart(const QModelIndex &partIndex, const QFontInfo &font, co
         file.close();
     }
 
-    // The dir="auto" is required for WebKit to treat all paragraphs as entities with possibly different text direction.
+    // The dir="auto" lets the browser resolve text direction for mixed-direction messages.
     // The individual paragraphs unfortunately share the same text alignment, though, as per
     // https://bugs.webkit.org/show_bug.cgi?id=71194 (fixed in Blink already).
     QString htmlHeader(QLatin1String("<html><head><style type=\"text/css\"><!--") + textColors + fontSpecification + stylesheet +
-                       QLatin1String("--></style></head><body><pre dir=\"auto\">"));
-    static QString htmlFooter(QStringLiteral("\n</pre></body></html>"));
+                       QLatin1String("--></style></head><body><div class=\"plain-text\" dir=\"auto\">"));
+    static QString htmlFooter(QStringLiteral("</div></body></html>"));
 
 
     // We cannot rely on the QWebFrame's toPlainText because of https://bugs.kde.org/show_bug.cgi?id=321160

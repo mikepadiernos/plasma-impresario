@@ -60,6 +60,7 @@ public:
     AttachmentView(QWidget *parent, Imap::Network::MsgPartNetAccessManager *manager, const QModelIndex &m_partIndex,
                    MessageView *messageView, QWidget *contentWidget);
     QString quoteMe() const override;
+    void quoteMeAsync(const QuoteCallback &callback) const override;
     bool searchDialogRequested() override;
     void reloadContents() override;
     void zoomIn() override;

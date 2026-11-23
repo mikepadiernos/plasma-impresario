@@ -23,28 +23,20 @@
 #define EMBEDDEDWEBVIEW_H
 
 #include <QSettings>
-#include <QWebPluginFactory>
-#include <QWebView>
+#include <QWebEngineView>
 
 namespace Gui
 {
 
+class WebEngineMessagePage;
+class WebEngineMessageProfile;
 
-/** @short An embeddable QWebView with some safety checks and modified resizing
+/** An embeddable Qt WebEngine view for message content.
 
-  This class configures the QWebView in such a way that it will prevent certain
-  dangerous (or unexpected, in the context of a MUA) features from being invoked.
-
-  Another function is to configure the QWebView in such a way that it resizes
-  itself to show all required contents.
-
-  Note that you still have to provide a proper eventFilter in the parent widget
-  (and register it for use).
-
-  @see Gui::MessageView
-
-  */
-class EmbeddedWebView: public QWebView
+  The view uses a per-message profile and sizes itself to the rendered content
+  so the containing message scroll area remains the primary vertical scroller.
+*/
+class EmbeddedWebView : public QWebEngineView
 {
     Q_OBJECT
 public:
@@ -57,9 +49,19 @@ public:
         BlackOnWhite,
     };
 
-    EmbeddedWebView(QWidget *parent, QNetworkAccessManager *networkManager, QSettings *profileSettings);
+    /** Creates a view bound to a single message profile.
+     * @param parent Parent widget.
+     * @param profile Per-message WebEngine profile.
+     * @param profileSettings Message-view settings.
+     */
+    EmbeddedWebView(QWidget *parent, WebEngineMessageProfile *profile, QSettings *profileSettings);
     QSize sizeHint() const;
     QWidget *scrollParent() const;
+    /** @returns The page that loads IMAP message parts. */
+    WebEngineMessagePage *messagePage() const;
+    /** Sets a fixed viewport width for content such as large plain-text parts.
+     * @param staticWidth Width in logical pixels; zero restores adaptive width.
+     */
     void setStaticWidth(int staticWidth);
     int staticWidth() const;
     static std::map<ColorScheme, QString> supportedColorSchemes();
@@ -80,8 +82,9 @@ private:
 private slots:
     void autoScroll();
     void slotLinkClicked(const QUrl &url);
-    void handlePageLoadFinished();
+    void handlePageLoadFinished(bool success);
 private:
+    WebEngineMessagePage *m_page;
     QWidget *m_scrollParent;
     int m_scrollParentPadding;
     int m_resizeInProgress;
@@ -93,16 +96,6 @@ private:
     QSettings *m_settings;
 protected:
     ColorScheme m_colorScheme;
-};
-
-class ErrorCheckingPage: public QWebPage
-{
-    Q_OBJECT
-public:
-    explicit ErrorCheckingPage(QObject *parent);
-
-    virtual bool extension(Extension extension, const ExtensionOption *option, ExtensionReturn *output);
-    virtual bool supportsExtension(Extension extension) const;
 };
 
 }

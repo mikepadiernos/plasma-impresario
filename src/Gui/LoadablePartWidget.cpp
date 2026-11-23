@@ -80,6 +80,14 @@ QString LoadablePartWidget::quoteMe() const
     return part ? part->quoteMe() : QString();
 }
 
+void LoadablePartWidget::quoteMeAsync(const QuoteCallback &callback) const
+{
+    if (auto *part = dynamic_cast<const AbstractPartWidget *>(realPart))
+        part->quoteMeAsync(callback);
+    else
+        callback(QString());
+}
+
 bool LoadablePartWidget::searchDialogRequested()
 {
     if (AbstractPartWidget *part = dynamic_cast<AbstractPartWidget*>(realPart))

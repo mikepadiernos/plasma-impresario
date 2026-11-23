@@ -26,9 +26,9 @@
 #include <QAction>
 #include <QTextDocument>
 
-#ifdef TROJITA_HAVE_WEBKIT
-#include <QWebFrame>
-#include <QWebView>
+#ifdef TROJITA_HAVE_WEBENGINE
+#include <QWebEnginePage>
+#include <QWebEngineView>
 #endif
 
 #include "Composer/Recipients.h"
@@ -38,7 +38,7 @@
 
 #if defined(__has_feature)
 #  if  __has_feature(address_sanitizer)
-#    define SKIP_WEBKIT_TESTS
+#    define SKIP_WEBENGINE_TESTS
 #  endif
 #endif
 
@@ -239,16 +239,16 @@ void HtmlFormattingTest::testPlainTextFormattingViaHtml_data()
 
 WebRenderingTester::WebRenderingTester()
 {
-#ifdef TROJITA_HAVE_WEBKIT
-    m_web = new QWebView(0);
+#ifdef TROJITA_HAVE_WEBENGINE
+    m_web = new QWebEngineView;
     m_loop = new QEventLoop(this);
-    connect(m_web, &QWebView::loadFinished, m_loop, &QEventLoop::quit);
+    connect(m_web, &QWebEngineView::loadFinished, m_loop, &QEventLoop::quit);
 #endif
 }
 
 WebRenderingTester::~WebRenderingTester()
 {
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     delete m_web;
 #endif
 }
@@ -256,11 +256,11 @@ WebRenderingTester::~WebRenderingTester()
 QString WebRenderingTester::asPlainText(const QString &input, const UiUtils::FlowedFormat format,
                                         const CollapsingFlags collapsing)
 {
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
 
     // FIXME: bad pasted thing!
     static const QString stylesheet = QStringLiteral(
-        "pre{word-wrap: break-word; white-space: pre-wrap;}"
+        ".plain-text{word-wrap: break-word; white-space: pre-wrap;}"
         ".quotemarks{color:transparent;font-size:0px;}"
         "blockquote{font-size:90%; margin: 4pt 0 4pt 0; padding: 0 0 0 1em; border-left: 2px solid blue;}"
         "blockquote blockquote blockquote {font-size: 100%}"
@@ -275,16 +275,52 @@ QString WebRenderingTester::asPlainText(const QString &input, const UiUtils::Flo
         "span.short > blockquote > label:after {content: \" \u25be\"}"
         "span.shortquote > blockquote > label {display: none}"
     );
-    static const QString htmlHeader(QStringLiteral("<html><head><style type=\"text/css\"><!--") + stylesheet + QLatin1String("--></style></head><body><pre>"));
-    static const QString htmlFooter(QStringLiteral("\n</pre></body></html>"));
+    static const QString htmlHeader(QStringLiteral("<html><head><style type=\"text/css\"><!--") + stylesheet +
+                                    QLatin1String("--></style></head><body><div class=\"plain-text\">"));
+    static const QString htmlFooter(QStringLiteral("</div></body></html>"));
 
     sourceData = htmlHeader + UiUtils::plainTextToHtml(input, format) + htmlFooter;
     if (collapsing == RenderExpandEverythingCollapsed)
         sourceData = sourceData.replace(QStringLiteral(" checked=\"checked\""), QString());
     QTimer::singleShot(0, this, SLOT(doDelayedLoad()));
     m_loop->exec();
-    m_web->page()->action(QWebPage::SelectAll)->trigger();
-    return m_web->page()->selectedText();
+    m_web->page()->runJavaScript(QStringLiteral(R"JS((() => {
+        const root = document.querySelector(".plain-text");
+        if (!root)
+            return "";
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        let text = "";
+        let previousQuote = null;
+        while (walker.nextNode()) {
+            let parent = walker.currentNode.parentElement;
+            let hidden = false;
+            while (parent && parent !== root) {
+                if (getComputedStyle(parent).display === "none") {
+                    hidden = true;
+                    break;
+                }
+                parent = parent.parentElement;
+            }
+            if (hidden)
+                continue;
+            let quote = walker.currentNode.parentElement;
+            while (quote && quote !== root && quote.tagName !== "BLOCKQUOTE")
+                quote = quote.parentElement;
+            if (quote === root)
+                quote = null;
+            const nodeText = walker.currentNode.nodeValue;
+            if (text && quote !== previousQuote && !text.endsWith("\n") && !nodeText.startsWith("\n"))
+                text += "\n";
+            text += nodeText;
+            previousQuote = quote;
+        }
+        return text;
+    })())JS"), [this](const QVariant &text) {
+        sourceData = text.toString();
+        m_loop->quit();
+    });
+    m_loop->exec();
+    return sourceData;
 #else
     return QString();
 #endif
@@ -292,8 +328,8 @@ QString WebRenderingTester::asPlainText(const QString &input, const UiUtils::Flo
 
 void WebRenderingTester::doDelayedLoad()
 {
-#ifdef TROJITA_HAVE_WEBKIT
-    m_web->page()->mainFrame()->setHtml(sourceData);
+#ifdef TROJITA_HAVE_WEBENGINE
+    m_web->setHtml(sourceData);
 #endif
 }
 
@@ -326,9 +362,9 @@ void HtmlFormattingTest::testPlainTextFormattingViaPaste()
     if (expandedFlowed.isEmpty())
         expandedFlowed = formattedFlowed;
 
-#ifdef TROJITA_HAVE_WEBKIT
-#ifdef SKIP_WEBKIT_TESTS
-    QSKIP("ASAN build -- QtWebKit is known to be broken, skipping");
+#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef SKIP_WEBENGINE_TESTS
+    QSKIP("ASAN build -- Qt WebEngine rendering is skipped");
 #else
     {
         WebRenderingTester tester;
@@ -353,7 +389,7 @@ void HtmlFormattingTest::testPlainTextFormattingViaPaste()
 
 void HtmlFormattingTest::testPlainTextFormattingViaPaste_data()
 {
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
 
     QTest::addColumn<QString>("source");
     QTest::addColumn<QString>("formattedFlowed");
@@ -395,9 +431,9 @@ void HtmlFormattingTest::testPlainTextFormattingViaPaste_data()
 
     QTest::newRow("bottom-quoting-toobig")
             << QStringLiteral("Foo bar.\n> blesmrt\n>> 333\n>> 666\n>> 666-2\n>> 666-3\n>> 666-4")
-            << QStringLiteral("Foo bar.\n> blesmrt ...\n")
+            << QStringLiteral("Foo bar.\n> blesmrt ...")
             << QStringLiteral()
-            << QStringLiteral("Foo bar.\n> blesmrt\n>> 333\n>> 666\n>> 666-2\n>> 666-3\n>> 666-4\n");
+            << QStringLiteral("Foo bar.\n> blesmrt\n>> 333\n>> 666\n>> 666-2\n>> 666-3\n>> 666-4");
 
     QTest::newRow("different-quote-levels-not-flowed-together")
             << QStringLiteral("Foo bar. \n> blesmrt \n>> 333")
@@ -410,11 +446,11 @@ void HtmlFormattingTest::testPlainTextFormattingViaPaste_data()
             // The space right in front of "..." is a separator for copy-paste. The original space from the input
             // is interpretted as a line mistakenly marked as flowed, but since the line of a paragraph cannot be
             // flowed, it's a bug which we detect and throw it away.
-            << QStringLiteral("Foo bar.\n> blesmrt ...\n")
+            << QStringLiteral("Foo bar.\n> blesmrt ...")
             // On the other hand, we *do* expect two spaces here -- one for the non-flowed space,
             // and the other one for our separator.
-            << QStringLiteral("Foo bar. \n> blesmrt  ...\n")
-            << QStringLiteral("Foo bar.\n> blesmrt\n>> 333\n>> 666\n>> 666-2\n>> 666-3\n>> 666-4\n");
+            << QStringLiteral("Foo bar. \n> blesmrt  ...")
+            << QStringLiteral("Foo bar.\n> blesmrt\n>> 333\n>> 666\n>> 666-2\n>> 666-3\n>> 666-4");
 
     QTest::newRow("nested-quotes-correct-indicator")
             << QStringLiteral(">>> Three levels down.\n>> Two levels down.\n> One level down.\nReal mail.")
@@ -431,9 +467,9 @@ void HtmlFormattingTest::testPlainTextFormattingViaPaste_data()
 
     QTest::newRow("collapsed-last-quote")
             << QStringLiteral("Some real text.\n> ") + lipsum + QLatin1Char(' ') + lipsum
-            << QStringLiteral("Some real text.\n> ") + shortLipsum + " ...\n"
+            << QStringLiteral("Some real text.\n> ") + shortLipsum + " ..."
             << QString()
-            << QStringLiteral("Some real text.\n> ") + lipsum + QLatin1Char(' ') + lipsum + "\n";
+            << QStringLiteral("Some real text.\n> ") + lipsum + QLatin1Char(' ') + lipsum;
 
     QTest::newRow("quoted-common")
             << QStringLiteral("On quinta-feira, 4 de outubro de 2012 15.46.57, André Somers wrote:\n"
@@ -545,9 +581,9 @@ void HtmlFormattingTest::testPlainTextFormattingViaPaste_data()
 
     QTest::newRow("blank-line-separator-of-quoted")
             << QStringLiteral("> First para. \n>\n> Second para.\n>\n>\n>Third para.")
-            << QStringLiteral("> First para. \n> \n> Second para.\n> \n> \n> Third para. ...\n")
-            << QStringLiteral("> First para. \n> \n> Second para.\n> \n> \n> Third para. ...\n")
-            << QStringLiteral("> First para. \n> \n> Second para.\n> \n> \n> Third para.\n");
+            << QStringLiteral("> First para. \n> \n> Second para.\n> \n> \n> Third para. ...")
+            << QStringLiteral("> First para. \n> \n> Second para.\n> \n> \n> Third para. ...")
+            << QStringLiteral("> First para. \n> \n> Second para.\n> \n> \n> Third para.");
 
     QTest::newRow("blanks-in-different-levels")
             << QStringLiteral("Yesterday: \n>> Test2A. \n>>\n>> Test2B \n>>\nTest0. \n> Test1A. \n> \n>Test 1B. ")
@@ -618,9 +654,9 @@ void HtmlFormattingTest::testPlainTextFormattingViaPasteDelSp()
     QFETCH(QString, expandedFlowed);
     QFETCH(QString, expandedFlowedDelSp);
 
-#ifdef TROJITA_HAVE_WEBKIT
-#ifdef SKIP_WEBKIT_TESTS
-    QSKIP("ASAN build -- QtWebKit is known to be broken, skipping");
+#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef SKIP_WEBENGINE_TESTS
+    QSKIP("ASAN build -- Qt WebEngine rendering is skipped");
 #else
     {
         WebRenderingTester tester;
@@ -639,7 +675,7 @@ void HtmlFormattingTest::testPlainTextFormattingViaPasteDelSp()
 
 void HtmlFormattingTest::testPlainTextFormattingViaPasteDelSp_data()
 {
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     QTest::addColumn<QString>("source");
     QTest::addColumn<QString>("expandedFlowed");
     QTest::addColumn<QString>("expandedFlowedDelSp");
@@ -668,8 +704,8 @@ void HtmlFormattingTest::testPlainTextFormattingViaPasteDelSp_data()
 
     QTest::newRow("blank-line-separator-of-quoted")
             << QStringLiteral("> First para. \n>\n> Second para.\n>\n>\n>Third para.")
-            << QStringLiteral("> First para. \n> \n> Second para.\n> \n> \n> Third para.\n")
-            << QStringLiteral("> First para.\n> \n> Second para.\n> \n> \n> Third para.\n");
+            << QStringLiteral("> First para. \n> \n> Second para.\n> \n> \n> Third para.")
+            << QStringLiteral("> First para.\n> \n> Second para.\n> \n> \n> Third para.");
 
     QTest::newRow("blanks-in-different-levels")
             << QStringLiteral("Yesterday: \n>> Test2A. \n>>\n>> Test2B \n>>\nTest0. \n> Test1A. \n> \n>Test 1B. ")

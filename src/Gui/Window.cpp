@@ -97,7 +97,7 @@
 #include "PasswordDialog.h"
 #include "ProtocolLoggerWidget.h"
 #include "SettingsDialog.h"
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
 #include "SimplePartWidget.h"
 #endif
 #include "Streams/SocketFactory.h"
@@ -245,15 +245,20 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
 
 void MainWindow::reply(const Composer::ReplyMode mode)
 {
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     const QModelIndex messageIndex = m_messageWidget->message();
-    const QString text = m_messageWidget->text();
+    const bool isCryptoMessage = m_messageWidget->isCryptoMessage();
+    QPointer<MainWindow> window(this);
 
-    if (m_messageWidget->isCryptoMessage()) {
-        m_msgActionHandler.reply(messageIndex, mode, text, MessageActionHandler::CryptoMessage);
-    } else {
-        m_msgActionHandler.reply(messageIndex, mode, text, MessageActionHandler::Message);
-    }
+    m_messageWidget->quoteText([window, messageIndex, mode, isCryptoMessage](const QString &text) {
+        if (!window || !messageIndex.isValid())
+            return;
+
+        if (isCryptoMessage)
+            window->m_msgActionHandler.reply(messageIndex, mode, text, MessageActionHandler::CryptoMessage);
+        else
+            window->m_msgActionHandler.reply(messageIndex, mode, text, MessageActionHandler::Message);
+    });
 #endif
 }
 
@@ -438,7 +443,7 @@ void MainWindow::createActions()
     msgListWidget->tree->addAction(markAsRead);
     connect(markAsRead, &QAction::triggered, this, &MainWindow::handleMarkAsRead);
 
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     m_nextMessage = ShortcutHandler::instance()->createAction(QStringLiteral("action_go_to_next_unread"), this, SLOT(slotNextUnread()), this);
     msgListWidget->tree->addAction(m_nextMessage);
     m_messageWidget->messageView->addAction(m_nextMessage);
@@ -764,7 +769,7 @@ void MainWindow::createMenus()
             ADD_ACTION(sortMenu, actionThreadMsgList);
             ADD_ACTION(sortMenu, actionHideRead);
         mailboxMenu->addSeparator();
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
         ADD_ACTION(mailboxMenu, m_previousMessage);
         ADD_ACTION(mailboxMenu, m_nextMessage);
         mailboxMenu->addSeparator();
@@ -840,7 +845,7 @@ void MainWindow::createWidgets()
 
     msgListWidget->tree->installEventFilter(this);
 
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     m_messageWidget = new CompleteMessageWidget(this, m_settings, m_pluginManager, m_favoriteTags);
     connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::scrollMessageUp);
     connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::slotUpdateMessageActions);
@@ -882,7 +887,7 @@ void MainWindow::createWidgets()
     mailMimeTree->setHeaderHidden(true);
     mailMimeDock->setWidget(mailMimeTree);
     addDockWidget(Qt::RightDockWidgetArea, mailMimeDock);
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     connect(m_messageWidget->messageView, &MessageView::messageModelChanged, this, &MainWindow::slotMessageModelChanged);
 #endif
     protocolLoggerDock = new QDockWidget(tr("Protocol log"), this);
@@ -900,7 +905,7 @@ void MainWindow::setupModels()
     m_imapAccess->reloadConfiguration();
     m_imapAccess->doConnect();
 
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     m_messageWidget->messageView->setNetworkWatcher(qobject_cast<Imap::Mailbox::NetworkWatcher*>(m_imapAccess->networkWatcher()));
 #endif
 
@@ -1158,7 +1163,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
 bool MainWindow::eventFilter(QObject *o, QEvent *e)
 {
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     if (msgListWidget && o == msgListWidget->tree && m_messageWidget->messageView) {
         if (e->type() == QEvent::KeyPress) {
             QKeyEvent *keyEvent = static_cast<QKeyEvent *>(e);
@@ -1219,7 +1224,7 @@ void MainWindow::msgListClicked(const QModelIndex &index)
 
     if (! index.data(Imap::Mailbox::RoleMessageUid).isValid())
         return;
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     // Because it's quite possible that we have switched into another mailbox, make sure that we're in the "current" one so that
     // user will be notified about new arrivals, etc.
     QModelIndex translated = Imap::deproxifiedIndex(index);
@@ -1254,7 +1259,7 @@ void MainWindow::msgListClicked(const QModelIndex &index)
 
 void MainWindow::openCompleteMessageWidget()
 {
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     const QModelIndex index = msgListWidget->tree->currentIndex();
 
     if (! index.data(Imap::Mailbox::RoleMessageUid).isValid())
@@ -1519,7 +1524,7 @@ void MainWindow::checkSslPolicy()
 
 void MainWindow::nukeModels()
 {
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     m_messageWidget->messageView->setEmpty();
 #endif
     mboxTree->setModel(nullptr);
@@ -1570,7 +1575,7 @@ QModelIndexList MainWindow::translatedSelection() const
 
 void MainWindow::handleMarkAsRead(bool value)
 {
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     const QModelIndexList translatedIndexes = translatedSelection();
     if (translatedIndexes.isEmpty()) {
         qDebug() << "Model::handleMarkAsRead: no valid messages";
@@ -1585,7 +1590,7 @@ void MainWindow::handleMarkAsRead(bool value)
 
 void MainWindow::slotNextUnread()
 {
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     QModelIndex current = msgListWidget->tree->currentIndex();
 
     UiUtils::gotoNext(msgListWidget->tree->model(), current,
@@ -1603,7 +1608,7 @@ void MainWindow::slotNextUnread()
 
 void MainWindow::slotPreviousUnread()
 {
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     QModelIndex current = msgListWidget->tree->currentIndex();
 
     UiUtils::gotoPrevious(msgListWidget->tree->model(), current,
@@ -1887,7 +1892,7 @@ void MainWindow::updateActionsOnlineOffline(bool online)
 
 void MainWindow::slotUpdateMessageActions()
 {
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     Composer::RecipientList dummy;
     m_replyPrivate->setEnabled(Composer::Util::replyRecipientList(Composer::REPLY_PRIVATE, senderIdentitiesModel(),
                                                                   m_messageWidget->messageView->currentMessage(), dummy));
@@ -1917,7 +1922,7 @@ void MainWindow::slotUpdateMessageActions()
 
 void MainWindow::scrollMessageUp()
 {
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     m_messageWidget->area->ensureVisible(0, 0, 0, 0);
 #endif
 }
@@ -1957,7 +1962,7 @@ void MainWindow::slotReplyGuess()
 
 void MainWindow::slotForwardAsAttachment()
 {
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     const QModelIndex messageIndex = m_messageWidget->message();
     m_msgActionHandler.forward(messageIndex, Composer::ForwardMode::FORWARD_AS_ATTACHMENT);
 #endif
@@ -2247,7 +2252,7 @@ void MainWindow::slotDownloadMessageFileNameRequested(QString *fileName)
 
 void MainWindow::slotViewMsgSource()
 {
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
 
     Q_FOREACH(const QModelIndex &item, msgListWidget->tree->selectionModel()->selectedIndexes()) {
         Q_ASSERT(item.isValid());
@@ -2268,7 +2273,7 @@ void MainWindow::slotViewMsgSource()
 
 QWidget *MainWindow::messageSourceWidget(const QModelIndex &message)
 {
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     QModelIndex messageIndex = Imap::deproxifiedIndex(message);
     MessageSourceWidget *sourceWidget = new MessageSourceWidget(0, messageIndex);
     sourceWidget->setAttribute(Qt::WA_DeleteOnClose);
@@ -2283,7 +2288,7 @@ QWidget *MainWindow::messageSourceWidget(const QModelIndex &message)
 
 void MainWindow::slotViewMsgHeaders()
 {
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     Q_FOREACH(const QModelIndex &item, msgListWidget->tree->selectionModel()->selectedIndexes()) {
         Q_ASSERT(item.isValid());
         if (item.column() != 0)
@@ -2962,7 +2967,7 @@ void MainWindow::resizeEvent(QResizeEvent *)
 /** @short Make sure that the message gets loaded after the splitters have changed their position */
 void MainWindow::possiblyLoadMessageOnSplittersChanged()
 {
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     if (m_messageWidget->isVisible() && !m_messageWidget->size().isEmpty()) {
         // We do not have to check whether it's a different message; the setMessage() will do this or us
         // and there are multiple proxy models involved anyway
