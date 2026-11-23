@@ -2,6 +2,8 @@
 import configparser
 import os
 from pathlib import Path
+import shlex
+import shutil
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -25,10 +27,14 @@ for desktop_id in (app_id, "org.kde.trojita"):
     desktop.read(data / "applications" / f"{desktop_id}.desktop")
     entry = desktop["Desktop Entry"]
     assert entry["Name"] == "Plasma Impresario"
-    assert entry["Exec"] == "plasma-impresario %u"
-    assert entry["TryExec"] == "plasma-impresario"
+    try_exec = entry["TryExec"].replace("\\s", " ").replace("\\\\", "\\")
+    assert Path(try_exec) == binary
+    assert shutil.which(try_exec, path="/usr/bin:/bin") == str(binary)
+    exec_line = entry["Exec"].replace("\\\\", "\\").replace("\\s", " ")
+    assert shlex.split(exec_line) == [str(binary).replace("%", "%%"), "%u"]
     assert entry["Icon"] == "plasma-impresario"
-    assert desktop["Desktop Action Composer"]["Exec"] == "plasma-impresario -c"
+    composer = desktop["Desktop Action Composer"]["Exec"].replace("\\\\", "\\").replace("\\s", " ")
+    assert shlex.split(composer) == [str(binary).replace("%", "%%"), "-c"]
     assert (entry.get("NoDisplay") == "true") == (desktop_id == "org.kde.trojita")
 
 metadata = ET.parse(data / "metainfo" / f"{app_id}.metainfo.xml").getroot()

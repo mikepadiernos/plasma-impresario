@@ -922,6 +922,11 @@ if(WITH_DESKTOP)
     endif()
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/io.github.mikepadiernos.plasma_impresario.desktop
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/org.kde.trojita.desktop DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications/")
+    if(UNIX AND NOT APPLE)
+        configure_file(cmake/InstallDesktopLaunchers.cmake.in
+            "${CMAKE_CURRENT_BINARY_DIR}/InstallDesktopLaunchers.cmake" @ONLY)
+        install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/InstallDesktopLaunchers.cmake")
+    endif()
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/io.github.mikepadiernos.plasma_impresario.metainfo.xml DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/metainfo/")
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/plasma-impresario.svg DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps/")
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/trojita.png DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/32x32/apps/")
