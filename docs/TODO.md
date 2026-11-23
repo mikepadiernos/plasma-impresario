@@ -34,12 +34,17 @@ and project status before acting.
   milestone can be completed. Revoking remote-image permission blocks new
   requests but does not cancel pending requests or remove already loaded
   images; integration must replace the page and profile to discard them.
+  On the observed CachyOS toolchain, enabling the bridge currently fails during
+  Qt WebEngine/QML package configuration; verify a compatible Qt and WebEngine
+  package set before treating bridge tests as reproducible.
 - M01 verification: on CachyOS x86_64 with Qt 6.12.0, CMake 4.5.1 and GCC
   16.2.1, a renderer-free build and user-prefix install succeeded; the
   installed executable's `--help`, handbook, man page, desktop entry and
   translations were present. Account setup, plugin behavior, message reading,
   other distributions and protected system prefixes remain unverified. A
-  full-renderer configure failed because Qt6WebKitWidgets is unavailable.
+  fresh renderer-free configure/build and all 34 CTest cases passed. Qt6
+  WebKitWidgets is not installed on this host, and bridge-enabled configuration
+  fails with the installed Qt 6.12.0 and Qt WebEngine 6.140.0 packages.
 
 ## Pending verification
 

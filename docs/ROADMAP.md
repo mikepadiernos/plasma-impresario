@@ -67,9 +67,9 @@ installation depends on the working renderer.
   **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314566982) · [Dependency audit](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314499124) ·
   [Compatibility matrix](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314538695)
 
-  - [ ] Define supported distributions, package managers, compilers, Qt 6 and KDE
+  - [x] Define supported distributions, package managers, compilers, Qt 6 and KDE
     Frameworks versions, and KDE Plasma versions and sessions. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314538695)
-  - [ ] Audit CMake, SDK assumptions, and package names and versions for each
+  - [x] Audit CMake, SDK assumptions, and package names and versions for each
     supported distribution. Separate required dependencies from optional
     integrations and report unsupported or missing requirements clearly. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314499124)
   - [x] Verify dependencies and compatibility limitations for IMAP, local storage,
