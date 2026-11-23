@@ -1,149 +1,82 @@
 # Plasma Mail interface design
 
-This page captures the intended layout structure and illustration for Plasma Mail. It is intentionally lightweight and placeholder-based, but it keeps the same design-document structure expected for a KDE-style application workflow.
+**[Documentation](../README.md)** · **[Scope](scope.md)** ·
+**[UI parity](../parity/ui.md)** ·
+**[Roadmap](../ROADMAP.md)** · **[Inspirations](inspirations.md)**
 
-## Product intent
+This guide separates the current Trojitá interface from the proposed Plasma
+Mail experience. The [UI parity guide](../parity/ui.md) records the current
+layout; target designs here are not implementation claims.
 
-Plasma Mail should feel desktop-native, readable, and efficient for daily email use. The interface should balance account navigation, message triage, and contextual reading without overwhelming the user.
+## Current interface
 
-## Primary layout
-
-The default layout is a four-region desktop composition:
-
-- Header: global search, compose action, filter controls, and status indicators
-- Left column: accounts, folders, and mail navigation
-- Main column: message list, sorting, thread grouping, and selection state
-- Right column: message preview, metadata, attachments, and actions
-- Footer: sync status, connection state, and low-priority notifications
-
-## Panel map
+The Qt Widgets application has a toolbar/menu and three work areas:
 
 ```text
-┌──────────────────────────────────────────────────────────────────────────────────────┐
-│ HEADER / TOOLBAR                                                                     │
-│ [App menu] [Search mailbox] [New Message] [Filter] [Sync] [Status/Account]           │
-├───────────────────────┬───────────────────────────────┬──────────────────────────────┤
-│ LEFT COLUMN           │ MAIN COLUMN                   │ RIGHT COLUMN                 │
-│                       │                               │                              │
-│ Accounts              │ Message list                  │ Message preview              │
-│ - Inbox               │ - Sender / Subject / Time     │ - Sender / Recipients        │
-│ - Sent                │ - Unread badges               │ - Subject                    │
-│ - Drafts              │ - Threaded / flat mode        │ - Body content               │
-│ - Archive             │ - Selection state             │ - Attachments                │
-│ - Trash               │ - Sort controls               │ - Quick actions              │
-│ Folder filters        │                               │                              │
-│ Search saved items    │                               │                              │
-├───────────────────────┼───────────────────────────────┼──────────────────────────────┤
-│ FOOTER / STATUS BAR                                                                  │
-│ Sync status | connection state | unread count | background task / alert messages     │
-└──────────────────────────────────────────────────────────────────────────────────────┘
+Toolbar / menu
+┌────────────────────┬──────────────────────────────────────────┐
+│ Mailbox tree       │ Message list                             │
+│                    ├──────────────────────────────────────────┤
+│                    │ Message reader                           │
+└────────────────────┴──────────────────────────────────────────┘
 ```
 
-## Pane definitions
+The compact pane layout stacks the list above the reader beside the folder
+tree. Wide layout places all three side by side. One-panel-at-a-time navigation
+is also available. Splitter sizes and the selected layout are saved.
 
-### Header pane
+## Proposed Plasma Mail shell
 
-- Global search field and filter controls
-- Compose, reply, forward, and archive actions
-- Account and status chip selectors
-- Window-level actions such as sync, refresh, and settings
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ Header: search, compose, account and connection status       │
+├───────────────────┬──────────────────────────────────────────┤
+│ Navigation        │ Message list                             │
+│ accounts/folders  ├──────────────────────────────────────────┤
+│ saved views       │ Reader: message, metadata, attachments    │
+├───────────────────┴──────────────────────────────────────────┤
+│ Status: sync progress, errors and background work           │
+└──────────────────────────────────────────────────────────────┘
+```
 
-### Left navigation pane
+| Region | Design responsibility |
+| --- | --- |
+| Header | Global search, compose, common actions and account/connection state |
+| Navigation | Account groups, folder hierarchy and saved views |
+| Message list | Sender, subject, date, unread state, threading and selection |
+| Reader | Message metadata and body, attachments and context-aware actions |
+| Status | Actionable sync, connection and background-task feedback |
 
-- Account list and identities
-- Folder hierarchy, labels, and smart folders
-- Unread counts, star states, and quick filters
-- Optional compact or collapsed mode for narrower layouts
+Account groups, saved views, workspace context and rich status surfaces remain
+planned. Evolve the working mailbox/list/reader flow instead of replacing it
+before the redesigned shell has equivalent behavior.
 
-### Main content pane
+## Interaction and accessibility
 
-- Message list with sender, subject, date, and thread state
-- Sorting and grouping controls
-- Selection, highlight, and read/unread status indicators
-- Keyboard-friendly navigation and bulk actions
+- Keep account, folder, selection and connection context visible.
+- Make primary actions keyboard accessible with visible focus and predictable
+  focus restoration.
+- Do not use color as the only way to convey unread, connection or security
+  state.
+- Validate narrow windows, high-DPI scaling, long translations, RTL layouts and
+  screen-reader names.
+- Keep destructive and external-content actions explicit and recoverable.
 
-### Right preview pane
+## Layout recommendations
 
-- Active message metadata and full content view
-- Attachment previews and contextual actions
-- Message headers, tags, and threading context
-- Quick actions for reply, move, flag, and mark as read
+The existing **compact**, **wide** and **one-panel-at-a-time** modes describe
+pane arrangement. Proposed compact/comfortable density and focus-reading modes
+are separate product settings and are not implemented density controls.
 
-### Footer pane
+Prototype each density with realistic mail data and long folder names. Preserve
+saved splitter sizes where practical, and test keyboard navigation and message
+selection while switching layouts.
 
-- Sync and connection state
-- Active account or selected folder summary
-- Background job and notification status
-- Low-priority alerts and progress details
+## Implementation sequence
 
-## Layout sections
-
-### 1. Header and toolbar
-
-- Global search field
-- Composer shortcut
-- Mail actions for reply, forward, archive, delete, mark unread
-- Status indicators for sync, offline state, and unread counts
-
-### 2. Left navigation panel
-
-- Accounts and identities
-- Mail folders and saved searches
-- Folder counts and starred/unread state
-- Optional compact mode for narrow layouts
-
-### 3. Message list panel
-
-- Thread or flat list depending on user preference
-- Subject, sender, time, and tags
-- Selection highlighting and unread states
-- Keyboard navigation support
-
-### 4. Preview panel
-
-- Message body, attachments, and metadata
-- Reading controls: zoom, mark as read, open external viewer when needed
-- Conversation threading and quick actions
-
-### 5. Footer/status bar
-
-- Sync status
-- Current account or folder context
-- Background job notifications
-- Alerts for authentication, errors, and local actions
-
-## Candidate modes
-
-### Compact mode
-
-- Reduced row height
-- Hidden preview metadata for density
-- Tighter spacing and fewer visible controls
-
-### Comfortable mode
-
-- Larger spacing and preview clarity
-- More metadata visible in the message list
-- Better readability for long message threads
-
-### Focus mode
-
-- Emphasize the reading panel
-- Minimize navigation clutter
-- Preserve global actions without stacking extra panes
-
-## Interaction principles
-
-- Keep primary actions visible and keyboard-accessible
-- Maintain readable contrast and focus states
-- Avoid excessive nesting in the account/folder tree
-- Support both KDE Plasma and desktop-native conventions
-
-## Design checklist
-
-- Define primary actions and toolbar layout
-- Capture account and folder navigation patterns
-- Record keyboard and accessibility requirements
-- Document notification and status states
-- Confirm spacing and density behaviors across screens
-- Decide how threading, search, and folder views behave together
+1. Record the current main-window behavior and its acceptance tests.
+2. Prototype the new shell without changing IMAP, cache or composition
+   behavior.
+3. Validate layouts, accessibility and navigation with representative data.
+4. Migrate settings and saved window state only after the new behavior is
+   tested.

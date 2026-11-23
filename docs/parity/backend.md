@@ -1,6 +1,33 @@
 # IMAP sync and account operations
 
-This page defines the backend parity target for Plasma Mail. The primary reference is Trojitá, with the Kontact suite acting as a secondary reference for desktop integration, account ergonomics, and KDE ecosystem behavior.
+This page records the current backend baseline and the parity target for Plasma
+Mail. Trojitá is the primary reference for protocol behavior; Kontact is a
+secondary reference for desktop integration and account ergonomics.
+
+> [!NOTE] The code in this checkout is itself a Trojitá-based IMAP client.
+> **Current baseline** describes implemented behavior; **Parity expectations**
+> are targets, not claims that the reworked product already provides them.
+
+## Current baseline
+
+- IMAP parsing, connection tasks, mailbox/message models and Qt views are
+  separated under `src/Imap/` and `src/Gui/`.
+- The server remains the canonical mailbox. Synchronization is incremental;
+  message metadata and MIME structure are distinct from lazily fetched parts.
+- Memory and SQL-backed caches can retain metadata and fetched parts, with
+  configurable offline cache behavior.
+- IDLE, threading, server-side search, offline mode, reconnect handling and
+  mailbox operations have implementation and/or QtTest coverage.
+- One application instance has one IMAP account model. `--profile` allows
+  separate configurations in concurrent instances; it is not native
+  simultaneous multi-account management.
+- Outgoing mail uses configured SMTP, IMAP submission or sendmail paths.
+- A process-backed connection mode can wrap a user-configured transport.
+
+See the source in [`src/Imap/`](../../src/Imap/) and tests in
+[`tests/Imap/`](../../tests/Imap/). Transport, credential and cache
+limitations are documented in
+[caveats and security](../CAVEATS.md#security-and-data-protection).
 
 ## Reference hierarchy
 

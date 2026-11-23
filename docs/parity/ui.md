@@ -1,6 +1,25 @@
 # Mail UI reference
 
-This page defines the UI parity target for Plasma Mail. It prioritizes Trojitá as the primary reference for layout and interaction, with the Kontact suite as a secondary reference for KDE desktop integration, polish, and consistency.
+This page records the current UI baseline and the parity target for Plasma
+Mail. Trojitá is the primary reference for layout and interaction; Kontact is
+a secondary reference for KDE integration and polish.
+
+> [!NOTE] The current executable still presents the Trojitá Qt Widgets
+> interface. The expectations below describe product goals, not features of a
+> completed Plasma Mail redesign.
+
+## Current baseline
+
+The main window has a toolbar/menu and three work areas: a mailbox tree, a
+message list and a message reader. Compact mode stacks the list above the
+reader beside the mailbox tree; wide mode places all three side by side.
+One-panel-at-a-time navigation and persisted splitter/layout state are also
+implemented. Optional diagnostic docks expose task, MIME, model and protocol
+information.
+
+The baseline does not provide the proposed unified multi-account navigation,
+workspace surfaces or modern Plasma notification experience. See
+[caveats and security](../CAVEATS.md) for security and dependency limitations.
 
 ## Reference hierarchy
 

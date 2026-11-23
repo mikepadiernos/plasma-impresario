@@ -1,0 +1,18 @@
+# Search, sorting, and automation refinement
+
+This section covers search, saved filters, sorting, threading, and existing rules or automation.
+
+## Focus
+
+- Refine search, saved filters, sorting, threading, and existing rules; define refinement criteria for potential tagging and advanced automation
+- Make account and folder search scope, active filters, and unsupported search capabilities explicit
+- Keep sort and thread order stable as messages arrive and preserve navigation context when filters change
+- Allow users to inspect rule order and test matches before applying potentially destructive actions
+- Define how potential tags and advanced automation would interact with folders, search, and existing rules
+
+## Acceptance criteria
+
+- Search and filter behavior remain predictable as folders update.
+- Sorting and threading remain stable and navigable across live message changes.
+- Rules are understandable, inspectable, and safe before they act on mail.
+- Unsupported automation or search gaps are clearly communicated instead of silently failing.
