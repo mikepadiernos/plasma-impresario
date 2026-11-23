@@ -34,13 +34,14 @@ endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# KDEInstallDirs and Qt's versionless targets depend on these being set first.
+# This project only supports Qt 6.
+set(QT_MAJOR_VERSION 6 CACHE STRING "Qt major version to use" FORCE)
+set(QT_DEFAULT_MAJOR_VERSION 6)
+
 include(KDEInstallDirs)
 include(TrojitaOption)
 
-# ECMPoQMTools includes QtVersionOption which creates an option to build against either
-# Qt 5 or Qt 6 if QT_MAJOR_VERSION is not set. Force Qt 6 explicitly so KDE packages
-# and QML macros do not inherit an older cached value from a prior configure.
-set(QT_MAJOR_VERSION 6 CACHE STRING "Qt major version to use" FORCE)
 include(ECMDeprecationSettings)
 include(ECMPoQmTools)
 
@@ -52,8 +53,7 @@ trojita_option(WITH_SHARED_PLUGINS "Enable shared dynamic plugins" ON)
 trojita_option(BUILD_TESTING "Build tests" ON)
 trojita_option(WITH_MIMETIC "Build with client-side MIME parsing" AUTO)
 trojita_option(WITH_GPGMEPP "Use GpgME's native C++ bindings" AUTO)
-trojita_option(WITH_WEBKIT "Build with support for viewing mails" ON)
-option(WITH_WEBENGINE_BRIDGE "Build the experimental WebEngine resource bridge (not a message viewer)" OFF)
+option(WITH_WEBENGINE "Build with Qt WebEngine message rendering" ON)
 
 if(WIN32)
     trojita_option(WITH_NSIS "Build Windows NSIS installer" AUTO "WITH_DESKTOP")
@@ -82,10 +82,7 @@ find_package(KF6 REQUIRED
         ItemModels
 )
 
-if(WITH_WEBKIT)
-    trojita_find_package(Qt6WebKitWidgets "" "" "Qt6 WebKit" "Required for displaying mail contents" WITH_WEBKIT)
-endif()
-if(WITH_WEBENGINE_BRIDGE)
+if(WITH_WEBENGINE)
     find_package(Qt6 ${QT_REQUIRED_VERSION} REQUIRED COMPONENTS WebEngineWidgets)
 endif()
 
@@ -248,12 +245,12 @@ else()
     message(STATUS "Disabling COMPRESS=DEFLATE, zlib is not available")
 endif()
 
-if (WITH_WEBKIT)
-    set(TROJITA_HAVE_WEBKIT True)
-    message(STATUS "Support for viewing mails is enabled")
+if (WITH_WEBENGINE)
+    set(TROJITA_HAVE_WEBENGINE True)
+    message(STATUS "Support for viewing mails via Qt WebEngine is enabled")
 else()
-    set(TROJITA_HAVE_WEBKIT False)
-    message(STATUS "Disabling support for viewing mails, Qt Webkit is not available")
+    set(TROJITA_HAVE_WEBENGINE False)
+    message(STATUS "Building without message viewing; Qt WebEngine is disabled")
 endif()
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/configure.cmake.in
@@ -293,7 +290,7 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/QaimDfsIterator.cpp
 )
 
-if(WITH_WEBKIT)
+if(WITH_WEBENGINE)
     set(libUiUtils_SOURCES
         ${libUiUtils_SOURCES}
         ${path_UiUtils}/PartLoadingOptions.h
@@ -382,7 +379,6 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/ComposerAttachmentsList.cpp
     ${path_DesktopGui}/ComposerTextEdit.cpp
     ${path_DesktopGui}/ExternalElementsWidget.cpp
-    ${path_DesktopGui}/FindBarMixin.cpp
     ${path_DesktopGui}/FlowLayout.cpp
     ${path_DesktopGui}/FromAddressProxyModel.cpp
     ${path_DesktopGui}/LineEdit.cpp
@@ -414,7 +410,7 @@ set(libDesktopGui_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/license.qrc
 )
 
-if(WITH_WEBKIT)
+if(WITH_WEBENGINE)
     set(libDesktopGui_SOURCES
         ${libDesktopGui_SOURCES}
         ${path_DesktopGui}/AddressRowWidget.cpp
@@ -423,6 +419,7 @@ if(WITH_WEBKIT)
         ${path_DesktopGui}/EmbeddedWebView.cpp
         ${path_DesktopGui}/EnvelopeView.cpp
         ${path_DesktopGui}/FindBar.cpp
+        ${path_DesktopGui}/FindBarMixin.cpp
         ${path_DesktopGui}/LoadablePartWidget.cpp
         ${path_DesktopGui}/MessageHeadersWidget.cpp
         ${path_DesktopGui}/MessageSourceWidget.cpp
@@ -432,7 +429,6 @@ if(WITH_WEBKIT)
         ${path_DesktopGui}/PartWidget.cpp
         ${path_DesktopGui}/PartWidgetFactoryVisitor.cpp
         ${path_DesktopGui}/SimplePartWidget.cpp
-        ${path_DesktopGui}/UserAgentWebPage.cpp
 )
 endif()
 
@@ -708,17 +704,17 @@ target_link_libraries(Cryptography
         UiUtils
 )
 
-if(WITH_WEBENGINE_BRIDGE)
-    add_library(WebEngineMessageBridge STATIC
+if(WITH_WEBENGINE)
+    add_library(WebEngineMessageRenderer STATIC
         src/Gui/WebEngineMessagePage.cpp
         src/Gui/WebEngineMessagePage.h
         src/Gui/WebEngineMessageProfile.cpp
         src/Gui/WebEngineMessageProfile.h
     )
-    target_link_libraries(WebEngineMessageBridge
+    target_link_libraries(WebEngineMessageRenderer
         PUBLIC Qt6::WebEngineWidgets Imap
     )
-    target_compile_definitions(WebEngineMessageBridge PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+    target_compile_definitions(WebEngineMessageRenderer PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
 endif()
 
 if(WITH_MIMETIC)
@@ -856,10 +852,10 @@ if(WITH_DESKTOP)
             UiUtils
     )
 
-    if(WITH_WEBKIT)
+    if(WITH_WEBENGINE)
         target_link_libraries(DesktopGui
             PUBLIC
-                Qt6::WebKitWidgets
+                WebEngineMessageRenderer
     )
     endif()
 
@@ -922,6 +918,11 @@ if(WITH_DESKTOP)
     endif()
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/io.github.mikepadiernos.plasma_impresario.desktop
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/org.kde.trojita.desktop DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications/")
+    if(UNIX AND NOT APPLE)
+        configure_file(cmake/InstallDesktopLaunchers.cmake.in
+            "${CMAKE_CURRENT_BINARY_DIR}/InstallDesktopLaunchers.cmake" @ONLY)
+        install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/InstallDesktopLaunchers.cmake")
+    endif()
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/io.github.mikepadiernos.plasma_impresario.metainfo.xml DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/metainfo/")
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/plasma-impresario.svg DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps/")
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/trojita.png DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/32x32/apps/")
@@ -975,13 +976,13 @@ if(BUILD_TESTING)
     set(UBSAN_ENV_SUPPRESSIONS "UBSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/tests/ubsan.supp")
 
     enable_testing()
-    if(WITH_WEBENGINE_BRIDGE)
+    if(WITH_WEBENGINE)
         add_executable(test_WebEngineMessageProfile tests/Gui/test_WebEngineMessageProfile.cpp)
-        target_link_libraries(test_WebEngineMessageProfile PRIVATE WebEngineMessageBridge Qt6::Test)
+        target_link_libraries(test_WebEngineMessageProfile PRIVATE WebEngineMessageRenderer UiUtils Qt6::Test)
         if(NOT CMAKE_CROSSCOMPILING)
             add_test(NAME test_WebEngineMessageProfile COMMAND test_WebEngineMessageProfile)
             set_tests_properties(test_WebEngineMessageProfile PROPERTIES ENVIRONMENT
-                "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu")
+                "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
         endif()
     endif()
     trojita_test(Composer Composer_Submission)
@@ -993,11 +994,13 @@ if(BUILD_TESTING)
         PRIVATE
             Qt::Widgets
     )
-    if(WITH_WEBKIT)
+    if(WITH_WEBENGINE)
         target_link_libraries(test_Html_formatting
             PRIVATE
-                Qt6::WebKitWidgets
+                Qt6::WebEngineWidgets
         )
+        set_tests_properties(test_Html_formatting PROPERTIES ENVIRONMENT
+            "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
     endif()
     trojita_test(Imap Imap_DisappearingMailboxes)
     trojita_test(Imap Imap_Idle)

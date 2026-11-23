@@ -27,6 +27,7 @@
 #include <QPointer>
 #include <QSet>
 #include <QWidget>
+#include <functional>
 #include "Composer/Recipients.h"
 #include "Gui/PartWalker.h"
 #include "Imap/Model/FavoriteTagsModel.h"
@@ -39,7 +40,7 @@ class QSettings;
 class QStackedLayout;
 class QTimer;
 class QUrl;
-class QWebView;
+class QWebEngineView;
 
 namespace Cryptography {
 class MessageModel;
@@ -70,6 +71,7 @@ class MainWindow;
 class ExternalElementsWidget;
 class Spinner;
 class TagListWidget;
+class WebEngineMessageProfile;
 
 
 /** @short Widget for displaying complete e-mail messages as available from the IMAP server
@@ -89,7 +91,8 @@ public:
     QModelIndex currentMessage() const;
     Plugins::PluginManager *pluginManager() const;
     QSettings* profileSettings() const;
-    QString text() const;
+    WebEngineMessageProfile *webEngineProfile() const;
+    void quoteText(const std::function<void(const QString &)> &callback) const;
     bool isCryptoMessage() const;
 public slots:
     void setMessage(const QModelIndex &index);
@@ -137,6 +140,7 @@ private:
     TagListWidget *tags;
     QPersistentModelIndex message;
     Cryptography::MessageModel *messageModel;
+    WebEngineMessageProfile *m_webEngineProfile;
     Imap::Network::MsgPartNetAccessManager *netAccess;
     QPointer<Imap::Mailbox::NetworkWatcher> m_netWatcher;
     QTimer *markAsReadTimer;
@@ -149,7 +153,7 @@ private:
     QSettings *m_settings;
     Plugins::PluginManager *m_pluginManager;
     TagHandler m_taghandler;
-    QSet<QWebView*> m_loadingItems;
+    QSet<QWebEngineView*> m_loadingItems;
 
     std::vector<QMetaObject::Connection> m_waitingMessageConns;
 

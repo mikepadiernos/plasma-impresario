@@ -46,6 +46,7 @@ public:
                                const QModelIndex &partIndex,
                                const int recursionDepth, const UiUtils::PartLoadingOptions options);
     QString quoteMe() const override;
+    void quoteMeAsync(const QuoteCallback &callback) const override;
     bool searchDialogRequested() override;
     void reloadContents() override;
     void zoomIn() override;
@@ -110,6 +111,7 @@ public:
                                    const QModelIndex &partIndex, const int recursionDepth,
                                    const UiUtils::PartLoadingOptions loadingOptions);
     QString quoteMe() const override;
+    void quoteMeAsync(const QuoteCallback &callback) const override;
     bool searchDialogRequested() override;
     void reloadContents() override;
     void zoomIn() override;
@@ -130,6 +132,7 @@ public:
                            const QModelIndex &partIndex, const int recursionDepth,
                            const UiUtils::PartLoadingOptions loadingOptions);
     QString quoteMe() const override;
+    void quoteMeAsync(const QuoteCallback &callback) const override;
     bool searchDialogRequested() override;
     void reloadContents() override;
     void zoomIn() override;
@@ -146,6 +149,7 @@ public:
                      const QModelIndex &partIndex, const int recursionDepth,
                      const UiUtils::PartLoadingOptions loadingOptions);
     QString quoteMe() const override;
+    void quoteMeAsync(const QuoteCallback &callback) const override;
     bool searchDialogRequested() override;
     void reloadContents() override;
     void zoomIn() override;

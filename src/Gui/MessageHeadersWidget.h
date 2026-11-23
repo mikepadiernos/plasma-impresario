@@ -27,11 +27,12 @@
 #include "Gui/FindBarMixin.h"
 
 class QModelIndex;
-class QWebView;
+class QWebEngineView;
 
 namespace Gui {
 
 class SimplePartWidget;
+class WebEngineMessagePage;
 
 class MessageHeadersWidget : public QWidget, private FindBarMixin
 {
@@ -40,7 +41,8 @@ public:
     MessageHeadersWidget(QWidget *parent, const QModelIndex& messageIndex);
 
 private:
-    QWebView *m_widget;
+    QWebEngineView *m_widget;
+    WebEngineMessagePage *m_page;
 };
 
 }

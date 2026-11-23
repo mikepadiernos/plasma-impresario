@@ -40,7 +40,7 @@
 #include "Gui/SimplePartWidget.h"
 #include "Gui/Spinner.h"
 #include "Gui/TagListWidget.h"
-#include "Gui/UserAgentWebPage.h"
+#include "Gui/WebEngineMessageProfile.h"
 #include "Gui/Window.h"
 #include "Imap/Model/MailboxTree.h"
 #include "Imap/Model/MsgListModel.h"
@@ -59,6 +59,7 @@ MessageView::MessageView(QWidget *parent, QSettings *settings, Plugins::PluginMa
     , m_stack(new QStackedLayout(this))
     , m_homePage(new QWidget(this))
     , messageModel(0)
+    , m_webEngineProfile(nullptr)
     , netAccess(new Imap::Network::MsgPartNetAccessManager(this))
     , factory(new PartWidgetFactory(netAccess, this,
                                     std::unique_ptr<PartWidgetFactoryVisitor>(new PartWidgetFactoryVisitor())))
@@ -136,10 +137,7 @@ MessageView::MessageView(QWidget *parent, QSettings *settings, Plugins::PluginMa
 
 MessageView::~MessageView()
 {
-    // Redmine #496 -- the default order of destruction starts with our QNAM subclass which in turn takes care of all pending
-    // QNetworkReply instances created by that manager. When the destruction goes to the WebKit objects, they try to disconnect
-    // from the network replies which are however gone already. We can mitigate that by simply making sure that the destruction
-    // starts with the QWebView subclasses and only after that proceeds to the QNAM. Qt's default order leads to segfaults here.
+    // Destroy the WebEngine views before the network manager because pending replies are owned by that manager.
     unsetPreviousMessage();
 }
 
@@ -153,6 +151,8 @@ void MessageView::unsetPreviousMessage()
         m_stack->removeWidget(dynamic_cast<QWidget *>(w));
         delete w;
     }
+    delete m_webEngineProfile;
+    m_webEngineProfile = nullptr;
     m_envelope->setMessage(QModelIndex());
     delete messageModel;
     messageModel = nullptr;
@@ -236,6 +236,9 @@ void MessageView::showMessageNow()
     externalElements->hide();
 
     netAccess->setModelMessage(rootPartIndex);
+    m_webEngineProfile = new WebEngineMessageProfile(rootPartIndex, this);
+    connect(m_webEngineProfile, &WebEngineMessageProfile::remoteImageBlocked,
+            this, &MessageView::externalsRequested);
 
     m_loadingItems.clear();
     m_loadingSpinner->stop();
@@ -342,13 +345,13 @@ bool MessageView::eventFilter(QObject *object, QEvent *event)
     }
 }
 
-QString MessageView::text() const
+void MessageView::quoteText(const std::function<void(const QString &)> &callback) const
 {
     if (auto w = bodyWidget()) {
-        return w->quoteMe();
+        w->quoteMeAsync(callback);
+    } else {
+        callback(QString());
     }
-
-    return QString();
 }
 
 bool MessageView::isCryptoMessage() const
@@ -391,6 +394,8 @@ void MessageView::externalsRequested(const QUrl &url)
 void MessageView::enableExternalData()
 {
     netAccess->setExternalsEnabled(true);
+    if (m_webEngineProfile)
+        m_webEngineProfile->setRemoteImagesAllowed(true);
     externalElements->hide();
     if (auto w = bodyWidget()) {
         w->reloadContents();
@@ -436,6 +441,11 @@ QSettings* MessageView::profileSettings() const
     return m_settings;
 }
 
+WebEngineMessageProfile *MessageView::webEngineProfile() const
+{
+    return m_webEngineProfile;
+}
+
 QModelIndex MessageView::currentMessage() const
 {
     return message;
@@ -443,7 +453,7 @@ QModelIndex MessageView::currentMessage() const
 
 void MessageView::onWebViewLoadStarted()
 {
-    QWebView *wv = qobject_cast<QWebView*>(sender());
+    QWebEngineView *wv = qobject_cast<QWebEngineView*>(sender());
     Q_ASSERT(wv);
 
     if (m_netWatcher && m_netWatcher->effectiveNetworkPolicy() != Imap::Mailbox::NETWORK_OFFLINE) {
@@ -454,7 +464,7 @@ void MessageView::onWebViewLoadStarted()
 
 void MessageView::onWebViewLoadFinished()
 {
-    QWebView *wv = qobject_cast<QWebView*>(sender());
+    QWebEngineView *wv = qobject_cast<QWebEngineView*>(sender());
     Q_ASSERT(wv);
     m_loadingItems.remove(wv);
     if (m_loadingItems.isEmpty())

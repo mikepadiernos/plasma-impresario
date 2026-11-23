@@ -24,11 +24,12 @@
 #include <QAction>
 #include <QModelIndex>
 #include <QVBoxLayout>
-#include <QWebView>
+#include <QWebEngineView>
 #include "Gui/FindBar.h"
+#include "Gui/WebEngineMessagePage.h"
+#include "Gui/WebEngineMessageProfile.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/MailboxTree.h"
-#include "Imap/Network/MsgPartNetAccessManager.h"
 #include "UiUtils/IconLoader.h"
 
 namespace Gui {
@@ -36,7 +37,8 @@ namespace Gui {
 MessageHeadersWidget::MessageHeadersWidget(QWidget *parent, const QModelIndex &messageIndex)
     : QWidget(parent)
     , FindBarMixin(this)
-    , m_widget(new QWebView(this))
+    , m_widget(new QWebEngineView(this))
+    , m_page(nullptr)
 
 {
     setWindowIcon(UiUtils::loadIcon(QStringLiteral("text-x-hex")));
@@ -47,10 +49,11 @@ MessageHeadersWidget::MessageHeadersWidget(QWidget *parent, const QModelIndex &m
                        ));
     Q_ASSERT(messageIndex.isValid());
 
-    auto netAccess = new Imap::Network::MsgPartNetAccessManager(this);
-    netAccess->setModelMessage(messageIndex);
-    m_widget->page()->setNetworkAccessManager(netAccess);
-    m_widget->setUrl(QUrl(QStringLiteral("trojita-imap://msg/HEADER")));
+    auto *profile = new WebEngineMessageProfile(messageIndex, this);
+    m_page = new WebEngineMessagePage(profile, m_widget);
+    m_widget->setPage(m_page);
+    if (!m_page->loadMessagePart(QUrl(QStringLiteral("trojita-imap://msg/HEADER"))))
+        qWarning() << "Cannot load message headers for" << messageIndex;
 
     auto find = new QAction(UiUtils::loadIcon(QStringLiteral("edit-find")), tr("Search..."), this);
     find->setShortcut(tr("Ctrl+F"));

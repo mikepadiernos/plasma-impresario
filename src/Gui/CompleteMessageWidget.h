@@ -24,6 +24,7 @@
 
 #include <QSettings>
 #include <QWidget>
+#include <functional>
 #include "Gui/FindBarMixin.h"
 #include "Imap/Model/FavoriteTagsModel.h"
 
@@ -53,7 +54,7 @@ public:
     [[nodiscard]] QModelIndex message() const;
     void setMessage(const QModelIndex &index);
 
-    [[nodiscard]] QString text();
+    void quoteText(const std::function<void(const QString &)> &callback) const;
 
     MessageView *messageView;
     QScrollArea *area;

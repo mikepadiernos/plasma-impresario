@@ -272,7 +272,7 @@ private:
     QTreeView *mailMimeTree;
     QDockWidget *mailMimeDock;
 
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     CompleteMessageWidget *m_messageWidget;
 #else
     QLabel *m_messageWidget;

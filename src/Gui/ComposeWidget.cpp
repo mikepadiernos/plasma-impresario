@@ -570,7 +570,7 @@ ComposeWidget *ComposeWidget::createFromReadOnly(MainWindow *mainWindow, const Q
     auto subject = messageRoot.data(Imap::Mailbox::RoleMessageSubject).toString();
     w->setWindowTitle(tr("Resend Mail: %1").arg(subject.isEmpty() ? tr("(no subject)") : subject));
 
-#ifdef TROJITA_HAVE_WEBKIT
+#ifdef TROJITA_HAVE_WEBENGINE
     // Show the full content of that e-mail as the "main body" within this widget
     CompleteMessageWidget *messageWidget = new CompleteMessageWidget(w, mainWindow->settings(), mainWindow->pluginManager(), mainWindow->favoriteTagsModel());
     messageWidget->messageView->setMessage(messageRoot);

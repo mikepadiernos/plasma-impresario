@@ -27,7 +27,7 @@
 #include "configure.cmake.h"
 #include "UiUtils/PlainTextFormatter.h"
 
-class QWebView;
+class QWebEngineView;
 
 /** @short Tests for HTML prettification of plaintext content */
 class HtmlFormattingTest : public QObject
@@ -73,7 +73,7 @@ public:
 public slots:
     void doDelayedLoad();
 private:
-    QWebView *m_web;
+    QWebEngineView *m_web;
     QEventLoop *m_loop;
     QString sourceData;
 };

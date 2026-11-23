@@ -25,9 +25,11 @@
 #include <QAction>
 #include <QModelIndex>
 #include <QVBoxLayout>
-#include <QWebView>
+#include <QWebEnginePage>
+#include <QWebEngineView>
 #include "Gui/FindBar.h"
 #include "Gui/Spinner.h"
+#include "Gui/WebEngineMessageProfile.h"
 #include "Imap/Model/FullMessageCombiner.h"
 #include "UiUtils/IconLoader.h"
 
@@ -39,11 +41,12 @@ MessageSourceWidget::MessageSourceWidget(QWidget *parent, const QModelIndex &mes
     , FindBarMixin(this)
     , m_combiner(nullptr)
     , m_loadingSpinner(nullptr)
-    , m_widget(new QWebView(this))
+    , m_widget(new QWebEngineView(this))
 {
     setWindowIcon(UiUtils::loadIcon(QStringLiteral("text-x-hex")));
     Q_ASSERT(messageIndex.isValid());
-    m_widget->page()->setNetworkAccessManager(0);
+    auto *profile = new WebEngineMessageProfile(messageIndex, this);
+    m_widget->setPage(new QWebEnginePage(profile, m_widget));
 
     m_loadingSpinner = new Spinner(this);
     m_loadingSpinner->setText(tr("Fetching\nMessage"));
@@ -72,13 +75,13 @@ MessageSourceWidget::MessageSourceWidget(QWidget *parent, const QModelIndex &mes
 void MessageSourceWidget::slotCompleted()
 {
     m_loadingSpinner->stop();
-    m_widget->setContent(m_combiner->data(), QStringLiteral("text/plain"));
+    m_widget->page()->setContent(m_combiner->data(), QStringLiteral("text/plain"));
 }
 
 void MessageSourceWidget::slotError(const QString &message)
 {
     m_loadingSpinner->stop();
-    m_widget->setContent(message.toUtf8(), QStringLiteral("text/plain; charset=utf-8"));
+    m_widget->page()->setContent(message.toUtf8(), QStringLiteral("text/plain; charset=utf-8"));
 }
 
 }

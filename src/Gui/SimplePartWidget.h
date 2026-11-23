@@ -26,11 +26,13 @@
 #include <QAction>
 #include <QFile>
 #include <QPersistentModelIndex>
+#include <QUrl>
 #include "EmbeddedWebView.h"
 #include "UiUtils/PlainTextFormatter.h"
 
 class QModelIndex;
 class QNetworkReply;
+class QUrl;
 
 namespace Imap
 {
@@ -58,23 +60,25 @@ public:
     SimplePartWidget(QWidget *parent, Imap::Network::MsgPartNetAccessManager *manager, const QModelIndex &partIndex,
                      MessageView *messageView);
     QString quoteMe() const override;
+    void quoteMeAsync(const QuoteCallback &callback) const override;
     bool searchDialogRequested() override;
     void reloadContents() override;
     void zoomIn() override;
     void zoomOut() override;
     void zoomOriginal() override;
-    void buildContextMenu(const QPoint &point, QMenu &menu) const;
+    void buildContextMenu(const QPoint &point, QMenu &menu);
 private slots:
     void slotFileNameRequested(QString *fileName);
-    void slotMarkupPlainText();
+    void slotMarkupPlainText(bool success);
     void slotDownloadPart();
     void slotDownloadMessage();
-    void slotDownloadImage(const QNetworkRequest &req);
+    void slotDownloadImage(const QUrl &url);
 protected:
 signals:
     void linkHovered(const QString &link, const QString &title, const QString &textContent);
 private:
     QPersistentModelIndex m_partIndex;
+    QUrl m_partUrl;
     QAction *m_savePart;
     QAction *m_saveMessage;
     QAction *m_findAction;

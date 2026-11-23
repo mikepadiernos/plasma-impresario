@@ -82,9 +82,9 @@ void CompleteMessageWidget::setMessage(const QModelIndex &index)
     messageView->setMessage(index);
 }
 
-QString CompleteMessageWidget::text()
+void CompleteMessageWidget::quoteText(const std::function<void(const QString &)> &callback) const
 {
-    return messageView->text();
+    messageView->quoteText(callback);
 }
 
 void CompleteMessageWidget::keyPressEvent(QKeyEvent *ke)

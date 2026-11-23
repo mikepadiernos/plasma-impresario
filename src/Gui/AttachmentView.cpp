@@ -380,6 +380,16 @@ QString AttachmentView::quoteMe() const
     return widget && !m_contentWidget->isHidden() ? widget->quoteMe() : QString();
 }
 
+void AttachmentView::quoteMeAsync(const QuoteCallback &callback) const
+{
+    if (auto *widget = dynamic_cast<const AbstractPartWidget *>(m_contentWidget);
+        widget && !m_contentWidget->isHidden()) {
+        widget->quoteMeAsync(callback);
+    } else {
+        callback(QString());
+    }
+}
+
 bool AttachmentView::searchDialogRequested()
 {
     if (AbstractPartWidget *widget = dynamic_cast<AbstractPartWidget*>(m_contentWidget))

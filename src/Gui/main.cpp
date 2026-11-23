@@ -33,8 +33,12 @@
 #include "Common/Application.h"
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
+#include "configure.cmake.h"
 #include "Gui/Util.h"
 #include "Gui/Window.h"
+#ifdef TROJITA_HAVE_WEBENGINE
+#include "Gui/WebEngineMessageProfile.h"
+#endif
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "IPC/IPC.h"
 #include "UiUtils/IconLoader.h"
@@ -43,6 +47,9 @@
 
 int main(int argc, char **argv)
 {
+#ifdef TROJITA_HAVE_WEBENGINE
+    Gui::WebEngineMessageProfile::registerScheme();
+#endif
     Common::registerMetaTypes();
 
     QApplication app(argc, argv);

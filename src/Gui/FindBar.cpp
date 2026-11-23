@@ -26,16 +26,15 @@
 
 
 #include "FindBar.h"
-#include <QAbstractScrollArea>
 #include <QCheckBox>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QPushButton>
-#include <QScrollBar>
 #include <QToolButton>
-#include <QWebFrame>
-#include <QWebView>
+#include <QWebEngineFindTextResult>
+#include <QWebEnginePage>
+#include <QWebEngineView>
 #include "LineEdit.h"
 #include "Gui/EmbeddedWebView.h"
 #include "UiUtils/Color.h"
@@ -203,68 +202,21 @@ void FindBar::find(FindBar::FindDirection dir)
     Q_ASSERT(m_associatedWebView);
 
     if (isHidden()) {
-        QPoint previous_position = m_associatedWebView->page()->currentFrame()->scrollPosition();
-        m_associatedWebView->page()->focusNextPrevChild(true);
-        m_associatedWebView->page()->currentFrame()->setScrollPosition(previous_position);
+        m_associatedWebView->setFocus();
         return;
     }
 
-    QWebPage::FindFlags options = QWebPage::FindWrapsAroundDocument;
+    QWebEnginePage::FindFlags options;
     if (dir == Backward)
-        options |= QWebPage::FindBackward;
+        options |= QWebEnginePage::FindBackward;
     if (matchCase())
-        options |= QWebPage::FindCaseSensitively;
+        options |= QWebEnginePage::FindCaseSensitively;
 
-    // HACK Because we're using the QWebView inside a QScrollArea container, the attempts
-    // to scroll the QWebView itself have no direct effect.
-    // Therefore we temporarily shrink the page viewport to the message viewport (ie. the size it
-    // can cover at max), then perform the search, store the scrollPosition, restore the page viewport
-    // and finally scroll the messageview to the gathered scrollPosition, mapped to the message (ie.
-    // usually offset by the mail header)
-
-    auto emb = qobject_cast<EmbeddedWebView *>(m_associatedWebView);
-
-    QAbstractScrollArea *container = emb ? static_cast<QAbstractScrollArea*>(emb->scrollParent()) : nullptr;
-    const QSize oldVpS = m_associatedWebView->page()->viewportSize();
-    const bool useResizeTrick = container ? !!container->verticalScrollBar() : false;
-    // first shrink the page viewport
-    if (useResizeTrick) {
-        m_associatedWebView->setUpdatesEnabled(false); // don't let the user see the flicker we might produce
-        QSize newVpS = oldVpS.boundedTo(container->size());
-        m_associatedWebView->page()->setViewportSize(newVpS);
-    }
-
-    // now perform the search (pot. in the shrinked viewport)
-    bool found = m_associatedWebView->page()->findText(_lastStringSearched, options);
-    notifyMatch(found);
-
-    // scroll and reset the page viewport if necessary
-    if (useResizeTrick) {
-        Q_ASSERT(container->verticalScrollBar());
-        // the page has now a usable scroll position ...
-        int scrollPosition = m_associatedWebView->page()->currentFrame()->scrollPosition().y();
-        // ... which needs to be extended by the pages offset (usually the header widget)
-        // NOTICE: QWidget::mapTo() fails as the viewport child position can be negative, so we run ourself
-        QWidget *runner = m_associatedWebView;
-        while (runner->parentWidget() != container->viewport()) {
-            scrollPosition += runner->y();
-            runner = runner->parentWidget();
-        }
-        // reset viewport to original size ...
-        m_associatedWebView->page()->setViewportSize(oldVpS);
-        // ... let the user see the change ...
-        m_associatedWebView->setUpdatesEnabled(true);
-
-        // ... and finally scroll to the desired position
-        if (found)
-            container->verticalScrollBar()->setValue(scrollPosition);
-    }
-
-    if (!found) {
-        QPoint previous_position = m_associatedWebView->page()->currentFrame()->scrollPosition();
-        m_associatedWebView->page()->focusNextPrevChild(true);
-        m_associatedWebView->page()->currentFrame()->setScrollPosition(previous_position);
-    }
+    QPointer<FindBar> self(this);
+    m_associatedWebView->findText(_lastStringSearched, options, [self](const QWebEngineFindTextResult &result) {
+        if (self)
+            self->notifyMatch(result.numberOfMatches() > 0);
+    });
 }
 
 void FindBar::findNext()
@@ -282,7 +234,6 @@ void FindBar::matchCaseUpdate()
 {
     Q_ASSERT(m_associatedWebView);
 
-    m_associatedWebView->page()->findText(_lastStringSearched, QWebPage::FindBackward);
     findNext();
     updateHighlight();
 }
@@ -292,19 +243,19 @@ void FindBar::updateHighlight()
 {
     Q_ASSERT(m_associatedWebView);
 
-    QWebPage::FindFlags options = QWebPage::HighlightAllOccurrences;
+    QWebEnginePage::FindFlags options;
 
     m_associatedWebView->page()->findText(QString(), options); //Clear an existing highlight
 
     if (!isHidden() && highlightAllState())
     {
         if (matchCase())
-            options |= QWebPage::FindCaseSensitively;
+            options |= QWebEnginePage::FindCaseSensitively;
         m_associatedWebView->page()->findText(_lastStringSearched, options);
     }
 }
 
-void FindBar::setAssociatedWebView(QWebView *webView)
+void FindBar::setAssociatedWebView(QWebEngineView *webView)
 {
     if (m_associatedWebView)
         disconnect(m_associatedWebView, nullptr, this, nullptr);
