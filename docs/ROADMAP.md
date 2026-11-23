@@ -6,7 +6,7 @@
 **[Project board](https://github.com/users/mikepadiernos/projects/4)**
 
 Plasma Impresario is an in-development mail client for the KDE Plasma desktop only,
-built with C++, Qt 6 and KDE Frameworks. Other desktop environments are outside
+built with C++, Qt 6 and KDE Frameworks. other desktop environments are outside
 the supported product scope. This roadmap orders foundational mailbox work
 before desktop integration, productivity features and release-quality refinements.
 
@@ -23,15 +23,25 @@ the existing Trojitá client from planned Plasma Impresario features.
 ## Contents
 
 - [Milestones](#milestones)
-- [M01-M05: Foundations](#m01-kde--qt6-compatibility-baseline)
-- [M06-M10: Workflows and quality](#m06-output-notifications-and-rules-automation)
-- [M11-M12: Assets and refinements](#m11-nextcloud-and-digital-asset-management)
+- [M01: Compatibility baseline](#m01-kde--qt6-compatibility-baseline)
+- [M02: Shell and accounts](#m02-shell-accounts-and-core-mailbox-foundation)
+- [M03: Mail operations](#m03-mail-operations-sorting-and-folder-management)
+- [M04: Reading and composition](#m04-reading-search-and-conversation-flow)
+- [M09: Reliability and sync](#m09-reliability-sync-and-notification-quality)
+- [M06: Notifications and rules](#m06-output-notifications-and-rules-automation)
+- [M05: Desktop and providers](#m05-desktop-integration-and-provider-support)
+- [M07: Settings and workspaces](#m07-settings-and-workspace-configuration)
+- [M08: Themes and branding](#m08-themes-and-branding-foundation)
+- [M11: Nextcloud assets](#m11-nextcloud-and-digital-asset-management)
+- [M12: Refinements](#m12-refinements)
+- [M10: Release readiness](#m10-release-readiness-and-polish)
 
 ## Milestones
 
-This roadmap is ordered by product dependency. Compare proposed milestones
-with the current baseline described in the parity guides before treating
-foundational mailbox functionality as entirely new.
+Milestones appear in execution order, not numerical order. Their identifiers
+remain stable so existing issues, project links, and handoffs stay valid. Compare
+proposed milestones with the current baseline described in the parity guides
+before treating foundational mailbox functionality as entirely new.
 
 ## Recommended priority
 
@@ -42,9 +52,16 @@ foundational mailbox functionality as entirely new.
 | **P2** | Shell and reliability | Prototype the Plasma Impresario layout over existing mailbox/list/reader behavior; validate accessibility, keyboard use, responsive layouts and partial-failure recovery |
 | **P3** | Optional productivity features | Add provider APIs, rules, Nextcloud, calendar/contacts and workspace features only after core reliability, permissions and privacy behavior are defined |
 
-These are recommended sequencing priorities, not issue statuses or feature
-completion markers. Follow the project workflow below before updating milestone
-completion.
+After M02-M04 establish the core mail workflow, M09 stabilizes it before M06
+adds rules and notification controls. M05 then adds desktop and provider
+integrations, including spam hooks that can use those rules. M06's scanning
+activity reporting applies when a scanner is available; it does not require
+M05's scanner integration to exist first. M07 and M08 consolidate settings
+and visual behavior, followed by M11 assets and M12 cross-feature refinements.
+M10 is the final release gate for the resulting workflows.
+
+These are sequencing priorities, not issue statuses or feature completion
+markers. Follow the project workflow before updating milestone completion.
 
 The issue synchronization handoff is tracked in [TODO](TODO.md#milestone-feature-issue-synchronization).
 
@@ -224,6 +241,40 @@ installation depends on the working renderer.
 - [ ] Keep threaded and flat views navigable and preserve conversation context across filters [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569569)
 - [ ] Protect reading privacy with explicit remote-content and external-link handling [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569578)
 
+### M09: Reliability, sync, and notification quality
+
+**Project:** [M09 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498466) ·
+[Connection and recovery](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541795) ·
+[Mailbox performance](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541868)
+
+- [ ] Harden retry behavior, offline handling, and background task reporting [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541795)
+- [ ] Improve connection-state reporting, folder sync stability, and message consistency [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570499)
+- [ ] Validate performance and reliability across real-world email workloads [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541868)
+- [ ] This milestone is the stabilization gate before broader product expansion [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570496)
+- [ ] Test intermittent connections, expired credentials, server errors, retries, and recovery without silent message loss [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570514)
+- [ ] Verify folder and unread counts remain consistent across multiple accounts and concurrent changes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570519)
+- [ ] Measure responsiveness and resource use for large mailboxes, long threads, bulk actions, and attachments [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570539)
+- [ ] Confirm failed background operations remain visible and can be retried or resolved [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570527)
+- [ ] Exercise memory, lifetime, undefined-behavior, and data-race-sensitive
+  network, cache, and Qt background-task paths with suitable sanitizers before
+  extending concurrency or sync behavior [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570499)
+
+### M06: Output, notifications, and rules automation
+
+**Project:** [M06 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498225) ·
+[Output and notifications](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541075) ·
+[Rule execution](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541165)
+
+- [ ] Define the output surfaces for sync status, alerts, notifications, and background job feedback [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541075)
+- [ ] Add a rules engine for sender, subject, attachment, folder, and tag-based message automation [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541165)
+- [ ] Support actions such as move, flag, archive, notify, and tag assignment [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569796)
+- [ ] Keep notification and automation behavior separate from the core shell and reader milestones [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569801)
+- [ ] This milestone is a blocker for workflow tuning, spam handling, and high-volume mail management [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569967)
+- [ ] Support per-account and per-folder notification controls, with summaries that avoid interrupting focused work [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569976)
+- [ ] Define rule order, matching conditions, actions, and account or folder scope for incoming mail [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569988)
+- [ ] Preview or test rule matches and report execution failures before rules perform destructive actions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569999)
+- [ ] Make background sync, scanning, and rule activity visible with actionable error and progress states [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570007)
+
 ### M05: Desktop integration and provider support
 
 **Project:** [M05 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498116) ·
@@ -255,22 +306,6 @@ installation depends on the working renderer.
 - [ ] Document provider authentication, capabilities, limitations, and setup for Gmail, Outlook, and generic IMAP/SMTP [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569776)
 - [ ] Define how scan results, unavailable scanners, spam classification, and user overrides are surfaced [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569785)
 - [ ] Avoid exposing message content or attachments to external services without informed user action [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569792)
-
-### M06: Output, notifications, and rules automation
-
-**Project:** [M06 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498225) ·
-[Output and notifications](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541075) ·
-[Rule execution](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541165)
-
-- [ ] Define the output surfaces for sync status, alerts, notifications, and background job feedback [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541075)
-- [ ] Add a rules engine for sender, subject, attachment, folder, and tag-based message automation [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541165)
-- [ ] Support actions such as move, flag, archive, notify, and tag assignment [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569796)
-- [ ] Keep notification and automation behavior separate from the core shell and reader milestones [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569801)
-- [ ] This milestone is a blocker for workflow tuning, spam handling, and high-volume mail management [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569967)
-- [ ] Support per-account and per-folder notification controls, with summaries that avoid interrupting focused work [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569976)
-- [ ] Define rule order, matching conditions, actions, and account or folder scope for incoming mail [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569988)
-- [ ] Preview or test rule matches and report execution failures before rules perform destructive actions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569999)
-- [ ] Make background sync, scanning, and rule activity visible with actionable error and progress states [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570007)
 
 ### M07: Settings and workspace configuration
 
@@ -327,41 +362,6 @@ installation depends on the working renderer.
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570286)
 - [ ] Validate contrast, text scaling, focus indicators, and high-contrast behavior across panes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570471)
 - [ ] Keep compact and comfortable layouts readable across common window sizes and display scales [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570493)
-
-### M09: Reliability, sync, and notification quality
-
-**Project:** [M09 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498466) ·
-[Connection and recovery](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541795) ·
-[Mailbox performance](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541868)
-
-- [ ] Harden retry behavior, offline handling, and background task reporting [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541795)
-- [ ] Improve connection-state reporting, folder sync stability, and message consistency [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570499)
-- [ ] Validate performance and reliability across real-world email workloads [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541868)
-- [ ] This milestone is the stabilization gate before broader product expansion [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570496)
-- [ ] Test intermittent connections, expired credentials, server errors, retries, and recovery without silent message loss [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570514)
-- [ ] Verify folder and unread counts remain consistent across multiple accounts and concurrent changes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570519)
-- [ ] Measure responsiveness and resource use for large mailboxes, long threads, bulk actions, and attachments [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570539)
-- [ ] Confirm failed background operations remain visible and can be retried or resolved [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570527)
-- [ ] Exercise memory, lifetime, undefined-behavior, and data-race-sensitive
-  network, cache, and Qt background-task paths with suitable sanitizers before
-  extending concurrency or sync behavior [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570499)
-
-### M10: Release readiness and polish
-
-**Project:** [M10 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498549) ·
-[Accessible workflows](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542030) ·
-[Release guidance and triage](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542126)
-
-- [ ] Review accessibility, localization, keyboard support, and final visual tuning [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542030)
-- [ ] Validate the end-to-end workflow from account setup through reading, triage, and reply [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570681)
-- [ ] Finalize release criteria, known issues, and handoff documentation [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542126)
-- [ ] Exercise compose, send, attachments, search, rules, notifications, offline recovery, and supported providers end to end [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570692)
-- [ ] Verify accessible navigation, screen-reader labels, keyboard-only workflows, localization, and scaled displays [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570702)
-- [ ] Publish installation, upgrade, troubleshooting, security, and supported-platform guidance [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570712)
-- [ ] Triage outstanding bugs and caveats against explicit release criteria before shipping [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570728)
-- [ ] Require clean formatting, reproducible CMake builds, test coverage,
-  supported dependency checks, and static analysis results in the release CI
-  gate; document tools, environment, findings, and residual risk [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542126)
 
 ### M11: Nextcloud and digital asset management
 
@@ -533,6 +533,23 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Define compatibility and failure expectations for sharing editor or workspace context with Plasma Opus [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314572957)
 
 This milestone follows the core app and Nextcloud integration. Refine implemented features here and document criteria for potential future work.
+
+### M10: Release readiness and polish
+
+**Project:** [M10 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498549) ·
+[Accessible workflows](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542030) ·
+[Release guidance and triage](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542126)
+
+- [ ] Review accessibility, localization, keyboard support, and final visual tuning [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542030)
+- [ ] Validate the end-to-end workflow from account setup through reading, triage, and reply [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570681)
+- [ ] Finalize release criteria, known issues, and handoff documentation [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542126)
+- [ ] Exercise compose, send, attachments, search, rules, notifications, offline recovery, and supported providers end to end [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570692)
+- [ ] Verify accessible navigation, screen-reader labels, keyboard-only workflows, localization, and scaled displays [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570702)
+- [ ] Publish installation, upgrade, troubleshooting, security, and supported-platform guidance [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570712)
+- [ ] Triage outstanding bugs and caveats against explicit release criteria before shipping [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570728)
+- [ ] Require clean formatting, reproducible CMake builds, test coverage,
+  supported dependency checks, and static analysis results in the release CI
+  gate; document tools, environment, findings, and residual risk [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542126)
 
 ## Notes
 
