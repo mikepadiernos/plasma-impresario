@@ -50,8 +50,7 @@ and project status before acting.
   evidence without an isolated account or live Plasma session.
 - **Pending:** Verify renderer-enabled and renderer-free installs at system
   prefixes and validate package-manager branches on distribution families other
-  than CachyOS before claiming them as supported. Run and document sanitizer
-  checks for the supported desktop configurations.
+  than CachyOS before claiming them as supported.
 
 ### Milestone feature-issue synchronization
 
