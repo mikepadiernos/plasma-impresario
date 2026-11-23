@@ -52,6 +52,11 @@ For example:
 - For a custom prefix, Plasma must search its `share` directory through
   `XDG_DATA_HOME` or `XDG_DATA_DIRS`. Configure the session environment before
   logging in, or use the default prefix.
+- If installation warns that the icon cache could not be refreshed, install
+  `gtk-update-icon-cache` and run
+  `gtk-update-icon-cache --force --ignore-theme-index "$PREFIX/share/icons/hicolor"`
+  with `PREFIX` set to the installation prefix. Refresh Plasma's application
+  database with `kbuildsycoca6` or log out and back in if the old icon remains.
 - An in-place upgrade may leave `share/metainfo/org.kde.trojita.appdata.xml`
   under the prefix. Remove that obsolete metadata if it remains.
 - The installed Trojitá handbook and man page come from `docs/old` and may
