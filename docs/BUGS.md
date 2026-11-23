@@ -12,7 +12,7 @@ This log records confirmed user-visible bugs and reliability issues.
 
 - **Issue:**
   [#241](https://github.com/mikepadiernos/plasma-impresario/issues/241)
-- **Status:** Completed
+- **Status:** Merged
 - **Reproduction:** Launch the installed application in Plasma with an icon
   theme containing a generic `plasma` icon, such as Breeze.
 - **Expected:** The launcher and task manager show the project icon.
