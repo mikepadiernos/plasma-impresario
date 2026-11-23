@@ -17,14 +17,14 @@ recommended parity goals.
 
 | Area | Current constraint |
 | --- | --- |
-| Product identity | Application code, window and executable retain Trojitá identity; the Plasma Mail product redesign is not complete |
+| Product identity | The application remains based on Trojitá; the Plasma Impresario product redesign is not complete |
 | Accounts | The application instance has one IMAP account model; profiles are separate configurations, not simultaneous account management |
 | Message rendering | HTML display depends on optional Qt WebKit; a maintained replacement is not established |
 | Credentials | QtKeychain is optional; the cleartext password plugin stores secrets in `QSettings` |
 | Transport | Cleartext IMAP remains selectable; account configuration determines whether TLS is used |
 | Local data | Persistent SQL cache stores message metadata and fetched parts; the application does not encrypt cache contents |
 | Integrations | Plasma notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned |
-| Compatibility | CMake configures Qt 6 and KF6 ItemModels, but a tested distribution, compiler and desktop support matrix is not documented |
+| Compatibility | The [baseline](compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified |
 | Quality evidence | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded |
 
 ## Before reporting results

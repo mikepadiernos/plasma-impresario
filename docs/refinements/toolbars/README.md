@@ -1,6 +1,6 @@
 # Toolbar layout specification
 
-This folder defines the toolbar layout tree for the major app surfaces in Plasma Mail. The goal is to keep primary actions visible and consistent without overcrowding the interface.
+This folder defines the toolbar layout tree for the major app surfaces in Plasma Impresario. The goal is to keep primary actions visible and consistent without overcrowding the interface.
 
 ## Toolbar tree map
 

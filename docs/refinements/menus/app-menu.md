@@ -1,6 +1,6 @@
 # Application menu tree
 
-This page defines the top-level app menu structure for Plasma Mail.
+This page defines the top-level app menu structure for Plasma Impresario.
 
 ```text
 └─ Application menu
@@ -123,7 +123,7 @@ This page defines the top-level app menu structure for Plasma Mail.
       ├─ Debug information
       ├─ Report bug
       ├─ Check for updates
-      └─ About Plasma Mail
+      └─ About Plasma Impresario
 ```
 
 ## Menu design rules

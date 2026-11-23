@@ -1,10 +1,10 @@
 # Plasma Opus integrations
 
-This page defines the cross-app productivity and workspace integrations that Plasma Mail can benefit from when the broader Plasma Opus ecosystem is available.
+This page defines the cross-app productivity and workspace integrations that Plasma Impresario can benefit from when the broader Plasma Opus ecosystem is available.
 
 ## What Plasma Opus means here
 
-Plasma Opus is not a separate mail app; it is a broader desktop-product layer that connects work surfaces, tasks, and personal productivity tools. Plasma Mail would benefit when it can participate in that shared context without becoming tightly coupled to any single app.
+Plasma Opus is not a separate mail app; it is a broader desktop-product layer that connects work surfaces, tasks, and personal productivity tools. Plasma Impresario would benefit when it can participate in that shared context without becoming tightly coupled to any single app.
 
 ## Integration areas
 
@@ -21,7 +21,7 @@ Plasma Opus is not a separate mail app; it is a broader desktop-product layer th
 ### 3. Notes and journaling
 - Support sending selected message content to notes or journal entries for later review.
 - Offer lightweight capture flows for follow-up, action items, and project notes.
-- Benefit: Plasma Mail becomes useful in a broader knowledge and personal productivity stack.
+- Benefit: Plasma Impresario becomes useful in a broader knowledge and personal productivity stack.
 
 ### 4. Workspace-aware context
 - Track the user’s current workspace, task state, or activity context when relevant.
@@ -45,13 +45,13 @@ Plasma Opus is not a separate mail app; it is a broader desktop-product layer th
 
 ## Desired product behavior
 
-Plasma Mail should benefit from Plasma Opus-style integration as a supportive layer, not as a redesign of the mail app itself. The integration model should emphasize:
+Plasma Impresario should benefit from Plasma Opus-style integration as a supportive layer, not as a redesign of the mail app itself. The integration model should emphasize:
 
 - cross-app continuity
 - compact, context-aware actions
 - desktop-native productivity flows
 - graceful degradation when another app or service is unavailable
 
-## Practical benefit to Plasma Mail
+## Practical benefit to Plasma Impresario
 
-When Plasma Mail participates in a Plasma Opus-aware environment, it becomes more than a message reader. It becomes a task-aware communication surface connected to scheduling, contacts, notes, files, and the user’s ongoing work context.
+When Plasma Impresario participates in a Plasma Opus-aware environment, it becomes more than a message reader. It becomes a task-aware communication surface connected to scheduling, contacts, notes, files, and the user’s ongoing work context.

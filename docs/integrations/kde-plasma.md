@@ -1,6 +1,6 @@
 # KDE Plasma integrations
 
-This page defines the KDE and Plasma integration targets that Plasma Mail should support as a desktop-native mail client.
+This page defines the KDE and Plasma integration targets for Plasma Impresario, a KDE Plasma-only desktop mail client. Other desktop environments are outside the supported product scope.
 
 ## Primary integration areas
 
@@ -22,7 +22,7 @@ This page defines the KDE and Plasma integration targets that Plasma Mail should
 ### 4. Account and configuration services
 - Respect KConfig, KWallet, and KDE account conventions for secure storage and settings persistence.
 - Keep account configuration and network settings aligned with KDE expectations.
-- Benefit: mail setup is more trustworthy and easier to maintain across sessions and desktop environments.
+- Benefit: mail setup is more trustworthy and easier to maintain across Plasma sessions.
 
 ### 5. Accessibility and theme consistency
 - Follow KDE standards for high contrast, iconography, accent colors, and dynamic theming.
@@ -32,7 +32,7 @@ This page defines the KDE and Plasma integration targets that Plasma Mail should
 ### 6. KDE application ecosystem consistency
 - Match the visual and interaction conventions used by other KDE apps when appropriate.
 - Keep service actions consistent with the wider Plasma experience.
-- Benefit: Plasma Mail feels like part of the KDE desktop rather than a separate tool bolted on.
+- Benefit: Plasma Impresario feels like part of the KDE desktop rather than a separate tool bolted on.
 
 ## Suggested integration standards
 
@@ -41,6 +41,6 @@ This page defines the KDE and Plasma integration targets that Plasma Mail should
 - Prefer consistent desktop interaction patterns over app-specific novelty.
 - Keep account and attachment workflows compatible with the rest of the KDE file and application model.
 
-## Practical benefit to Plasma Mail
+## Practical benefit to Plasma Impresario
 
-These integrations help Plasma Mail feel trusted, coherent, and efficient in a KDE environment: better desktop responsiveness, cleaner user feedback, and tighter alignment with the mail workflows users already expect from a Plasma app.
+These integrations help Plasma Impresario feel trusted, coherent, and efficient in a KDE environment: better desktop responsiveness, cleaner user feedback, and tighter alignment with the mail workflows users already expect from a Plasma app.

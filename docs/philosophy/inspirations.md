@@ -4,8 +4,8 @@
 **[Design](designs.md)** · **[Roadmap](../ROADMAP.md)** ·
 **[Contributing](../../CONTRIBUTING.md)**
 
-These products inform workflow and layout decisions. They are references, not
-feature-cloning specifications.
+These products inform workflow, layout, and implementation decisions. They
+are references, not feature-cloning specifications.
 
 ## KDE / Trojitá
 
@@ -17,6 +17,19 @@ feature-cloning specifications.
   - Strong emphasis on IMAP correctness and protocol cleanliness
   - KDE-style app behavior, especially as a lightweight desktop client
 
+## Qt mail client implementation references
+
+| Project | Relevant reference |
+| --- | --- |
+| [Korrespond](https://github.com/topke63/Korrespond) | Qt Quick and KMime message rendering, remote-image controls, and MIME-based reply text. |
+| [Javelin Mail](https://github.com/ripdog/Javelin-Mail) | Qt Widgets WebEngine viewer, inline-resource scheme, context menus, and asynchronous search; its backend uses JMAP rather than IMAP. |
+| [Mailove](https://github.com/nekromoff/mailove) | Qt Quick WebEngine sandbox, CID scheme, request interceptor, and network-egress tests. |
+| [LoveLetter](https://github.com/guoyunhe/loveletter) | Early KDE/Qt Quick mail interface prototype; its message page is a placeholder rather than a renderer implementation. |
+| [Argonaut Emails](https://github.com/jgiannop/argonaut-emails) | Qt Widgets IMAP client with a private WebEngine profile, CID handler, remote-content controls, and viewer tests. |
+
+Adapt concepts to Trojitá's on-demand IMAP model and verify message isolation
+and privacy independently. Review each project's license before reusing code.
+
 ## Aqua Mail
 
 - Project: https://www.aqua-mail.com/
@@ -26,6 +39,21 @@ feature-cloning specifications.
   - Thoughtful handling of quick actions and conversation flow
   - Strong support for account grouping and low-friction navigation
   - Fast, readable filters and search flows
+
+## Vivaldi Mail
+
+- Project: https://vivaldi.com/features/mail/
+- Why it matters: Vivaldi Mail offers desktop workflows for managing and
+  finding messages across high-volume, multi-account inboxes.
+- Takeaways:
+  - Unified access to multiple IMAP and POP3 accounts
+  - Indexed mail and saved searches for quick retrieval, including offline
+  - Distinct unseen and unread indicators
+  - View toggles and multiple views of a message without moving it
+  - Keyboard shortcuts, navigation history, and queued outgoing messages
+
+Adapt these ideas to a standalone KDE Plasma client; they are inspiration,
+not claims about existing features.
 
 ## The Bat!
 
@@ -49,7 +77,7 @@ feature-cloning specifications.
 
 ## Adoptable Aqua Mail features
 
-The following Aqua Mail patterns are useful to adopt selectively for Plasma Mail:
+The following Aqua Mail patterns are useful to adopt selectively for Plasma Impresario:
 
 - Quick actions directly in the message list: archive, move, flag, mark read, and delete
 - Compact triage workflow: clear, low-noise reading and fast inbox scanning
@@ -75,7 +103,7 @@ These should be adapted to a desktop-first KDE layout rather than copied as a mo
   - Advanced sorting models with rules, prioritization, and message triage logic
   - Thread-aware behavior that keeps conversations coherent while preserving dense desktop organization
 
-Plasma Mail should adapt The Bat! patterns as a desktop-first productivity layer rather than copy its full classic workflow. The goal is to keep advanced organization, batching, and filtering available without creating a cluttered or intimidating interface.
+Plasma Impresario should adapt The Bat! patterns as a desktop-first productivity layer rather than copy its full classic workflow. The goal is to keep advanced organization, batching, and filtering available without creating a cluttered or intimidating interface.
 
 ## ePim and workspace-oriented patterns
 
@@ -87,14 +115,15 @@ Plasma Mail should adapt The Bat! patterns as a desktop-first productivity layer
   - Practical ideas for message categorization beyond basic folders
   - A desktop-oriented mindset that can complement KDE and Plasma workflows
 
-Plasma Mail should borrow the organization ideas from ePim without forcing a heavy enterprise-style system. The goal is a cleaner mail model that supports tags, local mail organization, and workspace-aware context.
+Plasma Impresario should borrow the organization ideas from ePim without forcing a heavy enterprise-style system. The goal is a cleaner mail model that supports tags, local mail organization, and workspace-aware context.
 
 ## Design synthesis
 
-Plasma Mail should combine:
+Plasma Impresario should combine:
 
 - The KDE-native and IMAP-first discipline of Trojitá
 - The clarity and quick-action flow of Aqua Mail
+- The cross-account organization and searchable views of Vivaldi Mail
 - The power-user density and organization model of The Bat!
 - The desktop integration and KDE polish of Kontact
 
