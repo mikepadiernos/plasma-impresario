@@ -1,20 +1,35 @@
 # Menu and context-menu tree specification
 
+**[Refinements](../README.md)** · **[Toolbars](../toolbars/README.md)** ·
+**[Interface design](../../philosophy/designs.md)** ·
+**[M12 in roadmap](../../ROADMAP.md#m12-refinements)**
+
 These proposed application and context menus organize actions by the object and
-task, following KDE Plasma conventions.
+task, following KDE Plasma conventions. Each specification maps its entries to
+actions that exist today.
+
+**Legend:** ✅ exists in the current code on `feature/m02-shell-next` · 📋
+planned only
 
 ## Menu tree map
 
-| Specification                                                 | Scope                                           |
-| ------------------------------------------------------------- | ----------------------------------------------- |
-| [Application menu](app-menu.md)                               | Top-level application menu bar                  |
-| [Account context menu](account-tree-context-menu.md)          | Account navigation actions                      |
-| [Folder context menu](folder-tree-context-menu.md)            | Mailbox and folder actions                      |
-| [Message list context menu](message-list-context-menu.md)     | Message and selection actions                   |
-| [Message header context menu](message-header-context-menu.md) | Per-message header actions                      |
-| [Reading pane context menu](reading-pane-context-menu.md)     | Reading area and content actions                |
-| [Attachment context menu](attachment-context-menu.md)         | Attachment and safe file actions                |
-| [Compose context menu](compose-context-menu.md)               | Composer text, recipient and attachment actions |
+| Specification                                                 | Scope                                           | Exists today                                    |
+| ------------------------------------------------------------- | ----------------------------------------------- | ----------------------------------------------- |
+| [Application menu](app-menu.md)                               | Top-level application menu bar                  | ✅ Application, View, Mailbox and Message menus |
+| [Account context menu](account-tree-context-menu.md)          | Account navigation actions                      | 📋 No account tree; toolbar account selector    |
+| [Folder context menu](folder-tree-context-menu.md)            | Mailbox and folder actions                      | ✅ Folder tree context menu                     |
+| [Message list context menu](message-list-context-menu.md)     | Message and selection actions                   | ✅ Message list context menu                    |
+| [Message header context menu](message-header-context-menu.md) | Per-message header actions                      | ✅ Address context menu only                    |
+| [Reading pane context menu](reading-pane-context-menu.md)     | Reading area and content actions                | ✅ Reader context menu                          |
+| [Attachment context menu](attachment-context-menu.md)         | Attachment and safe file actions                | ✅ Attachments panel and composer list menus    |
+| [Compose context menu](compose-context-menu.md)               | Composer text, recipient and attachment actions | ✅ Editor and attachment list menus             |
+
+> [!NOTE]
+>
+> Current menus are defined in `src/Gui/Window.cpp` (the `MainWindow` class) and
+> the reader, attachment and composer widgets under `src/Gui/`. The status in
+> these specifications reflects `feature/m02-shell-next`, which is not yet
+> merged into `main`.
 
 ## Product principles
 
