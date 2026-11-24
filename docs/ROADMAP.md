@@ -159,7 +159,8 @@ installation depends on the working renderer.
   column, right column, and footer. Existing widgets and panes, such as the
   folder tree, message list, and reader, keep their current appearance and
   layout, adapted to the new shell, so the default look is unchanged. See the
-  [shell and interface widget designs](philosophy/designs.md). In scope:
+  [shell and interface widget designs](philosophy/designs.md).
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314539964)
   - Keep the current toolbar and menus as the header, and show connection
     status in the footer.
   - Place the mailbox sidebar in either side column, and arrange the message
@@ -172,15 +173,6 @@ installation depends on the working renderer.
     the reader, in either side column, or in the footer; include shown panels
     in F6 focus cycling.
   - Verify the shell in a real Plasma session.
-
-  Deferred: server-side related messages and verified security details to
-  [M04](#m04-reading-search-and-conversation-flow); the My Day / Agenda panel
-  and address-book contacts to
-  [M05](#m05-desktop-integration-and-provider-support); the designed header,
-  per-region toolbars, and sliding, floating, or rearrangeable panels to
-  [M12.02](#m12-refinements); optional tabs to
-  [M07](#m07-settings-and-workspace-configuration).
-  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314539964)
 - [ ] Define account models, connection state, folder structure, and mailbox lifecycle [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540057)
 - [x] Support multiple simultaneous mail accounts in one window with independent account state and configuration [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314607650)
 - [ ] Design protocol-aware account and capability models that preserve existing IMAP behavior and allow POP3 and JMAP integrations in M05 [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314594590)
