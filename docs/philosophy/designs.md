@@ -49,6 +49,23 @@ folder and message are restored when they become available, unless the user
 navigates elsewhere first. Message restoration checks the mailbox's UIDVALIDITY
 before selecting a saved UID.
 
+The mailbox tree recognizes **special folders**: Inbox, Drafts, Sent, Archive,
+Junk and Trash (plus All Mail and Flagged on servers that announce them). The
+server's RFC 6154 SPECIAL-USE attributes decide first, including the legacy
+XLIST names; the client asks for them when the server supports LIST-EXTENDED
+and SPECIAL-USE. The account's configured archive folder also counts as
+Archive. Without attributes, top-level folders and direct children of INBOX
+with a common English name (for example _Sent Items_, _Deleted Items_ or
+_Junk E-mail_) are used, at most one per kind. Special folders get Plasma
+theme icons and are listed first among their siblings in that order; other
+folders keep the server's order. **Mailbox › Go to Folder** opens the active
+account's Inbox, Drafts, Sent, Archive, Junk or Trash; an entry is disabled
+while the account has no such folder. **Mailbox › Go to Folder…** (Ctrl+J)
+opens a searchable list of the folders already loaded in the tree: typing
+filters it, the arrow keys move through matches and Enter opens the folder.
+Both select the folder in the tree and move focus to the message list, also
+in one-panel-at-a-time navigation.
+
 An embedded **attachments panel** sits below the reader in every layout, in a
 resizable reader column whose split is saved with the layout. It lists the
 current message's attachments with their type icons, names and sizes, and
@@ -282,6 +299,9 @@ claims that every component is implemented.
   scope, filters and saved searches. Inspired by Vivaldi Mail and Aqua Mail.
 - **Account and folder navigation:** Show account groups, folder hierarchy and
   unread counts with clear account context. Inspired by Trojitá and Aqua Mail.
+  Special-folder icons and ordering, quick navigation to special folders and a
+  searchable folder picker are implemented (see
+  [Current interface](#current-interface)); account groups remain planned.
 - **Unified inbox:** Combine selected accounts while identifying each message's
   source and keeping actions account-aware. Inspired by Vivaldi Mail.
 - **Message list and quick actions:** Present sender, subject, date and unread
