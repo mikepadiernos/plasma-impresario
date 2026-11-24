@@ -67,8 +67,11 @@ and project status before acting.
   and rapid offline/reconnect with and without WebEngine. To include message
   restoration in `test_LiveImap`, seed INBOX with a synthetic message and set
   `PLASMA_TEST_IMAP_RESTORE_UID` and `PLASMA_TEST_IMAP_RESTORE_VALIDITY`.
-  Full application restart, multi-account isolation and complete pane layout
-  persistence still need verification before #81 can advance.
+  Separate-process tests verify saved selection identifiers, wide-pane sizes,
+  sidebar position and density across close, quit and hidden-window quit.
+  End-to-end message restoration across a real application restart,
+  multi-account isolation and the remaining pane layouts still need
+  verification before #81 can advance.
 - **Resume:** Implement and test the remaining M02 shell, account,
   protocol-capability and OAuth issues. Advance each issue through Review and
   Completed before checking its roadmap item; merge the milestone only when
