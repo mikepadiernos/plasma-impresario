@@ -16,11 +16,13 @@ The main window has a toolbar/menu and three work areas: a mailbox tree, a
 message list and a message reader. Compact mode stacks the list above the reader
 beside the mailbox tree; wide mode places all three side by side.
 One-panel-at-a-time navigation and persisted splitter/layout state are also
-implemented. Optional diagnostic docks expose task, MIME, model and protocol
-information.
+implemented. A toolbar selector switches between accounts and marks accounts
+that need attention. Optional diagnostic docks expose task, MIME, model and
+protocol information.
 
-The baseline does not provide the proposed unified multi-account navigation,
-workspace surfaces or modern Plasma notification experience. See
+The baseline does not provide the proposed unified multi-account navigation
+(accounts grouped in the folder tree), workspace surfaces or modern Plasma
+notification experience. See
 [caveats and security](../CAVEATS.md) for security and dependency limitations.
 
 ## Reference hierarchy

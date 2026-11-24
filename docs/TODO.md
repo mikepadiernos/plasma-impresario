@@ -57,8 +57,9 @@ and project status before acting.
 - **Account acceptance:** #78 has been exercised against a disposable Dovecot
   2.4.4 container using temporary configuration and synthetic credentials.
   The application saved IMAP settings, recovered from a rejected password,
-  selected INBOX and reconnected after going offline. Secure credential
-  storage and account removal still require implementation and verification.
+  selected INBOX and reconnected after going offline. New profiles default to
+  QtKeychain, and account removal deletes the account's settings and stored
+  passwords; both still need verification against disposable IMAP.
   The opt-in `test_LiveImap` executable uses `PLASMA_TEST_IMAPS_PORT` for a
   loopback-only Dovecot IMAPS listener configured with the synthetic password
   `synthetic-test-only`; never point it at a real account or service.
@@ -95,7 +96,10 @@ and project status before acting.
   Plasma session. Known limits: accounts are grouped by a selector, not in the
   folder tree; background accounts surface errors only in the selector; the
   offline message cache of a removed account is not deleted; folder counts and
-  saved searches have not been checked with two accounts.
+  saved searches have not been checked with two accounts. `MessageListWidget`
+  receives the startup account's identifier once, so saved searches probably
+  stay keyed to that account after switching (inferred from source, not
+  reproduced).
 - **Blocked on a decision, #35 and #74:** the five-region shell has a header
   toolbar, a sidebar movable between the left and right columns, a main
   column and a status footer. The configurable embedded panels for metadata,

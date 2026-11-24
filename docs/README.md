@@ -25,6 +25,7 @@ tracking.
 | [Design direction](philosophy/designs.md)             | Shell structure, proposed interface widgets and interaction principles |
 | [Inspirations](philosophy/inspirations.md)            | Mail-client and Plasma influences                                      |
 | [Project instructions](../CLAUDE.md)                  | Development conventions and project workflow                           |
+| [Contributing](../CONTRIBUTING.md)                    | Development workflow and the headless build container                  |
 
 ## Plan and track
 

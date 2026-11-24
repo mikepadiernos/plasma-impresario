@@ -20,9 +20,12 @@ secondary reference for desktop integration and account ergonomics.
   configurable offline cache behavior.
 - IDLE, threading, server-side search, offline mode, reconnect handling and
   mailbox operations have implementation and/or QtTest coverage.
-- One application instance has one IMAP account model. `--profile` allows
-  separate configurations in concurrent instances; it is not native simultaneous
-  multi-account management.
+- One window can hold several IMAP accounts. `AccountRegistry` gives each
+  account its own settings, and each account has its own `ImapAccess`, models
+  and connection-status tracking. `--profile` still selects a separate
+  configuration, each with its own accounts.
+- `AccountCapabilities` describes which operations IMAP, POP3 and JMAP
+  accounts support; nothing in the interface consults it yet.
 - Outgoing mail uses configured SMTP, IMAP submission or sendmail paths.
 - A process-backed connection mode can wrap a user-configured transport.
 

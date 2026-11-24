@@ -72,6 +72,9 @@ packages:
 bash tests/test_install.sh
 ```
 
+On hosts without Plasma, use the headless dev container described in
+[building outside Plasma](../CONTRIBUTING.md#building-outside-plasma).
+
 The [compatibility baseline](philosophy/compatibility.md) records tested
 environments and reproducible component checks. Live account and desktop
 workflows remain subject to the
