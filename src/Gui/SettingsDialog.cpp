@@ -80,7 +80,7 @@ bool checkProblemWithEmptyTextField(T *field, const QString &message)
 SettingsDialog::SettingsDialog(MainWindow *parent, Composer::SenderIdentitiesModel *identitiesModel,
         Imap::Mailbox::FavoriteTagsModel *favoriteTagsModel, QSettings *settings):
     QDialog(parent), mainWindow(parent), m_senderIdentities(identitiesModel), m_favoriteTags(favoriteTagsModel),
-        m_settings(settings)
+        m_settings(settings), m_accountSettings(parent->accountSettings())
 {
     setWindowTitle(tr("Settings"));
 
@@ -89,11 +89,11 @@ SettingsDialog::SettingsDialog(MainWindow *parent, Composer::SenderIdentitiesMod
     layout->addWidget(stack);
     stack->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 
-    addPage(new GeneralPage(this, *m_settings, m_senderIdentities), tr("&General"));
-    addPage(new ImapPage(this, *m_settings), tr("I&MAP"));
-    addPage(new CachePage(this, *m_settings), tr("&Offline"));
-    addPage(new OutgoingPage(this, *m_settings), tr("&SMTP"));
-    addPage(new FavoriteTagsPage(this, *m_settings, m_favoriteTags), tr("Favorite &tags"));
+    addPage(new GeneralPage(this, *m_settings, m_senderIdentities), tr("&General"), m_settings);
+    addPage(new ImapPage(this, *m_accountSettings), tr("I&MAP"), m_accountSettings);
+    addPage(new CachePage(this, *m_accountSettings), tr("&Offline"), m_accountSettings);
+    addPage(new OutgoingPage(this, *m_accountSettings), tr("&SMTP"), m_accountSettings);
+    addPage(new FavoriteTagsPage(this, *m_settings, m_favoriteTags), tr("Favorite &tags"), m_settings);
 
     buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, Qt::Horizontal, this);
     connect(buttons, &QDialogButtonBox::accepted, this, &SettingsDialog::accept);
@@ -177,6 +177,8 @@ void SettingsDialog::accept()
     // Try to wour around QSettings' inability to set umask for its file access. We don't want to set umask globally.
     QFile settingsFile(m_settings->fileName());
     settingsFile.setPermissions(QFile::ReadUser | QFile::WriteUser);
+    QFile accountFile(m_accountSettings->fileName());
+    accountFile.setPermissions(QFile::ReadUser | QFile::WriteUser);
 #endif
 
     buttons->setEnabled(false);
@@ -185,12 +187,14 @@ void SettingsDialog::accept()
     }
 
     Q_FOREACH(ConfigurationWidgetInterface *page, pages) {
-        page->save(*m_settings);
+        page->save(*m_pageSettings.value(page));
     }
 
     m_settings->sync();
+    m_accountSettings->sync();
 #ifndef Q_OS_WIN
     settingsFile.setPermissions(QFile::ReadUser | QFile::WriteUser);
+    accountFile.setPermissions(QFile::ReadUser | QFile::WriteUser);
 #endif
 }
 
@@ -234,8 +238,9 @@ void SettingsDialog::reject()
     QDialog::reject();
 }
 
-void SettingsDialog::addPage(ConfigurationWidgetInterface *page, const QString &title)
+void SettingsDialog::addPage(ConfigurationWidgetInterface *page, const QString &title, QSettings *pageSettings)
 {
+    m_pageSettings.insert(page, pageSettings);
     stack->addTab(page->asWidget(), title);
     connect(page->asWidget(), SIGNAL(widgetsUpdated()), SLOT(adjustSizeToScrollAreas())); // new-signal-slot: we're abusing the type system a bit here, cannot use the new syntax
     QMetaObject::invokeMethod(page->asWidget(), "updateWidgets", Qt::QueuedConnection);

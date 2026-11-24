@@ -24,6 +24,9 @@
 
 #include <QAuthenticator>
 #include <QActionGroup>
+#include <QComboBox>
+#include <QFileInfo>
+#include <QInputDialog>
 #include <QDesktopServices>
 #include <QDir>
 #include <QDockWidget>
@@ -93,6 +96,7 @@
 #include "CompleteMessageWidget.h"
 #include "ComposeWidget.h"
 #include "DensityDelegate.h"
+#include "Common/AccountRegistry.h"
 #include "DensityMenu.h"
 #include "MailBoxTreeView.h"
 #include "MessageListWidget.h"
@@ -167,14 +171,7 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     // ImapAccess contains a wrapper for retrieving passwords through some plugin.
     // That PasswordWatcher is used by the SettingsDialog's widgets *and* by this class,
     // which means that ImapAccess has to be constructed before we go and open the settings dialog.
-
-    // FIXME: use another account-id at some point in future
-    //        we are now using the profile to avoid overwriting passwords of
-    //        other profiles in secure storage
-    QString profileName = QString::fromUtf8(qgetenv("TROJITA_PROFILE"));
-    m_imapAccess = new Imap::ImapAccess(this, m_settings, m_pluginManager, profileName);
-    connect(m_imapAccess, &Imap::ImapAccess::cacheError, this, &MainWindow::cacheError);
-    connect(m_imapAccess, &Imap::ImapAccess::checkSslPolicy, this, &MainWindow::checkSslPolicy, Qt::QueuedConnection);
+    setupAccounts();
 
     ShortcutHandler *shortcutHandler = new ShortcutHandler(this);
     shortcutHandler->setSettingsObject(m_settings);
@@ -192,7 +189,7 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     m_senderIdentities = new Composer::SenderIdentitiesModel(this);
     m_senderIdentities->loadFromSettings(*m_settings);
 
-    if (! m_settings->contains(Common::SettingsNames::imapMethodKey)) {
+    if (! accountSettings()->contains(Common::SettingsNames::imapMethodKey)) {
         QTimer::singleShot(0, this, SLOT(slotShowSettings()));
     }
 
@@ -422,6 +419,12 @@ void MainWindow::createActions()
 
     configSettings = new QAction(UiUtils::loadIcon(QStringLiteral("configure")),  tr("&Settings..."), this);
     connect(configSettings, &QAction::triggered, this, &MainWindow::slotShowSettings);
+    m_actionAddAccount = new QAction(UiUtils::loadIcon(QStringLiteral("list-add")), i18n("&Add Account..."), this);
+    connect(m_actionAddAccount, &QAction::triggered, this, &MainWindow::slotAddAccount);
+    m_actionRenameAccount = new QAction(i18n("Re&name Account..."), this);
+    connect(m_actionRenameAccount, &QAction::triggered, this, &MainWindow::slotRenameAccount);
+    m_actionRemoveAccount = new QAction(UiUtils::loadIcon(QStringLiteral("list-remove")), i18n("&Remove Account..."), this);
+    connect(m_actionRemoveAccount, &QAction::triggered, this, &MainWindow::slotRemoveAccount);
 
     QAction *triggerSearch = new QAction(this);
     addAction(triggerSearch);
@@ -642,6 +645,15 @@ void MainWindow::createActions()
     m_replyButton->setMenu(m_replyMenu);
     m_replyButton->setDefaultAction(m_replyPrivate);
 
+    m_accountSwitcher = new QComboBox(this);
+    m_accountSwitcher->setToolTip(i18n("Account"));
+    m_accountSwitcher->setAccessibleName(i18n("Account"));
+    connect(m_accountSwitcher, &QComboBox::activated, this, [this](int index) {
+        switchAccount(m_accountSwitcher->itemData(index).toString());
+    });
+    refreshAccountSwitcher();
+    m_mainToolbar->addWidget(m_accountSwitcher);
+    m_mainToolbar->addSeparator();
     m_mainToolbar->addWidget(m_composeButton);
     m_mainToolbar->addWidget(m_replyButton);
     m_mainToolbar->addAction(m_forwardAsAttachment);
@@ -741,6 +753,10 @@ void MainWindow::createMenus()
             debugMenu->addSeparator();
             ADD_ACTION(debugMenu, reloadAllMailboxes);
             ADD_ACTION(debugMenu, resyncMbox);
+        applicationMenu->addSeparator();
+        ADD_ACTION(applicationMenu, m_actionAddAccount);
+        ADD_ACTION(applicationMenu, m_actionRenameAccount);
+        ADD_ACTION(applicationMenu, m_actionRemoveAccount);
         applicationMenu->addSeparator();
         ADD_ACTION(applicationMenu, configSettings);
         ADD_ACTION(applicationMenu, ShortcutHandler::instance()->shortcutConfigAction());
@@ -943,10 +959,12 @@ void MainWindow::createWidgets()
     busyParsersIndicator = new TaskProgressIndicator(this);
 }
 
-void MainWindow::setupModels()
+void MainWindow::setupModels(bool reconnect)
 {
-    m_imapAccess->reloadConfiguration();
-    m_imapAccess->doConnect();
+    if (reconnect) {
+        m_imapAccess->reloadConfiguration();
+        m_imapAccess->doConnect();
+    }
 
 #ifdef TROJITA_HAVE_WEBENGINE
     m_messageWidget->messageView->setNetworkWatcher(qobject_cast<Imap::Mailbox::NetworkWatcher*>(m_imapAccess->networkWatcher()));
@@ -1079,7 +1097,7 @@ void MainWindow::setupModels()
 
     busyParsersIndicator->setImapModel(imapModel());
 
-    auto accountIconName = m_settings->value(Common::SettingsNames::imapAccountIcon).toString();
+    auto accountIconName = accountSettings()->value(Common::SettingsNames::imapAccountIcon).toString();
     if (accountIconName.isEmpty()) {
         qApp->setWindowIcon(QIcon(QStringLiteral(":/icons/plasma-impresario.svg")));
     } else if (accountIconName.contains(QDir::separator())) {
@@ -1572,13 +1590,142 @@ void MainWindow::slotShowSettings()
         removeSysTray();
         slotToggleSysTray();
     }
-    QString method = m_settings->value(Common::SettingsNames::imapMethodKey).toString();
+    QString method = accountSettings()->value(Common::SettingsNames::imapMethodKey).toString();
     if (method != Common::SettingsNames::methodTCP && method != Common::SettingsNames::methodSSL &&
             method != Common::SettingsNames::methodProcess ) {
         Gui::Util::messageBoxCritical(this, tr("No Configuration"),
                                       tr("No IMAP account is configured. Plasma Impresario cannot do much without one."));
     }
     applySizesAndState();
+}
+
+namespace {
+const QString legacyAccountKey = QStringLiteral("accounts/legacy");
+}
+
+QSettings *MainWindow::accountSettings() const
+{
+    return m_accounts->settings(m_accounts->activeAccount());
+}
+
+void MainWindow::setupAccounts()
+{
+    const QFileInfo main(m_settings->fileName());
+    const QString prefix = main.path() + QLatin1Char('/') + main.completeBaseName() + QLatin1Char('-');
+    m_accounts = new Common::AccountRegistry(m_settings, [prefix](const QString &accountId) {
+        return std::make_unique<QSettings>(prefix + accountId + QStringLiteral(".conf"), QSettings::IniFormat);
+    }, this);
+    if (m_accounts->accountIds().isEmpty()) {
+        const QString accountId = m_accounts->addAccount(i18n("Mail account"));
+        Common::AccountRegistry::copyAccountKeys(*m_settings, *m_accounts->settings(accountId));
+        m_settings->setValue(legacyAccountKey, accountId);
+    }
+    m_imapAccess = accountAccess(m_accounts->activeAccount());
+}
+
+Imap::ImapAccess *MainWindow::accountAccess(const QString &accountId)
+{
+    if (Imap::ImapAccess *existing = m_accountAccess.value(accountId))
+        return existing;
+    // The migrated account keeps the profile name so its stored passwords and cache stay reachable.
+    const QString name = accountId == m_settings->value(legacyAccountKey).toString()
+        ? QString::fromUtf8(qgetenv("TROJITA_PROFILE")) : accountId;
+    auto *access = new Imap::ImapAccess(this, m_accounts->settings(accountId), m_pluginManager, name, m_settings);
+    connect(access, &Imap::ImapAccess::cacheError, this, &MainWindow::cacheError);
+    connect(access, &Imap::ImapAccess::checkSslPolicy, this, &MainWindow::checkSslPolicy, Qt::QueuedConnection);
+    m_accountAccess.insert(accountId, access);
+    return access;
+}
+
+void MainWindow::refreshAccountSwitcher()
+{
+    const QSignalBlocker blocker(m_accountSwitcher);
+    m_accountSwitcher->clear();
+    for (const QString &accountId : m_accounts->accountIds())
+        m_accountSwitcher->addItem(m_accounts->displayName(accountId), accountId);
+    m_accountSwitcher->setCurrentIndex(m_accountSwitcher->findData(m_accounts->activeAccount()));
+}
+
+void MainWindow::detachAccountModels()
+{
+    auto *imap = qobject_cast<Imap::Mailbox::Model *>(m_imapAccess->imapModel());
+    const QList<QObject *> models = {imap, m_imapAccess->msgListModel(), m_imapAccess->threadingMsgListModel(),
+                                     m_imapAccess->networkWatcher(), m_imapAccess->mailboxModel()};
+    for (QObject *model : models) {
+        if (!model)
+            continue;
+        model->disconnect(this);
+        model->disconnect(msgListWidget);
+        model->disconnect(protocolLogger);
+        mboxTree->disconnect(model);
+        for (QAction *action : {reloadAllMailboxes, netOffline, netExpensive, netOnline})
+            action->disconnect(model);
+    }
+    if (imap)
+        imap->taskModel()->disconnect(taskTree);
+}
+
+void MainWindow::switchAccount(const QString &accountId)
+{
+    if (accountId == m_accounts->activeAccount() || !m_accounts->accountIds().contains(accountId))
+        return;
+    detachAccountModels();
+    nukeModels();
+    m_accounts->setActiveAccount(accountId);
+    m_imapAccess = accountAccess(accountId);
+    setupModels(m_imapAccess->imapModel() == nullptr);
+    connectModelActions();
+    removeSysTray();
+    slotToggleSysTray();
+    m_ignoreStoredPassword = false;
+    m_connectionError = false;
+    updateConnectionStatus(i18nc("@info:status", "Account: %1", m_accounts->displayName(accountId)));
+    refreshAccountSwitcher();
+    slotUpdateWindowTitle();
+}
+
+void MainWindow::slotAddAccount()
+{
+    bool accepted = false;
+    const QString name = QInputDialog::getText(this, i18n("Add Account"), i18n("Account name:"),
+                                               QLineEdit::Normal, QString(), &accepted).trimmed();
+    if (!accepted || name.isEmpty())
+        return;
+    switchAccount(m_accounts->addAccount(name));
+    slotShowSettings();
+}
+
+void MainWindow::slotRenameAccount()
+{
+    const QString accountId = m_accounts->activeAccount();
+    bool accepted = false;
+    const QString name = QInputDialog::getText(this, i18n("Rename Account"), i18n("Account name:"), QLineEdit::Normal,
+                                               m_accounts->displayName(accountId), &accepted).trimmed();
+    if (!accepted || name.isEmpty())
+        return;
+    m_accounts->setDisplayName(accountId, name);
+    refreshAccountSwitcher();
+    slotUpdateWindowTitle();
+}
+
+void MainWindow::slotRemoveAccount()
+{
+    QStringList remaining = m_accounts->accountIds();
+    const QString accountId = m_accounts->activeAccount();
+    remaining.removeOne(accountId);
+    if (remaining.isEmpty()) {
+        Gui::Util::messageBoxWarning(this, i18n("Cannot Remove Account"), i18n("At least one account is required."));
+        return;
+    }
+    if (QMessageBox::question(this, i18n("Remove Account"),
+                              i18n("Remove account \"%1\" and its settings? Messages on the server are not affected.",
+                                   m_accounts->displayName(accountId))) != QMessageBox::Yes)
+        return;
+    switchAccount(remaining.first());
+    delete m_accountAccess.take(accountId);
+    m_accounts->removeAccount(accountId);
+    refreshAccountSwitcher();
+    slotUpdateWindowTitle();
 }
 
 void MainWindow::authenticationRequested()
@@ -1609,13 +1756,13 @@ void MainWindow::authenticationRequested()
 
 void MainWindow::authenticationContinue(const QString &password, const QString &errorMessage)
 {
-    const QString &user = m_settings->value(Common::SettingsNames::imapUserKey).toString();
+    const QString &user = accountSettings()->value(Common::SettingsNames::imapUserKey).toString();
     QString pass = password;
     if (m_ignoreStoredPassword || pass.isEmpty()) {
         auto dialog = PasswordDialog::getPassword(this, tr("Authentication Required"),
                                                   tr("<p>Please provide IMAP password for user <b>%1</b> on <b>%2</b>:</p>").arg(
                                                       user.toHtmlEscaped(),
-                                                      m_settings->value(Common::SettingsNames::imapHostKey).toString().toHtmlEscaped()
+                                                      accountSettings()->value(Common::SettingsNames::imapHostKey).toString().toHtmlEscaped()
                                                       ),
                                                   errorMessage + (errorMessage.isEmpty() ? QString() : QStringLiteral("\n\n"))
                                                   + imapModel()->imapAuthError());
@@ -1805,7 +1952,7 @@ void MainWindow::handleMoveToArchive()
     if (translatedIndexes.isEmpty()) {
         qDebug() << "Model::handleMoveToArchive: no valid messages";
     } else {
-        auto archiveFolderName = m_settings->value(Common::SettingsNames::imapArchiveFolderName).toString();
+        auto archiveFolderName = accountSettings()->value(Common::SettingsNames::imapArchiveFolderName).toString();
         auto copyMoveMessagesTask = imapModel()->copyMoveMessages(
             archiveFolderName.isEmpty() ? Common::SettingsNames::imapDefaultArchiveFolderName : archiveFolderName,
             translatedIndexes, Imap::Mailbox::CopyMoveOperation::MOVE);
@@ -1901,7 +2048,7 @@ void MainWindow::updateMessageFlagsOf(const QModelIndex &index)
     markAsNotJunk->setEnabled(okToModify);
 
     // There's no point in moving from Archive to, well, Archive
-    auto archiveFolderName = m_settings->value(Common::SettingsNames::imapArchiveFolderName).toString();
+    auto archiveFolderName = accountSettings()->value(Common::SettingsNames::imapArchiveFolderName).toString();
     if (archiveFolderName.isEmpty()) {
         archiveFolderName = Common::SettingsNames::imapDefaultArchiveFolderName;
     }
@@ -2150,20 +2297,20 @@ void MainWindow::invokeContactEditor()
 MSA::MSAFactory *MainWindow::msaFactory()
 {
     using namespace Common;
-    QString method = m_settings->value(SettingsNames::msaMethodKey).toString();
+    QString method = accountSettings()->value(SettingsNames::msaMethodKey).toString();
     MSA::MSAFactory *msaFactory = nullptr;
     if (method == SettingsNames::methodSMTP || method == SettingsNames::methodSSMTP) {
-        msaFactory = new MSA::SMTPFactory(m_settings->value(SettingsNames::smtpHostKey).toString(),
-                                          m_settings->value(SettingsNames::smtpPortKey).toInt(),
+        msaFactory = new MSA::SMTPFactory(accountSettings()->value(SettingsNames::smtpHostKey).toString(),
+                                          accountSettings()->value(SettingsNames::smtpPortKey).toInt(),
                                           (method == SettingsNames::methodSSMTP),
                                           (method == SettingsNames::methodSMTP)
-                                          && m_settings->value(SettingsNames::smtpStartTlsKey).toBool(),
-                                          m_settings->value(SettingsNames::smtpAuthKey).toBool(),
-                                          m_settings->value(SettingsNames::smtpAuthReuseImapCredsKey, false).toBool() ?
-                                              m_settings->value(SettingsNames::imapUserKey).toString() :
-                                              m_settings->value(SettingsNames::smtpUserKey).toString());
+                                          && accountSettings()->value(SettingsNames::smtpStartTlsKey).toBool(),
+                                          accountSettings()->value(SettingsNames::smtpAuthKey).toBool(),
+                                          accountSettings()->value(SettingsNames::smtpAuthReuseImapCredsKey, false).toBool() ?
+                                              accountSettings()->value(SettingsNames::imapUserKey).toString() :
+                                              accountSettings()->value(SettingsNames::smtpUserKey).toString());
     } else if (method == SettingsNames::methodSENDMAIL) {
-        QStringList args = m_settings->value(SettingsNames::sendmailKey, SettingsNames::sendmailDefaultCmd).toString().split(QLatin1Char(' '));
+        QStringList args = accountSettings()->value(SettingsNames::sendmailKey, SettingsNames::sendmailDefaultCmd).toString().split(QLatin1Char(' '));
         if (args.isEmpty()) {
             return nullptr;
         }
@@ -2203,8 +2350,8 @@ void MainWindow::slotMailboxChanged(const QModelIndex &mailbox)
     using namespace Imap::Mailbox;
     QString mailboxName = mailbox.data(RoleMailboxName).toString();
     bool isSentMailbox = mailbox.isValid() && !mailboxName.isEmpty() &&
-            m_settings->value(Common::SettingsNames::composerSaveToImapKey).toBool() &&
-            mailboxName == m_settings->value(Common::SettingsNames::composerImapSentKey).toString();
+            accountSettings()->value(Common::SettingsNames::composerSaveToImapKey).toBool() &&
+            mailboxName == accountSettings()->value(Common::SettingsNames::composerImapSentKey).toString();
     QTreeView *tree = msgListWidget->tree;
 
     // Automatically trigger visibility of the TO and FROM columns
@@ -2710,6 +2857,8 @@ void MainWindow::slotUpdateWindowTitle()
     QString profileName = QString::fromUtf8(qgetenv("TROJITA_PROFILE"));
     if (!profileName.isEmpty())
         profileName = QLatin1String(" [") + profileName + QLatin1Char(']');
+    if (m_accounts->accountIds().size() > 1)
+        profileName += QLatin1String(" [") + m_accounts->displayName(m_accounts->activeAccount()) + QLatin1Char(']');
     if (mailbox.isValid()) {
         if (mailbox.data(Imap::Mailbox::RoleUnreadMessageCount).toInt()) {
             //~ singular %1 - %n unread - Plasma Impresario

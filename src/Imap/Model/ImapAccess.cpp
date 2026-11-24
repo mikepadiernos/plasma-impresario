@@ -53,8 +53,9 @@ QString ImapAccess::credentialAccountId() const
     return m_accountName.isEmpty() ? QStringLiteral("account-0") : m_accountName;
 }
 
-ImapAccess::ImapAccess(QObject *parent, QSettings *settings, Plugins::PluginManager *pluginManager, const QString &accountName) :
-    QObject(parent), m_settings(settings), m_imapModel(nullptr), m_mailboxModel(nullptr), m_mailboxSubtreeModel(nullptr), m_msgListModel(nullptr),
+ImapAccess::ImapAccess(QObject *parent, QSettings *settings, Plugins::PluginManager *pluginManager, const QString &accountName,
+                       QSettings *appSettings) :
+    QObject(parent), m_settings(settings), m_appSettings(appSettings ? appSettings : settings), m_imapModel(nullptr), m_mailboxModel(nullptr), m_mailboxSubtreeModel(nullptr), m_msgListModel(nullptr),
     m_threadingMsgListModel(nullptr), m_visibleTasksModel(nullptr), m_oneMessageModel(nullptr), m_netWatcher(nullptr), m_msgQNAM(nullptr),
     m_pluginManager(pluginManager), m_passwordWatcher(nullptr), m_port(0),
     m_connectionMethod(Common::ConnectionMethod::Invalid),
@@ -360,8 +361,8 @@ void ImapAccess::doConnect()
     m_imapModel = new Imap::Mailbox::Model(this, cache, std::move(factory), std::move(taskFactory));
     m_imapModel->setObjectName(QStringLiteral("imapModel-%1").arg(m_accountName));
     m_imapModel->setCapabilitiesBlacklist(m_settings->value(Common::SettingsNames::imapBlacklistedCapabilities).toStringList());
-    m_imapModel->setProperty("trojita-imap-id-no-versions", !m_settings->value(Common::SettingsNames::interopRevealVersions, true).toBool());
-    m_imapModel->setProperty("trojita-imap-idle-renewal", m_settings->value(Common::SettingsNames::imapIdleRenewal).toUInt() * 60 * 1000);
+    m_imapModel->setProperty("trojita-imap-id-no-versions", !m_appSettings->value(Common::SettingsNames::interopRevealVersions, true).toBool());
+    m_imapModel->setProperty("trojita-imap-idle-renewal", m_appSettings->value(Common::SettingsNames::imapIdleRenewal).toUInt() * 60 * 1000);
     m_imapModel->setNumberRefreshInterval(numberRefreshInterval());
     connect(m_imapModel, &Mailbox::Model::alertReceived, this, &ImapAccess::alertReceived);
     connect(m_imapModel, &Mailbox::Model::imapError, this, &ImapAccess::imapError);

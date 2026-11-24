@@ -24,6 +24,7 @@
 #define SETTINGSDIALOG_H
 
 #include <QDialog>
+#include <QHash>
 #include <QPointer>
 #include <QSettings>
 #include "ui_EditIdentity.h"
@@ -319,6 +320,8 @@ private:
     QDialogButtonBox *buttons;
     QTabWidget *stack;
     QVector<ConfigurationWidgetInterface*> pages;
+    QHash<ConfigurationWidgetInterface *, QSettings *> m_pageSettings;
+    QSettings *m_accountSettings;
     Composer::SenderIdentitiesModel *m_senderIdentities;
     Imap::Mailbox::FavoriteTagsModel *m_favoriteTags;
     QSettings *m_settings;
@@ -330,7 +333,8 @@ private:
     SettingsDialog(const SettingsDialog &); // don't implement
     SettingsDialog &operator=(const SettingsDialog &); // don't implement
 
-    void addPage(ConfigurationWidgetInterface *page, const QString &title);
+    /** Add a page whose values are loaded from and saved to the given settings. */
+    void addPage(ConfigurationWidgetInterface *page, const QString &title, QSettings *pageSettings);
 };
 
 }

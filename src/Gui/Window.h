@@ -23,6 +23,7 @@
 #ifndef TROJITA_WINDOW_H
 #define TROJITA_WINDOW_H
 
+#include <QHash>
 #include <QMainWindow>
 #include <QModelIndex>
 #include <QPointer>
@@ -35,6 +36,7 @@
 #include "MessageActionHandler.h"
 
 class QAuthenticator;
+class QComboBox;
 class QCloseEvent;
 class QFile;
 class QItemSelection;
@@ -49,6 +51,11 @@ class QSslError;
 class QStackedWidget;
 class QToolButton;
 class QTreeView;
+
+namespace Common
+{
+class AccountRegistry;
+}
 
 namespace Composer
 {
@@ -108,6 +115,9 @@ public:
     Imap::Mailbox::FavoriteTagsModel *favoriteTagsModel() { return m_favoriteTags; }
     Plugins::PluginManager *pluginManager() { return m_pluginManager; }
     QSettings *settings() const { return m_settings; }
+
+    /** Return the configuration of the active account. */
+    QSettings *accountSettings() const;
     MSA::MSAFactory *msaFactory();
 
     // FIXME: this should be changed to some wrapper when support for multiple accounts is available
@@ -136,6 +146,9 @@ private slots:
     void networkPolicyExpensive();
     void networkPolicyOnline();
     void slotShowSettings();
+    void slotAddAccount();
+    void slotRemoveAccount();
+    void slotRenameAccount();
     void slotShowImapInfo();
     void slotExpunge();
     void imapError(const QString &message);
@@ -237,7 +250,24 @@ private:
     void createMenus();
     void createActions();
     void createWidgets();
-    void setupModels();
+
+    /** Load the account list, migrating a single-account profile into the first account. */
+    void setupAccounts();
+
+    /** Return the ImapAccess of an account, creating it on first use. */
+    Imap::ImapAccess *accountAccess(const QString &accountId);
+
+    /** Make another account the one shown in the window; models of other accounts stay alive. */
+    void switchAccount(const QString &accountId);
+
+    /** Disconnect the window from the models of the active account. */
+    void detachAccountModels();
+
+    /** Rebuild the account selector from the account list. */
+    void refreshAccountSwitcher();
+
+    /** @param reconnect connect the account to its server; false when its models already exist */
+    void setupModels(bool reconnect = true);
     QStringList copyrightHolders(QFile *file) const;
 
     void nukeModels();
@@ -267,6 +297,9 @@ private:
 
     QModelIndexList translatedSelection() const;
 
+    Common::AccountRegistry *m_accounts = nullptr;
+    QHash<QString, Imap::ImapAccess *> m_accountAccess;
+    QComboBox *m_accountSwitcher = nullptr;
     Imap::ImapAccess *m_imapAccess;
 
     Imap::Mailbox::PrettyMailboxModel *prettyMboxModel;
@@ -320,6 +353,9 @@ private:
     QAction *showMenuBar;
     QAction *showToolBar;
     QAction *configSettings;
+    QAction *m_actionAddAccount;
+    QAction *m_actionRenameAccount;
+    QAction *m_actionRemoveAccount;
     QAction *m_oneAtTimeGoBack;
     QAction *composeMail;
     QAction *m_editDraft;
