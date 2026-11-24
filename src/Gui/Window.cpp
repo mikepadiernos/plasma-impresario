@@ -97,6 +97,7 @@
 #include "ComposeWidget.h"
 #include "DensityDelegate.h"
 #include "Common/AccountRegistry.h"
+#include "Common/AccountStatus.h"
 #include "DensityMenu.h"
 #include "MailBoxTreeView.h"
 #include "MessageListWidget.h"
@@ -195,6 +196,7 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
 
 
     setupModels();
+    connectBackgroundAccounts();
     createActions();
     createMenus();
     slotToggleSysTray();
@@ -964,6 +966,7 @@ void MainWindow::setupModels(bool reconnect)
     if (reconnect) {
         m_imapAccess->reloadConfiguration();
         m_imapAccess->doConnect();
+        monitorAccount(m_accounts->activeAccount());
     }
 
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -1615,6 +1618,11 @@ void MainWindow::setupAccounts()
     m_accounts = new Common::AccountRegistry(m_settings, [prefix](const QString &accountId) {
         return std::make_unique<QSettings>(prefix + accountId + QStringLiteral(".conf"), QSettings::IniFormat);
     }, this);
+    m_accountStatus = new Common::AccountStatusTracker(this);
+    connect(m_accountStatus, &Common::AccountStatusTracker::statusChanged, this, [this]() {
+        if (m_accountSwitcher)
+            refreshAccountSwitcher();
+    });
     if (m_accounts->accountIds().isEmpty()) {
         const QString accountId = m_accounts->addAccount(i18n("Mail account"));
         Common::AccountRegistry::copyAccountKeys(*m_settings, *m_accounts->settings(accountId));
@@ -1641,8 +1649,22 @@ void MainWindow::refreshAccountSwitcher()
 {
     const QSignalBlocker blocker(m_accountSwitcher);
     m_accountSwitcher->clear();
-    for (const QString &accountId : m_accounts->accountIds())
-        m_accountSwitcher->addItem(m_accounts->displayName(accountId), accountId);
+    for (const QString &accountId : m_accounts->accountIds()) {
+        const Common::AccountStatus status = m_accountStatus->status(accountId);
+        const int row = m_accountSwitcher->count();
+        QString text = m_accounts->displayName(accountId);
+        const bool attention = Common::AccountStatusTracker::needsAttention(status.kind);
+        if (attention)
+            text += QStringLiteral(" (%1)").arg(Common::AccountStatusTracker::label(status.kind));
+        m_accountSwitcher->addItem(text, accountId);
+        if (attention) {
+            m_accountSwitcher->setItemIcon(row, UiUtils::loadIcon(QStringLiteral("dialog-warning")));
+            QString tip = Common::AccountStatusTracker::label(status.kind);
+            if (!status.detail.isEmpty())
+                tip += QLatin1String(": ") + status.detail;
+            m_accountSwitcher->setItemData(row, tip, Qt::ToolTipRole);
+        }
+    }
     m_accountSwitcher->setCurrentIndex(m_accountSwitcher->findData(m_accounts->activeAccount()));
 }
 
@@ -1665,6 +1687,77 @@ void MainWindow::detachAccountModels()
         imap->taskModel()->disconnect(taskTree);
 }
 
+void MainWindow::monitorAccount(const QString &accountId)
+{
+    Imap::ImapAccess *access = accountAccess(accountId);
+    auto *model = qobject_cast<Imap::Mailbox::Model *>(access->imapModel());
+    Q_ASSERT(model);
+    using Common::AccountStatusKind;
+    connect(model, &Imap::Mailbox::Model::connectionStateChanged, access,
+            [this, accountId](uint, const Imap::ConnectionState state) {
+        const AccountStatusKind current = m_accountStatus->status(accountId).kind;
+        if (state == Imap::CONN_STATE_NONE) {
+            if (!Common::AccountStatusTracker::needsAttention(current))
+                m_accountStatus->setStatus(accountId, AccountStatusKind::Idle);
+        } else if (state >= Imap::CONN_STATE_AUTHENTICATED) {
+            m_accountStatus->setStatus(accountId, AccountStatusKind::Connected);
+        } else {
+            m_accountStatus->setStatus(accountId, AccountStatusKind::Connecting);
+        }
+    });
+    connect(model, &Imap::Mailbox::Model::networkPolicyOffline, access, [this, accountId]() {
+        if (!Common::AccountStatusTracker::needsAttention(m_accountStatus->status(accountId).kind))
+            m_accountStatus->setStatus(accountId, AccountStatusKind::Offline);
+    });
+    connect(model, &Imap::Mailbox::Model::networkError, access, [this, accountId](const QString &message) {
+        m_accountStatus->setStatus(accountId, AccountStatusKind::NetworkError, message);
+    });
+    connect(model, &Imap::Mailbox::Model::authAttemptFailed, access, [this, accountId](const QString &message) {
+        m_accountStatus->setStatus(accountId, AccountStatusKind::AuthFailed, message);
+    });
+    connect(model, &Imap::Mailbox::Model::authRequested, access, [this, accountId]() {
+        if (accountId == m_accounts->activeAccount())
+            return;
+        const Common::AccountStatus status = m_accountStatus->status(accountId);
+        if (status.kind == AccountStatusKind::AuthFailed)
+            m_accountStatus->setStatus(accountId, AccountStatusKind::AuthRequired, status.detail);
+        else
+            requestStoredPassword(accountId);
+    }, Qt::QueuedConnection);
+}
+
+void MainWindow::requestStoredPassword(const QString &accountId)
+{
+    Imap::ImapAccess *access = accountAccess(accountId);
+    auto *model = qobject_cast<Imap::Mailbox::Model *>(access->imapModel());
+    Plugins::PasswordPlugin *password = pluginManager()->password();
+    Plugins::PasswordJob *job = password ? password->requestPassword(access->credentialAccountId(), QStringLiteral("imap")) : nullptr;
+    if (!job) {
+        m_accountStatus->setStatus(accountId, Common::AccountStatusKind::AuthRequired);
+        return;
+    }
+    connect(job, &Plugins::PasswordJob::passwordAvailable, model, &Imap::Mailbox::Model::setImapPassword);
+    connect(job, &Plugins::PasswordJob::error, this, [this, accountId](Plugins::PasswordJob::Error, const QString &) {
+        m_accountStatus->setStatus(accountId, Common::AccountStatusKind::AuthRequired);
+    });
+    job->setAutoDelete(true);
+    job->start();
+}
+
+void MainWindow::connectBackgroundAccounts()
+{
+    for (const QString &accountId : m_accounts->accountIds()) {
+        if (accountId == m_accounts->activeAccount())
+            continue;
+        Imap::ImapAccess *access = accountAccess(accountId);
+        if (!access->isConfigured() || access->imapModel())
+            continue;
+        access->reloadConfiguration();
+        access->doConnect();
+        monitorAccount(accountId);
+    }
+}
+
 void MainWindow::switchAccount(const QString &accountId)
 {
     if (accountId == m_accounts->activeAccount() || !m_accounts->accountIds().contains(accountId))
@@ -1682,6 +1775,11 @@ void MainWindow::switchAccount(const QString &accountId)
     updateConnectionStatus(i18nc("@info:status", "Account: %1", m_accounts->displayName(accountId)));
     refreshAccountSwitcher();
     slotUpdateWindowTitle();
+    const Common::AccountStatus status = m_accountStatus->status(accountId);
+    if (status.kind == Common::AccountStatusKind::AuthRequired) {
+        m_ignoreStoredPassword = !status.detail.isEmpty();
+        authenticationRequested();
+    }
 }
 
 void MainWindow::slotAddAccount()
@@ -1723,6 +1821,7 @@ void MainWindow::slotRemoveAccount()
         return;
     switchAccount(remaining.first());
     delete m_accountAccess.take(accountId);
+    m_accountStatus->forget(accountId);
     m_accounts->removeAccount(accountId);
     refreshAccountSwitcher();
     slotUpdateWindowTitle();

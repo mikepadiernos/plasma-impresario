@@ -55,6 +55,7 @@ class QTreeView;
 namespace Common
 {
 class AccountRegistry;
+class AccountStatusTracker;
 }
 
 namespace Composer
@@ -263,6 +264,15 @@ private:
     /** Disconnect the window from the models of the active account. */
     void detachAccountModels();
 
+    /** Record connection and authentication status of an account from its IMAP model signals. */
+    void monitorAccount(const QString &accountId);
+
+    /** Connect accounts other than the active one so they keep running in the background. */
+    void connectBackgroundAccounts();
+
+    /** Supply the stored password to an account that is not shown, or mark it as needing one. */
+    void requestStoredPassword(const QString &accountId);
+
     /** Rebuild the account selector from the account list. */
     void refreshAccountSwitcher();
 
@@ -298,6 +308,7 @@ private:
     QModelIndexList translatedSelection() const;
 
     Common::AccountRegistry *m_accounts = nullptr;
+    Common::AccountStatusTracker *m_accountStatus = nullptr;
     QHash<QString, Imap::ImapAccess *> m_accountAccess;
     QComboBox *m_accountSwitcher = nullptr;
     Imap::ImapAccess *m_imapAccess;

@@ -1,10 +1,12 @@
 /* Copyright (C) 2026 Plasma Impresario contributors
    SPDX-License-Identifier: GPL-2.0-or-later
 */
+#include "Common/AccountStatus.h"
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
+#include "Imap/Model/Model.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -28,6 +30,23 @@ void configureOffline(QSettings &settings, const QString &host)
     settings.setValue(Common::SettingsNames::imapMethodKey, Common::SettingsNames::methodSSL);
     settings.setValue(Common::SettingsNames::imapHostKey, host);
     settings.setValue(Common::SettingsNames::imapStartMode, Common::SettingsNames::netOffline);
+}
+
+void seedTwoAccounts(const QTemporaryDir &directory, QSettings &settings)
+{
+    settings.setValue(Common::SettingsNames::guiShowSystray, false);
+    settings.setValue(QStringLiteral("accounts/ids"), QStringList{QStringLiteral("account-1"), QStringLiteral("account-2")});
+    settings.setValue(QStringLiteral("accounts/active"), QStringLiteral("account-1"));
+    settings.setValue(QStringLiteral("accounts/next"), 3);
+    settings.setValue(QStringLiteral("accounts/legacy"), QStringLiteral("account-1"));
+    settings.setValue(QStringLiteral("accounts/names/account-1"), QStringLiteral("Work"));
+    settings.setValue(QStringLiteral("accounts/names/account-2"), QStringLiteral("Home"));
+    QSettings first(directory.filePath(QStringLiteral("main-account-1.conf")), QSettings::IniFormat);
+    configureOffline(first, QStringLiteral("work.example.test"));
+    first.sync();
+    QSettings second(directory.filePath(QStringLiteral("main-account-2.conf")), QSettings::IniFormat);
+    configureOffline(second, QStringLiteral("home.example.test"));
+    second.sync();
 }
 
 QComboBox *accountSwitcher(Gui::MainWindow &window)
@@ -66,19 +85,7 @@ private slots:
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
         QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
-        settings.setValue(Common::SettingsNames::guiShowSystray, false);
-        settings.setValue(QStringLiteral("accounts/ids"), QStringList{QStringLiteral("account-1"), QStringLiteral("account-2")});
-        settings.setValue(QStringLiteral("accounts/active"), QStringLiteral("account-1"));
-        settings.setValue(QStringLiteral("accounts/next"), 3);
-        settings.setValue(QStringLiteral("accounts/legacy"), QStringLiteral("account-1"));
-        settings.setValue(QStringLiteral("accounts/names/account-1"), QStringLiteral("Work"));
-        settings.setValue(QStringLiteral("accounts/names/account-2"), QStringLiteral("Home"));
-        QSettings first(directory.filePath(QStringLiteral("main-account-1.conf")), QSettings::IniFormat);
-        configureOffline(first, QStringLiteral("work.example.test"));
-        first.sync();
-        QSettings second(directory.filePath(QStringLiteral("main-account-2.conf")), QSettings::IniFormat);
-        configureOffline(second, QStringLiteral("home.example.test"));
-        second.sync();
+        seedTwoAccounts(directory, settings);
 
         Gui::MainWindow window(&settings);
         auto *switcher = accountSwitcher(window);
@@ -106,6 +113,33 @@ private slots:
         QCOMPARE(window.accountSettings()->value(Common::SettingsNames::imapHostKey).toString(),
                  QStringLiteral("work.example.test"));
         QVERIFY(window.windowTitle().contains(QStringLiteral("Work")));
+    }
+
+    void backgroundAccountStatusIsShown()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+
+        Gui::MainWindow window(&settings);
+        auto *switcher = accountSwitcher(window);
+        QVERIFY(switcher);
+        auto *workModel = window.imapModel();
+        switcher->setCurrentIndex(1);
+        emit switcher->activated(1);
+        QVERIFY(window.imapModel() != workModel);
+        QVERIFY(switcher->itemData(0, Qt::ToolTipRole).toString().isEmpty());
+
+        emit workModel->networkError(QStringLiteral("Host lookup failed"));
+        QVERIFY(switcher->itemData(0, Qt::ToolTipRole).toString().contains(QStringLiteral("Host lookup failed")));
+        QCOMPARE(switcher->itemText(0), QStringLiteral("Work (%1)").arg(Common::AccountStatusTracker::label(Common::AccountStatusKind::NetworkError)));
+        QVERIFY(switcher->itemData(1, Qt::ToolTipRole).toString().isEmpty());
+
+        emit workModel->connectionStateChanged(1u, Imap::CONN_STATE_AUTHENTICATED);
+        QVERIFY(switcher->itemData(0, Qt::ToolTipRole).toString().isEmpty());
+        QCOMPARE(switcher->itemText(0), QStringLiteral("Work"));
+        QCOMPARE(switcher->currentText(), QStringLiteral("Home"));
     }
 };
 
