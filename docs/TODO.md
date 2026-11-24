@@ -10,11 +10,11 @@ and project status before acting.
 ## Backlog
 
 - [ ] Validate the [initial compatibility target](philosophy/compatibility.md) with a
-  complete reader and desktop session before declaring release support
+      complete reader and desktop session before declaring release support
 - [ ] Define the minimum viable account and mailbox acceptance scenarios
 - [ ] Verify the main window, message list and preview layout in an end-to-end flow
 - [ ] Add implementation-backed acceptance criteria to planned notification,
-  search and mailbox-organization features
+      search and mailbox-organization features
 
 ## In progress
 
@@ -43,17 +43,18 @@ and project status before acting.
 
 ### M02 shell and account foundation
 
-- **Current state:** M02 #4, shell #35, skeleton #74, connection status #79,
-  account setup #78, account foundation #36 and protocol-aware account #215
-  are in Development. Folder counts and saved searches #76 are in Review;
-  session persistence #81, density #75 and dependency gate #77 are Completed;
-  other M02 issues are Defined. The
+- **Current state:** M02 #4, shell #35, skeleton #74, account setup #78,
+  account foundation #36, shell navigation #80 and protocol-aware account #215
+  are in Development. Connection status #79 is in Review. Folder counts and
+  saved searches #76, multiple accounts #222, session persistence #81,
+  density #75 and dependency gate #77 are Completed; OAuth #218 is Defined. The
   `feature/m02-shell-accounts` branch adds a row-density selector; the
   continuation branch adds left/right folder sidebar placement in the compact
   and wide layouts. A further continuation adds persistent connection status
   in the footer. Multiple accounts, per-account status and keyboard account
-  switching are described below; the five-region shell panels and OAuth are
-  not implemented.
+  switching are described below; F6 and Shift+F6 cycle focus between the
+  account switcher, folder tree, message list, reader and attachments panel.
+  The remaining embedded panels and OAuth are not implemented.
 - **Account acceptance:** #78 has been exercised against a disposable Dovecot
   2.4.4 container using temporary configuration and synthetic credentials.
   The application saved IMAP settings, recovered from a rejected password,
@@ -90,16 +91,16 @@ and project status before acting.
   connect at startup, and their connection, network and authentication status
   appears in the selector. Cleartext passwords are kept per account, new
   profiles default to the QtKeychain backend, and removing an account deletes
-  its settings and stored passwords. Offscreen tests cover migration,
-  switching, background status, removal and keyboard navigation. Not yet
-  verified: two accounts against live or disposable IMAP servers, and a real
-  Plasma session. Known limits: accounts are grouped by a selector, not in the
-  folder tree; background accounts surface errors only in the selector; the
-  offline message cache of a removed account is not deleted; folder counts and
-  saved searches have not been checked with two accounts. `MessageListWidget`
-  receives the startup account's identifier once, so saved searches probably
-  stay keyed to that account after switching (inferred from source, not
-  reproduced).
+  its settings and stored passwords. Saved searches and folder expansion
+  follow the active account; only the migrated legacy account inherits the
+  previously shared expansion state. Offscreen tests cover migration,
+  switching, background status, removal, keyboard navigation, per-account
+  saved searches and expansion, and pane focus cycling. Not yet verified: two
+  accounts against live or disposable IMAP servers, and a real Plasma session.
+  Known limits: accounts are grouped by a selector, not in the folder tree;
+  background accounts surface errors only in the selector; the offline message
+  cache of a removed account is not deleted; folder counts have not been
+  checked with two live accounts.
 - **Partly decided, #35 and #74:** the five-region shell has a header
   toolbar, a sidebar movable between the left and right columns, a main
   column and a status footer. The first embedded panel, attachments, is

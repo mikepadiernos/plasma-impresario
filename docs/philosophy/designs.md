@@ -229,7 +229,11 @@ separate desktop and panel widget proposals.
 
 - Keep account, folder, selection and connection context visible.
 - Make primary actions keyboard accessible with visible focus and predictable
-  focus restoration.
+  focus restoration. F6 and Shift+F6 cycle focus between the account switcher,
+  folder tree, message list, reader and attachments panel, skipping hidden
+  panes.
+- Remember folder expansion per account so switching accounts restores each
+  account's tree.
 - Do not use color as the only way to convey unread, connection or security
   state.
 - Validate narrow windows, high-DPI scaling, long translations, RTL layouts and
