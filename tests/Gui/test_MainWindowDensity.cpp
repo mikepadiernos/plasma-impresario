@@ -22,14 +22,18 @@
 #endif
 #include "static_plugins.h"
 
+#include <algorithm>
+
 #include <KConfigGroup>
 #include <KLocalizedString>
 #include <KSharedConfig>
+#include <QAction>
 #include <QApplication>
 #include <QLabel>
 #include <QScreen>
 #include <QSettings>
 #include <QSplitter>
+#include <QSplitterHandle>
 #include <QStackedWidget>
 #include <QStandardItemModel>
 #include <QStandardPaths>
@@ -253,6 +257,42 @@ private slots:
         QCOMPARE(readerColumn->parentWidget(), mainColumn);
         QCOMPARE(mainColumn->orientation(), Qt::Horizontal);
         QVERIFY(menu->actions().at(1)->isChecked());
+#ifdef TROJITA_HAVE_WEBENGINE
+        // A panel sharing a column with the mailbox tree gets the room it asks for, up to two thirds of the column
+        auto *detailsPanel = window.findChild<QWidget *>(QStringLiteral("messageDetailsPanel"));
+        auto *detailsAction = window.findChild<QAction *>(QStringLiteral("embeddedPanelMessageDetails"));
+        QVERIFY(detailsPanel);
+        QVERIFY(detailsAction);
+        QVERIFY(!detailsAction->isChecked());
+        detailsAction->trigger();
+        QCoreApplication::processEvents();
+        QVERIFY(detailsPanel->isVisible());
+        QCOMPARE(detailsPanel->parentWidget(), rightColumn);
+        const int detailsIndex = rightColumn->indexOf(detailsPanel);
+        const int mailboxIndex = rightColumn->indexOf(mailboxes);
+        const int columnSpace = rightColumn->height() - rightColumn->handleWidth();
+        const int detailsHeight = rightColumn->sizes().at(detailsIndex);
+        QVERIFY2(detailsHeight >= std::min(detailsPanel->sizeHint().height(), columnSpace * 2 / 3) - 2,
+                 qPrintable(QStringLiteral("%1 of %2").arg(detailsHeight).arg(columnSpace)));
+        QVERIFY(rightColumn->sizes().at(mailboxIndex) >= columnSpace / 3 - 2);
+
+        // A divider moved by the user is kept when the panel is hidden and shown again
+        QList<int> dragged = rightColumn->sizes();
+        const int draggedHeight = detailsHeight > 200 ? detailsHeight - 60 : detailsHeight + 60;
+        dragged[mailboxIndex] += dragged.at(detailsIndex) - draggedHeight;
+        dragged[detailsIndex] = draggedHeight;
+        rightColumn->setSizes(dragged);
+        const int rememberedDetailsHeight = rightColumn->sizes().at(detailsIndex);
+        QVERIFY(qAbs(rememberedDetailsHeight - detailsHeight) > 10);
+        rightColumn->splitterMoved(rightColumn->handle(detailsIndex)->y(), detailsIndex);
+        detailsAction->trigger();
+        QVERIFY(detailsPanel->isHidden());
+        detailsAction->trigger();
+        QCoreApplication::processEvents();
+        QVERIFY(detailsPanel->isVisible());
+        QVERIFY2(qAbs(rightColumn->sizes().at(detailsIndex) - rememberedDetailsHeight) <= 2,
+                 qPrintable(QStringLiteral("%1 instead of %2").arg(rightColumn->sizes().at(detailsIndex)).arg(rememberedDetailsHeight)));
+#endif
 
         const QByteArray initialProfile = qgetenv("TROJITA_PROFILE");
         qputenv("TROJITA_PROFILE", "different-profile");
@@ -278,6 +318,12 @@ private slots:
         settings.beginGroup(layoutGroup);
         QCOMPARE(settings.value(QStringLiteral("shellRightColumnWidth")).toInt(), expectedWidth);
         QVERIFY(!settings.value(QStringLiteral("shellMainColumnState")).toByteArray().isEmpty());
+#ifdef TROJITA_HAVE_WEBENGINE
+        // Only sizes picked by moving a divider are saved
+        QCOMPARE(settings.value(QStringLiteral("embeddedPanelMessageDetailsExtent")).toInt(), rememberedDetailsHeight);
+        QVERIFY(!settings.contains(QStringLiteral("embeddedPanelContactExtent")));
+        QVERIFY(!settings.contains(QStringLiteral("embeddedPanelAttachmentsExtent")));
+#endif
         settings.endGroup();
     }
 };

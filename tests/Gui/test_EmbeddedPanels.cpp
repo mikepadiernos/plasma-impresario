@@ -171,6 +171,33 @@ private slots:
         QVERIFY(panel->isHidden());
     }
 
+    void sizeHintIgnoresContent()
+    {
+        // Splitters size a panel when it is placed, usually before it shows a message
+        QStandardItemModel model;
+        auto *item = messageItem(QStringLiteral("Plans"), QStringLiteral("ann@example.org"));
+        item->setData(addresses({QStringLiteral("bob@example.org"), QStringLiteral("carol@example.org"),
+                                 QStringLiteral("dave@example.org"), QStringLiteral("erin@example.org")}),
+                      Imap::Mailbox::RoleMessageTo);
+        model.appendRow(item);
+
+        Host host;
+        auto *details = host.add(new Gui::MessageDetailsPanel);
+        auto *contacts = host.add(new Gui::ContactPanel);
+        for (Gui::MessageContextPanel *panel : std::initializer_list<Gui::MessageContextPanel *>{details, contacts}) {
+            panel->setPanelEnabled(true);
+            const QSize empty = panel->sizeHint();
+            QVERIFY(empty.height() > 0);
+            panel->setMessage(item->index());
+            QVERIFY(panel->hasContent());
+            QCOMPARE(panel->sizeHint(), empty);
+            panel->setMessage(QModelIndex());
+            QCOMPARE(panel->sizeHint(), empty);
+        }
+        // Details ask for more rows than contacts
+        QVERIFY(details->sizeHint().height() > contacts->sizeHint().height());
+    }
+
     void detailsForgetDestroyedModel()
     {
         auto *model = new QStandardItemModel;
