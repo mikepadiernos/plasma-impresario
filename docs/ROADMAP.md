@@ -186,7 +186,9 @@ Pending implementation and isolated account verification:
 [M02 handoff](TODO.md#m02-shell-and-account-foundation).
 
 Caveats: [multiple accounts](CAVEATS.md#multiple-accounts)
-([#262](https://github.com/mikepadiernos/plasma-impresario/issues/262)).
+([#262](https://github.com/mikepadiernos/plasma-impresario/issues/262));
+[related messages and message details panels](CAVEATS.md#related-messages-and-message-details-panels)
+([#264](https://github.com/mikepadiernos/plasma-impresario/issues/264)).
 
 ### M03: Mail operations, sorting, and folder management
 

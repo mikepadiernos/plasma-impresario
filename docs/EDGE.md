@@ -19,6 +19,7 @@ unconfirmed scenarios here.
 | Multiple accounts | Two accounts on the same server and user, removing the active account, a background account with a rejected password, switching accounts during synchronization, and saved searches, folder counts and folder expansion after switching |
 | Attachments       | Large files, missing downloads, unsafe types, related parts with a `start` parameter (panel assumes the first part), and opened files kept in the temp folder                                                                           |
 | Interface         | Narrow windows, display scaling, RTL locales and high-contrast modes, and F6 focus cycling with hidden or collapsed panes                                                                                                               |
+| Embedded panels   | Swapping sidebar sides with panels in both columns, one-panel layout with side-column panels, moving a hidden panel, empty side columns or footer, and the message model destroyed while a panel shows a message                        |
 | Background work   | Cancellation, retry, overlapping sync and process restarts                                                                                                                                                                              |
 
 ## Validation checklist

@@ -10,26 +10,38 @@ current layout; target designs here are not implementation claims.
 
 ## Current interface
 
-The Qt Widgets application has a toolbar/menu and three work areas:
+The Qt Widgets application has a toolbar/menu above a shell with a left
+column, a main column, a right column and a footer. With the default settings
+it looks like the classic three-pane layout:
 
 ```text
 Toolbar / menu
-┌────────────────────┬──────────────────────────────────────────┐
-│ Mailbox tree       │ Message list                             │
-│                    ├──────────────────────────────────────────┤
-│                    │ Message reader                           │
-│                    ├──────────────────────────────────────────┤
+┌────────────────────┬──────────────────────────────────────────┬ ─ ─ ─ ─ ─ ┐
+│ Left column        │ Main column                              │ Right
+│ Mailbox tree       │ Message list                             │ column
+│                    ├──────────────────────────────────────────┤ (hidden
+│                    │ Message reader                           │ while
+│                    ├──────────────────────────────────────────┤ empty)
 │                    │ Attachments panel                        │
-└────────────────────┴──────────────────────────────────────────┘
+├────────────────────┴──────────────────────────────────────────┴ ─ ─ ─ ─ ─ ┤
+│ Footer (hidden while empty)                                                │
+└────────────────────────────────────────────────────────────────────────────┘
+Status bar
 ```
 
-The compact pane layout stacks the list above the reader beside the folder tree.
-Wide layout places all three side by side. One-panel-at-a-time navigation is
-also available. The folder sidebar can be placed on either side in compact and
-wide layouts. Splitter sizes, sidebar position and the selected layout are
-saved. The selected folder and message are restored when they become available,
-unless the user navigates elsewhere first. Message restoration checks the
-mailbox's UIDVALIDITY before selecting a saved UID.
+The mailbox tree goes in the left or right column. The main column holds the
+message list and the reader column: stacked in the compact layout, side by
+side in the wide layout, or replaced by one-panel-at-a-time navigation, which
+shows the mailbox tree, list and reader in turn while the side columns keep
+any embedded panels placed there. A side column or the footer is shown only
+while it holds the mailbox tree or a shown embedded panel; when it returns, it
+gets its previous size back. Region widths, the split inside each region, the
+main column's split, the sidebar side and the selected layout are saved for
+each layout. Sizes saved by versions before the shell are not migrated, so
+the panes start at their default sizes once after upgrading. The selected
+folder and message are restored when they become available, unless the user
+navigates elsewhere first. Message restoration checks the mailbox's UIDVALIDITY
+before selecting a saved UID.
 
 An embedded **attachments panel** sits below the reader in every layout, in a
 resizable reader column whose split is saved with the layout. It lists the
@@ -49,6 +61,36 @@ group. The panel's rules differ from the message-list paperclip:
   are omitted.
 - An attached message (`message/rfc822`) is listed once, not expanded into its
   own attachments.
+
+Each embedded panel has a submenu in **View › Embedded Panels** with **Show
+Panel**, **Hide When Empty** and a position: **Below Reader**, **Left Column**,
+**Right Column** or **Footer**. Preferences are saved in the `Appearance` group
+as `<Panel>Visible`, `<Panel>AutoHide` and `<Panel>Placement`, where `<Panel>`
+is `AttachmentPanel`, `MessageDetailsPanel`, `ContactPanel` or
+`RelatedMessagesPanel`. Panels in one region keep a fixed order (attachments,
+details, contacts, related messages) after the mailbox tree or reader.
+F6 and Shift+F6 also visit the shown panels. Besides the attachments panel,
+three panels are available and **off by default**, so the default look does not
+change:
+
+- **Message Details** (right column): subject, sender, recipients, date, size,
+  folder, read/flagged/replied/forwarded state and whether the message is signed
+  or encrypted at the MIME level. Rows without a value are hidden.
+- **Contacts** (right column): the From, Reply-To, To and Cc addresses, each
+  listed once with all its roles, with Write Email, Copy Address and Open in
+  Address Book actions. The address-book action is available only when an
+  address-book plugin is loaded.
+- **Related Messages** (right column): messages of the current folder in the
+  same conversation (same subject without reply prefixes, or linked through
+  Message-ID and In-Reply-To) and other messages from the same sender, newest
+  first, at most 25 per group. Activating one selects it in the message list.
+  Only messages whose envelope the list has already loaded are considered, so
+  the panel never makes the client download envelopes; see
+  [CAVEATS](../CAVEATS.md#related-messages-and-message-details-panels).
+
+The panels follow the message in the reader and update when its envelope,
+flags or structure arrive later. While a message is loading they say so;
+with **Hide When Empty** they stay hidden until there is something to show.
 
 The footer reports IMAP connection activity, offline state, network errors and
 connection or authentication failures; richer per-account and background-task
@@ -103,11 +145,11 @@ in focus. Each can be turned off from **View › Embedded Panels** and can hide
 itself while it has nothing to show for the current context. Hiding must not
 move focus or selection, and a hidden panel's size is restored when it returns.
 
-- **Attachments (implemented):** below the reader; see
-  [Current interface](#current-interface). Placement in a side column or the
-  footer remains planned.
-- **Message metadata and contact information (planned):** headers, security
-  state and sender details for the current message.
+- **Attachments (implemented):** below the reader by default, or in a side
+  column or the footer; see [Current interface](#current-interface).
+- **Message details, contacts and related messages (implemented):** see
+  [Current interface](#current-interface). Verified signer details, address-book
+  photos and related messages across folders remain planned.
 - **My Day / Agenda (planned, not implemented):** a daily overview beside the
   mail workflow. Content:
   - today's events and upcoming meetings, with time, title, location and a join

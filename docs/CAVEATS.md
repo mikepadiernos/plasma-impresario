@@ -21,6 +21,7 @@ recommended parity goals.
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Product identity  | The application remains based on Trojitá; the Plasma Impresario product redesign is not complete                                                                                                                                                                                                          |
 | Accounts          | One window holds several IMAP accounts behind a toolbar selector, not grouped in the folder tree; background account errors appear only in the selector, removing an account keeps its offline cache, and each account confirms the same untrusted certificate separately ([details](#multiple-accounts)) |
+| Embedded panels   | Related messages search only loaded messages in the current folder, message details show MIME-level security only, and pane sizes reset once after upgrading ([details](#related-messages-and-message-details-panels))                                                                                    |
 | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                    |
 | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings`                                                                                                                                            |
 | Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used                                                                                                                                                                                                                   |
@@ -54,6 +55,35 @@ Prefer servers with trusted certificates.
 KNotification; delete the cache directory when an account is removed (needed
 before release); and share certificate decisions per host and fingerprint
 across accounts.
+
+### Related messages and message details panels
+
+Tracked in [#264](https://github.com/mikepadiernos/plasma-impresario/issues/264);
+see its [recommendation](https://github.com/mikepadiernos/plasma-impresario/issues/264#issuecomment-7143646817).
+These panels are off by default; enable them from View › Embedded Panels.
+
+**Current behavior:**
+
+- The related messages panel only searches messages already loaded in the
+  current folder's message list, not the server or other folders. It lists at
+  most 25 messages per group (conversation and same sender) and scans at most
+  the 20,000 most recent rows.
+- The message details panel derives its Security field from the top-level
+  MIME type (`multipart/signed`, `multipart/encrypted` or S/MIME). It does not
+  detect inline PGP or show whether a signature is valid; the reader still
+  verifies and decrypts.
+- The shell saves pane sizes under new keys, so saved pane sizes reset once
+  after upgrading from an earlier build.
+
+**Workarounds:** use the search bar or open the other folder to find related
+mail that is not loaded. Rely on the reader's security status for signature
+and decryption results. Resize the panes once after upgrading; the new sizes
+are saved.
+
+**Proposed improvements:** add an opt-in server-side search on `Message-ID`,
+`References` and sender, optionally across folders; feed the details panel
+from the reader's verification result, including inline PGP. Migrating the
+old splitter sizes is optional before release.
 
 ## Before reporting results
 

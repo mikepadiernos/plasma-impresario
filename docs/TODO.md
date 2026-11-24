@@ -54,7 +54,8 @@ and project status before acting.
   in the footer. Multiple accounts, per-account status and keyboard account
   switching are described below; F6 and Shift+F6 cycle focus between the
   account switcher, folder tree, message list, reader and attachments panel.
-  The remaining embedded panels and OAuth are not implemented.
+  Shell #35 is implemented on `feature/m02-shell-next` and awaits review;
+  the My Day / Agenda panel and OAuth are not implemented.
 - **Account acceptance:** #78 has been exercised against a disposable Dovecot
   2.4.4 container using temporary configuration and synthetic credentials.
   The application saved IMAP settings, recovered from a rejected password,
@@ -110,16 +111,22 @@ and project status before acting.
   accounts surface errors only in the selector; each account asks about the
   same untrusted certificate separately; the offline message cache of a
   removed account is not deleted. See [caveat #262](CAVEATS.md#multiple-accounts).
-- **Partly decided, #35 and #74:** the five-region shell has a header
-  toolbar, a sidebar movable between the left and right columns, a main
-  column and a status footer. The first embedded panel, attachments, is
-  implemented below the reader with View › Embedded Panels toggles for
-  visibility and hiding when empty; see the
-  [design](philosophy/designs.md#embedded-panels). Its placement in a side
-  column or the footer, and opening or saving against live IMAP in a Plasma
-  session, are unverified. Metadata, contact information and the planned My
-  Day / Agenda panel, and per-region toolbars, are not built. Decide which of
-  them M02 must include before implementing them.
+- **Implemented, #35:** the shell has a left column, main column, right
+  column and footer below the header toolbar. The mailbox sidebar can sit in
+  either side column, and the message list and reader can be stacked or side
+  by side. View › Embedded Panels has a submenu per panel to show it, hide it
+  when it has nothing to show, and place it below the reader, in either side
+  column or in the footer. Side columns and the footer appear only while they
+  hold the sidebar or a visible panel, and remember their sizes. Attachments
+  stays on below the reader by default; the new message details (metadata),
+  contact and related messages panels are off by default in the right column,
+  so the default look is unchanged. Offscreen tests cover placement, sidebar
+  swaps, hiding empty regions, one-panel layout and size persistence. Not
+  verified: a real Plasma session and live IMAP with the new panels. Saved
+  pane sizes reset once after upgrading; see
+  [caveat #264](CAVEATS.md#related-messages-and-message-details-panels).
+  Still planned: the My Day / Agenda panel and per-region toolbars, which are
+  outside #35.
 - **Blocked, #218:** OAuth needs XOAUTH2 or OAUTHBEARER authentication in the
   IMAP layer, which has none, and a token source. KAccounts and signond are
   installed, but token retrieval and renewal cannot be verified without a
