@@ -153,6 +153,8 @@ private slots:
     void slotNextAccount();
     void slotPreviousAccount();
     void slotFocusMessageView();
+    void slotFocusNextRegion();
+    void slotFocusPreviousRegion();
     void removeAccountNow(const QString &accountId);
     void slotRenameAccount();
     void slotShowImapInfo();
@@ -280,6 +282,8 @@ private:
 
     /** Switch to the account @p step positions after the active one, wrapping around. */
     void cycleAccount(int step);
+    /** Move keyboard focus to the next visible shell region in @p step direction */
+    void cycleFocusRegion(int step);
     /** Folders expanded in the active account's mailbox tree */
     QStringList expandedMailboxes() const;
 

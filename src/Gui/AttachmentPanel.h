@@ -46,6 +46,8 @@ public:
 
     int attachmentCount() const;
     QList<QPersistentModelIndex> attachments() const;
+    /** The attachment list, which receives keyboard focus when the panel is entered */
+    QWidget *listView() const;
 
     QSize sizeHint() const override;
 

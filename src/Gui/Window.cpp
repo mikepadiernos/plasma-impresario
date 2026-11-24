@@ -310,6 +310,8 @@ void MainWindow::defineActions()
     shortcutHandler->defineAction(QStringLiteral("action_focus_mailbox_tree"), QString(), tr("Move Focus to Mailbox List"));
     shortcutHandler->defineAction(QStringLiteral("action_focus_msg_list"), QString(), tr("Move Focus to Message List"));
     shortcutHandler->defineAction(QStringLiteral("action_focus_message_view"), QString(), tr("Move Focus to Message View"));
+    shortcutHandler->defineAction(QStringLiteral("action_focus_next_region"), QString(), tr("Move Focus to Next Pane"), QStringLiteral("F6"));
+    shortcutHandler->defineAction(QStringLiteral("action_focus_previous_region"), QString(), tr("Move Focus to Previous Pane"), QStringLiteral("Shift+F6"));
     shortcutHandler->defineAction(QStringLiteral("action_next_account"), QString(), tr("Switch to Next Account"), QStringLiteral("Ctrl+Alt+PgDown"));
     shortcutHandler->defineAction(QStringLiteral("action_previous_account"), QString(), tr("Switch to Previous Account"), QStringLiteral("Ctrl+Alt+PgUp"));
     shortcutHandler->defineAction(QStringLiteral("action_focus_quick_search"), QString(), tr("Move Focus to Quick Search"), QStringLiteral("/"));
@@ -447,6 +449,10 @@ void MainWindow::createActions()
             SLOT(setFocus()), this));
     addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_focus_message_view"), this,
             SLOT(slotFocusMessageView()), this));
+    addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_focus_next_region"), this,
+            SLOT(slotFocusNextRegion()), this));
+    addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_focus_previous_region"), this,
+            SLOT(slotFocusPreviousRegion()), this));
     addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_next_account"), this,
             SLOT(slotNextAccount()), this));
     addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_previous_account"), this,
@@ -1860,6 +1866,57 @@ void MainWindow::slotFocusMessageView()
 #else
     m_messageWidget->setFocus();
 #endif
+}
+
+void MainWindow::slotFocusNextRegion()
+{
+    cycleFocusRegion(1);
+}
+
+void MainWindow::slotFocusPreviousRegion()
+{
+    cycleFocusRegion(-1);
+}
+
+void MainWindow::cycleFocusRegion(int step)
+{
+    // Each region is entered through its target; focus anywhere inside the container counts as being in it.
+    struct Region {
+        QWidget *container;
+        QWidget *target;
+    };
+    QList<Region> regions;
+    if (m_accountSwitcher)
+        regions.append(Region{m_accountSwitcher, m_accountSwitcher});
+    regions.append(Region{mboxTree, mboxTree});
+    regions.append(Region{msgListWidget, msgListWidget->tree});
+#ifdef TROJITA_HAVE_WEBENGINE
+    regions.append(Region{m_messageWidget, m_messageWidget->messageView});
+#else
+    regions.append(Region{m_messageWidget, m_messageWidget});
+#endif
+    if (m_attachmentPanel)
+        regions.append(Region{m_attachmentPanel, m_attachmentPanel->listView()});
+
+    const int count = regions.size();
+    QWidget *focus = focusWidget();
+    int current = -1;
+    for (int i = 0; i < count && focus; ++i) {
+        if (regions.at(i).container == focus || regions.at(i).container->isAncestorOf(focus)) {
+            current = i;
+            break;
+        }
+    }
+    if (current < 0)
+        current = step > 0 ? -1 : count;
+    for (int moved = 1; moved <= count; ++moved) {
+        const int index = ((current + step * moved) % count + count) % count;
+        QWidget *target = regions.at(index).target;
+        if (target->isVisible() && target->isEnabled()) {
+            target->setFocus(step > 0 ? Qt::TabFocusReason : Qt::BacktabFocusReason);
+            return;
+        }
+    }
 }
 
 void MainWindow::slotRenameAccount()

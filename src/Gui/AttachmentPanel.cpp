@@ -199,6 +199,11 @@ QList<QPersistentModelIndex> AttachmentPanel::attachments() const
     return m_attachments;
 }
 
+QWidget *AttachmentPanel::listView() const
+{
+    return m_list;
+}
+
 QSize AttachmentPanel::sizeHint() const
 {
     QSize hint = QFrame::sizeHint();

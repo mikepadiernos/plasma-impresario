@@ -1044,7 +1044,7 @@ if(BUILD_TESTING)
             add_test(NAME test_MainWindowDensity COMMAND test_MainWindowDensity)
             foreach(account_case migratesSingleProfileIntoFirstAccount switchingKeepsAccountsIndependent backgroundAccountStatusIsShown
                     removingAccountDeletesItsSettingsAndPasswords accountsSwitchFromTheKeyboard
-                    savedSearchesAndFolderExpansionFollowTheAccount)
+                    savedSearchesAndFolderExpansionFollowTheAccount focusCyclesThroughShellRegions)
                 add_test(NAME test_MainWindowAccounts_${account_case} COMMAND test_MainWindowAccounts ${account_case})
                 set_tests_properties(test_MainWindowAccounts_${account_case} PROPERTIES
                     TIMEOUT 60

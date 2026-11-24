@@ -5,6 +5,8 @@
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
 #include "Gui/MailBoxTreeView.h"
+#include "Gui/MessageListWidget.h"
+#include "Gui/MsgListView.h"
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/Model.h"
@@ -24,6 +26,7 @@
 #include <QComboBox>
 #include <QFile>
 #include <QFileInfo>
+#include <QLineEdit>
 #include <QMenu>
 #include <QSettings>
 #include <QSignalSpy>
@@ -264,6 +267,55 @@ private slots:
         QCOMPARE(mailboxes->desiredExpansion(), QStringList{QStringLiteral("Shared")});
         window.findChild<QAction *>(QStringLiteral("action_next_account"))->trigger();
         QCOMPARE(mailboxes->desiredExpansion(), QStringList{QStringLiteral("Projects")});
+    }
+
+    void focusCyclesThroughShellRegions()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+
+        Gui::MainWindow window(&settings);
+        auto *next = window.findChild<QAction *>(QStringLiteral("action_focus_next_region"));
+        auto *previous = window.findChild<QAction *>(QStringLiteral("action_focus_previous_region"));
+        QVERIFY(next);
+        QVERIFY(previous);
+        QCOMPARE(next->shortcut(), QKeySequence(Qt::Key_F6));
+        QCOMPARE(previous->shortcut(), QKeySequence(Qt::SHIFT | Qt::Key_F6));
+
+        window.resize(1000, 700);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        window.activateWindow();
+        auto *mailboxes = window.findChild<Gui::MailBoxTreeView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *switcher = accountSwitcher(window);
+        QVERIFY(mailboxes);
+        QVERIFY(messages);
+        QVERIFY(switcher);
+
+        window.findChild<QAction *>(QStringLiteral("action_focus_mailbox_tree"))->trigger();
+        QCOMPARE(window.focusWidget(), mailboxes);
+        next->trigger();
+        QCOMPARE(window.focusWidget(), messages);
+        auto *search = window.findChild<Gui::MessageListWidget *>()->findChild<QLineEdit *>();
+        QVERIFY(search);
+        search->setEnabled(true);
+        search->setFocus();
+        previous->trigger();
+        QCOMPARE(window.focusWidget(), mailboxes);
+        next->trigger();
+        next->trigger();
+        QWidget *reader = window.focusWidget();
+        QVERIFY(reader);
+        QVERIFY(reader != mailboxes && reader != messages && reader != switcher);
+        // The attachment list is hidden while no message is shown, so the cycle wraps to the header.
+        next->trigger();
+        QCOMPARE(window.focusWidget(), switcher->isVisible() ? static_cast<QWidget *>(switcher) : mailboxes);
+        previous->trigger();
+        QVERIFY(window.focusWidget() != mailboxes && window.focusWidget() != messages);
+        QVERIFY(window.focusWidget() != switcher);
     }
 };
 
