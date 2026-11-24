@@ -2,7 +2,9 @@
 
 Plasma Impresario is a KDE Plasma-only desktop mail client for IMAP-based workflows, built with Qt and KDE Frameworks and designed for focused reading, account management, and desktop integration. Other desktop environments are outside the supported product scope.
 
-Apply the shared instructions in `~/Library/Projects/CLAUDE.md` first. These project instructions supplement them and take precedence where they conflict.
+Apply the shared instructions in `~/Library/Projects/CLAUDE.md` or
+`~/Library/.projects/CLAUDE.md` first. These project instructions supplement
+them and take precedence where they conflict.
 
 ## Project documentation
 
