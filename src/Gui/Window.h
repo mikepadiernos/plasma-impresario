@@ -164,7 +164,6 @@ private slots:
     void cacheError(const QString &message);
     void authenticationRequested();
     void authenticationContinue(const QString &pass, const QString &errorMessage = QString());
-    void checkSslPolicy();
     void slotManageContact(const QUrl &url);
     void slotEditDraft();
     void slotReplyTo();
@@ -279,6 +278,8 @@ private:
 
     /** Supply the stored password to an account that is not shown, or mark it as needing one. */
     void requestStoredPassword(const QString &accountId);
+    /** Ask whether to trust the TLS connection of @p accountId and answer its access, not the active one */
+    void checkSslPolicy(const QString &accountId);
 
     /** Switch to the account @p step positions after the active one, wrapping around. */
     void cycleAccount(int step);

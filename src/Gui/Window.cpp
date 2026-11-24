@@ -1686,7 +1686,8 @@ Imap::ImapAccess *MainWindow::accountAccess(const QString &accountId)
         ? QString::fromUtf8(qgetenv("TROJITA_PROFILE")) : accountId;
     auto *access = new Imap::ImapAccess(this, m_accounts->settings(accountId), m_pluginManager, name, m_settings);
     connect(access, &Imap::ImapAccess::cacheError, this, &MainWindow::cacheError);
-    connect(access, &Imap::ImapAccess::checkSslPolicy, this, &MainWindow::checkSslPolicy, Qt::QueuedConnection);
+    connect(access, &Imap::ImapAccess::checkSslPolicy, this, [this, accountId]() { checkSslPolicy(accountId); },
+            Qt::QueuedConnection);
     m_accountAccess.insert(accountId, access);
     return access;
 }
@@ -1755,6 +1756,9 @@ void MainWindow::monitorAccount(const QString &accountId)
         if (!Common::AccountStatusTracker::needsAttention(m_accountStatus->status(accountId).kind))
             m_accountStatus->setStatus(accountId, AccountStatusKind::Offline);
     });
+    // The model only connects once something reads it; without a view, list the folders so the account logs in.
+    for (auto signal : {&Imap::Mailbox::Model::networkPolicyOnline, &Imap::Mailbox::Model::networkPolicyExpensive})
+        connect(model, signal, model, &Imap::Mailbox::Model::reloadMailboxList, Qt::SingleShotConnection);
     connect(model, &Imap::Mailbox::Model::networkError, access, [this, accountId](const QString &message) {
         m_accountStatus->setStatus(accountId, AccountStatusKind::NetworkError, message);
     });
@@ -2014,11 +2018,20 @@ void MainWindow::authenticationContinue(const QString &password, const QString &
     }
 }
 
-void MainWindow::checkSslPolicy()
+void MainWindow::checkSslPolicy(const QString &accountId)
 {
-    m_imapAccess->setSslPolicy(QMessageBox(static_cast<QMessageBox::Icon>(m_imapAccess->sslInfoIcon()),
-                                           m_imapAccess->sslInfoTitle(), m_imapAccess->sslInfoMessage(),
-                                           QMessageBox::Yes | QMessageBox::No, this).exec() == QMessageBox::Yes);
+    // Background accounts ask too; the account may be removed while the prompt is open.
+    QPointer<Imap::ImapAccess> access = m_accountAccess.value(accountId);
+    if (!access)
+        return;
+    QString title = access->sslInfoTitle();
+    if (m_accounts->accountIds().size() > 1)
+        title = i18nc("@title:window %1 is an account name, %2 the certificate prompt title", "%1: %2",
+                      m_accounts->displayName(accountId), title);
+    const bool accepted = QMessageBox(static_cast<QMessageBox::Icon>(access->sslInfoIcon()), title, access->sslInfoMessage(),
+                                      QMessageBox::Yes | QMessageBox::No, this).exec() == QMessageBox::Yes;
+    if (access)
+        access->setSslPolicy(accepted);
 }
 
 void MainWindow::nukeModels()
