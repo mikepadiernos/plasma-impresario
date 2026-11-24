@@ -50,7 +50,10 @@ PluginManager::PluginManager(QObject *parent, QSettings *settings,
     , m_spellcheckerKey(spellcheckerKey)
 {
     m_addressbookName = m_settings->value(m_addressbookKey, QLatin1String("abookaddressbook")).toString();
-    m_passwordName = m_settings->value(m_passwordKey, QLatin1String("cleartextpassword")).toString();
+    const bool hasLegacyPassword = m_settings->contains(QStringLiteral("imap.auth.pass"))
+        || m_settings->contains(QStringLiteral("msa.smtp.auth.pass"));
+    m_passwordName = m_settings->value(m_passwordKey,
+                                       hasLegacyPassword ? QLatin1String("cleartextpassword") : QLatin1String("qtkeychainpassword")).toString();
     m_spellcheckerName = m_settings->value(m_spellcheckerKey, QString()).toString();
     CALL_LATER_NOARG(this, loadPlugins)
 }
