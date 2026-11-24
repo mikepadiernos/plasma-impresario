@@ -74,6 +74,10 @@ backward.
    they are further along. Record the feature's **Start date**. Also move a
    bug or caveat issue to Development when work starts, unless it is further
    along.
+   While an issue is in Development, comment on that issue after each
+   completed unit of progress. State what changed, verification performed,
+   remaining work, and relevant commit or pull request links; link a blocker's
+   `docs/TODO.md` section instead of repeating it.
 3. **Finish implementation:** Move the feature to Review, set its **Target
    date** to the completion date, and check it in the parent issue. Leave its
    roadmap item unchecked.
