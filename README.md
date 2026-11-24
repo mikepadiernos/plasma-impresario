@@ -61,6 +61,10 @@ separate configurations, not simultaneous accounts in one window. Run
 `./build/plasma-impresario --help` for launch options; `-c` opens the composer,
 `-a` opens the address book when available, and `mailto:...` prefills a message.
 
+To save a search, enter a query and choose **Save Current Search** from the
+search options menu. **Saved Searches** in the same menu runs or deletes saved
+queries for the current account profile; a query runs in the selected folder.
+
 ## Product direction
 
 The roadmap prioritizes reliable mail and account boundaries before the

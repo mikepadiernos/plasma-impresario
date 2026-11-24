@@ -74,8 +74,13 @@ and project status before acting.
   WebEngine. Multi-account isolation remains to be verified with #222.
 - **Folder counts and saved searches:** #76 has existing unread indicators and
   total, unread and recent counts in folder tooltips. Unknown counts are omitted
-  rather than reported as zero. Saved-search entry points and integration with
-  multiple accounts remain to be implemented and verified.
+  rather than reported as zero. The search options menu saves, runs and deletes
+  named searches for the active account profile and selected folder. Folder
+  counts and saved-search filtering were verified with two synthetic messages
+  against disposable IMAP, with and without WebEngine. The opt-in live test
+  uses `PLASMA_TEST_IMAP_SEARCH_SUBJECT` with the matching synthetic UID and
+  UIDVALIDITY; its INBOX must contain exactly two unread synthetic messages.
+  Integration with simultaneous accounts remains to be verified with #222.
 - **Resume:** Implement and test the remaining M02 shell, account,
   protocol-capability and OAuth issues. Advance each issue through Review and
   Completed before checking its roadmap item; merge the milestone only when

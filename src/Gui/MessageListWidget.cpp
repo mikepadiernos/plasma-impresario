@@ -21,29 +21,37 @@
 */
 
 #include "MessageListWidget.h"
+#include <KConfigGroup>
+#include <KLocalizedString>
+#include <KSharedConfig>
 #include <QAction>
 #include <QApplication>
 #include <QCheckBox>
 #include <QFrame>
+#include <QInputDialog>
 #include <QMenu>
+#include <QMessageBox>
 #include <QStringView>
 #include <QTimer>
 #include <QToolButton>
+#include <QUuid>
 #include <QVBoxLayout>
 #include <QWidgetAction>
 #include "LineEdit.h"
 #include "MsgListView.h"
 #include "ReplaceCharValidator.h"
+#include "Util.h"
 #include "UiUtils/IconLoader.h"
 
 namespace Gui {
 
-MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTagsModel *m_favoriteTagsModel) :
-    QWidget(parent), m_supportsFuzzySearch(false)
+MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTagsModel *m_favoriteTagsModel, const QString &accountId) :
+    QWidget(parent), m_accountId(accountId), m_supportsFuzzySearch(false)
 {
     tree = new MsgListView(this, m_favoriteTagsModel);
 
     m_quickSearchText = new LineEdit(this);
+    m_quickSearchText->setObjectName(QStringLiteral("quickSearch"));
     m_quickSearchText->setHistoryEnabled(true);
     // Filter out newline. It will wreak havoc into the direct IMAP passthrough and could lead to data loss.
     QValidator *validator = new ReplaceCharValidator(QLatin1Char('\n'), QLatin1Char(' '), m_quickSearchText);
@@ -68,12 +76,22 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     m_searchFuzzy = optionsMenu->addAction(tr("Fuzzy Search"));
     m_searchFuzzy->setCheckable(true);
     optionsMenu->addSeparator();
+    QAction *saveSearch = optionsMenu->addAction(i18nc("@action", "Save Current Search..."));
+    saveSearch->setObjectName(QStringLiteral("saveSearch"));
+    connect(saveSearch, &QAction::triggered, this, &MessageListWidget::saveCurrentSearch);
+    m_savedSearches = optionsMenu->addMenu(i18nc("@title:menu", "Saved Searches"));
+    m_savedSearches->setObjectName(QStringLiteral("savedSearches"));
+    connect(m_savedSearches, &QMenu::aboutToShow, this, &MessageListWidget::rebuildSavedSearchMenu);
+    optionsMenu->addSeparator();
     m_searchInSubject = optionsMenu->addAction(tr("Subject"));
+    m_searchInSubject->setObjectName(QStringLiteral("searchInSubject"));
     m_searchInSubject->setCheckable(true);
     m_searchInSubject->setChecked(true);
     m_searchInBody = optionsMenu->addAction(tr("Body"));
+    m_searchInBody->setObjectName(QStringLiteral("searchInBody"));
     m_searchInBody->setCheckable(true);
     m_searchInSenders = optionsMenu->addAction(tr("Senders"));
+    m_searchInSenders->setObjectName(QStringLiteral("searchInSenders"));
     m_searchInSenders->setCheckable(true);
     m_searchInSenders->setChecked(true);
     m_searchInRecipients = optionsMenu->addAction(tr("Recipients"));
@@ -98,6 +116,7 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     complexMenu->addAction(tr("Has been seen"))->setData(QLatin1String("SEEN"));
 
     m_rawSearch = optionsMenu->addAction(tr("Allow raw IMAP search"));
+    m_rawSearch->setObjectName(QStringLiteral("searchRaw"));
     m_rawSearch->setCheckable(true);
     QAction *rawSearchMenu = optionsMenu->addMenu(complexMenu);
     rawSearchMenu->setVisible(false);
@@ -123,6 +142,114 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     connect(m_searchResetTimer, &QTimer::timeout, this, &MessageListWidget::slotApplySearch);
 
     slotAutoEnableDisableSearch();
+}
+
+void MessageListWidget::saveCurrentSearch()
+{
+    if (searchConditions().isEmpty()) {
+        Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Save Search"),
+                                     i18nc("@info", "Enter a search and select at least one search field."));
+        return;
+    }
+    bool accepted = false;
+    const QString name = QInputDialog::getText(this, i18nc("@title:window", "Save Search"),
+                                               i18nc("@label:textbox", "Search name:"), QLineEdit::Normal,
+                                               QString(), &accepted).trimmed();
+    if (!accepted)
+        return;
+    if (name.isEmpty()) {
+        Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Save Search"),
+                                     i18nc("@info", "The search name cannot be empty."));
+        return;
+    }
+
+    const KConfigGroup searches = savedSearchGroup();
+    for (const QString &id : searches.groupList()) {
+        if (searches.group(id).readEntry("Name", QString()).compare(name, Qt::CaseInsensitive) == 0) {
+            Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Save Search"),
+                                         i18nc("@info", "A saved search with this name already exists."));
+            return;
+        }
+    }
+    KConfigGroup group = searches.group(QUuid::createUuid().toString(QUuid::WithoutBraces));
+    group.writeEntry("Name", name);
+    group.writeEntry("Query", m_quickSearchText->text());
+    group.writeEntry("Subject", m_searchInSubject->isChecked());
+    group.writeEntry("Body", m_searchInBody->isChecked());
+    group.writeEntry("Senders", m_searchInSenders->isChecked());
+    group.writeEntry("Recipients", m_searchInRecipients->isChecked());
+    const bool rawQuery = m_rawSearch->isChecked() && m_quickSearchText->text().startsWith(QLatin1String(":="));
+    group.writeEntry("Fuzzy", !rawQuery && m_supportsFuzzySearch && m_searchFuzzy->isChecked());
+    group.writeEntry("Raw", m_rawSearch->isChecked());
+    if (!group.sync())
+        Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Save Search"),
+                                     i18nc("@info", "The search could not be saved."));
+}
+
+void MessageListWidget::rebuildSavedSearchMenu()
+{
+    qDeleteAll(m_savedSearches->findChildren<QMenu *>(QString(), Qt::FindDirectChildrenOnly));
+    m_savedSearches->clear();
+    const auto ids = savedSearchGroup().groupList();
+    for (const QString &id : ids)
+        addSavedSearch(id);
+}
+
+KConfigGroup MessageListWidget::savedSearchGroup() const
+{
+    KConfigGroup searches(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), QStringLiteral("SavedSearches"));
+    return searches.group(m_accountId);
+}
+
+void MessageListWidget::addSavedSearch(const QString &id)
+{
+    const KConfigGroup group = savedSearchGroup().group(id);
+    const QString name = group.readEntry("Name", QString());
+    if (name.isEmpty() || group.readEntry("Query", QString()).isEmpty()) {
+        qWarning() << "Ignoring invalid saved search" << id;
+        return;
+    }
+    QString menuName = name;
+    menuName.replace(QLatin1Char('&'), QStringLiteral("&&"));
+    QMenu *entry = m_savedSearches->addMenu(menuName);
+    QAction *run = entry->addAction(i18nc("@action", "Run Search"));
+    run->setObjectName(QStringLiteral("runSavedSearch"));
+    connect(run, &QAction::triggered, this, [this, id]() { runSavedSearch(id); });
+    QAction *remove = entry->addAction(i18nc("@action", "Delete Search..."));
+    remove->setObjectName(QStringLiteral("deleteSavedSearch"));
+    connect(remove, &QAction::triggered, this, [this, id]() { deleteSavedSearch(id); });
+}
+
+void MessageListWidget::runSavedSearch(const QString &id)
+{
+    const KConfigGroup group = savedSearchGroup().group(id);
+    const bool fuzzy = group.readEntry("Fuzzy", false);
+    if (fuzzy && !m_supportsFuzzySearch) {
+        Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Run Search"),
+                                     i18nc("@info", "This search requires fuzzy search support from the server."));
+        return;
+    }
+    m_rawSearch->setChecked(group.readEntry("Raw", false));
+    m_searchInSubject->setChecked(group.readEntry("Subject", false));
+    m_searchInBody->setChecked(group.readEntry("Body", false));
+    m_searchInSenders->setChecked(group.readEntry("Senders", false));
+    m_searchInRecipients->setChecked(group.readEntry("Recipients", false));
+    m_searchFuzzy->setChecked(fuzzy);
+    m_quickSearchText->setText(group.readEntry("Query", QString()));
+    slotApplySearch();
+}
+
+void MessageListWidget::deleteSavedSearch(const QString &id)
+{
+    KConfigGroup group = savedSearchGroup().group(id);
+    const QString name = group.readEntry("Name", QString());
+    if (QMessageBox::question(this, i18nc("@title:window", "Delete Search"),
+                              Qt::convertFromPlainText(i18nc("@info", "Delete the saved search \"%1\"?", name))) != QMessageBox::Yes)
+        return;
+    group.deleteGroup();
+    if (!group.sync())
+        Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Delete Search"),
+                                     i18nc("@info", "The search could not be deleted."));
 }
 
 void MessageListWidget::focusSearch()
@@ -267,7 +394,7 @@ QStringList MessageListWidget::searchConditions() const
 
     QStringList res;
     Q_FOREACH(const QString &key, keys) {
-        if (m_supportsFuzzySearch)
+        if (m_searchFuzzy->isChecked() && m_supportsFuzzySearch)
             res << QStringLiteral("FUZZY");
         res << key << m_quickSearchText->text();
     }

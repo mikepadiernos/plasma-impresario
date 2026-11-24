@@ -5,6 +5,7 @@
 #include "Common/SettingsNames.h"
 #include "Composer/SenderIdentitiesModel.h"
 #include "Gui/MailBoxTreeView.h"
+#include "Gui/MessageListWidget.h"
 #include "Gui/MsgListView.h"
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
@@ -27,7 +28,9 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFileInfo>
+#include <QInputDialog>
 #include <QLineEdit>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSettings>
@@ -169,6 +172,41 @@ private slots:
         QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(inbox).center());
         QTRY_VERIFY_WITH_TIMEOUT(mailboxSelected, 10000);
         QVERIFY2(errors.isEmpty(), qPrintable(errors.isEmpty() ? QString() : errors.first().first().toString()));
+        const QString searchSubject = qEnvironmentVariable("PLASMA_TEST_IMAP_SEARCH_SUBJECT");
+        if (!searchSubject.isEmpty()) {
+            QVERIFY(haveUid);
+            QTRY_COMPARE_WITH_TIMEOUT(inbox.data(Imap::Mailbox::RoleTotalMessageCount).toInt(), 2, 10000);
+            QTRY_COMPARE_WITH_TIMEOUT(inbox.data(Imap::Mailbox::RoleUnreadMessageCount).toInt(), 2, 10000);
+            QVERIFY(inbox.data(Qt::ToolTipRole).toString().contains(QStringLiteral("2")));
+            auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
+            auto *messages = window.findChild<Gui::MsgListView *>();
+            QVERIFY(searchWidget);
+            QVERIFY(messages);
+            QTRY_VERIFY_WITH_TIMEOUT(messages->model()->rowCount() >= 2, 10000);
+            auto *query = searchWidget->findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+            QVERIFY(query);
+            searchWidget->findChild<QAction *>(QStringLiteral("searchInSenders"))->setChecked(false);
+            query->setText(searchSubject);
+            QTimer::singleShot(0, []() {
+                if (auto *dialog = qobject_cast<QInputDialog *>(QApplication::activeModalWidget())) {
+                    dialog->setTextValue(QStringLiteral("Synthetic search"));
+                    dialog->accept();
+                }
+            });
+            searchWidget->findChild<QAction *>(QStringLiteral("saveSearch"))->trigger();
+            query->setText(QStringLiteral("nonmatching-synthetic-search-92731"));
+            QTest::keyClick(query, Qt::Key_Return);
+            QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(), 0, 10000);
+            auto *menu = searchWidget->findChild<QMenu *>(QStringLiteral("savedSearches"));
+            QVERIFY(menu);
+            QVERIFY(QMetaObject::invokeMethod(menu, "aboutToShow"));
+            QCOMPARE(menu->actions().size(), 1);
+            menu->actions().first()->menu()->findChild<QAction *>(QStringLiteral("runSavedSearch"))->trigger();
+            QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(), 1, 10000);
+            QCOMPARE(messages->model()->index(0, 0).data(Imap::Mailbox::RoleMessageUid).toUInt(), savedUid);
+            query->clear();
+            QTRY_VERIFY_WITH_TIMEOUT(messages->model()->rowCount() >= 2, 10000);
+        }
         if (restartPhase == QLatin1String("write")) {
             auto *messages = window.findChild<Gui::MsgListView *>();
             QVERIFY(messages);

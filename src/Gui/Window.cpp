@@ -872,7 +872,7 @@ void MainWindow::createWidgets()
         m_settings->setValue(Common::SettingsNames::guiExpandedMailboxes, mailboxNames);
     });
 
-    msgListWidget = new MessageListWidget(nullptr, m_favoriteTags);
+    msgListWidget = new MessageListWidget(nullptr, m_favoriteTags, m_imapAccess->credentialAccountId());
     msgListWidget->tree->setContextMenuPolicy(Qt::CustomContextMenu);
     msgListWidget->tree->setAlternatingRowColors(true);
     msgListWidget->setRawSearchEnabled(m_settings->value(Common::SettingsNames::guiAllowRawSearch).toBool());
