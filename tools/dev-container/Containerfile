@@ -1,0 +1,56 @@
+# Headless Linux build and test environment for Plasma Impresario.
+#
+# This environment builds the app and runs its QtTest suite with the offscreen
+# platform. It does not provide a Plasma session, so D-Bus services, KWallet,
+# notifications, and visual behavior still need verification on Plasma.
+#
+# Build and use it through tools/dev-container/run.sh. Wrap app runs in
+# dbus-run-session when they need a session bus.
+
+FROM fedora:44
+
+# Networks that intercept TLS can provide an extra root certificate through the
+# optional "extra_ca" build secret.
+RUN --mount=type=secret,id=extra_ca,required=false \
+    if [ -s /run/secrets/extra_ca ]; then \
+        cp /run/secrets/extra_ca /etc/pki/ca-trust/source/anchors/extra-ca.pem && \
+        update-ca-trust; \
+    fi
+
+RUN dnf -y install --setopt=install_weak_deps=False \
+        ccache \
+        clang-tools-extra \
+        cmake \
+        gcc-c++ \
+        git-core \
+        ninja-build \
+        extra-cmake-modules \
+        qt6-qtbase-devel \
+        qt6-qt5compat-devel \
+        qt6-qtsvg-devel \
+        qt6-qttools-devel \
+        qt6-qtwebengine-devel \
+        qt6-linguist \
+        kf6-kitemmodels-devel \
+        kf6-kdoctools-devel \
+        kf6-sonnet-devel \
+        akonadi-contacts-devel \
+        qtkeychain-qt6-devel \
+        gpgmepp-devel \
+        qgpgme-qt6-devel \
+        mimetic-devel \
+        ragel \
+        zlib-ng-compat-devel \
+        dbus-daemon \
+        gnupg2 \
+        python3 \
+        gtk-update-icon-cache \
+        breeze-icon-theme \
+    && dnf clean all
+
+ENV CCACHE_DIR=/ccache \
+    CMAKE_C_COMPILER_LAUNCHER=ccache \
+    CMAKE_CXX_COMPILER_LAUNCHER=ccache \
+    QT_QPA_PLATFORM=offscreen
+
+WORKDIR /src
