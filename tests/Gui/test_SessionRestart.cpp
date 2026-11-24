@@ -5,6 +5,7 @@
 #include "Common/SettingsNames.h"
 #include "Gui/DensityMenu.h"
 #include "Gui/MailBoxTreeView.h"
+#include "Gui/OnePanelAtTimeWidget.h"
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/ItemRoles.h"
@@ -23,6 +24,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QProcess>
+#include <QScreen>
 #include <QSettings>
 #include <QSplitter>
 #include <QStandardPaths>
@@ -38,14 +40,20 @@ private slots:
     void persistsAfterExit_data()
     {
         QTest::addColumn<QString>("exitMode");
-        QTest::newRow("close") << QStringLiteral("close");
-        QTest::newRow("quit") << QStringLiteral("quit");
-        QTest::newRow("hidden-quit") << QStringLiteral("hidden-quit");
+        QTest::addColumn<QString>("layout");
+        QTest::newRow("wide-close") << QStringLiteral("close") << QStringLiteral("wide");
+        QTest::newRow("wide-quit") << QStringLiteral("quit") << QStringLiteral("wide");
+        QTest::newRow("wide-hidden-quit") << QStringLiteral("hidden-quit") << QStringLiteral("wide");
+        QTest::newRow("compact-close") << QStringLiteral("close") << QStringLiteral("compact");
+        QTest::newRow("compact-hidden-quit") << QStringLiteral("hidden-quit") << QStringLiteral("compact");
+        QTest::newRow("one-close") << QStringLiteral("close") << QStringLiteral("one");
+        QTest::newRow("one-hidden-quit") << QStringLiteral("hidden-quit") << QStringLiteral("one");
     }
 
     void persistsAfterExit()
     {
         QFETCH(QString, exitMode);
+        QFETCH(QString, layout);
         QTemporaryDir home(QDir::tempPath() + QStringLiteral("/plasma-impresario-restart-XXXXXX"));
         QVERIFY(home.isValid());
         for (const QString &phase : {exitMode, QStringLiteral("read")}) {
@@ -57,6 +65,7 @@ private slots:
             env.insert(QStringLiteral("XDG_CACHE_HOME"), home.filePath(QStringLiteral("cache")));
             env.insert(QStringLiteral("DBUS_SESSION_BUS_ADDRESS"), QStringLiteral("unix:path=/nonexistent/plasma-restart-test"));
             env.insert(QStringLiteral("PLASMA_TEST_RESTART_PHASE"), phase);
+            env.insert(QStringLiteral("PLASMA_TEST_RESTART_LAYOUT"), layout);
             env.remove(QStringLiteral("TROJITA_PROFILE"));
             child.setProcessEnvironment(env);
             child.start(QCoreApplication::applicationFilePath());
@@ -69,15 +78,54 @@ private slots:
     }
 };
 
+void saveSplitterSizes(QSettings &settings, QSplitter *splitter, const QString &prefix)
+{
+    const auto sizes = splitter->sizes();
+    for (int i = 0; i < sizes.size(); ++i)
+        settings.setValue(prefix + QString::number(i), sizes.at(i));
+}
+
+bool matchesSplitterSizes(QSettings &settings, QSplitter *splitter, const QString &prefix)
+{
+    QList<int> savedSizes;
+    int savedTotal = 0;
+    int restoredTotal = 0;
+    const auto restoredSizes = splitter->sizes();
+    for (int i = 0; i < restoredSizes.size(); ++i) {
+        bool ok = false;
+        const int size = settings.value(prefix + QString::number(i)).toInt(&ok);
+        if (!ok)
+            return false;
+        savedSizes.append(size);
+        savedTotal += size;
+        restoredTotal += restoredSizes.at(i);
+    }
+    if (!savedTotal || !restoredTotal)
+        return false;
+    for (int i = 0; i < restoredSizes.size(); ++i) {
+        const qint64 delta = qAbs(qint64(restoredSizes.at(i)) * savedTotal - qint64(savedSizes.at(i)) * restoredTotal);
+        if (delta > qint64(savedTotal) * restoredTotal / 100) {
+            fprintf(stderr, "%s splitter section %d saved %d/%d restored %d/%d\n",
+                    qPrintable(prefix), i, savedSizes.at(i), savedTotal, restoredSizes.at(i), restoredTotal);
+            return false;
+        }
+    }
+    return true;
+}
+
 int runChild(QApplication &app, const QString &phase)
 {
+    const QString layout = qEnvironmentVariable("PLASMA_TEST_RESTART_LAYOUT");
+    if (layout != QLatin1String("wide") && layout != QLatin1String("compact") && layout != QLatin1String("one"))
+        return 12;
     QSettings settings(QDir::home().filePath(QStringLiteral("account.ini")), QSettings::IniFormat);
     settings.setValue(Common::SettingsNames::imapMethodKey, Common::SettingsNames::methodSSL);
     settings.setValue(Common::SettingsNames::imapStartMode, Common::SettingsNames::netOffline);
     settings.setValue(Common::SettingsNames::guiShowSystray, false);
     settings.setValue(Common::SettingsNames::msaMethodKey, Common::SettingsNames::methodSENDMAIL);
     Gui::MainWindow window(&settings);
-    window.resize(1000, 700);
+    if (phase != QLatin1String("read"))
+        window.resize(window.screen()->availableGeometry().size() - QSize(40, 40));
     window.show();
     QCoreApplication::processEvents();
     auto *mailboxes = window.findChild<Gui::MailBoxTreeView *>();
@@ -85,7 +133,9 @@ int runChild(QApplication &app, const QString &phase)
     if (!mailboxes || !menu)
         return 1;
     if (phase != QLatin1String("read")) {
-        if (!QMetaObject::invokeMethod(&window, "slotLayoutWide"))
+        const char *layoutSlot = layout == QLatin1String("wide") ? "slotLayoutWide" :
+                                 layout == QLatin1String("compact") ? "slotLayoutCompact" : "slotLayoutOneAtTime";
+        if (!QMetaObject::invokeMethod(&window, layoutSlot))
             return 2;
         auto *right = window.findChild<QAction *>(QStringLiteral("mailboxSidebarRight"));
         if (!right)
@@ -103,15 +153,24 @@ int runChild(QApplication &app, const QString &phase)
         if (!messageModel)
             return 10;
         messageModel->mailboxChanged(message);
-        auto *splitter = qobject_cast<QSplitter *>(mailboxes->parentWidget());
-        if (!splitter || splitter->count() != 3)
-            return 4;
-        splitter->setSizes({450, 250, 150});
-        splitter->splitterMoved(450, 1);
         QSettings expected(QDir::home().filePath(QStringLiteral("expected.ini")), QSettings::IniFormat);
-        const auto sizes = splitter->sizes();
-        for (int i = 0; i < sizes.size(); ++i)
-            expected.setValue(QString::number(i), sizes.at(i));
+        if (layout != QLatin1String("one")) {
+            auto *splitter = qobject_cast<QSplitter *>(mailboxes->parentWidget());
+            const int count = layout == QLatin1String("wide") ? 3 : 2;
+            if (!splitter || splitter->count() != count)
+                return 4;
+            splitter->setSizes(count == 3 ? QList<int>{450, 250, 150} : QList<int>{600, 200});
+            splitter->splitterMoved(450, 1);
+            saveSplitterSizes(expected, splitter, QStringLiteral("horizontal"));
+            if (layout == QLatin1String("compact")) {
+                auto *vertical = splitter->findChild<QSplitter *>();
+                if (!vertical || vertical->count() != 2)
+                    return 13;
+                vertical->setSizes({400, 200});
+                vertical->splitterMoved(400, 1);
+                saveSplitterSizes(expected, vertical, QStringLiteral("vertical"));
+            }
+        }
         expected.sync();
         if (expected.status() != QSettings::NoError)
             return 5;
@@ -125,24 +184,31 @@ int runChild(QApplication &app, const QString &phase)
         return app.exec();
     }
 
-    auto *splitter = qobject_cast<QSplitter *>(mailboxes->parentWidget());
-    if (!splitter || splitter->count() != 3 || splitter->indexOf(mailboxes) != 2 || !menu->actions().at(1)->isChecked())
+    if (!menu->actions().at(1)->isChecked())
         return 6;
+    if (layout == QLatin1String("one")) {
+        if (!qobject_cast<Gui::OnePanelAtTimeWidget *>(window.centralWidget()))
+            return 6;
+    } else {
+        auto *splitter = qobject_cast<QSplitter *>(mailboxes->parentWidget());
+        const int count = layout == QLatin1String("wide") ? 3 : 2;
+        if (!splitter || splitter->count() != count || splitter->indexOf(mailboxes) != count - 1)
+            return 6;
+        QSettings expected(QDir::home().filePath(QStringLiteral("expected.ini")), QSettings::IniFormat);
+        if (!matchesSplitterSizes(expected, splitter, QStringLiteral("horizontal")))
+            return 8;
+        if (layout == QLatin1String("compact")) {
+            auto *vertical = splitter->findChild<QSplitter *>();
+            if (!vertical || !matchesSplitterSizes(expected, vertical, QStringLiteral("vertical")))
+                return 8;
+        }
+    }
     KConfigGroup selection(KSharedConfig::openStateConfig(), QStringLiteral("MailboxSelection"));
     const KConfigGroup account = selection.group(window.imapAccess()->credentialAccountId());
     if (account.readEntry("Mailbox", QString()) != QLatin1String("INBOX") ||
         account.readEntry("MessageMailbox", QString()) != QLatin1String("INBOX") ||
         account.readEntry("MessageUidValidity", 0u) != 123u || account.readEntry("MessageUid", 0u) != 42u)
         return 11;
-    QSettings expected(QDir::home().filePath(QStringLiteral("expected.ini")), QSettings::IniFormat);
-    for (int i = 0; i < 3; ++i) {
-        bool ok = false;
-        const int size = expected.value(QString::number(i)).toInt(&ok);
-        if (!ok)
-            return 7;
-        if (qAbs(splitter->sizes().at(i) - size) > 2)
-            return 8;
-    }
     return 0;
 }
 

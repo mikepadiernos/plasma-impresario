@@ -25,6 +25,8 @@
 #include <QApplication>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QDir>
+#include <QFileInfo>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
@@ -60,16 +62,26 @@ private slots:
         bool haveValidity = false;
         const uint savedUid = qgetenv("PLASMA_TEST_IMAP_RESTORE_UID").toUInt(&haveUid);
         const uint savedValidity = qgetenv("PLASMA_TEST_IMAP_RESTORE_VALIDITY").toUInt(&haveValidity);
+        const QString restartPhase = qEnvironmentVariable("PLASMA_TEST_IMAP_RESTART_PHASE");
+        QVERIFY(restartPhase.isEmpty() || restartPhase == QLatin1String("write") || restartPhase == QLatin1String("read"));
         QVERIFY(haveUid == haveValidity);
+        QVERIFY(restartPhase.isEmpty() || haveUid);
         if (haveUid) {
             QVERIFY(savedUid && savedValidity);
             KConfigGroup selection(KSharedConfig::openStateConfig(), QStringLiteral("MailboxSelection"));
             KConfigGroup account = selection.group(QStringLiteral("account-0"));
-            account.writeEntry("Mailbox", QStringLiteral("INBOX"));
-            account.writeEntry("MessageMailbox", QStringLiteral("INBOX"));
-            account.writeEntry("MessageUidValidity", savedValidity);
-            account.writeEntry("MessageUid", savedUid);
-            QVERIFY(account.sync());
+            if (restartPhase.isEmpty()) {
+                account.writeEntry("Mailbox", QStringLiteral("INBOX"));
+                account.writeEntry("MessageMailbox", QStringLiteral("INBOX"));
+                account.writeEntry("MessageUidValidity", savedValidity);
+                account.writeEntry("MessageUid", savedUid);
+                QVERIFY(account.sync());
+            } else if (restartPhase == QLatin1String("read")) {
+                QCOMPARE(account.readEntry("Mailbox", QString()), QStringLiteral("INBOX"));
+                QCOMPARE(account.readEntry("MessageMailbox", QString()), QStringLiteral("INBOX"));
+                QCOMPARE(account.readEntry("MessageUidValidity", 0u), savedValidity);
+                QCOMPARE(account.readEntry("MessageUid", 0u), savedUid);
+            }
         }
 
         int passwordsEntered = 0;
@@ -141,7 +153,7 @@ private slots:
                                                      QStringLiteral("INBOX"), 1).size() == 1, 10000);
         const QModelIndex inbox = tree->model()->match(tree->model()->index(0, 0), Imap::Mailbox::RoleMailboxName,
                                                        QStringLiteral("INBOX"), 1).first();
-        if (haveUid) {
+        if (haveUid && restartPhase != QLatin1String("write")) {
             auto *messages = window.findChild<Gui::MsgListView *>();
             QVERIFY(messages);
             QTRY_COMPARE_WITH_TIMEOUT(messages->currentIndex().data(Imap::Mailbox::RoleMessageUid).toUInt(), savedUid, 10000);
@@ -157,6 +169,20 @@ private slots:
         QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(inbox).center());
         QTRY_VERIFY_WITH_TIMEOUT(mailboxSelected, 10000);
         QVERIFY2(errors.isEmpty(), qPrintable(errors.isEmpty() ? QString() : errors.first().first().toString()));
+        if (restartPhase == QLatin1String("write")) {
+            auto *messages = window.findChild<Gui::MsgListView *>();
+            QVERIFY(messages);
+            QTRY_VERIFY_WITH_TIMEOUT(messages->model()->rowCount() > 0, 10000);
+            QModelIndexList matches;
+            QTRY_VERIFY_WITH_TIMEOUT(!(matches = messages->model()->match(messages->model()->index(0, 0),
+                                     Imap::Mailbox::RoleMessageUid, savedUid, 1, Qt::MatchExactly | Qt::MatchRecursive)).isEmpty(), 10000);
+            messages->scrollTo(matches.first());
+            QTest::mouseClick(messages->viewport(), Qt::LeftButton, Qt::NoModifier, messages->visualRect(matches.first()).center());
+            KConfigGroup selection(KSharedConfig::openStateConfig(), QStringLiteral("MailboxSelection"));
+            const KConfigGroup account = selection.group(QStringLiteral("account-0"));
+            QCOMPARE(account.readEntry("MessageUid", 0u), savedUid);
+            QCOMPARE(account.readEntry("MessageUidValidity", 0u), savedValidity);
+        }
         watcher->setNetworkOffline();
         QCOMPARE(watcher->effectiveNetworkPolicy(), Imap::Mailbox::NETWORK_OFFLINE);
         mailboxSelected = false;
@@ -171,10 +197,20 @@ int main(int argc, char **argv)
     QTemporaryDir home;
     if (!home.isValid())
         return 1;
-    qputenv("HOME", home.path().toUtf8());
-    qputenv("XDG_CONFIG_HOME", home.filePath(QStringLiteral("config")).toUtf8());
-    qputenv("XDG_DATA_HOME", home.filePath(QStringLiteral("data")).toUtf8());
-    qputenv("XDG_CACHE_HOME", home.filePath(QStringLiteral("cache")).toUtf8());
+    QString homePath = home.path();
+    const QString restartHome = qEnvironmentVariable("PLASMA_TEST_IMAP_RESTART_HOME");
+    const QString restartPhase = qEnvironmentVariable("PLASMA_TEST_IMAP_RESTART_PHASE");
+    if (restartHome.isEmpty() != restartPhase.isEmpty())
+        return 1;
+    if (!restartHome.isEmpty()) {
+        homePath = QFileInfo(restartHome).canonicalFilePath();
+        if (!homePath.startsWith(QDir::tempPath() + QStringLiteral("/plasma-impresario-imap-restart-")))
+            return 1;
+    }
+    qputenv("HOME", homePath.toUtf8());
+    qputenv("XDG_CONFIG_HOME", (homePath + QStringLiteral("/config")).toUtf8());
+    qputenv("XDG_DATA_HOME", (homePath + QStringLiteral("/data")).toUtf8());
+    qputenv("XDG_CACHE_HOME", (homePath + QStringLiteral("/cache")).toUtf8());
     qputenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent/plasma-impresario-live-test");
     qunsetenv("TROJITA_PROFILE");
     QStandardPaths::setTestModeEnabled(true);
@@ -183,6 +219,10 @@ int main(int argc, char **argv)
 #endif
     Common::registerMetaTypes();
     QApplication app(argc, argv);
+    for (auto location : {QStandardPaths::GenericConfigLocation, QStandardPaths::AppDataLocation, QStandardPaths::CacheLocation}) {
+        if (!QStandardPaths::writableLocation(location).startsWith(homePath + QLatin1Char('/')))
+            return 1;
+    }
     Q_INIT_RESOURCE(icons);
     Q_INIT_RESOURCE(license);
     KLocalizedString::setApplicationDomain("plasma-impresario");
