@@ -16,7 +16,9 @@ The main window has a toolbar/menu and three work areas: a mailbox tree, a
 message list and a message reader. Compact mode stacks the list above the reader
 beside the mailbox tree; wide mode places all three side by side.
 One-panel-at-a-time navigation and persisted splitter/layout state are also
-implemented. A toolbar selector switches between accounts and marks accounts
+implemented. An embedded attachments panel below the reader lists the current
+message's attachments; View › Embedded Panels turns it off or hides it while
+the message has none. A toolbar selector switches between accounts and marks accounts
 that need attention. Optional diagnostic docks expose task, MIME, model and
 protocol information.
 

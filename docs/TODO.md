@@ -100,11 +100,16 @@ and project status before acting.
   receives the startup account's identifier once, so saved searches probably
   stay keyed to that account after switching (inferred from source, not
   reproduced).
-- **Blocked on a decision, #35 and #74:** the five-region shell has a header
+- **Partly decided, #35 and #74:** the five-region shell has a header
   toolbar, a sidebar movable between the left and right columns, a main
-  column and a status footer. The configurable embedded panels for metadata,
-  contact information and related content, and per-region toolbars, are not
-  built. Decide which panels M02 must include before implementing them.
+  column and a status footer. The first embedded panel, attachments, is
+  implemented below the reader with View › Embedded Panels toggles for
+  visibility and hiding when empty; see the
+  [design](philosophy/designs.md#embedded-panels). Its placement in a side
+  column or the footer, and opening or saving against live IMAP in a Plasma
+  session, are unverified. Metadata, contact information and the planned My
+  Day / Agenda panel, and per-region toolbars, are not built. Decide which of
+  them M02 must include before implementing them.
 - **Blocked, #218:** OAuth needs XOAUTH2 or OAUTHBEARER authentication in the
   IMAP layer, which has none, and a token source. KAccounts and signond are
   installed, but token retrieval and renewal cannot be verified without a
@@ -115,7 +120,7 @@ and project status before acting.
   interface consults it yet; POP3 and JMAP belong to M05. Account editing uses
   the settings dialog; per-account identities are not separate from the shared
   sender identities.
-- **Resume:** Move #222, #79 and #80 through Review once confirmed with a
+- **Resume:** #222 is Completed. Move #79 and #80 through Review once confirmed with a
   disposable two-account IMAP check. Resolve the decisions above, then
   implement the remaining issues. Advance each issue through Completed before
   checking its roadmap item; merge the milestone only when all items and

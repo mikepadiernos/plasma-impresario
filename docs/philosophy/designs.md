@@ -18,6 +18,8 @@ Toolbar / menu
 │ Mailbox tree       │ Message list                             │
 │                    ├──────────────────────────────────────────┤
 │                    │ Message reader                           │
+│                    ├──────────────────────────────────────────┤
+│                    │ Attachments panel                        │
 └────────────────────┴──────────────────────────────────────────┘
 ```
 
@@ -28,6 +30,26 @@ wide layouts. Splitter sizes, sidebar position and the selected layout are
 saved. The selected folder and message are restored when they become available,
 unless the user navigates elsewhere first. Message restoration checks the
 mailbox's UIDVALIDITY before selecting a saved UID.
+
+An embedded **attachments panel** sits below the reader in every layout, in a
+resizable reader column whose split is saved with the layout. It lists the
+current message's attachments with their type icons, names and sizes, and
+provides Open and Save As actions, a context menu and dragging into the
+composer. Attachments that arrive late, such as after decryption, are added as
+they appear. Without a listable attachment, the panel shows _No message
+selected_, _Loading message…_ or _This message has no attachments_. The panel is
+**shown by default**. **View › Embedded Panels** turns it off, or turns on
+**Hide Attachments Panel When Empty**, which shows it only while the current
+message has attachments. That option is **off by default**, so the panel keeps a
+stable position while reading. Both settings are saved in the `Appearance`
+group. The panel's rules differ from the message-list paperclip:
+
+- It lists only what a reader would call a file: inline images that HTML
+  references through `multipart/related`, signatures and the encrypted envelope
+  are omitted.
+- An attached message (`message/rfc822`) is listed once, not expanded into its
+  own attachments.
+
 The footer reports IMAP connection activity, offline state, network errors and
 connection or authentication failures; richer per-account and background-task
 status remains planned.
@@ -73,6 +95,37 @@ placement and visibility of supporting panels.
 - **Header and footer:** Keep global actions and connection context accessible
   in the header, and provide sync progress, errors and background-work status in
   the footer.
+
+### Embedded panels
+
+Embedded panels are context-aware: each follows the account, folder or message
+in focus. Each can be turned off from **View › Embedded Panels** and can hide
+itself while it has nothing to show for the current context. Hiding must not
+move focus or selection, and a hidden panel's size is restored when it returns.
+
+- **Attachments (implemented):** below the reader; see
+  [Current interface](#current-interface). Placement in a side column or the
+  footer remains planned.
+- **Message metadata and contact information (planned):** headers, security
+  state and sender details for the current message.
+- **My Day / Agenda (planned, not implemented):** a daily overview beside the
+  mail workflow. Content:
+  - today's events and upcoming meetings, with time, title, location and a join
+    or open action;
+  - tasks due today or overdue;
+  - flagged messages and messages marked for follow-up, opened in the reader
+    without leaving the current folder.
+
+  Calendar and task data come from KDE PIM and Akonadi when they are available.
+  Without them, the panel shows only mail-derived items and says that calendars
+  are unavailable rather than showing an empty schedule. By default it goes in a
+  side column, with a condensed footer form showing the next event and the count
+  of due items. With **hide when empty**, it disappears when there are no
+  events, tasks or follow-ups for the day. Items are reachable from the keyboard
+  in time order, each with an accessible name that combines its time, title and
+  source. The day boundary follows the system time zone and updates at
+  midnight. The panel does not create or edit calendar data; editing hands off
+  to the KDE PIM application.
 
 Save panel placement, visibility, sizes and focus with the layout. Provide
 keyboard access and clear context for actions, and preserve drafts and selection
@@ -152,7 +205,12 @@ claims that every component is implemented.
   drafts and sending feedback. Inspired by desktop mail workflows in Trojitá and
   Kontact.
 - **Attachments:** Show file names, sizes, loading progress and safe open or
-  save actions. Inspired by Aqua Mail and The Bat!.
+  save actions. Inspired by Aqua Mail and The Bat!. A first embedded panel
+  below the reader is implemented; see
+  [Current interface](#current-interface).
+- **My Day / Agenda:** Summarize today's events, due tasks and flagged or
+  follow-up mail in an embedded panel. Planned; see
+  [Embedded panels](#embedded-panels). Inspired by ePim and Kontact.
 - **Connection and task status:** Show account state, sync progress, errors and
   actionable recovery without interrupting reading. Inspired by KDE and Kontact
   desktop conventions.

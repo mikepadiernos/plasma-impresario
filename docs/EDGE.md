@@ -17,7 +17,7 @@ unconfirmed scenarios here.
 | Message content   | Malformed MIME, missing bodies, invalid dates and unusual encodings                                                                                                                                                   |
 | Account structure | Special folders, provider labels and duplicate folder names                                                                                                                                                           |
 | Multiple accounts | Two accounts on the same server and user, removing the active account, a background account with a rejected password, switching accounts during synchronization, and saved searches and folder counts after switching |
-| Attachments       | Large files, missing downloads and unsupported or unsafe types                                                                                                                                                        |
+| Attachments       | Large files, missing downloads, unsafe types, related parts with a `start` parameter (panel assumes the first part), and opened files kept in the temp folder                                                         |
 | Interface         | Narrow windows, display scaling, RTL locales and high-contrast modes                                                                                                                                                  |
 | Background work   | Cancellation, retry, overlapping sync and process restarts                                                                                                                                                            |
 
