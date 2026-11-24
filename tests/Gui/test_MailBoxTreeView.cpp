@@ -3,6 +3,7 @@
 */
 #include "Gui/MailBoxTreeView.h"
 #include "Imap/Model/ItemRoles.h"
+#include "Imap/Model/PrettyMailboxModel.h"
 
 #include <QApplication>
 #include <QSignalSpy>
@@ -25,6 +26,35 @@ private:
     }
 
 private slots:
+    void mailboxTooltipDoesNotReportUnknownCountsAsZero()
+    {
+        QStandardItemModel source;
+        auto *item = mailbox(QStringLiteral("Archive"));
+        item->setData(QStringLiteral("Archive"), Imap::Mailbox::RoleShortMailboxName);
+        source.appendRow(item);
+        Imap::Mailbox::PrettyMailboxModel model(nullptr, &source);
+        const QModelIndex index = model.index(0, 0);
+
+        const QString unknown = index.data(Qt::ToolTipRole).toString();
+        QVERIFY(!unknown.contains(QStringLiteral("0 message")));
+        QVERIFY(!unknown.contains(QStringLiteral("0 unread")));
+        QVERIFY(!unknown.contains(QStringLiteral("0 recent")));
+
+        item->setData(0, Imap::Mailbox::RoleTotalMessageCount);
+        const QString partial = index.data(Qt::ToolTipRole).toString();
+        QVERIFY(partial.contains(QStringLiteral("0 message")));
+        QVERIFY(!partial.contains(QStringLiteral("0 unread")));
+        QVERIFY(!partial.contains(QStringLiteral("0 recent")));
+
+        item->setData(12, Imap::Mailbox::RoleTotalMessageCount);
+        item->setData(3, Imap::Mailbox::RoleUnreadMessageCount);
+        item->setData(1, Imap::Mailbox::RoleRecentMessageCount);
+        const QString known = index.data(Qt::ToolTipRole).toString();
+        QVERIFY(known.contains(QStringLiteral("12")));
+        QVERIFY(known.contains(QStringLiteral("3")));
+        QVERIFY(known.contains(QStringLiteral("1")));
+    }
+
     void restoresWhenMailboxArrives()
     {
         QTemporaryDir directory;

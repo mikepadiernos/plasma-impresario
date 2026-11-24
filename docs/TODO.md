@@ -44,9 +44,9 @@ and project status before acting.
 ### M02 shell and account foundation
 
 - **Current state:** M02 #4, shell #35, skeleton #74, connection status #79,
-  account setup #78, account foundation #36 and protocol-aware account #215
-  are in Development. Session persistence #81 is in Review; density #75 and
-  dependency gate #77 are Completed; other M02
+  account setup #78, account foundation #36, folder counts and saved searches
+  #76 and protocol-aware account #215 are in Development. Session persistence
+  #81 is in Review; density #75 and dependency gate #77 are Completed; other M02
   issues are Defined. The
   `feature/m02-shell-accounts` branch adds a row-density selector; the
   continuation branch adds left/right folder sidebar placement in the compact
@@ -72,6 +72,10 @@ and project status before acting.
   close, quit and hidden-window quit. End-to-end message restoration across
   application restarts passed against disposable IMAP with and without
   WebEngine. Multi-account isolation remains to be verified with #222.
+- **Folder counts and saved searches:** #76 has existing unread indicators and
+  total, unread and recent counts in folder tooltips. Unknown counts are omitted
+  rather than reported as zero. Saved-search entry points and integration with
+  multiple accounts remain to be implemented and verified.
 - **Resume:** Implement and test the remaining M02 shell, account,
   protocol-capability and OAuth issues. Advance each issue through Review and
   Completed before checking its roadmap item; merge the milestone only when
