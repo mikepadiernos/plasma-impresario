@@ -129,19 +129,36 @@ private slots:
         QVERIFY(messages);
         QVERIFY(left);
         QVERIFY(right);
-        auto *splitter = qobject_cast<QSplitter *>(mailboxes->parentWidget());
-        QVERIFY(splitter);
-        QCOMPARE(splitter->indexOf(mailboxes), splitter->count() - 1);
+        auto *body = window.findChild<QSplitter *>(QStringLiteral("shellBody"));
+        auto *row = window.findChild<QSplitter *>(QStringLiteral("shellRow"));
+        auto *leftColumn = window.findChild<QSplitter *>(QStringLiteral("shellLeftColumn"));
+        auto *rightColumn = window.findChild<QSplitter *>(QStringLiteral("shellRightColumn"));
+        auto *mainColumn = window.findChild<QSplitter *>(QStringLiteral("shellMainColumn"));
+        auto *footer = window.findChild<QSplitter *>(QStringLiteral("shellFooter"));
+        QVERIFY(body && row && leftColumn && rightColumn && mainColumn && footer);
+        QCOMPARE(window.centralWidget(), body);
+        QCOMPARE(row->indexOf(leftColumn), 0);
+        QCOMPARE(row->indexOf(mainColumn), 1);
+        QCOMPARE(row->indexOf(rightColumn), 2);
+        QCOMPARE(body->indexOf(footer), 1);
+        QCOMPARE(mailboxes->parentWidget(), rightColumn);
         QVERIFY(right->isChecked());
         window.resize(1000, 700);
         window.show();
         QCoreApplication::processEvents();
-        splitter->setSizes({700, 200});
-        const int sidebarWidth = splitter->sizes().last();
+        QVERIFY(rightColumn->isVisible());
+        QVERIFY(!leftColumn->isVisible());
+        QVERIFY(!footer->isVisible());
+        QVERIFY(row->sizes().at(1) > row->sizes().last());
+        row->setSizes({0, 700, 200});
+        const int sidebarWidth = row->sizes().last();
         QVERIFY(sidebarWidth > 0);
         left->trigger();
-        QCOMPARE(splitter->indexOf(mailboxes), 0);
-        QVERIFY(qAbs(splitter->sizes().first() - sidebarWidth) <= 2);
+        QCOMPARE(mailboxes->parentWidget(), leftColumn);
+        QVERIFY(leftColumn->isVisible());
+        QVERIFY(!rightColumn->isVisible());
+        QVERIFY(qAbs(row->sizes().first() - sidebarWidth) <= 2);
+        QCOMPARE(row->sizes().last(), 0);
         config->reparseConfiguration();
         QCOMPARE(KConfigGroup(config, QStringLiteral("Appearance")).readEntry("MailboxSidebarPosition", QString()),
                  QStringLiteral("left"));
@@ -159,20 +176,21 @@ private slots:
         const int mailboxHeight = mailboxDelegate->sizeHint(option, index).height();
         const int messageHeight = messageDelegate->sizeHint(option, index).height();
 
-        const auto sizesBeforeDensityChange = splitter->sizes();
+        const auto sizesBeforeDensityChange = row->sizes();
         menu->actions().at(1)->trigger();
         QVERIFY(mailboxDelegate->sizeHint(option, index).height() > mailboxHeight);
         QVERIFY(messageDelegate->sizeHint(option, index).height() > messageHeight);
-        QCOMPARE(splitter->sizes(), sizesBeforeDensityChange);
+        QCOMPARE(row->sizes(), sizesBeforeDensityChange);
         QVERIFY(QMetaObject::invokeMethod(&window, "slotLayoutWide"));
-        splitter = qobject_cast<QSplitter *>(mailboxes->parentWidget());
-        QVERIFY(splitter);
-        QCOMPARE(splitter->count(), 3);
-        QCOMPARE(splitter->indexOf(mailboxes), 0);
+        QCOMPARE(mailboxes->parentWidget(), leftColumn);
+        QCOMPARE(mainColumn->orientation(), Qt::Horizontal);
+        QCOMPARE(mainColumn->count(), 2);
         auto *readerColumn = window.findChild<QSplitter *>(QStringLiteral("readerColumn"));
         QVERIFY(readerColumn);
         QCOMPARE(readerColumn->orientation(), Qt::Vertical);
-        QCOMPARE(readerColumn->parentWidget(), splitter);
+        QCOMPARE(readerColumn->parentWidget(), mainColumn);
+        QCOMPARE(mainColumn->indexOf(readerColumn), 1);
+        QVERIFY(mainColumn->isAncestorOf(messages));
 #ifdef TROJITA_HAVE_WEBENGINE
         auto *attachmentPanel = window.findChild<Gui::AttachmentPanel *>(QStringLiteral("attachmentPanel"));
         QVERIFY(attachmentPanel);
@@ -190,23 +208,50 @@ private slots:
         QVERIFY(attachmentPanel->isHidden());
         autoHideAction->trigger();
         QVERIFY(attachmentPanel->isVisible());
+
+        // The other embedded panels are off by default, so the shell looks like the classic layout
+        for (const char *name : {"messageDetailsPanel", "contactPanel", "relatedMessagesPanel"}) {
+            auto *panel = window.findChild<QWidget *>(QString::fromLatin1(name));
+            QVERIFY2(panel, name);
+            QVERIFY2(panel->isHidden(), name);
+            QCOMPARE(panel->parentWidget(), rightColumn);
+        }
+        QVERIFY(!rightColumn->isVisible());
+
+        auto *toRight = window.findChild<QAction *>(QStringLiteral("embeddedPanelAttachmentsPlacementRightColumn"));
+        auto *toReader = window.findChild<QAction *>(QStringLiteral("embeddedPanelAttachmentsPlacementBelowReader"));
+        QVERIFY(toRight);
+        QVERIFY(toReader);
+        toRight->trigger();
+        QCOMPARE(attachmentPanel->parentWidget(), rightColumn);
+        QCOMPARE(rightColumn->indexOf(attachmentPanel), 0);
+        QVERIFY(attachmentPanel->isVisible());
+        QVERIFY(rightColumn->isVisible());
+        QVERIFY(row->sizes().last() > 0);
+        toReader->trigger();
+        QCOMPARE(attachmentPanel->parentWidget(), readerColumn);
+        QCOMPARE(readerColumn->indexOf(attachmentPanel), 1);
+        QVERIFY(attachmentPanel->isVisible());
+        QVERIFY(!rightColumn->isVisible());
 #endif
         right->trigger();
-        QCOMPARE(splitter->indexOf(mailboxes), splitter->count() - 1);
+        QCOMPARE(mailboxes->parentWidget(), rightColumn);
+        QCOMPARE(rightColumn->indexOf(mailboxes), 0);
+        QVERIFY(!leftColumn->isVisible());
         QVERIFY(QMetaObject::invokeMethod(&window, "slotLayoutCompact"));
-        splitter = qobject_cast<QSplitter *>(mailboxes->parentWidget());
-        QVERIFY(splitter);
-        QVERIFY(qobject_cast<QSplitter *>(readerColumn->parentWidget()));
-        QCOMPARE(readerColumn->parentWidget()->parentWidget(), splitter);
-        QCOMPARE(splitter->indexOf(mailboxes), splitter->count() - 1);
-        QVERIFY(splitter->sizes().last() < splitter->sizes().first());
+        QCOMPARE(mailboxes->parentWidget(), rightColumn);
+        QCOMPARE(mainColumn->orientation(), Qt::Vertical);
+        QCOMPARE(readerColumn->parentWidget(), mainColumn);
+        QVERIFY(row->sizes().last() < row->sizes().at(1));
         QVERIFY(QMetaObject::invokeMethod(&window, "slotLayoutOneAtTime"));
         QVERIFY(qobject_cast<QStackedWidget *>(readerColumn->parentWidget()));
+        QVERIFY(qobject_cast<QStackedWidget *>(mailboxes->parentWidget()));
+        QVERIFY(!rightColumn->isVisible());
         QVERIFY(QMetaObject::invokeMethod(&window, "slotLayoutWide"));
-        splitter = qobject_cast<QSplitter *>(mailboxes->parentWidget());
-        QVERIFY(splitter);
-        QCOMPARE(splitter->indexOf(mailboxes), splitter->count() - 1);
-        QCOMPARE(readerColumn->parentWidget(), splitter);
+        QCOMPARE(mailboxes->parentWidget(), rightColumn);
+        QVERIFY(rightColumn->isVisible());
+        QCOMPARE(readerColumn->parentWidget(), mainColumn);
+        QCOMPARE(mainColumn->orientation(), Qt::Horizontal);
         QVERIFY(menu->actions().at(1)->isChecked());
 
         const QByteArray initialProfile = qgetenv("TROJITA_PROFILE");
@@ -222,15 +267,17 @@ private slots:
         QCOMPARE(submission->accountId(), initialProfile.isEmpty() ? QStringLiteral("account-0") : QString::fromUtf8(initialProfile));
         delete composer;
 
-        splitter->setSizes({450, 250, 150});
-        const QByteArray expectedSplitterState = splitter->saveState();
-        splitter->splitterMoved(450, 1);
+        row->setSizes({0, 760, 230});
+        const int expectedWidth = row->sizes().last();
+        QVERIFY(expectedWidth > 0);
+        row->splitterMoved(760, 2);
         window.close();
         settings.sync();
         const QString layoutGroup = Common::SettingsNames::guiSizesInMainWinWhenWide.arg(
             QString::number(window.screen()->availableGeometry().width()));
         settings.beginGroup(layoutGroup);
-        QCOMPARE(settings.value(Common::SettingsNames::mainHSplitterState).toByteArray(), expectedSplitterState);
+        QCOMPARE(settings.value(QStringLiteral("shellRightColumnWidth")).toInt(), expectedWidth);
+        QVERIFY(!settings.value(QStringLiteral("shellMainColumnState")).toByteArray().isEmpty());
         settings.endGroup();
     }
 };

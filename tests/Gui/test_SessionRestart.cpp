@@ -155,21 +155,18 @@ int runChild(QApplication &app, const QString &phase)
         messageModel->mailboxChanged(message);
         QSettings expected(QDir::home().filePath(QStringLiteral("expected.ini")), QSettings::IniFormat);
         if (layout != QLatin1String("one")) {
-            auto *splitter = qobject_cast<QSplitter *>(mailboxes->parentWidget());
-            const int count = layout == QLatin1String("wide") ? 3 : 2;
-            if (!splitter || splitter->count() != count)
+            auto *row = window.findChild<QSplitter *>(QStringLiteral("shellRow"));
+            auto *mainColumn = window.findChild<QSplitter *>(QStringLiteral("shellMainColumn"));
+            if (!row || !mainColumn || mailboxes->parentWidget() != window.findChild<QSplitter *>(QStringLiteral("shellRightColumn")))
                 return 4;
-            splitter->setSizes(count == 3 ? QList<int>{450, 250, 150} : QList<int>{600, 200});
-            splitter->splitterMoved(450, 1);
-            saveSplitterSizes(expected, splitter, QStringLiteral("horizontal"));
-            if (layout == QLatin1String("compact")) {
-                auto *vertical = splitter->findChild<QSplitter *>();
-                if (!vertical || vertical->count() != 2)
-                    return 13;
-                vertical->setSizes({400, 200});
-                vertical->splitterMoved(400, 1);
-                saveSplitterSizes(expected, vertical, QStringLiteral("vertical"));
-            }
+            row->setSizes({0, 700, 200});
+            row->splitterMoved(700, 2);
+            saveSplitterSizes(expected, row, QStringLiteral("row"));
+            if (mainColumn->count() != 2)
+                return 13;
+            mainColumn->setSizes({400, 200});
+            mainColumn->splitterMoved(400, 1);
+            saveSplitterSizes(expected, mainColumn, QStringLiteral("main"));
         }
         expected.sync();
         if (expected.status() != QSettings::NoError)
@@ -187,21 +184,21 @@ int runChild(QApplication &app, const QString &phase)
     if (!menu->actions().at(1)->isChecked())
         return 6;
     if (layout == QLatin1String("one")) {
-        if (!qobject_cast<Gui::OnePanelAtTimeWidget *>(window.centralWidget()))
+        if (!window.findChild<Gui::OnePanelAtTimeWidget *>() || !qobject_cast<Gui::OnePanelAtTimeWidget *>(mailboxes->parentWidget()))
             return 6;
     } else {
-        auto *splitter = qobject_cast<QSplitter *>(mailboxes->parentWidget());
-        const int count = layout == QLatin1String("wide") ? 3 : 2;
-        if (!splitter || splitter->count() != count || splitter->indexOf(mailboxes) != count - 1)
+        auto *row = window.findChild<QSplitter *>(QStringLiteral("shellRow"));
+        auto *mainColumn = window.findChild<QSplitter *>(QStringLiteral("shellMainColumn"));
+        auto *rightColumn = window.findChild<QSplitter *>(QStringLiteral("shellRightColumn"));
+        if (!row || !mainColumn || !rightColumn || mailboxes->parentWidget() != rightColumn)
             return 6;
+        if (mainColumn->orientation() != (layout == QLatin1String("wide") ? Qt::Horizontal : Qt::Vertical))
+            return 7;
         QSettings expected(QDir::home().filePath(QStringLiteral("expected.ini")), QSettings::IniFormat);
-        if (!matchesSplitterSizes(expected, splitter, QStringLiteral("horizontal")))
+        if (!matchesSplitterSizes(expected, row, QStringLiteral("row")))
             return 8;
-        if (layout == QLatin1String("compact")) {
-            auto *vertical = splitter->findChild<QSplitter *>();
-            if (!vertical || !matchesSplitterSizes(expected, vertical, QStringLiteral("vertical")))
-                return 8;
-        }
+        if (!matchesSplitterSizes(expected, mainColumn, QStringLiteral("main")))
+            return 8;
     }
     KConfigGroup selection(KSharedConfig::openStateConfig(), QStringLiteral("MailboxSelection"));
     const KConfigGroup account = selection.group(window.imapAccess()->credentialAccountId());

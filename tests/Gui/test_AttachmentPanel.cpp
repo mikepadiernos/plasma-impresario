@@ -185,34 +185,45 @@ private slots:
         auto config = KSharedConfig::openConfig(path, KConfig::SimpleConfig);
 
         Host host;
-        Gui::EmbeddedPanelsMenu menu(host.panel, config);
-        QVERIFY(menu.attachmentsAction()->isChecked());
-        QVERIFY(!menu.attachmentsAutoHideAction()->isChecked());
-        QVERIFY(menu.attachmentsAutoHideAction()->isEnabled());
-        QCOMPARE(menu.attachmentsAction()->objectName(), QStringLiteral("embeddedPanelAttachments"));
-        QCOMPARE(menu.attachmentsAutoHideAction()->objectName(), QStringLiteral("embeddedPanelAttachmentsAutoHide"));
+        Gui::EmbeddedPanelsMenu menu(config);
+        menu.addPanel(host.panel);
+        QAction *visible = menu.visibleAction(host.panel);
+        QAction *autoHide = menu.autoHideAction(host.panel);
+        QVERIFY(visible->isChecked());
+        QVERIFY(!autoHide->isChecked());
+        QVERIFY(autoHide->isEnabled());
+        QCOMPARE(visible->objectName(), QStringLiteral("embeddedPanelAttachments"));
+        QCOMPARE(autoHide->objectName(), QStringLiteral("embeddedPanelAttachmentsAutoHide"));
+        QVERIFY(menu.placementAction(host.panel, Gui::EmbeddedPanel::Placement::BelowReader)->isChecked());
+        QCOMPARE(host.panel->placement(), Gui::EmbeddedPanel::Placement::BelowReader);
         QVERIFY(host.panel->isVisible());
 
-        menu.attachmentsAutoHideAction()->trigger();
+        autoHide->trigger();
         QVERIFY(host.panel->autoHide());
         QVERIFY(host.panel->isHidden());
-        menu.attachmentsAction()->trigger();
+        visible->trigger();
         QVERIFY(!host.panel->isPanelEnabled());
-        QVERIFY(!menu.attachmentsAutoHideAction()->isEnabled());
+        QVERIFY(!autoHide->isEnabled());
+        menu.placementAction(host.panel, Gui::EmbeddedPanel::Placement::Footer)->trigger();
+        QCOMPARE(host.panel->placement(), Gui::EmbeddedPanel::Placement::Footer);
 
         auto reread = KSharedConfig::openConfig(path, KConfig::SimpleConfig);
         reread->reparseConfiguration();
         const KConfigGroup appearance(reread, QStringLiteral("Appearance"));
         QCOMPARE(appearance.readEntry("AttachmentPanelVisible", true), false);
         QCOMPARE(appearance.readEntry("AttachmentPanelAutoHide", false), true);
+        QCOMPARE(appearance.readEntry("AttachmentPanelPlacement", QString()), QStringLiteral("footer"));
 
         Host restored;
-        Gui::EmbeddedPanelsMenu restoredMenu(restored.panel, reread);
-        QVERIFY(!restoredMenu.attachmentsAction()->isChecked());
-        QVERIFY(restoredMenu.attachmentsAutoHideAction()->isChecked());
-        QVERIFY(!restoredMenu.attachmentsAutoHideAction()->isEnabled());
+        Gui::EmbeddedPanelsMenu restoredMenu(reread);
+        restoredMenu.addPanel(restored.panel);
+        QVERIFY(!restoredMenu.visibleAction(restored.panel)->isChecked());
+        QVERIFY(restoredMenu.autoHideAction(restored.panel)->isChecked());
+        QVERIFY(!restoredMenu.autoHideAction(restored.panel)->isEnabled());
+        QVERIFY(restoredMenu.placementAction(restored.panel, Gui::EmbeddedPanel::Placement::Footer)->isChecked());
         QVERIFY(!restored.panel->isPanelEnabled());
         QVERIFY(restored.panel->autoHide());
+        QCOMPARE(restored.panel->placement(), Gui::EmbeddedPanel::Placement::Footer);
         QVERIFY(restored.panel->isHidden());
     }
 };
