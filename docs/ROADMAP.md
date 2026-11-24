@@ -197,7 +197,12 @@ installation depends on the working renderer.
 - [ ] Include The Bat!-style power-user workflows: batch actions, filtering, and dense desktop processing [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569139)
 - [ ] Add advanced sorting and threading controls for date, relevance, and conversation grouping [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569324)
 - [ ] This milestone is the blocker for all reading/search and productivity work that depends on real mailbox behavior [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569335)
-- [ ] Provide readable compact message rows with clear sender, subject, date, unread, flag, and attachment indicators [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569342)
+- [ ] Present an Aqua Mail-inspired multi-line message list with readable
+  sender, subject, date, unread, flag, and attachment indicators, optional
+  previews and contact images, accessible quick actions, and configurable
+  density. Preserve account and folder context in combined views. See the
+  [message list design](philosophy/designs.md#message-list-presentation).
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569342)
 - [ ] Add predictable multi-selection, keyboard shortcuts, and progress or error feedback for batch operations [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569349)
 - [ ] Define folder actions and confirmation or recovery behavior for destructive message operations [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569359)
 - [ ] Support account and folder scoped views and preserve selection and sort state during message updates [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569367)

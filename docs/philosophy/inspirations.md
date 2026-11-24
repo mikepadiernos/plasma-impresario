@@ -34,10 +34,12 @@ and privacy independently. Review each project's license before reusing code.
 ## Aqua Mail
 
 - Project: https://www.aqua-mail.com/
+- Reference:
+  [Customization](https://www.aqua-mail.com/android/features/customizations)
 - Why it matters: Aqua Mail is a strong reference for modern mobile-first mail
   workflow clarity.
 - Takeaways:
-  - Simple, readable message list density
+  - Simple, readable message list density and multi-line message summaries
   - Thoughtful handling of quick actions and conversation flow
   - Strong support for account grouping and low-friction navigation
   - Fast, readable filters and search flows

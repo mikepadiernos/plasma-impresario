@@ -121,6 +121,32 @@ mail and utility or menu actions with expanding space. This toolbar is separate
 from movable sidebar panels. See the
 [navigation toolbar](../refinements/toolbars/main-window-toolbar.md).
 
+### Message list presentation
+
+Use an Aqua Mail-inspired, multi-line message list as the target presentation,
+adapted to a keyboard- and mouse-driven Plasma desktop. Each row emphasizes the
+sender and subject, with the date or time, unread state, flag and attachment
+indicators easy to scan. Show an optional short message preview when available;
+identify the source account and folder in combined views.
+
+```text
+Sender name                                  10:42  flag  attachment
+Subject
+Optional message preview...
+```
+
+Allow compact and comfortable spacing, optional contact images and preview text,
+and date grouping when supported. Keep selection distinct from unread state, and
+preserve clear focus, keyboard navigation and accessible names for indicators
+and actions. Quick actions must also be available without a pointer. Follow the
+active Plasma theme and handle narrow panes, long text and text scaling without
+hiding essential state. Do not fetch remote contact images or message bodies
+merely to populate rows without the user's privacy choice.
+
+See Aqua Mail's
+[customization reference](https://www.aqua-mail.com/android/features/customizations).
+These are proposed Impresario behaviors, not claims about the current client.
+
 ## Proposed interface widgets
 
 These are in-app interface components, not Plasma desktop widgets. They adapt
