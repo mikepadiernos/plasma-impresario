@@ -81,9 +81,11 @@ and decryption results. Resize the panes once after upgrading; the new sizes
 are saved.
 
 **Proposed improvements:** add an opt-in server-side search on `Message-ID`,
-`References` and sender, optionally across folders; feed the details panel
-from the reader's verification result, including inline PGP. Migrating the
-old splitter sizes is optional before release.
+`References` and sender, optionally across folders (M04,
+[#302](https://github.com/mikepadiernos/plasma-impresario/issues/302)); feed
+the details panel from the reader's verification result, including inline PGP
+(M04, [#303](https://github.com/mikepadiernos/plasma-impresario/issues/303)).
+Migrating the old splitter sizes is optional before release.
 
 ## Before reporting results
 

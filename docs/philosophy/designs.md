@@ -134,10 +134,13 @@ placement and visibility of supporting panels.
   main-column space, preserve the message-list and reader state.
 - **Sliding and floating panels:** Treat these as additional, configurable
   placements outside the five fixed regions, following the Plasma Opus target
-  design.
+  design. Planned for M12.02 with rearranging panels in the customization mode
+  ([#307](https://github.com/mikepadiernos/plasma-impresario/issues/307)).
 - **Header and footer:** Keep global actions and connection context accessible
   in the header, and provide sync progress, errors and background-work status in
-  the footer.
+  the footer. The footer shows connection status today; the designed header
+  is planned for M12.02
+  ([#306](https://github.com/mikepadiernos/plasma-impresario/issues/306)).
 
 ### Embedded panels
 
@@ -149,9 +152,16 @@ move focus or selection, and a hidden panel's size is restored when it returns.
 - **Attachments (implemented):** below the reader by default, or in a side
   column or the footer; see [Current interface](#current-interface).
 - **Message details, contacts and related messages (implemented):** see
-  [Current interface](#current-interface). Verified signer details, address-book
-  photos and related messages across folders remain planned.
-- **My Day / Agenda (planned, not implemented):** a daily overview beside the
+  [Current interface](#current-interface). Verified signer details
+  ([M04, #303](https://github.com/mikepadiernos/plasma-impresario/issues/303)),
+  address-book details
+  ([M05, #305](https://github.com/mikepadiernos/plasma-impresario/issues/305))
+  and related messages across folders
+  ([M04, #302](https://github.com/mikepadiernos/plasma-impresario/issues/302))
+  remain planned.
+- **My Day / Agenda (planned for M05, not implemented,
+  [#304](https://github.com/mikepadiernos/plasma-impresario/issues/304)):** a
+  daily overview beside the
   mail workflow. Content:
   - today's events and upcoming meetings, with time, title, location and a join
     or open action;

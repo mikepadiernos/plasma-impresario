@@ -156,13 +156,30 @@ installation depends on the working renderer.
 [Accounts and mailbox state](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540057)
 
 - [ ] Build a Plasma Opus-inspired shell with a header, left column, main
-  column, right column, and footer. Place sidebar panels on either side;
-  arrange message-list and reading panes side by side or stacked in the main
-  column; and support configurable embedded panels for metadata, attachments,
-  contact information, and related content. Existing widgets and panes, such
-  as the folder tree, message list, and reader, should keep their current
-  appearance and layout, adapted to the new shell and design. See the
-  [shell and interface widget designs](philosophy/designs.md).
+  column, right column, and footer. Existing widgets and panes, such as the
+  folder tree, message list, and reader, keep their current appearance and
+  layout, adapted to the new shell, so the default look is unchanged. See the
+  [shell and interface widget designs](philosophy/designs.md). In scope:
+  - Keep the current toolbar and menus as the header, and show connection
+    status in the footer.
+  - Place the mailbox sidebar in either side column, and arrange the message
+    list and reader side by side, stacked, or one panel at a time in the main
+    column.
+  - Show side columns and the footer only while they hold content, and save
+    region sizes, sidebar side, and layout per layout.
+  - Provide attachments, message details, contacts, and related messages
+    embedded panels. Each can be shown, hidden when empty, and placed below
+    the reader, in either side column, or in the footer; include shown panels
+    in F6 focus cycling.
+  - Verify the shell in a real Plasma session.
+
+  Deferred: server-side related messages and verified security details to
+  [M04](#m04-reading-search-and-conversation-flow); the My Day / Agenda panel
+  and address-book contacts to
+  [M05](#m05-desktop-integration-and-provider-support); the designed header,
+  per-region toolbars, and sliding, floating, or rearrangeable panels to
+  [M12.02](#m12-refinements); optional tabs to
+  [M07](#m07-settings-and-workspace-configuration).
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314539964)
 - [ ] Define account models, connection state, folder structure, and mailbox lifecycle [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540057)
 - [x] Support multiple simultaneous mail accounts in one window with independent account state and configuration [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314607650)
@@ -217,7 +234,9 @@ Caveats: [multiple accounts](CAVEATS.md#multiple-accounts)
 [Composition and sending](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540653)
 
 - [ ] Build the reading pane with metadata, preview controls, attachments, and action buttons [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540493)
+- [ ] Show the reader's verified signature and decryption results, including inline PGP, in the message details panel [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317147460)
 - [ ] Add search, thread-aware grouping, saved filters, and conversation navigation [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540557)
+- [ ] Search related messages on the server and across folders as an opt-in option of the related messages panel [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317147283)
 - [ ] Improve the preview panel for readability and fast triage [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569371)
 - [ ] Ensure keyboard navigation works for desktop-heavy usage [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569380)
 - [ ] Validate the full reading flow from list selection through reading and response actions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569544)
@@ -245,6 +264,8 @@ Caveats: [multiple accounts](CAVEATS.md#multiple-accounts)
   unread-count, sync-status, and compose widgets. See the
   [integration design](integrations/kde-plasma.md#plasma-widgets).
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=315433787)
+- [ ] Provide a My Day / Agenda embedded panel with today's events, due tasks, and flagged or follow-up mail, using KDE PIM and Akonadi when available and mail-derived items otherwise. See the [design](philosophy/designs.md#embedded-panels). [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317147641)
+- [ ] Show KDE address-book names, photos, and organizations in the contacts panel, with open and add actions, without remote lookups [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317147800)
 - [ ] Add provider support for Gmail, Outlook, and other major mail services alongside IMAP [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540857)
 - [ ] Support consumer Outlook.com, Hotmail, and Live accounts using provider-supported OAuth and mail interfaces [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314595964)
 - [ ] Support Exchange Online and on-premises Exchange Server mail accounts using supported interfaces and authentication, subject to server and tenant policies [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314595997)
@@ -622,6 +643,8 @@ to mail workflows without blocking this milestone on unavailable features.
     full-app-height placement at either window edge, from the top of the header
     to the bottom of the status bar; other toolbars remain horizontal.
     [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571181)
+  - [ ] Build the designed header with search, compose, the account switcher, and connection status, as a toolbar region in the shared customization mode [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317147971)
+  - [ ] Add sliding and floating panel placements, and rearrange sidebar and embedded panels between regions in the customization mode [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317148200)
   - [ ] Verify keyboard-only navigation, visible focus, and predictable focus restoration after dialogs and actions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571193)
   - [ ] Validate compact, comfortable, and focus modes at narrow window sizes and different display scales [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571207)
   - [ ] Keep menu and toolbar actions synchronized with the active account, folder, and selection, including while views refresh [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571217)

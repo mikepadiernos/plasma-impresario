@@ -131,8 +131,12 @@ and project status before acting.
   opens the same mailbox in a VNC view for manual checks. Not verified: a
   real Plasma session. Saved pane sizes reset once after upgrading; see
   [caveat #264](CAVEATS.md#related-messages-and-message-details-panels).
-  Still planned: the My Day / Agenda panel and per-region toolbars, which are
-  outside #35.
+  Remaining for #35 before Completed: verification in a real Plasma session.
+  Deferred out of #35 (all Backlog): server-side related messages #302 and
+  verified security details #303 (M04); the My Day / Agenda panel #304 and
+  address-book contacts #305 (M05); the designed header #306 and sliding,
+  floating or rearrangeable panels #307 (M12.02, with per-region toolbars in
+  #151); optional tabs #246 (M07).
 - **Blocked, #218:** OAuth needs XOAUTH2 or OAUTHBEARER authentication in the
   IMAP layer, which has none, and a token source. KAccounts and signond are
   installed, but token retrieval and renewal cannot be verified without a
