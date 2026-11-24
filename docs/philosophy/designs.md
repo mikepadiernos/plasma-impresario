@@ -78,7 +78,8 @@ change:
   or encrypted at the MIME level. Rows without a value are hidden.
 - **Contacts** (right column): the From, Reply-To, To and Cc addresses, each
   listed once with all its roles, with Write Email, Copy Address and Open in
-  Address Book actions. The address-book action is available only when an
+  Address Book actions. Reply-To is listed only when it names other addresses
+  than From. The address-book action is available only when an
   address-book plugin is loaded.
 - **Related Messages** (right column): messages of the current folder in the
   same conversation (same subject without reply prefixes, or linked through

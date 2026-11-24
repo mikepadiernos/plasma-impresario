@@ -37,6 +37,34 @@ The container has no Plasma session. Verify desktop integration, including
 KWallet, notifications, Akonadi, icon theming, and window behavior, in a real
 Plasma session.
 
+### Live mail, screenshots and a VNC view
+
+These scripts start a disposable, loopback-only Dovecot with synthetic
+accounts and messages. Its data is deleted when the script ends. Build first.
+
+```sh
+tools/dev-container/run.sh sh tools/dev-container/live-imap-accounts.sh
+tools/dev-container/run.sh sh tools/dev-container/live-imap-panels.sh
+tools/dev-container/vnc.sh
+```
+
+- `live-imap-accounts.sh` connects several accounts and switches between
+  them.
+- `live-imap-panels.sh` seeds a conversation, a message with attachments and
+  a signed message, checks the details, contact, related messages and
+  attachments panels, and saves layout screenshots to
+  `build/shell-screenshots/`.
+- `vnc.sh` runs the application on a virtual display with the same seeded
+  mailbox. Connect to `vnc://localhost:5901` with the password `synthvnc`;
+  the port is published on the host's loopback interface only. Quit the
+  application to stop.
+
+The screenshots and the VNC view use plain Qt with the Fusion look, not the
+Plasma theme, so spacing, fonts and icons differ from Plasma. In the VNC
+view, a newly opened dialog or tooltip can stay black until it is moved; press
+Return or Escape to answer a black dialog. The session trusts its own
+synthetic server certificate in advance, so no certificate prompt appears.
+
 ## Submitting changes
 
 This repository originated in KDE's Trojitá project. Upstream KDE uses merge

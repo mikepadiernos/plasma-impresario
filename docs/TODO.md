@@ -121,9 +121,15 @@ and project status before acting.
   stays on below the reader by default; the new message details (metadata),
   contact and related messages panels are off by default in the right column,
   so the default look is unchanged. Offscreen tests cover placement, sidebar
-  swaps, hiding empty regions, one-panel layout and size persistence. Not
-  verified: a real Plasma session and live IMAP with the new panels. Saved
-  pane sizes reset once after upgrading; see
+  swaps, hiding empty regions, one-panel layout and size persistence. The
+  opt-in `test_LiveImapPanels`, run by
+  `tools/dev-container/live-imap-panels.sh`, verified the details, contact,
+  related messages and attachments panels against a synthetic Dovecot
+  mailbox with a conversation, attachments and a signed message, and saves
+  layout screenshots. It found that Contacts listed the sender twice when a
+  message has no Reply-To header, which is fixed. `tools/dev-container/vnc.sh`
+  opens the same mailbox in a VNC view for manual checks. Not verified: a
+  real Plasma session. Saved pane sizes reset once after upgrading; see
   [caveat #264](CAVEATS.md#related-messages-and-message-details-panels).
   Still planned: the My Day / Agenda panel and per-region toolbars, which are
   outside #35.
