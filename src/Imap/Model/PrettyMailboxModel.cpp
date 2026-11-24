@@ -37,6 +37,56 @@ PrettyMailboxModel::PrettyMailboxModel(QObject *parent, QAbstractItemModel *mail
 {
     setDynamicSortFilter(true);
     setSourceModel(mailboxModel);
+    sort(0);
+}
+
+QIcon PrettyMailboxModel::specialFolderIcon(SpecialUse kind)
+{
+    QStringList names;
+    switch (kind) {
+    case SpecialUse::None:
+        return QIcon();
+    case SpecialUse::Inbox:
+        names = {QStringLiteral("mail-folder-inbox")};
+        break;
+    case SpecialUse::Drafts:
+        names = {QStringLiteral("mail-folder-drafts"), QStringLiteral("document-properties"), QStringLiteral("document-edit")};
+        break;
+    case SpecialUse::Sent:
+        names = {QStringLiteral("mail-folder-sent"), QStringLiteral("mail-folder-outbox")};
+        break;
+    case SpecialUse::Archive:
+        names = {QStringLiteral("mail-folder-archive"), QStringLiteral("folder-archive"), QStringLiteral("folder-tar")};
+        break;
+    case SpecialUse::Junk:
+        names = {QStringLiteral("mail-folder-junk"), QStringLiteral("mail-mark-junk")};
+        break;
+    case SpecialUse::Trash:
+        names = {QStringLiteral("mail-folder-trash"), QStringLiteral("user-trash"), QStringLiteral("folder-trash")};
+        break;
+    case SpecialUse::All:
+        names = {QStringLiteral("mail-folder-all"), QStringLiteral("folder-mail")};
+        break;
+    case SpecialUse::Flagged:
+        names = {QStringLiteral("mail-folder-flagged"), QStringLiteral("folder-important"), QStringLiteral("mail-flag")};
+        break;
+    }
+    for (const QString &name : std::as_const(names)) {
+        const QIcon icon = UiUtils::loadIcon(name);
+        if (!icon.isNull())
+            return icon;
+    }
+    return QIcon();
+}
+
+bool PrettyMailboxModel::lessThan(const QModelIndex &left, const QModelIndex &right) const
+{
+    const int leftRank = SpecialFolder::sortRank(static_cast<SpecialUse>(left.data(RoleMailboxSpecialUse).toInt()));
+    const int rightRank = SpecialFolder::sortRank(static_cast<SpecialUse>(right.data(RoleMailboxSpecialUse).toInt()));
+    if (leftRank != rightRank)
+        return leftRank < rightRank;
+    // Keep the source order (INBOX first, then by name) among ordinary folders
+    return left.row() < right.row();
 }
 
 QVariant PrettyMailboxModel::data(const QModelIndex &index, int role) const
@@ -102,6 +152,9 @@ QVariant PrettyMailboxModel::data(const QModelIndex &index, int role) const
         QModelIndex translated = mapToSource(index);
         if (translated.data(RoleMailboxItemsAreLoading).toBool())
             return UiUtils::loadIcon(QStringLiteral("folder-grey"));
+        if (const QIcon special = specialFolderIcon(static_cast<SpecialUse>(translated.data(RoleMailboxSpecialUse).toInt()));
+            !special.isNull())
+            return special;
         else if (translated.data(RoleMailboxIsINBOX).toBool())
             return UiUtils::loadIcon(QStringLiteral("mail-folder-inbox"));
         else if (translated.data(RoleRecentMessageCount).toInt() > 0)

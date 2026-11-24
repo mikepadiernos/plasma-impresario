@@ -22,7 +22,9 @@
 #ifndef PRETTYMAILBOXMODEL_H
 #define PRETTYMAILBOXMODEL_H
 
+#include <QIcon>
 #include <QSortFilterProxyModel>
+#include "SpecialFolder.h"
 
 namespace Imap
 {
@@ -30,7 +32,11 @@ namespace Imap
 namespace Mailbox
 {
 
-/** @short A pretty proxy model which increases sexiness of the MailboxModel */
+/** @short A pretty proxy model which increases sexiness of the MailboxModel
+
+Special folders (see RoleMailboxSpecialUse) get their own icons and come first among their
+siblings in the canonical order; all other mailboxes keep the order of the source model.
+*/
 class PrettyMailboxModel: public QSortFilterProxyModel
 {
     Q_OBJECT
@@ -41,6 +47,12 @@ public:
     bool filterAcceptsRow(int source_row, const QModelIndex &source_parent) const override;
     /** @short Override in order to prevent needless LIST commands */
     bool hasChildren(const QModelIndex &parent=QModelIndex()) const override;
+
+    /** @short Themed icon for a special folder, or a null icon for SpecialUse::None */
+    static QIcon specialFolderIcon(SpecialUse kind);
+
+protected:
+    bool lessThan(const QModelIndex &left, const QModelIndex &right) const override;
 
 public slots:
     void setShowOnlySubscribed(bool filterUnsubscribed);
