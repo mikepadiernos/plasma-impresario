@@ -364,6 +364,9 @@ void ImapAccess::doConnect()
     m_imapModel->setProperty("trojita-imap-id-no-versions", !m_appSettings->value(Common::SettingsNames::interopRevealVersions, true).toBool());
     m_imapModel->setProperty("trojita-imap-idle-renewal", m_appSettings->value(Common::SettingsNames::imapIdleRenewal).toUInt() * 60 * 1000);
     m_imapModel->setNumberRefreshInterval(numberRefreshInterval());
+    const auto archiveFolderName = m_settings->value(Common::SettingsNames::imapArchiveFolderName).toString();
+    m_imapModel->setArchiveFolderName(archiveFolderName.isEmpty() ? Common::SettingsNames::imapDefaultArchiveFolderName
+                                                                  : archiveFolderName);
     connect(m_imapModel, &Mailbox::Model::alertReceived, this, &ImapAccess::alertReceived);
     connect(m_imapModel, &Mailbox::Model::imapError, this, &ImapAccess::imapError);
     connect(m_imapModel, &Mailbox::Model::networkError, this, &ImapAccess::networkError);

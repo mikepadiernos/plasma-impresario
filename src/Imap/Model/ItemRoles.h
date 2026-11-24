@@ -252,6 +252,9 @@ enum {
     */
     RoleAttachmentContentDispositionMode,
 
+    /** @short Special use of a mailbox (Imap::Mailbox::SpecialUse converted to int, see SpecialFolder.h) */
+    RoleMailboxSpecialUse,
+
     /** @short The very last role */
     RoleInvalidLastOne
 };

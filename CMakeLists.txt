@@ -500,6 +500,7 @@ set(libImap_SOURCES
     ${path_Imap}/Model/FavoriteTagsModel.cpp
     ${path_Imap}/Model/ParserState.cpp
     ${path_Imap}/Model/PrettyMailboxModel.cpp
+    ${path_Imap}/Model/SpecialFolder.cpp
     ${path_Imap}/Model/PrettyMsgListModel.cpp
     ${path_Imap}/Model/SpecialFlagNames.cpp
     ${path_Imap}/Model/SQLCache.cpp

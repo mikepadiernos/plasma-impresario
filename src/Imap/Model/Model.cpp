@@ -21,6 +21,7 @@
 */
 
 #include <algorithm>
+#include <functional>
 #include <QAbstractProxyModel>
 #include <QAuthenticator>
 #include <QCoreApplication>
@@ -137,6 +138,17 @@ Model::Model(QObject *parent, std::shared_ptr<AbstractCache> cache, SocketFactor
     // polling every five minutes
     m_periodicMailboxNumbersRefresh->setInterval(5 * 60 * 1000);
     connect(m_periodicMailboxNumbersRefresh, &QTimer::timeout, this, &Model::invalidateAllMessageCounts);
+
+    // Special folders depend on the whole mailbox tree. They are classified lazily, and a deferred pass tells
+    // views about mailboxes whose classification changed because some other part of the tree did.
+    m_specialFoldersTimer = new QTimer(this);
+    m_specialFoldersTimer->setSingleShot(true);
+    m_specialFoldersTimer->setInterval(0);
+    connect(m_specialFoldersTimer, &QTimer::timeout, this, &Model::announceSpecialFolders);
+    connect(this, &QAbstractItemModel::rowsInserted, this, &Model::handleMailboxRowsChanged);
+    connect(this, &QAbstractItemModel::rowsRemoved, this, &Model::handleMailboxRowsChanged);
+    connect(this, &QAbstractItemModel::modelReset, this, &Model::invalidateSpecialFolders);
+    connect(this, &QAbstractItemModel::layoutChanged, this, &Model::invalidateSpecialFolders);
 }
 
 Model::~Model()
@@ -1325,6 +1337,92 @@ TreeItemChildrenList::iterator Model::findMessageOrNextOneByUid(TreeItemMsgList 
 TreeItemMailbox *Model::findMailboxByName(const QString &name) const
 {
     return findMailboxByName(name, m_mailboxes);
+}
+
+void Model::setArchiveFolderName(const QString &name)
+{
+    if (m_archiveFolderName == name)
+        return;
+    m_archiveFolderName = name;
+    invalidateSpecialFolders();
+}
+
+QString Model::archiveFolderName() const
+{
+    return m_archiveFolderName;
+}
+
+SpecialUse Model::mailboxSpecialUse(const QString &mailbox) const
+{
+    ensureSpecialFoldersResolved();
+    return m_specialFolders.kindOf(mailbox);
+}
+
+QString Model::specialFolderMailbox(SpecialUse kind) const
+{
+    ensureSpecialFoldersResolved();
+    return m_specialFolders.mailboxFor(kind);
+}
+
+void Model::handleMailboxRowsChanged(const QModelIndex &parent)
+{
+    // Message lists and message parts live in the same model; only the mailbox tree matters here
+    if (!parent.isValid() || dynamic_cast<TreeItemMailbox *>(translatePtr(parent)))
+        invalidateSpecialFolders();
+}
+
+void Model::invalidateSpecialFolders()
+{
+    m_specialFoldersDirty = true;
+    m_specialFoldersTimer->start();
+}
+
+void Model::ensureSpecialFoldersResolved() const
+{
+    if (!m_specialFoldersDirty)
+        return;
+    m_specialFoldersDirty = false;
+
+    // Walk only what has been listed already; asking for more would make the model talk to the server
+    QList<SpecialFolder::Candidate> candidates;
+    std::function<void(const TreeItemMailbox *)> collect = [&](const TreeItemMailbox *parent) {
+        for (int i = 1; i < parent->m_children.size(); ++i) {
+            const auto *mailbox = static_cast<const TreeItemMailbox *>(parent->m_children[i]);
+            candidates.append({mailbox->mailbox(), mailbox->separator(), mailbox->mailboxMetadata().flags,
+                               mailbox->isSelectable()});
+            collect(mailbox);
+        }
+    };
+    collect(m_mailboxes);
+    m_specialFolders = SpecialFolder::resolve(candidates, m_archiveFolderName);
+}
+
+void Model::announceSpecialFolders()
+{
+    ensureSpecialFoldersResolved();
+    if (m_specialFolders == m_announcedSpecialFolders)
+        return;
+
+    QStringList changed;
+    for (auto it = m_specialFolders.byMailbox.constBegin(); it != m_specialFolders.byMailbox.constEnd(); ++it) {
+        if (m_announcedSpecialFolders.kindOf(it.key()) != it.value())
+            changed << it.key();
+    }
+    for (auto it = m_announcedSpecialFolders.byMailbox.constBegin(); it != m_announcedSpecialFolders.byMailbox.constEnd(); ++it) {
+        if (!m_specialFolders.byMailbox.contains(it.key()))
+            changed << it.key();
+    }
+    const bool targetsChanged = m_specialFolders.primary != m_announcedSpecialFolders.primary;
+    m_announcedSpecialFolders = m_specialFolders;
+
+    for (const QString &name : std::as_const(changed)) {
+        if (TreeItemMailbox *mailbox = findMailboxByName(name)) {
+            const QModelIndex index = mailbox->toIndex(this);
+            emit dataChanged(index, index);
+        }
+    }
+    if (targetsChanged)
+        emit specialFoldersChanged();
 }
 
 TreeItemMailbox *Model::findMailboxByName(const QString &name, const TreeItemMailbox *const root) const

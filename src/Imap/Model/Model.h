@@ -36,6 +36,7 @@
 #include "FlagsOperation.h"
 #include "NetworkPolicy.h"
 #include "ParserState.h"
+#include "SpecialFolder.h"
 #include "TaskFactory.h"
 
 #include "Common/Logging.h"
@@ -299,6 +300,19 @@ public:
 
     QString imapAuthError() const;
 
+    /** @short Set the account's archive folder, which counts as a special Archive mailbox */
+    void setArchiveFolderName(const QString &name);
+    QString archiveFolderName() const;
+
+    /** @short Special use of a mailbox which is already known to the model
+
+    Only the part of the mailbox tree that has already been listed is classified; see SpecialFolder::resolve().
+    */
+    SpecialUse mailboxSpecialUse(const QString &mailbox) const;
+
+    /** @short Selectable mailbox to open for the given special use, or an empty string if there is none */
+    QString specialFolderMailbox(SpecialUse kind) const;
+
 public slots:
     /** @short Ask for an updated list of mailboxes on the server */
     void reloadMailboxList();
@@ -426,6 +440,9 @@ signals:
     void imapUserChanged();
 
     void imapPasswordChanged();
+
+    /** @short The mailbox returned by specialFolderMailbox() changed for at least one kind */
+    void specialFoldersChanged();
 
 private:
     Model &operator=(const Model &);  // don't implement
@@ -585,6 +602,19 @@ private:
     QTimer *m_periodicMailboxNumbersRefresh;
 
     QStringList m_capabilitiesBlacklist;
+
+    void handleMailboxRowsChanged(const QModelIndex &parent);
+    void invalidateSpecialFolders();
+    void ensureSpecialFoldersResolved() const;
+    void announceSpecialFolders();
+
+    QString m_archiveFolderName;
+    /** @short Classification of the current mailbox tree, recomputed lazily */
+    mutable SpecialFolder::Resolution m_specialFolders;
+    mutable bool m_specialFoldersDirty = true;
+    /** @short Classification that views and specialFoldersChanged() listeners were last told about */
+    SpecialFolder::Resolution m_announcedSpecialFolders;
+    QTimer *m_specialFoldersTimer = nullptr;
 
 protected slots:
     void responseReceived();

@@ -245,6 +245,8 @@ QVariant TreeItemMailbox::data(Model *const model, int role)
     }
     case RoleMailboxIsSubscribed:
         return QVariant::fromValue<bool>(m_metadata.flags.contains(QStringLiteral("\\SUBSCRIBED")));
+    case RoleMailboxSpecialUse:
+        return static_cast<int>(model->mailboxSpecialUse(mailbox()));
     default:
         return QVariant();
     }
