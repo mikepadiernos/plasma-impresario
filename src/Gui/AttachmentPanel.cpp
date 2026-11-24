@@ -8,18 +8,14 @@
 #include <QDesktopServices>
 #include <QDir>
 #include <QFileDialog>
-#include <QHBoxLayout>
-#include <QLabel>
 #include <QListWidget>
 #include <QMenu>
 #include <QMimeData>
 #include <QMimeDatabase>
-#include <QStackedWidget>
 #include <QTemporaryFile>
 #include <QTimer>
 #include <QToolButton>
 #include <QUrl>
-#include <QVBoxLayout>
 #include <memory>
 
 #include "Common/Paths.h"
@@ -57,11 +53,6 @@ protected:
     }
 };
 
-QIcon themedIcon(const QString &name)
-{
-    return QIcon::fromTheme(name + QLatin1String("-symbolic"), QIcon::fromTheme(name));
-}
-
 QIcon iconForMimeType(const QString &rawMime)
 {
     const QIcon fallback = QIcon::fromTheme(QStringLiteral("mail-attachment"));
@@ -91,46 +82,28 @@ QString displayName(const QModelIndex &part)
 
 }
 
+EmbeddedPanel::Descriptor AttachmentPanel::panelDescriptor()
+{
+    Descriptor descriptor;
+    descriptor.id = QStringLiteral("Attachments");
+    descriptor.configKey = QStringLiteral("AttachmentPanel");
+    descriptor.title = i18nc("@title embedded panel", "Attachments");
+    descriptor.autoHideToolTip = i18nc("@info:tooltip", "Show the attachments panel only while the current message has attachments");
+    descriptor.defaultEnabled = true;
+    descriptor.defaultPlacement = Placement::BelowReader;
+    return descriptor;
+}
+
 AttachmentPanel::AttachmentPanel(QWidget *parent)
-    : QFrame(parent)
-    , m_title(new QLabel(this))
-    , m_stack(new QStackedWidget(this))
-    , m_placeholder(new QLabel(m_stack))
-    , m_list(new AttachmentList(m_stack))
-    , m_open(new QToolButton(this))
-    , m_save(new QToolButton(this))
+    : EmbeddedPanel(panelDescriptor(), QStringLiteral("attachmentPanel"), parent)
+    , m_list(new AttachmentList(this))
     , m_refreshTimer(new QTimer(this))
 {
-    setObjectName(QStringLiteral("attachmentPanel"));
-    setAccessibleName(i18nc("@title embedded panel", "Attachments"));
-    setFrameStyle(QFrame::StyledPanel | QFrame::Plain);
-
-    m_title->setObjectName(QStringLiteral("attachmentPanelTitle"));
-    QFont titleFont = m_title->font();
-    titleFont.setBold(true);
-    m_title->setFont(titleFont);
-
-    const auto setUpButton = [](QToolButton *button, const QString &objectName, const QString &icon, const QString &text) {
-        button->setObjectName(objectName);
-        button->setIcon(themedIcon(icon));
-        button->setText(text);
-        button->setToolTip(text);
-        button->setAccessibleName(text);
-        button->setAutoRaise(true);
-        button->setIconSize(QSize(16, 16));
-        button->setToolButtonStyle(Qt::ToolButtonIconOnly);
-    };
-    setUpButton(m_open, QStringLiteral("attachmentPanelOpen"), QStringLiteral("document-open"),
-                i18nc("@action:button", "Open Attachment"));
-    setUpButton(m_save, QStringLiteral("attachmentPanelSave"), QStringLiteral("document-save-as"),
-                i18nc("@action:button", "Save Attachment As…"));
+    m_open = addHeaderButton(QStringLiteral("Open"), QStringLiteral("document-open"), i18nc("@action:button", "Open Attachment"));
+    m_save = addHeaderButton(QStringLiteral("Save"), QStringLiteral("document-save-as"),
+                             i18nc("@action:button", "Save Attachment As…"));
     connect(m_open, &QToolButton::clicked, this, &AttachmentPanel::openCurrent);
     connect(m_save, &QToolButton::clicked, this, &AttachmentPanel::saveCurrent);
-
-    m_placeholder->setObjectName(QStringLiteral("attachmentPanelPlaceholder"));
-    m_placeholder->setAlignment(Qt::AlignCenter);
-    m_placeholder->setEnabled(false);
-    m_placeholder->setWordWrap(true);
 
     m_list->setObjectName(QStringLiteral("attachmentPanelList"));
     m_list->setAccessibleName(i18nc("@label", "Attachments of the current message"));
@@ -144,22 +117,7 @@ AttachmentPanel::AttachmentPanel(QWidget *parent)
     connect(m_list, &QListWidget::itemActivated, this, &AttachmentPanel::openCurrent);
     connect(m_list, &QListWidget::currentItemChanged, this, &AttachmentPanel::updateActions);
     connect(m_list, &QWidget::customContextMenuRequested, this, &AttachmentPanel::showContextMenu);
-
-    m_stack->addWidget(m_placeholder);
-    m_stack->addWidget(m_list);
-    m_stack->setMinimumHeight(fontMetrics().height() * 2);
-
-    auto *header = new QHBoxLayout;
-    header->setContentsMargins(0, 0, 0, 0);
-    header->addWidget(m_title);
-    header->addStretch();
-    header->addWidget(m_open);
-    header->addWidget(m_save);
-
-    auto *layout = new QVBoxLayout(this);
-    layout->addLayout(header);
-    layout->addWidget(m_stack, 1);
-    m_title->setBuddy(m_list);
+    setContentWidget(m_list);
 
     m_refreshTimer->setSingleShot(true);
     m_refreshTimer->setInterval(0);
@@ -172,21 +130,6 @@ void AttachmentPanel::setNetworkAccessManager(Imap::Network::MsgPartNetAccessMan
 {
     m_netAccess = manager;
     updateActions();
-}
-
-bool AttachmentPanel::isPanelEnabled() const
-{
-    return m_enabled;
-}
-
-bool AttachmentPanel::autoHide() const
-{
-    return m_autoHide;
-}
-
-bool AttachmentPanel::shouldBeShown() const
-{
-    return m_enabled && (!m_autoHide || !m_attachments.isEmpty());
 }
 
 int AttachmentPanel::attachmentCount() const
@@ -204,14 +147,22 @@ QWidget *AttachmentPanel::listView() const
     return m_list;
 }
 
+bool AttachmentPanel::hasContent() const
+{
+    return !m_attachments.isEmpty();
+}
+
+QWidget *AttachmentPanel::focusTarget() const
+{
+    return m_list;
+}
+
 QSize AttachmentPanel::sizeHint() const
 {
     QSize hint = QFrame::sizeHint();
     const int rows = qBound(1, m_list->count(), MaximumRowsInSizeHint);
     const int rowHeight = m_list->count() ? m_list->sizeHintForRow(0) : fontMetrics().height() * 2;
-    const QMargins margins = contentsMargins() + layout()->contentsMargins();
-    hint.setHeight(margins.top() + margins.bottom() + qMax(m_title->sizeHint().height(), m_open->sizeHint().height())
-                   + layout()->spacing() + rows * rowHeight + 2 * m_list->frameWidth());
+    hint.setHeight(chromeHeight() + rows * rowHeight + 2 * m_list->frameWidth());
     return hint;
 }
 
@@ -231,22 +182,6 @@ void AttachmentPanel::setMessageModel(QAbstractItemModel *model)
                            << connect(model, &QObject::destroyed, this, [this]() { setMessageModel(nullptr); });
     }
     refresh();
-}
-
-void AttachmentPanel::setPanelEnabled(bool enabled)
-{
-    if (m_enabled == enabled)
-        return;
-    m_enabled = enabled;
-    updateVisibility();
-}
-
-void AttachmentPanel::setAutoHide(bool autoHide)
-{
-    if (m_autoHide == autoHide)
-        return;
-    m_autoHide = autoHide;
-    updateVisibility();
 }
 
 void AttachmentPanel::scheduleRefresh()
@@ -281,15 +216,16 @@ void AttachmentPanel::refresh()
             m_list->setCurrentRow(0);
     }
 
-    if (!m_model) {
-        m_placeholder->setText(i18nc("@info", "No message selected"));
+    if (!m_attachments.isEmpty()) {
+        showContent();
+    } else if (!m_model) {
+        showPlaceholder(i18nc("@info", "No message selected"));
     } else {
         const QVariant fetched = m_model->index(0, 0).data(Imap::Mailbox::RoleIsFetched);
-        m_placeholder->setText(fetched.isValid() && !fetched.toBool() ? i18nc("@info", "Loading message…")
-                                                                       : i18nc("@info", "This message has no attachments"));
+        showPlaceholder(fetched.isValid() && !fetched.toBool() ? i18nc("@info", "Loading message…")
+                                                               : i18nc("@info", "This message has no attachments"));
     }
-    m_stack->setCurrentWidget(m_attachments.isEmpty() ? static_cast<QWidget *>(m_placeholder) : m_list);
-    m_title->setText(m_attachments.isEmpty()
+    setTitle(m_attachments.isEmpty()
                          ? i18nc("@title embedded panel", "Attachments")
                          : i18ncp("@title embedded panel", "%1 Attachment", "%1 Attachments", m_attachments.size()));
     updateActions();
@@ -303,17 +239,6 @@ void AttachmentPanel::updateActions()
     const bool usable = currentPart().isValid() && m_netAccess;
     m_open->setEnabled(usable);
     m_save->setEnabled(usable);
-}
-
-void AttachmentPanel::updateVisibility()
-{
-    // A never-shown child reports isHidden() without being explicitly hidden, so track what was applied.
-    const bool show = shouldBeShown();
-    if (m_appliedVisibility == int(show))
-        return;
-    m_appliedVisibility = int(show);
-    setVisible(show);
-    emit relevanceChanged(show);
 }
 
 QPersistentModelIndex AttachmentPanel::currentPart() const

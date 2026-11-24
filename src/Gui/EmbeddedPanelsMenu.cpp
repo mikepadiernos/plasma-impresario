@@ -5,60 +5,133 @@
 
 #include <KConfigGroup>
 #include <KLocalizedString>
+#include <QActionGroup>
 #include <QDebug>
-
-#include "AttachmentPanel.h"
 
 namespace Gui {
 
-EmbeddedPanelsMenu::EmbeddedPanelsMenu(AttachmentPanel *attachments, KSharedConfigPtr config, QWidget *parent)
+namespace {
+
+QString placementActionSuffix(EmbeddedPanel::Placement placement)
+{
+    switch (placement) {
+    case EmbeddedPanel::Placement::BelowReader:
+        return QStringLiteral("BelowReader");
+    case EmbeddedPanel::Placement::LeftColumn:
+        return QStringLiteral("LeftColumn");
+    case EmbeddedPanel::Placement::RightColumn:
+        return QStringLiteral("RightColumn");
+    case EmbeddedPanel::Placement::Footer:
+        return QStringLiteral("Footer");
+    }
+    return QString();
+}
+
+QString boolValue(bool value)
+{
+    return value ? QStringLiteral("true") : QStringLiteral("false");
+}
+
+}
+
+EmbeddedPanelsMenu::EmbeddedPanelsMenu(KSharedConfigPtr config, QWidget *parent)
     : QMenu(parent)
-    , m_attachments(attachments)
     , m_config(config)
 {
     setObjectName(QStringLiteral("embeddedPanelsMenu"));
     setTitle(i18nc("@title:menu", "Embedded Panels"));
+}
 
-    m_attachmentsAction = addAction(i18nc("@option:check embedded panel", "Attachments"));
-    m_attachmentsAction->setObjectName(QStringLiteral("embeddedPanelAttachments"));
-    m_attachmentsAction->setCheckable(true);
-    m_attachmentsAutoHideAction = addAction(i18nc("@option:check", "Hide Attachments Panel When Empty"));
-    m_attachmentsAutoHideAction->setObjectName(QStringLiteral("embeddedPanelAttachmentsAutoHide"));
-    m_attachmentsAutoHideAction->setCheckable(true);
-    m_attachmentsAutoHideAction->setToolTip(
-        i18nc("@info:tooltip", "Show the attachments panel only while the current message has attachments"));
+void EmbeddedPanelsMenu::addPanel(EmbeddedPanel *panel)
+{
+    const auto &descriptor = panel->descriptor();
+    const QString actionName = QLatin1String("embeddedPanel") + descriptor.id;
+    const QString key = descriptor.configKey;
+
+    auto *submenu = addMenu(descriptor.title);
+    submenu->setObjectName(actionName + QLatin1String("Menu"));
+    submenu->setToolTipsVisible(true);
+
+    Entry entry{panel, nullptr, nullptr, {}};
+    entry.visible = submenu->addAction(i18nc("@option:check embedded panel", "Show Panel"));
+    entry.visible->setObjectName(actionName);
+    entry.visible->setCheckable(true);
+    entry.autoHide = submenu->addAction(i18nc("@option:check embedded panel", "Hide When Empty"));
+    entry.autoHide->setObjectName(actionName + QLatin1String("AutoHide"));
+    entry.autoHide->setCheckable(true);
+    entry.autoHide->setToolTip(descriptor.autoHideToolTip);
+
+    submenu->addSection(i18nc("@title:menu embedded panel position", "Position"));
+    auto *group = new QActionGroup(submenu);
+    group->setExclusive(true);
+    for (const auto placement : EmbeddedPanel::placements()) {
+        auto *action = submenu->addAction(EmbeddedPanel::placementTitle(placement));
+        action->setObjectName(actionName + QLatin1String("Placement") + placementActionSuffix(placement));
+        action->setCheckable(true);
+        action->setData(QVariant::fromValue(placement));
+        group->addAction(action);
+        entry.placements.append(action);
+    }
 
     const KConfigGroup appearance(m_config, QStringLiteral("Appearance"));
-    const bool visible = appearance.readEntry("AttachmentPanelVisible", true);
-    const bool autoHide = appearance.readEntry("AttachmentPanelAutoHide", false);
-    m_attachmentsAction->setChecked(visible);
-    m_attachmentsAutoHideAction->setChecked(autoHide);
-    m_attachmentsAutoHideAction->setEnabled(visible);
-    m_attachments->setAutoHide(autoHide);
-    m_attachments->setPanelEnabled(visible);
+    const bool visible = appearance.readEntry(key + QLatin1String("Visible"), descriptor.defaultEnabled);
+    const bool autoHide = appearance.readEntry(key + QLatin1String("AutoHide"), false);
+    const auto placement = EmbeddedPanel::placementFromId(
+        appearance.readEntry(key + QLatin1String("Placement"), EmbeddedPanel::placementId(descriptor.defaultPlacement)),
+        descriptor.defaultPlacement);
+    entry.visible->setChecked(visible);
+    entry.autoHide->setChecked(autoHide);
+    entry.autoHide->setEnabled(visible);
+    entry.placements.at(EmbeddedPanel::placements().indexOf(placement))->setChecked(true);
+    panel->setAutoHide(autoHide);
+    panel->setPlacement(placement);
+    panel->setPanelEnabled(visible);
 
-    connect(m_attachmentsAction, &QAction::toggled, this, [this](bool checked) {
-        m_attachments->setPanelEnabled(checked);
-        m_attachmentsAutoHideAction->setEnabled(checked);
-        save("AttachmentPanelVisible", checked);
+    connect(entry.visible, &QAction::toggled, this, [this, panel, key, autoHideAction = entry.autoHide](bool checked) {
+        panel->setPanelEnabled(checked);
+        autoHideAction->setEnabled(checked);
+        save(key + QLatin1String("Visible"), boolValue(checked));
     });
-    connect(m_attachmentsAutoHideAction, &QAction::toggled, this, [this](bool checked) {
-        m_attachments->setAutoHide(checked);
-        save("AttachmentPanelAutoHide", checked);
+    connect(entry.autoHide, &QAction::toggled, this, [this, panel, key](bool checked) {
+        panel->setAutoHide(checked);
+        save(key + QLatin1String("AutoHide"), boolValue(checked));
     });
+    connect(group, &QActionGroup::triggered, this, [this, panel, key](QAction *action) {
+        const auto placement = action->data().value<EmbeddedPanel::Placement>();
+        panel->setPlacement(placement);
+        save(key + QLatin1String("Placement"), EmbeddedPanel::placementId(placement));
+    });
+    m_entries.append(entry);
 }
 
-QAction *EmbeddedPanelsMenu::attachmentsAction() const
+const EmbeddedPanelsMenu::Entry *EmbeddedPanelsMenu::entry(const EmbeddedPanel *panel) const
 {
-    return m_attachmentsAction;
+    for (const auto &entry : m_entries) {
+        if (entry.panel == panel)
+            return &entry;
+    }
+    return nullptr;
 }
 
-QAction *EmbeddedPanelsMenu::attachmentsAutoHideAction() const
+QAction *EmbeddedPanelsMenu::visibleAction(const EmbeddedPanel *panel) const
 {
-    return m_attachmentsAutoHideAction;
+    const auto *found = entry(panel);
+    return found ? found->visible : nullptr;
 }
 
-void EmbeddedPanelsMenu::save(const char *key, bool value)
+QAction *EmbeddedPanelsMenu::autoHideAction(const EmbeddedPanel *panel) const
+{
+    const auto *found = entry(panel);
+    return found ? found->autoHide : nullptr;
+}
+
+QAction *EmbeddedPanelsMenu::placementAction(const EmbeddedPanel *panel, EmbeddedPanel::Placement placement) const
+{
+    const auto *found = entry(panel);
+    return found ? found->placements.value(EmbeddedPanel::placements().indexOf(placement)) : nullptr;
+}
+
+void EmbeddedPanelsMenu::save(const QString &key, const QString &value)
 {
     KConfigGroup appearance(m_config, QStringLiteral("Appearance"));
     appearance.writeEntry(key, value);

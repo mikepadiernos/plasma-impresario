@@ -3,14 +3,13 @@
 */
 #pragma once
 
-#include <QFrame>
 #include <QPersistentModelIndex>
 #include <QPointer>
 
+#include "EmbeddedPanel.h"
+
 class QAbstractItemModel;
-class QLabel;
 class QListWidget;
-class QStackedWidget;
 class QTimer;
 class QToolButton;
 
@@ -25,50 +24,41 @@ namespace Gui {
 /** @short Embedded panel listing the attachments of the message shown in the reader
 
 The panel follows the reader's per-message part model and refreshes when parts
-arrive later, for example after decryption. Whether it is shown depends on two
-user preferences: the panel can be turned off, and it can hide itself while there
-is nothing to list (no message, or a message without attachments).
+arrive later, for example after decryption. It is enabled by default and placed
+below the reader; with auto-hide it is only shown while the message has attachments.
 */
-class AttachmentPanel : public QFrame
+class AttachmentPanel : public EmbeddedPanel
 {
     Q_OBJECT
 public:
     explicit AttachmentPanel(QWidget *parent = nullptr);
 
-    void setNetworkAccessManager(Imap::Network::MsgPartNetAccessManager *manager);
+    static Descriptor panelDescriptor();
 
-    /** Whether the user wants the panel at all (default: true) */
-    bool isPanelEnabled() const;
-    /** Whether the panel hides itself while there are no attachments to list (default: false) */
-    bool autoHide() const;
-    /** Whether the panel should currently be shown, given the preferences and the current message */
-    bool shouldBeShown() const;
+    void setNetworkAccessManager(Imap::Network::MsgPartNetAccessManager *manager);
 
     int attachmentCount() const;
     QList<QPersistentModelIndex> attachments() const;
     /** The attachment list, which receives keyboard focus when the panel is entered */
     QWidget *listView() const;
 
+    bool hasContent() const override;
+    QWidget *focusTarget() const override;
     QSize sizeHint() const override;
 
 public slots:
     /** Follow the part model of a message; nullptr, or the model being destroyed, means no message */
     void setMessageModel(QAbstractItemModel *model);
-    void setPanelEnabled(bool enabled);
-    void setAutoHide(bool autoHide);
     void openCurrent();
     void saveCurrent();
 
 signals:
     void transferError(const QString &errorString);
-    /** Emitted when the panel is shown or hidden because of the preferences or the current message */
-    void relevanceChanged(bool shown);
 
 private:
     void scheduleRefresh();
     void refresh();
     void updateActions();
-    void updateVisibility();
     void showContextMenu(const QPoint &pos);
     QPersistentModelIndex currentPart() const;
 
@@ -76,16 +66,10 @@ private:
     QPointer<Imap::Network::MsgPartNetAccessManager> m_netAccess;
     QList<QPersistentModelIndex> m_attachments;
     QList<QMetaObject::Connection> m_modelConnections;
-    QLabel *m_title;
-    QStackedWidget *m_stack;
-    QLabel *m_placeholder;
     QListWidget *m_list;
     QToolButton *m_open;
     QToolButton *m_save;
     QTimer *m_refreshTimer;
-    bool m_enabled = true;
-    bool m_autoHide = false;
-    int m_appliedVisibility = -1;
 };
 
 }

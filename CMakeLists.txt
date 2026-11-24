@@ -384,12 +384,14 @@ endif()
 set(path_DesktopGui ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui)
 set(libDesktopGui_SOURCES
     ${path_DesktopGui}/AttachmentPanel.cpp
+    ${path_DesktopGui}/ContactPanel.cpp
     ${path_DesktopGui}/ColoredItemDelegate.cpp
     ${path_DesktopGui}/ComposeWidget.cpp
     ${path_DesktopGui}/ComposerAttachmentsList.cpp
     ${path_DesktopGui}/ComposerTextEdit.cpp
     ${path_DesktopGui}/DensityDelegate.cpp
     ${path_DesktopGui}/DensityMenu.cpp
+    ${path_DesktopGui}/EmbeddedPanel.cpp
     ${path_DesktopGui}/EmbeddedPanelsMenu.cpp
     ${path_DesktopGui}/ExternalElementsWidget.cpp
     ${path_DesktopGui}/FlowLayout.cpp
@@ -397,6 +399,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/LineEdit.cpp
     ${path_DesktopGui}/MailBoxTreeView.cpp
     ${path_DesktopGui}/MessageActionHandler.cpp
+    ${path_DesktopGui}/MessageDetailsPanel.cpp
     ${path_DesktopGui}/MessageListWidget.cpp
     ${path_DesktopGui}/MessageSelectionRestorer.cpp
     ${path_DesktopGui}/MsgItemDelegate.cpp
@@ -406,6 +409,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/PasswordDialog.cpp
     ${path_DesktopGui}/ProgressPopUp.cpp
     ${path_DesktopGui}/ProtocolLoggerWidget.cpp
+    ${path_DesktopGui}/RelatedMessagesPanel.cpp
     ${path_DesktopGui}/ReplaceCharValidator.cpp
     ${path_DesktopGui}/SettingsDialog.cpp
     ${path_DesktopGui}/Spinner.cpp
