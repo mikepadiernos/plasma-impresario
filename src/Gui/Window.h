@@ -149,6 +149,7 @@ private slots:
     void slotShowSettings();
     void slotAddAccount();
     void slotRemoveAccount();
+    void removeAccountNow(const QString &accountId);
     void slotRenameAccount();
     void slotShowImapInfo();
     void slotExpunge();

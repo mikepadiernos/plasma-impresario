@@ -7,6 +7,8 @@
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/Model.h"
+#include "Plugins/PasswordPlugin.h"
+#include "Plugins/PluginManager.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -17,8 +19,10 @@
 #include <KLocalizedString>
 #include <QApplication>
 #include <QComboBox>
+#include <QFile>
 #include <QFileInfo>
 #include <QSettings>
+#include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -140,6 +144,37 @@ private slots:
         QVERIFY(switcher->itemData(0, Qt::ToolTipRole).toString().isEmpty());
         QCOMPARE(switcher->itemText(0), QStringLiteral("Work"));
         QCOMPARE(switcher->currentText(), QStringLiteral("Home"));
+    }
+
+    void removingAccountDeletesItsSettingsAndPasswords()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        settings.setValue(Common::SettingsNames::passwordPlugin, QStringLiteral("cleartextpassword"));
+
+        Gui::MainWindow window(&settings);
+        QTRY_VERIFY(window.pluginManager()->password() != nullptr);
+        auto *password = window.pluginManager()->password();
+        auto *store = password->storePassword(QStringLiteral("account-2"), QStringLiteral("imap"), QStringLiteral("home-secret"));
+        QSignalSpy stored(store, &Plugins::PasswordJob::passwordStored);
+        store->setAutoDelete(true);
+        store->start();
+        QVERIFY(stored.wait(1000));
+        QVERIFY(settings.contains(QStringLiteral("accountPasswords/account-2/imap")));
+
+        QVERIFY(QMetaObject::invokeMethod(&window, "removeAccountNow", Q_ARG(QString, QStringLiteral("account-2"))));
+        QTRY_VERIFY(!settings.contains(QStringLiteral("accountPasswords/account-2/imap")));
+        QVERIFY(!QFile::exists(directory.filePath(QStringLiteral("main-account-2.conf"))));
+        QCOMPARE(settings.value(QStringLiteral("accounts/ids")).toStringList(), QStringList{QStringLiteral("account-1")});
+        auto *switcher = accountSwitcher(window);
+        QVERIFY(switcher);
+        QCOMPARE(switcher->count(), 1);
+        QCOMPARE(window.imapAccess()->server(), QStringLiteral("work.example.test"));
+
+        QVERIFY(QMetaObject::invokeMethod(&window, "removeAccountNow", Q_ARG(QString, QStringLiteral("account-1"))));
+        QCOMPARE(switcher->count(), 1);
     }
 };
 

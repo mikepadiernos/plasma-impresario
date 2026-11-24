@@ -20,17 +20,33 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <QRegularExpression>
 #include <QString>
 #include <QSettings>
 
 #include "ClearTextPassword.h"
 
-struct Settings
+namespace {
+
+const QString imapPassKey = QStringLiteral("imap.auth.pass");
+const QString smtpPassKey = QStringLiteral("msa.smtp.auth.pass");
+
+/**
+ * Return the settings key that holds a password, or an empty string for an unsupported account type.
+ * Accounts created by the account registry ("account-1" and up) get their own key; the default and
+ * named profiles keep the original keys.
+ */
+QString passwordKey(const QString &accountId, const QString &accountType)
 {
-static QString imapPassKey, smtpPassKey;
-};
-QString Settings::imapPassKey = QStringLiteral("imap.auth.pass");
-QString Settings::smtpPassKey = QStringLiteral("msa.smtp.auth.pass");
+    if (accountType != QLatin1String("imap") && accountType != QLatin1String("smtp"))
+        return QString();
+    static const QRegularExpression registryAccount(QStringLiteral("^account-[1-9][0-9]*$"));
+    if (registryAccount.match(accountId).hasMatch())
+        return QStringLiteral("accountPasswords/%1/%2").arg(accountId, accountType);
+    return accountType == QLatin1String("imap") ? imapPassKey : smtpPassKey;
+}
+
+}
 
 ClearTextPasswordJob::ClearTextPasswordJob(const QString &accountId, const QString &accountType, const QString &password,
     enum Type type, QObject *parent, QSettings *settings) :
@@ -40,45 +56,27 @@ ClearTextPasswordJob::ClearTextPasswordJob(const QString &accountId, const QStri
 
 void ClearTextPasswordJob::doStart()
 {
-    QVariant password;
+    const QString key = passwordKey(m_accountId, m_accountType);
+    if (key.isEmpty()) {
+        emit error(PasswordJob::UnknownError, tr("This plugin only supports storing of IMAP and SMTP passwords"));
+        return;
+    }
     switch (m_type) {
-    case Request:
-        if (m_accountType == QLatin1String("imap")) {
-            password = m_settings->value(Settings::imapPassKey);
-        } else if (m_accountType == QLatin1String("smtp")) {
-            password = m_settings->value(Settings::smtpPassKey);
-        } else {
-            emit error(PasswordJob::UnknownError, tr("This plugin only supports storing of IMAP and SMTP passwords"));
-            break;
-        }
+    case Request: {
+        const QVariant password = m_settings->value(key);
         if (password.typeId() != QMetaType::QString || password.toString().isEmpty()) {
             emit error(PasswordJob::NoSuchPassword, QString());
         } else {
             emit passwordAvailable(password.toString());
         }
         break;
-
+    }
     case Store:
-        if (m_accountType == QLatin1String("imap")) {
-            m_settings->setValue(Settings::imapPassKey, m_password);
-        } else if (m_accountType == QLatin1String("smtp")) {
-            m_settings->setValue(Settings::smtpPassKey, m_password);
-        } else {
-            emit error(PasswordJob::UnknownError, tr("This plugin only supports storing of IMAP and SMTP passwords"));
-            break;
-        }
+        m_settings->setValue(key, m_password);
         emit passwordStored();
         break;
-
     case Delete:
-        if (m_accountType == QLatin1String("imap")) {
-            m_settings->remove(Settings::imapPassKey);
-        } else if (m_accountType == QLatin1String("smtp")) {
-            m_settings->remove(Settings::smtpPassKey);
-        } else {
-            emit error(PasswordJob::UnknownError, tr("This plugin only supports storing of IMAP and SMTP passwords"));
-            break;
-        }
+        m_settings->remove(key);
         emit passwordDeleted();
         break;
     }

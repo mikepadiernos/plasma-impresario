@@ -1808,10 +1808,8 @@ void MainWindow::slotRenameAccount()
 
 void MainWindow::slotRemoveAccount()
 {
-    QStringList remaining = m_accounts->accountIds();
     const QString accountId = m_accounts->activeAccount();
-    remaining.removeOne(accountId);
-    if (remaining.isEmpty()) {
+    if (m_accounts->accountIds().size() < 2) {
         Gui::Util::messageBoxWarning(this, i18n("Cannot Remove Account"), i18n("At least one account is required."));
         return;
     }
@@ -1819,7 +1817,25 @@ void MainWindow::slotRemoveAccount()
                               i18n("Remove account \"%1\" and its settings? Messages on the server are not affected.",
                                    m_accounts->displayName(accountId))) != QMessageBox::Yes)
         return;
-    switchAccount(remaining.first());
+    removeAccountNow(accountId);
+}
+
+void MainWindow::removeAccountNow(const QString &accountId)
+{
+    QStringList remaining = m_accounts->accountIds();
+    if (!remaining.removeOne(accountId) || remaining.isEmpty())
+        return;
+    if (accountId == m_accounts->activeAccount())
+        switchAccount(remaining.first());
+    Imap::ImapAccess *access = accountAccess(accountId);
+    if (Plugins::PasswordPlugin *password = pluginManager()->password()) {
+        for (const QString &type : {QStringLiteral("imap"), QStringLiteral("smtp")}) {
+            if (Plugins::PasswordJob *job = password->deletePassword(access->credentialAccountId(), type)) {
+                job->setAutoDelete(true);
+                job->start();
+            }
+        }
+    }
     delete m_accountAccess.take(accountId);
     m_accountStatus->forget(accountId);
     m_accounts->removeAccount(accountId);
