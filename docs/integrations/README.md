@@ -7,10 +7,10 @@ Integration guides itemize the intended behavior, suggested implementation
 approaches, recommendations and verification scenarios for each integration.
 They separate planned work from the current mail baseline.
 
-| Guide                         | Purpose                                               |
-| ----------------------------- | ----------------------------------------------------- |
-| [KDE Plasma](kde-plasma.md)   | Desktop services, KDE conventions and system behavior |
-| [Plasma Opus](plasma-opus.md) | Cross-app, workspace and productivity workflows       |
+| Guide                         | Purpose                                                |
+| ----------------------------- | ------------------------------------------------------ |
+| [KDE Plasma](kde-plasma.md)   | Desktop services, KDE conventions and system behavior  |
+| [Plasma Opus](plasma-opus.md) | Cross-app, workspace, theme and productivity workflows |
 
 > [!IMPORTANT]
 >

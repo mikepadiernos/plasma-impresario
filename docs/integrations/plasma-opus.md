@@ -30,6 +30,7 @@ Plasma Opus. Plasma Opus status was checked on 2026-11-24.
 | `org.freedesktop.FileManager1` service (M27.01, [plasma-opus#279](https://github.com/mikepadiernos/plasma-opus/issues/279)) | Planned                             | Show saved attachments in the file manager                                    | M05, [#266](https://github.com/mikepadiernos/plasma-impresario/issues/266) |
 | KDE Online Accounts (M27.06) and Nextcloud shares (M29)                                                                     | Planned                             | Reuse the same Nextcloud identity and insert reviewed share links into drafts | M11, [#267](https://github.com/mikepadiernos/plasma-impresario/issues/267) |
 | Workspaces (M15) and Plasma Activities (M27.01)                                                                             | Workspaces done; Activities planned | Follow the same Activities so mail and file workspaces switch together        | M07 workspace settings                                                     |
+| App-local themes and theme profiles (M17, M18)                                                                              | Planned                             | Import its theme or follow it, and export ours for it to import               | M08, [#268](https://github.com/mikepadiernos/plasma-impresario/issues/268) |
 | Default file manager registration (M27.01)                                                                                  | Done                                | Folders opened through KIO use Plasma Opus when it is the default             | No change needed                                                           |
 
 ## Calendar and scheduling
@@ -105,6 +106,27 @@ Plasma Opus. Plasma Opus status was checked on 2026-11-24.
 - **Verify:** Test cancellation, unavailable applications, denied permissions,
   incomplete downloads and failed uploads with isolated files. Open files with
   and without Plasma Opus serving the portal file chooser.
+
+## Themes and appearance
+
+- **What:** Carry theme settings over between Plasma Impresario and Plasma Opus
+  in both directions, so both apps can share one look without changing the
+  desktop's global appearance.
+- **How:** Agree on a versioned theme profile format with Plasma Opus, whose
+  M17 and M18 milestones plan app-local presets, palette roles, theme profiles
+  and an optional Qt Style Sheet. Plasma Impresario imports a Plasma Opus
+  profile once or keeps following it when it changes, and exports its own
+  profile for Plasma Opus to import. Exchange profiles through export and
+  import files or a documented shared location; neither app writes the other's
+  configuration. Store the choice in KConfig.
+- **Recommendations:** Follow the active Plasma color scheme by default and
+  keep applying a shared theme opt-in, previewable and reversible. Validate
+  profiles, ignore unknown palette roles, keep text, selection and focus
+  readable, never execute code from theme files and block external resources
+  in stylesheets. Fall back to the Plasma color scheme when a profile is
+  missing, invalid or unsupported.
+- **Verify:** Test import, export, following changes, invalid and missing
+  profiles, and use without Plasma Opus installed, with isolated configuration.
 
 ## Actions, reminders and status
 

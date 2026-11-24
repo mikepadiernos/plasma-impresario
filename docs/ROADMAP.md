@@ -341,6 +341,13 @@ Caveats: [multiple accounts](CAVEATS.md#multiple-accounts)
   dark appearance. Provide an option to use a symbolic icon from the active
   icon theme in the system tray.
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570286)
+- [ ] Carry theme settings over from Plasma Opus and back. Import its
+  app-local appearance choice, palette roles and theme profile, optionally
+  following later changes, and export the Plasma Impresario theme for Plasma
+  Opus to import. Validate shared profiles, keep applying opt-in and
+  reversible, and fall back to the active Plasma color scheme without Plasma
+  Opus. See [Plasma Opus integrations](integrations/plasma-opus.md#themes-and-appearance).
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317017949)
 - [ ] Validate contrast, text scaling, focus indicators, and high-contrast behavior across panes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570471)
 - [ ] Keep compact and comfortable layouts readable across common window sizes and display scales [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570493)
 
