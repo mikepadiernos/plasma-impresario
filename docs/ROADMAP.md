@@ -159,7 +159,9 @@ installation depends on the working renderer.
   column, right column, and footer. Place sidebar panels on either side;
   arrange message-list and reading panes side by side or stacked in the main
   column; and support configurable embedded panels for metadata, attachments,
-  contact information, and related content. See the
+  contact information, and related content. Existing widgets and panes, such
+  as the folder tree, message list, and reader, should keep their current
+  appearance and layout, adapted to the new shell and design. See the
   [shell and interface widget designs](philosophy/designs.md).
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314539964)
 - [ ] Define account models, connection state, folder structure, and mailbox lifecycle [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540057)
