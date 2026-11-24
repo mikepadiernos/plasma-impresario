@@ -17,6 +17,26 @@ product behavior.
    practical.
 5. Keep user-visible strings translatable and follow KDE/Plasma conventions.
 
+## Building outside Plasma
+
+Plasma Impresario targets KDE Plasma on Linux. On other hosts, such as macOS,
+use the headless Fedora container in `tools/dev-container/` to build and run
+the test suite:
+
+```sh
+tools/dev-container/run.sh cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+tools/dev-container/run.sh cmake --build build
+tools/dev-container/run.sh ctest --test-dir build --output-on-failure
+```
+
+Run `tools/dev-container/run.sh` without arguments for a shell, or pass
+`--rebuild` to rebuild the image. If a TLS-intercepting proxy is in use, set
+`EXTRA_CA_CERT` to its root certificate before the first run.
+
+The container has no Plasma session. Verify desktop integration, including
+KWallet, notifications, Akonadi, icon theming, and window behavior, in a real
+Plasma session.
+
 ## Submitting changes
 
 This repository originated in KDE's Trojitá project. Upstream KDE uses merge
