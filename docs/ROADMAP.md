@@ -319,7 +319,7 @@ Caveats: [multiple accounts](CAVEATS.md#multiple-accounts)
 [Plasma visual language](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541568) ·
 [Accessible density](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541647)
 
-- [ ] Rename the application, installed identity, documentation, repository, and project board to Plasma Impresario while preserving Trojitá configuration and compatibility aliases [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314606649)
+- [x] Rename the application, installed identity, documentation, repository, and project board to Plasma Impresario while preserving Trojitá configuration and compatibility aliases [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314606649)
 - [ ] Transition project-owned functions, symbols, namespaces, filenames, and
   code conventions to Plasma Impresario. Preserve historical Trojitá references
   in parity documents, old folders, `inspirations.md`, and README files, as
