@@ -22,6 +22,7 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <algorithm>
 #include <QAuthenticator>
 #include <QActionGroup>
 #include <QComboBox>
@@ -99,9 +100,11 @@
 #include "Common/AccountRegistry.h"
 #include "Common/AccountStatus.h"
 #include "AttachmentPanel.h"
+#include "ContactPanel.h"
 #include "DensityMenu.h"
 #include "EmbeddedPanelsMenu.h"
 #include "MailBoxTreeView.h"
+#include "MessageDetailsPanel.h"
 #include "MessageListWidget.h"
 #include "MessageView.h"
 #include "MessageSourceWidget.h"
@@ -110,6 +113,7 @@
 #include "MessageSelectionRestorer.h"
 #include "OnePanelAtTimeWidget.h"
 #include "PasswordDialog.h"
+#include "RelatedMessagesPanel.h"
 #include "ProtocolLoggerWidget.h"
 #include "SettingsDialog.h"
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -135,7 +139,7 @@ namespace Gui
 
     static const char * const netErrorUnseen = "net_error_unseen";
 
-MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr), m_mainHSplitter(nullptr), m_mainVSplitter(nullptr),
+MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr),
     m_mainStack(nullptr), m_layoutMode(LAYOUT_COMPACT), m_skipSavingOfUI(true), m_delayedStateSaving(nullptr), m_actionSortNone(nullptr),
     m_ignoreStoredPassword(false), m_settings(settings), m_pluginManager(nullptr), m_msgActionHandler(this),m_networkErrorMessageBox(nullptr), m_trayIcon(nullptr)
 {
@@ -818,8 +822,12 @@ void MainWindow::createMenus()
         });
         viewMenu->addMenu(new DensityMenu(mboxTree, msgListWidget->tree,
                                           config, viewMenu));
-        if (m_attachmentPanel)
-            viewMenu->addMenu(new EmbeddedPanelsMenu(m_attachmentPanel, config, viewMenu));
+        if (!m_embeddedPanels.isEmpty()) {
+            auto panelsMenu = new EmbeddedPanelsMenu(config, viewMenu);
+            for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels))
+                panelsMenu->addPanel(panel);
+            viewMenu->addMenu(panelsMenu);
+        }
         viewMenu->addSeparator();
         ADD_ACTION(viewMenu, m_actionShowOnlySubscribed);
 
@@ -945,6 +953,19 @@ void MainWindow::createWidgets()
     m_attachmentPanel->setNetworkAccessManager(m_messageWidget->messageView->networkAccessManager());
     connect(m_messageWidget->messageView, &MessageView::messageModelChanged, m_attachmentPanel, &AttachmentPanel::setMessageModel);
     connect(m_attachmentPanel, &AttachmentPanel::transferError, this, &MainWindow::slotDownloadTransferError);
+
+    m_messageDetailsPanel = new MessageDetailsPanel();
+    m_contactPanel = new ContactPanel();
+    m_relatedMessagesPanel = new RelatedMessagesPanel();
+    for (MessageContextPanel *panel : std::initializer_list<MessageContextPanel *>{m_messageDetailsPanel, m_contactPanel, m_relatedMessagesPanel}) {
+        connect(m_messageWidget->messageView, &MessageView::messageChanged, panel, [this, panel]() {
+            panel->setMessage(m_messageWidget->messageView->currentMessage());
+        });
+    }
+    connect(m_contactPanel, &ContactPanel::composeRequested, this, &MainWindow::slotComposeMailUrl);
+    connect(m_contactPanel, &ContactPanel::manageContactRequested, this, &MainWindow::slotManageContact);
+    connect(m_relatedMessagesPanel, &RelatedMessagesPanel::messageActivated, this, &MainWindow::activateRelatedMessage);
+    m_embeddedPanels = {m_attachmentPanel, m_messageDetailsPanel, m_contactPanel, m_relatedMessagesPanel};
 #else
    m_messageWidget = new QLabel(QStringLiteral("Message Widget placeholder"));
 #endif
@@ -954,11 +975,20 @@ void MainWindow::createWidgets()
     m_readerColumn->setChildrenCollapsible(false);
     m_readerColumn->addWidget(m_messageWidget);
     m_readerColumn->setStretchFactor(0, 1);
-    if (m_attachmentPanel) {
-        m_readerColumn->addWidget(m_attachmentPanel);
-        m_readerColumn->setStretchFactor(1, 0);
-    }
     connect(m_readerColumn, &QSplitter::splitterMoved, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
+
+    createShell();
+    for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels)) {
+        connect(panel, &EmbeddedPanel::relevanceChanged, this, [this]() {
+            updateShellRegions();
+        });
+        connect(panel, &EmbeddedPanel::placementChanged, this, [this]() {
+            rememberShellExtents();
+            placeEmbeddedPanels();
+            updateShellRegions(false);
+        });
+    }
+    placeEmbeddedPanels();
 
     allDock = new QDockWidget(tr("Everything"), this);
     allDock->setObjectName(QStringLiteral("allDock"));
@@ -1006,6 +1036,7 @@ void MainWindow::setupModels(bool reconnect)
 
 #ifdef TROJITA_HAVE_WEBENGINE
     m_messageWidget->messageView->setNetworkWatcher(qobject_cast<Imap::Mailbox::NetworkWatcher*>(m_imapAccess->networkWatcher()));
+    m_relatedMessagesPanel->setMessageList(m_imapAccess->msgListModel());
 #endif
 
     auto realThreadingModel = qobject_cast<Imap::Mailbox::ThreadingMsgListModel*>(m_imapAccess->threadingMsgListModel());
@@ -1296,6 +1327,11 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
 bool MainWindow::eventFilter(QObject *o, QEvent *e)
 {
+    // A hidden splitter receives its pending resize before it becomes visible, so also look at the show event
+    if ((o == m_shellRow || o == m_shellBody) && (e->type() == QEvent::Resize || e->type() == QEvent::Show)) {
+        applyPendingShellSizes(static_cast<QSplitter *>(o));
+        return false;
+    }
 #ifdef TROJITA_HAVE_WEBENGINE
     if (msgListWidget && o == msgListWidget->tree && m_messageWidget->messageView) {
         if (e->type() == QEvent::KeyPress) {
@@ -1899,8 +1935,8 @@ void MainWindow::cycleFocusRegion(int step)
 #else
     regions.append(Region{m_messageWidget, m_messageWidget});
 #endif
-    if (m_attachmentPanel)
-        regions.append(Region{m_attachmentPanel, m_attachmentPanel->listView()});
+    for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels))
+        regions.append(Region{panel, panel->focusTarget()});
 
     const int count = regions.size();
     QWidget *focus = focusWidget();
@@ -3130,57 +3166,245 @@ void MainWindow::slotUpdateWindowTitle()
 void MainWindow::setMailboxSidebarRight(bool right)
 {
     m_mailboxSidebarOnRight = right;
-    if (!m_mainHSplitter)
+    if (!m_shellRow || m_mainStack)
         return;
-    const int oldIndex = m_mainHSplitter->indexOf(mboxTree);
-    if (oldIndex < 0)
+    QSplitter *target = right ? m_shellRight.widget : m_shellLeft.widget;
+    if (mboxTree->parentWidget() == target)
         return;
-    const int newIndex = right ? m_mainHSplitter->count() - 1 : 0;
-    if (oldIndex == newIndex)
+    // The sidebar keeps its width; whatever else is in the columns stays where it is.
+    rememberShellExtents();
+    std::swap(m_shellLeft.extent, m_shellRight.extent);
+    placeMailboxSidebar();
+    placeEmbeddedPanels();
+    updateShellRegions(false, true);
+}
+
+void MainWindow::createShell()
+{
+    auto saveLater = [this](QSplitter *splitter) {
+        connect(splitter, &QSplitter::splitterMoved, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
+    };
+
+    m_shellBody = new QSplitter(Qt::Vertical);
+    m_shellBody->setObjectName(QStringLiteral("shellBody"));
+    m_shellRow = new QSplitter(Qt::Horizontal);
+    m_shellRow->setObjectName(QStringLiteral("shellRow"));
+    m_mainColumn = new QSplitter(Qt::Vertical);
+    m_mainColumn->setObjectName(QStringLiteral("shellMainColumn"));
+
+    m_shellLeft.widget = new QSplitter(Qt::Vertical);
+    m_shellLeft.widget->setObjectName(QStringLiteral("shellLeftColumn"));
+    m_shellRight.widget = new QSplitter(Qt::Vertical);
+    m_shellRight.widget->setObjectName(QStringLiteral("shellRightColumn"));
+    m_shellFooter.widget = new QSplitter(Qt::Horizontal);
+    m_shellFooter.widget->setObjectName(QStringLiteral("shellFooter"));
+
+    m_shellRow->addWidget(m_shellLeft.widget);
+    m_shellRow->addWidget(m_mainColumn);
+    m_shellRow->addWidget(m_shellRight.widget);
+    m_shellRow->setStretchFactor(0, 0);
+    m_shellRow->setStretchFactor(1, 1);
+    m_shellRow->setStretchFactor(2, 0);
+    m_shellRow->setCollapsible(1, false);
+
+    m_shellBody->addWidget(m_shellRow);
+    m_shellBody->addWidget(m_shellFooter.widget);
+    m_shellBody->setStretchFactor(0, 1);
+    m_shellBody->setStretchFactor(1, 0);
+    m_shellBody->setCollapsible(0, false);
+
+    for (QSplitter *splitter : {m_shellBody, m_shellRow, m_mainColumn, m_shellLeft.widget, m_shellRight.widget, m_shellFooter.widget})
+        saveLater(splitter);
+    connect(m_shellRow, &QSplitter::splitterMoved, this, &MainWindow::possiblyLoadMessageOnSplittersChanged);
+    for (QSplitter *splitter : {m_shellRow, m_shellBody})
+        connect(splitter, &QSplitter::splitterMoved, this, &MainWindow::rememberShellExtents);
+    connect(m_mainColumn, &QSplitter::splitterMoved, this, &MainWindow::possiblyLoadMessageOnSplittersChanged);
+
+    // Region sizes can only be applied once the shell has its real size.
+    m_shellRow->installEventFilter(this);
+    m_shellBody->installEventFilter(this);
+
+    for (QSplitter *region : {m_shellLeft.widget, m_shellRight.widget, m_shellFooter.widget})
+        region->hide();
+    setCentralWidget(m_shellBody);
+}
+
+void MainWindow::placeMailboxSidebar()
+{
+    if (!m_shellRow)
         return;
-    auto sizes = m_mainHSplitter->sizes();
-    sizes.move(oldIndex, newIndex);
-    m_mainHSplitter->insertWidget(newIndex, mboxTree);
-    m_mainHSplitter->setSizes(sizes);
+    // Called before leaving the one-at-a-time layout too, so that deleting its stack does not delete the tree
+    QSplitter *column = m_mailboxSidebarOnRight ? m_shellRight.widget : m_shellLeft.widget;
+    column->insertWidget(0, mboxTree);
+    column->setStretchFactor(0, 1);
+    mboxTree->show();
+}
+
+void MainWindow::placeEmbeddedPanels()
+{
+    if (!m_shellRow)
+        return;
+    QHash<QSplitter *, int> nextIndex;
+    for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels)) {
+        QSplitter *region = nullptr;
+        switch (panel->placement()) {
+        case EmbeddedPanel::Placement::BelowReader:
+            region = m_readerColumn;
+            break;
+        case EmbeddedPanel::Placement::LeftColumn:
+            region = m_shellLeft.widget;
+            break;
+        case EmbeddedPanel::Placement::RightColumn:
+            region = m_shellRight.widget;
+            break;
+        case EmbeddedPanel::Placement::Footer:
+            region = m_shellFooter.widget;
+            break;
+        }
+        if (!nextIndex.contains(region)) {
+            // Panels follow the mailbox tree or the reader, in their canonical order.
+            const bool afterAnchor = region->count() > 0 && (region->widget(0) == mboxTree || region->widget(0) == m_messageWidget);
+            nextIndex.insert(region, afterAnchor ? 1 : 0);
+        }
+        int &index = nextIndex[region];
+        if (region->indexOf(panel) != index)
+            region->insertWidget(index, panel);
+        region->setStretchFactor(index, 0);
+        region->setCollapsible(index, false);
+        ++index;
+        // Moving a widget between splitters hides it
+        panel->setVisible(panel->shouldBeShown());
+    }
+}
+
+bool MainWindow::shellRegionHasContent(const QSplitter *region) const
+{
+    for (int i = 0; i < region->count(); ++i) {
+        QWidget *widget = region->widget(i);
+        if (widget == mboxTree)
+            return true;
+        if (auto panel = qobject_cast<EmbeddedPanel *>(widget); panel && panel->shouldBeShown())
+            return true;
+    }
+    return false;
+}
+
+namespace {
+int splitterExtent(const QSplitter *splitter, const QWidget *widget)
+{
+    return splitter->orientation() == Qt::Horizontal ? widget->width() : widget->height();
+}
+
+int hintExtent(const QSplitter *splitter, const QWidget *widget)
+{
+    const QSize hint = widget->sizeHint();
+    return splitter->orientation() == Qt::Horizontal ? hint.width() : hint.height();
+}
+}
+
+void MainWindow::rememberShellExtents()
+{
+    for (ShellRegion *region : {&m_shellLeft, &m_shellRight, &m_shellFooter}) {
+        if (!region->widget || !region->shown)
+            continue;
+        auto parent = qobject_cast<QSplitter *>(region->widget->parentWidget());
+        const int index = parent->indexOf(region->widget);
+        const auto sizes = parent->sizes();
+        int total = 0;
+        for (int size : sizes)
+            total += size;
+        if (total > 0 && index >= 0 && sizes.at(index) > 0)
+            region->extent = sizes.at(index);
+    }
+}
+
+void MainWindow::updateShellRegions(bool rememberCurrent, bool force)
+{
+    if (!m_shellRow)
+        return;
+    if (rememberCurrent && m_shellRegionsInitialized)
+        rememberShellExtents();
+
+    bool rowChanged = force || !m_shellRegionsInitialized;
+    bool bodyChanged = rowChanged;
+    for (ShellRegion *region : {&m_shellLeft, &m_shellRight, &m_shellFooter}) {
+        const bool shown = shellRegionHasContent(region->widget);
+        if (shown != region->shown) {
+            (region == &m_shellFooter ? bodyChanged : rowChanged) = true;
+            region->shown = shown;
+        }
+        region->widget->setVisible(shown);
+    }
+    m_shellRegionsInitialized = true;
+    m_shellRowSizesPending = m_shellRowSizesPending || rowChanged;
+    m_shellBodySizesPending = m_shellBodySizesPending || bodyChanged;
+    applyPendingShellSizes();
+}
+
+void MainWindow::applyPendingShellSizes(QSplitter *only)
+{
+    auto apply = [](QSplitter *splitter, QWidget *main, const QList<const ShellRegion *> &regions) {
+        int available = splitterExtent(splitter, splitter);
+        QList<int> sizes;
+        int used = 0;
+        int visibleCount = 0;
+        int mainIndex = -1;
+        for (int i = 0; i < splitter->count(); ++i) {
+            QWidget *widget = splitter->widget(i);
+            int size = 0;
+            if (widget == main) {
+                mainIndex = i;
+                ++visibleCount;
+            } else {
+                for (const ShellRegion *region : regions) {
+                    if (region->widget != widget || !region->shown)
+                        continue;
+                    ++visibleCount;
+                    size = region->extent > 0 ? region->extent : hintExtent(splitter, widget);
+                    // A region never takes more than two fifths of the shell
+                    size = std::clamp(size, 1, std::max(1, available * 2 / 5));
+                }
+            }
+            used += size;
+            sizes.append(size);
+        }
+        available -= splitter->handleWidth() * std::max(0, visibleCount - 1);
+        if (mainIndex >= 0)
+            sizes[mainIndex] = std::max(1, available - used);
+        splitter->setSizes(sizes);
+    };
+    // Until a splitter is laid out, its size says nothing about the space its regions will share
+    auto ready = [only](QSplitter *splitter) {
+        return (!only || only == splitter) && splitter->isVisible() && splitterExtent(splitter, splitter) > 0;
+    };
+    if (m_shellRowSizesPending && ready(m_shellRow)) {
+        m_shellRowSizesPending = false;
+        apply(m_shellRow, m_mainColumn, {&m_shellLeft, &m_shellRight});
+    }
+    if (m_shellBodySizesPending && ready(m_shellBody)) {
+        m_shellBodySizesPending = false;
+        apply(m_shellBody, m_shellRow, {&m_shellFooter});
+    }
 }
 
 void MainWindow::slotLayoutCompact()
 {
     saveSizesAndState();
-    if (!m_mainHSplitter) {
-        m_mainHSplitter = new QSplitter();
-        connect(m_mainHSplitter.data(), &QSplitter::splitterMoved, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
-        connect(m_mainHSplitter.data(), &QSplitter::splitterMoved, this, &MainWindow::possiblyLoadMessageOnSplittersChanged);
-    }
-    if (!m_mainVSplitter) {
-        m_mainVSplitter = new QSplitter();
-        m_mainVSplitter->setOrientation(Qt::Vertical);
-        connect(m_mainVSplitter.data(), &QSplitter::splitterMoved, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
-        connect(m_mainVSplitter.data(), &QSplitter::splitterMoved, this, &MainWindow::possiblyLoadMessageOnSplittersChanged);
-    }
 
-    m_mainVSplitter->addWidget(msgListWidget);
-    m_mainVSplitter->addWidget(m_readerColumn);
-    m_mainHSplitter->addWidget(mboxTree);
-    m_mainHSplitter->addWidget(m_mainVSplitter);
+    m_mainColumn->setOrientation(Qt::Vertical);
+    m_mainColumn->insertWidget(0, msgListWidget);
+    m_mainColumn->insertWidget(1, m_readerColumn);
+    m_mainColumn->setStretchFactor(0, 1);
+    m_mainColumn->setStretchFactor(1, 1);
+    // The reader shall not collapse
+    m_mainColumn->setCollapsible(1, false);
+    m_mainColumn->setSizes({msgListWidget->sizeHint().height(), m_readerColumn->sizeHint().height()});
 
-    mboxTree->show();
+    placeMailboxSidebar();
     msgListWidget->show();
     m_readerColumn->show();
-    m_mainVSplitter->show();
-    m_mainHSplitter->show();
-
-    // The mboxTree shall not expand...
-    m_mainHSplitter->setStretchFactor(0, 0);
-    // ...while the msgListTree shall consume all the remaining space
-    m_mainHSplitter->setStretchFactor(1, 1);
-    // The CompleteMessageWidget shall not not collapse
-    m_mainVSplitter->setCollapsible(m_mainVSplitter->indexOf(m_readerColumn), false);
-    setMailboxSidebarRight(m_mailboxSidebarOnRight);
-
-    setCentralWidget(m_mainHSplitter);
-
     delete m_mainStack;
+    placeEmbeddedPanels();
 
     m_layoutMode = LAYOUT_COMPACT;
     m_settings->setValue(Common::SettingsNames::guiMainWindowLayout, Common::SettingsNames::guiMainWindowLayoutCompact);
@@ -3190,33 +3414,20 @@ void MainWindow::slotLayoutCompact()
 void MainWindow::slotLayoutWide()
 {
     saveSizesAndState();
-    if (!m_mainHSplitter) {
-        m_mainHSplitter = new QSplitter();
-        connect(m_mainHSplitter.data(), &QSplitter::splitterMoved, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
-        connect(m_mainHSplitter.data(), &QSplitter::splitterMoved, this, &MainWindow::possiblyLoadMessageOnSplittersChanged);
-    }
 
-    m_mainHSplitter->addWidget(mboxTree);
-    m_mainHSplitter->addWidget(msgListWidget);
-    m_mainHSplitter->addWidget(m_readerColumn);
-    delete m_mainVSplitter;
-    msgListWidget->resize(mboxTree->size());
-    m_readerColumn->resize(mboxTree->size());
-    m_mainHSplitter->setStretchFactor(0, 0);
-    m_mainHSplitter->setStretchFactor(1, 1);
-    m_mainHSplitter->setStretchFactor(2, 1);
+    m_mainColumn->setOrientation(Qt::Horizontal);
+    m_mainColumn->insertWidget(0, msgListWidget);
+    m_mainColumn->insertWidget(1, m_readerColumn);
+    m_mainColumn->setStretchFactor(0, 1);
+    m_mainColumn->setStretchFactor(1, 1);
+    m_mainColumn->setCollapsible(1, false);
+    m_mainColumn->setSizes({1, 1});
 
-    m_mainHSplitter->setCollapsible(m_mainHSplitter->indexOf(m_readerColumn), false);
-    setMailboxSidebarRight(m_mailboxSidebarOnRight);
-
-    mboxTree->show();
+    placeMailboxSidebar();
     msgListWidget->show();
     m_readerColumn->show();
-    m_mainHSplitter->show();
-
-    setCentralWidget(m_mainHSplitter);
-
     delete m_mainStack;
+    placeEmbeddedPanels();
 
     m_layoutMode = LAYOUT_WIDE;
     m_settings->setValue(Common::SettingsNames::guiMainWindowLayout, Common::SettingsNames::guiMainWindowLayoutWide);
@@ -3229,15 +3440,37 @@ void MainWindow::slotLayoutOneAtTime()
     if (m_mainStack)
         return;
 
+    rememberShellExtents();
     m_mainStack = new OnePanelAtTimeWidget(this, mboxTree, msgListWidget, m_readerColumn, m_mainToolbar, m_oneAtTimeGoBack);
-    setCentralWidget(m_mainStack);
-
-    delete m_mainHSplitter;
-    delete m_mainVSplitter;
+    m_mainColumn->addWidget(m_mainStack);
+    m_mainStack->show();
+    placeEmbeddedPanels();
+    updateShellRegions(false);
 
     m_layoutMode = LAYOUT_ONE_AT_TIME;
     m_settings->setValue(Common::SettingsNames::guiMainWindowLayout, Common::SettingsNames::guiMainWindowLayoutOneAtTime);
     applySizesAndState();
+}
+
+void MainWindow::activateRelatedMessage(const QModelIndex &message)
+{
+    const QModelIndex deproxified = Imap::deproxifiedIndex(message);
+    if (!deproxified.isValid())
+        return;
+    QAbstractItemModel *model = msgListWidget->tree->model();
+    const QModelIndexList matches = model && model->rowCount() > 0
+        ? model->match(model->index(0, 0), Imap::Mailbox::RoleMessageUid, deproxified.data(Imap::Mailbox::RoleMessageUid), 1,
+                       Qt::MatchExactly | Qt::MatchRecursive)
+        : QModelIndexList();
+    if (!matches.isEmpty()) {
+        msgListWidget->tree->setCurrentIndex(matches.constFirst());
+        msgListWidget->tree->scrollTo(matches.constFirst());
+        msgListClicked(matches.constFirst());
+        return;
+    }
+#ifdef TROJITA_HAVE_WEBENGINE
+    m_messageWidget->messageView->setMessage(deproxified);
+#endif
 }
 
 Imap::Mailbox::Model *MainWindow::imapModel() const
@@ -3281,10 +3514,14 @@ void MainWindow::saveSizesAndState()
     m_settings->setValue(Common::SettingsNames::geometry, saveGeometry());
     m_settings->setValue(Common::SettingsNames::windowState, saveState());
 
-    m_settings->setValue(Common::SettingsNames::mainVSplitterState,
-                         m_mainVSplitter ? m_mainVSplitter->saveState() : QByteArray());
-    m_settings->setValue(Common::SettingsNames::mainHSplitterState,
-                         m_mainHSplitter ? m_mainHSplitter->saveState() : QByteArray());
+    rememberShellExtents();
+    m_settings->setValue(QStringLiteral("shellLeftColumnWidth"), m_shellLeft.extent);
+    m_settings->setValue(QStringLiteral("shellRightColumnWidth"), m_shellRight.extent);
+    m_settings->setValue(QStringLiteral("shellFooterHeight"), m_shellFooter.extent);
+    m_settings->setValue(QStringLiteral("shellLeftColumnState"), m_shellLeft.widget->saveState());
+    m_settings->setValue(QStringLiteral("shellRightColumnState"), m_shellRight.widget->saveState());
+    m_settings->setValue(QStringLiteral("shellFooterState"), m_shellFooter.widget->saveState());
+    m_settings->setValue(QStringLiteral("shellMainColumnState"), m_mainColumn->saveState());
     m_settings->setValue(QStringLiteral("readerColumnState"), m_readerColumn->saveState());
     m_settings->setValue(QStringLiteral("mailboxSidebarOnRight"), m_mailboxSidebarOnRight);
 
@@ -3365,22 +3602,28 @@ void MainWindow::applySizesAndState()
 
     m_readerColumn->restoreState(m_settings->value(QStringLiteral("readerColumnState")).toByteArray());
 
-    if (m_mainVSplitter) {
-        const auto s = m_settings->value(Common::SettingsNames::mainVSplitterState).toByteArray();
-        m_mainVSplitter->restoreState(s);
-    }
-
-    if (m_mainHSplitter) {
-        const auto s = m_settings->value(Common::SettingsNames::mainHSplitterState).toByteArray();
-        if (m_mainHSplitter->restoreState(s) &&
-            m_settings->value(QStringLiteral("mailboxSidebarOnRight"), false).toBool() != m_mailboxSidebarOnRight) {
-            auto sizes = m_mainHSplitter->sizes();
-            if (m_mailboxSidebarOnRight)
-                sizes.move(0, sizes.size() - 1);
-            else
-                sizes.move(sizes.size() - 1, 0);
-            m_mainHSplitter->setSizes(sizes);
+    {
+        // Sizes saved before the shell existed are not migrated; the shell starts from its defaults once.
+        const bool savedOnRight = m_settings->value(QStringLiteral("mailboxSidebarOnRight"), false).toBool();
+        const bool swapSides = savedOnRight != m_mailboxSidebarOnRight;
+        auto readExtent = [this](const QString &key, int &extent) {
+            bool ok = false;
+            const int value = m_settings->value(key).toInt(&ok);
+            if (ok && value > 0)
+                extent = value;
+        };
+        readExtent(QStringLiteral("shellLeftColumnWidth"), swapSides ? m_shellRight.extent : m_shellLeft.extent);
+        readExtent(QStringLiteral("shellRightColumnWidth"), swapSides ? m_shellLeft.extent : m_shellRight.extent);
+        readExtent(QStringLiteral("shellFooterHeight"), m_shellFooter.extent);
+        if (!swapSides) {
+            m_shellLeft.widget->restoreState(m_settings->value(QStringLiteral("shellLeftColumnState")).toByteArray());
+            m_shellRight.widget->restoreState(m_settings->value(QStringLiteral("shellRightColumnState")).toByteArray());
         }
+        m_shellFooter.widget->restoreState(m_settings->value(QStringLiteral("shellFooterState")).toByteArray());
+        const Qt::Orientation mainOrientation = m_mainColumn->orientation();
+        m_mainColumn->restoreState(m_settings->value(QStringLiteral("shellMainColumnState")).toByteArray());
+        m_mainColumn->setOrientation(mainOrientation);
+        updateShellRegions(false, true);
     }
 
     const auto s = m_settings->value(Common::SettingsNames::messageListState).toByteArray();
@@ -3556,6 +3799,8 @@ void MainWindow::slotPluginsChanged()
         m_actionContactEditor->setEnabled(false);
     else
         m_actionContactEditor->setEnabled(true);
+    if (m_contactPanel)
+        m_contactPanel->setAddressBookAvailable(addressbook != nullptr);
 }
 
 /** @short Update the default action to make sure that we show a correct status of the network connection */

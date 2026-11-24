@@ -93,6 +93,10 @@ namespace Gui
 {
 
 class AttachmentPanel;
+class ContactPanel;
+class EmbeddedPanel;
+class MessageDetailsPanel;
+class RelatedMessagesPanel;
 class CompleteMessageWidget;
 class ComposeWidget;
 class MailBoxTreeView;
@@ -305,6 +309,22 @@ private:
     /** Place the mailbox sidebar on the requested side of the current layout. */
     void setMailboxSidebarRight(bool right);
 
+    /** Create the shell: left column, main column and right column above a footer. */
+    void createShell();
+    /** Put the mailbox tree into the column chosen for it. */
+    void placeMailboxSidebar();
+    /** Move each embedded panel into the region chosen by its placement preference. */
+    void placeEmbeddedPanels();
+    /** Remember the size of each shown shell region, so that it comes back at the same size. */
+    void rememberShellExtents();
+    /** Show the shell regions which have content, hide the others and keep the main column's share. */
+    void updateShellRegions(bool rememberCurrent = true, bool force = false);
+    bool shellRegionHasContent(const QSplitter *region) const;
+    /** Give shown regions their remembered size and the rest to the main column, once a splitter is laid out */
+    void applyPendingShellSizes(QSplitter *only = nullptr);
+    /** Select a message picked in the related messages panel. */
+    void activateRelatedMessage(const QModelIndex &message);
+
     /** Display the current connection status in the window footer. */
     void updateConnectionStatus(const QString &message);
 
@@ -350,12 +370,35 @@ private:
     /** The reader and the embedded panels which follow its message, stacked vertically */
     QSplitter *m_readerColumn = nullptr;
     AttachmentPanel *m_attachmentPanel = nullptr;
+    MessageDetailsPanel *m_messageDetailsPanel = nullptr;
+    ContactPanel *m_contactPanel = nullptr;
+    RelatedMessagesPanel *m_relatedMessagesPanel = nullptr;
+    /** All embedded panels, in their canonical order within a region */
+    QList<EmbeddedPanel *> m_embeddedPanels;
+
+    /** A collapsible region at the edge of the shell and the size it had when last shown */
+    struct ShellRegion {
+        QSplitter *widget = nullptr;
+        int extent = -1;
+        bool shown = false;
+    };
+    /** The shell: shellRow above the footer */
+    QSplitter *m_shellBody = nullptr;
+    /** The left column, the main column and the right column */
+    QSplitter *m_shellRow = nullptr;
+    /** The message list and the reader column side by side or stacked, or one panel at a time */
+    QSplitter *m_mainColumn = nullptr;
+    ShellRegion m_shellLeft;
+    ShellRegion m_shellRight;
+    ShellRegion m_shellFooter;
+    bool m_shellRegionsInitialized = false;
+    /** Whether region sizes still have to be applied once the shell has its real size */
+    bool m_shellRowSizesPending = false;
+    bool m_shellBodySizesPending = false;
 
     ProtocolLoggerWidget *protocolLogger;
     QDockWidget *protocolLoggerDock;
 
-    QPointer<QSplitter> m_mainHSplitter;
-    QPointer<QSplitter> m_mainVSplitter;
     QPointer<QStackedWidget> m_mainStack;
     QLabel *m_connectionStatus;
     bool m_connectionError = false;
