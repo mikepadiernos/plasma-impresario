@@ -149,6 +149,9 @@ private slots:
     void slotShowSettings();
     void slotAddAccount();
     void slotRemoveAccount();
+    void slotNextAccount();
+    void slotPreviousAccount();
+    void slotFocusMessageView();
     void removeAccountNow(const QString &accountId);
     void slotRenameAccount();
     void slotShowImapInfo();
@@ -273,6 +276,9 @@ private:
 
     /** Supply the stored password to an account that is not shown, or mark it as needing one. */
     void requestStoredPassword(const QString &accountId);
+
+    /** Switch to the account @p step positions after the active one, wrapping around. */
+    void cycleAccount(int step);
 
     /** Rebuild the account selector from the account list. */
     void refreshAccountSwitcher();

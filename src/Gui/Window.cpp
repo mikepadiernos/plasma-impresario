@@ -307,6 +307,9 @@ void MainWindow::defineActions()
     shortcutHandler->defineAction(QStringLiteral("action_zoom_original"), QStringLiteral("zoom-original"), tr("Original Size"));
     shortcutHandler->defineAction(QStringLiteral("action_focus_mailbox_tree"), QString(), tr("Move Focus to Mailbox List"));
     shortcutHandler->defineAction(QStringLiteral("action_focus_msg_list"), QString(), tr("Move Focus to Message List"));
+    shortcutHandler->defineAction(QStringLiteral("action_focus_message_view"), QString(), tr("Move Focus to Message View"));
+    shortcutHandler->defineAction(QStringLiteral("action_next_account"), QString(), tr("Switch to Next Account"), QStringLiteral("Ctrl+Alt+PgDown"));
+    shortcutHandler->defineAction(QStringLiteral("action_previous_account"), QString(), tr("Switch to Previous Account"), QStringLiteral("Ctrl+Alt+PgUp"));
     shortcutHandler->defineAction(QStringLiteral("action_focus_quick_search"), QString(), tr("Move Focus to Quick Search"), QStringLiteral("/"));
     shortcutHandler->defineAction(QStringLiteral("action_tag_1"), QStringLiteral("mail-tag-1"), tr("Tag with &1st tag"), QStringLiteral("1"));
     shortcutHandler->defineAction(QStringLiteral("action_tag_2"), QStringLiteral("mail-tag-2"), tr("Tag with &2nd tag"), QStringLiteral("2"));
@@ -440,6 +443,12 @@ void MainWindow::createActions()
             SLOT(setFocus()), this));
     addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_focus_msg_list"), msgListWidget->tree,
             SLOT(setFocus()), this));
+    addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_focus_message_view"), this,
+            SLOT(slotFocusMessageView()), this));
+    addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_next_account"), this,
+            SLOT(slotNextAccount()), this));
+    addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_previous_account"), this,
+            SLOT(slotPreviousAccount()), this));
 
     m_oneAtTimeGoBack = ShortcutHandler::instance()->createAction(QStringLiteral("action_oneattime_go_back"), this);
     m_oneAtTimeGoBack->setEnabled(false);
@@ -1791,6 +1800,33 @@ void MainWindow::slotAddAccount()
         return;
     switchAccount(m_accounts->addAccount(name));
     slotShowSettings();
+}
+
+void MainWindow::cycleAccount(int step)
+{
+    const QStringList ids = m_accounts->accountIds();
+    const int count = ids.size();
+    const int current = ids.indexOf(m_accounts->activeAccount());
+    switchAccount(ids.at((current + step % count + count) % count));
+}
+
+void MainWindow::slotNextAccount()
+{
+    cycleAccount(1);
+}
+
+void MainWindow::slotPreviousAccount()
+{
+    cycleAccount(-1);
+}
+
+void MainWindow::slotFocusMessageView()
+{
+#ifdef TROJITA_HAVE_WEBENGINE
+    m_messageWidget->messageView->setFocus();
+#else
+    m_messageWidget->setFocus();
+#endif
 }
 
 void MainWindow::slotRenameAccount()

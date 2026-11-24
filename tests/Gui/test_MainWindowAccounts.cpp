@@ -4,6 +4,7 @@
 #include "Common/AccountStatus.h"
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
+#include "Gui/MailBoxTreeView.h"
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/Model.h"
@@ -175,6 +176,45 @@ private slots:
 
         QVERIFY(QMetaObject::invokeMethod(&window, "removeAccountNow", Q_ARG(QString, QStringLiteral("account-1"))));
         QCOMPARE(switcher->count(), 1);
+    }
+
+    void accountsSwitchFromTheKeyboard()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+
+        Gui::MainWindow window(&settings);
+        auto *next = window.findChild<QAction *>(QStringLiteral("action_next_account"));
+        auto *previous = window.findChild<QAction *>(QStringLiteral("action_previous_account"));
+        auto *focusReader = window.findChild<QAction *>(QStringLiteral("action_focus_message_view"));
+        QVERIFY(next);
+        QVERIFY(previous);
+        QVERIFY(focusReader);
+        QVERIFY(!next->shortcut().isEmpty());
+        QVERIFY(!previous->shortcut().isEmpty());
+        auto activeAccount = [&settings]() { return settings.value(QStringLiteral("accounts/active")).toString(); };
+        QCOMPARE(activeAccount(), QStringLiteral("account-1"));
+        next->trigger();
+        QCOMPARE(activeAccount(), QStringLiteral("account-2"));
+        next->trigger();
+        QCOMPARE(activeAccount(), QStringLiteral("account-1"));
+        previous->trigger();
+        QCOMPARE(activeAccount(), QStringLiteral("account-2"));
+        previous->trigger();
+        QCOMPARE(activeAccount(), QStringLiteral("account-1"));
+
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        window.activateWindow();
+        auto *mailboxes = window.findChild<Gui::MailBoxTreeView *>();
+        QVERIFY(mailboxes);
+        window.findChild<QAction *>(QStringLiteral("action_focus_mailbox_tree"))->trigger();
+        QCOMPARE(window.focusWidget(), mailboxes);
+        focusReader->trigger();
+        QVERIFY(window.focusWidget());
+        QVERIFY(window.focusWidget() != mailboxes);
     }
 };
 
