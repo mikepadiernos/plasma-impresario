@@ -1022,6 +1022,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_MainWindowDensity PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_MailBoxTreeView tests/Gui/test_MailBoxTreeView.cpp)
         target_link_libraries(test_MailBoxTreeView PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_MailboxNavigation tests/Gui/test_MailboxNavigation.cpp)
+        target_link_libraries(test_MailboxNavigation PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_MainWindowAccounts tests/Gui/test_MainWindowAccounts.cpp)
         target_link_libraries(test_MainWindowAccounts PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_SavedSearch tests/Gui/test_SavedSearch.cpp)
@@ -1049,6 +1051,8 @@ if(BUILD_TESTING)
             set_tests_properties(test_EmbeddedPanels PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MailBoxTreeView COMMAND test_MailBoxTreeView)
             set_tests_properties(test_MailBoxTreeView PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_MailboxNavigation COMMAND test_MailboxNavigation)
+            set_tests_properties(test_MailboxNavigation PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_SavedSearch COMMAND test_SavedSearch)
             set_tests_properties(test_SavedSearch PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_ClearTextPassword COMMAND test_ClearTextPassword)
@@ -1059,7 +1063,8 @@ if(BUILD_TESTING)
             add_test(NAME test_MainWindowDensity COMMAND test_MainWindowDensity)
             foreach(account_case migratesSingleProfileIntoFirstAccount switchingKeepsAccountsIndependent backgroundAccountStatusIsShown
                     removingAccountDeletesItsSettingsAndPasswords accountsSwitchFromTheKeyboard
-                    savedSearchesAndFolderExpansionFollowTheAccount focusCyclesThroughShellRegions)
+                    savedSearchesAndFolderExpansionFollowTheAccount focusCyclesThroughShellRegions
+                    goToFolderActionsWithoutFolders)
                 add_test(NAME test_MainWindowAccounts_${account_case} COMMAND test_MainWindowAccounts ${account_case})
                 set_tests_properties(test_MainWindowAccounts_${account_case} PROPERTIES
                     TIMEOUT 60
@@ -1179,6 +1184,7 @@ if(BUILD_TESTING)
     target_link_libraries(test_AttachmentCollector PRIVATE UiUtils)
     trojita_test(Misc RelatedMessages)
     target_link_libraries(test_RelatedMessages PRIVATE UiUtils)
+    trojita_test(Misc SpecialFolder)
 
 endif()
 

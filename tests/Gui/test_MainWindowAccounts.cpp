@@ -24,6 +24,7 @@
 #include <KSharedConfig>
 #include <QApplication>
 #include <QComboBox>
+#include <QDialog>
 #include <QFile>
 #include <QFileInfo>
 #include <QLineEdit>
@@ -316,6 +317,53 @@ private slots:
         previous->trigger();
         QVERIFY(window.focusWidget() != mailboxes && window.focusWidget() != messages);
         QVERIFY(window.focusWidget() != switcher);
+    }
+
+    void goToFolderActionsWithoutFolders()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        Gui::MainWindow window(&settings);
+
+        auto *goTo = window.findChild<QAction *>(QStringLiteral("action_go_to_folder"));
+        QVERIFY(goTo);
+        QCOMPARE(goTo->shortcut(), QKeySequence(QStringLiteral("Ctrl+J")));
+        int ctrlJ = 0;
+        for (QAction *action : window.findChildren<QAction *>()) {
+            if (action->shortcuts().contains(QKeySequence(QStringLiteral("Ctrl+J"))))
+                ++ctrlJ;
+        }
+        QCOMPARE(ctrlJ, 1);
+
+        auto *menu = window.findChild<QMenu *>(QStringLiteral("goToFolderMenu"));
+        QVERIFY(menu);
+        QStringList names;
+        for (QAction *action : menu->actions()) {
+            names << action->objectName();
+            // An offline account without cached folders offers no targets
+            QVERIFY2(!action->isEnabled(), qPrintable(action->objectName()));
+        }
+        QCOMPARE(names, (QStringList{QStringLiteral("action_go_to_inbox"), QStringLiteral("action_go_to_drafts"),
+                                     QStringLiteral("action_go_to_sent"), QStringLiteral("action_go_to_archive"),
+                                     QStringLiteral("action_go_to_junk"), QStringLiteral("action_go_to_trash")}));
+
+        // Switching the account rewires the actions to the new model and keeps them consistent
+        window.findChild<QAction *>(QStringLiteral("action_next_account"))->trigger();
+        QCOMPARE(window.imapAccess()->credentialAccountId(), QStringLiteral("account-2"));
+        for (QAction *action : menu->actions())
+            QVERIFY2(!action->isEnabled(), qPrintable(action->objectName()));
+
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        goTo->trigger();
+        auto *dialog = window.findChild<QDialog *>(QStringLiteral("goToFolderDialog"));
+        QVERIFY(dialog);
+        QTRY_VERIFY(dialog->isVisible());
+        QVERIFY(dialog->isModal());
+        dialog->reject();
+        QTRY_VERIFY(!window.findChild<QDialog *>(QStringLiteral("goToFolderDialog")));
     }
 };
 
