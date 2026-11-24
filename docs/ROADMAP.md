@@ -197,7 +197,7 @@ Pending implementation and isolated account verification:
 - [ ] Support folder sync, account grouping, and desktop-heavy triage behavior [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569116)
 - [ ] Add quick actions for archive, move, flag, mark read, and delete [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569131)
 - [ ] Include The Bat!-style power-user workflows: batch actions, filtering, and dense desktop processing [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569139)
-- [ ] Add advanced sorting and threading controls for date, relevance, and conversation grouping [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569324)
+- [ ] Add advanced sorting and threading controls for date, relevance, and conversation grouping, and thread messages by sender address, subject, tag, unread state, mailing list, and similar attributes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569324)
 - [ ] This milestone is the blocker for all reading/search and productivity work that depends on real mailbox behavior [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569335)
 - [ ] Provide readable compact message rows with clear sender, subject, date, unread, flag, and attachment indicators [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569342)
 - [ ] Add predictable multi-selection, keyboard shortcuts, and progress or error feedback for batch operations [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569349)
