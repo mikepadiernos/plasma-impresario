@@ -26,7 +26,6 @@ public:
 
     bool hasContent() const override;
     QWidget *focusTarget() const override;
-    QSize sizeHint() const override;
 
     /** The value shown for a field such as "Subject" or "Folder", or an empty string when the row is hidden */
     QString fieldText(const QString &field) const;

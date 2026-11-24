@@ -54,6 +54,7 @@ MessageDetailsPanel::MessageDetailsPanel(QWidget *parent)
     m_status = addField(QStringLiteral("Status"), i18nc("@label message details", "Status:"));
     m_security = addField(QStringLiteral("Security"), i18nc("@label message details", "Security:"));
     setContentWidget(m_scroll);
+    setPreferredRows(5);
 
     refresh();
 }
@@ -93,18 +94,10 @@ QWidget *MessageDetailsPanel::focusTarget() const
     return m_scroll;
 }
 
-QSize MessageDetailsPanel::sizeHint() const
-{
-    QSize hint = EmbeddedPanel::sizeHint();
-    hint.setHeight(chromeHeight() + m_form->sizeHint().height() + 2 * m_scroll->frameWidth());
-    return hint;
-}
-
 void MessageDetailsPanel::refresh()
 {
     using namespace Imap::Mailbox;
     const QModelIndex index = message();
-    const bool hadContent = m_hasContent;
     m_hasContent = messageIsFetched();
     if (!index.isValid()) {
         showPlaceholder(i18nc("@info", "No message selected"));
@@ -150,8 +143,6 @@ void MessageDetailsPanel::refresh()
         setField(m_security, security);
         showContent();
     }
-    if (hadContent != m_hasContent)
-        updateGeometry();
     updateVisibility();
 }
 

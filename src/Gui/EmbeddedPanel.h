@@ -71,6 +71,13 @@ public:
     /** The widget which receives keyboard focus when the panel is entered */
     virtual QWidget *focusTarget() const = 0;
 
+    /** Room for the title and preferredRows() rows, whatever the panel shows at the moment
+
+    Splitters size a panel from this hint when it is placed, usually before it shows a message,
+    so the hint does not follow the content.
+    */
+    QSize sizeHint() const override;
+
 public slots:
     void setPanelEnabled(bool enabled);
     void setAutoHide(bool autoHide);
@@ -96,6 +103,8 @@ protected:
     virtual void panelEnabledChanged() {}
     /** Height of everything except the content area */
     int chromeHeight() const;
+    /** Set how many list rows or text lines the panel asks room for (default: 3) */
+    void setPreferredRows(int rows);
 
     static QIcon themedIcon(const QString &name);
 
@@ -111,6 +120,7 @@ private:
     bool m_autoHide = false;
     Placement m_placement;
     int m_appliedVisibility = -1;
+    int m_preferredRows = 3;
 };
 
 /** @short An embedded panel which follows the message shown in the reader */

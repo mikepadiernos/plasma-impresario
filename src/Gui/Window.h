@@ -27,6 +27,7 @@
 #include <QMainWindow>
 #include <QModelIndex>
 #include <QPointer>
+#include <QSet>
 #include <QSystemTrayIcon>
 
 #include "configure.cmake.h"
@@ -322,6 +323,14 @@ private:
     bool shellRegionHasContent(const QSplitter *region) const;
     /** Give shown regions their remembered size and the rest to the main column, once a splitter is laid out */
     void applyPendingShellSizes(QSplitter *only = nullptr);
+    /** The splitter which holds @p panel at its current placement */
+    QSplitter *panelRegion(const EmbeddedPanel *panel) const;
+    /** Remember the size of each shown panel in @p region, for example after a divider was moved */
+    void rememberPanelExtents(QSplitter *region);
+    /** Give the shown panels of each region their remembered size or their size hint */
+    void fitPanelRegions();
+    /** Give the shown panels of @p region their remembered size or their size hint, once it is laid out */
+    void fitPanelRegion(QSplitter *region);
     /** Select a message picked in the related messages panel. */
     void activateRelatedMessage(const QModelIndex &message);
 
@@ -395,6 +404,10 @@ private:
     /** Whether region sizes still have to be applied once the shell has its real size */
     bool m_shellRowSizesPending = false;
     bool m_shellBodySizesPending = false;
+    /** Size of each panel along its region after the user moved a divider; panels without one use their size hint */
+    QHash<EmbeddedPanel *, int> m_panelExtents;
+    /** Panel regions which still have to be fitted once they are laid out */
+    QSet<QSplitter *> m_panelRegionsPending;
 
     ProtocolLoggerWidget *protocolLogger;
     QDockWidget *protocolLoggerDock;

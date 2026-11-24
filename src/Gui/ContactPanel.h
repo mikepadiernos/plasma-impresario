@@ -27,7 +27,6 @@ public:
 
     bool hasContent() const override;
     QWidget *focusTarget() const override;
-    QSize sizeHint() const override;
 
     int contactCount() const;
     /** The "Name <mailbox@host>" form of the contact in @arg row */

@@ -3,12 +3,15 @@
 */
 #include "EmbeddedPanel.h"
 
+#include <algorithm>
+
 #include <KLocalizedString>
 #include <QAbstractItemModel>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QLabel>
 #include <QStackedWidget>
+#include <QStyle>
 #include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -209,6 +212,23 @@ int EmbeddedPanel::chromeHeight() const
 {
     const QMargins margins = contentsMargins() + layout()->contentsMargins();
     return margins.top() + margins.bottom() + m_header->sizeHint().height() + layout()->spacing();
+}
+
+void EmbeddedPanel::setPreferredRows(int rows)
+{
+    m_preferredRows = std::max(1, rows);
+    updateGeometry();
+}
+
+QSize EmbeddedPanel::sizeHint() const
+{
+    QSize hint = QFrame::sizeHint();
+    // A list row holds a small icon and some padding; a text line is a little shorter.
+    const int iconHeight = style()->pixelMetric(QStyle::PM_SmallIconSize, nullptr, this);
+    const int rowHeight = std::max(fontMetrics().height(), iconHeight) + fontMetrics().height() / 2;
+    const int contentFrame = 2 * style()->pixelMetric(QStyle::PM_DefaultFrameWidth, nullptr, this);
+    hint.setHeight(chromeHeight() + m_preferredRows * rowHeight + contentFrame);
+    return hint;
 }
 
 MessageContextPanel::MessageContextPanel(const Descriptor &descriptor, const QString &objectName, QWidget *parent)

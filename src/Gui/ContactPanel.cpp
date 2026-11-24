@@ -20,7 +20,6 @@ namespace {
 
 constexpr int UrlRole = Qt::UserRole;
 constexpr int AddressRole = Qt::UserRole + 1;
-constexpr int MaximumRowsInSizeHint = 4;
 
 }
 
@@ -58,6 +57,7 @@ ContactPanel::ContactPanel(QWidget *parent)
     connect(m_list, &QListWidget::currentItemChanged, this, &ContactPanel::updateActions);
     connect(m_list, &QWidget::customContextMenuRequested, this, &ContactPanel::showContextMenu);
     setContentWidget(m_list);
+    setPreferredRows(4);
 
     refresh();
 }
@@ -70,15 +70,6 @@ bool ContactPanel::hasContent() const
 QWidget *ContactPanel::focusTarget() const
 {
     return m_list;
-}
-
-QSize ContactPanel::sizeHint() const
-{
-    QSize hint = EmbeddedPanel::sizeHint();
-    const int rows = qBound(1, m_list->count(), MaximumRowsInSizeHint);
-    const int rowHeight = m_list->count() ? m_list->sizeHintForRow(0) : fontMetrics().height() * 2;
-    hint.setHeight(chromeHeight() + rows * rowHeight + 2 * m_list->frameWidth());
-    return hint;
 }
 
 int ContactPanel::contactCount() const
@@ -102,7 +93,6 @@ void ContactPanel::refresh()
 {
     using namespace Imap::Mailbox;
     const QString previous = m_list->currentItem() ? m_list->currentItem()->data(AddressRole).toString() : QString();
-    const int previousCount = m_list->count();
     m_list->clear();
 
     const QModelIndex index = message();
@@ -173,8 +163,6 @@ void ContactPanel::refresh()
             showPlaceholder(i18nc("@info", "This message has no addresses"));
     }
     updateActions();
-    if (previousCount != m_list->count())
-        updateGeometry();
     updateVisibility();
 }
 

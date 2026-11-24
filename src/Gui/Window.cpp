@@ -982,7 +982,9 @@ void MainWindow::createWidgets()
         connect(panel, &EmbeddedPanel::relevanceChanged, this, [this]() {
             updateShellRegions();
         });
-        connect(panel, &EmbeddedPanel::placementChanged, this, [this]() {
+        connect(panel, &EmbeddedPanel::placementChanged, this, [this, panel]() {
+            // A panel starts from its size hint in its new region, which may also run the other way
+            m_panelExtents.remove(panel);
             rememberShellExtents();
             placeEmbeddedPanels();
             updateShellRegions(false);
@@ -1330,6 +1332,11 @@ bool MainWindow::eventFilter(QObject *o, QEvent *e)
     // A hidden splitter receives its pending resize before it becomes visible, so also look at the show event
     if ((o == m_shellRow || o == m_shellBody) && (e->type() == QEvent::Resize || e->type() == QEvent::Show)) {
         applyPendingShellSizes(static_cast<QSplitter *>(o));
+        return false;
+    }
+    if (auto *region = qobject_cast<QSplitter *>(o);
+        region && m_panelRegionsPending.contains(region) && (e->type() == QEvent::Resize || e->type() == QEvent::Show)) {
+        fitPanelRegion(region);
         return false;
     }
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -3224,6 +3231,11 @@ void MainWindow::createShell()
     m_shellRow->installEventFilter(this);
     m_shellBody->installEventFilter(this);
 
+    for (QSplitter *region : {m_readerColumn, m_shellLeft.widget, m_shellRight.widget, m_shellFooter.widget}) {
+        connect(region, &QSplitter::splitterMoved, this, [this, region]() { rememberPanelExtents(region); });
+        region->installEventFilter(this);
+    }
+
     for (QSplitter *region : {m_shellLeft.widget, m_shellRight.widget, m_shellFooter.widget})
         region->hide();
     setCentralWidget(m_shellBody);
@@ -3246,21 +3258,7 @@ void MainWindow::placeEmbeddedPanels()
         return;
     QHash<QSplitter *, int> nextIndex;
     for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels)) {
-        QSplitter *region = nullptr;
-        switch (panel->placement()) {
-        case EmbeddedPanel::Placement::BelowReader:
-            region = m_readerColumn;
-            break;
-        case EmbeddedPanel::Placement::LeftColumn:
-            region = m_shellLeft.widget;
-            break;
-        case EmbeddedPanel::Placement::RightColumn:
-            region = m_shellRight.widget;
-            break;
-        case EmbeddedPanel::Placement::Footer:
-            region = m_shellFooter.widget;
-            break;
-        }
+        QSplitter *region = panelRegion(panel);
         if (!nextIndex.contains(region)) {
             // Panels follow the mailbox tree or the reader, in their canonical order.
             const bool afterAnchor = region->count() > 0 && (region->widget(0) == mboxTree || region->widget(0) == m_messageWidget);
@@ -3275,6 +3273,40 @@ void MainWindow::placeEmbeddedPanels()
         // Moving a widget between splitters hides it
         panel->setVisible(panel->shouldBeShown());
     }
+    fitPanelRegions();
+}
+
+QSplitter *MainWindow::panelRegion(const EmbeddedPanel *panel) const
+{
+    switch (panel->placement()) {
+    case EmbeddedPanel::Placement::BelowReader:
+        return m_readerColumn;
+    case EmbeddedPanel::Placement::LeftColumn:
+        return m_shellLeft.widget;
+    case EmbeddedPanel::Placement::RightColumn:
+        return m_shellRight.widget;
+    case EmbeddedPanel::Placement::Footer:
+        return m_shellFooter.widget;
+    }
+    return m_readerColumn;
+}
+
+void MainWindow::rememberPanelExtents(QSplitter *region)
+{
+    const QList<int> sizes = region->sizes();
+    for (int i = 0; i < region->count(); ++i) {
+        auto *panel = qobject_cast<EmbeddedPanel *>(region->widget(i));
+        if (panel && !panel->isHidden() && sizes.at(i) > 0)
+            m_panelExtents.insert(panel, sizes.at(i));
+    }
+}
+
+void MainWindow::fitPanelRegions()
+{
+    if (!m_shellRow)
+        return;
+    for (QSplitter *region : {m_readerColumn, m_shellLeft.widget, m_shellRight.widget, m_shellFooter.widget})
+        fitPanelRegion(region);
 }
 
 bool MainWindow::shellRegionHasContent(const QSplitter *region) const
@@ -3300,6 +3332,60 @@ int hintExtent(const QSplitter *splitter, const QWidget *widget)
     const QSize hint = widget->sizeHint();
     return splitter->orientation() == Qt::Horizontal ? hint.width() : hint.height();
 }
+}
+
+void MainWindow::fitPanelRegion(QSplitter *region)
+{
+    const int available = splitterExtent(region, region);
+    if (!region->isVisible() || available <= 0) {
+        m_panelRegionsPending.insert(region);
+        return;
+    }
+    m_panelRegionsPending.remove(region);
+
+    int shownPanels = 0;
+    for (int i = 0; i < region->count(); ++i) {
+        if (qobject_cast<EmbeddedPanel *>(region->widget(i)) && !region->widget(i)->isHidden())
+            ++shownPanels;
+    }
+    if (!shownPanels)
+        return;
+
+    // The splitter gives a panel shown after the region was laid out only its minimum size, so size every
+    // shown panel explicitly: its remembered size, or its size hint. Side by side, panels share the width.
+    const bool horizontal = region->orientation() == Qt::Horizontal;
+    QList<int> sizes;
+    int anchorIndex = -1;
+    int shown = 0;
+    int panelTotal = 0;
+    for (int i = 0; i < region->count(); ++i) {
+        QWidget *widget = region->widget(i);
+        int size = 0;
+        if (!widget->isHidden()) {
+            ++shown;
+            if (auto *panel = qobject_cast<EmbeddedPanel *>(widget)) {
+                size = m_panelExtents.value(panel, 0);
+                if (size <= 0)
+                    size = horizontal ? std::max(panel->sizeHint().width(), available / shownPanels) : panel->sizeHint().height();
+                panelTotal += size;
+            } else {
+                anchorIndex = i;
+            }
+        }
+        sizes.append(size);
+    }
+    const int space = available - region->handleWidth() * std::max(0, shown - 1);
+    if (space <= 0 || panelTotal <= 0)
+        return;
+    // The mailbox tree or the reader keeps at least a third of its region; without either, the panels fill it.
+    const int panelSpace = anchorIndex >= 0 ? std::min(panelTotal, space * 2 / 3) : space;
+    for (int i = 0; i < sizes.size(); ++i) {
+        if (i != anchorIndex && sizes.at(i) > 0)
+            sizes[i] = std::max(1, int(qint64(sizes.at(i)) * panelSpace / panelTotal));
+    }
+    if (anchorIndex >= 0)
+        sizes[anchorIndex] = std::max(1, space - panelSpace);
+    region->setSizes(sizes);
 }
 
 void MainWindow::rememberShellExtents()
@@ -3339,6 +3425,7 @@ void MainWindow::updateShellRegions(bool rememberCurrent, bool force)
     m_shellRowSizesPending = m_shellRowSizesPending || rowChanged;
     m_shellBodySizesPending = m_shellBodySizesPending || bodyChanged;
     applyPendingShellSizes();
+    fitPanelRegions();
 }
 
 void MainWindow::applyPendingShellSizes(QSplitter *only)
@@ -3518,11 +3605,15 @@ void MainWindow::saveSizesAndState()
     m_settings->setValue(QStringLiteral("shellLeftColumnWidth"), m_shellLeft.extent);
     m_settings->setValue(QStringLiteral("shellRightColumnWidth"), m_shellRight.extent);
     m_settings->setValue(QStringLiteral("shellFooterHeight"), m_shellFooter.extent);
-    m_settings->setValue(QStringLiteral("shellLeftColumnState"), m_shellLeft.widget->saveState());
-    m_settings->setValue(QStringLiteral("shellRightColumnState"), m_shellRight.widget->saveState());
-    m_settings->setValue(QStringLiteral("shellFooterState"), m_shellFooter.widget->saveState());
     m_settings->setValue(QStringLiteral("shellMainColumnState"), m_mainColumn->saveState());
-    m_settings->setValue(QStringLiteral("readerColumnState"), m_readerColumn->saveState());
+    // Only sizes picked by moving a divider are kept; the others follow the panels' size hints.
+    for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels)) {
+        const QString key = QStringLiteral("embeddedPanel%1Extent").arg(panel->descriptor().id);
+        if (const int extent = m_panelExtents.value(panel, 0); extent > 0)
+            m_settings->setValue(key, extent);
+        else
+            m_settings->remove(key);
+    }
     m_settings->setValue(QStringLiteral("mailboxSidebarOnRight"), m_mailboxSidebarOnRight);
 
     m_settings->setValue(Common::SettingsNames::messageListState, msgListWidget->tree->header()->saveState());
@@ -3600,7 +3691,13 @@ void MainWindow::applySizesAndState()
 
     restoreState(m_settings->value(Common::SettingsNames::windowState).toByteArray());
 
-    m_readerColumn->restoreState(m_settings->value(QStringLiteral("readerColumnState")).toByteArray());
+    m_panelExtents.clear();
+    for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels)) {
+        bool ok = false;
+        const int extent = m_settings->value(QStringLiteral("embeddedPanel%1Extent").arg(panel->descriptor().id)).toInt(&ok);
+        if (ok && extent > 0)
+            m_panelExtents.insert(panel, extent);
+    }
 
     {
         // Sizes saved before the shell existed are not migrated; the shell starts from its defaults once.
@@ -3615,11 +3712,6 @@ void MainWindow::applySizesAndState()
         readExtent(QStringLiteral("shellLeftColumnWidth"), swapSides ? m_shellRight.extent : m_shellLeft.extent);
         readExtent(QStringLiteral("shellRightColumnWidth"), swapSides ? m_shellLeft.extent : m_shellRight.extent);
         readExtent(QStringLiteral("shellFooterHeight"), m_shellFooter.extent);
-        if (!swapSides) {
-            m_shellLeft.widget->restoreState(m_settings->value(QStringLiteral("shellLeftColumnState")).toByteArray());
-            m_shellRight.widget->restoreState(m_settings->value(QStringLiteral("shellRightColumnState")).toByteArray());
-        }
-        m_shellFooter.widget->restoreState(m_settings->value(QStringLiteral("shellFooterState")).toByteArray());
         const Qt::Orientation mainOrientation = m_mainColumn->orientation();
         m_mainColumn->restoreState(m_settings->value(QStringLiteral("shellMainColumnState")).toByteArray());
         m_mainColumn->setOrientation(mainOrientation);

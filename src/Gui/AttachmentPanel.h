@@ -44,7 +44,6 @@ public:
 
     bool hasContent() const override;
     QWidget *focusTarget() const override;
-    QSize sizeHint() const override;
 
 public slots:
     /** Follow the part model of a message; nullptr, or the model being destroyed, means no message */

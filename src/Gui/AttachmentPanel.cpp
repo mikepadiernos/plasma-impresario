@@ -30,7 +30,6 @@ namespace Gui {
 namespace {
 
 constexpr int PartRole = Qt::UserRole;
-constexpr int MaximumRowsInSizeHint = 3;
 
 /** A list which drags its parts in the format understood by the composer */
 class AttachmentList : public QListWidget
@@ -157,15 +156,6 @@ QWidget *AttachmentPanel::focusTarget() const
     return m_list;
 }
 
-QSize AttachmentPanel::sizeHint() const
-{
-    QSize hint = QFrame::sizeHint();
-    const int rows = qBound(1, m_list->count(), MaximumRowsInSizeHint);
-    const int rowHeight = m_list->count() ? m_list->sizeHintForRow(0) : fontMetrics().height() * 2;
-    hint.setHeight(chromeHeight() + rows * rowHeight + 2 * m_list->frameWidth());
-    return hint;
-}
-
 void AttachmentPanel::setMessageModel(QAbstractItemModel *model)
 {
     for (const auto &connection : std::as_const(m_modelConnections))
@@ -229,8 +219,6 @@ void AttachmentPanel::refresh()
                          ? i18nc("@title embedded panel", "Attachments")
                          : i18ncp("@title embedded panel", "%1 Attachment", "%1 Attachments", m_attachments.size()));
     updateActions();
-    if (changed)
-        updateGeometry();
     updateVisibility();
 }
 

@@ -53,6 +53,7 @@ RelatedMessagesPanel::RelatedMessagesPanel(QWidget *parent)
     m_tree->setSelectionMode(QAbstractItemView::SingleSelection);
     connect(m_tree, &QTreeWidget::itemActivated, this, &RelatedMessagesPanel::activateCurrent);
     setContentWidget(m_tree);
+    setPreferredRows(5);
 
     m_listTimer->setSingleShot(true);
     m_listTimer->setInterval(ListRefreshDelay);
@@ -112,7 +113,6 @@ void RelatedMessagesPanel::refresh()
 {
     m_listTimer->stop();
     const QModelIndex current = message();
-    const bool hadContent = hasContent();
     // Scanning the list is the expensive part, so a turned-off panel does not do it.
     const auto related = isPanelEnabled() ? UiUtils::collectRelatedMessages(m_messages.data(), current) : UiUtils::RelatedMessages();
     m_conversation = related.conversation;
@@ -149,8 +149,6 @@ void RelatedMessagesPanel::refresh()
         showPlaceholder(i18nc("@info", "Loading message…"));
     else
         showPlaceholder(i18nc("@info", "No related messages in this folder"));
-    if (hadContent != hasContent())
-        updateGeometry();
     updateVisibility();
 }
 
