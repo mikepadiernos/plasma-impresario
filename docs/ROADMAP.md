@@ -175,7 +175,7 @@ installation depends on the working renderer.
 - [ ] Provide account setup, editing, removal, identities, and secure credential storage for IMAP and sending accounts [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569080)
 - [ ] Verify baseline account setup and recovery with an isolated test account,
   as the M01.04 live-account acceptance handoff. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569080)
-- [ ] Expose connection, authentication, offline, and loading states without blocking the interface [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569089)
+- [x] Expose connection, authentication, offline, and loading states without blocking the interface [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569089)
 - [ ] Support account grouping, collapsible folder navigation, and keyboard focus across the shell [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569100)
 - [x] Preserve pane layout, selection, and density preferences across sessions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569110)
 
@@ -184,6 +184,9 @@ starting their feature issues.
 
 Pending implementation and isolated account verification:
 [M02 handoff](TODO.md#m02-shell-and-account-foundation).
+
+Caveats: [multiple accounts](CAVEATS.md#multiple-accounts)
+([#262](https://github.com/mikepadiernos/plasma-impresario/issues/262)).
 
 ### M03: Mail operations, sorting, and folder management
 

@@ -17,17 +17,43 @@ recommended parity goals.
 
 ## Current limitations
 
-| Area              | Current constraint                                                                                                                                                                                                                                                                                                       |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Product identity  | The application remains based on Trojitá; the Plasma Impresario product redesign is not complete                                                                                                                                                                                                                         |
-| Accounts          | One window holds several IMAP accounts behind a toolbar selector, not grouped in the folder tree; background account errors appear only in the selector, and removing an account keeps its offline cache. Two-account use is not yet verified against live servers ([pending](TODO.md#m02-shell-and-account-foundation)) |
-| Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                   |
-| Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings`                                                                                                                                                           |
-| Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used                                                                                                                                                                                                                                  |
-| Local data        | Persistent SQL cache stores message metadata and fetched parts; the application does not encrypt cache contents                                                                                                                                                                                                          |
-| Integrations      | Plasma notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                                                                                                                                                                   |
-| Compatibility     | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                                                                                                                             |
-| Quality evidence  | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded                                                                                                                                                                                                          |
+| Area              | Current constraint                                                                                                                                                                                                                                                                                        |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Product identity  | The application remains based on Trojitá; the Plasma Impresario product redesign is not complete                                                                                                                                                                                                          |
+| Accounts          | One window holds several IMAP accounts behind a toolbar selector, not grouped in the folder tree; background account errors appear only in the selector, removing an account keeps its offline cache, and each account confirms the same untrusted certificate separately ([details](#multiple-accounts)) |
+| Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                    |
+| Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings`                                                                                                                                            |
+| Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used                                                                                                                                                                                                                   |
+| Local data        | Persistent SQL cache stores message metadata and fetched parts; the application does not encrypt cache contents                                                                                                                                                                                           |
+| Integrations      | Plasma notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                                                                                                                                                    |
+| Compatibility     | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                                                                                                              |
+| Quality evidence  | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded                                                                                                                                                                                           |
+
+### Multiple accounts
+
+Tracked in [#262](https://github.com/mikepadiernos/plasma-impresario/issues/262);
+see its [recommendation](https://github.com/mikepadiernos/plasma-impresario/issues/262#issuecomment-7142887185).
+Verified against a disposable Dovecot with the opt-in `test_LiveImapAccounts`.
+
+**Current behavior:**
+
+- Errors from background accounts appear only as a label and tooltip in the
+  account selector, not in the footer or as a desktop notification.
+- Removing an account deletes its settings and stored passwords but keeps its
+  offline message cache, the `account-N` directory in the application cache
+  location.
+- Each account asks separately about an untrusted TLS certificate, even on a
+  shared server. Prompts for background accounts appear at startup and name
+  the account.
+
+**Workarounds:** hover over a flagged account to read its error, then switch to
+it to recover. After removing an account, delete its cache directory manually.
+Prefer servers with trusted certificates.
+
+**Proposed improvements:** report background errors in the footer and through
+KNotification; delete the cache directory when an account is removed (needed
+before release); and share certificate decisions per host and fingerprint
+across accounts.
 
 ## Before reporting results
 

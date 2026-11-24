@@ -45,9 +45,9 @@ and project status before acting.
 
 - **Current state:** M02 #4, shell #35, skeleton #74, account setup #78,
   account foundation #36, shell navigation #80 and protocol-aware account #215
-  are in Development. Connection status #79 is in Review. Folder counts and
-  saved searches #76, multiple accounts #222, session persistence #81,
-  density #75 and dependency gate #77 are Completed; OAuth #218 is Defined. The
+  are in Development. Connection status #79, folder counts and saved
+  searches #76, multiple accounts #222, session persistence #81, density #75
+  and dependency gate #77 are Completed; OAuth #218 is Defined. The
   `feature/m02-shell-accounts` branch adds a row-density selector; the
   continuation branch adds left/right folder sidebar placement in the compact
   and wide layouts. A further continuation adds persistent connection status
@@ -83,7 +83,8 @@ and project status before acting.
   against disposable IMAP, with and without WebEngine. The opt-in live test
   uses `PLASMA_TEST_IMAP_SEARCH_SUBJECT` with the matching synthetic UID and
   UIDVALIDITY; its INBOX must contain exactly two unread synthetic messages.
-  Integration with simultaneous accounts remains to be verified with #222.
+  Per-account folders, counts and saved searches were verified with three
+  accounts in `test_LiveImapAccounts` (below).
 - **Multiple accounts:** #222 and #79 are implemented on
   `feature/m02-shell-next`. Each account has its own settings file and
   `ImapAccess`; a toolbar selector, menu actions and Ctrl+Alt+PgUp/PgDown
@@ -95,12 +96,20 @@ and project status before acting.
   follow the active account; only the migrated legacy account inherits the
   previously shared expansion state. Offscreen tests cover migration,
   switching, background status, removal, keyboard navigation, per-account
-  saved searches and expansion, and pane focus cycling. Not yet verified: two
-  accounts against live or disposable IMAP servers, and a real Plasma session.
-  Known limits: accounts are grouped by a selector, not in the folder tree;
-  background accounts surface errors only in the selector; the offline message
-  cache of a removed account is not deleted; folder counts have not been
-  checked with two live accounts.
+  saved searches and expansion, and pane focus cycling. The opt-in
+  `test_LiveImapAccounts`, run by `tools/dev-container/live-imap-accounts.sh`
+  inside the dev container, starts a loopback-only Dovecot 2.4.5 with
+  synthetic users. It verified that two background accounts connect at
+  startup, that a rejected stored password is flagged in the selector without
+  a prompt, and that switching keeps each account's folders, counts and saved
+  searches without reconnecting. That check found and fixed two bugs:
+  background accounts never logged in because the model connects lazily, and
+  certificate prompts were answered for the active account instead of the
+  requesting one. Not yet verified: a real Plasma session. Known limits:
+  accounts are grouped by a selector, not in the folder tree; background
+  accounts surface errors only in the selector; each account asks about the
+  same untrusted certificate separately; the offline message cache of a
+  removed account is not deleted. See [caveat #262](CAVEATS.md#multiple-accounts).
 - **Partly decided, #35 and #74:** the five-region shell has a header
   toolbar, a sidebar movable between the left and right columns, a main
   column and a status footer. The first embedded panel, attachments, is
@@ -121,8 +130,8 @@ and project status before acting.
   interface consults it yet; POP3 and JMAP belong to M05. Account editing uses
   the settings dialog; per-account identities are not separate from the shared
   sender identities.
-- **Resume:** #222 is Completed. Move #79 and #80 through Review once confirmed with a
-  disposable two-account IMAP check. Resolve the decisions above, then
+- **Resume:** #79 and #222 are Completed. #80 still needs account grouping in
+  the folder tree before Review. Resolve the decisions above, then
   implement the remaining issues. Advance each issue through Completed before
   checking its roadmap item; merge the milestone only when all items and
   acceptance checks are complete. Reconcile the pending roadmap changes in
