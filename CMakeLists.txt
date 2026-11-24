@@ -267,6 +267,7 @@ feature_summary(FATAL_ON_MISSING_REQUIRED_PACKAGES INCLUDE_QUIET_PACKAGES DESCRI
 
 set(path_Common ${CMAKE_CURRENT_SOURCE_DIR}/src/Common)
 set(libCommon_SOURCES
+    ${path_Common}/AccountRegistry.cpp
     ${path_Common}/Application.cpp
     ${path_Common}/ConnectionId.cpp
     ${path_Common}/FileLogger.cpp
@@ -1136,6 +1137,7 @@ if(BUILD_TESTING)
     trojita_test(Misc QaimDfsIterator)
     trojita_test(Misc FavoriteTagsModel)
     trojita_test(Misc AccountCapabilities)
+    trojita_test(Misc AccountRegistry)
 
 endif()
 
