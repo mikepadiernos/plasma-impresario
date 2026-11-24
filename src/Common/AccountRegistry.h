@@ -69,6 +69,13 @@ public:
     /** Make an existing account the active one. */
     void setActiveAccount(const QString &accountId);
 
+    /**
+     * Copy the keys that belong to an account, those starting with "imap.", "msa.", "offline."
+     * or "composer/", from application-wide settings into an account's settings.
+     * Existing keys in the destination are overwritten; the source is left unchanged.
+     */
+    static void copyAccountKeys(const QSettings &from, QSettings &to);
+
 signals:
     void accountAdded(const QString &accountId);
     void accountRemoved(const QString &accountId);

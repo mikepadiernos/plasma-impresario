@@ -20,6 +20,7 @@ private slots:
     void persistsAccountsNamesAndActiveAccount();
     void emitsLifecycleSignals();
     void unknownIdsAreHandled();
+    void copiesOnlyAccountKeys();
 };
 
 #endif

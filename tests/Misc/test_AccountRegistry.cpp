@@ -169,4 +169,26 @@ void AccountRegistryTest::unknownIdsAreHandled()
     QCOMPARE(registry.accountIds(), QStringList{a});
 }
 
+void AccountRegistryTest::copiesOnlyAccountKeys()
+{
+    Fixture f;
+    QSettings from(f.directory.filePath(QStringLiteral("from.ini")), QSettings::IniFormat);
+    QSettings to(f.directory.filePath(QStringLiteral("to.ini")), QSettings::IniFormat);
+    from.setValue(QStringLiteral("imap.host"), QStringLiteral("imap.example.test"));
+    from.setValue(QStringLiteral("msa.smtp.host"), QStringLiteral("smtp.example.test"));
+    from.setValue(QStringLiteral("offline.cache"), QStringLiteral("days"));
+    from.setValue(QStringLiteral("composer/imapSentName"), QStringLiteral("Sent"));
+    from.setValue(QStringLiteral("gui/showSystray"), true);
+    from.setValue(QStringLiteral("plugin/password"), QStringLiteral("qtkeychainpassword"));
+    to.setValue(QStringLiteral("imap.host"), QStringLiteral("stale.example.test"));
+    AccountRegistry::copyAccountKeys(from, to);
+    QCOMPARE(to.value(QStringLiteral("imap.host")).toString(), QStringLiteral("imap.example.test"));
+    QCOMPARE(to.value(QStringLiteral("msa.smtp.host")).toString(), QStringLiteral("smtp.example.test"));
+    QCOMPARE(to.value(QStringLiteral("offline.cache")).toString(), QStringLiteral("days"));
+    QCOMPARE(to.value(QStringLiteral("composer/imapSentName")).toString(), QStringLiteral("Sent"));
+    QVERIFY(!to.contains(QStringLiteral("gui/showSystray")));
+    QVERIFY(!to.contains(QStringLiteral("plugin/password")));
+    QCOMPARE(from.value(QStringLiteral("imap.host")).toString(), QStringLiteral("imap.example.test"));
+}
+
 QTEST_GUILESS_MAIN(AccountRegistryTest)

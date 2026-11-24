@@ -21,6 +21,20 @@ const QString nextKey = QStringLiteral("accounts/next");
 const QString namePrefix = QStringLiteral("accounts/names/");
 }
 
+void AccountRegistry::copyAccountKeys(const QSettings &from, QSettings &to)
+{
+    static const QStringList prefixes = {QStringLiteral("imap."), QStringLiteral("msa."),
+                                         QStringLiteral("offline."), QStringLiteral("composer/")};
+    for (const QString &key : from.allKeys()) {
+        for (const QString &prefix : prefixes) {
+            if (key.startsWith(prefix)) {
+                to.setValue(key, from.value(key));
+                break;
+            }
+        }
+    }
+}
+
 QStringList AccountRegistry::accountIds() const
 {
     return m_index->value(idsKey).toStringList();
