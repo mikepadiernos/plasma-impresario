@@ -24,6 +24,7 @@
 #define TROJITA_WINDOW_H
 
 #include <QHash>
+#include <QMap>
 #include <QMainWindow>
 #include <QModelIndex>
 #include <QPointer>
@@ -34,6 +35,7 @@
 #include "Composer/Recipients.h"
 #include "Imap/ConnectionState.h"
 #include "Imap/Model/Cache.h"
+#include "Imap/Model/SpecialFolder.h"
 #include "MessageActionHandler.h"
 
 class QAuthenticator;
@@ -216,6 +218,8 @@ private slots:
     void slotSortingConfirmed(int column, Qt::SortOrder order);
     void slotSearchRequested(const QStringList &searchConditions);
     void slotCapabilitiesUpdated(const QStringList &capabilities);
+    void slotGoToFolder();
+    void updateGoToFolderActions();
 
     void slotMailboxDeleteFailed(const QString &mailbox, const QString &msg);
     void slotMailboxCreateFailed(const QString &mailbox, const QString &msg);
@@ -257,6 +261,9 @@ protected:
 
 private:
     void reply(const Composer::ReplyMode mode);
+    /** @short Select and open a mailbox of the active account, showing the message list */
+    void goToMailbox(const QString &mailbox);
+    void goToSpecialFolder(Imap::Mailbox::SpecialUse kind);
 
     void defineActions();
     void createMenus();
@@ -498,6 +505,10 @@ private:
 
     QAction *m_actionSubscribeMailbox;
     QAction *m_actionShowOnlySubscribed;
+
+    QAction *m_goToFolder;
+    QMenu *m_goToFolderMenu;
+    QMap<Imap::Mailbox::SpecialUse, QAction *> m_goToSpecialFolderActions;
 
     QAction *m_actionContactEditor;
 

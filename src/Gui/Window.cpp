@@ -104,6 +104,7 @@
 #include "DensityMenu.h"
 #include "EmbeddedPanelsMenu.h"
 #include "MailBoxTreeView.h"
+#include "MailboxPickerDialog.h"
 #include "MessageDetailsPanel.h"
 #include "MessageListWidget.h"
 #include "MessageView.h"
@@ -275,6 +276,58 @@ void MainWindow::reply(const Composer::ReplyMode mode)
 #endif
 }
 
+namespace {
+
+QString goToSpecialFolderText(Imap::Mailbox::SpecialUse kind)
+{
+    using Imap::Mailbox::SpecialUse;
+    switch (kind) {
+    case SpecialUse::Inbox:
+        return i18nc("@action:inmenu go to folder", "&Inbox");
+    case SpecialUse::Drafts:
+        return i18nc("@action:inmenu go to folder", "&Drafts");
+    case SpecialUse::Sent:
+        return i18nc("@action:inmenu go to folder", "&Sent");
+    case SpecialUse::Archive:
+        return i18nc("@action:inmenu go to folder", "A&rchive");
+    case SpecialUse::Junk:
+        return i18nc("@action:inmenu go to folder", "&Junk");
+    case SpecialUse::Trash:
+        return i18nc("@action:inmenu go to folder", "&Trash");
+    case SpecialUse::None:
+    case SpecialUse::All:
+    case SpecialUse::Flagged:
+        break;
+    }
+    return QString();
+}
+
+QString goToSpecialFolderObjectName(Imap::Mailbox::SpecialUse kind)
+{
+    using Imap::Mailbox::SpecialUse;
+    switch (kind) {
+    case SpecialUse::Inbox:
+        return QStringLiteral("action_go_to_inbox");
+    case SpecialUse::Drafts:
+        return QStringLiteral("action_go_to_drafts");
+    case SpecialUse::Sent:
+        return QStringLiteral("action_go_to_sent");
+    case SpecialUse::Archive:
+        return QStringLiteral("action_go_to_archive");
+    case SpecialUse::Junk:
+        return QStringLiteral("action_go_to_junk");
+    case SpecialUse::Trash:
+        return QStringLiteral("action_go_to_trash");
+    case SpecialUse::None:
+    case SpecialUse::All:
+    case SpecialUse::Flagged:
+        break;
+    }
+    return QString();
+}
+
+}
+
 void MainWindow::defineActions()
 {
     ShortcutHandler *shortcutHandler = ShortcutHandler::instance();
@@ -319,6 +372,7 @@ void MainWindow::defineActions()
     shortcutHandler->defineAction(QStringLiteral("action_next_account"), QString(), tr("Switch to Next Account"), QStringLiteral("Ctrl+Alt+PgDown"));
     shortcutHandler->defineAction(QStringLiteral("action_previous_account"), QString(), tr("Switch to Previous Account"), QStringLiteral("Ctrl+Alt+PgUp"));
     shortcutHandler->defineAction(QStringLiteral("action_focus_quick_search"), QString(), tr("Move Focus to Quick Search"), QStringLiteral("/"));
+    shortcutHandler->defineAction(QStringLiteral("action_go_to_folder"), QStringLiteral("go-jump"), i18nc("@action", "Go to &Folder..."), QStringLiteral("Ctrl+J"));
     shortcutHandler->defineAction(QStringLiteral("action_tag_1"), QStringLiteral("mail-tag-1"), tr("Tag with &1st tag"), QStringLiteral("1"));
     shortcutHandler->defineAction(QStringLiteral("action_tag_2"), QStringLiteral("mail-tag-2"), tr("Tag with &2nd tag"), QStringLiteral("2"));
     shortcutHandler->defineAction(QStringLiteral("action_tag_3"), QStringLiteral("mail-tag-3"), tr("Tag with &3rd tag"), QStringLiteral("3"));
@@ -461,6 +515,20 @@ void MainWindow::createActions()
             SLOT(slotNextAccount()), this));
     addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_previous_account"), this,
             SLOT(slotPreviousAccount()), this));
+
+    m_goToFolder = ShortcutHandler::instance()->createAction(QStringLiteral("action_go_to_folder"), this,
+            SLOT(slotGoToFolder()), this);
+    m_goToFolderMenu = new QMenu(i18nc("@title:menu", "&Go to Folder"), this);
+    m_goToFolderMenu->setObjectName(QStringLiteral("goToFolderMenu"));
+    m_goToFolderMenu->setIcon(UiUtils::loadIcon(QStringLiteral("go-jump")));
+    for (const Imap::Mailbox::SpecialUse kind : Imap::Mailbox::SpecialFolder::navigableKinds()) {
+        QAction *action = m_goToFolderMenu->addAction(Imap::Mailbox::PrettyMailboxModel::specialFolderIcon(kind),
+                                                      goToSpecialFolderText(kind));
+        action->setObjectName(goToSpecialFolderObjectName(kind));
+        action->setEnabled(false);
+        connect(action, &QAction::triggered, this, [this, kind]() { goToSpecialFolder(kind); });
+        m_goToSpecialFolderActions.insert(kind, action);
+    }
 
     m_oneAtTimeGoBack = ShortcutHandler::instance()->createAction(QStringLiteral("action_oneattime_go_back"), this);
     m_oneAtTimeGoBack->setEnabled(false);
@@ -832,6 +900,9 @@ void MainWindow::createMenus()
         ADD_ACTION(viewMenu, m_actionShowOnlySubscribed);
 
     QMenu *mailboxMenu = menuBar()->addMenu(tr("Mail&box"));
+        mailboxMenu->addMenu(m_goToFolderMenu);
+        ADD_ACTION(mailboxMenu, m_goToFolder);
+        mailboxMenu->addSeparator();
         QMenu *sortMenu = mailboxMenu->addMenu(tr("S&orting"));
             ADD_ACTION(sortMenu, m_actionSortNone);
             ADD_ACTION(sortMenu, m_actionSortThreading);
@@ -1167,6 +1238,9 @@ void MainWindow::setupModels(bool reconnect)
     connect(imapModel()->taskModel(), &QAbstractItemModel::rowsMoved, taskTree, &QTreeView::expandAll);
 
     busyParsersIndicator->setImapModel(imapModel());
+    connect(imapModel(), &Imap::Mailbox::Model::specialFoldersChanged, this, &MainWindow::updateGoToFolderActions,
+            Qt::UniqueConnection);
+    updateGoToFolderActions();
 
     auto accountIconName = accountSettings()->value(Common::SettingsNames::imapAccountIcon).toString();
     if (accountIconName.isEmpty()) {
@@ -1648,6 +1722,48 @@ void MainWindow::resumeCurrentMailbox()
     const QString name = model->currentMailbox().data(Imap::Mailbox::RoleMailboxName).toString();
     if (!name.isEmpty())
         mboxTree->restoreMailbox(name);
+}
+
+void MainWindow::updateGoToFolderActions()
+{
+    const Imap::Mailbox::Model *model = imapModel();
+    for (auto it = m_goToSpecialFolderActions.constBegin(); it != m_goToSpecialFolderActions.constEnd(); ++it) {
+        const QString mailbox = model ? model->specialFolderMailbox(it.key()) : QString();
+        it.value()->setEnabled(!mailbox.isEmpty());
+        it.value()->setToolTip(mailbox);
+    }
+}
+
+void MainWindow::goToSpecialFolder(Imap::Mailbox::SpecialUse kind)
+{
+    if (const Imap::Mailbox::Model *model = imapModel())
+        goToMailbox(model->specialFolderMailbox(kind));
+}
+
+void MainWindow::goToMailbox(const QString &mailbox)
+{
+    if (mailbox.isEmpty() || !prettyMboxModel)
+        return;
+    // The tree selects the mailbox and opens it as soon as its MailboxFinder locates the index
+    mboxTree->restoreMailbox(mailbox);
+    if (m_mainStack) {
+        m_mainStack->setCurrentWidget(msgListWidget);
+        m_oneAtTimeGoBack->setEnabled(true);
+    }
+    msgListWidget->tree->setFocus();
+}
+
+void MainWindow::slotGoToFolder()
+{
+    if (!prettyMboxModel)
+        return;
+    auto *dialog = new MailboxPickerDialog(this);
+    dialog->setObjectName(QStringLiteral("goToFolderDialog"));
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setWindowTitle(i18nc("@title:window", "Go to Folder"));
+    dialog->setMailboxes(prettyMboxModel);
+    connect(dialog, &QDialog::accepted, this, [this, dialog]() { goToMailbox(dialog->selectedMailbox()); });
+    dialog->open();
 }
 
 /** @short Deletes a network error message box instance upon resetting of reconnect state */

@@ -398,6 +398,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/FromAddressProxyModel.cpp
     ${path_DesktopGui}/LineEdit.cpp
     ${path_DesktopGui}/MailBoxTreeView.cpp
+    ${path_DesktopGui}/MailboxPickerDialog.cpp
     ${path_DesktopGui}/MessageActionHandler.cpp
     ${path_DesktopGui}/MessageDetailsPanel.cpp
     ${path_DesktopGui}/MessageListWidget.cpp
