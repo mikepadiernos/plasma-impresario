@@ -13,6 +13,25 @@ Plasma Impresario should remain useful without a companion application.
 > discovery before implementation. The approaches below do not assume that a
 > particular Plasma Opus API or service already exists.
 
+## Plasma Opus features to use
+
+The [Plasma Opus roadmap](https://github.com/mikepadiernos/plasma-opus/blob/main/docs/ROADMAP.md)
+and its
+[mail integration proposals](https://github.com/mikepadiernos/plasma-opus/blob/main/docs/integrations/plasma-mail.md)
+include features that Plasma Impresario can use through standard desktop
+interfaces. Each use must also work with other file managers and without
+Plasma Opus. Plasma Opus status was checked on 2026-11-24.
+
+| Plasma Opus feature                                                                                                         | Plasma Opus status                  | Use in Plasma Impresario                                                      | Tracking                                                                   |
+| --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| XDG portal file chooser (M27.01)                                                                                            | Planned                             | Its dialog opens files and attachments; the KDE dialog is the fallback        | M05, [#101](https://github.com/mikepadiernos/plasma-impresario/issues/101) |
+| Compose with selected files                                                                                                 | Proposed                            | Start a draft with the files selected in the file manager                     | M05, [#263](https://github.com/mikepadiernos/plasma-impresario/issues/263) |
+| Drag and drop into a draft                                                                                                  | Proposed                            | Attach dropped local and remote files; only local files work today            | M05, [#265](https://github.com/mikepadiernos/plasma-impresario/issues/265) |
+| `org.freedesktop.FileManager1` service (M27.01, [plasma-opus#279](https://github.com/mikepadiernos/plasma-opus/issues/279)) | Planned                             | Show saved attachments in the file manager                                    | M05, [#266](https://github.com/mikepadiernos/plasma-impresario/issues/266) |
+| KDE Online Accounts (M27.06) and Nextcloud shares (M29)                                                                     | Planned                             | Reuse the same Nextcloud identity and insert reviewed share links into drafts | M11, [#267](https://github.com/mikepadiernos/plasma-impresario/issues/267) |
+| Workspaces (M15) and Plasma Activities (M27.01)                                                                             | Workspaces done; Activities planned | Follow the same Activities so mail and file workspaces switch together        | M07 workspace settings                                                     |
+| Default file manager registration (M27.01)                                                                                  | Done                                | Folders opened through KIO use Plasma Opus when it is the default             | No change needed                                                           |
+
 ## Calendar and scheduling
 
 - **What:** Create or update an event from a message, review meeting context and
@@ -59,6 +78,8 @@ Plasma Impresario should remain useful without a companion application.
 - **How:** Provide settings to manage the account-to-workspace association and
   use verified workspace and Activity context to restore the relevant view. Keep
   account identity and authorization separate from the workspace mapping.
+  Coordinate with Plasma Opus workspaces through Plasma Activities rather than
+  by reading its workspace configuration.
 - **Recommendations:** Make the active context and any filtering visible.
   Changing an Activity must not silently delete, move or modify mail; do not
   assume a workspace is an account or that every account belongs to one. Define
