@@ -289,6 +289,7 @@ set(libPlugins_SOURCES
 
 set(path_UiUtils ${CMAKE_CURRENT_SOURCE_DIR}/src/UiUtils)
 set(libUiUtils_SOURCES
+    ${path_UiUtils}/AttachmentCollector.cpp
     ${path_UiUtils}/Color.cpp
     ${path_UiUtils}/Formatting.cpp
     ${path_UiUtils}/IconLoader.cpp
@@ -1152,6 +1153,8 @@ if(BUILD_TESTING)
     trojita_test(Misc AccountCapabilities)
     trojita_test(Misc AccountRegistry)
     trojita_test(Misc AccountStatus)
+    trojita_test(Misc AttachmentCollector)
+    target_link_libraries(test_AttachmentCollector PRIVATE UiUtils)
 
 endif()
 
