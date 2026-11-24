@@ -476,6 +476,7 @@ set(libImap_SOURCES
     ${path_Imap}/Model/FindInterestingPart.cpp
     ${path_Imap}/Model/FlagsOperation.cpp
     ${path_Imap}/Model/FullMessageCombiner.cpp
+    ${path_Imap}/Model/AccountCapabilities.cpp
     ${path_Imap}/Model/ImapAccess.cpp
     ${path_Imap}/Model/MailboxFinder.cpp
     ${path_Imap}/Model/MailboxMetadata.cpp
@@ -1134,6 +1135,7 @@ if(BUILD_TESTING)
     trojita_test(Misc Formatting)
     trojita_test(Misc QaimDfsIterator)
     trojita_test(Misc FavoriteTagsModel)
+    trojita_test(Misc AccountCapabilities)
 
 endif()
 
