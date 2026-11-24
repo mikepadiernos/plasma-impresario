@@ -35,10 +35,16 @@ side in the wide layout, or replaced by one-panel-at-a-time navigation, which
 shows the mailbox tree, list and reader in turn while the side columns keep
 any embedded panels placed there. A side column or the footer is shown only
 while it holds the mailbox tree or a shown embedded panel; when it returns, it
-gets its previous size back. Region widths, the split inside each region, the
-main column's split, the sidebar side and the selected layout are saved for
-each layout. Sizes saved by versions before the shell are not migrated, so
-the panes start at their default sizes once after upgrading. The selected
+gets its previous size back. Region widths, the main column's split, the
+sidebar side and the selected layout are saved for each layout. Each embedded
+panel starts with room for its title and a few rows (three attachments, four
+contacts, five detail or related lines); panels side by side in the footer
+share its width. A size the user sets by dragging a divider is kept for that
+panel, including after it is hidden or moved back, and saved with the layout.
+Panels sharing a column with the mailbox tree, or the reader column with the
+reader, take at most two thirds of it. Sizes saved by versions before the
+shell are not migrated, so the panes start at their default sizes once after
+upgrading. The selected
 folder and message are restored when they become available, unless the user
 navigates elsewhere first. Message restoration checks the mailbox's UIDVALIDITY
 before selecting a saved UID.

@@ -127,7 +127,10 @@ and project status before acting.
   related messages and attachments panels against a synthetic Dovecot
   mailbox with a conversation, attachments and a signed message, and saves
   layout screenshots. It found that Contacts listed the sender twice when a
-  message has no Reply-To header, which is fixed. `tools/dev-container/vnc.sh`
+  message has no Reply-To header, which is fixed. The screenshots also showed
+  panels squeezed to a sliver when sharing a column, attachments below the
+  reader showing one row, and a tall footer; panels now start at a size for a
+  few rows, and each keeps a size the user drags it to. `tools/dev-container/vnc.sh`
   opens the same mailbox in a VNC view for manual checks. Not verified: a
   real Plasma session. Saved pane sizes reset once after upgrading; see
   [caveat #264](CAVEATS.md#related-messages-and-message-details-panels).
