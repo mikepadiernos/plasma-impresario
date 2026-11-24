@@ -862,6 +862,7 @@ void MainWindow::createWidgets()
     m_delayedStateSaving->setInterval(1000);
     m_delayedStateSaving->setSingleShot(true);
     connect(m_delayedStateSaving, &QTimer::timeout, this, &MainWindow::saveSizesAndState);
+    connect(qApp, &QCoreApplication::aboutToQuit, this, &MainWindow::flushUiState);
 
     mboxTree = new MailBoxTreeView(nullptr, m_settings);
     mboxTree->setItemDelegate(new DensityDelegate(mboxTree));
@@ -1227,6 +1228,7 @@ void MainWindow::handleTrayIconChange()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+    flushUiState();
     if (m_trayIcon && m_trayIcon->isVisible()) {
         Util::askForSomethingUnlessTold(tr("Plasma Impresario"),
                                         tr("The application will continue in systray. This can be disabled within the settings."),
@@ -2894,6 +2896,15 @@ void MainWindow::saveSizesAndState()
     m_settings->setValue(Common::SettingsNames::menubarVisible, menuBar()->isVisible());
 
     m_settings->endGroup();
+}
+
+void MainWindow::flushUiState()
+{
+    m_delayedStateSaving->stop();
+    saveSizesAndState();
+    m_settings->sync();
+    if (m_settings->status() != QSettings::NoError)
+        qWarning() << "Could not save window layout";
 }
 
 void MainWindow::saveRawStateSetting(bool enabled)

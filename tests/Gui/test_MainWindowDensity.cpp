@@ -26,6 +26,7 @@
 #include <KSharedConfig>
 #include <QApplication>
 #include <QLabel>
+#include <QScreen>
 #include <QSettings>
 #include <QSplitter>
 #include <QStandardItemModel>
@@ -192,6 +193,17 @@ private slots:
         QVERIFY(submission);
         QCOMPARE(submission->accountId(), initialProfile.isEmpty() ? QStringLiteral("account-0") : QString::fromUtf8(initialProfile));
         delete composer;
+
+        splitter->setSizes({450, 250, 150});
+        const QByteArray expectedSplitterState = splitter->saveState();
+        splitter->splitterMoved(450, 1);
+        window.close();
+        settings.sync();
+        const QString layoutGroup = Common::SettingsNames::guiSizesInMainWinWhenWide.arg(
+            QString::number(window.screen()->availableGeometry().width()));
+        settings.beginGroup(layoutGroup);
+        QCOMPARE(settings.value(Common::SettingsNames::mainHSplitterState).toByteArray(), expectedSplitterState);
+        settings.endGroup();
     }
 };
 

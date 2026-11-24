@@ -207,6 +207,7 @@ private slots:
     void slotLayoutWide();
     void slotLayoutOneAtTime();
     void saveSizesAndState();
+    void flushUiState();
     void saveRawStateSetting(bool enabled);
     void possiblyLoadMessageOnSplittersChanged();
     void updateNetworkIndication();
