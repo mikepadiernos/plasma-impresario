@@ -137,7 +137,7 @@ and project status before acting.
   Remaining for #35 before Completed: verification in a real Plasma session.
   Moved from #35 to other milestones (all Backlog): server-side related
   messages #302 and verified security details #303 (M04); the My Day / Agenda
-  panel #304 and address-book contacts #305 (M05); the designed header #306
+  panel #304 and address-book contacts #305 (M05.04); the designed header #306
   and sliding, floating or rearrangeable panels #307 (M12.02).
 - **Blocked, #218:** OAuth needs XOAUTH2 or OAUTHBEARER authentication in the
   IMAP layer, which has none, and a token source. KAccounts and signond are
@@ -146,7 +146,7 @@ and project status before acting.
   parser tests, add a token interface backed by KAccounts, then verify with an
   account you control.
 - **Open, #78, #36 and #215:** `AccountCapabilities` exists but nothing in the
-  interface consults it yet; POP3 and JMAP belong to M05. Account editing uses
+  interface consults it yet; POP3 and JMAP belong to M05.05. Account editing uses
   the settings dialog; per-account identities are not separate from the shared
   sender identities.
 - **Resume:** #79 and #222 are Completed. #80 still needs account grouping in
@@ -160,7 +160,7 @@ and project status before acting.
 
 - **Deferred by milestone scope:** Live account setup belongs to M02 issue #78.
   Live message reading, replies and attachments belong to M04 issue #93.
-  Plasma desktop-session startup and recovery belong to M05 issue #101.
+  Plasma desktop-session startup and recovery belong to M05.01 issue #101.
   M01.04 is complete from automated build, installer, launch and privacy
   evidence without an isolated account or live Plasma session.
 - **Pending:** Verify renderer-enabled and renderer-free installs at system

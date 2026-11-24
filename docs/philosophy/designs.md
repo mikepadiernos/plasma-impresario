@@ -161,11 +161,11 @@ move focus or selection, and a hidden panel's size is restored when it returns.
   [Current interface](#current-interface). Verified signer details
   ([M04, #303](https://github.com/mikepadiernos/plasma-impresario/issues/303)),
   address-book details
-  ([M05, #305](https://github.com/mikepadiernos/plasma-impresario/issues/305))
+  ([M05.04, #305](https://github.com/mikepadiernos/plasma-impresario/issues/305))
   and related messages across folders
   ([M04, #302](https://github.com/mikepadiernos/plasma-impresario/issues/302))
   remain planned.
-- **My Day / Agenda (planned for M05, not implemented,
+- **My Day / Agenda (planned for M05.04, not implemented,
   [#304](https://github.com/mikepadiernos/plasma-impresario/issues/304)):** a
   daily overview beside the
   mail workflow. Content:
