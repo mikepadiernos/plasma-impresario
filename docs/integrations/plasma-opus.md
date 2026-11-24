@@ -73,11 +73,17 @@ Plasma Impresario should remain useful without a companion application.
 - **How:** Use the desktop file workflow for local files and a verified
   companion interface for other handoffs. Show the selected files, destination,
   progress and errors before completing an action.
+- **File open dialog:** Request attachment and file selection through the XDG
+  portal file chooser. When Plasma Opus is installed and serves the portal (a
+  planned Plasma Opus feature), its file open dialog is used; otherwise the
+  standard KDE dialog appears. Keep the chosen files, cancellation and errors
+  identical in both cases and do not depend on Plasma Opus being present.
 - **Recommendations:** Treat attachments as untrusted and require explicit
   sharing. Explain permissions and link visibility; do not claim a file was
   shared if upload or handoff failed.
 - **Verify:** Test cancellation, unavailable applications, denied permissions,
-  incomplete downloads and failed uploads with isolated files.
+  incomplete downloads and failed uploads with isolated files. Open files with
+  and without Plasma Opus serving the portal file chooser.
 
 ## Actions, reminders and status
 
