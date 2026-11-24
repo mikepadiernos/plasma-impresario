@@ -209,6 +209,13 @@ void MailBoxTreeView::setDesiredExpansion(const QStringList &mailboxNames)
     resetWatchedMailboxes();
 }
 
+QStringList MailBoxTreeView::desiredExpansion() const
+{
+    QStringList names = m_desiredExpansionState.values();
+    names.sort();
+    return names;
+}
+
 /** @short Ensure that we watch stuff that we need to watch */
 void MailBoxTreeView::resetWatchedMailboxes()
 {

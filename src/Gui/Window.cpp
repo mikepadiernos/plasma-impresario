@@ -897,10 +897,10 @@ void MainWindow::createWidgets()
 
     mboxTree = new MailBoxTreeView(nullptr, m_settings);
     mboxTree->setItemDelegate(new DensityDelegate(mboxTree));
-    mboxTree->setDesiredExpansion(m_settings->value(Common::SettingsNames::guiExpandedMailboxes).toStringList());
+    mboxTree->setDesiredExpansion(expandedMailboxes());
     connect(mboxTree, &QWidget::customContextMenuRequested, this, &MainWindow::showContextMenuMboxTree);
     connect(mboxTree, &MailBoxTreeView::mailboxExpansionChanged, this, [this](const QStringList &mailboxNames) {
-        m_settings->setValue(Common::SettingsNames::guiExpandedMailboxes, mailboxNames);
+        accountSettings()->setValue(Common::SettingsNames::guiExpandedMailboxes, mailboxNames);
     });
 
     msgListWidget = new MessageListWidget(nullptr, m_favoriteTags, m_imapAccess->credentialAccountId());
@@ -1660,6 +1660,17 @@ void MainWindow::setupAccounts()
     m_imapAccess = accountAccess(m_accounts->activeAccount());
 }
 
+QStringList MainWindow::expandedMailboxes() const
+{
+    const QSettings *account = accountSettings();
+    if (account->contains(Common::SettingsNames::guiExpandedMailboxes))
+        return account->value(Common::SettingsNames::guiExpandedMailboxes).toStringList();
+    // Expansion used to be shared by the whole profile; only the migrated account inherits it.
+    if (m_accounts->activeAccount() == m_settings->value(legacyAccountKey).toString())
+        return m_settings->value(Common::SettingsNames::guiExpandedMailboxes).toStringList();
+    return {};
+}
+
 Imap::ImapAccess *MainWindow::accountAccess(const QString &accountId)
 {
     if (Imap::ImapAccess *existing = m_accountAccess.value(accountId))
@@ -1795,6 +1806,8 @@ void MainWindow::switchAccount(const QString &accountId)
     nukeModels();
     m_accounts->setActiveAccount(accountId);
     m_imapAccess = accountAccess(accountId);
+    mboxTree->setDesiredExpansion(expandedMailboxes());
+    msgListWidget->setAccountId(m_imapAccess->credentialAccountId());
     setupModels(m_imapAccess->imapModel() == nullptr);
     connectModelActions();
     removeSysTray();

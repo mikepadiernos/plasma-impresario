@@ -17,11 +17,14 @@
 #endif
 #include "static_plugins.h"
 
+#include <KConfigGroup>
 #include <KLocalizedString>
+#include <KSharedConfig>
 #include <QApplication>
 #include <QComboBox>
 #include <QFile>
 #include <QFileInfo>
+#include <QMenu>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QStandardPaths>
@@ -215,6 +218,52 @@ private slots:
         focusReader->trigger();
         QVERIFY(window.focusWidget());
         QVERIFY(window.focusWidget() != mailboxes);
+    }
+
+    void savedSearchesAndFolderExpansionFollowTheAccount()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        settings.setValue(Common::SettingsNames::guiExpandedMailboxes, QStringList{QStringLiteral("Shared")});
+        auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        KConfigGroup homeSearch = KConfigGroup(config, QStringLiteral("SavedSearches"))
+                                      .group(QStringLiteral("account-2")).group(QStringLiteral("invoices"));
+        homeSearch.writeEntry("Name", QStringLiteral("Home invoices"));
+        homeSearch.writeEntry("Query", QStringLiteral("invoice"));
+        QVERIFY(config->sync());
+
+        Gui::MainWindow window(&settings);
+        auto *mailboxes = window.findChild<Gui::MailBoxTreeView *>();
+        auto *saved = window.findChild<QMenu *>(QStringLiteral("savedSearches"));
+        QVERIFY(mailboxes);
+        QVERIFY(saved);
+        auto savedNames = [saved]() {
+            emit saved->aboutToShow();
+            QStringList names;
+            for (auto *action : saved->actions())
+                names << action->text();
+            return names;
+        };
+        QCOMPARE(window.imapAccess()->credentialAccountId() == QStringLiteral("account-2"), false);
+        QVERIFY(savedNames().isEmpty());
+        QCOMPARE(mailboxes->desiredExpansion(), QStringList{QStringLiteral("Shared")});
+
+        window.findChild<QAction *>(QStringLiteral("action_next_account"))->trigger();
+        QCOMPARE(window.imapAccess()->credentialAccountId(), QStringLiteral("account-2"));
+        QCOMPARE(savedNames(), QStringList{QStringLiteral("Home invoices")});
+        QVERIFY(mailboxes->desiredExpansion().isEmpty());
+        emit mailboxes->mailboxExpansionChanged({QStringLiteral("Projects")});
+        QCOMPARE(window.accountSettings()->value(Common::SettingsNames::guiExpandedMailboxes).toStringList(),
+                 QStringList{QStringLiteral("Projects")});
+        QCOMPARE(settings.value(Common::SettingsNames::guiExpandedMailboxes).toStringList(), QStringList{QStringLiteral("Shared")});
+
+        window.findChild<QAction *>(QStringLiteral("action_previous_account"))->trigger();
+        QVERIFY(savedNames().isEmpty());
+        QCOMPARE(mailboxes->desiredExpansion(), QStringList{QStringLiteral("Shared")});
+        window.findChild<QAction *>(QStringLiteral("action_next_account"))->trigger();
+        QCOMPARE(mailboxes->desiredExpansion(), QStringList{QStringLiteral("Projects")});
     }
 };
 

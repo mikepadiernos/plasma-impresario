@@ -42,6 +42,8 @@ class MailBoxTreeView : public QTreeView
 public:
     explicit MailBoxTreeView(QWidget *parent, QSettings *settings);
     void setDesiredExpansion(const QStringList &mailboxNames);
+    /** Names of the mailboxes kept expanded, sorted */
+    QStringList desiredExpansion() const;
     /** Restore the selected mailbox when it becomes available. */
     void restoreMailbox(const QString &mailboxName);
     void setModel(QAbstractItemModel *model) override;

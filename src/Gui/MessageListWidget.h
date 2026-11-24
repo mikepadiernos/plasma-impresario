@@ -48,6 +48,9 @@ public:
 
     QStringList searchConditions() const;
 
+    /** Key saved searches to another account, for example after switching accounts. */
+    void setAccountId(const QString &accountId);
+
     // FIXME: consider making this private and moving the logic from Window with it
     MsgListView *tree;
 
@@ -94,7 +97,7 @@ private:
     QAction *m_searchFuzzy;
     QAction *m_rawSearch;
     QMenu *m_savedSearches;
-    const QString m_accountId;
+    QString m_accountId;
     bool m_supportsFuzzySearch;
     QTimer *m_searchResetTimer;
     QString m_queryPlaceholder;

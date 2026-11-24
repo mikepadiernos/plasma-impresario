@@ -195,6 +195,11 @@ void MessageListWidget::rebuildSavedSearchMenu()
         addSavedSearch(id);
 }
 
+void MessageListWidget::setAccountId(const QString &accountId)
+{
+    m_accountId = accountId;
+}
+
 KConfigGroup MessageListWidget::savedSearchGroup() const
 {
     KConfigGroup searches(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), QStringLiteral("SavedSearches"));

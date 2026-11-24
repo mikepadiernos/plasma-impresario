@@ -280,6 +280,8 @@ private:
 
     /** Switch to the account @p step positions after the active one, wrapping around. */
     void cycleAccount(int step);
+    /** Folders expanded in the active account's mailbox tree */
+    QStringList expandedMailboxes() const;
 
     /** Rebuild the account selector from the account list. */
     void refreshAccountSwitcher();
