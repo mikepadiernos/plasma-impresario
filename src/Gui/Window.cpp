@@ -98,7 +98,9 @@
 #include "DensityDelegate.h"
 #include "Common/AccountRegistry.h"
 #include "Common/AccountStatus.h"
+#include "AttachmentPanel.h"
 #include "DensityMenu.h"
+#include "EmbeddedPanelsMenu.h"
 #include "MailBoxTreeView.h"
 #include "MessageListWidget.h"
 #include "MessageView.h"
@@ -810,6 +812,8 @@ void MainWindow::createMenus()
         });
         viewMenu->addMenu(new DensityMenu(mboxTree, msgListWidget->tree,
                                           config, viewMenu));
+        if (m_attachmentPanel)
+            viewMenu->addMenu(new EmbeddedPanelsMenu(m_attachmentPanel, config, viewMenu));
         viewMenu->addSeparator();
         ADD_ACTION(viewMenu, m_actionShowOnlySubscribed);
 
@@ -930,9 +934,25 @@ void MainWindow::createWidgets()
         }
     });
     connect(m_messageWidget->messageView, &MessageView::transferError, this, &MainWindow::slotDownloadTransferError);
+
+    m_attachmentPanel = new AttachmentPanel();
+    m_attachmentPanel->setNetworkAccessManager(m_messageWidget->messageView->networkAccessManager());
+    connect(m_messageWidget->messageView, &MessageView::messageModelChanged, m_attachmentPanel, &AttachmentPanel::setMessageModel);
+    connect(m_attachmentPanel, &AttachmentPanel::transferError, this, &MainWindow::slotDownloadTransferError);
 #else
    m_messageWidget = new QLabel(QStringLiteral("Message Widget placeholder"));
 #endif
+
+    m_readerColumn = new QSplitter(Qt::Vertical);
+    m_readerColumn->setObjectName(QStringLiteral("readerColumn"));
+    m_readerColumn->setChildrenCollapsible(false);
+    m_readerColumn->addWidget(m_messageWidget);
+    m_readerColumn->setStretchFactor(0, 1);
+    if (m_attachmentPanel) {
+        m_readerColumn->addWidget(m_attachmentPanel);
+        m_readerColumn->setStretchFactor(1, 0);
+    }
+    connect(m_readerColumn, &QSplitter::splitterMoved, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
 
     allDock = new QDockWidget(tr("Everything"), this);
     allDock->setObjectName(QStringLiteral("allDock"));
@@ -3057,13 +3077,13 @@ void MainWindow::slotLayoutCompact()
     }
 
     m_mainVSplitter->addWidget(msgListWidget);
-    m_mainVSplitter->addWidget(m_messageWidget);
+    m_mainVSplitter->addWidget(m_readerColumn);
     m_mainHSplitter->addWidget(mboxTree);
     m_mainHSplitter->addWidget(m_mainVSplitter);
 
     mboxTree->show();
     msgListWidget->show();
-    m_messageWidget->show();
+    m_readerColumn->show();
     m_mainVSplitter->show();
     m_mainHSplitter->show();
 
@@ -3072,7 +3092,7 @@ void MainWindow::slotLayoutCompact()
     // ...while the msgListTree shall consume all the remaining space
     m_mainHSplitter->setStretchFactor(1, 1);
     // The CompleteMessageWidget shall not not collapse
-    m_mainVSplitter->setCollapsible(m_mainVSplitter->indexOf(m_messageWidget), false);
+    m_mainVSplitter->setCollapsible(m_mainVSplitter->indexOf(m_readerColumn), false);
     setMailboxSidebarRight(m_mailboxSidebarOnRight);
 
     setCentralWidget(m_mainHSplitter);
@@ -3095,20 +3115,20 @@ void MainWindow::slotLayoutWide()
 
     m_mainHSplitter->addWidget(mboxTree);
     m_mainHSplitter->addWidget(msgListWidget);
-    m_mainHSplitter->addWidget(m_messageWidget);
+    m_mainHSplitter->addWidget(m_readerColumn);
     delete m_mainVSplitter;
     msgListWidget->resize(mboxTree->size());
-    m_messageWidget->resize(mboxTree->size());
+    m_readerColumn->resize(mboxTree->size());
     m_mainHSplitter->setStretchFactor(0, 0);
     m_mainHSplitter->setStretchFactor(1, 1);
     m_mainHSplitter->setStretchFactor(2, 1);
 
-    m_mainHSplitter->setCollapsible(m_mainHSplitter->indexOf(m_messageWidget), false);
+    m_mainHSplitter->setCollapsible(m_mainHSplitter->indexOf(m_readerColumn), false);
     setMailboxSidebarRight(m_mailboxSidebarOnRight);
 
     mboxTree->show();
     msgListWidget->show();
-    m_messageWidget->show();
+    m_readerColumn->show();
     m_mainHSplitter->show();
 
     setCentralWidget(m_mainHSplitter);
@@ -3126,7 +3146,7 @@ void MainWindow::slotLayoutOneAtTime()
     if (m_mainStack)
         return;
 
-    m_mainStack = new OnePanelAtTimeWidget(this, mboxTree, msgListWidget, m_messageWidget, m_mainToolbar, m_oneAtTimeGoBack);
+    m_mainStack = new OnePanelAtTimeWidget(this, mboxTree, msgListWidget, m_readerColumn, m_mainToolbar, m_oneAtTimeGoBack);
     setCentralWidget(m_mainStack);
 
     delete m_mainHSplitter;
@@ -3182,6 +3202,7 @@ void MainWindow::saveSizesAndState()
                          m_mainVSplitter ? m_mainVSplitter->saveState() : QByteArray());
     m_settings->setValue(Common::SettingsNames::mainHSplitterState,
                          m_mainHSplitter ? m_mainHSplitter->saveState() : QByteArray());
+    m_settings->setValue(QStringLiteral("readerColumnState"), m_readerColumn->saveState());
     m_settings->setValue(QStringLiteral("mailboxSidebarOnRight"), m_mailboxSidebarOnRight);
 
     m_settings->setValue(Common::SettingsNames::messageListState, msgListWidget->tree->header()->saveState());
@@ -3258,6 +3279,8 @@ void MainWindow::applySizesAndState()
     }
 
     restoreState(m_settings->value(Common::SettingsNames::windowState).toByteArray());
+
+    m_readerColumn->restoreState(m_settings->value(QStringLiteral("readerColumnState")).toByteArray());
 
     if (m_mainVSplitter) {
         const auto s = m_settings->value(Common::SettingsNames::mainVSplitterState).toByteArray();

@@ -92,6 +92,7 @@ class MSAFactory;
 namespace Gui
 {
 
+class AttachmentPanel;
 class CompleteMessageWidget;
 class ComposeWidget;
 class MailBoxTreeView;
@@ -339,6 +340,9 @@ private:
 #else
     QLabel *m_messageWidget;
 #endif
+    /** The reader and the embedded panels which follow its message, stacked vertically */
+    QSplitter *m_readerColumn = nullptr;
+    AttachmentPanel *m_attachmentPanel = nullptr;
 
     ProtocolLoggerWidget *protocolLogger;
     QDockWidget *protocolLoggerDock;

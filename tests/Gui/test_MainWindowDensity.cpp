@@ -4,6 +4,7 @@
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
 #include "Composer/Submission.h"
+#include "Gui/AttachmentPanel.h"
 #include "Gui/ComposeWidget.h"
 #include "Gui/DensityDelegate.h"
 #include "Gui/DensityMenu.h"
@@ -29,6 +30,7 @@
 #include <QScreen>
 #include <QSettings>
 #include <QSplitter>
+#include <QStackedWidget>
 #include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QStatusBar>
@@ -167,18 +169,44 @@ private slots:
         QVERIFY(splitter);
         QCOMPARE(splitter->count(), 3);
         QCOMPARE(splitter->indexOf(mailboxes), 0);
+        auto *readerColumn = window.findChild<QSplitter *>(QStringLiteral("readerColumn"));
+        QVERIFY(readerColumn);
+        QCOMPARE(readerColumn->orientation(), Qt::Vertical);
+        QCOMPARE(readerColumn->parentWidget(), splitter);
+#ifdef TROJITA_HAVE_WEBENGINE
+        auto *attachmentPanel = window.findChild<Gui::AttachmentPanel *>(QStringLiteral("attachmentPanel"));
+        QVERIFY(attachmentPanel);
+        QCOMPARE(attachmentPanel->parentWidget(), readerColumn);
+        QCOMPARE(readerColumn->indexOf(attachmentPanel), 1);
+        QVERIFY(attachmentPanel->isVisible());
+        QCOMPARE(attachmentPanel->attachmentCount(), 0);
+        auto *attachmentsAction = window.findChild<QAction *>(QStringLiteral("embeddedPanelAttachments"));
+        auto *autoHideAction = window.findChild<QAction *>(QStringLiteral("embeddedPanelAttachmentsAutoHide"));
+        QVERIFY(attachmentsAction);
+        QVERIFY(autoHideAction);
+        QVERIFY(attachmentsAction->isChecked());
+        QVERIFY(!autoHideAction->isChecked());
+        autoHideAction->trigger();
+        QVERIFY(attachmentPanel->isHidden());
+        autoHideAction->trigger();
+        QVERIFY(attachmentPanel->isVisible());
+#endif
         right->trigger();
         QCOMPARE(splitter->indexOf(mailboxes), splitter->count() - 1);
         QVERIFY(QMetaObject::invokeMethod(&window, "slotLayoutCompact"));
         splitter = qobject_cast<QSplitter *>(mailboxes->parentWidget());
         QVERIFY(splitter);
+        QVERIFY(qobject_cast<QSplitter *>(readerColumn->parentWidget()));
+        QCOMPARE(readerColumn->parentWidget()->parentWidget(), splitter);
         QCOMPARE(splitter->indexOf(mailboxes), splitter->count() - 1);
         QVERIFY(splitter->sizes().last() < splitter->sizes().first());
         QVERIFY(QMetaObject::invokeMethod(&window, "slotLayoutOneAtTime"));
+        QVERIFY(qobject_cast<QStackedWidget *>(readerColumn->parentWidget()));
         QVERIFY(QMetaObject::invokeMethod(&window, "slotLayoutWide"));
         splitter = qobject_cast<QSplitter *>(mailboxes->parentWidget());
         QVERIFY(splitter);
         QCOMPARE(splitter->indexOf(mailboxes), splitter->count() - 1);
+        QCOMPARE(readerColumn->parentWidget(), splitter);
         QVERIFY(menu->actions().at(1)->isChecked());
 
         const QByteArray initialProfile = qgetenv("TROJITA_PROFILE");

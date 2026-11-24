@@ -141,6 +141,11 @@ MessageView::~MessageView()
     unsetPreviousMessage();
 }
 
+Imap::Network::MsgPartNetAccessManager *MessageView::networkAccessManager() const
+{
+    return netAccess;
+}
+
 void MessageView::unsetPreviousMessage()
 {
     clearWaitingConns();
