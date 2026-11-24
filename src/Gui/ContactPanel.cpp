@@ -136,8 +136,21 @@ void ContactPanel::refresh()
                 }
             }
         };
+        const auto mailboxes = [&index](int role) {
+            QStringList result;
+            for (const QVariant &entry : index.data(role).toList()) {
+                const QStringList parts = entry.toStringList();
+                if (parts.size() >= 4 && !parts.at(2).isEmpty() && !parts.at(3).isEmpty())
+                    result << QString(parts.at(2) + QLatin1Char('@') + parts.at(3)).toCaseFolded();
+            }
+            result.sort();
+            return result;
+        };
         collect(RoleMessageFrom, i18nc("@info contact role", "From"));
-        collect(RoleMessageReplyTo, i18nc("@info contact role", "Reply-To"));
+        // IMAP servers report the sender as Reply-To when the header is missing (RFC 3501), so only
+        // list Reply-To when it names someone else.
+        if (mailboxes(RoleMessageReplyTo) != mailboxes(RoleMessageFrom))
+            collect(RoleMessageReplyTo, i18nc("@info contact role", "Reply-To"));
         collect(RoleMessageTo, i18nc("@info contact role", "To"));
         collect(RoleMessageCc, i18nc("@info contact role", "Cc"));
 

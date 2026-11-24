@@ -185,6 +185,26 @@ private slots:
         QVERIFY(!panel.message().isValid());
     }
 
+    void distinctReplyToIsListed()
+    {
+        QStandardItemModel model;
+        auto *item = messageItem(QStringLiteral("Plans"), QStringLiteral("ann@example.org"));
+        item->setData(addresses({QStringLiteral("ann@example.org"), QStringLiteral("team@example.org")}),
+                      Imap::Mailbox::RoleMessageReplyTo);
+        model.appendRow(item);
+
+        Host host;
+        auto *panel = host.add(new Gui::ContactPanel);
+        panel->setPanelEnabled(true);
+        panel->setMessage(item->index());
+        QCOMPARE(panel->contactCount(), 2);
+        auto *list = child<QListWidget>(panel, QStringLiteral("contactPanelList"));
+        QVERIFY(list);
+        QVERIFY(list->item(0)->text().contains(i18nc("@info contact role", "Reply-To")));
+        QVERIFY(panel->contactText(1).contains(QStringLiteral("team@example.org")));
+        QVERIFY(list->item(1)->text().contains(i18nc("@info contact role", "Reply-To")));
+    }
+
     void contactsAreListedOnce()
     {
         QStandardItemModel model;
@@ -211,7 +231,8 @@ private slots:
         QVERIFY(panel->contactText(1).contains(QStringLiteral("bob@example.org")));
         auto *list = child<QListWidget>(panel, QStringLiteral("contactPanelList"));
         QVERIFY(list);
-        QVERIFY(list->item(0)->text().contains(i18nc("@info contact role", "Reply-To")));
+        // A Reply-To that repeats the sender is what servers report when the header is missing.
+        QVERIFY(!list->item(0)->text().contains(i18nc("@info contact role", "Reply-To")));
         QVERIFY(list->item(0)->text().contains(i18nc("@info contact role", "Cc")));
         QCOMPARE(list->currentRow(), 0);
         QVERIFY(write->isEnabled());
