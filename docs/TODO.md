@@ -51,8 +51,9 @@ and project status before acting.
   `feature/m02-shell-accounts` branch adds a row-density selector; the
   continuation branch adds left/right folder sidebar placement in the compact
   and wide layouts. A further continuation adds persistent connection status
-  in the footer. The five-region shell and per-account status and error
-  recovery still need implementation.
+  in the footer. Multiple accounts, per-account status and keyboard account
+  switching are described below; the five-region shell panels and OAuth are
+  not implemented.
 - **Account acceptance:** #78 has been exercised against a disposable Dovecot
   2.4.4 container using temporary configuration and synthetic credentials.
   The application saved IMAP settings, recovered from a rejected password,
@@ -81,11 +82,41 @@ and project status before acting.
   uses `PLASMA_TEST_IMAP_SEARCH_SUBJECT` with the matching synthetic UID and
   UIDVALIDITY; its INBOX must contain exactly two unread synthetic messages.
   Integration with simultaneous accounts remains to be verified with #222.
-- **Resume:** Implement and test the remaining M02 shell, account,
-  protocol-capability and OAuth issues. Advance each issue through Review and
-  Completed before checking its roadmap item; merge the milestone only when
-  all items and acceptance checks are complete. Reconcile the pending roadmap
-  changes in #250 and #252 before merging.
+- **Multiple accounts:** #222 and #79 are implemented on
+  `feature/m02-shell-next`. Each account has its own settings file and
+  `ImapAccess`; a toolbar selector, menu actions and Ctrl+Alt+PgUp/PgDown
+  switch accounts without reconnecting. Accounts other than the active one
+  connect at startup, and their connection, network and authentication status
+  appears in the selector. Cleartext passwords are kept per account, new
+  profiles default to the QtKeychain backend, and removing an account deletes
+  its settings and stored passwords. Offscreen tests cover migration,
+  switching, background status, removal and keyboard navigation. Not yet
+  verified: two accounts against live or disposable IMAP servers, and a real
+  Plasma session. Known limits: accounts are grouped by a selector, not in the
+  folder tree; background accounts surface errors only in the selector; the
+  offline message cache of a removed account is not deleted; folder counts and
+  saved searches have not been checked with two accounts.
+- **Blocked on a decision, #35 and #74:** the five-region shell has a header
+  toolbar, a sidebar movable between the left and right columns, a main
+  column and a status footer. The configurable embedded panels for metadata,
+  contact information and related content, and per-region toolbars, are not
+  built. Decide which panels M02 must include before implementing them.
+- **Blocked, #218:** OAuth needs XOAUTH2 or OAUTHBEARER authentication in the
+  IMAP layer, which has none, and a token source. KAccounts and signond are
+  installed, but token retrieval and renewal cannot be verified without a
+  real Google or Microsoft account. Steps to resume: add SASL support with
+  parser tests, add a token interface backed by KAccounts, then verify with an
+  account you control.
+- **Open, #78, #36 and #215:** `AccountCapabilities` exists but nothing in the
+  interface consults it yet; POP3 and JMAP belong to M05. Account editing uses
+  the settings dialog; per-account identities are not separate from the shared
+  sender identities.
+- **Resume:** Move #222, #79 and #80 through Review once confirmed with a
+  disposable two-account IMAP check. Resolve the decisions above, then
+  implement the remaining issues. Advance each issue through Completed before
+  checking its roadmap item; merge the milestone only when all items and
+  acceptance checks are complete. Reconcile the pending roadmap changes in
+  #250 and #252 before merging.
 
 ### M01 release gate and integration
 
