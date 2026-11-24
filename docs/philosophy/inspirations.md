@@ -77,6 +77,23 @@ claims about existing features.
 Tabs are a proposed optional feature in Plasma Impresario and are **off by
 default**; that default is a project decision, not a Thunderbird claim.
 
+## eM Client
+
+- Project: https://www.emclient.com/?lang=en
+- References: [feature overview](https://www.emclient.com/features-overview) and
+  [email features](https://www.emclient.com/features-email?lang=en)
+- Why it matters: eM Client combines desktop mail triage with contextual
+  information and productivity workflows.
+- Takeaways:
+  - Contextual communication and attachment history beside the selected mail
+  - Keyboard-oriented command discovery and customizable quick actions
+  - Pinning, snoozing and follow-up reminders for important messages
+  - Templates and reusable text for composition
+  - Clear local versus provider-side spam controls and recovery
+
+These are references for potential Plasma-native designs, not claims of feature
+parity or implemented integrations.
+
 ## The Bat!
 
 - Project: https://www.ritlabs.com/en/products/thebat/
@@ -165,6 +182,7 @@ Plasma Impresario should combine:
 - The clarity and quick-action flow of Aqua Mail
 - The cross-account organization and searchable views of Vivaldi Mail
 - The optional multi-view tab workflow inspired by Thunderbird
+- The contextual mail and productivity workflows of eM Client
 - The power-user density and organization model of The Bat!
 - The desktop integration and KDE polish of Kontact
 
