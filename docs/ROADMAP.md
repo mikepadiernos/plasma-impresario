@@ -315,42 +315,216 @@ Caveats: [multiple accounts](CAVEATS.md#multiple-accounts)
 
 ### M08: Themes and branding foundation
 
-**Project:** [M08 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498380) ·
-[Plasma visual language](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541568) ·
-[Accessible density](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541647)
+**Project:** [M08 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498380)
 
-- [x] Rename the application, installed identity, documentation, repository, and project board to Plasma Impresario while preserving Trojitá configuration and compatibility aliases [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314606649)
-- [ ] Transition project-owned functions, symbols, namespaces, filenames, and
-  code conventions to Plasma Impresario. Preserve historical Trojitá references
-  in parity documents, old folders, `inspirations.md`, and README files, as
-  well as required copyright and license attribution. Plan and verify
-  migration of existing configuration and launch compatibility.
-  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=315412467)
-- [ ] Define the default visual language, palette, and KDE-native desktop styling [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541568)
-- [ ] Establish spacing, density, and readability rules for all mail panes.
-  Provide theme spacing options for compact, normal, comfortable, and custom
-  spacing. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541647)
-- [ ] Align the product shell with Plasma visual expectations for polish and
-  clarity. Replace the carets beside navigation toolbar icons that open menus with
-  small theme-accented corner markers on the icons. The marker indicates an
-  available menu, not selection. Preserve contrast, accessible menu semantics,
-  keyboard access, and visible focus; retain disclosure indicators for
-  expandable trees.
-  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570268)
-- [ ] Follow the active Plasma color scheme, accent, icon theme, and light or
-  dark appearance. Provide an option to use a symbolic icon from the active
-  icon theme in the system tray.
-  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570286)
-- [ ] Carry theme settings over from Plasma Opus and back. Import its
-  app-local appearance choice, palette roles and theme profile, optionally
-  following later changes, and export the Plasma Impresario theme for Plasma
-  Opus to import. Validate shared profiles, keep applying opt-in and
-  reversible, and fall back to the active Plasma color scheme without Plasma
-  Opus. See [Plasma Opus integrations](integrations/plasma-opus.md#themes-and-appearance).
-  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317017949)
-- [ ] Validate contrast, text scaling, focus indicators, and high-contrast behavior across panes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570471)
-- [ ] Keep compact and comfortable layouts readable across common window sizes and display scales [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570493)
+Customize the appearance of Plasma Impresario without changing the desktop's
+global appearance. Every option follows Plasma by default, can be saved in a
+theme profile and can be attached to a workspace; see the
+[interface design](philosophy/designs.md#themes-and-appearance). Adapted from
+[Plasma Opus M17](https://github.com/mikepadiernos/plasma-opus/blob/main/docs/ROADMAP.md#m17-themes)
+for mail; HTML message content keeps its own styling and the reader's privacy
+policy.
 
+- **M08.01: Branding and visual language**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317042105)
+
+  - [x] Rename the application, installed identity, documentation, repository, and project board to Plasma Impresario while preserving Trojitá configuration and compatibility aliases [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314606649)
+  - [ ] Transition project-owned functions, symbols, namespaces, filenames, and
+    code conventions to Plasma Impresario. Preserve historical Trojitá references
+    in parity documents, old folders, `inspirations.md`, and README files, as
+    well as required copyright and license attribution. Plan and verify
+    migration of existing configuration and launch compatibility.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=315412467)
+  - [ ] Define the default visual language, palette, and KDE-native desktop styling [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541568)
+  - [ ] Align the product shell with Plasma visual expectations for polish and
+    clarity. Replace the carets beside navigation toolbar icons that open menus with
+    small theme-accented corner markers on the icons. The marker indicates an
+    available menu, not selection. Preserve contrast, accessible menu semantics,
+    keyboard access, and visible focus; retain disclosure indicators for
+    expandable trees.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570268)
+
+- **M08.02: Color schemes**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317042664)
+
+  - [ ] Follow the active Plasma color scheme, accent, icon theme, and light or
+    dark appearance. Provide an option to use a symbolic icon from the active
+    icon theme in the system tray.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570286)
+  - [ ] Offer app-local light and dark presets and installed KDE color schemes
+    without changing the desktop's global appearance, widget style, or window
+    decorations.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317042960)
+  - [ ] Apply app-local colors consistently across Plasma Impresario windows,
+    panes, the composer, and dialogs, respecting accessibility settings, native
+    icon themes, and the appearance boundaries of the HTML message reader and
+    external components. Leave HTML message content to the reader's own
+    rendering and privacy policy.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317043194)
+  - [ ] Provide an app-local color editor with named palette roles, including
+    unread, flagged, and account colors, and live preview. Preserve readable
+    text, selection, and focus indicators; validate contrast and allow changes
+    to be reverted without saving.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317043451)
+  - [ ] Follow Plasma's accent color by default or choose an app-local accent for
+    selection, focus, the active pane, progress, unread indicators, and tab
+    indicators. Validate contrast against the active color scheme.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317043723)
+  - [ ] Tint the background of all panes, or only the active or inactive pane.
+    Keep text, selection, unread state, and account and folder colors readable.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317043947)
+
+- **M08.03: Effects and shape**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317044224)
+
+  - [ ] Offer optional background blur behind translucent windows and panels
+    using KWin's blur effect through KWindowEffects; blur strength follows
+    KWin's effect settings. Without KWin compositing, report blur as unavailable
+    and keep an opaque background. If translucency cannot change live, apply it
+    when the window next opens.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317044462)
+  - [ ] Adjust background opacity separately for windows, panes, and panels,
+    with or without blur, while keeping text, icons, selection, and message
+    content fully opaque.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317044705)
+  - [ ] Choose a corner radius (none, small, medium, large, or a custom value
+    scaled with the display) for item highlights, message cards, panels, input
+    fields, tabs, and tooltips, using custom delegates and app-local style
+    rules. Leave window corners to KWin and the window decoration, and document
+    controls that the widget style draws without a radius.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317044955)
+
+- **M08.04: Lines and dividers**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317045136)
+
+  - [ ] Show, thin, or hide visible dividers, including splitter handles, panel
+    and toolbar separators, header and grid lines, and pane frames. Hidden
+    splitters keep a resize area, cursor feedback, keyboard resizing, and
+    pane-size reset, and can optionally reveal themselves on hover.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317045372)
+  - [ ] Show or hide tree lines in the folder tree and threaded message lists,
+    and choose solid or dotted lines. Draw the lines in Plasma Impresario when
+    the widget style does not provide the chosen style.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317045603)
+  - [ ] Color tree lines with a single color, a configurable palette by nesting
+    depth, or each account's or folder's color. Validate contrast and keep
+    nesting and thread structure distinguishable without relying on color
+    alone.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317045837)
+
+- **M08.05: Message list styles**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317046066)
+
+  - [ ] Add a card layout alongside compact and comfortable message rows. Show
+    each message as a card with the sender, subject, date, an optional preview
+    snippet when available, its account or folder color, and unread, flag,
+    attachment, and thread indicators. Support card size, density, selection
+    markers, drag and drop to folders, quick actions, and keyboard navigation,
+    and remember the layout wherever row density is remembered, including
+    workspace layouts.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317046290)
+  - [ ] Choose row striping in the message list and folder tree, hover
+    highlighting, and a selection style such as filled, outlined, rounded, or
+    an accent bar. Keep focus, selection, and unread state distinguishable for
+    keyboard users.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317046525)
+
+- **M08.06: Account and folder colors**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317046718)
+
+  - [ ] Assign colors to accounts and folders and show them consistently in the
+    folder tree, unified-inbox source indicators, message cards, tabs, and
+    folder pickers. Use the icon theme's colored folder icons, such as Breeze's
+    `folder-red`, when available and tint them otherwise; alternatively show a
+    color badge or colored name. Store colors locally in KConfig without
+    changing server folders, and never rely on color alone to identify an
+    account.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317046937)
+  - [ ] Color folders by rules that match an account, folder path, or name
+    pattern, with optional inheritance by subfolders. Explicit folder colors
+    take precedence over rules, and rules never modify folders, messages, or
+    server state.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317047188)
+
+- **M08.07: Text and spacing**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317047398)
+
+  - [ ] Establish spacing, density, and readability rules for all mail panes.
+    Provide theme spacing options for compact, normal, comfortable, and custom
+    spacing. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541647)
+  - [ ] Follow Plasma's fonts by default or override the font family, size, and
+    weight for the message list, folder tree, message headers, plain-text
+    messages, tabs, and the status bar, scaled consistently with the display.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317047620)
+  - [ ] Scale padding and spacing globally, extending M02 row density to
+    toolbars, tabs, panels, and the status bar.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317047870)
+  - [ ] Style the optional tabs and the status bar, including the tab shape, the
+    active tab indicator, and the strength of account and folder colors on tabs.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317048143)
+
+- **M08.08: Motion and accessibility**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317048436)
+
+  - [ ] Follow Plasma's animation speed by default, or reduce or disable Plasma
+    Impresario transitions such as pane changes, panel slides, and hover fades.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317048712)
+  - [ ] Offer to suspend blur, translucency, tints, and custom corner radii with
+    high-contrast color schemes, and validate contrast for every custom color.
+    Provide a one-step reset of global appearance options to Plasma defaults
+    from settings and the command line, and a way to start without workspace
+    appearance overrides.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317048962)
+  - [ ] Validate contrast, text scaling, focus indicators, and high-contrast behavior across panes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570471)
+  - [ ] Keep compact and comfortable layouts readable across common window sizes and display scales [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570493)
+
+- **M08.09: Profiles and stylesheets**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317049325)
+
+  - [ ] Save, import, and export versioned app-owned theme profiles with palette
+    choices, the appearance options in this milestone, and optional
+    stylesheets. Validate them, confirm overwrites, and offer a safe reset to
+    system appearance; do not execute code from theme files. Report unavailable
+    themes and preserve saved references for retry.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317049664)
+  - [ ] Support an optional app-local Qt Style Sheet (QSS, a CSS-like subset
+    rather than full web CSS) entered in a text box or imported from a file.
+    Allow preview, application, disabling, reversion, and export separately or
+    with a theme profile. Report invalid or unsupported input, bound resource
+    use, and prevent unapproved external resource loading. Stylesheets style
+    the application, not HTML message content.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317049979)
+  - [ ] Carry theme settings over from Plasma Opus and back. Import its
+    app-local appearance choice, palette roles and theme profile, optionally
+    following later changes, and export the Plasma Impresario theme for Plasma
+    Opus to import. Validate shared profiles, keep applying opt-in and
+    reversible, and fall back to the active Plasma color scheme without Plasma
+    Opus. See [Plasma Opus integrations](integrations/plasma-opus.md#themes-and-appearance).
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317017949)
+
+- **M08.10: Workspaces**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317050309)
+
+  - [ ] Attach a theme profile and selected appearance options, such as the
+    message card layout, folder color rules, blur, corner radius, and divider
+    visibility, to an M07 workspace. Choose all, selected, or none of them as
+    workspace behaviors and apply them live when switching workspaces. Layer
+    them in a documented order from Plasma defaults through the theme profile
+    and workspace overrides to the custom stylesheet. Preserve unselected
+    global state, report unavailable themes or effects, such as blur without
+    KWin, and keep saved references for retry. Workspaces associated with
+    Plasma Activities apply their appearance with that Activity.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317050543)
 ### M09: Reliability, sync, and notification quality
 
 **Project:** [M09 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498466) ·

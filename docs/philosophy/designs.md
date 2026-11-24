@@ -224,6 +224,38 @@ mail and utility or menu actions with expanding space. This toolbar is separate
 from movable sidebar panels. See the
 [navigation toolbar](../refinements/toolbars/main-window-toolbar.md).
 
+### Themes and appearance
+
+Appearance options adapt the
+[Plasma Opus themes milestone](https://github.com/mikepadiernos/plasma-opus/blob/main/docs/ROADMAP.md#m17-themes)
+to mail; see [M08](../ROADMAP.md#m08-themes-and-branding-foundation). They are
+planned, not implemented.
+
+- **Plasma first:** Every option follows the active Plasma color scheme,
+  accent, fonts, icon theme and animation speed until the user changes it.
+  App-local choices never change the desktop's global appearance, widget style
+  or window decorations.
+- **Layering:** Apply Plasma defaults, then the theme profile, then workspace
+  overrides, then the optional custom stylesheet. Options a workspace does not
+  select keep their global values.
+- **Mail surfaces:** Themes cover the shell, folder tree, message list, message
+  headers, composer, panels, tabs and status bar. HTML message content keeps its
+  own styling and the reader's privacy policy; app stylesheets and palettes do
+  not restyle it or load remote resources for it.
+- **Mail-specific options:** Account and folder colors appear in the folder
+  tree, unified-inbox source indicators, message cards and tabs. Tree lines
+  apply to both folders and threads. The message list gains a card layout
+  beside compact and comfortable rows.
+- **Effects:** Blur uses KWin through KWindowEffects and is reported as
+  unavailable without compositing. Text, icons, selection and message content
+  stay fully opaque.
+- **Accessibility:** Never convey unread, account or thread state through color
+  alone. Validate contrast for every custom color, offer to suspend effects with
+  high-contrast schemes, and provide a one-step reset to Plasma defaults.
+- **Sharing:** Theme profiles are versioned and validated, never execute code,
+  and can be exchanged with Plasma Opus; see
+  [Plasma Opus integrations](../integrations/plasma-opus.md#themes-and-appearance).
+
 ## Proposed interface widgets
 
 These are in-app interface components, not Plasma desktop widgets. They adapt
