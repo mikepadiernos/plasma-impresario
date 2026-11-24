@@ -43,6 +43,8 @@ and privacy independently. Review each project's license before reusing code.
   - Thoughtful handling of quick actions and conversation flow
   - Strong support for account grouping and low-friction navigation
   - Fast, readable filters and search flows
+  - Customizable typography, message actions, identities, signatures, and
+    account and notification behavior, adapted to Plasma desktop conventions
 
 ## Vivaldi Mail
 

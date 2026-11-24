@@ -147,6 +147,44 @@ See Aqua Mail's
 [customization reference](https://www.aqua-mail.com/android/features/customizations).
 These are proposed Impresario behaviors, not claims about the current client.
 
+### Aqua Mail-inspired desktop customization
+
+Adapt Aqua Mail's customization patterns to the Plasma desktop rather than
+copying its mobile interface:
+
+- **Reading and lists:** Offer per-surface text sizing, list density, optional
+  preview text and contact images, and optional date grouping. Allow folder
+  color indicators without using color as the only identifier. Follow the active
+  Plasma theme, display scaling and accessibility settings.
+- **Actions and navigation:** Let users arrange message actions in the shared
+  toolbar customization mode and configure keyboard shortcuts. For touch-capable
+  devices, offer optional configurable gestures without replacing mouse or
+  keyboard actions or interfering with normal scrolling.
+- **Accounts and composition:** Allow account-specific identities and
+  signatures, including plain-text and rich-text options where supported. Show
+  which account and identity will be used before sending.
+- **Notifications and sync:** Offer per-account and per-folder notification
+  preferences, quiet periods and privacy-conscious previews, respecting Plasma
+  Do Not Disturb. Provide account sync schedules and loading preferences where
+  the underlying service supports them, with clear offline and failure states.
+- **Desktop widgets:** Keep the separate Plasma widgets optional and let users
+  configure their account and folder scope, presentation and privacy.
+
+Use sensible defaults and explain inherited account or folder settings. Save
+preferences through KDE configuration, expose only options backed by available
+features, and preserve choices across restarts. Do not preload message content,
+fetch remote contact images, or send content to external services without the
+appropriate privacy choice.
+
+References: Aqua Mail's
+[customization page](https://www.aqua-mail.com/android/features/customizations),
+[font-size controls](https://aquamail.freshdesk.com/support/solutions/articles/77000519559-how-do-i-adjust-font-size-),
+[account signatures](https://aquamail.freshdesk.com/support/solutions/articles/77000519349-account-signature),
+[core functions](https://aquamail.freshdesk.com/support/solutions/articles/77000519534-aqua-mail-s-core-functions)
+and
+[action arrangement](https://www.aqua-mail.com/blog/unlocking-efficiency-rearrange-action-icons-in-aqua-mail-message-view).
+These are design targets, not claims of feature parity or implementation.
+
 ## Proposed interface widgets
 
 These are in-app interface components, not Plasma desktop widgets. They adapt
