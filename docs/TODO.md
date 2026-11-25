@@ -163,10 +163,10 @@ and project status before acting.
   accounts. Merging M03 into `main` would also merge the M02 work, so merge M02
   first (it waits on the real-Plasma check for #35 and on OAuth #218).
 - **Current state:** M03 #5 is in Development. Folder navigation #37,
-  destructive operations #89, quick actions #83 and sorting, filtering and
-  selection #38 are Completed; multi-selection and batch feedback #88 is in
-  Review. The other feature issues follow in this order: #84, #85, #90, #87,
-  #82, #223 and #86.
+  destructive operations #89, quick actions #83, sorting, filtering and
+  selection #38 and multi-selection and batch feedback #88 are Completed;
+  power-user workflows #84 are in Review. The other feature issues follow in
+  this order: #85, #90, #87, #82, #223 and #86.
 - **Pending verification:** Delete to Trash, Undo, Delete Permanently, Empty
   Trash/Junk and Rename Folder are covered by model and unit tests but have not
   been exercised in a window against a live server. Extend
