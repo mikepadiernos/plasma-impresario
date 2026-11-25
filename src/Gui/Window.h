@@ -23,9 +23,11 @@
 #ifndef TROJITA_WINDOW_H
 #define TROJITA_WINDOW_H
 
+#include <QHash>
 #include <QMainWindow>
 #include <QModelIndex>
 #include <QPointer>
+#include <QSet>
 #include <QSystemTrayIcon>
 
 #include "configure.cmake.h"
@@ -35,6 +37,7 @@
 #include "MessageActionHandler.h"
 
 class QAuthenticator;
+class QComboBox;
 class QCloseEvent;
 class QFile;
 class QItemSelection;
@@ -49,6 +52,12 @@ class QSslError;
 class QStackedWidget;
 class QToolButton;
 class QTreeView;
+
+namespace Common
+{
+class AccountRegistry;
+class AccountStatusTracker;
+}
 
 namespace Composer
 {
@@ -84,6 +93,14 @@ class MSAFactory;
 namespace Gui
 {
 
+class AccountSidebar;
+class CapabilityActionGate;
+class ShellHeader;
+class AttachmentPanel;
+class ContactPanel;
+class EmbeddedPanel;
+class MessageDetailsPanel;
+class RelatedMessagesPanel;
 class CompleteMessageWidget;
 class ComposeWidget;
 class MailBoxTreeView;
@@ -104,10 +121,18 @@ public:
 
     Imap::Mailbox::Model *imapModel() const;
 
-    Composer::SenderIdentitiesModel *senderIdentitiesModel() { return m_senderIdentities; }
+    /** Return the sender identities the active account sends from: its own, the shared ones, or none. */
+    Composer::SenderIdentitiesModel *senderIdentitiesModel();
+    /** Return the identities shared by accounts that do not use their own. */
+    Composer::SenderIdentitiesModel *sharedIdentitiesModel() { return m_senderIdentities; }
+    /** Return the active account's own identities, whether or not it currently uses them. */
+    Composer::SenderIdentitiesModel *accountIdentitiesModel();
     Imap::Mailbox::FavoriteTagsModel *favoriteTagsModel() { return m_favoriteTags; }
     Plugins::PluginManager *pluginManager() { return m_pluginManager; }
     QSettings *settings() const { return m_settings; }
+
+    /** Return the configuration of the active account. */
+    QSettings *accountSettings() const;
     MSA::MSAFactory *msaFactory();
 
     // FIXME: this should be changed to some wrapper when support for multiple accounts is available
@@ -136,6 +161,16 @@ private slots:
     void networkPolicyExpensive();
     void networkPolicyOnline();
     void slotShowSettings();
+    void slotShowAccountSettings();
+    void slotAddAccount();
+    void slotRemoveAccount();
+    void slotNextAccount();
+    void slotPreviousAccount();
+    void slotFocusMessageView();
+    void slotFocusNextRegion();
+    void slotFocusPreviousRegion();
+    void removeAccountNow(const QString &accountId);
+    void slotRenameAccount();
     void slotShowImapInfo();
     void slotExpunge();
     void imapError(const QString &message);
@@ -143,7 +178,6 @@ private slots:
     void cacheError(const QString &message);
     void authenticationRequested();
     void authenticationContinue(const QString &pass, const QString &errorMessage = QString());
-    void checkSslPolicy();
     void slotManageContact(const QUrl &url);
     void slotEditDraft();
     void slotReplyTo();
@@ -165,6 +199,7 @@ private slots:
     void slotNextUnread();
     void slotPreviousUnread();
     void msgListClicked(const QModelIndex &);
+    void saveMessageSelection(const QModelIndex &);
     void openCompleteMessageWidget();
     void slotCreateMailboxBelowCurrent();
     void slotMarkCurrentMailboxRead();
@@ -206,6 +241,7 @@ private slots:
     void slotLayoutWide();
     void slotLayoutOneAtTime();
     void saveSizesAndState();
+    void flushUiState();
     void saveRawStateSetting(bool enabled);
     void possiblyLoadMessageOnSplittersChanged();
     void updateNetworkIndication();
@@ -235,7 +271,42 @@ private:
     void createMenus();
     void createActions();
     void createWidgets();
-    void setupModels();
+
+    /** Load the account list, migrating a single-account profile into the first account. */
+    void setupAccounts();
+
+    /** Return the ImapAccess of an account, creating it on first use. */
+    Imap::ImapAccess *accountAccess(const QString &accountId);
+
+    /** Make another account the one shown in the window; models of other accounts stay alive. */
+    void switchAccount(const QString &accountId);
+
+    /** Disconnect the window from the models of the active account. */
+    void detachAccountModels();
+
+    /** Record connection and authentication status of an account from its IMAP model signals. */
+    void monitorAccount(const QString &accountId);
+
+    /** Connect accounts other than the active one so they keep running in the background. */
+    void connectBackgroundAccounts();
+
+    /** Supply the stored password to an account that is not shown, or mark it as needing one. */
+    void requestStoredPassword(const QString &accountId);
+    /** Ask whether to trust the TLS connection of @p accountId and answer its access, not the active one */
+    void checkSslPolicy(const QString &accountId);
+
+    /** Switch to the account @p step positions after the active one, wrapping around. */
+    void cycleAccount(int step);
+    /** Move keyboard focus to the next visible shell region in @p step direction */
+    void cycleFocusRegion(int step);
+    /** Folders expanded in the active account's mailbox tree */
+    QStringList expandedMailboxes() const;
+
+    /** Rebuild the account selector from the account list. */
+    void refreshAccountSwitcher();
+
+    /** @param reconnect connect the account to its server; false when its models already exist */
+    void setupModels(bool reconnect = true);
     QStringList copyrightHolders(QFile *file) const;
 
     void nukeModels();
@@ -244,6 +315,39 @@ private:
     void createMailboxBelow(const QModelIndex &index);
 
     void updateActionsOnlineOffline(bool online);
+
+    /** Place the mailbox sidebar on the requested side of the current layout. */
+    void setMailboxSidebarRight(bool right);
+
+    /** Create the shell: the header above the left, main and right columns, and a footer below them. */
+    void createShell();
+    /** Put the mailbox tree into the column chosen for it. */
+    void placeMailboxSidebar();
+    /** Move each embedded panel into the region chosen by its placement preference. */
+    void placeEmbeddedPanels();
+    /** Remember the size of each shown shell region, so that it comes back at the same size. */
+    void rememberShellExtents();
+    /** Show the shell regions which have content, hide the others and keep the main column's share. */
+    void updateShellRegions(bool rememberCurrent = true, bool force = false);
+    bool shellRegionHasContent(const QSplitter *region) const;
+    /** Give shown regions their remembered size and the rest to the main column, once a splitter is laid out */
+    void applyPendingShellSizes(QSplitter *only = nullptr);
+    /** The splitter which holds @p panel at its current placement */
+    QSplitter *panelRegion(const EmbeddedPanel *panel) const;
+    /** Remember the size of each shown panel in @p region, for example after a divider was moved */
+    void rememberPanelExtents(QSplitter *region);
+    /** Give the shown panels of each region their remembered size or their size hint */
+    void fitPanelRegions();
+    /** Give the shown panels of @p region their remembered size or their size hint, once it is laid out */
+    void fitPanelRegion(QSplitter *region);
+    /** Select a message picked in the related messages panel. */
+    void activateRelatedMessage(const QModelIndex &message);
+
+    /** Display the current connection status in the window footer. */
+    void updateConnectionStatus(const QString &message);
+
+    /** Resume the selected mailbox when network access returns. */
+    void resumeCurrentMailbox();
 
     void applySizesAndState();
     QString layoutToString(const LayoutMode layout) const;
@@ -256,11 +360,18 @@ private:
 
     QModelIndexList translatedSelection() const;
 
+    Common::AccountRegistry *m_accounts = nullptr;
+    Common::AccountStatusTracker *m_accountStatus = nullptr;
+    QHash<QString, Imap::ImapAccess *> m_accountAccess;
+    QComboBox *m_accountSwitcher = nullptr;
     Imap::ImapAccess *m_imapAccess;
 
     Imap::Mailbox::PrettyMailboxModel *prettyMboxModel;
     Imap::Mailbox::PrettyMsgListModel *prettyMsgListModel;
     Composer::SenderIdentitiesModel *m_senderIdentities;
+    QHash<QString, Composer::SenderIdentitiesModel *> m_accountIdentities;
+    /** Always empty; used by accounts that send without an identity */
+    Composer::SenderIdentitiesModel *m_noIdentities = nullptr;
     Imap::Mailbox::FavoriteTagsModel *m_favoriteTags;
 
     MailBoxTreeView *mboxTree;
@@ -277,15 +388,54 @@ private:
 #else
     QLabel *m_messageWidget;
 #endif
+    /** The reader and the embedded panels which follow its message, stacked vertically */
+    QSplitter *m_readerColumn = nullptr;
+    AttachmentPanel *m_attachmentPanel = nullptr;
+    MessageDetailsPanel *m_messageDetailsPanel = nullptr;
+    ContactPanel *m_contactPanel = nullptr;
+    RelatedMessagesPanel *m_relatedMessagesPanel = nullptr;
+    /** All embedded panels, in their canonical order within a region */
+    QList<EmbeddedPanel *> m_embeddedPanels;
+
+    /** A collapsible region at the edge of the shell and the size it had when last shown */
+    struct ShellRegion {
+        QSplitter *widget = nullptr;
+        int extent = -1;
+        bool shown = false;
+    };
+    /** The shell: shellRow above the footer */
+    QSplitter *m_shellBody = nullptr;
+    /** The left column, the main column and the right column */
+    QSplitter *m_shellRow = nullptr;
+    /** The message list and the reader column side by side or stacked, or one panel at a time */
+    QSplitter *m_mainColumn = nullptr;
+    ShellRegion m_shellLeft;
+    ShellRegion m_shellRight;
+    ShellRegion m_shellFooter;
+    bool m_shellRegionsInitialized = false;
+    /** Whether region sizes still have to be applied once the shell has its real size */
+    bool m_shellRowSizesPending = false;
+    bool m_shellBodySizesPending = false;
+    /** Size of each panel along its region after the user moved a divider; panels without one use their size hint */
+    QHash<EmbeddedPanel *, int> m_panelExtents;
+    /** Panel regions which still have to be fitted once they are laid out */
+    QSet<QSplitter *> m_panelRegionsPending;
+    /** The folder tree grouped by account, in the column chosen for the mailbox sidebar */
+    AccountSidebar *m_accountSidebar = nullptr;
+    /** The header region above the columns, off by default */
+    ShellHeader *m_shellHeader = nullptr;
+    /** Hides the actions which the active account's protocol does not support */
+    CapabilityActionGate *m_capabilityGate = nullptr;
 
     ProtocolLoggerWidget *protocolLogger;
     QDockWidget *protocolLoggerDock;
 
-    QPointer<QSplitter> m_mainHSplitter;
-    QPointer<QSplitter> m_mainVSplitter;
     QPointer<QStackedWidget> m_mainStack;
+    QLabel *m_connectionStatus;
+    bool m_connectionError = false;
 
     LayoutMode m_layoutMode;
+    bool m_mailboxSidebarOnRight = false;
     bool m_skipSavingOfUI;
     QTimer *m_delayedStateSaving;
 
@@ -306,6 +456,10 @@ private:
     QAction *showMenuBar;
     QAction *showToolBar;
     QAction *configSettings;
+    QAction *m_actionAddAccount;
+    QAction *m_actionAccountSettings;
+    QAction *m_actionRenameAccount;
+    QAction *m_actionRemoveAccount;
     QAction *m_oneAtTimeGoBack;
     QAction *composeMail;
     QAction *m_editDraft;

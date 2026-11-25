@@ -8,8 +8,7 @@ These proposed toolbar layouts keep primary actions visible and consistent
 without crowding each surface. Each specification maps its entries to actions
 that exist today.
 
-**Legend:** ✅ exists in the current code on `feature/m02-shell-next` · 📋
-planned only
+**Legend:** ✅ exists in the current code on `main` · 📋 planned only
 
 ## Toolbar tree map
 

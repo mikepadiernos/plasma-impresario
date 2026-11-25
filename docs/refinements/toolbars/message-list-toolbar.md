@@ -7,8 +7,7 @@
 This proposed toolbar appears when the main message list is active and supports
 triage and selection actions.
 
-**Legend:** ✅ exists in the current code on `feature/m02-shell-next` · 📋
-planned only
+**Legend:** ✅ exists in the current code on `main` · 📋 planned only
 
 ## Purpose
 

@@ -8,8 +8,7 @@ These proposed application and context menus organize actions by the object and
 task, following KDE Plasma conventions. Each specification maps its entries to
 actions that exist today.
 
-**Legend:** ✅ exists in the current code on `feature/m02-shell-next` · 📋
-planned only
+**Legend:** ✅ exists in the current code on `main` · 📋 planned only
 
 ## Menu tree map
 
@@ -28,8 +27,7 @@ planned only
 >
 > Current menus are defined in `src/Gui/Window.cpp` (the `MainWindow` class) and
 > the reader, attachment and composer widgets under `src/Gui/`. The status in
-> these specifications reflects `feature/m02-shell-next`, which is not yet
-> merged into `main`.
+> these specifications reflects `main`.
 
 ## Product principles
 

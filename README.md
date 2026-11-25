@@ -81,7 +81,7 @@ the [project board](https://github.com/users/mikepadiernos/projects/4), as of
 | Milestone                                     | Branch                        | Done             | State                                                                                                                             |
 | --------------------------------------------- | ----------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | 🧱 M01 KDE / Qt 6 baseline                    | `main`                        | 🟩🟩🟩🟩🟩 19/19 | ✅ Merged                                                                                                                         |
-| 🧭 M02 Shell, accounts and mailbox foundation | `feature/m02-shell-next`      | 🟩🟩🟩⬜⬜ 7/14  | 🚧 Tested offscreen and against a synthetic Dovecot server; not yet checked in a real Plasma session                              |
+| 🧭 M02 Shell, accounts and mailbox foundation | `main`                        | 🟩🟩🟩🟩🟩 14/14 | ✅ Merged; checks in a real Plasma session moved to M14                                                                           |
 | 📬 M03 Mail operations, sorting and folders   | `feature/m03-mail-operations` | 🟩🟩⬜⬜⬜ 4/12  | 🚧 Folder navigation, sorting and triage, quick actions, and folder actions with recoverable deletion are Completed               |
 | 📋 M04–M14                                    | —                             | —                | Planned, including search and indexing in M05 and real Plasma session checks in M14; M09 branding started with the product rename |
 
@@ -122,6 +122,10 @@ replies and attachments are scheduled for verification in M04
 | 🎨 Density           | Compact and comfortable message-list rows                                                                         | ✅     |
 | 🧭 Mail shell        | Left, main and right columns and a footer; folder sidebar on either side; compact, wide and one-at-a-time layouts | 🧪     |
 | 📎 Embedded panels   | Attachments, Message Details, Contacts and Related Messages, each with its own placement                          | 🧪     |
+| 🪪 Identities        | Sender identities per account, with the account's default preselected and a **No identity** option                | 🧪     |
+| 🔑 OAuth             | Google and Microsoft sign-in for IMAP and SMTP, chosen per account                                                | 🧪     |
+| 🧭 Account sidebar   | Folder sidebar grouped by account, and an optional header with the account, folder and status                     | 🧪     |
+| 🧩 Capabilities      | Actions the account's protocol cannot perform are hidden                                                          | 🧪     |
 
 M02 is headless work (M02.01,
 [#318](https://github.com/mikepadiernos/plasma-impresario/issues/318)). Checks
@@ -139,17 +143,28 @@ record the verification.
   reconnecting. <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>PgDown</kbd> and
   <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>PgUp</kbd> switch to the next and previous
   account; both shortcuts can be rebound.
-- ➕ **Add Account**, **Rename Account** and **Remove Account** are in the
-  application menu. Removing an account deletes its settings and stored
-  passwords, but not its offline cache or any mail on the server.
+- ➕ **Add Account**, **Rename Account**, **Remove Account** and **Account
+  Settings…** are in the application menu. Account Settings edits the active
+  account's identities, IMAP, offline and SMTP settings in its own dialog.
+  Removing an account deletes its settings and stored passwords, but not its
+  offline cache or any mail on the server.
 - 📶 All accounts connect at startup. An account with a network error, a missing
   password or failed authentication shows a warning in the selector.
 - 🔑 An existing configuration becomes the first account on startup. New
-  profiles store passwords with QtKeychain when it is available.
+  profiles store passwords with QtKeychain when it is available. An account can
+  sign in with a password or with Google or Microsoft OAuth; see
+  [caveat #362](docs/CAVEATS.md#oauth-sign-in).
+- 🪪 Each account has its own sender identities by default, and the composer
+  preselects the account's default identity. An account can instead use the
+  shared identities, or **No identity**, which starts the composer with an empty
+  From address and no signature.
+- 🧭 With two or more accounts, the folder sidebar shows a header for each
+  account. Clicking a header switches to that account; clicking the active
+  account's header collapses or expands its folders.
 
 > [!NOTE]
 >
-> Accounts are listed in the selector, not grouped in the folder tree yet. See
+> Only the active account's folders are shown at a time. See
 > [caveat #262](docs/CAVEATS.md#multiple-accounts) for current limits.
 
 ### Shell and panels
@@ -159,8 +174,11 @@ record the verification.
 - 🧩 **View › Embedded Panels** shows or hides each panel, hides it while empty
   and places it below the reader, in either side column or in the footer.
   Attachments is on by default; the other panels are off.
+- 🧭 **View › Show Header** adds a header above the columns with the active
+  account, the folder and the account's status. It is off by default.
 - ⌨️ <kbd>F6</kbd> and <kbd>Shift</kbd>+<kbd>F6</kbd> move focus through the
-  account selector, folder tree, message list, reader and each visible panel.
+  header, account selector, folder tree, message list, reader and each visible
+  panel.
 - 🧰 The Navigation toolbar docks at the left window edge by default. The menu
   bar is hidden; open the menus from the toolbar's main menu button or turn the
   bar on with **View › Show Main Menu Bar**.

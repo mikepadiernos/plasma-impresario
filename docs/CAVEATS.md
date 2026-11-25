@@ -22,6 +22,7 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned
 - [Current limitations](#current-limitations)
   - [Multiple accounts](#multiple-accounts)
   - [Related messages and message details panels](#related-messages-and-message-details-panels)
+  - [OAuth sign-in](#oauth-sign-in)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -32,8 +33,9 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned
 | Area                 | Current constraint                                                                                                                                                                                                                                                                                        |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ⚠️ Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                |
-| ⚠️ Accounts          | One window holds several IMAP accounts behind a toolbar selector, not grouped in the folder tree; background account errors appear only in the selector, removing an account keeps its offline cache, and each account confirms the same untrusted certificate separately ([details](#multiple-accounts)) |
+| ⚠️ Accounts          | One window holds several IMAP accounts, grouped by account in the folder sidebar; background errors appear only in the account headers and selector, removing an account keeps its offline cache, and each account confirms the same untrusted certificate separately ([details](#multiple-accounts))     |
 | ⚠️ Embedded panels   | Related messages search only loaded messages in the current folder, message details show MIME-level security only, and pane sizes reset once after upgrading ([details](#related-messages-and-message-details-panels))                                                                                    |
+| ⚠️ OAuth sign-in     | Signing in again is possible only from Account Settings, Microsoft uses the `common` tenant only, grants are not revoked at the provider, and an optional client secret is stored unencrypted ([details](#oauth-sign-in))                                                                                 |
 | ⚠️ Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                    |
 | 🔒 Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings`                                                                                                                                            |
 | 🔒 Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used                                                                                                                                                                                                                   |
@@ -51,7 +53,8 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned
 **Current behavior:**
 
 - ⚠️ Errors from background accounts appear only as a label and tooltip in the
-  account selector, not in the footer or as a desktop notification.
+  account selector, and as a warning icon and tooltip on the account's header
+  in the folder sidebar, not in the footer or as a desktop notification.
 - ⚠️ Removing an account deletes its settings and stored passwords but keeps its
   offline message cache, the `account-N` directory in the application cache
   location.
@@ -68,7 +71,8 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned
 
 **Workarounds:**
 
-- Hover over a flagged account to read its error, then switch to it to recover.
+- Hover over a flagged account in the selector or the folder sidebar to read
+  its error, then switch to it to recover.
 - After removing an account, delete its cache directory manually.
 - Prefer servers with trusted certificates.
 - Switch back to the composer's account before sending, or finish the message
@@ -84,8 +88,8 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned
 - 📋 Bind each composer to the account it was opened from, including its
   sending settings; this is planned with keeping the originating account in
   composition.
-- 📋 Offer **Account Settings…** for any account from the account's context
-  menu, once accounts are grouped in the folder tree (#80).
+- 📋 Offer **Account Settings…** for any account from its header's context menu
+  in the folder sidebar, now that accounts are grouped there (#80).
 
 ### Related messages and message details panels
 
@@ -122,6 +126,60 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned
   inline PGP (M04,
   [#303](https://github.com/mikepadiernos/plasma-impresario/issues/303)).
 - 📋 Migrating the old splitter sizes is optional before release.
+
+### OAuth sign-in
+
+| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                                                  |
+| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| [#362](https://github.com/mikepadiernos/plasma-impresario/issues/362) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/362#issuecomment-7165448590) | Accounts set to OAuth in **Account Settings › IMAP** (#218) |
+
+**Current behavior:**
+
+- ⚠️ Signing in is available only from **Account Settings › IMAP**. When the
+  stored grant is missing or revoked, the account goes offline with a message;
+  the browser is not reopened automatically.
+- 🔒 OAuth needs a secure credential store and is refused with the cleartext
+  password backend.
+- ⚠️ Microsoft accounts use the `common` tenant only.
+- 🔒 No client ID is built in unless one is set at build time with
+  `IMPRESARIO_OAUTH_GOOGLE_CLIENT_ID` or `IMPRESARIO_OAUTH_MICROSOFT_CLIENT_ID`.
+  The optional client secret is stored unencrypted in the account's settings
+  file.
+- 🔒 Signing out or removing the account deletes the local grant but does not
+  revoke it at the provider.
+- ⚠️ SMTP requests a new access token for every message, and IMAP and SMTP
+  refresh independently. A provider that rotates refresh tokens can make one of
+  them fail until the next sign-in.
+- ⚠️ The provider fields are on the IMAP page only; SMTP reuses them.
+- ⚠️ Cancelling Account Settings after signing in leaves a grant for a client ID
+  that was not saved.
+- ⚠️ A server that advertises `LOGINDISABLED` still needs STARTTLS before OAuth,
+  as with passwords.
+
+**Workarounds:**
+
+- Sign in again from **Account Settings › IMAP** when an OAuth account goes
+  offline with a sign-in message.
+- Use QtKeychain, the default for new profiles, before choosing OAuth.
+- For single-tenant Microsoft accounts, use an app registration that allows the
+  `common` endpoint, or keep password sign-in where the server allows it.
+- Prefer a public client without a secret; otherwise keep the settings
+  directory private.
+- After removing an account or signing out, revoke the app's access on the
+  provider's account security page.
+
+**Proposed improvements:**
+
+- 📋 Offer **Sign In** from the offline message and the account's sidebar
+  header.
+- 📋 Add a tenant field for Microsoft accounts.
+- 📋 Store the client secret through the password plugin with the grant.
+- 📋 Revoke the grant at the provider when signing out or removing the account.
+- 📋 Share one token session between IMAP and SMTP per account, and reuse the
+  access token until it expires.
+- 📋 Revoke a grant made in a dialog that is then cancelled.
+- 📋 Verify sign-in with a real provider account
+  ([#317](https://github.com/mikepadiernos/plasma-impresario/issues/317), M14).
 
 ## Before reporting results
 

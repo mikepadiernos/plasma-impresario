@@ -16,8 +16,7 @@ Other toolbars remain horizontal.
 [M13.02: Shell and interaction](../../ROADMAP.md#m13-refinements) · **Issue:**
 [#151](https://github.com/mikepadiernos/plasma-impresario/issues/151)
 
-**Legend:** ✅ exists in the current code on `feature/m02-shell-next` · 📋
-planned only
+**Legend:** ✅ exists in the current code on `main` · 📋 planned only
 
 The pictured left-edge arrangement is one possible placement:
 

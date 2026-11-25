@@ -39,18 +39,40 @@ offscreen tests only · ⚠️ known limitation · 📋 not yet validated
 
 ### Multiple accounts
 
-| Scenario                                               | Coverage                                                                           |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| Two accounts on the same server and user               | 📋                                                                                 |
-| Removing the active account                            | 📋 Offscreen tests remove an inactive account                                      |
-| A background account with a rejected password          | ✅ `test_LiveImapAccounts`                                                         |
-| Switching accounts during synchronization              | 📋                                                                                 |
-| Saved searches and folder counts after switching       | ✅ `test_LiveImapAccounts`                                                         |
-| Folder expansion after switching                       | 🧪 `test_MainWindowAccounts`                                                       |
-| Sender identities after switching                      | 🧪 `test_MainWindowAccounts`                                                       |
-| An account without identities opens a composer         | 📋                                                                                 |
-| An account set to **No identity** replies to a message | 📋 No identity is preselected; **Reply to all but me** keeps the account's address |
-| Switching accounts with a composer open                | ⚠️ Sends with the active account's settings ([#262](CAVEATS.md#multiple-accounts)) |
+| Scenario                                                         | Coverage                                                                           |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Two accounts on the same server and user                         | 📋                                                                                 |
+| Removing the active account                                      | 📋 Offscreen tests remove an inactive account                                      |
+| A background account with a rejected password                    | ✅ `test_LiveImapAccounts`                                                         |
+| Switching accounts during synchronization                        | 📋                                                                                 |
+| Saved searches and folder counts after switching                 | ✅ `test_LiveImapAccounts`                                                         |
+| Folder expansion after switching                                 | 🧪 `test_MainWindowAccounts`                                                       |
+| Sender identities after switching                                | 🧪 `test_MainWindowAccounts`                                                       |
+| An account without identities opens a composer                   | 📋                                                                                 |
+| An account set to **No identity** replies to a message           | 📋 No identity is preselected; **Reply to all but me** keeps the account's address |
+| Switching accounts with a composer open                          | ⚠️ Sends with the active account's settings ([#262](CAVEATS.md#multiple-accounts)) |
+| One account: the sidebar shows no account headers                | 🧪 `test_MainWindowShell`                                                          |
+| Collapsing an account's folders, then switching accounts         | 🧪 `test_MainWindowShell`                                                          |
+| Removing an account while its sidebar header has focus           | 📋                                                                                 |
+| Renaming an account while its sidebar header is shown            | 📋                                                                                 |
+| A POP3 account hides folder, move, junk and tag actions          | 🧪 `test_MainWindowShell`                                                          |
+| An action hidden for another reason stays hidden after switching | 🧪 `test_MainWindowShell`                                                          |
+
+### OAuth sign-in
+
+| Scenario                                                 | Coverage                                                                                        |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Consent denied, cancelled or timed out in the browser    | 🧪 `test_OAuth`                                                                                 |
+| No browser available to open the sign-in page            | 🧪 `test_OAuth`                                                                                 |
+| A refresh token rotated or rejected by the provider      | 🧪 `test_OAuth`                                                                                 |
+| No secure credential store                               | 🧪 `test_OAuth`                                                                                 |
+| Two OAuth accounts at the same provider                  | 🧪 `test_OAuth`                                                                                 |
+| SMTP rejects the first access token                      | 🧪 `test_OAuth`                                                                                 |
+| A server that does not offer the OAuth mechanism to SMTP | 🧪 `test_OAuth`                                                                                 |
+| Signing out or removing the account                      | 🧪 `test_OAuth`; ⚠️ the grant is not revoked at the provider ([#362](CAVEATS.md#oauth-sign-in)) |
+| Cancelling Account Settings after signing in             | ⚠️ Leaves an unused grant ([#362](CAVEATS.md#oauth-sign-in))                                    |
+| A grant revoked at the provider while the app is open    | 📋                                                                                              |
+| Signing in against a real Google or Microsoft account    | 📋                                                                                              |
 
 ### Interface and embedded panels
 
@@ -58,6 +80,7 @@ offscreen tests only · ⚠️ known limitation · 📋 not yet validated
 | ------------------ | ------------------------------------------------------------------------------------- | -------------------------------------------------------- |
 | 🖥️ Interface       | Narrow windows, display scaling, RTL locales and high-contrast modes                  | 📋                                                       |
 | 🧭 Navigation      | <kbd>F6</kbd> focus cycling with hidden or collapsed panes                            | 📋                                                       |
+| 🧭 Navigation      | <kbd>F6</kbd> focus cycling with the header region shown                              | 🧪 `test_MainWindowShell`                                |
 | 🧩 Embedded panels | Swapping sidebar sides with panels in both columns                                    | 📋                                                       |
 | 🧩 Embedded panels | One-panel layout with side-column panels                                              | 📋                                                       |
 | 🧩 Embedded panels | Moving a hidden panel                                                                 | 📋                                                       |

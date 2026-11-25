@@ -7,8 +7,7 @@
 This page defines the proposed top-level menu bar structure for Plasma
 Impresario and maps each entry to the action that exists today, if any.
 
-**Legend:** ✅ exists in the current code on `feature/m02-shell-next` · 📋
-planned only
+**Legend:** ✅ exists in the current code on `main` · 📋 planned only
 
 ## Contents
 

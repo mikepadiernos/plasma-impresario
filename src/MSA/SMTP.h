@@ -22,8 +22,15 @@
 #ifndef SMTP_H
 #define SMTP_H
 
+#include <QPointer>
 #include "AbstractMSA.h"
+#include "OAuth/OAuth.h"
+#include "OAuth/TokenStore.h"
 #include "qwwsmtpclient/qwwsmtpclient.h"
+
+namespace OAuth {
+class TokenSource;
+}
 
 namespace MSA
 {
@@ -38,6 +45,12 @@ public:
 
     bool supportsBurl() const override;
     void sendBurl(const QByteArray &from, const QList<QByteArray> &to, const QByteArray &imapUrl) override;
+
+    /** @short Authenticate with OAuth access tokens from this source instead of a password
+
+    Only used when authentication is enabled. The source is not owned unless it is a child of this object.
+    */
+    void setTokenSource(OAuth::TokenSource *source);
 public slots:
     void cancel() override;
     void setPassword(const QString &password) override;
@@ -59,8 +72,22 @@ private:
     QByteArray data;
     bool isWaitingForPassword;
     enum { MODE_SMTP_INVALID, MODE_SMTP_DATA, MODE_SMTP_BURL } sendingMode;
+    bool dataEscaped = false;
 
+    QPointer<OAuth::TokenSource> tokenSource;
+    QString oauthToken;
+    bool isWaitingForToken = false;
+    bool oauthRetried = false;
+    bool saslFailed = false;
+    QByteArray saslMechanism;
+    QByteArray saslChallenge;
+
+    void createClient();
     void sendContinueGotPassword();
+    void requestOAuthToken();
+    void oauthTokenAvailable(const QString &accessToken);
+    void oauthTokenFailed(const QString &message);
+    bool handleSaslFailure();
 
     SMTP(const SMTP &); // don't implement
     SMTP &operator=(const SMTP &); // don't implement
@@ -73,6 +100,8 @@ public:
          const QString &user);
     ~SMTPFactory() override;
     AbstractMSA *create(QObject *parent) const override;
+    /** @short Authenticate the created submissions with this account's OAuth sign-in instead of a password */
+    void setOAuth(const OAuth::AccountConfig &config, const OAuth::TokenStore::PluginGetter &passwordPlugin);
 private:
     QString m_host;
     quint16 m_port;
@@ -80,6 +109,9 @@ private:
     bool m_startTls;
     bool m_auth;
     QString m_user;
+    bool m_oauth = false;
+    OAuth::AccountConfig m_oauthConfig;
+    OAuth::TokenStore::PluginGetter m_passwordPlugin;
 };
 
 }

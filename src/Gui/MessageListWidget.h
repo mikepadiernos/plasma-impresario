@@ -27,6 +27,8 @@
 #include "Imap/Model/FavoriteTagsModel.h"
 
 class LineEdit;
+class KConfigGroup;
+class QMenu;
 class QTimer;
 class QToolButton;
 
@@ -39,12 +41,15 @@ class MessageListWidget : public QWidget
 {
     Q_OBJECT
 public:
-    explicit MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTagsModel *m_favoriteTagsModel);
+    explicit MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTagsModel *m_favoriteTagsModel, const QString &accountId);
 
     void setFuzzySearchSupported(bool supported);
     void setRawSearchEnabled(bool enabled);
 
     QStringList searchConditions() const;
+
+    /** Key saved searches to another account, for example after switching accounts. */
+    void setAccountId(const QString &accountId);
 
     // FIXME: consider making this private and moving the logic from Window with it
     MsgListView *tree;
@@ -63,6 +68,10 @@ protected slots:
     void slotSortingFailed();
 
 private slots:
+    /** Saves the current search for this account. */
+    void saveCurrentSearch();
+    /** Rebuilds the menu of searches saved for this account. */
+    void rebuildSavedSearchMenu();
     void slotComplexSearchInput(QAction*);
     void slotConditionalSearchReset();
     void slotDeActivateSimpleSearch();
@@ -70,6 +79,15 @@ private slots:
     void slotUpdateSearchCursor();
 
 private:
+    /** Returns the saved-search configuration for this account. */
+    KConfigGroup savedSearchGroup() const;
+    /** Adds the saved search identified by @p id to the menu. */
+    void addSavedSearch(const QString &id);
+    /** Applies the saved search identified by @p id to the current mailbox. */
+    void runSavedSearch(const QString &id);
+    /** Deletes the saved search identified by @p id after confirmation. */
+    void deleteSavedSearch(const QString &id);
+
     LineEdit *m_quickSearchText;
     QAction *m_searchOptions;
     QAction *m_searchInSubject;
@@ -78,6 +96,8 @@ private:
     QAction *m_searchInRecipients;
     QAction *m_searchFuzzy;
     QAction *m_rawSearch;
+    QMenu *m_savedSearches;
+    QString m_accountId;
     bool m_supportsFuzzySearch;
     QTimer *m_searchResetTimer;
     QString m_queryPlaceholder;

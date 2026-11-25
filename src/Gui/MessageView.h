@@ -94,6 +94,8 @@ public:
     WebEngineMessageProfile *webEngineProfile() const;
     void quoteText(const std::function<void(const QString &)> &callback) const;
     bool isCryptoMessage() const;
+    /** The network manager which serves the parts of the current message */
+    Imap::Network::MsgPartNetAccessManager *networkAccessManager() const;
 public slots:
     void setMessage(const QModelIndex &index);
     void setEmpty();

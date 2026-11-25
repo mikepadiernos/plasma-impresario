@@ -14,8 +14,8 @@ offline recovery and storage feedback.
 
 > [!NOTE]
 >
-> Multiple accounts with a toolbar selector exist on `feature/m02-shell-next`.
-> Their open limitations are tracked in
+> Multiple accounts, with a toolbar selector and account groups in the folder
+> sidebar, were built in M02. Their open limitations are tracked in
 > [Caveats: multiple accounts](../CAVEATS.md#multiple-accounts)
 > ([#262](https://github.com/mikepadiernos/plasma-impresario/issues/262)).
 

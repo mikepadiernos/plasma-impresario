@@ -137,13 +137,25 @@ CommandHandle Parser::compressDeflate()
                         Commands::PartOfCommand(Commands::COMPRESS_DEFLATE, "COMPRESS DEFLATE"));
 }
 
-#if 0
-CommandHandle Parser::authenticate(/*Authenticator FIXME*/)
+CommandHandle Parser::authenticate(const QByteArray &mechanism, const QByteArray &initialResponse,
+                                   const QByteArray &cancelResponse, bool saslIr)
 {
-    // FIXME: needs higher priority
-    return queueCommand(Commands::ATOM, "AUTHENTICATE");
+    m_saslCancelResponse = cancelResponse;
+    m_lastSaslChallenge.clear();
+    Commands::Command cmd = Commands::Command("AUTHENTICATE") << Commands::PartOfCommand(Commands::ATOM, mechanism);
+    if (saslIr) {
+        // An empty initial response is sent as "=", RFC 4959 section 3
+        cmd << Commands::PartOfCommand(Commands::ATOM, initialResponse.isEmpty() ? QByteArray("=") : initialResponse);
+    } else {
+        cmd << Commands::PartOfCommand(Commands::SASL_RESPONSE, initialResponse);
+    }
+    return queueCommand(cmd);
 }
-#endif
+
+QByteArray Parser::lastSaslChallenge() const
+{
+    return m_lastSaslChallenge;
+}
 
 CommandHandle Parser::login(const QString &username, const QString &password)
 {
@@ -624,6 +636,16 @@ void Parser::queueResponse(const QSharedPointer<Responses::AbstractResponse> &re
         emit responseReceived(this);
     }
 
+    if (!m_saslTag.isEmpty()) {
+        QSharedPointer<Responses::State> stateResponse = resp.dynamicCast<Responses::State>();
+        if (stateResponse && stateResponse->tag == m_saslTag) {
+            // The SASL exchange is over, regardless of its result
+            m_saslTag.clear();
+            m_saslAwaitingResult = false;
+            QTimer::singleShot(0, this, SLOT(executeCommands()));
+        }
+    }
+
     if (waitingForContinuation) {
         // Check whether this is the server's way of informing us that the continuation request is not going to arrive
         QSharedPointer<Responses::State> stateResponse = resp.dynamicCast<Responses::State>();
@@ -732,7 +754,7 @@ void Parser::executeCommands()
 {
     while (! waitingForContinuation && ! waitForInitialIdle &&
            ! waitingForConnection && ! waitingForEncryption && ! waitingForSslPolicy &&
-           ! cmdQueue.empty() && ! startTlsInProgress && !compressDeflateInProgress)
+           ! cmdQueue.empty() && ! startTlsInProgress && !compressDeflateInProgress && !m_saslAwaitingResult)
         executeACommand();
 }
 
@@ -791,8 +813,11 @@ void Parser::executeACommand()
 
     QByteArray buf;
 
-    bool sensitiveCommand = (cmd.cmds.size() > 2 && cmd.cmds[1].text == "LOGIN");
-    QByteArray privateMessage = sensitiveCommand ? QByteArray("[LOGIN command goes here]") : QByteArray();
+    const bool isAuthenticate = cmd.cmds.size() > 2 && cmd.cmds[1].text == "AUTHENTICATE";
+    bool sensitiveCommand = (cmd.cmds.size() > 2 && cmd.cmds[1].text == "LOGIN") || isAuthenticate;
+    QByteArray privateMessage = sensitiveCommand ?
+                (isAuthenticate ? QByteArray("[AUTHENTICATE command goes here]") : QByteArray("[LOGIN command goes here]")) :
+                QByteArray();
 
 #ifdef PRINT_TRAFFIC_TX
 #ifdef PRINT_TRAFFIC_SENSITIVE
@@ -863,6 +888,27 @@ void Parser::executeACommand()
                 return; // and wait for continuation request
             }
             break;
+        case Commands::SASL_RESPONSE:
+            if (part.numberSent) {
+                buf.append(part.text);
+            } else {
+                // Without SASL-IR, the initial response has to wait for the server's empty challenge
+                if (buf.endsWith(' '))
+                    buf.chop(1);
+                buf.append("\r\n");
+#ifdef PRINT_TRAFFIC_TX
+                qDebug() << m_parserId << ">>>" << buf.left(PRINT_TRAFFIC_TX).trimmed();
+#endif
+                socket->write(buf);
+                part.numberSent = true;
+                waitingForContinuation = true;
+                Q_ASSERT(literalCommandTag.isEmpty());
+                literalCommandTag = cmd.cmds.first().text;
+                m_saslTag = literalCommandTag;
+                emit lineSent(this, buf);
+                return; // and wait for continuation request
+            }
+            break;
         case Commands::IDLE_DONE:
             Q_ASSERT(false); // is handled above
             break;
@@ -912,6 +958,10 @@ void Parser::executeACommand()
                 qDebug() << m_parserId << ">>> [sensitive command]";
 #endif
             socket->write(buf);
+            if (isAuthenticate) {
+                m_saslTag = cmd.cmds.first().text;
+                m_saslAwaitingResult = true;
+            }
             cmdQueue.pop_front();
             emit lineSent(this, sensitiveCommand ? privateMessage : buf);
             break;
@@ -942,6 +992,19 @@ void Parser::processLine(QByteArray line)
     } else if (line.startsWith("* ")) {
         m_expectsInitialGreeting = false;
         queueResponse(parseUntagged(line));
+    } else if (!m_saslTag.isEmpty() && (line.startsWith("+ ") || line.startsWith("+\r\n"))) {
+        if (waitingForContinuation) {
+            // The server is ready for the initial response
+            waitingForContinuation = false;
+            literalCommandTag.clear();
+            QTimer::singleShot(0, this, SLOT(executeCommands()));
+        } else {
+            // OAuth mechanisms only challenge after the response to report an error, RFC 7628 section 3.2.2
+            m_lastSaslChallenge = line.mid(1).trimmed();
+            QByteArray buf = m_saslCancelResponse + "\r\n";
+            socket->write(buf);
+            emit lineSent(this, buf);
+        }
     } else if (line.startsWith("+ ")) {
         if (waitingForContinuation) {
             waitingForContinuation = false;

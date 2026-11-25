@@ -6,3 +6,5 @@ $EXTRACT_TR_STRINGS `find src/ \
                           -name \*.ui` \
                     -o $podir/trojita_qt.pot
 
+$XGETTEXT src/Gui/DensityMenu.cpp src/Gui/Window.cpp -o $podir/plasma-impresario.pot
+

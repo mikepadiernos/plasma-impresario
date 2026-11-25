@@ -70,6 +70,13 @@ private slots:
 
     void testExcessivePasswordPrompts();
 
+    void testOAuthSaslIr();
+    void testOAuthContinuation();
+    void testOAuthRetriesOnceWithAFreshToken();
+    void testOAuthRejectedTwice();
+    void testOAuthMechanismUnavailable();
+    void testOAuthTokenUnavailable();
+
     void dataBug432353();
     void testNoListStatusUponConnect();
     void testNoListStatusUponConnect_data();

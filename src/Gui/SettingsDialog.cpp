@@ -49,15 +49,19 @@
 #include "Common/InvokeMethod.h"
 #include "Common/PortNumbers.h"
 #include "Common/SettingsNames.h"
+#include "Composer/AccountIdentities.h"
 #include "Gui/Util.h"
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
 #include "MSA/Account.h"
+#include "OAuth/OAuth.h"
 #include "Plugins/AddressbookPlugin.h"
 #include "Plugins/PasswordPlugin.h"
 #include "Plugins/PluginManager.h"
 #include "UiUtils/IconLoader.h"
+#include "SettingsOAuthControls.h"
 #include "UiUtils/PasswordWatcher.h"
+#include <KLocalizedString>
 #include "ShortcutHandler/ShortcutHandler.h"
 
 namespace Gui
@@ -77,23 +81,31 @@ bool checkProblemWithEmptyTextField(T *field, const QString &message)
     }
 }
 
-SettingsDialog::SettingsDialog(MainWindow *parent, Composer::SenderIdentitiesModel *identitiesModel,
-        Imap::Mailbox::FavoriteTagsModel *favoriteTagsModel, QSettings *settings):
-    QDialog(parent), mainWindow(parent), m_senderIdentities(identitiesModel), m_favoriteTags(favoriteTagsModel),
-        m_settings(settings)
+SettingsDialog::SettingsDialog(MainWindow *parent, Scope scope, Composer::SenderIdentitiesModel *sharedIdentities,
+        Composer::SenderIdentitiesModel *accountIdentities, Imap::Mailbox::FavoriteTagsModel *favoriteTagsModel,
+        QSettings *settings):
+    QDialog(parent), mainWindow(parent), m_scope(scope), m_accountSettings(parent->accountSettings()),
+        m_senderIdentities(sharedIdentities), m_accountIdentities(accountIdentities),
+        m_favoriteTags(favoriteTagsModel), m_settings(settings)
 {
-    setWindowTitle(tr("Settings"));
+    setWindowTitle(scope == Scope::Account ? i18nc("@title:window", "Account Settings")
+                                           : i18nc("@title:window", "Settings"));
 
     QVBoxLayout *layout = new QVBoxLayout(this);
     stack = new QTabWidget(this);
     layout->addWidget(stack);
     stack->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 
-    addPage(new GeneralPage(this, *m_settings, m_senderIdentities), tr("&General"));
-    addPage(new ImapPage(this, *m_settings), tr("I&MAP"));
-    addPage(new CachePage(this, *m_settings), tr("&Offline"));
-    addPage(new OutgoingPage(this, *m_settings), tr("&SMTP"));
-    addPage(new FavoriteTagsPage(this, *m_settings, m_favoriteTags), tr("Favorite &tags"));
+    if (scope == Scope::Account) {
+        addPage(new IdentitiesPage(this, *m_accountSettings, *m_settings, m_accountIdentities, m_senderIdentities),
+                i18nc("@title:tab", "I&dentities"), m_accountSettings);
+        addPage(new ImapPage(this, *m_accountSettings), tr("I&MAP"), m_accountSettings);
+        addPage(new CachePage(this, *m_accountSettings), tr("&Offline"), m_accountSettings);
+        addPage(new OutgoingPage(this, *m_accountSettings), tr("&SMTP"), m_accountSettings);
+    } else {
+        addPage(new GeneralPage(this, *m_settings), tr("&General"), m_settings);
+        addPage(new FavoriteTagsPage(this, *m_settings, m_favoriteTags), tr("Favorite &tags"), m_settings);
+    }
 
     buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, Qt::Horizontal, this);
     connect(buttons, &QDialogButtonBox::accepted, this, &SettingsDialog::accept);
@@ -101,6 +113,11 @@ SettingsDialog::SettingsDialog(MainWindow *parent, Composer::SenderIdentitiesMod
     layout->addWidget(buttons);
 
     EMIT_LATER_NOARG(this, reloadPasswordsRequested);
+}
+
+SettingsDialog::Scope SettingsDialog::scope() const
+{
+    return m_scope;
 }
 
 void SettingsDialog::setOriginalPlugins(const QString &passwordPlugin, const QString &addressBookPlugin,
@@ -177,6 +194,8 @@ void SettingsDialog::accept()
     // Try to wour around QSettings' inability to set umask for its file access. We don't want to set umask globally.
     QFile settingsFile(m_settings->fileName());
     settingsFile.setPermissions(QFile::ReadUser | QFile::WriteUser);
+    QFile accountFile(m_accountSettings->fileName());
+    accountFile.setPermissions(QFile::ReadUser | QFile::WriteUser);
 #endif
 
     buttons->setEnabled(false);
@@ -185,12 +204,14 @@ void SettingsDialog::accept()
     }
 
     Q_FOREACH(ConfigurationWidgetInterface *page, pages) {
-        page->save(*m_settings);
+        page->save(*m_pageSettings.value(page));
     }
 
     m_settings->sync();
+    m_accountSettings->sync();
 #ifndef Q_OS_WIN
     settingsFile.setPermissions(QFile::ReadUser | QFile::WriteUser);
+    accountFile.setPermissions(QFile::ReadUser | QFile::WriteUser);
 #endif
 }
 
@@ -230,12 +251,14 @@ void SettingsDialog::reject()
     HANDLE_PLUGIN(spellchecker, Spellchecker)
 #undef HANDLE_PLUGIN
     m_senderIdentities->loadFromSettings(*m_settings);
+    m_accountIdentities->loadFromSettings(*m_accountSettings);
     m_favoriteTags->loadFromSettings(*m_settings);
     QDialog::reject();
 }
 
-void SettingsDialog::addPage(ConfigurationWidgetInterface *page, const QString &title)
+void SettingsDialog::addPage(ConfigurationWidgetInterface *page, const QString &title, QSettings *pageSettings)
 {
+    m_pageSettings.insert(page, pageSettings);
     stack->addTab(page->asWidget(), title);
     connect(page->asWidget(), SIGNAL(widgetsUpdated()), SLOT(adjustSizeToScrollAreas())); // new-signal-slot: we're abusing the type system a bit here, cannot use the new syntax
     QMetaObject::invokeMethod(page->asWidget(), "updateWidgets", Qt::QueuedConnection);
@@ -348,26 +371,10 @@ bool FavoriteTagsPage::passwordFailures(QString &message) const
     return false;
 }
 
-GeneralPage::GeneralPage(SettingsDialog *parent, QSettings &s, Composer::SenderIdentitiesModel *identitiesModel):
-    QScrollArea(parent), Ui_GeneralPage(), m_identitiesModel(identitiesModel), m_parent(parent)
+GeneralPage::GeneralPage(SettingsDialog *parent, QSettings &s):
+    QScrollArea(parent), Ui_GeneralPage(), m_parent(parent)
 {
     Ui_GeneralPage::setupUi(this);
-    Q_ASSERT(m_identitiesModel);
-    editButton->setEnabled(false);
-    deleteButton->setEnabled(false);
-    moveUpButton->setIcon(UiUtils::loadIcon(QStringLiteral("go-up")));
-    moveDownButton->setIcon(UiUtils::loadIcon(QStringLiteral("go-down")));
-    moveUpButton->setEnabled(false);
-    moveDownButton->setEnabled(false);
-    identityTabelView->setModel(m_identitiesModel);
-    identityTabelView->setSelectionBehavior(QAbstractItemView::SelectRows);
-    identityTabelView->setSelectionMode(QAbstractItemView::SingleSelection);
-    identityTabelView->setGridStyle(Qt::NoPen);
-    identityTabelView->hideColumn(Composer::SenderIdentitiesModel::COLUMN_ORGANIZATION);
-    identityTabelView->setColumnHidden(Composer::SenderIdentitiesModel::COLUMN_SIGNATURE, true);
-    identityTabelView->resizeColumnToContents(Composer::SenderIdentitiesModel::COLUMN_NAME);
-    identityTabelView->resizeRowsToContents();
-    identityTabelView->horizontalHeader()->setStretchLastSection(true);
 
     Plugins::PluginManager *pluginManager = parent->pluginManager();
     QMap<QString, QString>::const_iterator it;
@@ -429,17 +436,6 @@ GeneralPage::GeneralPage(SettingsDialog *parent, QSettings &s, Composer::SenderI
     preferPlaintextCheckbox->setChecked(s.value(Common::SettingsNames::guiPreferPlaintextRendering).toBool());
     revealTrojitaVersions->setChecked(s.value(Common::SettingsNames::interopRevealVersions, QVariant(true)).toBool());
 
-    connect(identityTabelView, &QAbstractItemView::clicked, this, &GeneralPage::updateWidgets);
-    connect(identityTabelView, &QAbstractItemView::doubleClicked, this, &GeneralPage::editButtonClicked);
-    connect(m_identitiesModel, &QAbstractItemModel::layoutChanged, this, &GeneralPage::updateWidgets);
-    connect(m_identitiesModel, &QAbstractItemModel::rowsInserted, this, &GeneralPage::updateWidgets);
-    connect(m_identitiesModel, &QAbstractItemModel::rowsRemoved, this, &GeneralPage::updateWidgets);
-    connect(m_identitiesModel, &QAbstractItemModel::dataChanged, this, &GeneralPage::updateWidgets);
-    connect(moveUpButton, &QAbstractButton::clicked, this, &GeneralPage::moveIdentityUp);
-    connect(moveDownButton, &QAbstractButton::clicked, this, &GeneralPage::moveIdentityDown);
-    connect(addButton, &QAbstractButton::clicked, this, &GeneralPage::addButtonClicked);
-    connect(editButton, &QAbstractButton::clicked, this, &GeneralPage::editButtonClicked);
-    connect(deleteButton, &QAbstractButton::clicked, this, &GeneralPage::deleteButtonClicked);
     connect(passwordBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &GeneralPage::passwordPluginChanged);
 
     connect(this, &GeneralPage::reloadPasswords, m_parent, &SettingsDialog::reloadPasswordsRequested);
@@ -460,11 +456,101 @@ void GeneralPage::passwordPluginChanged()
 
 void GeneralPage::updateWidgets()
 {
-    bool enabled = identityTabelView->currentIndex().isValid();
+    emit widgetsUpdated();
+}
+
+IdentitiesPage::IdentitiesPage(SettingsDialog *parent, QSettings &account, QSettings &shared,
+                               Composer::SenderIdentitiesModel *accountIdentities,
+                               Composer::SenderIdentitiesModel *sharedIdentities):
+    QScrollArea(parent), Ui_IdentitiesPage(), m_accountIdentities(accountIdentities),
+    m_sharedIdentities(sharedIdentities), m_identitiesModel(nullptr), m_shared(shared)
+{
+    Ui_IdentitiesPage::setupUi(this);
+    Q_ASSERT(m_accountIdentities);
+    Q_ASSERT(m_sharedIdentities);
+    identitySourceLabel->setText(i18nc("@label:listbox", "Send from:"));
+    identitySourceCombo->addItem(i18nc("@item:inlistbox identity source", "This account's own identities"),
+                                 static_cast<int>(Composer::AccountIdentities::Source::Own));
+    identitySourceCombo->addItem(i18nc("@item:inlistbox identity source", "Identities shared by all accounts"),
+                                 static_cast<int>(Composer::AccountIdentities::Source::Shared));
+    identitySourceCombo->addItem(i18nc("@item:inlistbox identity source", "No identity"),
+                                 static_cast<int>(Composer::AccountIdentities::Source::None));
+    addButton->setText(i18nc("@action:button", "Add"));
+    editButton->setText(i18nc("@action:button", "Edit"));
+    deleteButton->setText(i18nc("@action:button", "Delete"));
+    moveUpButton->setIcon(UiUtils::loadIcon(QStringLiteral("go-up")));
+    moveDownButton->setIcon(UiUtils::loadIcon(QStringLiteral("go-down")));
+    moveUpButton->setToolTip(i18nc("@info:tooltip", "Move identity up"));
+    moveDownButton->setToolTip(i18nc("@info:tooltip", "Move identity down"));
+    identityTabelView->setSelectionBehavior(QAbstractItemView::SelectRows);
+    identityTabelView->setSelectionMode(QAbstractItemView::SingleSelection);
+    identityTabelView->setGridStyle(Qt::NoPen);
+    identityTabelView->horizontalHeader()->setStretchLastSection(true);
+
+    identitySourceCombo->setCurrentIndex(identitySourceCombo->findData(
+            static_cast<int>(Composer::AccountIdentities::source(account))));
+
+    for (auto *model : {m_accountIdentities, m_sharedIdentities}) {
+        connect(model, &QAbstractItemModel::modelReset, this, &IdentitiesPage::updateWidgets);
+        connect(model, &QAbstractItemModel::layoutChanged, this, &IdentitiesPage::updateWidgets);
+        connect(model, &QAbstractItemModel::rowsInserted, this, &IdentitiesPage::updateWidgets);
+        connect(model, &QAbstractItemModel::rowsRemoved, this, &IdentitiesPage::updateWidgets);
+        connect(model, &QAbstractItemModel::dataChanged, this, &IdentitiesPage::updateWidgets);
+    }
+    connect(identitySourceCombo, &QComboBox::currentIndexChanged, this, &IdentitiesPage::showIdentitiesInUse);
+    connect(identityTabelView, &QAbstractItemView::clicked, this, &IdentitiesPage::updateWidgets);
+    connect(identityTabelView, &QAbstractItemView::doubleClicked, this, &IdentitiesPage::editButtonClicked);
+    connect(moveUpButton, &QAbstractButton::clicked, this, &IdentitiesPage::moveIdentityUp);
+    connect(moveDownButton, &QAbstractButton::clicked, this, &IdentitiesPage::moveIdentityDown);
+    connect(addButton, &QAbstractButton::clicked, this, &IdentitiesPage::addButtonClicked);
+    connect(editButton, &QAbstractButton::clicked, this, &IdentitiesPage::editButtonClicked);
+    connect(deleteButton, &QAbstractButton::clicked, this, &IdentitiesPage::deleteButtonClicked);
+
+    showIdentitiesInUse();
+}
+
+Composer::AccountIdentities::Source IdentitiesPage::selectedSource() const
+{
+    return static_cast<Composer::AccountIdentities::Source>(identitySourceCombo->currentData().toInt());
+}
+
+void IdentitiesPage::showIdentitiesInUse()
+{
+    using Composer::AccountIdentities::Source;
+    const Source source = selectedSource();
+    // With no identity, the account's own list stays visible but read-only, so it can be reviewed before switching back.
+    m_identitiesModel = source == Source::Shared ? m_sharedIdentities : m_accountIdentities;
+    identityTabelView->setModel(m_identitiesModel);
+    identityTabelView->hideColumn(Composer::SenderIdentitiesModel::COLUMN_ORGANIZATION);
+    identityTabelView->hideColumn(Composer::SenderIdentitiesModel::COLUMN_SIGNATURE);
+    identityTabelView->resizeRowsToContents();
+    identityTabelView->setEnabled(source != Source::None);
+    addButton->setEnabled(source != Source::None);
+    switch (source) {
+    case Source::Shared:
+        scopeLabel->setText(i18nc("@info", "This account sends from the shared identities. "
+                                           "Changes here apply to every account that uses them."));
+        break;
+    case Source::None:
+        scopeLabel->setText(i18nc("@info", "This account does not use an identity. New messages start with an empty "
+                                           "From address and no signature. This account's own identities are kept "
+                                           "for when you switch back."));
+        break;
+    case Source::Own:
+        scopeLabel->setText(
+                i18nc("@info", "This account sends from its own identities. Other accounts are not affected."));
+        break;
+    }
+    updateWidgets();
+}
+
+void IdentitiesPage::updateWidgets()
+{
+    bool enabled = identityTabelView->isEnabled() && identityTabelView->currentIndex().isValid();
     deleteButton->setEnabled(enabled);
     editButton->setEnabled(enabled);
-    bool upEnabled = m_identitiesModel->rowCount() > 0 && identityTabelView->currentIndex().row() > 0;
-    bool downEnabled = m_identitiesModel->rowCount() > 0 && identityTabelView->currentIndex().isValid() &&
+    bool upEnabled = enabled && m_identitiesModel->rowCount() > 0 && identityTabelView->currentIndex().row() > 0;
+    bool downEnabled = enabled && m_identitiesModel->rowCount() > 0 &&
             identityTabelView->currentIndex().row() < m_identitiesModel->rowCount() - 1;
     moveUpButton->setEnabled(upEnabled);
     moveDownButton->setEnabled(downEnabled);
@@ -474,7 +560,7 @@ void GeneralPage::updateWidgets()
     emit widgetsUpdated();
 }
 
-void GeneralPage::moveIdentityUp()
+void IdentitiesPage::moveIdentityUp()
 {
     int from = identityTabelView->currentIndex().row();
     int to = identityTabelView->currentIndex().row() - 1;
@@ -483,7 +569,7 @@ void GeneralPage::moveIdentityUp()
     updateWidgets();
 }
 
-void GeneralPage::moveIdentityDown()
+void IdentitiesPage::moveIdentityDown()
 {
     int from = identityTabelView->currentIndex().row();
     int to = identityTabelView->currentIndex().row() + 1;
@@ -492,7 +578,7 @@ void GeneralPage::moveIdentityDown()
     updateWidgets();
 }
 
-void GeneralPage::addButtonClicked()
+void IdentitiesPage::addButtonClicked()
 {
     m_identitiesModel->appendIdentity(Composer::ItemSenderIdentity());
     identityTabelView->setCurrentIndex(m_identitiesModel->index(m_identitiesModel->rowCount() - 1, 0));
@@ -503,14 +589,14 @@ void GeneralPage::addButtonClicked()
     updateWidgets();
 }
 
-void GeneralPage::editButtonClicked()
+void IdentitiesPage::editButtonClicked()
 {
     EditIdentity *dialog = new EditIdentity(this,  m_identitiesModel, identityTabelView->currentIndex());
     dialog->setWindowTitle(tr("Edit Identity"));
     dialog->show();
 }
 
-void GeneralPage::deleteButtonClicked()
+void IdentitiesPage::deleteButtonClicked()
 {
     Q_ASSERT(identityTabelView->currentIndex().isValid());
     QMessageBox::StandardButton answer =
@@ -527,9 +613,34 @@ void GeneralPage::deleteButtonClicked()
     }
 }
 
+void IdentitiesPage::save(QSettings &s)
+{
+    // Both lists are saved: an account that switches away from its own identities keeps them for later.
+    Composer::AccountIdentities::setSource(s, selectedSource());
+    m_accountIdentities->saveToSettings(s);
+    m_sharedIdentities->saveToSettings(m_shared);
+    emit saved();
+}
+
+QWidget *IdentitiesPage::asWidget()
+{
+    return this;
+}
+
+bool IdentitiesPage::checkValidity() const
+{
+    // A new account starts without identities; the composer then accepts a typed From address.
+    return true;
+}
+
+bool IdentitiesPage::passwordFailures(QString &message) const
+{
+    Q_UNUSED(message);
+    return false;
+}
+
 void GeneralPage::save(QSettings &s)
 {
-    m_identitiesModel->saveToSettings(s);
     s.setValue(Common::SettingsNames::autoMarkReadEnabled, markReadCheckbox->isChecked());
     s.setValue(Common::SettingsNames::autoMarkReadSeconds, markReadSeconds->value());
     s.setValue(Common::SettingsNames::mboxDropAction,
@@ -561,11 +672,6 @@ QWidget *GeneralPage::asWidget()
 
 bool GeneralPage::checkValidity() const
 {
-    if (m_identitiesModel->rowCount() < 1) {
-        QToolTip::showText(identityTabelView->mapToGlobal(QPoint(10, identityTabelView->height() / 2)),
-                           tr("Please define some identities here"), nullptr);
-        return false;
-    }
     return true;
 }
 
@@ -761,8 +867,33 @@ ImapPage::ImapPage(SettingsDialog *parent, QSettings &s): QScrollArea(parent), U
     connect(m_parent, &SettingsDialog::reloadPasswordsRequested, imapPass, &QLineEdit::clear);
     connect(m_parent, &SettingsDialog::reloadPasswordsRequested, m_pwWatcher, &UiUtils::PasswordWatcher::reloadPassword);
 
+    imapAuthMethod = new QComboBox(this);
+    imapAuthMethod->setObjectName(QStringLiteral("imapAuthMethod"));
+    imapAuthMethod->addItem(tr("Password"), SettingsNames::authMethodPassword);
+    imapAuthMethod->addItem(tr("OAuth 2.0 sign-in with the provider"), SettingsNames::authMethodOAuth);
+    imapAuthMethod->setCurrentIndex(OAuth::isEnabled(s, OAuth::Service::Imap) ? 1 : 0);
+    int authRow = 0;
+    QFormLayout::ItemRole role;
+    formLayout->getWidgetPosition(imapPass, &authRow, &role);
+    formLayout->insertRow(authRow, tr("Authentication:"), imapAuthMethod);
+    int oauthRow = 0;
+    formLayout->getWidgetPosition(passwordPluginStatus, &oauthRow, &role);
+    QPointer<Plugins::PluginManager> pluginManager = m_parent->pluginManager();
+    m_oauth = new SettingsOAuthControls(formLayout, oauthRow + 1, s, m_parent->imapAccess()->credentialAccountId(),
+                                        [pluginManager]() -> Plugins::PasswordPlugin * {
+                                            return pluginManager ? pluginManager->password() : nullptr;
+                                        }, this);
+    m_oauth->setLoginHint(imapUser->text());
+    connect(imapUser, &QLineEdit::textChanged, m_oauth, &SettingsOAuthControls::setLoginHint);
+    connect(imapAuthMethod, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &ImapPage::updateWidgets);
+
     updateWidgets();
     maybeShowPortWarning();
+}
+
+bool ImapPage::usesOAuth() const
+{
+    return imapAuthMethod && imapAuthMethod->currentData().toString() == Common::SettingsNames::authMethodOAuth;
 }
 
 void ImapPage::slotSetPassword()
@@ -838,6 +969,17 @@ void ImapPage::updateWidgets()
     imapPass->setEnabled(m_pwWatcher->isPluginAvailable() && !m_pwWatcher->isWaitingForPlugin());
     imapPassLabel->setEnabled(m_pwWatcher->isPluginAvailable() && !m_pwWatcher->isWaitingForPlugin());
 
+    if (m_oauth) {
+        // With OAuth, the stored sign-in replaces the password
+        const bool oauth = usesOAuth();
+        lay->setRowVisible(imapPass, !oauth);
+        if (oauth) {
+            passwordWarning->setVisible(false);
+            passwordPluginStatus->setVisible(false);
+        }
+        m_oauth->setActive(oauth);
+    }
+
     emit widgetsUpdated();
 }
 
@@ -882,7 +1024,15 @@ void ImapPage::save(QSettings &s)
     s.setValue(SettingsNames::imapAccountIcon, accountIcon->text().isEmpty() ? QVariant() : QVariant(accountIcon->text()));
     s.setValue(SettingsNames::imapArchiveFolderName, archiveFolderName->text());
 
-    if (m_pwWatcher->isPluginAvailable() && !m_pwWatcher->isWaitingForPlugin()) {
+    if (usesOAuth())
+        s.setValue(SettingsNames::imapAuthMethodKey, SettingsNames::authMethodOAuth);
+    else
+        s.remove(SettingsNames::imapAuthMethodKey);
+    m_oauth->save(s);
+
+    if (usesOAuth()) {
+        emit saved();
+    } else if (m_pwWatcher->isPluginAvailable() && !m_pwWatcher->isWaitingForPlugin()) {
         m_pwWatcher->setPassword(imapPass->text());
     } else {
         emit saved();
@@ -900,6 +1050,9 @@ bool ImapPage::checkValidity() const
     case NETWORK:
         // We don't require the username, and that's on purpose. Some servers *could* possibly support PREAUTH :)
         if (checkProblemWithEmptyTextField(imapHost, tr("The IMAP server hostname is missing here")))
+            return false;
+        if (usesOAuth() && m_oauth->accountConfig().clientId.isEmpty()
+                && checkProblemWithEmptyTextField(m_oauth->clientId, tr("The OAuth client ID is missing here")))
             return false;
         break;
     default:
@@ -935,7 +1088,7 @@ void ImapPage::maybeShowPortWarning()
 
 bool ImapPage::passwordFailures(QString &message) const
 {
-    if (!m_pwWatcher->isPluginAvailable() || m_pwWatcher->isWaitingForPlugin() || m_pwWatcher->didWriteOk()) {
+    if (usesOAuth() || !m_pwWatcher->isPluginAvailable() || m_pwWatcher->isWaitingForPlugin() || m_pwWatcher->didWriteOk()) {
         return false;
     } else {
         message = m_pwWatcher->progressMessage();
@@ -1028,11 +1181,7 @@ OutgoingPage::OutgoingPage(SettingsDialog *parent, QSettings &s): QScrollArea(pa
 {
     using Common::SettingsNames;
     Ui_OutgoingPage::setupUi(this);
-    // FIXME: use another account-id at some point in future
-    //        we are now using the profile to avoid overwriting passwords of
-    //        other profiles in secure storage
-    QString profileName = QString::fromUtf8(qgetenv("TROJITA_PROFILE"));
-    m_smtpAccountSettings = new MSA::Account(this, &s, profileName);
+    m_smtpAccountSettings = new MSA::Account(this, &s, m_parent->imapAccess()->accountName());
 
     portWarningLabel->setStyleSheet(SettingsDialog::warningStyleSheet);
 
@@ -1065,7 +1214,7 @@ OutgoingPage::OutgoingPage(SettingsDialog *parent, QSettings &s): QScrollArea(pa
     connect(sendmail, &LineEdit::textEditingFinished, m_smtpAccountSettings, &MSA::Account::setPathToSendmail);
 
     m_pwWatcher = new UiUtils::PasswordWatcher(this, m_parent->pluginManager(),
-                                               profileName.isEmpty() ? QStringLiteral("account-0") : profileName,
+                                               m_parent->imapAccess()->credentialAccountId(),
                                                QStringLiteral("smtp"));
     connect(m_pwWatcher, &UiUtils::PasswordWatcher::stateChanged, this, &OutgoingPage::updateWidgets);
     connect(m_pwWatcher, &UiUtils::PasswordWatcher::savingFailed, this, &OutgoingPage::saved);
@@ -1074,7 +1223,28 @@ OutgoingPage::OutgoingPage(SettingsDialog *parent, QSettings &s): QScrollArea(pa
     connect(m_parent, &SettingsDialog::reloadPasswordsRequested, smtpPass, &QLineEdit::clear);
     connect(m_parent, &SettingsDialog::reloadPasswordsRequested, m_pwWatcher, &UiUtils::PasswordWatcher::reloadPassword);
 
+    smtpAuthMethod = new QComboBox(this);
+    smtpAuthMethod->setObjectName(QStringLiteral("smtpAuthMethod"));
+    smtpAuthMethod->addItem(tr("Password"), SettingsNames::authMethodPassword);
+    smtpAuthMethod->addItem(tr("OAuth 2.0 sign-in with the provider"), SettingsNames::authMethodOAuth);
+    smtpAuthMethod->setCurrentIndex(OAuth::isEnabled(s, OAuth::Service::Smtp) ? 1 : 0);
+    smtpOAuthNote = new QLabel(tr("Sending uses the OAuth provider, client and sign-in configured on the IMAP page."),
+                               this);
+    smtpOAuthNote->setObjectName(QStringLiteral("smtpOAuthNote"));
+    smtpOAuthNote->setWordWrap(true);
+    int authRow = 0;
+    QFormLayout::ItemRole role;
+    formLayout->getWidgetPosition(smtpAuthReuseImapCreds, &authRow, &role);
+    formLayout->insertRow(authRow + 1, tr("Authentication method:"), smtpAuthMethod);
+    formLayout->insertRow(authRow + 2, smtpOAuthNote);
+    connect(smtpAuthMethod, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &OutgoingPage::updateWidgets);
+
     updateWidgets();
+}
+
+bool OutgoingPage::usesOAuth() const
+{
+    return smtpAuthMethod && smtpAuthMethod->currentData().toString() == Common::SettingsNames::authMethodOAuth;
 }
 
 void OutgoingPage::slotSetPassword()
@@ -1203,6 +1373,18 @@ void OutgoingPage::updateWidgets()
         lay->labelForField(smtpPass)->setVisible(authEnabled && !reuseImapCreds);
         lay->labelForField(smtpPass)->setEnabled(m_pwWatcher->isPluginAvailable() && !m_pwWatcher->isWaitingForPlugin());
 
+        if (smtpAuthMethod) {
+            lay->setRowVisible(smtpAuthMethod, authEnabled);
+            smtpOAuthNote->setVisible(authEnabled && usesOAuth());
+            if (authEnabled && usesOAuth()) {
+                // The account's OAuth sign-in replaces the SMTP password
+                smtpPass->setVisible(false);
+                lay->labelForField(smtpPass)->setVisible(false);
+                passwordWarning->setVisible(false);
+                passwordPluginStatus->setVisible(false);
+            }
+        }
+
         break;
     }
     case MSA::Account::Method::SENDMAIL:
@@ -1222,6 +1404,10 @@ void OutgoingPage::updateWidgets()
         lay->labelForField(smtpPass)->setVisible(false);
         passwordWarning->setVisible(false);
         passwordPluginStatus->setVisible(false);
+        if (smtpAuthMethod) {
+            lay->setRowVisible(smtpAuthMethod, false);
+            smtpOAuthNote->setVisible(false);
+        }
         if (m_smtpAccountSettings->submissionMethod() == MSA::Account::Method::SENDMAIL) {
             sendmail->setVisible(true);
             lay->labelForField(sendmail)->setVisible(true);
@@ -1255,7 +1441,15 @@ void OutgoingPage::save(QSettings &s)
 {
     m_smtpAccountSettings->saveSettings();
 
-    if (smtpAuth->isVisibleTo(this) && smtpAuth->isChecked() && m_pwWatcher->isPluginAvailable() && !m_pwWatcher->isWaitingForPlugin()) {
+    const bool oauth = method->currentIndex() == NETWORK && smtpAuth->isChecked() && usesOAuth();
+    if (oauth)
+        s.setValue(Common::SettingsNames::smtpAuthMethodKey, Common::SettingsNames::authMethodOAuth);
+    else
+        s.remove(Common::SettingsNames::smtpAuthMethodKey);
+
+    if (oauth) {
+        emit saved();
+    } else if (smtpAuth->isVisibleTo(this) && smtpAuth->isChecked() && m_pwWatcher->isPluginAvailable() && !m_pwWatcher->isWaitingForPlugin()) {
         m_pwWatcher->setPassword(smtpPass->text());
     } else {
         emit saved();
@@ -1306,7 +1500,7 @@ bool OutgoingPage::checkValidity() const
 bool OutgoingPage::passwordFailures(QString &message) const
 {
     // The const_cast is needed as Qt4 does not define the arguement of isVisibleTo as const
-    if (!smtpAuth->isVisibleTo(const_cast<Gui::OutgoingPage*>(this)) || !smtpAuth->isChecked() || !m_pwWatcher->isPluginAvailable() || m_pwWatcher->isWaitingForPlugin() || m_pwWatcher->didWriteOk()) {
+    if (usesOAuth() || !smtpAuth->isVisibleTo(const_cast<Gui::OutgoingPage*>(this)) || !smtpAuth->isChecked() || !m_pwWatcher->isPluginAvailable() || m_pwWatcher->isWaitingForPlugin() || m_pwWatcher->didWriteOk()) {
         return false;
     } else {
         message = m_pwWatcher->progressMessage();

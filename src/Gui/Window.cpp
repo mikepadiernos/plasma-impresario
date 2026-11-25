@@ -22,8 +22,12 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <algorithm>
 #include <QAuthenticator>
 #include <QActionGroup>
+#include <QComboBox>
+#include <QFileInfo>
+#include <QInputDialog>
 #include <QDesktopServices>
 #include <QDir>
 #include <QDockWidget>
@@ -31,6 +35,7 @@
 #include <QHeaderView>
 #include <QItemSelectionModel>
 #include <QKeyEvent>
+#include <QLabel>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPainter>
@@ -52,12 +57,17 @@
 #include <QUrl>
 #include <QWheelEvent>
 
+#include <KConfigGroup>
+#include <KLocalizedString>
+#include <KSharedConfig>
+
 #include "configure.cmake.h"
 #include "Common/Application.h"
 #include "Common/InvokeMethod.h"
 #include "Common/Paths.h"
 #include "Common/PortNumbers.h"
 #include "Common/SettingsNames.h"
+#include "Composer/AccountIdentities.h"
 #include "Composer/Mailto.h"
 #include "Composer/SenderIdentitiesModel.h"
 #ifdef TROJITA_HAVE_CRYPTO_MESSAGES
@@ -87,14 +97,24 @@
 #include "Plugins/PluginManager.h"
 #include "CompleteMessageWidget.h"
 #include "ComposeWidget.h"
+#include "DensityDelegate.h"
+#include "Common/AccountRegistry.h"
+#include "Common/AccountStatus.h"
+#include "AttachmentPanel.h"
+#include "ContactPanel.h"
+#include "DensityMenu.h"
+#include "EmbeddedPanelsMenu.h"
 #include "MailBoxTreeView.h"
+#include "MessageDetailsPanel.h"
 #include "MessageListWidget.h"
 #include "MessageView.h"
 #include "MessageSourceWidget.h"
 #include "Gui/MessageHeadersWidget.h"
 #include "MsgListView.h"
+#include "MessageSelectionRestorer.h"
 #include "OnePanelAtTimeWidget.h"
 #include "PasswordDialog.h"
+#include "RelatedMessagesPanel.h"
 #include "ProtocolLoggerWidget.h"
 #include "SettingsDialog.h"
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -114,13 +134,20 @@
 #include "UiUtils/IconLoader.h"
 #include "UiUtils/QaimDfsIterator.h"
 
+#include <QVBoxLayout>
+#include "Imap/Model/AccountCapabilities.h"
+#include "OAuth/OAuth.h"
+#include "AccountSidebar.h"
+#include "CapabilityActionGate.h"
+#include "ShellHeader.h"
+
 /** @short All user-facing widgets and related classes */
 namespace Gui
 {
 
     static const char * const netErrorUnseen = "net_error_unseen";
 
-MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr), m_mainHSplitter(nullptr), m_mainVSplitter(nullptr),
+MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr),
     m_mainStack(nullptr), m_layoutMode(LAYOUT_COMPACT), m_skipSavingOfUI(true), m_delayedStateSaving(nullptr), m_actionSortNone(nullptr),
     m_ignoreStoredPassword(false), m_settings(settings), m_pluginManager(nullptr), m_msgActionHandler(this),m_networkErrorMessageBox(nullptr), m_trayIcon(nullptr)
 {
@@ -159,14 +186,7 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     // ImapAccess contains a wrapper for retrieving passwords through some plugin.
     // That PasswordWatcher is used by the SettingsDialog's widgets *and* by this class,
     // which means that ImapAccess has to be constructed before we go and open the settings dialog.
-
-    // FIXME: use another account-id at some point in future
-    //        we are now using the profile to avoid overwriting passwords of
-    //        other profiles in secure storage
-    QString profileName = QString::fromUtf8(qgetenv("TROJITA_PROFILE"));
-    m_imapAccess = new Imap::ImapAccess(this, m_settings, m_pluginManager, profileName);
-    connect(m_imapAccess, &Imap::ImapAccess::cacheError, this, &MainWindow::cacheError);
-    connect(m_imapAccess, &Imap::ImapAccess::checkSslPolicy, this, &MainWindow::checkSslPolicy, Qt::QueuedConnection);
+    setupAccounts();
 
     ShortcutHandler *shortcutHandler = new ShortcutHandler(this);
     shortcutHandler->setSettingsObject(m_settings);
@@ -183,13 +203,16 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
 
     m_senderIdentities = new Composer::SenderIdentitiesModel(this);
     m_senderIdentities->loadFromSettings(*m_settings);
+    for (const QString &accountId : m_accounts->accountIds())
+        Composer::AccountIdentities::migrateAccount(*m_settings, *m_accounts->settings(accountId));
 
-    if (! m_settings->contains(Common::SettingsNames::imapMethodKey)) {
-        QTimer::singleShot(0, this, SLOT(slotShowSettings()));
+    if (! accountSettings()->contains(Common::SettingsNames::imapMethodKey)) {
+        QTimer::singleShot(0, this, SLOT(slotShowAccountSettings()));
     }
 
 
     setupModels();
+    connectBackgroundAccounts();
     createActions();
     createMenus();
     slotToggleSysTray();
@@ -300,6 +323,11 @@ void MainWindow::defineActions()
     shortcutHandler->defineAction(QStringLiteral("action_zoom_original"), QStringLiteral("zoom-original"), tr("Original Size"));
     shortcutHandler->defineAction(QStringLiteral("action_focus_mailbox_tree"), QString(), tr("Move Focus to Mailbox List"));
     shortcutHandler->defineAction(QStringLiteral("action_focus_msg_list"), QString(), tr("Move Focus to Message List"));
+    shortcutHandler->defineAction(QStringLiteral("action_focus_message_view"), QString(), tr("Move Focus to Message View"));
+    shortcutHandler->defineAction(QStringLiteral("action_focus_next_region"), QString(), tr("Move Focus to Next Pane"), QStringLiteral("F6"));
+    shortcutHandler->defineAction(QStringLiteral("action_focus_previous_region"), QString(), tr("Move Focus to Previous Pane"), QStringLiteral("Shift+F6"));
+    shortcutHandler->defineAction(QStringLiteral("action_next_account"), QString(), tr("Switch to Next Account"), QStringLiteral("Ctrl+Alt+PgDown"));
+    shortcutHandler->defineAction(QStringLiteral("action_previous_account"), QString(), tr("Switch to Previous Account"), QStringLiteral("Ctrl+Alt+PgUp"));
     shortcutHandler->defineAction(QStringLiteral("action_focus_quick_search"), QString(), tr("Move Focus to Quick Search"), QStringLiteral("/"));
     shortcutHandler->defineAction(QStringLiteral("action_tag_1"), QStringLiteral("mail-tag-1"), tr("Tag with &1st tag"), QStringLiteral("1"));
     shortcutHandler->defineAction(QStringLiteral("action_tag_2"), QStringLiteral("mail-tag-2"), tr("Tag with &2nd tag"), QStringLiteral("2"));
@@ -414,6 +442,15 @@ void MainWindow::createActions()
 
     configSettings = new QAction(UiUtils::loadIcon(QStringLiteral("configure")),  tr("&Settings..."), this);
     connect(configSettings, &QAction::triggered, this, &MainWindow::slotShowSettings);
+    m_actionAddAccount = new QAction(UiUtils::loadIcon(QStringLiteral("list-add")), i18n("&Add Account..."), this);
+    connect(m_actionAddAccount, &QAction::triggered, this, &MainWindow::slotAddAccount);
+    m_actionAccountSettings = new QAction(UiUtils::loadIcon(QStringLiteral("configure")), i18n("A&ccount Settings..."), this);
+    m_actionAccountSettings->setObjectName(QStringLiteral("action_account_settings"));
+    connect(m_actionAccountSettings, &QAction::triggered, this, &MainWindow::slotShowAccountSettings);
+    m_actionRenameAccount = new QAction(i18n("Re&name Account..."), this);
+    connect(m_actionRenameAccount, &QAction::triggered, this, &MainWindow::slotRenameAccount);
+    m_actionRemoveAccount = new QAction(UiUtils::loadIcon(QStringLiteral("list-remove")), i18n("&Remove Account..."), this);
+    connect(m_actionRemoveAccount, &QAction::triggered, this, &MainWindow::slotRemoveAccount);
 
     QAction *triggerSearch = new QAction(this);
     addAction(triggerSearch);
@@ -427,6 +464,16 @@ void MainWindow::createActions()
             SLOT(setFocus()), this));
     addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_focus_msg_list"), msgListWidget->tree,
             SLOT(setFocus()), this));
+    addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_focus_message_view"), this,
+            SLOT(slotFocusMessageView()), this));
+    addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_focus_next_region"), this,
+            SLOT(slotFocusNextRegion()), this));
+    addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_focus_previous_region"), this,
+            SLOT(slotFocusPreviousRegion()), this));
+    addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_next_account"), this,
+            SLOT(slotNextAccount()), this));
+    addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_previous_account"), this,
+            SLOT(slotPreviousAccount()), this));
 
     m_oneAtTimeGoBack = ShortcutHandler::instance()->createAction(QStringLiteral("action_oneattime_go_back"), this);
     m_oneAtTimeGoBack->setEnabled(false);
@@ -634,6 +681,15 @@ void MainWindow::createActions()
     m_replyButton->setMenu(m_replyMenu);
     m_replyButton->setDefaultAction(m_replyPrivate);
 
+    m_accountSwitcher = new QComboBox(this);
+    m_accountSwitcher->setToolTip(i18n("Account"));
+    m_accountSwitcher->setAccessibleName(i18n("Account"));
+    connect(m_accountSwitcher, &QComboBox::activated, this, [this](int index) {
+        switchAccount(m_accountSwitcher->itemData(index).toString());
+    });
+    refreshAccountSwitcher();
+    m_mainToolbar->addWidget(m_accountSwitcher);
+    m_mainToolbar->addSeparator();
     m_mainToolbar->addWidget(m_composeButton);
     m_mainToolbar->addWidget(m_replyButton);
     m_mainToolbar->addAction(m_forwardAsAttachment);
@@ -734,6 +790,11 @@ void MainWindow::createMenus()
             ADD_ACTION(debugMenu, reloadAllMailboxes);
             ADD_ACTION(debugMenu, resyncMbox);
         applicationMenu->addSeparator();
+        ADD_ACTION(applicationMenu, m_actionAddAccount);
+        ADD_ACTION(applicationMenu, m_actionAccountSettings);
+        ADD_ACTION(applicationMenu, m_actionRenameAccount);
+        ADD_ACTION(applicationMenu, m_actionRemoveAccount);
+        applicationMenu->addSeparator();
         ADD_ACTION(applicationMenu, configSettings);
         ADD_ACTION(applicationMenu, ShortcutHandler::instance()->shortcutConfigAction());
         applicationMenu->addSeparator();
@@ -744,10 +805,44 @@ void MainWindow::createMenus()
     QMenu *viewMenu = menuBar()->addMenu(tr("&View"));
         ADD_ACTION(viewMenu, showMenuBar);
         ADD_ACTION(viewMenu, showToolBar);
+        viewMenu->addAction(m_shellHeader->toggleAction());
         QMenu *layoutMenu = viewMenu->addMenu(tr("&Layout"));
             ADD_ACTION(layoutMenu, m_actionLayoutCompact);
             ADD_ACTION(layoutMenu, m_actionLayoutWide);
             ADD_ACTION(layoutMenu, m_actionLayoutOneAtTime);
+        auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        KConfigGroup appearance(config, QStringLiteral("Appearance"));
+        const QString sidebarPosition = appearance.readEntry("MailboxSidebarPosition", QStringLiteral("left"));
+        if (sidebarPosition != QLatin1String("left") && sidebarPosition != QLatin1String("right"))
+            qWarning() << "Unknown mailbox sidebar position:" << sidebarPosition;
+        m_mailboxSidebarOnRight = sidebarPosition == QLatin1String("right");
+        QMenu *sidebarMenu = viewMenu->addMenu(i18nc("@title:menu", "Folder Sidebar Position"));
+        auto *sidebarGroup = new QActionGroup(sidebarMenu);
+        auto *sidebarLeft = sidebarMenu->addAction(i18nc("@option:radio", "Left"));
+        auto *sidebarRight = sidebarMenu->addAction(i18nc("@option:radio", "Right"));
+        sidebarLeft->setObjectName(QStringLiteral("mailboxSidebarLeft"));
+        sidebarRight->setObjectName(QStringLiteral("mailboxSidebarRight"));
+        for (auto *action : {sidebarLeft, sidebarRight}) {
+            action->setCheckable(true);
+            sidebarGroup->addAction(action);
+        }
+        (m_mailboxSidebarOnRight ? sidebarRight : sidebarLeft)->setChecked(true);
+        connect(sidebarGroup, &QActionGroup::triggered, this, [this, config, sidebarRight](QAction *action) {
+            const bool right = action == sidebarRight;
+            setMailboxSidebarRight(right);
+            KConfigGroup appearance(config, QStringLiteral("Appearance"));
+            appearance.writeEntry("MailboxSidebarPosition", right ? QStringLiteral("right") : QStringLiteral("left"));
+            if (!config->sync())
+                qWarning() << "Unable to save mailbox sidebar position";
+        });
+        viewMenu->addMenu(new DensityMenu(mboxTree, msgListWidget->tree,
+                                          config, viewMenu));
+        if (!m_embeddedPanels.isEmpty()) {
+            auto panelsMenu = new EmbeddedPanelsMenu(config, viewMenu);
+            for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels))
+                panelsMenu->addPanel(panel);
+            viewMenu->addMenu(panelsMenu);
+        }
         viewMenu->addSeparator();
         ADD_ACTION(viewMenu, m_actionShowOnlySubscribed);
 
@@ -815,21 +910,29 @@ void MainWindow::createMenus()
 
 void MainWindow::createWidgets()
 {
+    m_connectionStatus = new QLabel(statusBar());
+    m_connectionStatus->setObjectName(QStringLiteral("connectionStatus"));
+    m_connectionStatus->setAccessibleName(i18nc("@label", "Connection status"));
+    m_connectionStatus->setText(i18nc("@info:status", "Not connected"));
+    statusBar()->addPermanentWidget(m_connectionStatus);
+
     // The state of the GUI is only saved after a certain time has passed. This is just an optimization to make sure
     // we do not hit the disk continually when e.g. resizing some random widget.
     m_delayedStateSaving = new QTimer(this);
     m_delayedStateSaving->setInterval(1000);
     m_delayedStateSaving->setSingleShot(true);
     connect(m_delayedStateSaving, &QTimer::timeout, this, &MainWindow::saveSizesAndState);
+    connect(qApp, &QCoreApplication::aboutToQuit, this, &MainWindow::flushUiState);
 
     mboxTree = new MailBoxTreeView(nullptr, m_settings);
-    mboxTree->setDesiredExpansion(m_settings->value(Common::SettingsNames::guiExpandedMailboxes).toStringList());
+    mboxTree->setItemDelegate(new DensityDelegate(mboxTree));
+    mboxTree->setDesiredExpansion(expandedMailboxes());
     connect(mboxTree, &QWidget::customContextMenuRequested, this, &MainWindow::showContextMenuMboxTree);
     connect(mboxTree, &MailBoxTreeView::mailboxExpansionChanged, this, [this](const QStringList &mailboxNames) {
-        m_settings->setValue(Common::SettingsNames::guiExpandedMailboxes, mailboxNames);
+        accountSettings()->setValue(Common::SettingsNames::guiExpandedMailboxes, mailboxNames);
     });
 
-    msgListWidget = new MessageListWidget(nullptr, m_favoriteTags);
+    msgListWidget = new MessageListWidget(nullptr, m_favoriteTags, m_imapAccess->credentialAccountId());
     msgListWidget->tree->setContextMenuPolicy(Qt::CustomContextMenu);
     msgListWidget->tree->setAlternatingRowColors(true);
     msgListWidget->setRawSearchEnabled(m_settings->value(Common::SettingsNames::guiAllowRawSearch).toBool());
@@ -860,9 +963,49 @@ void MainWindow::createWidgets()
         }
     });
     connect(m_messageWidget->messageView, &MessageView::transferError, this, &MainWindow::slotDownloadTransferError);
+
+    m_attachmentPanel = new AttachmentPanel();
+    m_attachmentPanel->setNetworkAccessManager(m_messageWidget->messageView->networkAccessManager());
+    connect(m_messageWidget->messageView, &MessageView::messageModelChanged, m_attachmentPanel, &AttachmentPanel::setMessageModel);
+    connect(m_attachmentPanel, &AttachmentPanel::transferError, this, &MainWindow::slotDownloadTransferError);
+
+    m_messageDetailsPanel = new MessageDetailsPanel();
+    m_contactPanel = new ContactPanel();
+    m_relatedMessagesPanel = new RelatedMessagesPanel();
+    for (MessageContextPanel *panel : std::initializer_list<MessageContextPanel *>{m_messageDetailsPanel, m_contactPanel, m_relatedMessagesPanel}) {
+        connect(m_messageWidget->messageView, &MessageView::messageChanged, panel, [this, panel]() {
+            panel->setMessage(m_messageWidget->messageView->currentMessage());
+        });
+    }
+    connect(m_contactPanel, &ContactPanel::composeRequested, this, &MainWindow::slotComposeMailUrl);
+    connect(m_contactPanel, &ContactPanel::manageContactRequested, this, &MainWindow::slotManageContact);
+    connect(m_relatedMessagesPanel, &RelatedMessagesPanel::messageActivated, this, &MainWindow::activateRelatedMessage);
+    m_embeddedPanels = {m_attachmentPanel, m_messageDetailsPanel, m_contactPanel, m_relatedMessagesPanel};
 #else
    m_messageWidget = new QLabel(QStringLiteral("Message Widget placeholder"));
 #endif
+
+    m_readerColumn = new QSplitter(Qt::Vertical);
+    m_readerColumn->setObjectName(QStringLiteral("readerColumn"));
+    m_readerColumn->setChildrenCollapsible(false);
+    m_readerColumn->addWidget(m_messageWidget);
+    m_readerColumn->setStretchFactor(0, 1);
+    connect(m_readerColumn, &QSplitter::splitterMoved, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
+
+    createShell();
+    for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels)) {
+        connect(panel, &EmbeddedPanel::relevanceChanged, this, [this]() {
+            updateShellRegions();
+        });
+        connect(panel, &EmbeddedPanel::placementChanged, this, [this, panel]() {
+            // A panel starts from its size hint in its new region, which may also run the other way
+            m_panelExtents.remove(panel);
+            rememberShellExtents();
+            placeEmbeddedPanels();
+            updateShellRegions(false);
+        });
+    }
+    placeEmbeddedPanels();
 
     allDock = new QDockWidget(tr("Everything"), this);
     allDock->setObjectName(QStringLiteral("allDock"));
@@ -900,13 +1043,17 @@ void MainWindow::createWidgets()
     busyParsersIndicator = new TaskProgressIndicator(this);
 }
 
-void MainWindow::setupModels()
+void MainWindow::setupModels(bool reconnect)
 {
-    m_imapAccess->reloadConfiguration();
-    m_imapAccess->doConnect();
+    if (reconnect) {
+        m_imapAccess->reloadConfiguration();
+        m_imapAccess->doConnect();
+        monitorAccount(m_accounts->activeAccount());
+    }
 
 #ifdef TROJITA_HAVE_WEBENGINE
     m_messageWidget->messageView->setNetworkWatcher(qobject_cast<Imap::Mailbox::NetworkWatcher*>(m_imapAccess->networkWatcher()));
+    m_relatedMessagesPanel->setMessageList(m_imapAccess->msgListModel());
 #endif
 
     auto realThreadingModel = qobject_cast<Imap::Mailbox::ThreadingMsgListModel*>(m_imapAccess->threadingMsgListModel());
@@ -939,13 +1086,28 @@ void MainWindow::setupModels()
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::modelReset, msgListWidget, &MessageListWidget::slotAutoEnableDisableSearch);
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::modelReset, this, &MainWindow::updateMessageFlags);
     connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, this, &MainWindow::slotMailboxChanged);
+    KConfigGroup selection(KSharedConfig::openStateConfig(), QStringLiteral("MailboxSelection"));
+    KConfigGroup accountSelection = selection.group(m_imapAccess->credentialAccountId());
+    connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, this,
+            [accountSelection](const QModelIndex &mailbox) mutable {
+        const QString name = mailbox.data(Imap::Mailbox::RoleMailboxName).toString();
+        if (!name.isEmpty()) {
+            accountSelection.writeEntry("Mailbox", name);
+            if (!accountSelection.sync())
+                qWarning() << "Could not save mailbox selection";
+        }
+    });
 
     connect(imapModel(), &Imap::Mailbox::Model::alertReceived, this, &MainWindow::alertReceived);
     connect(imapModel(), &Imap::Mailbox::Model::imapError, this, &MainWindow::imapError);
     connect(imapModel(), &Imap::Mailbox::Model::networkError, this, &MainWindow::networkError);
     connect(imapModel(), &Imap::Mailbox::Model::authRequested, this, &MainWindow::authenticationRequested, Qt::QueuedConnection);
-    connect(imapModel(), &Imap::Mailbox::Model::authAttemptFailed, this, [this]() {
+    connect(imapModel(), &Imap::Mailbox::Model::authAttemptFailed, this, [this](const QString &message) {
         m_ignoreStoredPassword = true;
+        updateConnectionStatus(i18nc("@info:status", "Connection or authentication failed"));
+        m_connectionError = true;
+        m_connectionStatus->setToolTip(Qt::convertFromPlainText(message));
+        m_connectionStatus->setAccessibleDescription(message);
     });
 
     connect(imapModel(), &Imap::Mailbox::Model::networkPolicyOffline, this, &MainWindow::networkPolicyOffline);
@@ -989,8 +1151,26 @@ void MainWindow::setupModels()
 
     //ModelTest* tester = new ModelTest( prettyMboxModel, this ); // when testing, test just one model at time
 
-    mboxTree->setModel(prettyMboxModel);
     msgListWidget->tree->setModel(prettyMsgListModel);
+    auto *messageRestorer = new MessageSelectionRestorer(msgListWidget->tree, prettyMsgListModel);
+    connect(messageRestorer, &MessageSelectionRestorer::messageRestored, this, &MainWindow::msgListClicked);
+    connect(imapModel(), &QAbstractItemModel::dataChanged, messageRestorer, &MessageSelectionRestorer::scheduleCheck);
+    connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, messageRestorer,
+            [messageRestorer](const QModelIndex &) { messageRestorer->cancel(); });
+    connect(mboxTree, &MailBoxTreeView::clicked, messageRestorer, [messageRestorer](const QModelIndex &) { messageRestorer->cancel(); });
+    connect(mboxTree, &MailBoxTreeView::activated, messageRestorer, [messageRestorer](const QModelIndex &) { messageRestorer->cancel(); });
+    mboxTree->setModel(prettyMboxModel);
+    connect(mboxTree, &MailBoxTreeView::mailboxRestored, realMsgListModel,
+            static_cast<void (Imap::Mailbox::MsgListModel::*)(const QModelIndex &)>(&Imap::Mailbox::MsgListModel::setMailbox));
+    connect(mboxTree, &MailBoxTreeView::mailboxRestored, messageRestorer,
+            [messageRestorer, accountSelection](const QModelIndex &mailbox) {
+        const QString name = mailbox.data(Imap::Mailbox::RoleMailboxName).toString();
+        if (name == accountSelection.readEntry("MessageMailbox", QString())) {
+            messageRestorer->restore(name, accountSelection.readEntry("MessageUidValidity", 0u),
+                                     accountSelection.readEntry("MessageUid", 0u));
+        }
+    });
+    mboxTree->restoreMailbox(accountSelection.readEntry("Mailbox", QString()));
     connect(msgListWidget->tree->selectionModel(), &QItemSelectionModel::selectionChanged, this, &MainWindow::updateMessageFlags);
 
     allTree->setModel(imapModel());
@@ -1003,7 +1183,7 @@ void MainWindow::setupModels()
 
     busyParsersIndicator->setImapModel(imapModel());
 
-    auto accountIconName = m_settings->value(Common::SettingsNames::imapAccountIcon).toString();
+    auto accountIconName = accountSettings()->value(Common::SettingsNames::imapAccountIcon).toString();
     if (accountIconName.isEmpty()) {
         qApp->setWindowIcon(QIcon(QStringLiteral(":/icons/plasma-impresario.svg")));
     } else if (accountIconName.contains(QDir::separator())) {
@@ -1152,6 +1332,7 @@ void MainWindow::handleTrayIconChange()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+    flushUiState();
     if (m_trayIcon && m_trayIcon->isVisible()) {
         Util::askForSomethingUnlessTold(tr("Plasma Impresario"),
                                         tr("The application will continue in systray. This can be disabled within the settings."),
@@ -1163,6 +1344,16 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
 bool MainWindow::eventFilter(QObject *o, QEvent *e)
 {
+    // A hidden splitter receives its pending resize before it becomes visible, so also look at the show event
+    if ((o == m_shellRow || o == m_shellBody) && (e->type() == QEvent::Resize || e->type() == QEvent::Show)) {
+        applyPendingShellSizes(static_cast<QSplitter *>(o));
+        return false;
+    }
+    if (auto *region = qobject_cast<QSplitter *>(o);
+        region && m_panelRegionsPending.contains(region) && (e->type() == QEvent::Resize || e->type() == QEvent::Show)) {
+        fitPanelRegion(region);
+        return false;
+    }
 #ifdef TROJITA_HAVE_WEBENGINE
     if (msgListWidget && o == msgListWidget->tree && m_messageWidget->messageView) {
         if (e->type() == QEvent::KeyPress) {
@@ -1215,6 +1406,26 @@ void MainWindow::showMainWindow()
     raise();
 }
 
+void MainWindow::saveMessageSelection(const QModelIndex &index)
+{
+    KConfigGroup selection(KSharedConfig::openStateConfig(), QStringLiteral("MailboxSelection"));
+    KConfigGroup accountSelection = selection.group(m_imapAccess->credentialAccountId());
+    const QString mailbox = index.data(Imap::Mailbox::RoleMailboxName).toString();
+    const uint uidValidity = index.data(Imap::Mailbox::RoleMailboxUidValidity).toUInt();
+    const uint uid = index.data(Imap::Mailbox::RoleMessageUid).toUInt();
+    if (!mailbox.isEmpty() && uidValidity && uid) {
+        accountSelection.writeEntry("MessageMailbox", mailbox);
+        accountSelection.writeEntry("MessageUidValidity", uidValidity);
+        accountSelection.writeEntry("MessageUid", uid);
+    } else {
+        accountSelection.deleteEntry("MessageMailbox");
+        accountSelection.deleteEntry("MessageUidValidity");
+        accountSelection.deleteEntry("MessageUid");
+    }
+    if (!accountSelection.sync())
+        qWarning() << "Could not save message selection";
+}
+
 void MainWindow::msgListClicked(const QModelIndex &index)
 {
     Q_ASSERT(index.isValid());
@@ -1222,6 +1433,8 @@ void MainWindow::msgListClicked(const QModelIndex &index)
     if (qApp->keyboardModifiers() & Qt::ShiftModifier || qApp->keyboardModifiers() & Qt::ControlModifier)
         return;
 
+    if (index.column() != Imap::Mailbox::MsgListModel::SEEN && index.column() != Imap::Mailbox::MsgListModel::FLAGGED)
+        saveMessageSelection(index);
     if (! index.data(Imap::Mailbox::RoleMessageUid).isValid())
         return;
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -1378,6 +1591,10 @@ void MainWindow::imapError(const QString &message)
 
 void MainWindow::networkError(const QString &message)
 {
+    updateConnectionStatus(i18nc("@info:status", "Network error"));
+    m_connectionError = true;
+    m_connectionStatus->setToolTip(Qt::convertFromPlainText(message));
+    m_connectionStatus->setAccessibleDescription(message);
     const QString title = tr("Network Error");
     if (!m_networkErrorMessageBox) {
         m_networkErrorMessageBox = new QMessageBox(QMessageBox::Critical, title,
@@ -1411,26 +1628,41 @@ void MainWindow::networkPolicyOffline()
     netOnline->setChecked(false);
     netOffline->setChecked(true);
     updateActionsOnlineOffline(false);
+    updateConnectionStatus(tr("Offline"));
     showStatusMessage(tr("Offline"));
     handleTrayIconChange();
 }
 
 void MainWindow::networkPolicyExpensive()
 {
+    if (netOffline->isChecked())
+        resumeCurrentMailbox();
     netOffline->setChecked(false);
     netOnline->setChecked(false);
     netExpensive->setChecked(true);
     updateActionsOnlineOffline(true);
+    updateConnectionStatus(i18nc("@info:status", "Network access enabled"));
     handleTrayIconChange();
 }
 
 void MainWindow::networkPolicyOnline()
 {
+    if (netOffline->isChecked())
+        resumeCurrentMailbox();
     netOffline->setChecked(false);
     netExpensive->setChecked(false);
     netOnline->setChecked(true);
     updateActionsOnlineOffline(true);
+    updateConnectionStatus(i18nc("@info:status", "Network access enabled"));
     handleTrayIconChange();
+}
+
+void MainWindow::resumeCurrentMailbox()
+{
+    auto *model = qobject_cast<Imap::Mailbox::MsgListModel *>(m_imapAccess->msgListModel());
+    const QString name = model->currentMailbox().data(Imap::Mailbox::RoleMailboxName).toString();
+    if (!name.isEmpty())
+        mboxTree->restoreMailbox(name);
 }
 
 /** @short Deletes a network error message box instance upon resetting of reconnect state */
@@ -1444,7 +1676,22 @@ void MainWindow::slotResetReconnectState()
 
 void MainWindow::slotShowSettings()
 {
-    SettingsDialog *dialog = new SettingsDialog(this, m_senderIdentities, m_favoriteTags, m_settings);
+    // Application settings are read where they are used, so the account connection stays as it is.
+    SettingsDialog dialog(this, SettingsDialog::Scope::Application, m_senderIdentities, accountIdentitiesModel(),
+                          m_favoriteTags, m_settings);
+    if (dialog.exec() == QDialog::Accepted) {
+        removeSysTray();
+        slotToggleSysTray();
+    }
+}
+
+void MainWindow::slotShowAccountSettings()
+{
+    SettingsDialog *dialog = new SettingsDialog(this, SettingsDialog::Scope::Account, m_senderIdentities,
+                                                accountIdentitiesModel(), m_favoriteTags, m_settings);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setWindowTitle(i18nc("@title:window %1 is the account name", "Account Settings: %1",
+                                 m_accounts->displayName(m_accounts->activeAccount())));
     if (dialog->exec() == QDialog::Accepted) {
         // FIXME: wipe cache in case we're moving between servers
         nukeModels();
@@ -1454,7 +1701,7 @@ void MainWindow::slotShowSettings()
         removeSysTray();
         slotToggleSysTray();
     }
-    QString method = m_settings->value(Common::SettingsNames::imapMethodKey).toString();
+    QString method = accountSettings()->value(Common::SettingsNames::imapMethodKey).toString();
     if (method != Common::SettingsNames::methodTCP && method != Common::SettingsNames::methodSSL &&
             method != Common::SettingsNames::methodProcess ) {
         Gui::Util::messageBoxCritical(this, tr("No Configuration"),
@@ -1463,18 +1710,392 @@ void MainWindow::slotShowSettings()
     applySizesAndState();
 }
 
+namespace {
+const QString legacyAccountKey = QStringLiteral("accounts/legacy");
+}
+
+QSettings *MainWindow::accountSettings() const
+{
+    return m_accounts->settings(m_accounts->activeAccount());
+}
+
+Composer::SenderIdentitiesModel *MainWindow::senderIdentitiesModel()
+{
+    switch (Composer::AccountIdentities::source(*accountSettings())) {
+    case Composer::AccountIdentities::Source::Shared:
+        return m_senderIdentities;
+    case Composer::AccountIdentities::Source::None:
+        if (!m_noIdentities)
+            m_noIdentities = new Composer::SenderIdentitiesModel(this);
+        return m_noIdentities;
+    case Composer::AccountIdentities::Source::Own:
+        break;
+    }
+    return accountIdentitiesModel();
+}
+
+Composer::SenderIdentitiesModel *MainWindow::accountIdentitiesModel()
+{
+    const QString accountId = m_accounts->activeAccount();
+    if (Composer::SenderIdentitiesModel *existing = m_accountIdentities.value(accountId))
+        return existing;
+    auto *identities = new Composer::SenderIdentitiesModel(this);
+    identities->loadFromSettings(*accountSettings());
+    m_accountIdentities.insert(accountId, identities);
+    return identities;
+}
+
+void MainWindow::setupAccounts()
+{
+    const QFileInfo main(m_settings->fileName());
+    const QString prefix = main.path() + QLatin1Char('/') + main.completeBaseName() + QLatin1Char('-');
+    m_accounts = new Common::AccountRegistry(m_settings, [prefix](const QString &accountId) {
+        return std::make_unique<QSettings>(prefix + accountId + QStringLiteral(".conf"), QSettings::IniFormat);
+    }, this);
+    m_accountStatus = new Common::AccountStatusTracker(this);
+    connect(m_accountStatus, &Common::AccountStatusTracker::statusChanged, this, [this]() {
+        if (m_accountSwitcher)
+            refreshAccountSwitcher();
+    });
+    if (m_accounts->accountIds().isEmpty()) {
+        const QString accountId = m_accounts->addAccount(i18n("Mail account"));
+        Common::AccountRegistry::copyAccountKeys(*m_settings, *m_accounts->settings(accountId));
+        m_settings->setValue(legacyAccountKey, accountId);
+    }
+    m_imapAccess = accountAccess(m_accounts->activeAccount());
+}
+
+QStringList MainWindow::expandedMailboxes() const
+{
+    const QSettings *account = accountSettings();
+    if (account->contains(Common::SettingsNames::guiExpandedMailboxes))
+        return account->value(Common::SettingsNames::guiExpandedMailboxes).toStringList();
+    // Expansion used to be shared by the whole profile; only the migrated account inherits it.
+    if (m_accounts->activeAccount() == m_settings->value(legacyAccountKey).toString())
+        return m_settings->value(Common::SettingsNames::guiExpandedMailboxes).toStringList();
+    return {};
+}
+
+Imap::ImapAccess *MainWindow::accountAccess(const QString &accountId)
+{
+    if (Imap::ImapAccess *existing = m_accountAccess.value(accountId))
+        return existing;
+    // The migrated account keeps the profile name so its stored passwords and cache stay reachable.
+    const QString name = accountId == m_settings->value(legacyAccountKey).toString()
+        ? QString::fromUtf8(qgetenv("TROJITA_PROFILE")) : accountId;
+    auto *access = new Imap::ImapAccess(this, m_accounts->settings(accountId), m_pluginManager, name, m_settings);
+    connect(access, &Imap::ImapAccess::cacheError, this, &MainWindow::cacheError);
+    connect(access, &Imap::ImapAccess::checkSslPolicy, this, [this, accountId]() { checkSslPolicy(accountId); },
+            Qt::QueuedConnection);
+    m_accountAccess.insert(accountId, access);
+    return access;
+}
+
+void MainWindow::refreshAccountSwitcher()
+{
+    const QSignalBlocker blocker(m_accountSwitcher);
+    m_accountSwitcher->clear();
+    for (const QString &accountId : m_accounts->accountIds()) {
+        const Common::AccountStatus status = m_accountStatus->status(accountId);
+        const int row = m_accountSwitcher->count();
+        QString text = m_accounts->displayName(accountId);
+        const bool attention = Common::AccountStatusTracker::needsAttention(status.kind);
+        if (attention)
+            text += QStringLiteral(" (%1)").arg(Common::AccountStatusTracker::label(status.kind));
+        m_accountSwitcher->addItem(text, accountId);
+        if (attention) {
+            m_accountSwitcher->setItemIcon(row, UiUtils::loadIcon(QStringLiteral("dialog-warning")));
+            QString tip = Common::AccountStatusTracker::label(status.kind);
+            if (!status.detail.isEmpty())
+                tip += QLatin1String(": ") + status.detail;
+            m_accountSwitcher->setItemData(row, tip, Qt::ToolTipRole);
+        }
+    }
+    m_accountSwitcher->setCurrentIndex(m_accountSwitcher->findData(m_accounts->activeAccount()));
+
+    if (!m_capabilityGate) {
+        // The first refresh comes after the actions are created
+        m_capabilityGate = new CapabilityActionGate(this);
+        for (QAction *action : {reloadMboxList, createChildMailbox, createTopMailbox, deleteCurrentMailbox,
+                                m_actionSubscribeMailbox, m_actionShowOnlySubscribed})
+            m_capabilityGate->addAction(action, Imap::AccountOperation::ServerFolders);
+        for (QAction *action : {markAsJunk, markAsNotJunk, tag1, tag2, tag3, tag4, tag5, tag6, tag7, tag8, tag9})
+            m_capabilityGate->addAction(action, Imap::AccountOperation::ServerSideFlags);
+        m_capabilityGate->addAction(moveToArchive, Imap::AccountOperation::ServerSideMove);
+    }
+    m_capabilityGate->apply(Imap::AccountCapabilities::forAccount(*accountSettings()));
+    m_accountSidebar->refresh(*m_accounts, *m_accountStatus);
+    m_shellHeader->setAccount(*m_accounts, *m_accountStatus);
+}
+
+void MainWindow::detachAccountModels()
+{
+    auto *imap = qobject_cast<Imap::Mailbox::Model *>(m_imapAccess->imapModel());
+    const QList<QObject *> models = {imap, m_imapAccess->msgListModel(), m_imapAccess->threadingMsgListModel(),
+                                     m_imapAccess->networkWatcher(), m_imapAccess->mailboxModel()};
+    for (QObject *model : models) {
+        if (!model)
+            continue;
+        model->disconnect(this);
+        model->disconnect(msgListWidget);
+        model->disconnect(protocolLogger);
+        mboxTree->disconnect(model);
+        for (QAction *action : {reloadAllMailboxes, netOffline, netExpensive, netOnline})
+            action->disconnect(model);
+    }
+    if (imap)
+        imap->taskModel()->disconnect(taskTree);
+}
+
+void MainWindow::monitorAccount(const QString &accountId)
+{
+    Imap::ImapAccess *access = accountAccess(accountId);
+    auto *model = qobject_cast<Imap::Mailbox::Model *>(access->imapModel());
+    Q_ASSERT(model);
+    using Common::AccountStatusKind;
+    connect(model, &Imap::Mailbox::Model::connectionStateChanged, access,
+            [this, accountId](uint, const Imap::ConnectionState state) {
+        const AccountStatusKind current = m_accountStatus->status(accountId).kind;
+        if (state == Imap::CONN_STATE_NONE) {
+            if (!Common::AccountStatusTracker::needsAttention(current))
+                m_accountStatus->setStatus(accountId, AccountStatusKind::Idle);
+        } else if (state >= Imap::CONN_STATE_AUTHENTICATED) {
+            m_accountStatus->setStatus(accountId, AccountStatusKind::Connected);
+        } else {
+            m_accountStatus->setStatus(accountId, AccountStatusKind::Connecting);
+        }
+    });
+    connect(model, &Imap::Mailbox::Model::networkPolicyOffline, access, [this, accountId]() {
+        if (!Common::AccountStatusTracker::needsAttention(m_accountStatus->status(accountId).kind))
+            m_accountStatus->setStatus(accountId, AccountStatusKind::Offline);
+    });
+    // The model only connects once something reads it; without a view, list the folders so the account logs in.
+    for (auto signal : {&Imap::Mailbox::Model::networkPolicyOnline, &Imap::Mailbox::Model::networkPolicyExpensive})
+        connect(model, signal, model, &Imap::Mailbox::Model::reloadMailboxList, Qt::SingleShotConnection);
+    connect(model, &Imap::Mailbox::Model::networkError, access, [this, accountId](const QString &message) {
+        m_accountStatus->setStatus(accountId, AccountStatusKind::NetworkError, message);
+    });
+    connect(model, &Imap::Mailbox::Model::authAttemptFailed, access, [this, accountId](const QString &message) {
+        m_accountStatus->setStatus(accountId, AccountStatusKind::AuthFailed, message);
+    });
+    connect(model, &Imap::Mailbox::Model::authRequested, access, [this, accountId]() {
+        if (accountId == m_accounts->activeAccount())
+            return;
+        const Common::AccountStatus status = m_accountStatus->status(accountId);
+        if (status.kind == AccountStatusKind::AuthFailed)
+            m_accountStatus->setStatus(accountId, AccountStatusKind::AuthRequired, status.detail);
+        else
+            requestStoredPassword(accountId);
+    }, Qt::QueuedConnection);
+}
+
+void MainWindow::requestStoredPassword(const QString &accountId)
+{
+    Imap::ImapAccess *access = accountAccess(accountId);
+    auto *model = qobject_cast<Imap::Mailbox::Model *>(access->imapModel());
+    Plugins::PasswordPlugin *password = pluginManager()->password();
+    Plugins::PasswordJob *job = password ? password->requestPassword(access->credentialAccountId(), QStringLiteral("imap")) : nullptr;
+    if (!job) {
+        m_accountStatus->setStatus(accountId, Common::AccountStatusKind::AuthRequired);
+        return;
+    }
+    connect(job, &Plugins::PasswordJob::passwordAvailable, model, &Imap::Mailbox::Model::setImapPassword);
+    connect(job, &Plugins::PasswordJob::error, this, [this, accountId](Plugins::PasswordJob::Error, const QString &) {
+        m_accountStatus->setStatus(accountId, Common::AccountStatusKind::AuthRequired);
+    });
+    job->setAutoDelete(true);
+    job->start();
+}
+
+void MainWindow::connectBackgroundAccounts()
+{
+    for (const QString &accountId : m_accounts->accountIds()) {
+        if (accountId == m_accounts->activeAccount())
+            continue;
+        Imap::ImapAccess *access = accountAccess(accountId);
+        if (!access->isConfigured() || access->imapModel())
+            continue;
+        access->reloadConfiguration();
+        access->doConnect();
+        monitorAccount(accountId);
+    }
+}
+
+void MainWindow::switchAccount(const QString &accountId)
+{
+    if (accountId == m_accounts->activeAccount() || !m_accounts->accountIds().contains(accountId))
+        return;
+    detachAccountModels();
+    nukeModels();
+    m_accounts->setActiveAccount(accountId);
+    m_imapAccess = accountAccess(accountId);
+    mboxTree->setDesiredExpansion(expandedMailboxes());
+    msgListWidget->setAccountId(m_imapAccess->credentialAccountId());
+    setupModels(m_imapAccess->imapModel() == nullptr);
+    connectModelActions();
+    removeSysTray();
+    slotToggleSysTray();
+    m_ignoreStoredPassword = false;
+    m_connectionError = false;
+    updateConnectionStatus(i18nc("@info:status", "Account: %1", m_accounts->displayName(accountId)));
+    refreshAccountSwitcher();
+    slotUpdateWindowTitle();
+    const Common::AccountStatus status = m_accountStatus->status(accountId);
+    if (status.kind == Common::AccountStatusKind::AuthRequired) {
+        m_ignoreStoredPassword = !status.detail.isEmpty();
+        authenticationRequested();
+    }
+}
+
+void MainWindow::slotAddAccount()
+{
+    bool accepted = false;
+    const QString name = QInputDialog::getText(this, i18n("Add Account"), i18n("Account name:"),
+                                               QLineEdit::Normal, QString(), &accepted).trimmed();
+    if (!accepted || name.isEmpty())
+        return;
+    const QString accountId = m_accounts->addAccount(name);
+    Composer::AccountIdentities::initializeNewAccount(*m_accounts->settings(accountId));
+    switchAccount(accountId);
+    slotShowAccountSettings();
+}
+
+void MainWindow::cycleAccount(int step)
+{
+    const QStringList ids = m_accounts->accountIds();
+    const int count = ids.size();
+    const int current = ids.indexOf(m_accounts->activeAccount());
+    switchAccount(ids.at((current + step % count + count) % count));
+}
+
+void MainWindow::slotNextAccount()
+{
+    cycleAccount(1);
+}
+
+void MainWindow::slotPreviousAccount()
+{
+    cycleAccount(-1);
+}
+
+void MainWindow::slotFocusMessageView()
+{
+#ifdef TROJITA_HAVE_WEBENGINE
+    m_messageWidget->messageView->setFocus();
+#else
+    m_messageWidget->setFocus();
+#endif
+}
+
+void MainWindow::slotFocusNextRegion()
+{
+    cycleFocusRegion(1);
+}
+
+void MainWindow::slotFocusPreviousRegion()
+{
+    cycleFocusRegion(-1);
+}
+
+void MainWindow::cycleFocusRegion(int step)
+{
+    // Each region is entered through its target; focus anywhere inside the container counts as being in it.
+    struct Region {
+        QWidget *container;
+        QWidget *target;
+    };
+    QList<Region> regions;
+    regions.append(Region{m_shellHeader, m_shellHeader->focusTarget()});
+    if (m_accountSwitcher)
+        regions.append(Region{m_accountSwitcher, m_accountSwitcher});
+    regions.append(Region{m_accountSidebar, mboxTree});
+    regions.append(Region{msgListWidget, msgListWidget->tree});
+#ifdef TROJITA_HAVE_WEBENGINE
+    regions.append(Region{m_messageWidget, m_messageWidget->messageView});
+#else
+    regions.append(Region{m_messageWidget, m_messageWidget});
+#endif
+    for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels))
+        regions.append(Region{panel, panel->focusTarget()});
+
+    const int count = regions.size();
+    QWidget *focus = focusWidget();
+    int current = -1;
+    for (int i = 0; i < count && focus; ++i) {
+        if (regions.at(i).container == focus || regions.at(i).container->isAncestorOf(focus)) {
+            current = i;
+            break;
+        }
+    }
+    if (current < 0)
+        current = step > 0 ? -1 : count;
+    for (int moved = 1; moved <= count; ++moved) {
+        const int index = ((current + step * moved) % count + count) % count;
+        QWidget *target = regions.at(index).target;
+        if (target->isVisible() && target->isEnabled()) {
+            target->setFocus(step > 0 ? Qt::TabFocusReason : Qt::BacktabFocusReason);
+            return;
+        }
+    }
+}
+
+void MainWindow::slotRenameAccount()
+{
+    const QString accountId = m_accounts->activeAccount();
+    bool accepted = false;
+    const QString name = QInputDialog::getText(this, i18n("Rename Account"), i18n("Account name:"), QLineEdit::Normal,
+                                               m_accounts->displayName(accountId), &accepted).trimmed();
+    if (!accepted || name.isEmpty())
+        return;
+    m_accounts->setDisplayName(accountId, name);
+    refreshAccountSwitcher();
+    slotUpdateWindowTitle();
+}
+
+void MainWindow::slotRemoveAccount()
+{
+    const QString accountId = m_accounts->activeAccount();
+    if (m_accounts->accountIds().size() < 2) {
+        Gui::Util::messageBoxWarning(this, i18n("Cannot Remove Account"), i18n("At least one account is required."));
+        return;
+    }
+    if (QMessageBox::question(this, i18n("Remove Account"),
+                              i18n("Remove account \"%1\" and its settings? Messages on the server are not affected.",
+                                   m_accounts->displayName(accountId))) != QMessageBox::Yes)
+        return;
+    removeAccountNow(accountId);
+}
+
+void MainWindow::removeAccountNow(const QString &accountId)
+{
+    QStringList remaining = m_accounts->accountIds();
+    if (!remaining.removeOne(accountId) || remaining.isEmpty())
+        return;
+    if (accountId == m_accounts->activeAccount())
+        switchAccount(remaining.first());
+    Imap::ImapAccess *access = accountAccess(accountId);
+    if (Plugins::PasswordPlugin *password = pluginManager()->password()) {
+        for (const QString &type : {QStringLiteral("imap"), QStringLiteral("smtp"), OAuth::credentialType()}) {
+            if (Plugins::PasswordJob *job = password->deletePassword(access->credentialAccountId(), type)) {
+                job->setAutoDelete(true);
+                job->start();
+            }
+        }
+    }
+    delete m_accountAccess.take(accountId);
+    // Open composers may still list this account's identities, so the model lives until the window closes.
+    m_accountIdentities.remove(accountId);
+    m_accountStatus->forget(accountId);
+    m_accounts->removeAccount(accountId);
+    refreshAccountSwitcher();
+    slotUpdateWindowTitle();
+}
+
 void MainWindow::authenticationRequested()
 {
     Plugins::PasswordPlugin *password = pluginManager()->password();
     if (password) {
-        // FIXME: use another account-id at some point in future
-        //        Currently the accountName will be empty unless Trojita has been
-        //        called with a profile, and then the profile will be used as the
-        //        accountName.
-        QString accountName = m_imapAccess->accountName();
-        if (accountName.isEmpty())
-            accountName = QStringLiteral("account-0");
-        Plugins::PasswordJob *job = password->requestPassword(accountName, QStringLiteral("imap"));
+        Plugins::PasswordJob *job = password->requestPassword(m_imapAccess->credentialAccountId(), QStringLiteral("imap"));
         if (job) {
             connect(job, &Plugins::PasswordJob::passwordAvailable, this, [this](const QString &password) {
                 authenticationContinue(password);
@@ -1498,13 +2119,13 @@ void MainWindow::authenticationRequested()
 
 void MainWindow::authenticationContinue(const QString &password, const QString &errorMessage)
 {
-    const QString &user = m_settings->value(Common::SettingsNames::imapUserKey).toString();
+    const QString &user = accountSettings()->value(Common::SettingsNames::imapUserKey).toString();
     QString pass = password;
     if (m_ignoreStoredPassword || pass.isEmpty()) {
         auto dialog = PasswordDialog::getPassword(this, tr("Authentication Required"),
                                                   tr("<p>Please provide IMAP password for user <b>%1</b> on <b>%2</b>:</p>").arg(
                                                       user.toHtmlEscaped(),
-                                                      m_settings->value(Common::SettingsNames::imapHostKey).toString().toHtmlEscaped()
+                                                      accountSettings()->value(Common::SettingsNames::imapHostKey).toString().toHtmlEscaped()
                                                       ),
                                                   errorMessage + (errorMessage.isEmpty() ? QString() : QStringLiteral("\n\n"))
                                                   + imapModel()->imapAuthError());
@@ -1515,11 +2136,20 @@ void MainWindow::authenticationContinue(const QString &password, const QString &
     }
 }
 
-void MainWindow::checkSslPolicy()
+void MainWindow::checkSslPolicy(const QString &accountId)
 {
-    m_imapAccess->setSslPolicy(QMessageBox(static_cast<QMessageBox::Icon>(m_imapAccess->sslInfoIcon()),
-                                           m_imapAccess->sslInfoTitle(), m_imapAccess->sslInfoMessage(),
-                                           QMessageBox::Yes | QMessageBox::No, this).exec() == QMessageBox::Yes);
+    // Background accounts ask too; the account may be removed while the prompt is open.
+    QPointer<Imap::ImapAccess> access = m_accountAccess.value(accountId);
+    if (!access)
+        return;
+    QString title = access->sslInfoTitle();
+    if (m_accounts->accountIds().size() > 1)
+        title = i18nc("@title:window %1 is an account name, %2 the certificate prompt title", "%1: %2",
+                      m_accounts->displayName(accountId), title);
+    const bool accepted = QMessageBox(static_cast<QMessageBox::Icon>(access->sslInfoIcon()), title, access->sslInfoMessage(),
+                                      QMessageBox::Yes | QMessageBox::No, this).exec() == QMessageBox::Yes;
+    if (access)
+        access->setSslPolicy(accepted);
 }
 
 void MainWindow::nukeModels()
@@ -1694,7 +2324,7 @@ void MainWindow::handleMoveToArchive()
     if (translatedIndexes.isEmpty()) {
         qDebug() << "Model::handleMoveToArchive: no valid messages";
     } else {
-        auto archiveFolderName = m_settings->value(Common::SettingsNames::imapArchiveFolderName).toString();
+        auto archiveFolderName = accountSettings()->value(Common::SettingsNames::imapArchiveFolderName).toString();
         auto copyMoveMessagesTask = imapModel()->copyMoveMessages(
             archiveFolderName.isEmpty() ? Common::SettingsNames::imapDefaultArchiveFolderName : archiveFolderName,
             translatedIndexes, Imap::Mailbox::CopyMoveOperation::MOVE);
@@ -1790,7 +2420,7 @@ void MainWindow::updateMessageFlagsOf(const QModelIndex &index)
     markAsNotJunk->setEnabled(okToModify);
 
     // There's no point in moving from Archive to, well, Archive
-    auto archiveFolderName = m_settings->value(Common::SettingsNames::imapArchiveFolderName).toString();
+    auto archiveFolderName = accountSettings()->value(Common::SettingsNames::imapArchiveFolderName).toString();
     if (archiveFolderName.isEmpty()) {
         archiveFolderName = Common::SettingsNames::imapDefaultArchiveFolderName;
     }
@@ -2039,20 +2669,28 @@ void MainWindow::invokeContactEditor()
 MSA::MSAFactory *MainWindow::msaFactory()
 {
     using namespace Common;
-    QString method = m_settings->value(SettingsNames::msaMethodKey).toString();
+    QString method = accountSettings()->value(SettingsNames::msaMethodKey).toString();
     MSA::MSAFactory *msaFactory = nullptr;
     if (method == SettingsNames::methodSMTP || method == SettingsNames::methodSSMTP) {
-        msaFactory = new MSA::SMTPFactory(m_settings->value(SettingsNames::smtpHostKey).toString(),
-                                          m_settings->value(SettingsNames::smtpPortKey).toInt(),
-                                          (method == SettingsNames::methodSSMTP),
-                                          (method == SettingsNames::methodSMTP)
-                                          && m_settings->value(SettingsNames::smtpStartTlsKey).toBool(),
-                                          m_settings->value(SettingsNames::smtpAuthKey).toBool(),
-                                          m_settings->value(SettingsNames::smtpAuthReuseImapCredsKey, false).toBool() ?
-                                              m_settings->value(SettingsNames::imapUserKey).toString() :
-                                              m_settings->value(SettingsNames::smtpUserKey).toString());
+        auto smtpFactory = new MSA::SMTPFactory(accountSettings()->value(SettingsNames::smtpHostKey).toString(),
+                                            accountSettings()->value(SettingsNames::smtpPortKey).toInt(),
+                                            (method == SettingsNames::methodSSMTP),
+                                            (method == SettingsNames::methodSMTP)
+                                            && accountSettings()->value(SettingsNames::smtpStartTlsKey).toBool(),
+                                            accountSettings()->value(SettingsNames::smtpAuthKey).toBool(),
+                                            accountSettings()->value(SettingsNames::smtpAuthReuseImapCredsKey, false).toBool() ?
+                                                accountSettings()->value(SettingsNames::imapUserKey).toString() :
+                                                accountSettings()->value(SettingsNames::smtpUserKey).toString());
+        if (OAuth::isEnabled(*accountSettings(), OAuth::Service::Smtp)) {
+            QPointer<Plugins::PluginManager> plugins = pluginManager();
+            smtpFactory->setOAuth(OAuth::AccountConfig::fromSettings(*accountSettings(), imapAccess()->credentialAccountId()),
+                                  [plugins]() -> Plugins::PasswordPlugin * {
+                                      return plugins ? plugins->password() : nullptr;
+                                  });
+        }
+        msaFactory = smtpFactory;
     } else if (method == SettingsNames::methodSENDMAIL) {
-        QStringList args = m_settings->value(SettingsNames::sendmailKey, SettingsNames::sendmailDefaultCmd).toString().split(QLatin1Char(' '));
+        QStringList args = accountSettings()->value(SettingsNames::sendmailKey, SettingsNames::sendmailDefaultCmd).toString().split(QLatin1Char(' '));
         if (args.isEmpty()) {
             return nullptr;
         }
@@ -2092,8 +2730,8 @@ void MainWindow::slotMailboxChanged(const QModelIndex &mailbox)
     using namespace Imap::Mailbox;
     QString mailboxName = mailbox.data(RoleMailboxName).toString();
     bool isSentMailbox = mailbox.isValid() && !mailboxName.isEmpty() &&
-            m_settings->value(Common::SettingsNames::composerSaveToImapKey).toBool() &&
-            mailboxName == m_settings->value(Common::SettingsNames::composerImapSentKey).toString();
+            accountSettings()->value(Common::SettingsNames::composerSaveToImapKey).toBool() &&
+            mailboxName == accountSettings()->value(Common::SettingsNames::composerImapSentKey).toString();
     QTreeView *tree = msgListWidget->tree;
 
     // Automatically trigger visibility of the TO and FROM columns
@@ -2118,6 +2756,11 @@ void MainWindow::showConnectionStatus(uint parserId, Imap::ConnectionState state
     Q_UNUSED(parserId);
     static Imap::ConnectionState previousState = Imap::ConnectionState::CONN_STATE_NONE;
     QString message = connectionStateToString(state);
+
+    if (netOffline->isChecked())
+        updateConnectionStatus(tr("Offline"));
+    else if (state != Imap::CONN_STATE_NONE || !m_connectionError)
+        updateConnectionStatus(message.isEmpty() ? i18nc("@info:status", "Not connected") : message);
 
     if (state == Imap::ConnectionState::CONN_STATE_SELECTED && previousState >= Imap::ConnectionState::CONN_STATE_SELECTED) {
         // prevent excessive popups when we "reset the state" to something which is shown quite often
@@ -2594,6 +3237,8 @@ void MainWindow::slotUpdateWindowTitle()
     QString profileName = QString::fromUtf8(qgetenv("TROJITA_PROFILE"));
     if (!profileName.isEmpty())
         profileName = QLatin1String(" [") + profileName + QLatin1Char(']');
+    if (m_accounts->accountIds().size() > 1)
+        profileName += QLatin1String(" [") + m_accounts->displayName(m_accounts->activeAccount()) + QLatin1Char(']');
     if (mailbox.isValid()) {
         if (mailbox.data(Imap::Mailbox::RoleUnreadMessageCount).toInt()) {
             //~ singular %1 - %n unread - Plasma Impresario
@@ -2606,44 +3251,346 @@ void MainWindow::slotUpdateWindowTitle()
     } else {
         setWindowTitle(tr("Plasma Impresario") + profileName);
     }
+    if (m_shellHeader)
+        m_shellHeader->setFolder(mailbox.isValid() ? mailbox.data(Imap::Mailbox::RoleShortMailboxName).toString() : QString());
+}
+
+void MainWindow::setMailboxSidebarRight(bool right)
+{
+    m_mailboxSidebarOnRight = right;
+    if (!m_shellRow || m_mainStack)
+        return;
+    QSplitter *target = right ? m_shellRight.widget : m_shellLeft.widget;
+    if (m_accountSidebar->parentWidget() == target)
+        return;
+    // The sidebar keeps its width; whatever else is in the columns stays where it is.
+    rememberShellExtents();
+    std::swap(m_shellLeft.extent, m_shellRight.extent);
+    placeMailboxSidebar();
+    placeEmbeddedPanels();
+    updateShellRegions(false, true);
+}
+
+void MainWindow::createShell()
+{
+    auto saveLater = [this](QSplitter *splitter) {
+        connect(splitter, &QSplitter::splitterMoved, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
+    };
+
+    m_shellBody = new QSplitter(Qt::Vertical);
+    m_shellBody->setObjectName(QStringLiteral("shellBody"));
+    m_shellRow = new QSplitter(Qt::Horizontal);
+    m_shellRow->setObjectName(QStringLiteral("shellRow"));
+    m_mainColumn = new QSplitter(Qt::Vertical);
+    m_mainColumn->setObjectName(QStringLiteral("shellMainColumn"));
+
+    m_shellLeft.widget = new QSplitter(Qt::Vertical);
+    m_shellLeft.widget->setObjectName(QStringLiteral("shellLeftColumn"));
+    m_shellRight.widget = new QSplitter(Qt::Vertical);
+    m_shellRight.widget->setObjectName(QStringLiteral("shellRightColumn"));
+    m_shellFooter.widget = new QSplitter(Qt::Horizontal);
+    m_shellFooter.widget->setObjectName(QStringLiteral("shellFooter"));
+
+    m_shellRow->addWidget(m_shellLeft.widget);
+    m_shellRow->addWidget(m_mainColumn);
+    m_shellRow->addWidget(m_shellRight.widget);
+    m_shellRow->setStretchFactor(0, 0);
+    m_shellRow->setStretchFactor(1, 1);
+    m_shellRow->setStretchFactor(2, 0);
+    m_shellRow->setCollapsible(1, false);
+
+    m_shellBody->addWidget(m_shellRow);
+    m_shellBody->addWidget(m_shellFooter.widget);
+    m_shellBody->setStretchFactor(0, 1);
+    m_shellBody->setStretchFactor(1, 0);
+    m_shellBody->setCollapsible(0, false);
+
+    for (QSplitter *splitter : {m_shellBody, m_shellRow, m_mainColumn, m_shellLeft.widget, m_shellRight.widget, m_shellFooter.widget})
+        saveLater(splitter);
+    connect(m_shellRow, &QSplitter::splitterMoved, this, &MainWindow::possiblyLoadMessageOnSplittersChanged);
+    for (QSplitter *splitter : {m_shellRow, m_shellBody})
+        connect(splitter, &QSplitter::splitterMoved, this, &MainWindow::rememberShellExtents);
+    connect(m_mainColumn, &QSplitter::splitterMoved, this, &MainWindow::possiblyLoadMessageOnSplittersChanged);
+
+    // Region sizes can only be applied once the shell has its real size.
+    m_shellRow->installEventFilter(this);
+    m_shellBody->installEventFilter(this);
+
+    for (QSplitter *region : {m_readerColumn, m_shellLeft.widget, m_shellRight.widget, m_shellFooter.widget}) {
+        connect(region, &QSplitter::splitterMoved, this, [this, region]() { rememberPanelExtents(region); });
+        region->installEventFilter(this);
+    }
+
+    for (QSplitter *region : {m_shellLeft.widget, m_shellRight.widget, m_shellFooter.widget})
+        region->hide();
+
+    // The folder tree is grouped by account; the sidebar takes the tree's place in the side columns
+    m_accountSidebar = new AccountSidebar(mboxTree);
+    connect(m_accountSidebar, &AccountSidebar::accountActivated, this, &MainWindow::switchAccount);
+
+    // The header region sits above the columns and the footer; it is not resizable
+    m_shellHeader = new ShellHeader(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")));
+    auto *shell = new QWidget;
+    shell->setObjectName(QStringLiteral("shell"));
+    auto *shellLayout = new QVBoxLayout(shell);
+    shellLayout->setContentsMargins(0, 0, 0, 0);
+    shellLayout->setSpacing(0);
+    shellLayout->addWidget(m_shellHeader);
+    shellLayout->addWidget(m_shellBody, 1);
+    setCentralWidget(shell);
+}
+
+void MainWindow::placeMailboxSidebar()
+{
+    if (!m_shellRow)
+        return;
+    // Called before leaving the one-at-a-time layout too, so that deleting its stack does not delete the tree
+    QSplitter *column = m_mailboxSidebarOnRight ? m_shellRight.widget : m_shellLeft.widget;
+    column->insertWidget(0, m_accountSidebar);
+    column->setStretchFactor(0, 1);
+    m_accountSidebar->show();
+}
+
+void MainWindow::placeEmbeddedPanels()
+{
+    if (!m_shellRow)
+        return;
+    QHash<QSplitter *, int> nextIndex;
+    for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels)) {
+        QSplitter *region = panelRegion(panel);
+        if (!nextIndex.contains(region)) {
+            // Panels follow the mailbox tree or the reader, in their canonical order.
+            const bool afterAnchor = region->count() > 0 && (region->widget(0) == m_accountSidebar || region->widget(0) == m_messageWidget);
+            nextIndex.insert(region, afterAnchor ? 1 : 0);
+        }
+        int &index = nextIndex[region];
+        if (region->indexOf(panel) != index)
+            region->insertWidget(index, panel);
+        region->setStretchFactor(index, 0);
+        region->setCollapsible(index, false);
+        ++index;
+        // Moving a widget between splitters hides it
+        panel->setVisible(panel->shouldBeShown());
+    }
+    fitPanelRegions();
+}
+
+QSplitter *MainWindow::panelRegion(const EmbeddedPanel *panel) const
+{
+    switch (panel->placement()) {
+    case EmbeddedPanel::Placement::BelowReader:
+        return m_readerColumn;
+    case EmbeddedPanel::Placement::LeftColumn:
+        return m_shellLeft.widget;
+    case EmbeddedPanel::Placement::RightColumn:
+        return m_shellRight.widget;
+    case EmbeddedPanel::Placement::Footer:
+        return m_shellFooter.widget;
+    }
+    return m_readerColumn;
+}
+
+void MainWindow::rememberPanelExtents(QSplitter *region)
+{
+    const QList<int> sizes = region->sizes();
+    for (int i = 0; i < region->count(); ++i) {
+        auto *panel = qobject_cast<EmbeddedPanel *>(region->widget(i));
+        if (panel && !panel->isHidden() && sizes.at(i) > 0)
+            m_panelExtents.insert(panel, sizes.at(i));
+    }
+}
+
+void MainWindow::fitPanelRegions()
+{
+    if (!m_shellRow)
+        return;
+    for (QSplitter *region : {m_readerColumn, m_shellLeft.widget, m_shellRight.widget, m_shellFooter.widget})
+        fitPanelRegion(region);
+}
+
+bool MainWindow::shellRegionHasContent(const QSplitter *region) const
+{
+    for (int i = 0; i < region->count(); ++i) {
+        QWidget *widget = region->widget(i);
+        if (widget == m_accountSidebar)
+            return true;
+        if (auto panel = qobject_cast<EmbeddedPanel *>(widget); panel && panel->shouldBeShown())
+            return true;
+    }
+    return false;
+}
+
+namespace {
+int splitterExtent(const QSplitter *splitter, const QWidget *widget)
+{
+    return splitter->orientation() == Qt::Horizontal ? widget->width() : widget->height();
+}
+
+int hintExtent(const QSplitter *splitter, const QWidget *widget)
+{
+    const QSize hint = widget->sizeHint();
+    return splitter->orientation() == Qt::Horizontal ? hint.width() : hint.height();
+}
+}
+
+void MainWindow::fitPanelRegion(QSplitter *region)
+{
+    const int available = splitterExtent(region, region);
+    if (!region->isVisible() || available <= 0) {
+        m_panelRegionsPending.insert(region);
+        return;
+    }
+    m_panelRegionsPending.remove(region);
+
+    int shownPanels = 0;
+    for (int i = 0; i < region->count(); ++i) {
+        if (qobject_cast<EmbeddedPanel *>(region->widget(i)) && !region->widget(i)->isHidden())
+            ++shownPanels;
+    }
+    if (!shownPanels)
+        return;
+
+    // The splitter gives a panel shown after the region was laid out only its minimum size, so size every
+    // shown panel explicitly: its remembered size, or its size hint. Side by side, panels share the width.
+    const bool horizontal = region->orientation() == Qt::Horizontal;
+    QList<int> sizes;
+    int anchorIndex = -1;
+    int shown = 0;
+    int panelTotal = 0;
+    for (int i = 0; i < region->count(); ++i) {
+        QWidget *widget = region->widget(i);
+        int size = 0;
+        if (!widget->isHidden()) {
+            ++shown;
+            if (auto *panel = qobject_cast<EmbeddedPanel *>(widget)) {
+                size = m_panelExtents.value(panel, 0);
+                if (size <= 0)
+                    size = horizontal ? std::max(panel->sizeHint().width(), available / shownPanels) : panel->sizeHint().height();
+                panelTotal += size;
+            } else {
+                anchorIndex = i;
+            }
+        }
+        sizes.append(size);
+    }
+    const int space = available - region->handleWidth() * std::max(0, shown - 1);
+    if (space <= 0 || panelTotal <= 0)
+        return;
+    // The mailbox tree or the reader keeps at least a third of its region; without either, the panels fill it.
+    const int panelSpace = anchorIndex >= 0 ? std::min(panelTotal, space * 2 / 3) : space;
+    for (int i = 0; i < sizes.size(); ++i) {
+        if (i != anchorIndex && sizes.at(i) > 0)
+            sizes[i] = std::max(1, int(qint64(sizes.at(i)) * panelSpace / panelTotal));
+    }
+    if (anchorIndex >= 0)
+        sizes[anchorIndex] = std::max(1, space - panelSpace);
+    region->setSizes(sizes);
+}
+
+void MainWindow::rememberShellExtents()
+{
+    for (ShellRegion *region : {&m_shellLeft, &m_shellRight, &m_shellFooter}) {
+        if (!region->widget || !region->shown)
+            continue;
+        auto parent = qobject_cast<QSplitter *>(region->widget->parentWidget());
+        const int index = parent->indexOf(region->widget);
+        const auto sizes = parent->sizes();
+        int total = 0;
+        for (int size : sizes)
+            total += size;
+        if (total > 0 && index >= 0 && sizes.at(index) > 0)
+            region->extent = sizes.at(index);
+    }
+}
+
+void MainWindow::updateShellRegions(bool rememberCurrent, bool force)
+{
+    if (!m_shellRow)
+        return;
+    if (rememberCurrent && m_shellRegionsInitialized)
+        rememberShellExtents();
+
+    bool rowChanged = force || !m_shellRegionsInitialized;
+    bool bodyChanged = rowChanged;
+    for (ShellRegion *region : {&m_shellLeft, &m_shellRight, &m_shellFooter}) {
+        const bool shown = shellRegionHasContent(region->widget);
+        if (shown != region->shown) {
+            (region == &m_shellFooter ? bodyChanged : rowChanged) = true;
+            region->shown = shown;
+        }
+        region->widget->setVisible(shown);
+    }
+    m_shellRegionsInitialized = true;
+    m_shellRowSizesPending = m_shellRowSizesPending || rowChanged;
+    m_shellBodySizesPending = m_shellBodySizesPending || bodyChanged;
+    applyPendingShellSizes();
+    fitPanelRegions();
+}
+
+void MainWindow::applyPendingShellSizes(QSplitter *only)
+{
+    auto apply = [](QSplitter *splitter, QWidget *main, const QList<const ShellRegion *> &regions) {
+        int available = splitterExtent(splitter, splitter);
+        QList<int> sizes;
+        int used = 0;
+        int visibleCount = 0;
+        int mainIndex = -1;
+        for (int i = 0; i < splitter->count(); ++i) {
+            QWidget *widget = splitter->widget(i);
+            int size = 0;
+            if (widget == main) {
+                mainIndex = i;
+                ++visibleCount;
+            } else {
+                for (const ShellRegion *region : regions) {
+                    if (region->widget != widget || !region->shown)
+                        continue;
+                    ++visibleCount;
+                    size = region->extent > 0 ? region->extent : hintExtent(splitter, widget);
+                    // A region never takes more than two fifths of the shell
+                    size = std::clamp(size, 1, std::max(1, available * 2 / 5));
+                }
+            }
+            used += size;
+            sizes.append(size);
+        }
+        available -= splitter->handleWidth() * std::max(0, visibleCount - 1);
+        if (mainIndex >= 0)
+            sizes[mainIndex] = std::max(1, available - used);
+        splitter->setSizes(sizes);
+    };
+    // Until a splitter is laid out, its size says nothing about the space its regions will share
+    auto ready = [only](QSplitter *splitter) {
+        return (!only || only == splitter) && splitter->isVisible() && splitterExtent(splitter, splitter) > 0;
+    };
+    if (m_shellRowSizesPending && ready(m_shellRow)) {
+        m_shellRowSizesPending = false;
+        apply(m_shellRow, m_mainColumn, {&m_shellLeft, &m_shellRight});
+    }
+    if (m_shellBodySizesPending && ready(m_shellBody)) {
+        m_shellBodySizesPending = false;
+        apply(m_shellBody, m_shellRow, {&m_shellFooter});
+    }
 }
 
 void MainWindow::slotLayoutCompact()
 {
     saveSizesAndState();
-    if (!m_mainHSplitter) {
-        m_mainHSplitter = new QSplitter();
-        connect(m_mainHSplitter.data(), &QSplitter::splitterMoved, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
-        connect(m_mainHSplitter.data(), &QSplitter::splitterMoved, this, &MainWindow::possiblyLoadMessageOnSplittersChanged);
-    }
-    if (!m_mainVSplitter) {
-        m_mainVSplitter = new QSplitter();
-        m_mainVSplitter->setOrientation(Qt::Vertical);
-        connect(m_mainVSplitter.data(), &QSplitter::splitterMoved, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
-        connect(m_mainVSplitter.data(), &QSplitter::splitterMoved, this, &MainWindow::possiblyLoadMessageOnSplittersChanged);
-    }
 
-    m_mainVSplitter->addWidget(msgListWidget);
-    m_mainVSplitter->addWidget(m_messageWidget);
-    m_mainHSplitter->addWidget(mboxTree);
-    m_mainHSplitter->addWidget(m_mainVSplitter);
+    m_mainColumn->setOrientation(Qt::Vertical);
+    m_mainColumn->insertWidget(0, msgListWidget);
+    m_mainColumn->insertWidget(1, m_readerColumn);
+    m_mainColumn->setStretchFactor(0, 1);
+    m_mainColumn->setStretchFactor(1, 1);
+    // The reader shall not collapse
+    m_mainColumn->setCollapsible(1, false);
+    m_mainColumn->setSizes({msgListWidget->sizeHint().height(), m_readerColumn->sizeHint().height()});
 
-    mboxTree->show();
+    placeMailboxSidebar();
     msgListWidget->show();
-    m_messageWidget->show();
-    m_mainVSplitter->show();
-    m_mainHSplitter->show();
-
-    // The mboxTree shall not expand...
-    m_mainHSplitter->setStretchFactor(0, 0);
-    // ...while the msgListTree shall consume all the remaining space
-    m_mainHSplitter->setStretchFactor(1, 1);
-    // The CompleteMessageWidget shall not not collapse
-    m_mainVSplitter->setCollapsible(m_mainVSplitter->indexOf(m_messageWidget), false);
-
-    setCentralWidget(m_mainHSplitter);
-
+    m_readerColumn->show();
     delete m_mainStack;
+    placeEmbeddedPanels();
 
     m_layoutMode = LAYOUT_COMPACT;
     m_settings->setValue(Common::SettingsNames::guiMainWindowLayout, Common::SettingsNames::guiMainWindowLayoutCompact);
@@ -2653,32 +3600,20 @@ void MainWindow::slotLayoutCompact()
 void MainWindow::slotLayoutWide()
 {
     saveSizesAndState();
-    if (!m_mainHSplitter) {
-        m_mainHSplitter = new QSplitter();
-        connect(m_mainHSplitter.data(), &QSplitter::splitterMoved, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
-        connect(m_mainHSplitter.data(), &QSplitter::splitterMoved, this, &MainWindow::possiblyLoadMessageOnSplittersChanged);
-    }
 
-    m_mainHSplitter->addWidget(mboxTree);
-    m_mainHSplitter->addWidget(msgListWidget);
-    m_mainHSplitter->addWidget(m_messageWidget);
-    msgListWidget->resize(mboxTree->size());
-    m_messageWidget->resize(mboxTree->size());
-    m_mainHSplitter->setStretchFactor(0, 0);
-    m_mainHSplitter->setStretchFactor(1, 1);
-    m_mainHSplitter->setStretchFactor(2, 1);
+    m_mainColumn->setOrientation(Qt::Horizontal);
+    m_mainColumn->insertWidget(0, msgListWidget);
+    m_mainColumn->insertWidget(1, m_readerColumn);
+    m_mainColumn->setStretchFactor(0, 1);
+    m_mainColumn->setStretchFactor(1, 1);
+    m_mainColumn->setCollapsible(1, false);
+    m_mainColumn->setSizes({1, 1});
 
-    m_mainHSplitter->setCollapsible(m_mainHSplitter->indexOf(m_messageWidget), false);
-
-    mboxTree->show();
+    placeMailboxSidebar();
     msgListWidget->show();
-    m_messageWidget->show();
-    m_mainHSplitter->show();
-
-    setCentralWidget(m_mainHSplitter);
-
+    m_readerColumn->show();
     delete m_mainStack;
-    delete m_mainVSplitter;
+    placeEmbeddedPanels();
 
     m_layoutMode = LAYOUT_WIDE;
     m_settings->setValue(Common::SettingsNames::guiMainWindowLayout, Common::SettingsNames::guiMainWindowLayoutWide);
@@ -2691,15 +3626,38 @@ void MainWindow::slotLayoutOneAtTime()
     if (m_mainStack)
         return;
 
-    m_mainStack = new OnePanelAtTimeWidget(this, mboxTree, msgListWidget, m_messageWidget, m_mainToolbar, m_oneAtTimeGoBack);
-    setCentralWidget(m_mainStack);
-
-    delete m_mainHSplitter;
-    delete m_mainVSplitter;
+    rememberShellExtents();
+    m_mainStack = new OnePanelAtTimeWidget(this, mboxTree, msgListWidget, m_readerColumn, m_mainToolbar, m_oneAtTimeGoBack,
+                                           m_accountSidebar);
+    m_mainColumn->addWidget(m_mainStack);
+    m_mainStack->show();
+    placeEmbeddedPanels();
+    updateShellRegions(false);
 
     m_layoutMode = LAYOUT_ONE_AT_TIME;
     m_settings->setValue(Common::SettingsNames::guiMainWindowLayout, Common::SettingsNames::guiMainWindowLayoutOneAtTime);
     applySizesAndState();
+}
+
+void MainWindow::activateRelatedMessage(const QModelIndex &message)
+{
+    const QModelIndex deproxified = Imap::deproxifiedIndex(message);
+    if (!deproxified.isValid())
+        return;
+    QAbstractItemModel *model = msgListWidget->tree->model();
+    const QModelIndexList matches = model && model->rowCount() > 0
+        ? model->match(model->index(0, 0), Imap::Mailbox::RoleMessageUid, deproxified.data(Imap::Mailbox::RoleMessageUid), 1,
+                       Qt::MatchExactly | Qt::MatchRecursive)
+        : QModelIndexList();
+    if (!matches.isEmpty()) {
+        msgListWidget->tree->setCurrentIndex(matches.constFirst());
+        msgListWidget->tree->scrollTo(matches.constFirst());
+        msgListClicked(matches.constFirst());
+        return;
+    }
+#ifdef TROJITA_HAVE_WEBENGINE
+    m_messageWidget->messageView->setMessage(deproxified);
+#endif
 }
 
 Imap::Mailbox::Model *MainWindow::imapModel() const
@@ -2743,10 +3701,20 @@ void MainWindow::saveSizesAndState()
     m_settings->setValue(Common::SettingsNames::geometry, saveGeometry());
     m_settings->setValue(Common::SettingsNames::windowState, saveState());
 
-    m_settings->setValue(Common::SettingsNames::mainVSplitterState,
-                         m_mainVSplitter ? m_mainVSplitter->saveState() : QByteArray());
-    m_settings->setValue(Common::SettingsNames::mainHSplitterState,
-                         m_mainHSplitter ? m_mainHSplitter->saveState() : QByteArray());
+    rememberShellExtents();
+    m_settings->setValue(QStringLiteral("shellLeftColumnWidth"), m_shellLeft.extent);
+    m_settings->setValue(QStringLiteral("shellRightColumnWidth"), m_shellRight.extent);
+    m_settings->setValue(QStringLiteral("shellFooterHeight"), m_shellFooter.extent);
+    m_settings->setValue(QStringLiteral("shellMainColumnState"), m_mainColumn->saveState());
+    // Only sizes picked by moving a divider are kept; the others follow the panels' size hints.
+    for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels)) {
+        const QString key = QStringLiteral("embeddedPanel%1Extent").arg(panel->descriptor().id);
+        if (const int extent = m_panelExtents.value(panel, 0); extent > 0)
+            m_settings->setValue(key, extent);
+        else
+            m_settings->remove(key);
+    }
+    m_settings->setValue(QStringLiteral("mailboxSidebarOnRight"), m_mailboxSidebarOnRight);
 
     m_settings->setValue(Common::SettingsNames::messageListState, msgListWidget->tree->header()->saveState());
     m_settings->beginWriteArray(Common::SettingsNames::messageListHeader);
@@ -2760,6 +3728,15 @@ void MainWindow::saveSizesAndState()
     m_settings->setValue(Common::SettingsNames::menubarVisible, menuBar()->isVisible());
 
     m_settings->endGroup();
+}
+
+void MainWindow::flushUiState()
+{
+    m_delayedStateSaving->stop();
+    saveSizesAndState();
+    m_settings->sync();
+    if (m_settings->status() != QSettings::NoError)
+        qWarning() << "Could not save window layout";
 }
 
 void MainWindow::saveRawStateSetting(bool enabled)
@@ -2814,14 +3791,31 @@ void MainWindow::applySizesAndState()
 
     restoreState(m_settings->value(Common::SettingsNames::windowState).toByteArray());
 
-    if (m_mainVSplitter) {
-        const auto s = m_settings->value(Common::SettingsNames::mainVSplitterState).toByteArray();
-        m_mainVSplitter->restoreState(s);
+    m_panelExtents.clear();
+    for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels)) {
+        bool ok = false;
+        const int extent = m_settings->value(QStringLiteral("embeddedPanel%1Extent").arg(panel->descriptor().id)).toInt(&ok);
+        if (ok && extent > 0)
+            m_panelExtents.insert(panel, extent);
     }
 
-    if (m_mainHSplitter) {
-        const auto s = m_settings->value(Common::SettingsNames::mainHSplitterState).toByteArray();
-        m_mainHSplitter->restoreState(s);
+    {
+        // Sizes saved before the shell existed are not migrated; the shell starts from its defaults once.
+        const bool savedOnRight = m_settings->value(QStringLiteral("mailboxSidebarOnRight"), false).toBool();
+        const bool swapSides = savedOnRight != m_mailboxSidebarOnRight;
+        auto readExtent = [this](const QString &key, int &extent) {
+            bool ok = false;
+            const int value = m_settings->value(key).toInt(&ok);
+            if (ok && value > 0)
+                extent = value;
+        };
+        readExtent(QStringLiteral("shellLeftColumnWidth"), swapSides ? m_shellRight.extent : m_shellLeft.extent);
+        readExtent(QStringLiteral("shellRightColumnWidth"), swapSides ? m_shellLeft.extent : m_shellRight.extent);
+        readExtent(QStringLiteral("shellFooterHeight"), m_shellFooter.extent);
+        const Qt::Orientation mainOrientation = m_mainColumn->orientation();
+        m_mainColumn->restoreState(m_settings->value(QStringLiteral("shellMainColumnState")).toByteArray());
+        m_mainColumn->setOrientation(mainOrientation);
+        updateShellRegions(false, true);
     }
 
     const auto s = m_settings->value(Common::SettingsNames::messageListState).toByteArray();
@@ -2997,6 +3991,8 @@ void MainWindow::slotPluginsChanged()
         m_actionContactEditor->setEnabled(false);
     else
         m_actionContactEditor->setEnabled(true);
+    if (m_contactPanel)
+        m_contactPanel->setAddressBookAvailable(addressbook != nullptr);
 }
 
 /** @short Update the default action to make sure that we show a correct status of the network connection */
@@ -3007,6 +4003,14 @@ void MainWindow::updateNetworkIndication()
             m_netToolbarDefaultAction->setIcon(action->icon());
         }
     }
+}
+
+void MainWindow::updateConnectionStatus(const QString &message)
+{
+    m_connectionError = false;
+    m_connectionStatus->setText(message);
+    m_connectionStatus->setToolTip(QString());
+    m_connectionStatus->setAccessibleDescription(QString());
 }
 
 void MainWindow::showStatusMessage(const QString &message)

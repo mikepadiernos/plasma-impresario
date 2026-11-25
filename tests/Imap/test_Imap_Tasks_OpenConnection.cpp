@@ -30,6 +30,44 @@
 #include "Imap/Model/MemoryCache.h"
 #include "Imap/Model/MailboxModel.h"
 #include "Imap/Tasks/OpenConnectionTask.h"
+#include "OAuth/TokenSource.h"
+
+namespace {
+
+/** @short Hands out prepared access tokens asynchronously, like the real sessions */
+class FakeTokenSource : public OAuth::TokenSource
+{
+public:
+    using OAuth::TokenSource::TokenSource;
+
+    QList<OAuth::Mechanism> mechanisms() const override
+    {
+        return {OAuth::Mechanism::XOAuth2, OAuth::Mechanism::OAuthBearer};
+    }
+
+    void requestAccessToken() override
+    {
+        ++requests;
+        if (tokens.isEmpty()) {
+            QMetaObject::invokeMethod(this, [this]() { emit failed(failure); }, Qt::QueuedConnection);
+            return;
+        }
+        const QString token = tokens.takeFirst();
+        QMetaObject::invokeMethod(this, [this, token]() { emit accessTokenAvailable(token); }, Qt::QueuedConnection);
+    }
+
+    void rejectAccessToken(const QString &accessToken) override
+    {
+        rejected << accessToken;
+    }
+
+    QStringList tokens;
+    QStringList rejected;
+    QString failure = QStringLiteral("Sign in to the provider again");
+    int requests = 0;
+};
+
+}
 
 void ImapModelOpenConnectionTest::initTestCase()
 {
@@ -599,6 +637,137 @@ void ImapModelOpenConnectionTest::testExcessivePasswordPrompts()
     cClient(t.mk("LIST \"\" \"%\"\r\n"));
     cServer(t.last("OK listed\r\n"));
     cEmpty();
+}
+
+static FakeTokenSource *installTokenSource(Imap::Mailbox::Model *model, const QStringList &tokens)
+{
+    // The account would set the user name before connecting; OAuth never asks for it
+    model->setImapUser(QStringLiteral("luzr@example.org"));
+    auto source = new FakeTokenSource(model);
+    source->setServer(QStringLiteral("imap.example.org"), 993);
+    source->tokens = tokens;
+    return source;
+}
+
+/** @short OAuth sends the bearer token in the AUTHENTICATE command when the server supports SASL-IR */
+void ImapModelOpenConnectionTest::testOAuthSaslIr()
+{
+    auto source = installTokenSource(model, {QStringLiteral("token-1")});
+    cEmpty();
+    cServer("* OK [CAPABILITY IMAP4rev1 SASL-IR AUTH=PLAIN AUTH=OAUTHBEARER AUTH=XOAUTH2] hi\r\n");
+    const QByteArray response = OAuth::Sasl::xoauth2(QStringLiteral("luzr@example.org"), QStringLiteral("token-1"));
+    cClient(t.mk(QByteArray(QByteArray("AUTHENTICATE XOAUTH2 ") + response + "\r\n").constData()));
+    cServer(t.last("OK [CAPABILITY IMAP4rev1] authenticated\r\n"));
+    cEmpty();
+    QCOMPARE(completedSpy->size(), 1);
+    QVERIFY(failedSpy->isEmpty());
+    QVERIFY(authSpy->isEmpty());
+    QCOMPARE(source->requests, 1);
+    QVERIFY(source->rejected.isEmpty());
+    QCOMPARE(model->imapAuthError(), QString());
+}
+
+/** @short Without SASL-IR, the initial response waits for the server's empty challenge */
+void ImapModelOpenConnectionTest::testOAuthContinuation()
+{
+    auto source = installTokenSource(model, {QStringLiteral("token-1")});
+    cEmpty();
+    cServer("* OK [CAPABILITY IMAP4rev1 AUTH=XOAUTH2] hi\r\n");
+    cClient(t.mk("AUTHENTICATE XOAUTH2\r\n"));
+    cServer("+ \r\n");
+    const QByteArray response = OAuth::Sasl::xoauth2(QStringLiteral("luzr@example.org"), QStringLiteral("token-1"));
+    cClient(response + "\r\n");
+    cServer(t.last("OK authenticated\r\n"));
+    cClient(t.mk("CAPABILITY\r\n"));
+    cServer("* CAPABILITY IMAP4rev1\r\n" + t.last("OK capability completed\r\n"));
+    cEmpty();
+    QCOMPARE(completedSpy->size(), 1);
+    QVERIFY(failedSpy->isEmpty());
+    QVERIFY(authSpy->isEmpty());
+    QCOMPARE(source->requests, 1);
+}
+
+/** @short A rejected token is answered by an error challenge; the task renews the token once */
+void ImapModelOpenConnectionTest::testOAuthRetriesOnceWithAFreshToken()
+{
+    auto source = installTokenSource(model, {QStringLiteral("token-1"), QStringLiteral("token-2")});
+    cEmpty();
+    cServer("* OK [CAPABILITY IMAP4rev1 SASL-IR AUTH=XOAUTH2] hi\r\n");
+    const QString user = QStringLiteral("luzr@example.org");
+    cClient(t.mk(QByteArray(QByteArray("AUTHENTICATE XOAUTH2 ") + OAuth::Sasl::xoauth2(user, QStringLiteral("token-1")) + "\r\n")
+                     .constData()));
+    const QByteArray challenge =
+        QByteArray(R"({"status":"401","schemes":"Bearer","scope":"https://mail.google.com/"})").toBase64();
+    cServer("+ " + challenge + "\r\n");
+    // XOAUTH2 ends the exchange with an empty response
+    cClient("\r\n");
+    cServer(t.last("NO [AUTHENTICATIONFAILED] Invalid credentials\r\n"));
+    cClient(t.mk(QByteArray(QByteArray("AUTHENTICATE XOAUTH2 ") + OAuth::Sasl::xoauth2(user, QStringLiteral("token-2")) + "\r\n")
+                     .constData()));
+    cServer(t.last("OK [CAPABILITY IMAP4rev1] authenticated\r\n"));
+    cEmpty();
+    QCOMPARE(completedSpy->size(), 1);
+    QVERIFY(failedSpy->isEmpty());
+    QVERIFY(authSpy->isEmpty());
+    QCOMPARE(source->requests, 2);
+    QCOMPARE(source->rejected, QStringList {QStringLiteral("token-1")});
+    QCOMPARE(model->imapAuthError(), QString());
+}
+
+/** @short A second rejection goes offline with a recovery message instead of looping */
+void ImapModelOpenConnectionTest::testOAuthRejectedTwice()
+{
+    auto source = installTokenSource(model, {QStringLiteral("token-1"), QStringLiteral("token-2")});
+    cEmpty();
+    // Only OAUTHBEARER is advertised, so the provider's second choice is used
+    cServer("* OK [CAPABILITY IMAP4rev1 SASL-IR AUTH=OAUTHBEARER] hi\r\n");
+    const QString user = QStringLiteral("luzr@example.org");
+    const QString host = QStringLiteral("imap.example.org");
+    const QByteArray challenge = QByteArray(R"({"status":"invalid_token"})").toBase64();
+    for (const auto &token : {QStringLiteral("token-1"), QStringLiteral("token-2")}) {
+        cClient(t.mk(QByteArray(QByteArray("AUTHENTICATE OAUTHBEARER ") + OAuth::Sasl::oauthBearer(user, token, host, 993) + "\r\n")
+                         .constData()));
+        cServer("+ " + challenge + "\r\n");
+        // OAUTHBEARER ends the exchange with a single %x01
+        cClient("AQ==\r\n");
+        cServer(t.last("NO [AUTHENTICATIONFAILED] Invalid credentials\r\n"));
+    }
+    cClient(t.mk("LOGOUT\r\n"));
+    QVERIFY(completedSpy->isEmpty());
+    QCOMPARE(failedSpy->size(), 1);
+    QVERIFY(authSpy->isEmpty());
+    QCOMPARE(source->requests, 2);
+    QCOMPARE(source->rejected, QStringList {QStringLiteral("token-1")});
+    QCOMPARE(model->imapAuthError(),
+             OAuth::errorMessage(OAuth::Error::Rejected, QStringLiteral("Invalid credentials (status=invalid_token)")));
+}
+
+/** @short OAuth never falls back to LOGIN when the server lacks a bearer token mechanism */
+void ImapModelOpenConnectionTest::testOAuthMechanismUnavailable()
+{
+    auto source = installTokenSource(model, {QStringLiteral("token-1")});
+    cEmpty();
+    cServer("* OK [CAPABILITY IMAP4rev1 AUTH=PLAIN] hi\r\n");
+    cClient(t.mk("LOGOUT\r\n"));
+    QVERIFY(completedSpy->isEmpty());
+    QCOMPARE(failedSpy->size(), 1);
+    QVERIFY(authSpy->isEmpty());
+    QCOMPARE(source->requests, 0);
+    QCOMPARE(model->imapAuthError(), OAuth::errorMessage(OAuth::Error::MechanismUnavailable));
+}
+
+/** @short Without a token, e.g. after the user revoked access, the source's recovery message is shown */
+void ImapModelOpenConnectionTest::testOAuthTokenUnavailable()
+{
+    auto source = installTokenSource(model, {});
+    cEmpty();
+    cServer("* OK [CAPABILITY IMAP4rev1 SASL-IR AUTH=XOAUTH2] hi\r\n");
+    cClient(t.mk("LOGOUT\r\n"));
+    QVERIFY(completedSpy->isEmpty());
+    QCOMPARE(failedSpy->size(), 1);
+    QVERIFY(authSpy->isEmpty());
+    QCOMPARE(source->requests, 1);
+    QCOMPARE(model->imapAuthError(), source->failure);
 }
 
 // FIXME: verify how LOGINDISABLED even after STARTLS ends up

@@ -49,7 +49,8 @@ enum TokenType {
     IDLE_DONE, /**< Special case: the DONE for finalizing the IDLE command */
     STARTTLS, /**< Special case: STARTTLS */
     COMPRESS_DEFLATE, /**< Special case: COMPRESS DEFLATE */
-    ATOM_NO_SPACE_AROUND /**< Do not add extra space either before or after this part */
+    ATOM_NO_SPACE_AROUND, /**< Do not add extra space either before or after this part */
+    SASL_RESPONSE /**< Special case: a SASL response sent only after the server's continuation request */
 };
 
 /** @short Checks if we can use a quoted-string form for transmitting this string.

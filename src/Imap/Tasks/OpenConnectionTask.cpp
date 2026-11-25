@@ -28,6 +28,7 @@
 #include "Imap/Model/TaskPresentationModel.h"
 #include "Imap/Tasks/EnableTask.h"
 #include "Imap/Tasks/IdTask.h"
+#include "OAuth/TokenSource.h"
 #include "Streams/SocketFactory.h"
 #include "Streams/TrojitaZlibStatus.h"
 
@@ -293,6 +294,8 @@ bool OpenConnectionTask::handleStateHelper(const Imap::Responses::State *const r
                     model->changeConnectionState(parser, CONN_STATE_POSTAUTH_PRECAPS);
                     capabilityCmd = parser->capability();
                 }
+            } else if (m_oauthMechanism != OAuth::Mechanism::None) {
+                handleOAuthFailure(resp);
             } else {
                 // Login failed
                 QString message;
@@ -445,6 +448,10 @@ void OpenConnectionTask::abortConnection(const QString &message)
 
 void OpenConnectionTask::askForAuth()
 {
+    if (OAuth::TokenSource *source = OAuth::TokenSource::find(model)) {
+        askForOAuthToken(source);
+        return;
+    }
     switch(model->m_hasImapPassword) {
     case Model::PasswordAvailability::NOT_REQUESTED:
         model->m_hasImapPassword = Model::PasswordAvailability::ASKED_WAITING;
@@ -463,8 +470,92 @@ void OpenConnectionTask::askForAuth()
     }
 }
 
+void OpenConnectionTask::askForOAuthToken(OAuth::TokenSource *source)
+{
+    if (m_oauthMechanism == OAuth::Mechanism::None) {
+        QStringList advertised;
+        const auto capabilities = model->accessParser(parser).capabilities;
+        for (const QString &capability : capabilities) {
+            if (capability.startsWith(QLatin1String("AUTH="), Qt::CaseInsensitive))
+                advertised << capability.mid(5);
+        }
+        m_oauthMechanism = OAuth::Sasl::choose(source->mechanisms(), advertised);
+        if (m_oauthMechanism == OAuth::Mechanism::None) {
+            const QString message = OAuth::errorMessage(OAuth::Error::MechanismUnavailable);
+            model->setImapAuthError(message);
+            abortConnection(message);
+            return;
+        }
+        connect(source, &OAuth::TokenSource::accessTokenAvailable, this, &OpenConnectionTask::oauthTokenAvailable);
+        connect(source, &OAuth::TokenSource::failed, this, &OpenConnectionTask::oauthTokenFailed);
+    }
+    model->logTrace(parser->parserId(), Common::LOG_OTHER, QStringLiteral("imap.oauth"),
+                    QStringLiteral("Requesting an access token for %1").arg(QString::fromLatin1(OAuth::mechanismName(m_oauthMechanism))));
+    m_waitingForOAuthToken = true;
+    source->requestAccessToken();
+}
+
+void OpenConnectionTask::oauthTokenAvailable(const QString &accessToken)
+{
+    // The source answers every connection of the account; only react to our own request
+    if (!m_waitingForOAuthToken || _finished || _dead)
+        return;
+    m_waitingForOAuthToken = false;
+    if (model->accessParser(parser).connState != CONN_STATE_LOGIN || !loginCmd.isEmpty())
+        return;
+    OAuth::TokenSource *source = OAuth::TokenSource::find(model);
+    if (!source)
+        return;
+    m_oauthToken = accessToken;
+    const bool saslIr = model->accessParser(parser).capabilities.contains(QStringLiteral("SASL-IR"));
+    loginCmd = parser->authenticate(OAuth::mechanismName(m_oauthMechanism),
+                                    OAuth::Sasl::initialResponse(m_oauthMechanism, model->m_imapUser, accessToken,
+                                                                 source->host(), source->port()),
+                                    OAuth::Sasl::cancelResponse(m_oauthMechanism), saslIr);
+    model->accessParser(parser).capabilitiesFresh = false;
+}
+
+void OpenConnectionTask::oauthTokenFailed(const QString &message)
+{
+    if (!m_waitingForOAuthToken || _finished || _dead)
+        return;
+    m_waitingForOAuthToken = false;
+    model->setImapAuthError(message);
+    abortConnection(message);
+}
+
+void OpenConnectionTask::handleOAuthFailure(const Imap::Responses::State *const resp)
+{
+    QString detail = resp->message;
+    const QString challenge = OAuth::Sasl::describeChallenge(parser->lastSaslChallenge());
+    if (!challenge.isEmpty())
+        detail = tr("%1 (%2)").arg(detail, challenge);
+    const QString message = OAuth::errorMessage(OAuth::Error::Rejected, detail);
+
+    OAuth::TokenSource *source = OAuth::TokenSource::find(model);
+    if (model->accessParser(parser).connState == CONN_STATE_LOGOUT || !source) {
+        model->setImapAuthError(message);
+        EMIT_LATER(model, authAttemptFailed, Q_ARG(QString, message));
+        _failed(QStringLiteral("Connection closed after a failed OAuth authentication"));
+        return;
+    }
+    if (!m_oauthRetried) {
+        // The cached token might have been revoked or expired early; try once more with a fresh one
+        m_oauthRetried = true;
+        source->rejectAccessToken(m_oauthToken);
+        m_oauthToken.clear();
+        m_waitingForOAuthToken = true;
+        source->requestAccessToken();
+        return;
+    }
+    model->setImapAuthError(message);
+    abortConnection(message);
+}
+
 void OpenConnectionTask::authCredentialsNowAvailable()
 {
+    if (OAuth::TokenSource::find(model))
+        return;
     if (model->accessParser(parser).connState == CONN_STATE_LOGIN && loginCmd.isEmpty()) {
         switch (model->m_hasImapPassword) {
         case Model::PasswordAvailability::NOT_REQUESTED:

@@ -52,7 +52,7 @@ CONNECTION ESTABLISHMENT
 */
 
 struct SMTPCommand {
-    enum Type { Connect, Disconnect, StartTLS, Authenticate, Mail, MailBurl, RawCommand };
+    enum Type { Connect, Disconnect, StartTLS, Authenticate, Mail, MailBurl, RawCommand, AuthenticateSasl };
     int id;
     Type type;
     QVariant data;
@@ -95,6 +95,7 @@ public:
     // server caps:
     QwwSmtpClient::Options options;
     QwwSmtpClient::AuthModes authModes;
+    QStringList saslMechanisms;
 
     QQueue<SMTPCommand> commandqueue;
 private:
@@ -110,6 +111,7 @@ private:
 void QwwSmtpClientPrivate::onConnected() {
     options = QwwSmtpClient::NoOptions;
     authModes = QwwSmtpClient::AuthNone;
+    saslMechanisms.clear();
     emit q->stateChanged(QwwSmtpClient::Connected);
     emit q->connected();
 }
@@ -298,6 +300,31 @@ void QwwSmtpClientPrivate::_q_readFromSocket() {
                     }
                 }
                 break;
+                // SASL with an initial response; any challenge reports an error, RFC 7628 section 3.2.2
+                case SMTPCommand::AuthenticateSasl: {
+                    int stage = cmd.extra.toInt();
+                    if (status == 235) {
+                        errorString.clear();
+                        emit q->authenticated();
+                        setState(QwwSmtpClient::Connected);
+                        processNextCommand();
+                    } else if (status == 334 && stage == 0) {
+                        QVariantList data = cmd.data.toList();
+                        data.append(last_match.captured(2).trimmed().toLatin1());
+                        cmd.data = data;
+                        cmd.extra = 1;
+                        QByteArray buf = data.at(2).toByteArray() + "\r\n";
+                        emit q->logSent(buf);
+                        socket->write(buf);
+                    } else {
+                        errorString = last_match.captured(2).trimmed();
+                        const QVariantList data = cmd.data.toList();
+                        emit q->saslAuthenticationFailed(data.at(0).toByteArray(), data.value(3).toByteArray());
+                        setState(QwwSmtpClient::Connected);
+                        emit q->done(false);
+                    }
+                }
+                break;
                 // trying to send mail
                 case SMTPCommand::Mail:
                 case SMTPCommand::MailBurl:
@@ -451,6 +478,32 @@ void QwwSmtpClientPrivate::processNextCommand(bool ok) {
         }
     }
     break;
+    case SMTPCommand::AuthenticateSasl: {
+        QVariantList chosen;
+        const QVariantList candidates = cmd.data.toList();
+        for (const QVariant &candidate : candidates) {
+            const QVariantList item = candidate.toList();
+            if (saslMechanisms.contains(QString::fromLatin1(item.at(0).toByteArray()), Qt::CaseInsensitive)) {
+                chosen = item;
+                break;
+            }
+        }
+        if (chosen.isEmpty()) {
+            errorString = QwwSmtpClient::tr("The server does not offer the required authentication mechanism");
+            emit q->saslAuthenticationFailed(QByteArray(), QByteArray());
+            emit q->done(false);
+            break;
+        }
+        cmd.data = chosen;
+        cmd.extra = 0;
+        const QByteArray mechanism = chosen.at(0).toByteArray();
+        const QByteArray initialResponse = chosen.at(1).toByteArray();
+        emit q->logSent("AUTH " + mechanism + " [initial response]\r\n");
+        // RFC 4954 section 4: an empty initial response is sent as "="
+        socket->write("AUTH " + mechanism + ' ' + (initialResponse.isEmpty() ? QByteArray("=") : initialResponse) + "\r\n");
+        setState(QwwSmtpClient::Authenticating);
+        break;
+    }
     case SMTPCommand::Mail:
     case SMTPCommand::MailBurl:
     {
@@ -475,6 +528,7 @@ void QwwSmtpClientPrivate::processNextCommand(bool ok) {
 
 void QwwSmtpClientPrivate::_q_encrypted() {
         options = QwwSmtpClient::NoOptions;
+    saslMechanisms.clear();
     // forget everything, restart ehlo
 //    SMTPCommand &cmd = commandqueue.head();
     sendEhlo();
@@ -562,6 +616,8 @@ void QwwSmtpClientPrivate::parseOption(const QString &buffer){
         // parse auth modes
         QStringList slist = buffer.mid(5).split(" ");
         foreach(const QString &s, slist){
+            if (!s.isEmpty() && !saslMechanisms.contains(s.toUpper()))
+                saslMechanisms << s.toUpper();
             if(s.toLower()=="plain"){
                 authModes |= QwwSmtpClient::AuthPlain;
             }
@@ -660,6 +716,26 @@ int QwwSmtpClient::authenticate(const QString &user, const QString &password, Au
     if (!d->inProgress)
         d->processNextCommand();
     return cmd.id;
+}
+
+int QwwSmtpClient::authenticateSasl(const QList<SaslCandidate> &candidates)
+{
+    QVariantList data;
+    for (const SaslCandidate &candidate : candidates)
+        data << QVariant(QVariantList() << candidate.mechanism << candidate.initialResponse << candidate.cancelResponse);
+    SMTPCommand cmd;
+    cmd.type = SMTPCommand::AuthenticateSasl;
+    cmd.data = data;
+    cmd.id = ++d->lastId;
+    d->commandqueue.enqueue(cmd);
+    if (!d->inProgress)
+        d->processNextCommand();
+    return cmd.id;
+}
+
+QStringList QwwSmtpClient::supportedSaslMechanisms() const
+{
+    return d->saslMechanisms;
 }
 
 int QwwSmtpClient::sendMail(const QByteArray &from, const QList<QByteArray> &to, const QByteArray &content)

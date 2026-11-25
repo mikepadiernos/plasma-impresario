@@ -16,10 +16,9 @@ quality.
 > [!NOTE]
 >
 > The mail shell, compact, wide and one-panel layouts, embedded panels and
-> <kbd>F6</kbd>/<kbd>Shift</kbd>+<kbd>F6</kbd> focus cycling exist on
-> `feature/m02-shell-next`, which is not yet merged into `main`. Offscreen tests
-> and live IMAP tests against a synthetic Dovecot cover them; a real Plasma
-> session has not been verified. See
+> <kbd>F6</kbd>/<kbd>Shift</kbd>+<kbd>F6</kbd> focus cycling were built in M02.
+> Offscreen tests and live IMAP tests against a synthetic Dovecot cover them; a
+> real Plasma session has not been verified. See
 > [Current interface](../philosophy/designs.md#current-interface).
 
 ## Focus

@@ -25,7 +25,7 @@
 namespace Gui
 {
 
-ColoredItemDelegate::ColoredItemDelegate(QObject *parent) : QStyledItemDelegate(parent)
+ColoredItemDelegate::ColoredItemDelegate(QObject *parent) : DensityDelegate(parent)
 {
 }
 

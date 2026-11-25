@@ -23,6 +23,7 @@
 #include "ImapAccess.h"
 #include <QDir>
 #include <QFileInfo>
+#include <QPointer>
 #include <QSslKey>
 #include <QSettings>
 #include "Common/MetaTypes.h"
@@ -43,13 +44,21 @@
 #include "Imap/Model/Utils.h"
 #include "Imap/Model/VisibleTasksModel.h"
 #include "Imap/Network/MsgPartNetAccessManager.h"
+#include "OAuth/Session.h"
+#include "Plugins/PluginManager.h"
 #include "Streams/SocketFactory.h"
 #include "UiUtils/PasswordWatcher.h"
 
 namespace Imap {
 
-ImapAccess::ImapAccess(QObject *parent, QSettings *settings, Plugins::PluginManager *pluginManager, const QString &accountName) :
-    QObject(parent), m_settings(settings), m_imapModel(nullptr), m_mailboxModel(nullptr), m_mailboxSubtreeModel(nullptr), m_msgListModel(nullptr),
+QString ImapAccess::credentialAccountId() const
+{
+    return m_accountName.isEmpty() ? QStringLiteral("account-0") : m_accountName;
+}
+
+ImapAccess::ImapAccess(QObject *parent, QSettings *settings, Plugins::PluginManager *pluginManager, const QString &accountName,
+                       QSettings *appSettings) :
+    QObject(parent), m_settings(settings), m_appSettings(appSettings ? appSettings : settings), m_imapModel(nullptr), m_mailboxModel(nullptr), m_mailboxSubtreeModel(nullptr), m_msgListModel(nullptr),
     m_threadingMsgListModel(nullptr), m_visibleTasksModel(nullptr), m_oneMessageModel(nullptr), m_netWatcher(nullptr), m_msgQNAM(nullptr),
     m_pluginManager(pluginManager), m_passwordWatcher(nullptr), m_port(0),
     m_connectionMethod(Common::ConnectionMethod::Invalid),
@@ -60,9 +69,7 @@ ImapAccess::ImapAccess(QObject *parent, QSettings *settings, Plugins::PluginMana
     reloadConfiguration();
     m_cacheDir = Common::writablePath(Common::LOCATION_CACHE) + m_accountName + QLatin1Char('/');;
     m_passwordWatcher = new UiUtils::PasswordWatcher(this, m_pluginManager,
-                                                     // FIXME: this can be removed when support for multiple accounts is implemented
-                                                     accountName.isEmpty() ? QStringLiteral("account-0") : accountName,
-                                                     QStringLiteral("imap"));
+                                                     credentialAccountId(), QStringLiteral("imap"));
 }
 
 void ImapAccess::reloadConfiguration()
@@ -335,7 +342,9 @@ void ImapAccess::doConnect()
     if (!shouldUsePersistentCache) {
         cache.reset(new Imap::Mailbox::MemoryCache());
     } else {
-        cache.reset(new Imap::Mailbox::CombinedCache(QStringLiteral("trojita-imap-cache"), m_cacheDir));
+        // Each account needs its own SQLite connection name; a shared name replaces the other accounts' connections.
+        cache.reset(new Imap::Mailbox::CombinedCache(QStringLiteral("trojita-imap-cache-%1").arg(credentialAccountId()),
+                                                     m_cacheDir));
         cache->setErrorHandler([this](const QString &e) { this->onCacheError(e); });
         if (! static_cast<Imap::Mailbox::CombinedCache *>(cache.get())->open()) {
             // Error message was already shown by the cacheError() slot
@@ -357,9 +366,19 @@ void ImapAccess::doConnect()
     m_imapModel = new Imap::Mailbox::Model(this, cache, std::move(factory), std::move(taskFactory));
     m_imapModel->setObjectName(QStringLiteral("imapModel-%1").arg(m_accountName));
     m_imapModel->setCapabilitiesBlacklist(m_settings->value(Common::SettingsNames::imapBlacklistedCapabilities).toStringList());
-    m_imapModel->setProperty("trojita-imap-id-no-versions", !m_settings->value(Common::SettingsNames::interopRevealVersions, true).toBool());
-    m_imapModel->setProperty("trojita-imap-idle-renewal", m_settings->value(Common::SettingsNames::imapIdleRenewal).toUInt() * 60 * 1000);
+    m_imapModel->setProperty("trojita-imap-id-no-versions", !m_appSettings->value(Common::SettingsNames::interopRevealVersions, true).toBool());
+    m_imapModel->setProperty("trojita-imap-idle-renewal", m_appSettings->value(Common::SettingsNames::imapIdleRenewal).toUInt() * 60 * 1000);
     m_imapModel->setNumberRefreshInterval(numberRefreshInterval());
+    if (OAuth::isEnabled(*m_settings, OAuth::Service::Imap)) {
+        // The connections find this token source through the model and authenticate with it instead of a password
+        QPointer<Plugins::PluginManager> pluginManager = m_pluginManager;
+        auto oauth = new OAuth::Session(OAuth::AccountConfig::fromSettings(*m_settings, credentialAccountId()),
+                                        [pluginManager]() -> Plugins::PasswordPlugin * {
+                                            return pluginManager ? pluginManager->password() : nullptr;
+                                        },
+                                        m_imapModel);
+        oauth->setServer(m_server, m_port);
+    }
     connect(m_imapModel, &Mailbox::Model::alertReceived, this, &ImapAccess::alertReceived);
     connect(m_imapModel, &Mailbox::Model::imapError, this, &ImapAccess::imapError);
     connect(m_imapModel, &Mailbox::Model::networkError, this, &ImapAccess::networkError);
