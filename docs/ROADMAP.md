@@ -229,9 +229,7 @@ Checks that need a real Plasma session moved to
 [M15](#m15-real-plasma-session-verification) so they do not block M02.
 Merging M02 into M03: [M02 handoff](TODO.md#m02-shell-and-account-foundation).
 
-Caveats: [multiple accounts](CAVEATS.md#multiple-accounts)
-([#262](https://github.com/mikepadiernos/plasma-impresario/issues/262));
-[related messages and message details panels](CAVEATS.md#related-messages-and-message-details-panels)
+Caveats: [related messages and message details panels](CAVEATS.md#related-messages-and-message-details-panels)
 ([#264](https://github.com/mikepadiernos/plasma-impresario/issues/264));
 [OAuth sign-in](CAVEATS.md#oauth-sign-in)
 ([#362](https://github.com/mikepadiernos/plasma-impresario/issues/362)).

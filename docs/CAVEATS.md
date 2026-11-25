@@ -48,7 +48,7 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned · ✅ resolved
 
 | Caveat issue                                                          | Board  | Recommendation                                                                                         | Verified with                                                              |
 | --------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| [#262](https://github.com/mikepadiernos/plasma-impresario/issues/262) | Review | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/262#issuecomment-7142887185) | Disposable Dovecot, the opt-in `test_LiveImapAccounts` and offscreen tests |
+| [#262](https://github.com/mikepadiernos/plasma-impresario/issues/262) | Merged | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/262#issuecomment-7142887185) | Disposable Dovecot, the opt-in `test_LiveImapAccounts` and offscreen tests |
 
 All five limitations recorded in #262 are resolved.
 
