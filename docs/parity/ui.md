@@ -37,7 +37,7 @@ keys; this page does not repeat them.
 > `feature/m02-shell-next` and are not yet merged into `main`. Offscreen tests
 > and opt-in live IMAP tests against a synthetic Dovecot
 > (`tools/dev-container/`) cover them; a real Plasma session has not been
-> verified. M02.02
+> verified. M13
 > ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319))
 > tracks that check.
 

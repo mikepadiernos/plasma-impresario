@@ -123,11 +123,11 @@ replies and attachments are scheduled for verification in M04
 | 🧭 Mail shell        | Left, main and right columns and a footer; folder sidebar on either side; compact, wide and one-at-a-time layouts | 🧪     |
 | 📎 Embedded panels   | Attachments, Message Details, Contacts and Related Messages, each with its own placement                          | 🧪     |
 
-M02 is split into headless work (M02.01,
-[#318](https://github.com/mikepadiernos/plasma-impresario/issues/318)) and checks
-that need a real Plasma session (M02.02,
-[#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)), none of
-which has been done yet. The mail shell and embedded panels are Completed
+M02 is headless work (M02.01,
+[#318](https://github.com/mikepadiernos/plasma-impresario/issues/318)). Checks
+that need a real Plasma session are their own milestone (M13,
+[#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)), and none
+has been done yet. The mail shell and embedded panels are Completed
 ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); the
 [design guide](docs/philosophy/designs.md#current-interface) describes them in
 detail, and [pending tasks](docs/TODO.md#m02-shell-and-account-foundation)
