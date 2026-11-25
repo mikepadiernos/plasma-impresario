@@ -74,6 +74,56 @@ void RelevanceTest::extractsTerms() {
   QCOMPARE(UiUtils::relevanceTerms(conditions), terms);
 }
 
+void RelevanceTest::extractsHighlightTerm_data() {
+  QTest::addColumn<QStringList>("conditions");
+  QTest::addColumn<QString>("term");
+
+  QTest::newRow("empty") << QStringList() << QString();
+  QTest::newRow("quick search")
+      << QStringList{QStringLiteral("OR"),      QStringLiteral("FUZZY"),
+                     QStringLiteral("SUBJECT"), QStringLiteral("Release  Plan"),
+                     QStringLiteral("FUZZY"),   QStringLiteral("BODY"),
+                     QStringLiteral("Release  Plan")}
+      << QStringLiteral("Release Plan");
+  QTest::newRow("body only")
+      << QStringList{QStringLiteral("BODY"), QStringLiteral("budget")}
+      << QStringLiteral("budget");
+  QTest::newRow("senders first")
+      << QStringList{QStringLiteral("OR"), QStringLiteral("FROM"),
+                     QStringLiteral("subject"), QStringLiteral("BODY"),
+                     QStringLiteral("budget")}
+      << QStringLiteral("budget");
+  QTest::newRow("sender filter")
+      << QStringList{QStringLiteral("FROM"), QStringLiteral("ann@example.org")}
+      << QString();
+  QTest::newRow("recipients")
+      << QStringList{QStringLiteral("OR"), QStringLiteral("OR"),
+                     QStringLiteral("TO"), QStringLiteral("ann"),
+                     QStringLiteral("CC"), QStringLiteral("ann"),
+                     QStringLiteral("BCC"), QStringLiteral("ann")}
+      << QString();
+  QTest::newRow("list header")
+      << QStringList{QStringLiteral("HEADER"), QStringLiteral("List-Post"),
+                     QStringLiteral("body")}
+      << QString();
+  QTest::newRow("raw")
+      << QStringList{QStringLiteral(
+             "OR (FROM body SINCE 1-Jan-2026) TEXT \"say \\\"hi\\\"\"")}
+      << QStringLiteral("say \"hi\"");
+  QTest::newRow("dangling key")
+      << QStringList{QStringLiteral("BODY")} << QString();
+  QTest::newRow("blank value")
+      << QStringList{QStringLiteral("SUBJECT"), QStringLiteral("  "),
+                     QStringLiteral("BODY"), QStringLiteral("plan")}
+      << QStringLiteral("plan");
+}
+
+void RelevanceTest::extractsHighlightTerm() {
+  QFETCH(QStringList, conditions);
+  QFETCH(QString, term);
+  QCOMPARE(UiUtils::searchHighlightTerm(conditions), term);
+}
+
 void RelevanceTest::scoresMessages() {
   QStandardItemModel model;
   const QDate date(2026, 11, 20);

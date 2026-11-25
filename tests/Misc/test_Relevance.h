@@ -14,6 +14,8 @@ class RelevanceTest : public QObject {
 private slots:
   void extractsTerms_data();
   void extractsTerms();
+  void extractsHighlightTerm_data();
+  void extractsHighlightTerm();
   void scoresMessages();
   void ranksMessages();
   void skipsRowsWhichAreNotLoaded();

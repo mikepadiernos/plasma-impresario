@@ -4,7 +4,9 @@
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
 #include "Gui/AttachmentPanel.h"
+#include "Gui/CompleteMessageWidget.h"
 #include "Gui/ContactPanel.h"
+#include "Gui/FindBar.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MessageDetailsPanel.h"
 #include "Gui/MsgListView.h"
@@ -291,6 +293,35 @@ private slots:
         open(QStringLiteral("Lunch on Friday"));
         QTRY_COMPARE_WITH_TIMEOUT(subjects(related->sameSender()), QStringList{QStringLiteral("Quarterly plan")}, 10000);
         QVERIFY(related->conversation().isEmpty());
+
+        // A message opened from a body search shows the term in the find bar, and the focus stays in the list.
+        auto *reader = window.findChild<Gui::CompleteMessageWidget *>();
+        QVERIFY(reader);
+        auto *findBar = reader->findChild<Gui::FindBar *>();
+        QVERIFY(findBar);
+        auto *findText = findBar->findChild<QLineEdit *>();
+        auto *search = window.findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        auto *searchInBody = window.findChild<QAction *>(QStringLiteral("searchInBody"));
+        QVERIFY(findText);
+        QVERIFY(search);
+        QVERIFY(searchInBody);
+        searchInBody->setChecked(true);
+        search->setText(QStringLiteral("shared inbox"));
+        QTest::keyClick(search, Qt::Key_Return);
+        QTRY_VERIFY_WITH_TIMEOUT(!findMessage(messages, QStringLiteral("Lunch on Friday")).isValid(), 10000);
+        QVERIFY(!findBar->isVisible());
+        open(QStringLiteral("Re: Quarterly plan"));
+        QTRY_VERIFY_WITH_TIMEOUT(findBar->isVisible(), 15000);
+        QCOMPARE(findText->text(), QStringLiteral("shared inbox"));
+        QVERIFY(!findText->hasFocus());
+        snapshot(window, QStringLiteral("10-wide-search-highlight"));
+
+        // Without a search, the next message opens without the find bar.
+        search->clear();
+        QTest::keyClick(search, Qt::Key_Return);
+        QTRY_VERIFY_WITH_TIMEOUT(findMessage(messages, QStringLiteral("Lunch on Friday")).isValid(), 10000);
+        open(QStringLiteral("Lunch on Friday"));
+        QTRY_VERIFY(!findBar->isVisible());
 
         QCOMPARE(passwordPrompts, 0);
         QVERIFY2(imapErrors.isEmpty(), qPrintable(imapErrors.isEmpty() ? QString() : imapErrors.first().first().toString()));
