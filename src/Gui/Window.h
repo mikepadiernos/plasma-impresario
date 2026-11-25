@@ -199,6 +199,7 @@ private slots:
     void slotFocusMessageView();
     void slotFocusNextRegion();
     void slotFocusPreviousRegion();
+    void slotReturnToMessageList();
     void removeAccountNow(const QString &accountId);
     /** Authorize an OAuth account in the browser again, then reconnect it */
     void signInAccount(const QString &accountId);

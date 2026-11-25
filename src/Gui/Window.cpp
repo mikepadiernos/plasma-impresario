@@ -50,6 +50,7 @@
 #include <QScopedPointer>
 #include <QScreen>
 #include <QScrollBar>
+#include <QShortcut>
 #include <QSplitter>
 #include <QSslError>
 #include <QSslKey>
@@ -1209,6 +1210,26 @@ void MainWindow::createActions()
     m_readerActions->setForwardAction(m_forwardAsAttachment);
     m_readerActions->setPreferPlainText(m_settings->value(Common::SettingsNames::guiPreferPlaintextRendering, QVariant(true)).toBool());
     m_messageWidget->setActionBar(m_readerActions);
+#endif
+    // Escape leaves the reader or an embedded panel for the message list. The scopes leave out the find bar and
+    // the quick search, which use Escape themselves.
+    QList<QWidget *> escapeScopes;
+#ifdef TROJITA_HAVE_WEBENGINE
+    escapeScopes << m_messageWidget->messageView << m_readerActions;
+#else
+    escapeScopes << m_messageWidget;
+#endif
+    for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels))
+        escapeScopes << panel;
+    for (QWidget *scope : std::as_const(escapeScopes)) {
+        if (!scope)
+            continue;
+        auto *toList = new QShortcut(QKeySequence(Qt::Key_Escape), scope);
+        toList->setObjectName(QStringLiteral("escapeToMessageList"));
+        toList->setContext(Qt::WidgetWithChildrenShortcut);
+        connect(toList, &QShortcut::activated, this, &MainWindow::slotReturnToMessageList);
+    }
+#ifdef TROJITA_HAVE_WEBENGINE
     connect(m_readerActions, &ReaderActionBar::archiveRequested, this, [this]() {
         actOnOpenMessage([this]() { handleMoveToArchive(); });
     });
@@ -3222,6 +3243,14 @@ void MainWindow::slotFocusMessageView()
 #endif
 }
 
+void MainWindow::slotReturnToMessageList()
+{
+    if (!msgListWidget->tree->isVisible() && m_oneAtTimeGoBack->isEnabled())
+        m_oneAtTimeGoBack->trigger();
+    if (msgListWidget->tree->isVisible())
+        msgListWidget->tree->setFocus(Qt::ShortcutFocusReason);
+}
+
 void MainWindow::slotFocusNextRegion()
 {
     cycleFocusRegion(1);
@@ -3252,6 +3281,27 @@ void MainWindow::cycleFocusRegion(int step)
 #endif
     for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels))
         regions.append(Region{panel, panel->focusTarget()});
+
+    // Visit the panes in screen order, whatever the layout and placement: the header, then the columns from the
+    // leading side, each from top to bottom, then the footer
+    QWidget *footer = m_shellFooter.widget;
+    const bool rightToLeft = layoutDirection() == Qt::RightToLeft;
+    const auto band = [this, footer](const Region &region) {
+        if (region.container == m_shellHeader || region.container == m_accountSwitcher)
+            return 0;
+        return footer && footer->isAncestorOf(region.container) ? 2 : 1;
+    };
+    const auto position = [rightToLeft](const Region &region) {
+        const QRect rect(region.container->mapToGlobal(QPoint(0, 0)), region.container->size());
+        return std::make_pair(rightToLeft ? -rect.right() : rect.left(), rect.top());
+    };
+    std::stable_sort(regions.begin(), regions.end(), [&](const Region &a, const Region &b) {
+        const int bandA = band(a);
+        const int bandB = band(b);
+        if (bandA != bandB)
+            return bandA < bandB;
+        return bandA != 0 && position(a) < position(b);
+    });
 
     const int count = regions.size();
     QWidget *focus = focusWidget();
