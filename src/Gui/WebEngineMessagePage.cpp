@@ -14,6 +14,7 @@
 #include <QPointer>
 #include <QWebEngineNewWindowRequest>
 #include <QWebEngineScript>
+#include <QWebEngineScriptCollection>
 
 namespace Gui
 {
@@ -50,6 +51,20 @@ bool isMessagePartUrl(const QUrl &url)
 WebEngineMessagePage::WebEngineMessagePage(WebEngineMessageProfile *profile, QObject *parent)
     : QWebEnginePage(profile, parent)
 {
+    // Remembers the link which was clicked last, for requestExternalLink(). It runs in an isolated world,
+    // which the disabled JavaScript setting does not cover; the message's own scripts still never run.
+    QWebEngineScript linkTracker;
+    linkTracker.setName(QStringLiteral("plasma-impresario-link-tracker"));
+    linkTracker.setWorldId(QWebEngineScript::ApplicationWorld);
+    linkTracker.setInjectionPoint(QWebEngineScript::DocumentCreation);
+    linkTracker.setRunsOnSubFrames(false);
+    linkTracker.setSourceCode(QStringLiteral(
+        "(function(){function track(e){var t=e.target;"
+        "window.__plasmaImpresarioLink=(t&&t.closest)?t.closest('a[href]'):null;}"
+        "document.addEventListener('click',track,true);"
+        "document.addEventListener('auxclick',track,true);})();"));
+    scripts().insert(linkTracker);
+
     connect(this, &QWebEnginePage::newWindowRequested, this, [this](QWebEngineNewWindowRequest &request) {
         if (request.isUserInitiated())
             requestExternalLink(request.requestedUrl());
@@ -230,10 +245,26 @@ void WebEngineMessagePage::requestExternalLink(const QUrl &url)
     if (!url.isValid())
         return;
     const QString scheme = url.scheme().toLower();
-    if (((scheme == QLatin1String("http") || scheme == QLatin1String("https")) && !url.host().isEmpty()) ||
-        (scheme == QLatin1String("mailto") && !url.path().isEmpty())) {
-        emit externalLinkRequested(url);
+    if (scheme == QLatin1String("mailto") && !url.path().isEmpty()) {
+        emit externalLinkRequested(url, QString());
+        return;
     }
+    if ((scheme != QLatin1String("http") && scheme != QLatin1String("https")) || url.host().isEmpty())
+        return;
+    // The text of the clicked link, so that a text which shows another address can be pointed out.
+    // This runs in an isolated world; the message's own scripts stay disabled.
+    const QString script = QStringLiteral(
+        "(function(u){var a=window.__plasmaImpresarioLink;"
+        "if(!a||a.href!==u)a=document.activeElement;"
+        "if(!a||a.href!==u){a=null;var l=document.links;"
+        "for(var i=0;i<l.length;++i){if(l[i].href===u){a=l[i];break;}}}"
+        "return a?String(a.innerText||a.textContent||'').substring(0,2048):'';})(%1)")
+        .arg(jsString(url.toString(QUrl::FullyEncoded)));
+    QPointer<WebEngineMessagePage> self(this);
+    runJavaScript(script, QWebEngineScript::ApplicationWorld, [self, url](const QVariant &text) {
+        if (self)
+            emit self->externalLinkRequested(url, text.toString());
+    });
 }
 
 }

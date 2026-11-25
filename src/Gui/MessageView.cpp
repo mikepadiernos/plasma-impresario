@@ -242,6 +242,7 @@ void MessageView::showMessageNow()
 
     netAccess->setExternalsEnabled(false);
     externalElements->hide();
+    externalElements->clear();
 
     netAccess->setModelMessage(rootPartIndex);
     m_webEngineProfile = new WebEngineMessageProfile(rootPartIndex, this);
@@ -395,7 +396,7 @@ void MessageView::setNetworkWatcher(Imap::Mailbox::NetworkWatcher *netWatcher)
 
 void MessageView::externalsRequested(const QUrl &url)
 {
-    Q_UNUSED(url);
+    externalElements->addBlockedUrl(url);
     externalElements->show();
 }
 

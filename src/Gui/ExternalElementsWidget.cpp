@@ -21,9 +21,11 @@
 */
 #include "ExternalElementsWidget.h"
 
+#include <KLocalizedString>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include "UiUtils/LinkSafety.h"
 
 namespace Gui
 {
@@ -32,27 +34,73 @@ ExternalElementsWidget::ExternalElementsWidget(QWidget *parent):
     QWidget(parent)
 {
     QHBoxLayout *layout = new QHBoxLayout(this);
-    loadStuffButton = new QPushButton(tr("Load"), this);
-    QLabel *lbl = new QLabel(tr("This e-mail wants to load external entities from the Internet"), this);
-    layout->addWidget(lbl);
+    m_message = new QLabel(this);
+    m_message->setObjectName(QStringLiteral("remoteContentMessage"));
+    m_message->setWordWrap(true);
+    m_message->setTextFormat(Qt::PlainText);
+    loadStuffButton = new QPushButton(i18nc("@action:button", "Load Remote Content"), this);
+    loadStuffButton->setObjectName(QStringLiteral("loadRemoteContent"));
+    loadStuffButton->setToolTip(i18nc("@info:tooltip", "Load the remote content of this message only"));
+    layout->addWidget(m_message, 1);
     layout->addWidget(loadStuffButton);
-    layout->addStretch();
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     connect(loadStuffButton, &QAbstractButton::clicked, this, &ExternalElementsWidget::loadingEnabled);
+    updateMessage();
 
-    /*
-    FIXME: would be cool to have more clear error messages
+    // Consent is all or nothing for the open message: once given, every remote request of the message is
+    // allowed until another message is shown. Scripts stay disabled, so the message cannot start new
+    // requests on its own.
+}
 
-    Also perhaps provide a list of URLs of external entities? But note that
-    the current implementation is an "all or nothing" -- once the user clicks
-    the "allow external entities" button, they will be enabled for the current
-    message until it is closed. Therefore, it is possible that user allows requests
-    to a presumably "safe site", but something evil subsequently asks for something
-    from a malicious, third-party site. I'm not sure how they'd do that, though, given
-    that we already do disable JavaScript...
+void ExternalElementsWidget::addBlockedUrl(const QUrl &url)
+{
+    bool changed = false;
+    const QStringList hosts = UiUtils::remoteHosts({url});
+    for (const QString &host : hosts) {
+        if (!m_hosts.contains(host)) {
+            m_hosts << host;
+            changed = true;
+        }
+    }
+    if (changed)
+        updateMessage();
+}
 
-    */
+void ExternalElementsWidget::clear()
+{
+    m_hosts.clear();
+    updateMessage();
+}
 
+QStringList ExternalElementsWidget::blockedHosts() const
+{
+    return m_hosts;
+}
+
+QString ExternalElementsWidget::message() const
+{
+    return m_message->text();
+}
+
+void ExternalElementsWidget::updateMessage()
+{
+    constexpr int shown = 3;
+    QString from;
+    if (m_hosts.size() > shown) {
+        from = i18ncp("@info %2 is a list of servers", "%2 and %1 more server", "%2 and %1 more servers",
+                      int(m_hosts.size() - shown), QStringList(m_hosts.mid(0, shown)).join(QLatin1String(", ")));
+    } else {
+        from = m_hosts.join(QLatin1String(", "));
+    }
+    const QString why = i18nc("@info", "Loading it can tell the sender when you read this message.");
+    if (from.isEmpty()) {
+        m_message->setText(i18nc("@info", "Remote content is blocked to protect your privacy.") + QLatin1Char(' ') + why);
+    } else {
+        m_message->setText(i18nc("@info %1 is a list of servers", "Remote content from %1 is blocked to protect your privacy.", from)
+                           + QLatin1Char(' ') + why);
+    }
+    m_message->setToolTip(m_hosts.join(QLatin1Char('\n')));
+    setAccessibleName(m_message->text());
 }
 
 }

@@ -22,9 +22,12 @@
 #ifndef EXTERNALELEMENTSWIDGET_H
 #define EXTERNALELEMENTSWIDGET_H
 
+#include <QStringList>
 #include <QWidget>
 
+class QLabel;
 class QPushButton;
+class QUrl;
 
 namespace Gui
 {
@@ -34,10 +37,20 @@ class ExternalElementsWidget : public QWidget
     Q_OBJECT
 public:
     explicit ExternalElementsWidget(QWidget *parent);
+    /** @short Name the server of a blocked request in the message */
+    void addBlockedUrl(const QUrl &url);
+    /** @short Forget the servers, for another message */
+    void clear();
+    QStringList blockedHosts() const;
+    QString message() const;
 signals:
     void loadingEnabled();
 private:
+    void updateMessage();
+
+    QLabel *m_message;
     QPushButton *loadStuffButton;
+    QStringList m_hosts;
 };
 
 }

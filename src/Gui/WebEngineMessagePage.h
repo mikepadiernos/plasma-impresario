@@ -64,7 +64,11 @@ public:
     void setColors(const Colors &colors);
 
 signals:
-    void externalLinkRequested(const QUrl &url);
+    /** A link to @p url was clicked or opened in a new window.
+     * @param text The link's text when it can be found in the page, otherwise empty. Always
+     * empty for mailto: links.
+     */
+    void externalLinkRequested(const QUrl &url, const QString &text);
     /** Emitted after the colors were applied to a page.
      * @param kind "plain", "own" (the message's own background), "page" (HTML on
      * the reader's page), "forced", or empty while no document exists.
