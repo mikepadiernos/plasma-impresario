@@ -150,6 +150,15 @@ need a real session.
   QtKeychain, and removing an account deletes its settings and stored passwords.
   Offscreen tests cover removal; both still need verification against disposable
   IMAP.
+- 🧪 **Sender identities, #78:** each account has its own identities by
+  default, edited on the Identities tab of the settings dialog. An account can
+  instead use the identities shared by all accounts; it keeps its own list for
+  later. On first start, existing accounts receive a copy of the previously
+  shared identities, which remain the shared list. New accounts start with no
+  identities, and the composer then accepts a typed From address. A composer
+  keeps the identities of the account it was opened from. `test_AccountIdentities`
+  and `test_MainWindowAccounts` cover the defaults, the shared option, migration
+  and switching; the settings tab still needs a check by hand.
 - ✅ **Session selection, #81:** the app saves a message's account, mailbox,
   UIDVALIDITY and UID, restores it after asynchronous mailbox loading, and
   cancels pending restoration on navigation. Live checks passed restoration,
@@ -237,8 +246,8 @@ need a real session.
   [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317).
 - 🚧 **Account model, #78, #36 and #215:** `AccountCapabilities` exists, but
   nothing in the interface consults it yet; POP3 and JMAP belong to M05.05.
-  Account editing uses the settings dialog, and per-account identities are not
-  separate from the shared sender identities.
+  Account editing still uses the settings dialog. Sender identities are decided
+  and implemented (see the verification record).
 - 🚧 **Navigation, #80:** accounts are grouped by the toolbar selector, not in
   the folder tree; grouping in the folder tree is needed before Review.
 - ⛔ **Plasma session, M02.02:** the dev container has no Plasma session, so

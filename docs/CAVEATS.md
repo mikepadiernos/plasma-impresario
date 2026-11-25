@@ -58,12 +58,19 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned
 - ⚠️ Each account asks separately about an untrusted TLS certificate, even on a
   shared server. Prompts for background accounts appear at startup and name the
   account.
+- ⚠️ A composer offers the sender identities of the account that was active
+  when it opened. When sending, though, it reads the Sent folder and SMTP
+  options of the account that is active then. Switching accounts while a
+  composer is open can therefore send or file the message with the other
+  account's settings.
 
 **Workarounds:**
 
 - Hover over a flagged account to read its error, then switch to it to recover.
 - After removing an account, delete its cache directory manually.
 - Prefer servers with trusted certificates.
+- Switch back to the composer's account before sending, or finish the message
+  before switching.
 
 **Proposed improvements:**
 
@@ -71,6 +78,9 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned
 - 📋 Delete the cache directory when an account is removed (needed before
   release).
 - 📋 Share certificate decisions per host and fingerprint across accounts.
+- 📋 Bind each composer to the account it was opened from, including its
+  sending settings; this is planned with keeping the originating account in
+  composition.
 
 ### Related messages and message details panels
 
