@@ -27,18 +27,18 @@ implementation, [designs](designs.md#current-interface) describes the current
 interface, and [caveats](../CAVEATS.md) records security and platform
 limitations.
 
-| Capability                                                       | Status | Notes                                                                                                                                                                                                           |
-| ---------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 🧱 KDE / Qt 6 baseline (M01)                                     | ✅     | Merged into `main`; see [compatibility](compatibility.md).                                                                                                                                                      |
-| 📬 IMAP reading with on-demand fetching and local cache          | 🧪     | Inherited from Trojitá. Live reading with a real account is pending in M04.                                                                                                                                     |
-| ✉️ SMTP and other submission paths                               | 🧪     | Inherited from Trojitá. Live sending is pending in M04.                                                                                                                                                         |
-| 📬 Multiple simultaneous IMAP accounts                           | ✅     | Completed in M02 ([#222](https://github.com/mikepadiernos/plasma-impresario/issues/222)).                                                                                                                       |
-| 🧭 Mail shell and embedded panels                                | 🧪     | Completed ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); Plasma check in [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315); see [designs](designs.md#shell-status). |
-| 🔐 OAuth account authentication                                  | ⛔     | Needs SASL support in the IMAP layer and a token source; see [TODO](../TODO.md#m02-shell-and-account-foundation).                                                                                               |
-| 🔍 Search across folders and accounts with an opt-in local index | 📋     | M05. Server search stays the default; the index covers downloaded mail only.                                                                                                                                    |
-| 📮 POP3 retrieval with SMTP submission                           | 📋     | M06.05. POP3 stores retrieved mail locally and has no IMAP-style server folder synchronization.                                                                                                                 |
-| 📡 JMAP accounts                                                 | 📋     | M06.05. Capabilities depend on the server.                                                                                                                                                                      |
-| 🏢 Consumer Outlook, Exchange Online and Exchange Server         | 📋     | M06.05. Exchange Online and on-premises Exchange Server differ in interfaces, authentication options and administrator policies.                                                                                |
+| Capability                                                       | Status | Notes                                                                                                                                                                                                                                   |
+| ---------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🧱 KDE / Qt 6 baseline (M01)                                     | ✅     | Merged into `main`; see [compatibility](compatibility.md).                                                                                                                                                                              |
+| 📬 IMAP reading with on-demand fetching and local cache          | 🧪     | Inherited from Trojitá. Live reading with a real account is pending in M04.                                                                                                                                                             |
+| ✉️ SMTP and other submission paths                               | 🧪     | Inherited from Trojitá. Live sending is pending in M04.                                                                                                                                                                                 |
+| 📬 Multiple simultaneous IMAP accounts                           | ✅     | Completed in M02 ([#222](https://github.com/mikepadiernos/plasma-impresario/issues/222)).                                                                                                                                               |
+| 🧭 Mail shell and embedded panels                                | 🧪     | Completed ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); Plasma check in [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315); see [designs](designs.md#shell-status).                         |
+| 🔐 OAuth account authentication                                  | 🧪     | Merged in M02 ([#218](https://github.com/mikepadiernos/plasma-impresario/issues/218)); live sign-in in [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317) and limitations in [caveats](../CAVEATS.md#oauth-sign-in). |
+| 🔍 Search across folders and accounts with an opt-in local index | 📋     | M05. Server search stays the default; the index covers downloaded mail only.                                                                                                                                                            |
+| 📮 POP3 retrieval with SMTP submission                           | 📋     | M06.05. POP3 stores retrieved mail locally and has no IMAP-style server folder synchronization.                                                                                                                                         |
+| 📡 JMAP accounts                                                 | 📋     | M06.05. Capabilities depend on the server.                                                                                                                                                                                              |
+| 🏢 Consumer Outlook, Exchange Online and Exchange Server         | 📋     | M13; see the [Microsoft guide](../integrations/microsoft.md). Exchange Online and on-premises Exchange Server differ in interfaces, authentication options and administrator policies.                                                  |
 
 ## Target experience
 
@@ -55,14 +55,14 @@ limitations.
 
 ## Scope boundaries
 
-| In scope                                               | Requires explicit validation                                               |
-| ------------------------------------------------------ | -------------------------------------------------------------------------- |
-| KDE Plasma desktop with Qt Widgets and KDE Frameworks  | Supported distributions, Plasma versions, sessions and dependencies        |
-| IMAP and SMTP workflows; planned POP3 and JMAP support | Protocol and provider authentication, capabilities and storage differences |
-| Planned OAuth, consumer Outlook and Exchange accounts  | Provider consent, supported interfaces and administrator policies          |
-| Local cache and optional Maildir organization          | Cache retention, storage limits and migration behavior                     |
-| Plasma and KDE desktop services                        | Session, notification and service availability                             |
-| Accessibility, localization and keyboard workflows     | Screen-reader and scaled-display coverage                                  |
+| In scope                                                     | Requires explicit validation                                               |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| KDE Plasma desktop with Qt Widgets and KDE Frameworks        | Supported distributions, Plasma versions, sessions and dependencies        |
+| IMAP and SMTP workflows; planned POP3 and JMAP support       | Protocol and provider authentication, capabilities and storage differences |
+| OAuth sign-in; planned Microsoft and Exchange accounts (M13) | Provider consent, supported interfaces and administrator policies          |
+| Local cache and optional Maildir organization                | Cache retention, storage limits and migration behavior                     |
+| Plasma and KDE desktop services                              | Session, notification and service availability                             |
+| Accessibility, localization and keyboard workflows           | Screen-reader and scaled-display coverage                                  |
 
 ## Product principles
 
