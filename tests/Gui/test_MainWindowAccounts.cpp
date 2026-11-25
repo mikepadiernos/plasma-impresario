@@ -10,7 +10,9 @@
 #include "Gui/MsgListView.h"
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
+#include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/Model.h"
+#include "Imap/Model/PrettyMsgListModel.h"
 #include "Plugins/PasswordPlugin.h"
 #include "Plugins/PluginManager.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
@@ -28,10 +30,12 @@
 #include <QDialog>
 #include <QFile>
 #include <QFileInfo>
+#include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
 #include <QSettings>
 #include <QSignalSpy>
+#include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -527,6 +531,188 @@ private slots:
         window.findChild<QAction *>(QStringLiteral("action_move_to_folder"))->trigger();
         QVERIFY(QMetaObject::invokeMethod(&window, "slotMoveToFolder"));
         QVERIFY(!window.findChild<QDialog *>(QStringLiteral("moveToFolderDialog")));
+    }
+
+    void messageListFiltersOffline()
+    {
+        using Imap::Mailbox::PrettyMsgListModel;
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        // The former global "hide read messages" preference seeds accounts without their own filters
+        settings.setValue(Common::SettingsNames::guiMsgListHideRead, true);
+        Gui::MainWindow window(&settings);
+
+        auto action = [&window](const QString &name) {
+            return window.findChild<QAction *>(name);
+        };
+        auto model = [&window]() {
+            return window.findChild<PrettyMsgListModel *>(QStringLiteral("prettyMsgListModel"));
+        };
+        const QStringList filterNames{QStringLiteral("messageListFilterUnread"), QStringLiteral("messageListFilterFlagged"),
+                                      QStringLiteral("messageListFilterAttachments")};
+        for (const QString &name : filterNames + QStringList{QStringLiteral("messageListClearFilters")}) {
+            QVERIFY2(action(name), qPrintable(name));
+            auto *button = window.findChild<QToolButton *>(name + QLatin1String("Button"));
+            QVERIFY2(button, qPrintable(name));
+            QCOMPARE(button->defaultAction(), action(name));
+            QVERIFY2(!button->accessibleName().isEmpty(), qPrintable(name));
+            QVERIFY2(!button->toolTip().isEmpty(), qPrintable(name));
+        }
+        for (const QString &name : filterNames)
+            QVERIFY2(action(name)->isCheckable(), qPrintable(name));
+
+        auto *filterMenu = window.findChild<QMenu *>(QStringLiteral("messageListFilterMenu"));
+        QVERIFY(filterMenu);
+        for (const QString &name : filterNames + QStringList{QStringLiteral("messageListClearFilters")})
+            QVERIFY2(filterMenu->actions().contains(action(name)), qPrintable(name));
+
+        auto *sortButton = window.findChild<QToolButton *>(QStringLiteral("messageListSortButton"));
+        QVERIFY(sortButton);
+        QCOMPARE(sortButton->menu(), window.findChild<QMenu *>(QStringLiteral("sortMenu")));
+        QVERIFY(!sortButton->toolTip().isEmpty());
+        QVERIFY(!sortButton->accessibleName().isEmpty());
+
+        // Selection shortcuts only apply to the message list, and no shortcut is used twice
+        auto *tree = window.findChild<Gui::MessageListWidget *>()->tree;
+        auto *selectAll = action(QStringLiteral("action_select_all_messages"));
+        QVERIFY(selectAll);
+        QCOMPARE(selectAll->shortcut(), QKeySequence(QKeySequence::SelectAll));
+        for (const QString &name : {QStringLiteral("action_select_all_messages"), QStringLiteral("action_select_thread"),
+                                    QStringLiteral("action_invert_selection"), QStringLiteral("action_deselect_messages")}) {
+            QVERIFY2(action(name), qPrintable(name));
+            QCOMPARE(action(name)->shortcutContext(), Qt::WidgetWithChildrenShortcut);
+            QVERIFY2(tree->actions().contains(action(name)), qPrintable(name));
+        }
+        QHash<QString, QString> owners;
+        for (QAction *candidate : window.findChildren<QAction *>()) {
+            for (const QKeySequence &shortcut : candidate->shortcuts()) {
+                const QString key = shortcut.toString(QKeySequence::PortableText);
+                if (key.isEmpty() || candidate->objectName().isEmpty())
+                    continue;
+                const QString owner = owners.value(key);
+                QVERIFY2(owner.isEmpty() || owner == candidate->objectName(),
+                         qPrintable(key + QLatin1String(": ") + owner + QLatin1String(", ") + candidate->objectName()));
+                owners.insert(key, candidate->objectName());
+            }
+        }
+
+        // The legacy preference applies, and "Hide Read Messages" is the Unread filter
+        auto *hideRead = action(QStringLiteral("hideReadMessages"));
+        auto *clearButton = window.findChild<QToolButton *>(QStringLiteral("messageListClearFiltersButton"));
+        QVERIFY(hideRead);
+        QCOMPARE(model()->filters(), PrettyMsgListModel::Filters(PrettyMsgListModel::FilterUnread));
+        QVERIFY(hideRead->isChecked());
+        QVERIFY(action(QStringLiteral("messageListFilterUnread"))->isChecked());
+        QVERIFY(!clearButton->isHidden());
+        QVERIFY(action(QStringLiteral("messageListClearFilters"))->isEnabled());
+
+        action(QStringLiteral("messageListFilterFlagged"))->trigger();
+        QCOMPARE(model()->filters(), PrettyMsgListModel::FilterUnread | PrettyMsgListModel::FilterFlagged);
+        hideRead->trigger();
+        QCOMPARE(model()->filters(), PrettyMsgListModel::Filters(PrettyMsgListModel::FilterFlagged));
+        QVERIFY(!action(QStringLiteral("messageListFilterUnread"))->isChecked());
+        action(QStringLiteral("messageListFilterUnread"))->trigger();
+        QVERIFY(hideRead->isChecked());
+        action(QStringLiteral("messageListFilterAttachments"))->trigger();
+        const auto all = PrettyMsgListModel::FilterUnread | PrettyMsgListModel::FilterFlagged | PrettyMsgListModel::FilterAttachments;
+        QCOMPARE(model()->filters(), all);
+        QCOMPARE(window.accountSettings()->value(Common::SettingsNames::guiMsgListFilterUnread).toBool(), true);
+        QCOMPARE(window.accountSettings()->value(Common::SettingsNames::guiMsgListFilterFlagged).toBool(), true);
+        QCOMPARE(window.accountSettings()->value(Common::SettingsNames::guiMsgListFilterAttachments).toBool(), true);
+        for (const QString &key : {Common::SettingsNames::guiMsgListFilterUnread, Common::SettingsNames::guiMsgListFilterFlagged,
+                                   Common::SettingsNames::guiMsgListFilterAttachments})
+            QVERIFY2(!settings.contains(key), qPrintable(key));
+        QCOMPARE(settings.value(Common::SettingsNames::guiMsgListHideRead).toBool(), true);
+
+        // The other account keeps its own filters
+        const QString firstAccount = window.imapAccess()->credentialAccountId();
+        auto *nextAccount = action(QStringLiteral("action_next_account"));
+        nextAccount->trigger();
+        QCOMPARE(window.imapAccess()->credentialAccountId(), QStringLiteral("account-2"));
+        QCOMPARE(model()->filters(), PrettyMsgListModel::Filters(PrettyMsgListModel::FilterUnread));
+        QVERIFY(!action(QStringLiteral("messageListFilterFlagged"))->isChecked());
+        QVERIFY(!action(QStringLiteral("messageListFilterAttachments"))->isChecked());
+        action(QStringLiteral("messageListClearFilters"))->trigger();
+        QCOMPARE(model()->filters(), PrettyMsgListModel::Filters(PrettyMsgListModel::NoFilter));
+        for (const QString &name : filterNames)
+            QVERIFY2(!action(name)->isChecked(), qPrintable(name));
+        QVERIFY(!hideRead->isChecked());
+        QVERIFY(clearButton->isHidden());
+        QVERIFY(!action(QStringLiteral("messageListClearFilters"))->isEnabled());
+        QCOMPARE(window.accountSettings()->value(Common::SettingsNames::guiMsgListFilterUnread, true).toBool(), false);
+
+        nextAccount->trigger();
+        QCOMPARE(window.imapAccess()->credentialAccountId(), firstAccount);
+        QCOMPARE(model()->filters(), all);
+        QVERIFY(!clearButton->isHidden());
+        for (const QString &name : filterNames)
+            QVERIFY2(action(name)->isChecked(), qPrintable(name));
+        action(QStringLiteral("messageListClearFilters"))->trigger();
+        QCOMPARE(model()->filters(), PrettyMsgListModel::Filters(PrettyMsgListModel::NoFilter));
+        QVERIFY(!hideRead->isChecked());
+        nextAccount->trigger();
+        QCOMPARE(model()->filters(), PrettyMsgListModel::Filters(PrettyMsgListModel::NoFilter));
+        nextAccount->trigger();
+        QCOMPARE(model()->filters(), PrettyMsgListModel::Filters(PrettyMsgListModel::NoFilter));
+
+        // Selection commands on a small threaded list: [1 [2, 3]], 4
+        QStandardItemModel messages;
+        auto message = [](uint uid) {
+            auto *item = new QStandardItem(QString::number(uid));
+            item->setData(uid, Imap::Mailbox::RoleMessageUid);
+            return item;
+        };
+        QStandardItem *root = message(1);
+        root->appendRow(message(2));
+        root->appendRow(message(3));
+        messages.appendRow(root);
+        messages.appendRow(message(4));
+        tree->setModel(&messages);
+        tree->expandAll();
+        auto *status = window.findChild<QLabel *>(QStringLiteral("messageListStatus"));
+        QVERIFY(status);
+        auto refreshStatus = [&window]() {
+            return QMetaObject::invokeMethod(&window, "updateMessageListStatus");
+        };
+
+        tree->setCurrentIndex(messages.index(1, 0, messages.index(0, 0)));
+        QVERIFY(QMetaObject::invokeMethod(&window, "slotSelectThread"));
+        QVERIFY(refreshStatus());
+        QCOMPARE(status->text(), QStringLiteral("3 selected"));
+        QVERIFY(!status->isHidden());
+
+        action(QStringLiteral("action_invert_selection"))->trigger();
+        QCOMPARE(tree->selectionModel()->selectedRows().size(), 1);
+        QCOMPARE(tree->selectionModel()->selectedRows().constFirst(), messages.index(1, 0));
+        QVERIFY(refreshStatus());
+        QVERIFY(status->text().isEmpty());
+        QVERIFY(status->isHidden());
+
+        selectAll->trigger();
+        QCOMPARE(tree->selectionModel()->selectedRows().size(), 4);
+        QVERIFY(refreshStatus());
+        QCOMPARE(status->text(), QStringLiteral("4 selected"));
+
+        action(QStringLiteral("action_deselect_messages"))->trigger();
+        QVERIFY(!tree->selectionModel()->hasSelection());
+        QVERIFY(refreshStatus());
+        QVERIFY(status->isHidden());
+
+        // A collapsed thread is selected as a whole without listing its hidden rows twice
+        tree->collapseAll();
+        tree->setCurrentIndex(messages.index(0, 0));
+        QVERIFY(QMetaObject::invokeMethod(&window, "slotSelectThread"));
+        QVERIFY(refreshStatus());
+        QCOMPARE(status->text(), QStringLiteral("3 selected"));
+        action(QStringLiteral("action_invert_selection"))->trigger();
+        QCOMPARE(tree->selectionModel()->selectedRows(), QModelIndexList{messages.index(1, 0)});
+        action(QStringLiteral("action_invert_selection"))->trigger();
+        QCOMPARE(tree->selectionModel()->selectedRows(), QModelIndexList{messages.index(0, 0)});
+        QVERIFY(refreshStatus());
+        QCOMPARE(status->text(), QStringLiteral("3 selected"));
+        tree->setModel(nullptr);
     }
 };
 
