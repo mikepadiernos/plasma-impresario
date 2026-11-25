@@ -24,6 +24,7 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned · ✅ resolved
   - [Related messages and message details panels](#related-messages-and-message-details-panels)
   - [Message security](#message-security)
   - [Reading privacy](#reading-privacy)
+  - [Loading on demand](#loading-on-demand)
   - [OAuth sign-in](#oauth-sign-in)
   - [Mail operations](#mail-operations)
 - [Before reporting results](#before-reporting-results)
@@ -41,6 +42,7 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned · ✅ resolved
 | ⚠️ Mail operations   | Special folders need server attributes or English names, Go to Folder and related searches use loaded data only, and Undo after a move needs server COPYUID support ([details](#mail-operations))                  |
 | ⚠️ OAuth sign-in     | Microsoft uses the `common` tenant only and cannot revoke grants from the app, IMAP and SMTP refresh tokens independently, and switching provider replaces a grant without revoking it ([details](#oauth-sign-in)) |
 | ⚠️ Reading privacy   | Link warnings are heuristic and remote content consent applies to the open message only ([details](#reading-privacy))                                                                                              |
+| ⚠️ Loading on demand | Parts that failed after a server error load again only on Try Again; the unavailable-message page is not verified live ([details](#loading-on-demand))                                                             |
 | ⚠️ Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                             |
 | 🔒 Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings`                                                     |
 | 🔒 Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used                                                                                                                            |
@@ -186,6 +188,39 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
   revoke it (M14.07).
 - 📋 Show the target in the status bar as well, for links whose text is not an
   address.
+
+### Loading on demand
+
+| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                                      |
+| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| [#444](https://github.com/mikepadiernos/plasma-impresario/issues/444) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/444#issuecomment-7175640115) | Messages and parts the reader cannot load (#94) |
+
+**Current behavior:**
+
+- ✅ Parts that cannot be loaded are reported in an error bar above the
+  message instead of a blank or a Chromium error page. Offline, they load on
+  their own when the network returns (#94).
+- ⚠️ After a server error, a part loads again only on **Try Again** or when the
+  message is reopened.
+- ⚠️ The page for a message whose structure cannot be fetched is covered by
+  code review only; the message list fetches the structure first, so no live
+  scenario reaches it yet.
+- ⚠️ Saving an attachment that cannot be downloaded, for example offline, still
+  reports the failure in a dialog.
+
+**Workarounds:**
+
+- Offline, go online to load the missing parts.
+- After a server error, use **Try Again** in the bar, or reopen the message.
+- To read a folder offline, enable offline caching for the account and open its
+  messages while online.
+
+**Proposed improvements:**
+
+- 📋 Retry a failed part once on its own after a short delay before asking.
+- 📋 Report failed attachment downloads in the attachments panel.
+- 📋 Cover the unavailable page and online refusals with a synthetic server
+  that refuses FETCH.
 
 ### OAuth sign-in
 

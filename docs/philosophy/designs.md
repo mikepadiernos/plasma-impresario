@@ -23,6 +23,7 @@ Legend: ![Done][done] · ![Needs verification][needs-verification] ·
   - [Reader colors](#reader-colors)
   - [Search highlighting](#search-highlighting)
   - [Remote content and links](#remote-content-and-links)
+  - [Loading and unavailable content](#loading-and-unavailable-content)
   - [Status bar](#status-bar)
 - [Proposed Plasma Impresario shell](#proposed-plasma-impresario-shell)
   - [Panes and placement](#panes-and-placement)
@@ -548,6 +549,28 @@ address. **Cancel** is the default. Other links open without asking; their
 target is shown in a tooltip on hover. Scripts stay disabled throughout; the
 link text is read from an isolated script. See
 [caveats](../CAVEATS.md#reading-privacy).
+
+### Loading and unavailable content
+
+The reader fetches a message's parts when it shows them. Parts which are not
+downloaded and cannot be fetched are reported in the reader rather than left
+blank:
+
+- Offline, an error bar above the message says that part of the message is not
+  available offline and loads when the network is back. It does so on its own.
+- When the server does not send a part, the bar says that it could not be
+  loaded and offers **Try Again**.
+- When the message's structure itself cannot be fetched, the reader shows a
+  page saying that the message is not available offline, or could not be
+  loaded, with **Try Again** when online. Before this, the reader waited
+  without end.
+- Chromium's own error page is turned off; the bar is the only report.
+- Saving an attachment that cannot be downloaded or written reports
+  **Could Not Save File** with the reason.
+
+On an expensive connection, large parts still wait behind a **Load** button
+with their type and size. See
+[caveats](../CAVEATS.md#loading-on-demand).
 
 ### Status bar
 

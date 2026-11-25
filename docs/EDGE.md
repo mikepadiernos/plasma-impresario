@@ -47,6 +47,10 @@ Legend: ![Verified][verified] against a synthetic live IMAP server ·
 | Reading privacy  | Link text reaches the confirmation from an isolated script; message scripts stay disabled                              | ![Offscreen tests][offscreen] `test_WebEngineMessageProfile`                            |
 | Reading privacy  | Blocked remote image names its server; a deceptive link asks and Cancel keeps it closed; consent ends with the message | ![Verified][verified] `test_LiveImapPanels`                                             |
 | Reading privacy  | Links activated from the keyboard, and links in attached messages                                                      | ![Not validated][not-validated]                                                         |
+| Load on demand   | Retrying a part after the server refused it fetches it again                                                           | ![Offscreen tests][offscreen] `test_Imap_BodyParts`                                     |
+| Load on demand   | A body never downloaded is reported offline and loads on its own when the network returns                              | ![Verified][verified] `test_LiveImapPanels`                                             |
+| Load on demand   | A message whose structure cannot be fetched shows the unavailable page and Try Again                                   | ![Not validated][not-validated] The list always fetches the structure first             |
+| Load on demand   | A server that refuses a part while online, and a connection lost while a part loads                                    | ![Not validated][not-validated]                                                         |
 
 ### Message security
 
