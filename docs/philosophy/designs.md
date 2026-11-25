@@ -27,6 +27,7 @@ planned · ⚠️ limitation
   - [Toolbars and customization](#toolbars-and-customization)
   - [Themes and appearance](#themes-and-appearance)
   - [Message list presentation](#message-list-presentation)
+  - [Aqua Mail-inspired desktop customization](#aqua-mail-inspired-desktop-customization)
 - [Proposed interface widgets](#proposed-interface-widgets)
 - [Interaction and accessibility](#interaction-and-accessibility)
 - [Layout recommendations](#layout-recommendations)
@@ -409,6 +410,52 @@ Optional message preview...
 See Aqua Mail's
 [customization reference](https://www.aqua-mail.com/android/features/customizations).
 These are proposed Impresario behaviors, not claims about the current client.
+
+### Aqua Mail-inspired desktop customization
+
+> [!NOTE]
+>
+> Planned for M08
+> ([#114](https://github.com/mikepadiernos/plasma-impresario/issues/114)). Today
+> row density, per-account identities and plain-text identity signatures are
+> available; the other options below are not implemented.
+
+Aqua Mail's customization patterns are adapted to the Plasma desktop rather
+than copied from its mobile interface:
+
+- **Reading and lists:** Per-surface text sizing, list density, optional preview
+  text and contact images, and optional date grouping. Folder color indicators
+  never serve as the only identifier. Options follow the active Plasma theme,
+  display scaling and accessibility settings.
+- **Actions and navigation:** Message actions are arranged in the shared
+  [customization mode](#toolbars-and-customization), with configurable keyboard
+  shortcuts. Touch-capable devices can enable configurable gestures that do not
+  replace mouse or keyboard actions or interfere with normal scrolling.
+- **Accounts and composition:** Building on per-account identities and
+  plain-text signatures, rich-text signatures are offered where supported, and
+  the composer shows which account and identity will be used before sending.
+- **Notifications and sync:** Per-account and per-folder notification
+  preferences, quiet periods and privacy-conscious previews respect Plasma Do
+  Not Disturb. Account sync schedules and loading preferences are offered where
+  the service supports them, with clear offline and failure states.
+- **Desktop widgets:** The separate
+  [Plasma widgets](../integrations/kde-plasma.md#plasma-widgets) stay optional,
+  with configurable account and folder scope, presentation and privacy.
+
+Defaults are sensible and inherited account or folder settings are explained.
+Preferences are saved through KConfig, only options backed by available features
+are shown, and choices persist across restarts. Message content is never
+preloaded, remote contact images are never fetched and content is never sent to
+external services without the appropriate privacy choice.
+
+References: Aqua Mail's
+[customization page](https://www.aqua-mail.com/android/features/customizations),
+[font-size controls](https://aquamail.freshdesk.com/support/solutions/articles/77000519559-how-do-i-adjust-font-size-),
+[account signatures](https://aquamail.freshdesk.com/support/solutions/articles/77000519349-account-signature),
+[core functions](https://aquamail.freshdesk.com/support/solutions/articles/77000519534-aqua-mail-s-core-functions)
+and
+[action arrangement](https://www.aqua-mail.com/blog/unlocking-efficiency-rearrange-action-icons-in-aqua-mail-message-view).
+These are design targets, not claims of feature parity or implementation.
 
 ## Proposed interface widgets
 
