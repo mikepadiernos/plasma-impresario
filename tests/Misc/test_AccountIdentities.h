@@ -18,6 +18,8 @@ private slots:
     void migrationKeepsExistingOwnIdentities();
     void migrationRunsOnlyOnce();
     void migrationLeavesSharedIdentitiesUnchanged();
+    void loginAddressIsAPlainEmailAddress();
+    void loginAddressIsAPlainEmailAddress_data();
 };
 
 #endif

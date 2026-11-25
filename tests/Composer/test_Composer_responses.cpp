@@ -298,6 +298,43 @@ QPair<Composer::RecipientKind, Imap::Message::MailAddress> mailBcc(const char * 
     return qMakePair(Composer::ADDRESS_BCC, mail(addr));
 }
 
+/** @short An account without identities still leaves out its login address in Reply to All but Me */
+void ComposerResponsesTest::testReplyAllButMeExcludesOtherOwnAddresses()
+{
+    using Imap::Message::MailAddress;
+    const auto address = [](const QString &mailbox) {
+        return MailAddress(QString(), QString(), mailbox, QStringLiteral("example.test"));
+    };
+    Composer::RecipientList original;
+    original << qMakePair(Composer::ADDRESS_FROM, address(QStringLiteral("bob")))
+             << qMakePair(Composer::ADDRESS_TO, address(QStringLiteral("me")))
+             << qMakePair(Composer::ADDRESS_CC, address(QStringLiteral("carol")));
+    const QList<MailAddress> login { MailAddress::fromNameAndMail(QString(), QStringLiteral("Me@Example.test")) };
+    Composer::SenderIdentitiesModel none;
+
+    Composer::RecipientList withoutLogin;
+    QVERIFY(Composer::Util::replyRecipientList(Composer::REPLY_ALL_BUT_ME, &none, original, {}, false, withoutLogin));
+    QVERIFY(Composer::Util::extractEmailAddresses(withoutLogin).contains(address(QStringLiteral("me"))));
+
+    Composer::RecipientList res;
+    QVERIFY(Composer::Util::replyRecipientList(Composer::REPLY_ALL_BUT_ME, &none, original, {}, false, res, login));
+    Composer::RecipientList expected;
+    expected << qMakePair(Composer::ADDRESS_TO, address(QStringLiteral("bob")))
+             << qMakePair(Composer::ADDRESS_CC, address(QStringLiteral("carol")));
+    QCOMPARE(res, expected);
+
+    // Reply to All is unchanged by the other own addresses.
+    Composer::RecipientList all;
+    QVERIFY(Composer::Util::replyRecipientList(Composer::REPLY_ALL, &none, original, {}, false, all, login));
+    QVERIFY(Composer::Util::extractEmailAddresses(all).contains(address(QStringLiteral("me"))));
+
+    // When only our own address remains, there is nobody to reply to.
+    Composer::RecipientList self;
+    self << qMakePair(Composer::ADDRESS_FROM, address(QStringLiteral("me")));
+    Composer::RecipientList nobody;
+    QVERIFY(!Composer::Util::replyRecipientList(Composer::REPLY_ALL_BUT_ME, &none, self, {}, false, nobody, login));
+}
+
 void ComposerResponsesTest::testResponseAddresses_data()
 {
     using namespace Composer;
