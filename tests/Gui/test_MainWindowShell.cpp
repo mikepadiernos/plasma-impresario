@@ -25,6 +25,7 @@
 #include <KSharedConfig>
 #include <QAction>
 #include <QApplication>
+#include <QScreen>
 #include <QMenu>
 #include <QMenuBar>
 #include <QSettings>
@@ -40,6 +41,7 @@
 #include <QTest>
 #include <QTimer>
 #include <QToolButton>
+#include <algorithm>
 #include <functional>
 #include <QTreeView>
 #include <QVBoxLayout>
@@ -130,6 +132,50 @@ registry(const QTemporaryDir &directory, QSettings &index) {
         return std::make_unique<QSettings>(
             prefix + accountId + QStringLiteral(".conf"), QSettings::IniFormat);
       });
+}
+
+/** A splitter state as saved by the builds before the shell */
+QByteArray legacySplitterState(Qt::Orientation orientation,
+                               const QList<int> &sizes) {
+  QSplitter splitter(orientation);
+  int extent = splitter.handleWidth() * (int(sizes.size()) - 1);
+  for (int size : sizes) {
+    splitter.addWidget(new QWidget);
+    extent += size;
+  }
+  splitter.resize(orientation == Qt::Horizontal ? QSize(extent, 400)
+                                                : QSize(400, extent));
+  splitter.show();
+  if (!QTest::qWaitForWindowExposed(&splitter))
+    return {};
+  splitter.setSizes(sizes);
+  return splitter.saveState();
+}
+
+/** Main settings for one offline account, with pane sizes of an older build
+ * in @p layoutKey's group */
+QString seedLegacyLayout(QSettings &settings, const QString &layoutKey,
+                         const QByteArray &outer, const QByteArray &inner,
+                         bool treeOnRight) {
+  configureOffline(settings, QStringLiteral("work.example.test"));
+  settings.setValue(Common::SettingsNames::guiShowSystray, false);
+  settings.setValue(Common::SettingsNames::settingsVersion, 2);
+  const QString group = layoutKey.arg(QString::number(
+      QGuiApplication::primaryScreen()->availableGeometry().width()));
+  settings.beginGroup(group);
+  settings.setValue(Common::SettingsNames::mainHSplitterState, outer);
+  if (!inner.isEmpty())
+    settings.setValue(Common::SettingsNames::mainVSplitterState, inner);
+  settings.setValue(QStringLiteral("mailboxSidebarOnRight"), treeOnRight);
+  settings.endGroup();
+  return group;
+}
+
+void verifyLegacyKeysRemoved(QSettings &settings, const QString &group) {
+  settings.beginGroup(group);
+  QVERIFY(!settings.contains(Common::SettingsNames::mainHSplitterState));
+  QVERIFY(!settings.contains(Common::SettingsNames::mainVSplitterState));
+  settings.endGroup();
 }
 
 } // namespace
@@ -503,6 +549,77 @@ private slots:
     config->reparseConfiguration();
     QVERIFY(!KConfigGroup(config, QStringLiteral("Appearance"))
                  .readEntry("ShowHeader", true));
+  }
+
+  void legacyCompactPaneSizesCarryOver() {
+    const QByteArray outer = legacySplitterState(Qt::Horizontal, {220, 780});
+    const QByteArray inner = legacySplitterState(Qt::Vertical, {100, 500});
+    QVERIFY(!outer.isEmpty() && !inner.isEmpty());
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                       QSettings::IniFormat);
+    const QString group = seedLegacyLayout(
+        settings, Common::SettingsNames::guiSizesInMainWinWhenCompact, outer,
+        inner, false);
+
+    Gui::MainWindow window(&settings);
+    window.resize(1000, 700);
+    window.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&window));
+    auto *row = window.findChild<QSplitter *>(QStringLiteral("shellRow"));
+    auto *mainColumn =
+        window.findChild<QSplitter *>(QStringLiteral("shellMainColumn"));
+    QVERIFY(row && mainColumn);
+    QCOMPARE(mainColumn->orientation(), Qt::Vertical);
+    QTRY_VERIFY2(qAbs(row->sizes().first() - 220) <= 2,
+                 qPrintable(QString::number(row->sizes().first())));
+    // The message list keeps about a sixth of the column
+    const QList<int> panes = mainColumn->sizes();
+    QCOMPARE(panes.size(), 2);
+    QVERIFY2(panes.at(1) > panes.at(0) * 3,
+             qPrintable(QStringLiteral("%1 and %2")
+                            .arg(panes.at(0))
+                            .arg(panes.at(1))));
+    verifyLegacyKeysRemoved(settings, group);
+  }
+
+  void legacyWidePaneSizesCarryOver() {
+    // The folder tree was on the right; the shell shows it on the left
+    const QByteArray outer =
+        legacySplitterState(Qt::Horizontal, {250, 550, 200});
+    QVERIFY(!outer.isEmpty());
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                       QSettings::IniFormat);
+    settings.setValue(Common::SettingsNames::guiMainWindowLayout,
+                      Common::SettingsNames::guiMainWindowLayoutWide);
+    const QString group = seedLegacyLayout(
+        settings, Common::SettingsNames::guiSizesInMainWinWhenWide, outer,
+        QByteArray(), true);
+
+    Gui::MainWindow window(&settings);
+    // Wide enough that the reader is not held at its minimum width
+    window.resize(1600, 700);
+    window.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&window));
+    auto *row = window.findChild<QSplitter *>(QStringLiteral("shellRow"));
+    auto *mainColumn =
+        window.findChild<QSplitter *>(QStringLiteral("shellMainColumn"));
+    auto *sidebar = window.findChild<Gui::AccountSidebar *>();
+    QVERIFY(row && mainColumn && sidebar);
+    QCOMPARE(sidebar->parentWidget()->objectName(),
+             QStringLiteral("shellLeftColumn"));
+    QCOMPARE(mainColumn->orientation(), Qt::Horizontal);
+    QTRY_VERIFY2(qAbs(row->sizes().first() - 200) <= 2,
+                 qPrintable(QString::number(row->sizes().first())));
+    // The message list and the reader keep their 5:11 split instead of halves
+    const QList<int> panes = mainColumn->sizes();
+    QCOMPARE(panes.size(), 2);
+    const double ratio = double(panes.at(0)) / std::max(1, panes.at(1));
+    QVERIFY2(ratio > 0.35 && ratio < 0.6, qPrintable(QString::number(ratio)));
+    verifyLegacyKeysRemoved(settings, group);
   }
 
   void headerShowsFolderAndStatus() {

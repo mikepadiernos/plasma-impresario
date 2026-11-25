@@ -30,19 +30,19 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned · ✅ resolved
 
 ## Current limitations
 
-| Area                 | Current constraint                                                                                                                                                                                                     |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ⚠️ Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete             |
-| ✅ Accounts          | One window holds several IMAP accounts, grouped by account in the folder sidebar; the limitations recorded for them are resolved ([details](#multiple-accounts))                                                       |
-| ⚠️ Embedded panels   | Related messages search only loaded messages in the current folder, message details show MIME-level security only, and pane sizes reset once after upgrading ([details](#related-messages-and-message-details-panels)) |
-| ⚠️ OAuth sign-in     | Microsoft uses the `common` tenant only and cannot revoke grants from the app, IMAP and SMTP refresh tokens independently, and switching provider replaces a grant without revoking it ([details](#oauth-sign-in))     |
-| ⚠️ Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                 |
-| 🔒 Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings`                                                         |
-| 🔒 Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used                                                                                                                                |
-| 🔒 Local data        | Persistent SQL cache stores message metadata and fetched parts; the application does not encrypt cache contents                                                                                                        |
-| 📋 Integrations      | Plasma new-mail notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                                                        |
-| ⚠️ Compatibility     | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                           |
-| ⚠️ Quality evidence  | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded                                                                                                        |
+| Area                 | Current constraint                                                                                                                                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ⚠️ Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete         |
+| ✅ Accounts          | One window holds several IMAP accounts, grouped by account in the folder sidebar; the limitations recorded for them are resolved ([details](#multiple-accounts))                                                   |
+| ⚠️ Embedded panels   | Related messages search only loaded messages in the current folder, and message details show MIME-level security only ([details](#related-messages-and-message-details-panels))                                    |
+| ⚠️ OAuth sign-in     | Microsoft uses the `common` tenant only and cannot revoke grants from the app, IMAP and SMTP refresh tokens independently, and switching provider replaces a grant without revoking it ([details](#oauth-sign-in)) |
+| ⚠️ Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                             |
+| 🔒 Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings`                                                     |
+| 🔒 Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used                                                                                                                            |
+| 🔒 Local data        | Persistent SQL cache stores message metadata and fetched parts; the application does not encrypt cache contents                                                                                                    |
+| 📋 Integrations      | Plasma new-mail notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                                                    |
+| ⚠️ Compatibility     | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                       |
+| ⚠️ Quality evidence  | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded                                                                                                    |
 
 ### Multiple accounts
 
@@ -82,9 +82,9 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
 
 ### Related messages and message details panels
 
-| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                                                     |
-| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| [#264](https://github.com/mikepadiernos/plasma-impresario/issues/264) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/264#issuecomment-7143646817) | Panels off by default; enable them from View › Embedded Panels |
+| Caveat issue                                                          | Board  | Recommendation                                                                                         | Applies to                                                     |
+| --------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| [#264](https://github.com/mikepadiernos/plasma-impresario/issues/264) | Review | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/264#issuecomment-7143646817) | Panels off by default; enable them from View › Embedded Panels |
 
 **Current behavior:**
 
@@ -96,15 +96,16 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
   MIME type (`multipart/signed`, `multipart/encrypted` or S/MIME). It does not
   detect inline PGP or show whether a signature is valid; the reader still
   verifies and decrypts.
-- ⚠️ The shell saves pane sizes under new keys, so saved pane sizes reset once
-  after upgrading from an earlier build.
+- ✅ Pane sizes saved by builds before the shell carry over the first time each
+  layout opens: the folder tree's width, on the side it was saved on, and the
+  split between the message list and the reader. Sizes the shell has saved
+  since then take precedence.
 
 **Workarounds:**
 
 - Use the search bar or open the other folder to find related mail that is not
   loaded.
 - Rely on the reader's security status for signature and decryption results.
-- Resize the panes once after upgrading; the new sizes are saved.
 
 **Proposed improvements:**
 
@@ -114,7 +115,6 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
 - 📋 Feed the details panel from the reader's verification result, including
   inline PGP (M04,
   [#303](https://github.com/mikepadiernos/plasma-impresario/issues/303)).
-- 📋 Migrating the old splitter sizes is optional before release.
 
 ### OAuth sign-in
 

@@ -120,19 +120,20 @@ Planned in [M13](ROADMAP.md#m13-microsoft-accounts-and-exchange); see the
 
 ### Interface and embedded panels
 
-| Area               | Scenario                                                                              | Coverage                                                 |
-| ------------------ | ------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| 🖥️ Interface       | Narrow windows, display scaling, RTL locales and high-contrast modes                  | 📋                                                       |
-| 🧭 Navigation      | <kbd>F6</kbd> focus cycling with hidden or collapsed panes                            | 📋                                                       |
-| 🧭 Navigation      | <kbd>F6</kbd> focus cycling with the header region shown                              | 🧪 `test_MainWindowShell`                                |
-| 🧩 Embedded panels | Swapping sidebar sides with panels in both columns                                    | 📋                                                       |
-| 🧩 Embedded panels | One-panel layout with side-column panels                                              | 📋                                                       |
-| 🧩 Embedded panels | Moving a hidden panel                                                                 | 📋                                                       |
-| 🧩 Embedded panels | Empty side columns or footer                                                          | 🧪 `test_MainWindowDensity`                              |
-| 🧩 Embedded panels | The message model destroyed while a panel shows a message                             | 🧪 `test_EmbeddedPanels`, `test_AttachmentPanel`         |
-| 🧩 Embedded panels | A message without a Reply-To header (IMAP reports the sender as Reply-To)             | ✅ `test_LiveImapPanels`; the duplicate contact is fixed |
-| 🧩 Embedded panels | A short window with several panels in one column                                      | 📋                                                       |
-| 🧩 Embedded panels | A panel dragged past two thirds of its column (capped when the region is next fitted) | 📋                                                       |
+| Area               | Scenario                                                                               | Coverage                                                 |
+| ------------------ | -------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| 🖥️ Interface       | Narrow windows, display scaling, RTL locales and high-contrast modes                   | 📋                                                       |
+| 🖥️ Interface       | Upgrading with pane sizes saved before the shell, including a folder tree on the right | 🧪 `test_MainWindowShell` (compact and wide layouts)     |
+| 🧭 Navigation      | <kbd>F6</kbd> focus cycling with hidden or collapsed panes                             | 📋                                                       |
+| 🧭 Navigation      | <kbd>F6</kbd> focus cycling with the header region shown                               | 🧪 `test_MainWindowShell`                                |
+| 🧩 Embedded panels | Swapping sidebar sides with panels in both columns                                     | 📋                                                       |
+| 🧩 Embedded panels | One-panel layout with side-column panels                                               | 📋                                                       |
+| 🧩 Embedded panels | Moving a hidden panel                                                                  | 📋                                                       |
+| 🧩 Embedded panels | Empty side columns or footer                                                           | 🧪 `test_MainWindowDensity`                              |
+| 🧩 Embedded panels | The message model destroyed while a panel shows a message                              | 🧪 `test_EmbeddedPanels`, `test_AttachmentPanel`         |
+| 🧩 Embedded panels | A message without a Reply-To header (IMAP reports the sender as Reply-To)              | ✅ `test_LiveImapPanels`; the duplicate contact is fixed |
+| 🧩 Embedded panels | A short window with several panels in one column                                       | 📋                                                       |
+| 🧩 Embedded panels | A panel dragged past two thirds of its column (capped when the region is next fitted)  | 📋                                                       |
 
 ## Validation checklist
 

@@ -371,6 +371,7 @@ private:
     QString layoutToString(const LayoutMode layout) const;
     void convertSizesAndStateSettings();
     void convertSizesAndStateSetting(const LayoutMode layout);
+    QList<int> migrateLegacyPaneSizes();
     QString settingsKeyForLayout(const LayoutMode layout);
 
     void createSysTray();
