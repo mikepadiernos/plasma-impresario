@@ -26,6 +26,7 @@
 #include <QMenu>
 #include <QSettings>
 #include <QStackedLayout>
+#include <QTimer>
 #include <QWebEngineFindTextResult>
 
 #include "Common/InvokeMethod.h"
@@ -151,7 +152,7 @@ void MessageView::unsetPreviousMessage()
 {
     clearWaitingConns();
     m_loadingItems.clear();
-    m_highlightFound = false;
+    m_highlightPart = nullptr;
     message = QModelIndex();
     markAsReadTimer->stop();
     if (auto w = bodyWidget()) {
@@ -477,8 +478,14 @@ void MessageView::onWebViewLoadFinished()
     if (m_loadingItems.isEmpty())
         m_loadingSpinner->stop();
 
-    auto view = qobject_cast<EmbeddedWebView *>(wv);
-    if (!view || m_highlightTerm.isEmpty() || m_highlightFound)
+    // A part which reloads, such as plain text getting its markup, is searched again
+    if (auto view = qobject_cast<EmbeddedWebView *>(wv))
+        findHighlightTerm(view, 3);
+}
+
+void MessageView::findHighlightTerm(EmbeddedWebView *view, int retries)
+{
+    if (m_highlightTerm.isEmpty() || (m_highlightPart && m_highlightPart != view))
         return;
     // Searching the rendered part is local; it never enables remote content
     const QString term = m_highlightTerm;
@@ -487,17 +494,25 @@ void MessageView::onWebViewLoadFinished()
     // A plain text part loads twice, the second time with its markup. Repeating a search for the same text
     // would continue the earlier one, which the reload has cancelled, so start afresh.
     view->findText(QString());
-    view->findText(term, {}, [self, part, term](const QWebEngineFindTextResult &result) {
-        if (!self || !part)
+    view->findText(term, {}, [self, part, term, retries](const QWebEngineFindTextResult &result) {
+        if (!self || !part || self->m_highlightTerm != term)
             return;
-        if (result.numberOfMatches() == 0)
+        if (result.numberOfMatches() == 0) {
+            // A search which overlaps a reload is cancelled and reports no matches, so try again shortly
+            if (retries > 0) {
+                QTimer::singleShot(200, part, [self, part, retries]() {
+                    if (self && part)
+                        self->findHighlightTerm(part, retries - 1);
+                });
+            }
             return;
-        if (self->m_highlightFound || self->m_highlightTerm != term) {
-            // Another part was first, or the search has changed meanwhile
+        }
+        if (self->m_highlightPart && self->m_highlightPart != part) {
+            // Another part of this message was first
             part->findText(QString());
             return;
         }
-        self->m_highlightFound = true;
+        self->m_highlightPart = part;
         emit self->highlightTermFound(part, term);
     });
 }

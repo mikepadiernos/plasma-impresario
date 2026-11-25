@@ -138,6 +138,7 @@ private:
     AbstractPartWidget *bodyWidget() const;
     void unsetPreviousMessage();
     void clearWaitingConns();
+    void findHighlightTerm(EmbeddedWebView *view, int retries);
 
     QStackedLayout *m_stack;
     QWidget *m_homePage;
@@ -164,8 +165,8 @@ private:
     TagHandler m_taghandler;
     QSet<QWebEngineView*> m_loadingItems;
     QString m_highlightTerm;
-    /** Whether a part of the current message has been reported through highlightTermFound() */
-    bool m_highlightFound = false;
+    /** The part of the current message which has been reported through highlightTermFound() */
+    QPointer<EmbeddedWebView> m_highlightPart;
 
     std::vector<QMetaObject::Connection> m_waitingMessageConns;
 
