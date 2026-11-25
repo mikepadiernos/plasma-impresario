@@ -15,6 +15,7 @@ public:
 
     /** Set whether rows use comfortable spacing. */
     void setComfortable(bool comfortable);
+    bool isComfortable() const { return m_comfortable; }
     QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;
 
 private:

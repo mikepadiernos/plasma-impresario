@@ -42,6 +42,10 @@ public:
     explicit ColoredItemDelegate(QObject* parent);
     void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override;
     void paintWithForeground(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index, const QColor &itemForegroundColor) const;
+
+protected:
+    /** @short Use @arg itemForegroundColor for the selection, keeping the selected text readable */
+    static void applyForegroundToSelection(QStyleOptionViewItem &option, const QColor &itemForegroundColor);
 };
 
 }

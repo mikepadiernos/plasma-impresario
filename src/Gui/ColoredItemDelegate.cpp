@@ -38,6 +38,12 @@ void ColoredItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &o
 void ColoredItemDelegate::paintWithForeground(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index, const QColor &itemForegroundColor) const
 {
     QStyleOptionViewItem viewOption(option);
+    applyForegroundToSelection(viewOption, itemForegroundColor);
+    QStyledItemDelegate::paint(painter, viewOption, index);
+}
+
+void ColoredItemDelegate::applyForegroundToSelection(QStyleOptionViewItem &viewOption, const QColor &itemForegroundColor)
+{
     if (itemForegroundColor.isValid()) {
         // Thunderbird works like this and we like it
         viewOption.palette.setColor(QPalette::ColorGroup::Active, QPalette::Highlight, itemForegroundColor);
@@ -56,7 +62,6 @@ void ColoredItemDelegate::paintWithForeground(QPainter *painter, const QStyleOpt
 
         viewOption.palette.setColor(QPalette::ColorGroup::Inactive, QPalette::HighlightedText, itemForegroundColor);
     }
-    QStyledItemDelegate::paint(painter, viewOption, index);
 }
 
 }
