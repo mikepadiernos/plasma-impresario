@@ -31,12 +31,15 @@ Legend: ![Verified][verified] against a synthetic live IMAP server ·
 
 ### Message content and attachments
 
-| Area            | Scenario                                                            | Coverage                                                               |
-| --------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Message content | Malformed MIME, missing bodies, invalid dates and unusual encodings | ![Not validated][not-validated]                                        |
-| Attachments     | Large files, missing downloads and unsafe types                     | ![Not validated][not-validated]                                        |
-| Attachments     | Related parts with a `start` parameter                              | ![Limitation][limitation] The attachments panel assumes the first part |
-| Attachments     | Opened files kept in the temp folder                                | ![Not validated][not-validated]                                        |
+| Area            | Scenario                                                                                                  | Coverage                                                                                |
+| --------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Message content | Malformed MIME, missing bodies, invalid dates and unusual encodings                                       | ![Not validated][not-validated]                                                         |
+| Attachments     | Large files, missing downloads and unsafe types                                                           | ![Not validated][not-validated]                                                         |
+| Attachments     | Related parts with a `start` parameter                                                                    | ![Limitation][limitation] The attachments panel assumes the first part                  |
+| Attachments     | Opened files kept in the temp folder                                                                      | ![Not validated][not-validated]                                                         |
+| Reader colors   | Plain text, HTML with and without its own background, and forced black on white in dark and light schemes | ![Offscreen tests][offscreen] `test_WebEngineMessageProfile`; message scripts never run |
+| Reader colors   | HTML that sets only a light text color on the body, or dark backgrounds only on inner tables              | ![Not validated][not-validated] Shown on a white page in a dark scheme                  |
+| Reader colors   | Switching the Plasma color scheme with a message open                                                     | ![Not validated][not-validated] M15                                                     |
 
 ### Message security
 

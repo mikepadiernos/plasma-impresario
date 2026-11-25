@@ -20,6 +20,7 @@ Legend: ![Done][done] · ![Needs verification][needs-verification] ·
   - [Layouts and regions](#layouts-and-regions)
   - [Current embedded panels](#current-embedded-panels)
   - [Mail operations](#mail-operations)
+  - [Reader colors](#reader-colors)
   - [Status bar](#status-bar)
 - [Proposed Plasma Impresario shell](#proposed-plasma-impresario-shell)
   - [Panes and placement](#panes-and-placement)
@@ -490,6 +491,22 @@ the panels it changed; its state is kept across restarts.
 its current shortcut, grouped by menu, then Message List, Message Reader,
 General and Other Windows. It is read-only; its **Configure Shortcuts…** button
 opens the shortcut settings, and the list shows the changes afterwards.
+
+### Reader colors
+
+The reader follows the active color scheme without changing the message:
+
+- **Plain text** uses the scheme's background, text and link colors.
+- **HTML that sets a background of its own** (a `background` or `bgcolor` on
+  the page or its body) keeps all its colors.
+- **Other HTML** is written for white paper, so in a dark scheme it is shown on
+  a white page with black default text; in a light scheme it uses the scheme's
+  colors. Colors the message sets for any element still win.
+
+The reader's **Color scheme** context menu can still force black on white.
+Colors are applied from an isolated script that only adds a stylesheet; message
+scripts stay disabled and no remote content is loaded for it. A changed color
+scheme applies to open messages at once.
 
 ### Status bar
 
