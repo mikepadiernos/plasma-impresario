@@ -93,6 +93,7 @@ class MSAFactory;
 namespace Gui
 {
 
+class CapabilityActionGate;
 class AttachmentPanel;
 class ContactPanel;
 class EmbeddedPanel;
@@ -417,6 +418,8 @@ private:
     QHash<EmbeddedPanel *, int> m_panelExtents;
     /** Panel regions which still have to be fitted once they are laid out */
     QSet<QSplitter *> m_panelRegionsPending;
+    /** Hides the actions which the active account's protocol does not support */
+    CapabilityActionGate *m_capabilityGate = nullptr;
 
     ProtocolLoggerWidget *protocolLogger;
     QDockWidget *protocolLoggerDock;

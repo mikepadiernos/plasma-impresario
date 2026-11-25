@@ -393,6 +393,7 @@ endif()
 set(path_DesktopGui ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui)
 set(libDesktopGui_SOURCES
     ${path_DesktopGui}/AttachmentPanel.cpp
+    ${path_DesktopGui}/CapabilityActionGate.cpp
     ${path_DesktopGui}/ContactPanel.cpp
     ${path_DesktopGui}/ColoredItemDelegate.cpp
     ${path_DesktopGui}/ComposeWidget.cpp

@@ -134,7 +134,9 @@
 #include "UiUtils/IconLoader.h"
 #include "UiUtils/QaimDfsIterator.h"
 
+#include "Imap/Model/AccountCapabilities.h"
 #include "OAuth/OAuth.h"
+#include "CapabilityActionGate.h"
 
 /** @short All user-facing widgets and related classes */
 namespace Gui
@@ -1806,6 +1808,18 @@ void MainWindow::refreshAccountSwitcher()
         }
     }
     m_accountSwitcher->setCurrentIndex(m_accountSwitcher->findData(m_accounts->activeAccount()));
+
+    if (!m_capabilityGate) {
+        // The first refresh comes after the actions are created
+        m_capabilityGate = new CapabilityActionGate(this);
+        for (QAction *action : {reloadMboxList, createChildMailbox, createTopMailbox, deleteCurrentMailbox,
+                                m_actionSubscribeMailbox, m_actionShowOnlySubscribed})
+            m_capabilityGate->addAction(action, Imap::AccountOperation::ServerFolders);
+        for (QAction *action : {markAsJunk, markAsNotJunk, tag1, tag2, tag3, tag4, tag5, tag6, tag7, tag8, tag9})
+            m_capabilityGate->addAction(action, Imap::AccountOperation::ServerSideFlags);
+        m_capabilityGate->addAction(moveToArchive, Imap::AccountOperation::ServerSideMove);
+    }
+    m_capabilityGate->apply(Imap::AccountCapabilities::forAccount(*accountSettings()));
 }
 
 void MainWindow::detachAccountModels()
