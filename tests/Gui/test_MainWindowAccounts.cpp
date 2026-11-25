@@ -11,6 +11,7 @@
 #include "Gui/MsgListView.h"
 #include "Gui/ShortcutHandler/ShortcutHandler.h"
 #include "Gui/Window.h"
+#include "Imap/Model/GroupingMsgListModel.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/Model.h"
@@ -27,6 +28,7 @@
 #include <KConfigGroup>
 #include <KLocalizedString>
 #include <KSharedConfig>
+#include <QActionGroup>
 #include <QApplication>
 #include <QComboBox>
 #include <QDialog>
@@ -1005,6 +1007,174 @@ private slots:
         for (QAction *panel : std::as_const(panels))
             QVERIFY2(panel->isChecked(), qPrintable(panel->objectName()));
         QVERIFY(!KConfigGroup(KSharedConfig::openStateConfig(), QStringLiteral("DenseProcessing")).readEntry("Enabled", true));
+    }
+
+    void groupingAndRelevanceOffline()
+    {
+        using Imap::Mailbox::GroupingMsgListModel;
+        using Common::SettingsNames;
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        Gui::MainWindow window(&settings);
+        auto action = [&window](const QString &name) {
+            return window.findChild<QAction *>(name);
+        };
+        auto prettyModel = [&window]() {
+            return window.findChild<Imap::Mailbox::PrettyMsgListModel *>(QStringLiteral("prettyMsgListModel"));
+        };
+        auto groupingModel = [&window]() {
+            return window.findChild<GroupingMsgListModel *>(QStringLiteral("groupingMsgListModel"));
+        };
+        auto *list = window.findChild<Gui::MessageListWidget *>();
+        auto *tree = list->tree;
+
+        // View > Group By and the Sort button offer the same exclusive choices
+        auto *groupMenu = window.findChild<QMenu *>(QStringLiteral("messageListGroupByMenu"));
+        auto *sortMenu = window.findChild<QMenu *>(QStringLiteral("sortMenu"));
+        QVERIFY(groupMenu);
+        QVERIFY(sortMenu);
+        QVERIFY(sortMenu->actions().contains(groupMenu->menuAction()));
+        int menusWithGroups = 0;
+        for (QMenu *menu : window.findChildren<QMenu *>())
+            menusWithGroups += menu->actions().contains(groupMenu->menuAction()) ? 1 : 0;
+        QCOMPARE(menusWithGroups, 2);
+        const QStringList groupNames{QStringLiteral("messageListGroupByNone"), QStringLiteral("messageListGroupByConversation"),
+                                     QStringLiteral("messageListGroupByDate"), QStringLiteral("messageListGroupBySender"),
+                                     QStringLiteral("messageListGroupBySubject"), QStringLiteral("messageListGroupByTag"),
+                                     QStringLiteral("messageListGroupByReadState"),
+                                     QStringLiteral("messageListGroupByMailingList")};
+        QActionGroup *groupBy = nullptr;
+        for (const QString &name : groupNames) {
+            QVERIFY2(action(name), qPrintable(name));
+            QVERIFY2(action(name)->isCheckable(), qPrintable(name));
+            QVERIFY2(groupMenu->actions().contains(action(name)), qPrintable(name));
+            if (!groupBy)
+                groupBy = action(name)->actionGroup();
+            QVERIFY2(groupBy && action(name)->actionGroup() == groupBy, qPrintable(name));
+        }
+        QVERIFY(groupBy->isExclusive());
+        auto *expandAll = action(QStringLiteral("messageListExpandAllGroups"));
+        auto *collapseAll = action(QStringLiteral("messageListCollapseAllGroups"));
+        QVERIFY(expandAll);
+        QVERIFY(collapseAll);
+        QVERIFY(groupMenu->actions().contains(expandAll));
+        QVERIFY(groupMenu->actions().contains(collapseAll));
+        auto *relevance = action(QStringLiteral("messageListSortByRelevance"));
+        QVERIFY(relevance);
+        QVERIFY(sortMenu->actions().contains(relevance));
+        QVERIFY(relevance->isCheckable());
+
+        QHash<QString, QString> owners;
+        for (QAction *candidate : window.findChildren<QAction *>()) {
+            for (const QKeySequence &shortcut : candidate->shortcuts()) {
+                const QString key = shortcut.toString(QKeySequence::PortableText);
+                if (key.isEmpty() || candidate->objectName().isEmpty())
+                    continue;
+                const QString owner = owners.value(key);
+                QVERIFY2(owner.isEmpty() || owner == candidate->objectName(),
+                         qPrintable(key + QLatin1String(": ") + owner + QLatin1String(", ") + candidate->objectName()));
+                owners.insert(key, candidate->objectName());
+            }
+        }
+
+        // By default the list looks as before
+        QVERIFY(action(QStringLiteral("messageListGroupByNone"))->isChecked());
+        QCOMPARE(tree->model(), prettyModel());
+        QVERIFY(!expandAll->isEnabled());
+        QVERIFY(!collapseAll->isEnabled());
+        QVERIFY(!window.accountSettings()->contains(SettingsNames::guiMsgListGroupBy));
+
+        // Grouping is stored per account; the threading preference of all accounts stays
+        action(QStringLiteral("messageListGroupByDate"))->trigger();
+        QVERIFY(groupingModel());
+        QCOMPARE(tree->model(), groupingModel());
+        QCOMPARE(groupingModel()->sourceModel(), prettyModel());
+        QCOMPARE(groupingModel()->grouping(), GroupingMsgListModel::Grouping::Date);
+        QVERIFY(action(QStringLiteral("messageListGroupByDate"))->isChecked());
+        QVERIFY(!action(QStringLiteral("messageListGroupByNone"))->isChecked());
+        QVERIFY(expandAll->isEnabled());
+        QVERIFY(collapseAll->isEnabled());
+        QVERIFY(tree->rootIsDecorated());
+        QCOMPARE(window.accountSettings()->value(SettingsNames::guiMsgListGroupBy).toString(),
+                 GroupingMsgListModel::groupingName(GroupingMsgListModel::Grouping::Date));
+        QVERIFY(!settings.contains(SettingsNames::guiMsgListShowThreading));
+
+        auto *nextAccount = action(QStringLiteral("action_next_account"));
+        nextAccount->trigger();
+        QCOMPARE(window.imapAccess()->credentialAccountId(), QStringLiteral("account-2"));
+        QCOMPARE(tree->model(), prettyModel());
+        QVERIFY(action(QStringLiteral("messageListGroupByNone"))->isChecked());
+        QVERIFY(!window.accountSettings()->contains(SettingsNames::guiMsgListGroupBy));
+        QVERIFY(!expandAll->isEnabled());
+        QVERIFY(!tree->rootIsDecorated());
+
+        nextAccount->trigger();
+        QCOMPARE(settings.value(QStringLiteral("accounts/active")).toString(), QStringLiteral("account-1"));
+        QCOMPARE(tree->model(), groupingModel());
+        QCOMPARE(groupingModel()->grouping(), GroupingMsgListModel::Grouping::Date);
+        QVERIFY(action(QStringLiteral("messageListGroupByDate"))->isChecked());
+
+        action(QStringLiteral("messageListGroupByNone"))->trigger();
+        QCOMPARE(tree->model(), prettyModel());
+        QVERIFY(!groupingModel()->sourceModel());
+        QVERIFY(action(QStringLiteral("messageListGroupByNone"))->isChecked());
+        QVERIFY(!window.accountSettings()->contains(SettingsNames::guiMsgListGroupBy));
+        QVERIFY(!tree->rootIsDecorated());
+
+        // Relevance needs a search
+        QVERIFY(!relevance->isEnabled());
+        QVERIFY(!relevance->toolTip().isEmpty());
+        list->showFieldFilter(QStringLiteral("from:ann@example.org"));
+        QVERIFY(relevance->isEnabled());
+        list->showFieldFilter(QString());
+        QVERIFY(!relevance->isEnabled());
+
+        // The headers of groups are not messages
+        QStandardItemModel messages;
+        for (uint uid = 1; uid <= 4; ++uid) {
+            auto *item = new QStandardItem(QStringLiteral("Message %1").arg(uid));
+            item->setData(uid, Imap::Mailbox::RoleMessageUid);
+            item->setData(uid % 2 == 0, Imap::Mailbox::RoleMessageIsMarkedRead);
+            messages.appendRow(item);
+        }
+        GroupingMsgListModel groups;
+        groups.setSourceModel(&messages);
+        groups.setGrouping(GroupingMsgListModel::Grouping::ReadState);
+        QCOMPARE(groups.rowCount(), 2);
+        tree->setModel(&groups);
+        tree->expandAll();
+        const QModelIndex unread = groups.index(0, 0);
+        const QModelIndex read = groups.index(1, 0);
+        QVERIFY(groups.isGroupHeader(unread));
+        QVERIFY(groups.isGroupHeader(read));
+        QVERIFY(!(groups.flags(unread) & Qt::ItemIsSelectable));
+
+        action(QStringLiteral("action_select_all_messages"))->trigger();
+        const QModelIndexList rows = tree->selectionModel()->selectedRows(0);
+        QCOMPARE(rows.size(), 4);
+        for (const QModelIndex &row : rows)
+            QVERIFY(row.data(Imap::Mailbox::RoleMessageUid).isValid());
+        QModelIndexList translated;
+        QVERIFY(QMetaObject::invokeMethod(&window, "translatedSelection", Q_RETURN_ARG(QModelIndexList, translated)));
+        QCOMPARE(translated.size(), 4);
+        for (const QModelIndex &index : std::as_const(translated))
+            QVERIFY(index.isValid() && index.model() == &messages);
+
+        // Up and Down step over the headers of expanded groups; Left and Right collapse and expand a group
+        const QModelIndex lastUnread = groups.index(groups.rowCount(unread) - 1, 0, unread);
+        tree->setCurrentIndex(lastUnread);
+        QTest::keyPress(tree, Qt::Key_Down);
+        QCOMPARE(tree->currentIndex().siblingAtColumn(0), groups.index(0, 0, read));
+        QTest::keyPress(tree, Qt::Key_Up);
+        QCOMPARE(tree->currentIndex().siblingAtColumn(0), lastUnread);
+        tree->setCurrentIndex(read);
+        QTest::keyPress(tree, Qt::Key_Left);
+        QVERIFY(!tree->isExpanded(read));
+        QTest::keyPress(tree, Qt::Key_Right);
+        QVERIFY(tree->isExpanded(read));
+        tree->setModel(nullptr);
     }
 };
 

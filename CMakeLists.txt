@@ -1092,7 +1092,8 @@ if(BUILD_TESTING)
                     removingAccountDeletesItsSettingsAndPasswords accountsSwitchFromTheKeyboard
                     savedSearchesAndFolderExpansionFollowTheAccount focusCyclesThroughShellRegions
                     goToFolderActionsWithoutFolders destructiveActionsOffline quickActionsOffline
-                    messageListFiltersOffline shortcutOverviewAndSelectionOffline powerUserProcessingOffline)
+                    messageListFiltersOffline shortcutOverviewAndSelectionOffline powerUserProcessingOffline
+                    groupingAndRelevanceOffline)
                 add_test(NAME test_MainWindowAccounts_${account_case} COMMAND test_MainWindowAccounts ${account_case})
                 set_tests_properties(test_MainWindowAccounts_${account_case} PROPERTIES
                     TIMEOUT 60
@@ -1223,6 +1224,10 @@ if(BUILD_TESTING)
     target_link_libraries(test_ShortcutOverview PRIVATE UiUtils)
     trojita_test(Misc SpecialFolder)
     trojita_test(Misc PrettyMsgListFilters)
+    trojita_test(Misc GroupingMsgListModel)
+    target_link_libraries(test_GroupingMsgListModel PRIVATE UiUtils)
+    trojita_test(Misc Relevance)
+    target_link_libraries(test_Relevance PRIVATE UiUtils)
     if(WITH_DESKTOP)
         trojita_test(Misc DestructiveActions)
         target_link_libraries(test_DestructiveActions PRIVATE UiUtils KF6::ConfigCore)
