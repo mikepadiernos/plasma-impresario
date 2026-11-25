@@ -9,6 +9,8 @@
 #include "Gui/WebEngineMessagePage.h"
 #include "Gui/WebEngineMessageProfile.h"
 
+#include <QJsonArray>
+#include <QJsonDocument>
 #include <QPointer>
 #include <QWebEngineNewWindowRequest>
 #include <QWebEngineScript>
@@ -18,6 +20,23 @@ namespace Gui
 
 namespace
 {
+
+QString jsString(const QString &text)
+{
+    const QByteArray encoded = QJsonDocument(QJsonArray{text}).toJson(QJsonDocument::Compact);
+    return QString::fromUtf8(encoded.mid(1, encoded.size() - 2));
+}
+
+QString colorRules(const QColor &background, const QColor &text, const QColor &link, const QColor &visitedLink)
+{
+    // :where() keeps the rules at zero specificity, so any color the message sets
+    // for an element still wins.
+    const bool dark = background.lightness() < text.lightness();
+    return QStringLiteral(":where(html){background-color:%1;color:%2;color-scheme:%3}"
+                          ":where(a:link){color:%4}:where(a:visited){color:%5}")
+        .arg(background.name(), text.name(), dark ? QStringLiteral("dark") : QStringLiteral("light"), link.name(),
+             visitedLink.name());
+}
 
 bool isMessagePartUrl(const QUrl &url)
 {
@@ -34,6 +53,75 @@ WebEngineMessagePage::WebEngineMessagePage(WebEngineMessageProfile *profile, QOb
     connect(this, &QWebEnginePage::newWindowRequested, this, [this](QWebEngineNewWindowRequest &request) {
         if (request.isUserInitiated())
             requestExternalLink(request.requestedUrl());
+    });
+    connect(this, &QWebEnginePage::loadFinished, this, [this](bool ok) {
+        if (ok)
+            applyColors();
+    });
+}
+
+void WebEngineMessagePage::setColors(const Colors &colors)
+{
+    m_colors = colors;
+    m_hasColors = true;
+    // Shown until the page paints its own; avoids a light flash in dark schemes.
+    setBackgroundColor(colors.forced ? QColor(Qt::white) : colors.background);
+    applyColors();
+}
+
+void WebEngineMessagePage::applyColors()
+{
+    if (!m_hasColors)
+        return;
+
+    const bool dark = m_colors.background.lightness() < m_colors.text.lightness();
+    const QString paletteRules = colorRules(m_colors.background, m_colors.text, m_colors.link, m_colors.visitedLink);
+    QString forcedRules;
+    if (m_colors.forced) {
+        forcedRules = QStringLiteral("html,body{background-color:white !important;color:black !important;"
+                                     "color-scheme:light}");
+    }
+    // HTML without a background of its own is written for white paper: in a dark
+    // palette, its text colors would be unreadable on the dark page.
+    const QString pageRules = dark ? QStringLiteral(":where(html){background-color:#ffffff;color:#000000;color-scheme:light}")
+                                   : paletteRules;
+
+    // Runs in the application's isolated world: the page's own scripts are
+    // disabled, and this script only reads computed styles and adds one style
+    // element; the message source is not changed.
+    const QString script = QStringLiteral(R"JS((() => {
+        const d = document;
+        if (!d.documentElement)
+            return "";
+        let s = d.getElementById("trojita-user-style");
+        if (!s) {
+            s = d.createElement("style");
+            s.id = "trojita-user-style";
+        }
+        s.textContent = "";
+        (d.head || d.documentElement).appendChild(s);
+        const clear = c => c === "transparent" || /^rgba\(.*,\s*0\)$/.test(c);
+        const ownBackground = e => {
+            if (!e)
+                return false;
+            const style = getComputedStyle(e);
+            return !clear(style.backgroundColor) || style.backgroundImage !== "none";
+        };
+        const plain = %1 || d.contentType === "text/plain";
+        const own = !plain && (ownBackground(d.documentElement) || ownBackground(d.body));
+        const kind = %2 ? "forced" : plain ? "plain" : own ? "own" : "page";
+        const rules = {forced: %3, plain: %4, own: "", page: %5};
+        s.textContent = rules[kind] + %6;
+        return kind;
+    })())JS")
+                               .arg(m_generatedMarkup ? QStringLiteral("true") : QStringLiteral("false"),
+                                    m_colors.forced ? QStringLiteral("true") : QStringLiteral("false"),
+                                    jsString(forcedRules), jsString(paletteRules), jsString(pageRules),
+                                    jsString(m_colors.extraCss));
+    const QPointer<WebEngineMessagePage> page(this);
+    runJavaScript(script, QWebEngineScript::ApplicationWorld, [page](const QVariant &kind) {
+        if (page)
+            emit page->colorsApplied(kind.toString());
     });
 }
 

@@ -29,8 +29,6 @@
 #include <QAction>
 #include <QApplication>
 #include <QDesktopServices>
-#include <QJsonArray>
-#include <QJsonDocument>
 #include <QLayout>
 #include <QMouseEvent>
 #include <QScrollBar>
@@ -146,6 +144,8 @@ void EmbeddedWebView::changeEvent(QEvent *e)
     QWebEngineView::changeEvent(e);
     if (e->type() == QEvent::ParentChange)
         findScrollParent();
+    else if (e->type() == QEvent::PaletteChange)
+        addCustomStylesheet(m_customCss);
 }
 
 bool EmbeddedWebView::eventFilter(QObject *o, QEvent *e)
@@ -307,14 +307,13 @@ void EmbeddedWebView::addCustomStylesheet(const QString &css)
 {
     m_customCss = css;
 
-    QString bgName, fgName;
     QColor bg = palette().color(QPalette::Active, QPalette::Base),
            fg = palette().color(QPalette::Active, QPalette::Text);
 
+    WebEngineMessagePage::Colors colors;
     switch (m_colorScheme) {
     case ColorScheme::BlackOnWhite:
-        bgName = QStringLiteral("white !important");
-        fgName = QStringLiteral("black !important");
+        colors.forced = true;
         break;
     case ColorScheme::AdjustedSystem:
     {
@@ -330,27 +329,17 @@ void EmbeddedWebView::addCustomStylesheet(const QString &css)
             fg.getHsv(&h, &s, &vv, &a) ;
             fg.setHsv(h, s, 128+v/2, a);
         }
-        bgName = bg.name();
-        fgName = fg.name();
         break;
     }
     case ColorScheme::System:
-        bgName = bg.name();
-        fgName = fg.name();
         break;
     }
-
-
-    const QString myColors(QStringLiteral("body { background-color: %1; color: %2; }\n").arg(bgName, fgName));
-    QJsonArray cssValue;
-    cssValue.append(QString(myColors + m_customCss));
-    const QByteArray encodedCss = QJsonDocument(cssValue).toJson(QJsonDocument::Compact);
-    const QString cssLiteral = QString::fromUtf8(encodedCss.mid(1, encodedCss.size() - 2));
-    const QString script = QStringLiteral(
-        "(()=>{let s=document.getElementById('trojita-user-style');"
-        "if(!s){s=document.createElement('style');s.id='trojita-user-style';document.head.appendChild(s);}"
-        "s.textContent=%1;})()").arg(cssLiteral);
-    m_page->runJavaScript(script);
+    colors.background = bg;
+    colors.text = fg;
+    colors.link = palette().color(QPalette::Active, QPalette::Link);
+    colors.visitedLink = palette().color(QPalette::Active, QPalette::LinkVisited);
+    colors.extraCss = m_customCss;
+    m_page->setColors(colors);
 }
 
 }

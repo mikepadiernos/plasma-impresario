@@ -10,6 +10,7 @@
 #define GUI_WEBENGINEMESSAGEPAGE_H
 
 #include <functional>
+#include <QColor>
 #include <QWebEnginePage>
 
 namespace Gui
@@ -39,14 +40,45 @@ public:
      */
     void quoteText(const std::function<void(const QString &)> &callback);
 
+    /** Colors for the reader's stylesheet. */
+    struct Colors {
+        QColor background;
+        QColor text;
+        QColor link;
+        QColor visitedLink;
+        /** Overrides the message's own colors, such as a forced black-on-white scheme. */
+        bool forced = false;
+        /** Appended after the color rules. */
+        QString extraCss;
+    };
+
+    /** Applies the reader's colors to the loaded page and to pages loaded later
+     * once they finish.
+     *
+     * Plain text, generated or raw, uses @p colors. HTML that sets a background of
+     * its own keeps its colors. Other HTML uses @p colors on a light palette, but a
+     * light page in a dark one, because such mail is written for white paper. The
+     * rules are injected from an isolated script world; message scripts stay
+     * disabled.
+     */
+    void setColors(const Colors &colors);
+
 signals:
     void externalLinkRequested(const QUrl &url);
+    /** Emitted after the colors were applied to a page.
+     * @param kind "plain", "own" (the message's own background), "page" (HTML on
+     * the reader's page), "forced", or empty while no document exists.
+     */
+    void colorsApplied(const QString &kind);
 
 protected:
     bool acceptNavigationRequest(const QUrl &url, NavigationType type, bool isMainFrame) override;
 
 private:
     void requestExternalLink(const QUrl &url);
+    void applyColors();
+    Colors m_colors;
+    bool m_hasColors = false;
     QUrl m_partUrl;
     bool m_allowGeneratedMarkup = false;
     bool m_generatedMarkup = false;
