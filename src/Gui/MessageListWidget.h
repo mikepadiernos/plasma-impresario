@@ -66,6 +66,8 @@ public:
 
 public slots:
     void focusSearch();
+    /** @short Put a field filter such as "from:ann@example.org" into the quick search and apply it */
+    void showFieldFilter(const QString &text);
     void focusRawSearch();
 
 signals:

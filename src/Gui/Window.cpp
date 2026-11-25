@@ -370,6 +370,14 @@ void MainWindow::defineActions()
     shortcutHandler->defineAction(QStringLiteral("action_mark_as_read"), QStringLiteral("mail-mark-read"), tr("Mark as &Read"), QStringLiteral("M"));
     shortcutHandler->defineAction(QStringLiteral("action_go_to_next_unread"), QStringLiteral("arrow-right"), tr("&Next Unread Message"), QStringLiteral("N"));
     shortcutHandler->defineAction(QStringLiteral("action_go_to_previous_unread"), QStringLiteral("arrow-left"), tr("&Previous Unread Message"), QStringLiteral("P"));
+    shortcutHandler->defineAction(QStringLiteral("action_mark_read_go_to_next_unread"), QStringLiteral("mail-mark-read"),
+                                  i18nc("@action", "Mark as Read and Go to Next U&nread"), QStringLiteral("Shift+N"));
+    shortcutHandler->defineAction(QStringLiteral("action_go_to_next_message"), QStringLiteral("go-down"),
+                                  i18nc("@action", "Ne&xt Message"), QStringLiteral("F"));
+    shortcutHandler->defineAction(QStringLiteral("action_go_to_previous_message"), QStringLiteral("go-up"),
+                                  i18nc("@action", "Pre&vious Message"), QStringLiteral("B"));
+    shortcutHandler->defineAction(QStringLiteral("action_dense_processing_layout"), QStringLiteral("view-list-details"),
+                                  i18nc("@action", "&Dense Processing Layout"));
     shortcutHandler->defineAction(QStringLiteral("action_mark_as_deleted"), QStringLiteral("list-remove"), tr("Mark as &Deleted"), QKeySequence(Qt::Key_Delete).toString());
     shortcutHandler->defineAction(QStringLiteral("action_delete_permanently"), QStringLiteral("edit-delete"),
                                   i18nc("@action", "Delete &Permanently…"), QKeySequence(Qt::SHIFT | Qt::Key_Delete).toString());
@@ -419,6 +427,20 @@ void MainWindow::defineActions()
                                   i18nc("@action", "&Invert Selection"));
     shortcutHandler->defineAction(QStringLiteral("action_deselect_messages"), QStringLiteral("edit-select-none"),
                                   i18nc("@action", "D&eselect"));
+    shortcutHandler->defineAction(QStringLiteral("action_show_related_sender"), QStringLiteral("view-filter"),
+                                  i18nc("@action", "Messages from This &Sender"));
+    shortcutHandler->defineAction(QStringLiteral("action_show_related_recipient"), QStringLiteral("view-filter"),
+                                  i18nc("@action", "Messages to This &Recipient"));
+    shortcutHandler->defineAction(QStringLiteral("action_show_related_subject"), QStringLiteral("view-filter"),
+                                  i18nc("@action", "Messages with This S&ubject"));
+    shortcutHandler->defineAction(QStringLiteral("action_show_related_list"), QStringLiteral("view-filter"),
+                                  i18nc("@action", "Messages from This &Mailing List"));
+    shortcutHandler->defineAction(QStringLiteral("action_select_same_sender"), QString(),
+                                  i18nc("@action", "Select All from This &Sender"));
+    shortcutHandler->defineAction(QStringLiteral("action_select_same_subject"), QString(),
+                                  i18nc("@action", "Select All with This S&ubject"));
+    shortcutHandler->defineAction(QStringLiteral("action_select_unread"), QString(), i18nc("@action", "Select &Unread"));
+    shortcutHandler->defineAction(QStringLiteral("action_select_flagged"), QString(), i18nc("@action", "Select &Flagged"));
     shortcutHandler->defineAction(QStringLiteral("action_tag_1"), QStringLiteral("mail-tag-1"), tr("Tag with &1st tag"), QStringLiteral("1"));
     shortcutHandler->defineAction(QStringLiteral("action_tag_2"), QStringLiteral("mail-tag-2"), tr("Tag with &2nd tag"), QStringLiteral("2"));
     shortcutHandler->defineAction(QStringLiteral("action_tag_3"), QStringLiteral("mail-tag-3"), tr("Tag with &3rd tag"), QStringLiteral("3"));
@@ -604,6 +626,17 @@ void MainWindow::createActions()
     m_previousMessage = ShortcutHandler::instance()->createAction(QStringLiteral("action_go_to_previous_unread"), this, SLOT(slotPreviousUnread()), this);
     msgListWidget->tree->addAction(m_previousMessage);
     m_messageWidget->messageView->addAction(m_previousMessage);
+
+    m_markReadNextUnread = ShortcutHandler::instance()->createAction(QStringLiteral("action_mark_read_go_to_next_unread"), this,
+                                                                     SLOT(slotMarkReadAndNextUnread()), this);
+    m_nextAnyMessage = ShortcutHandler::instance()->createAction(QStringLiteral("action_go_to_next_message"), this,
+                                                                 SLOT(slotNextMessage()), this);
+    m_previousAnyMessage = ShortcutHandler::instance()->createAction(QStringLiteral("action_go_to_previous_message"), this,
+                                                                     SLOT(slotPreviousMessage()), this);
+    for (QAction *action : {m_markReadNextUnread, m_nextAnyMessage, m_previousAnyMessage}) {
+        msgListWidget->tree->addAction(action);
+        m_messageWidget->messageView->addAction(action);
+    }
 #endif
 
     markAsDeleted = ShortcutHandler::instance()->createAction(QStringLiteral("action_mark_as_deleted"), this);
@@ -861,6 +894,49 @@ void MainWindow::createActions()
     connect(m_actionDeselectMessages, &QAction::triggered, msgListWidget->tree, &QAbstractItemView::clearSelection);
     connect(actionThreadMsgList, &QAction::changed, this, &MainWindow::scheduleMessageListStatus);
 
+    // The Bat!-style processing: filter or select by what the current message has in common with others
+    m_showRelatedMenu = new QMenu(i18nc("@title:menu", "Show &Related"), this);
+    m_showRelatedMenu->setObjectName(QStringLiteral("showRelatedMenu"));
+    m_showRelatedMenu->setIcon(quickActionIcon(QStringLiteral("view-filter")));
+    const std::pair<QAction **, std::pair<const char *, UiUtils::FieldFilter>> related[] = {
+        {&m_actionRelatedSender, {"action_show_related_sender", UiUtils::FieldFilter::From}},
+        {&m_actionRelatedRecipient, {"action_show_related_recipient", UiUtils::FieldFilter::To}},
+        {&m_actionRelatedSubject, {"action_show_related_subject", UiUtils::FieldFilter::Subject}},
+        {&m_actionRelatedList, {"action_show_related_list", UiUtils::FieldFilter::MailingList}},
+    };
+    for (const auto &[member, spec] : related) {
+        const UiUtils::FieldFilter field = spec.second;
+        *member = addSelectionAction(QString::fromLatin1(spec.first));
+        connect(*member, &QAction::triggered, this, [this, field]() { showRelatedMessages(field); });
+        m_showRelatedMenu->addAction(*member);
+    }
+    connect(m_showRelatedMenu, &QMenu::aboutToShow, this, &MainWindow::updateRelatedActions);
+
+    m_selectSimilarMenu = new QMenu(i18nc("@title:menu", "Select &Similar"), this);
+    m_selectSimilarMenu->setObjectName(QStringLiteral("selectSimilarMenu"));
+    m_selectSimilarMenu->setIcon(quickActionIcon(QStringLiteral("edit-select-all")));
+    const std::pair<QAction **, std::pair<const char *, UiUtils::SimilarMessages>> similar[] = {
+        {&m_actionSelectSameSender, {"action_select_same_sender", UiUtils::SimilarMessages::FromSender}},
+        {&m_actionSelectSameSubject, {"action_select_same_subject", UiUtils::SimilarMessages::WithSubject}},
+        {&m_actionSelectUnread, {"action_select_unread", UiUtils::SimilarMessages::Unread}},
+        {&m_actionSelectFlagged, {"action_select_flagged", UiUtils::SimilarMessages::Flagged}},
+    };
+    for (const auto &[member, spec] : similar) {
+        const UiUtils::SimilarMessages criterion = spec.second;
+        *member = addSelectionAction(QString::fromLatin1(spec.first));
+        connect(*member, &QAction::triggered, this, [this, criterion]() { selectSimilarMessages(criterion); });
+        m_selectSimilarMenu->addAction(*member);
+        if (criterion == UiUtils::SimilarMessages::WithSubject)
+            m_selectSimilarMenu->addSeparator();
+    }
+    connect(m_selectSimilarMenu, &QMenu::aboutToShow, this, &MainWindow::updateRelatedActions);
+
+    m_actionDenseProcessing = ShortcutHandler::instance()->createAction(QStringLiteral("action_dense_processing_layout"), this);
+    m_actionDenseProcessing->setCheckable(true);
+    m_actionDenseProcessing->setToolTip(i18nc("@info:tooltip", "Compact rows without the message details, contact and related "
+                                                               "messages panels, for working through many messages; turn off to "
+                                                               "restore the previous layout"));
+
     QActionGroup *layoutGroup = new QActionGroup(this);
     m_actionLayoutCompact = new QAction(tr("&Compact"), layoutGroup);
     m_actionLayoutCompact->setCheckable(true);
@@ -1064,14 +1140,19 @@ void MainWindow::createMenus()
             if (!config->sync())
                 qWarning() << "Unable to save mailbox sidebar position";
         });
-        viewMenu->addMenu(new DensityMenu(mboxTree, msgListWidget->tree,
-                                          config, viewMenu));
+        m_densityMenu = new DensityMenu(mboxTree, msgListWidget->tree, config, viewMenu);
+        viewMenu->addMenu(m_densityMenu);
         if (!m_embeddedPanels.isEmpty()) {
-            auto panelsMenu = new EmbeddedPanelsMenu(config, viewMenu);
+            m_embeddedPanelsMenu = new EmbeddedPanelsMenu(config, viewMenu);
             for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels))
-                panelsMenu->addPanel(panel);
-            viewMenu->addMenu(panelsMenu);
+                m_embeddedPanelsMenu->addPanel(panel);
+            viewMenu->addMenu(m_embeddedPanelsMenu);
         }
+        ADD_ACTION(viewMenu, m_actionDenseProcessing);
+        // The preset's changes are already saved in the preferences, so only the check mark needs restoring
+        m_actionDenseProcessing->setChecked(KConfigGroup(KSharedConfig::openStateConfig(), QStringLiteral("DenseProcessing"))
+                                                .readEntry("Enabled", false));
+        connect(m_actionDenseProcessing, &QAction::toggled, this, &MainWindow::setDenseProcessingLayout);
         QMenu *filterMenu = viewMenu->addMenu(quickActionIcon(QStringLiteral("view-filter")), i18nc("@title:menu", "&Filter"));
         filterMenu->setObjectName(QStringLiteral("messageListFilterMenu"));
             ADD_ACTION(filterMenu, m_actionFilterUnread);
@@ -1113,6 +1194,8 @@ void MainWindow::createMenus()
 #ifdef TROJITA_HAVE_WEBENGINE
         ADD_ACTION(mailboxMenu, m_previousMessage);
         ADD_ACTION(mailboxMenu, m_nextMessage);
+        ADD_ACTION(mailboxMenu, m_previousAnyMessage);
+        ADD_ACTION(mailboxMenu, m_nextAnyMessage);
         mailboxMenu->addSeparator();
 #endif
         ADD_ACTION(mailboxMenu, expunge);
@@ -1143,6 +1226,9 @@ void MainWindow::createMenus()
         messageMenu->addSeparator();
         ADD_ACTION(messageMenu, markAsRead);
         ADD_ACTION(messageMenu, m_markAsUnread);
+#ifdef TROJITA_HAVE_WEBENGINE
+        ADD_ACTION(messageMenu, m_markReadNextUnread);
+#endif
         ADD_ACTION(messageMenu, markAsFlagged);
         messageMenu->addSeparator();
         ADD_ACTION(messageMenu, moveToArchive);
@@ -1156,6 +1242,9 @@ void MainWindow::createMenus()
         messageMenu->addAction(m_actionSelectThread);
         messageMenu->addAction(m_actionInvertSelection);
         messageMenu->addAction(m_actionDeselectMessages);
+        messageMenu->addMenu(m_selectSimilarMenu);
+        messageMenu->addSeparator();
+        messageMenu->addMenu(m_showRelatedMenu);
         connect(messageMenu, &QMenu::aboutToShow, this, &MainWindow::updateSelectionActions);
 
     QMenu *helpMenu = menuBar()->addMenu(i18nc("@title:menu", "&Help"));
@@ -1909,12 +1998,15 @@ void MainWindow::showContextMenuMsgListTree(const QPoint &position)
     selectionSeparator.setSeparator(true);
     QAction filterSeparator;
     filterSeparator.setSeparator(true);
+    QAction relatedSeparator;
+    relatedSeparator.setSeparator(true);
     updateSelectionActions();
     if (index.isValid()) {
         actionList << &selectionSeparator;
         if (m_actionSelectThread->isEnabled())
             actionList << m_actionSelectThread;
-        actionList << m_actionSelectAllMessages;
+        actionList << m_actionSelectAllMessages << m_selectSimilarMenu->menuAction() << &relatedSeparator
+                   << m_showRelatedMenu->menuAction();
     } else {
         // Below the messages: actions on the whole list
         actionList << m_actionSelectAllMessages << &selectionSeparator << m_actionFilterUnread << m_actionFilterFlagged
@@ -2722,6 +2814,52 @@ void MainWindow::slotNextUnread()
         // nothing to do
     });
 #endif
+}
+
+void MainWindow::slotMarkReadAndNextUnread()
+{
+#ifdef TROJITA_HAVE_WEBENGINE
+    const QModelIndexList marked = translatedSelection();
+    // Found before marking, because hiding read messages may remove the current one from the list
+    QPersistentModelIndex next;
+    UiUtils::gotoNext(msgListWidget->tree->model(), msgListWidget->tree->currentIndex(),
+    [&marked](const QModelIndex &idx) {
+        return !idx.data(Imap::Mailbox::RoleMessageIsMarkedRead).toBool() && !marked.contains(Imap::deproxifiedIndex(idx));
+    },
+    [&next](const QModelIndex &idx) { next = idx; },
+    []() {
+        // stay on the last message
+    });
+    if (!marked.isEmpty())
+        handleMarkAsRead(true);
+    if (next.isValid()) {
+        m_messageWidget->messageView->setMessage(next);
+        msgListWidget->tree->setCurrentIndex(next);
+    }
+#endif
+}
+
+void MainWindow::slotNextMessage()
+{
+    goToAdjacentMessage(true);
+}
+
+void MainWindow::slotPreviousMessage()
+{
+    goToAdjacentMessage(false);
+}
+
+void MainWindow::goToAdjacentMessage(bool forward)
+{
+    QTreeView *tree = msgListWidget->tree;
+    const QModelIndex target = UiUtils::adjacentMessage(tree->model(), tree->currentIndex(), forward,
+                                                        [tree](const QModelIndex &idx) { return tree->isExpanded(idx); });
+    if (!target.isValid())
+        return;
+#ifdef TROJITA_HAVE_WEBENGINE
+    m_messageWidget->messageView->setMessage(target);
+#endif
+    tree->setCurrentIndex(target);
 }
 
 void MainWindow::slotPreviousUnread()
@@ -4316,6 +4454,7 @@ void MainWindow::updateSelectionActions()
         return;
     const bool threaded = actionThreadMsgList->isEnabled() && actionThreadMsgList->isChecked();
     m_actionSelectThread->setEnabled(threaded && msgListWidget->tree->currentIndex().isValid());
+    updateRelatedActions();
 }
 
 void MainWindow::slotSelectThread()
@@ -4347,6 +4486,104 @@ void MainWindow::slotInvertSelection()
             inverted.append(range);
     }
     selectionModel->select(inverted, QItemSelectionModel::ClearAndSelect);
+}
+
+void MainWindow::updateRelatedActions()
+{
+    if (!m_actionRelatedSender)
+        return;
+    const QModelIndex current = msgListWidget->tree->currentIndex();
+    auto known = [&current](UiUtils::FieldFilter field) {
+        return current.isValid() && !UiUtils::fieldFilterValue(current, field).isEmpty();
+    };
+    m_actionRelatedSender->setEnabled(known(UiUtils::FieldFilter::From));
+    m_actionRelatedRecipient->setEnabled(known(UiUtils::FieldFilter::To));
+    m_actionRelatedSubject->setEnabled(known(UiUtils::FieldFilter::Subject));
+    // Only offered for list messages
+    const bool list = known(UiUtils::FieldFilter::MailingList);
+    m_actionRelatedList->setVisible(list);
+    m_actionRelatedList->setEnabled(list);
+    m_actionSelectSameSender->setEnabled(m_actionRelatedSender->isEnabled());
+    m_actionSelectSameSubject->setEnabled(m_actionRelatedSubject->isEnabled());
+    const QAbstractItemModel *model = msgListWidget->tree->model();
+    const bool hasRows = model && model->rowCount() > 0;
+    m_actionSelectUnread->setEnabled(hasRows);
+    m_actionSelectFlagged->setEnabled(hasRows);
+}
+
+void MainWindow::showRelatedMessages(UiUtils::FieldFilter field)
+{
+    const QString value = UiUtils::fieldFilterValue(msgListWidget->tree->currentIndex(), field);
+    if (value.isEmpty())
+        return;
+    msgListWidget->showFieldFilter(UiUtils::fieldFilterText(field, value));
+}
+
+void MainWindow::selectSimilarMessages(UiUtils::SimilarMessages criterion)
+{
+    QTreeView *tree = msgListWidget->tree;
+    const QModelIndexList matches = UiUtils::findSimilarMessages(tree->model(), tree->currentIndex(), criterion);
+    if (matches.isEmpty()) {
+        m_notificationBar->showInfo(i18nc("@info", "No loaded message matches."));
+        return;
+    }
+    QItemSelection selection;
+    for (const QModelIndex &match : matches) {
+        // Shown, and expanded so that the actions do not include the collapsed replies along with it
+        for (QModelIndex parent = match.parent(); parent.isValid(); parent = parent.parent())
+            tree->expand(parent);
+        if (tree->model()->hasChildren(match))
+            tree->expand(match);
+        selection.select(match.siblingAtColumn(0), match.siblingAtColumn(tree->model()->columnCount(match.parent()) - 1));
+    }
+    tree->selectionModel()->select(selection, QItemSelectionModel::ClearAndSelect);
+    scheduleMessageListStatus();
+}
+
+void MainWindow::setDenseProcessingLayout(bool enabled)
+{
+    const KSharedConfigPtr stateConfig = KSharedConfig::openStateConfig();
+    KConfigGroup state(stateConfig, QStringLiteral("DenseProcessing"));
+    if (enabled) {
+        if (m_densityMenu) {
+            state.writeEntry("PreviousComfortable", m_densityMenu->isComfortable());
+            m_densityMenu->setComfortable(false);
+        }
+        QStringList hidden;
+        if (m_embeddedPanelsMenu) {
+            for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels)) {
+                // Attachments stay, since deciding what to do with a message often depends on them
+                if (panel->descriptor().id == QLatin1String("Attachments"))
+                    continue;
+                QAction *visible = m_embeddedPanelsMenu->visibleAction(panel);
+                if (visible && visible->isChecked()) {
+                    visible->setChecked(false);
+                    hidden << panel->descriptor().id;
+                }
+            }
+        }
+        state.writeEntry("HiddenPanels", hidden);
+        state.writeEntry("Enabled", true);
+        msgListWidget->tree->setFocus();
+    } else {
+        // Only undo what the preset changed; a panel shown again meanwhile is left alone
+        if (m_densityMenu && state.readEntry("PreviousComfortable", false))
+            m_densityMenu->setComfortable(true);
+        const QStringList hidden = state.readEntry("HiddenPanels", QStringList());
+        if (m_embeddedPanelsMenu) {
+            for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels)) {
+                if (!hidden.contains(panel->descriptor().id))
+                    continue;
+                if (QAction *visible = m_embeddedPanelsMenu->visibleAction(panel))
+                    visible->setChecked(true);
+            }
+        }
+        state.deleteEntry("PreviousComfortable");
+        state.deleteEntry("HiddenPanels");
+        state.writeEntry("Enabled", false);
+    }
+    if (!stateConfig->sync())
+        qWarning() << "Unable to save the dense processing layout state";
 }
 
 void MainWindow::updateSortButton()

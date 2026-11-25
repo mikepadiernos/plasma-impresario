@@ -41,6 +41,7 @@
 #include "Imap/Model/SpecialFolder.h"
 #include "Imap/Parser/Uids.h"
 #include "UiUtils/DestructiveActions.h"
+#include "UiUtils/QuickFilters.h"
 #include "UiUtils/RecentFolders.h"
 #include "UiUtils/ShortcutOverview.h"
 #include "MessageActionHandler.h"
@@ -110,6 +111,8 @@ class MessageDetailsPanel;
 class RelatedMessagesPanel;
 class CompleteMessageWidget;
 class ComposeWidget;
+class DensityMenu;
+class EmbeddedPanelsMenu;
 class InlineNotificationBar;
 class MailBoxTreeView;
 class MessageListWidget;
@@ -213,6 +216,11 @@ private slots:
     void handleDeletePermanently();
     void slotNextUnread();
     void slotPreviousUnread();
+    /** @short Mark the selected messages as read, then show the next unread one */
+    void slotMarkReadAndNextUnread();
+    /** @short Show the next or previous message in the list, read or not */
+    void slotNextMessage();
+    void slotPreviousMessage();
     void msgListClicked(const QModelIndex &);
     void saveMessageSelection(const QModelIndex &);
     /** @short Show the message which became current because the previous one left the list */
@@ -267,6 +275,10 @@ private slots:
     /** @short Select the whole thread of the current message */
     void slotSelectThread();
     void slotInvertSelection();
+    /** @short Enable the Show Related and Select Similar actions which the current message supports */
+    void updateRelatedActions();
+    /** @short Switch to (or back from) compact rows without the panels which triage does not need */
+    void setDenseProcessingLayout(bool enabled);
     /** @short Show the sort column and order on the message list's Sort button */
     void updateSortButton();
 
@@ -355,6 +367,11 @@ private:
     /** @short Show the state of the quick filters on their actions and buttons */
     void syncMessageListFilterUi();
     void updateSelectionActions();
+    /** @short Limit the quick search to messages sharing @p field with the current message */
+    void showRelatedMessages(UiUtils::FieldFilter field);
+    /** @short Select the loaded messages of the list which match @p criterion */
+    void selectSimilarMessages(UiUtils::SimilarMessages criterion);
+    void goToAdjacentMessage(bool forward);
 
     void createMailboxBelow(const QModelIndex &index);
 
@@ -618,6 +635,22 @@ private:
     QAction *m_actionSelectThread = nullptr;
     QAction *m_actionInvertSelection = nullptr;
     QAction *m_actionDeselectMessages = nullptr;
+    QMenu *m_showRelatedMenu = nullptr;
+    QAction *m_actionRelatedSender = nullptr;
+    QAction *m_actionRelatedRecipient = nullptr;
+    QAction *m_actionRelatedSubject = nullptr;
+    QAction *m_actionRelatedList = nullptr;
+    QMenu *m_selectSimilarMenu = nullptr;
+    QAction *m_actionSelectSameSender = nullptr;
+    QAction *m_actionSelectSameSubject = nullptr;
+    QAction *m_actionSelectUnread = nullptr;
+    QAction *m_actionSelectFlagged = nullptr;
+    QAction *m_markReadNextUnread = nullptr;
+    QAction *m_nextAnyMessage = nullptr;
+    QAction *m_previousAnyMessage = nullptr;
+    QAction *m_actionDenseProcessing = nullptr;
+    DensityMenu *m_densityMenu = nullptr;
+    EmbeddedPanelsMenu *m_embeddedPanelsMenu = nullptr;
     QTimer *m_listStatusTimer = nullptr;
     QAction *m_actionShortcutOverview = nullptr;
     QPointer<ShortcutOverviewDialog> m_shortcutOverview;

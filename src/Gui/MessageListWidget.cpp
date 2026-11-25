@@ -45,6 +45,7 @@
 #include "ReplaceCharValidator.h"
 #include "Util.h"
 #include "UiUtils/IconLoader.h"
+#include "UiUtils/QuickFilters.h"
 
 namespace Gui {
 
@@ -70,7 +71,15 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     connect(m_quickSearchText, &QLineEdit::returnPressed, this, &MessageListWidget::slotApplySearch);
     connect(m_quickSearchText, &QLineEdit::textChanged, this, &MessageListWidget::slotConditionalSearchReset);
     connect(m_quickSearchText, &QLineEdit::cursorPositionChanged, this, &MessageListWidget::slotUpdateSearchCursor);
-    connect(m_quickSearchText, &LineEdit::escapePressed, tree, static_cast<void (QWidget::*)()>(&QWidget::setFocus));
+    connect(m_quickSearchText, &LineEdit::escapePressed, this, [this]() {
+        // A field filter, as set by Show Related, goes away at once
+        if (UiUtils::parseFieldFilter(m_quickSearchText->text()).field != UiUtils::FieldFilter::None) {
+            m_quickSearchText->clear();
+            m_searchResetTimer->stop();
+            slotApplySearch();
+        }
+        tree->setFocus();
+    });
 
     m_searchOptions = new QAction(UiUtils::loadIcon(QStringLiteral("imap-search-details")), QStringLiteral("*"), this);
     m_searchOptions->setToolTip(tr("Options for the IMAP search..."));
@@ -323,6 +332,14 @@ void MessageListWidget::focusRawSearch()
     m_quickSearchText->setCursorPosition(m_quickSearchText->text().length());
 }
 
+void MessageListWidget::showFieldFilter(const QString &text)
+{
+    m_quickSearchText->setText(text);
+    m_searchResetTimer->stop();
+    slotAutoEnableDisableSearch();
+    slotApplySearch();
+}
+
 void MessageListWidget::slotApplySearch()
 {
     emit requestingSearch(searchConditions());
@@ -432,6 +449,11 @@ QStringList MessageListWidget::searchConditions() const
         // It's a "raw" IMAP search, let's simply pass it through
         return QStringList() << m_quickSearchText->text().mid(rawPrefix.size());
     }
+
+    // "from:", "to:", "subject:" and "list:" search that field only, whatever the options say
+    const UiUtils::ParsedFieldFilter fieldFilter = UiUtils::parseFieldFilter(m_quickSearchText->text());
+    if (fieldFilter.field != UiUtils::FieldFilter::None)
+        return UiUtils::fieldFilterConditions(fieldFilter);
 
     QStringList keys;
     if (m_searchInSubject->isChecked())
