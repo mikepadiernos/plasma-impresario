@@ -171,6 +171,8 @@ private slots:
     void slotFocusPreviousRegion();
     void removeAccountNow(const QString &accountId);
     void slotRenameAccount();
+    /** Show the menu of an account's sidebar header, with its settings, renaming and removal */
+    void showAccountMenu(const QString &accountId, const QPoint &globalPos);
     void slotShowImapInfo();
     void slotExpunge();
     void imapError(const QString &message);
@@ -280,6 +282,12 @@ private:
 
     /** Make another account the one shown in the window; models of other accounts stay alive. */
     void switchAccount(const QString &accountId);
+
+    /** Ask for a new name of an account. */
+    void renameAccount(const QString &accountId);
+
+    /** Ask whether to remove an account, and remove it. */
+    void confirmRemoveAccount(const QString &accountId);
 
     /** Disconnect the window from the models of the active account. */
     void detachAccountModels();

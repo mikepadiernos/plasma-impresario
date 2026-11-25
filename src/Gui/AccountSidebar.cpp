@@ -77,8 +77,14 @@ void AccountSidebar::refresh(const Common::AccountRegistry &accounts,
       header->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
       header->setFocusPolicy(Qt::StrongFocus);
       header->installEventFilter(this);
+      header->setContextMenuPolicy(Qt::CustomContextMenu);
       connect(header, &QToolButton::clicked, this,
               [this, header]() { activateHeader(header); });
+      connect(header, &QWidget::customContextMenuRequested, this,
+              [this, header](const QPoint &pos) {
+                emit accountMenuRequested(headerAccount(header),
+                                          header->mapToGlobal(pos));
+              });
     }
     const Common::AccountStatus accountStatus = status.status(id);
     const bool attention =

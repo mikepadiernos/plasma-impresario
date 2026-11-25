@@ -27,7 +27,8 @@ one collapses or expands its folders. With a single account the headers are
 hidden and the sidebar shows only the folder tree, as before.
 
 The headers take keyboard focus: Up and Down move between them, and Return,
-Enter or Space activates one.
+Enter or Space activates one. A header's context menu, by mouse or the Menu
+key, is requested through accountMenuRequested().
 */
 class AccountSidebar : public QWidget {
   Q_OBJECT
@@ -54,6 +55,9 @@ public:
 signals:
   /** The user activated the header of another account */
   void accountActivated(const QString &accountId);
+  /** The user asked for the context menu of an account's header, at
+   * @arg globalPos */
+  void accountMenuRequested(const QString &accountId, const QPoint &globalPos);
 
 protected:
   bool eventFilter(QObject *watched, QEvent *event) override;

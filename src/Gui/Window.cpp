@@ -36,6 +36,7 @@
 #include <QItemSelectionModel>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPainter>
@@ -2041,7 +2042,11 @@ void MainWindow::cycleFocusRegion(int step)
 
 void MainWindow::slotRenameAccount()
 {
-    const QString accountId = m_accounts->activeAccount();
+    renameAccount(m_accounts->activeAccount());
+}
+
+void MainWindow::renameAccount(const QString &accountId)
+{
     bool accepted = false;
     const QString name = QInputDialog::getText(this, i18n("Rename Account"), i18n("Account name:"), QLineEdit::Normal,
                                                m_accounts->displayName(accountId), &accepted).trimmed();
@@ -2054,7 +2059,11 @@ void MainWindow::slotRenameAccount()
 
 void MainWindow::slotRemoveAccount()
 {
-    const QString accountId = m_accounts->activeAccount();
+    confirmRemoveAccount(m_accounts->activeAccount());
+}
+
+void MainWindow::confirmRemoveAccount(const QString &accountId)
+{
     if (m_accounts->accountIds().size() < 2) {
         Gui::Util::messageBoxWarning(this, i18n("Cannot Remove Account"), i18n("At least one account is required."));
         return;
@@ -2064,6 +2073,33 @@ void MainWindow::slotRemoveAccount()
                                    m_accounts->displayName(accountId))) != QMessageBox::Yes)
         return;
     removeAccountNow(accountId);
+}
+
+void MainWindow::showAccountMenu(const QString &accountId, const QPoint &globalPos)
+{
+    if (!m_accounts->accountIds().contains(accountId))
+        return;
+    auto *menu = new QMenu(this);
+    menu->setObjectName(QStringLiteral("accountMenu"));
+    menu->setAttribute(Qt::WA_DeleteOnClose);
+    // The settings dialog edits the account shown in the window, so it switches to the account first.
+    QAction *settings = menu->addAction(m_actionAccountSettings->icon(), m_actionAccountSettings->text());
+    settings->setObjectName(QStringLiteral("action_account_menu_settings"));
+    connect(settings, &QAction::triggered, this, [this, accountId]() {
+        switchAccount(accountId);
+        if (m_accounts->activeAccount() == accountId)
+            slotShowAccountSettings();
+    }, Qt::QueuedConnection);
+    QAction *rename = menu->addAction(m_actionRenameAccount->text());
+    rename->setObjectName(QStringLiteral("action_account_menu_rename"));
+    connect(rename, &QAction::triggered, this, [this, accountId]() { renameAccount(accountId); }, Qt::QueuedConnection);
+    menu->addSeparator();
+    QAction *remove = menu->addAction(m_actionRemoveAccount->icon(), m_actionRemoveAccount->text());
+    remove->setObjectName(QStringLiteral("action_account_menu_remove"));
+    remove->setEnabled(m_accounts->accountIds().size() > 1);
+    connect(remove, &QAction::triggered, this, [this, accountId]() { confirmRemoveAccount(accountId); },
+            Qt::QueuedConnection);
+    menu->popup(globalPos);
 }
 
 void MainWindow::removeAccountNow(const QString &accountId)
@@ -3333,6 +3369,7 @@ void MainWindow::createShell()
     // The folder tree is grouped by account; the sidebar takes the tree's place in the side columns
     m_accountSidebar = new AccountSidebar(mboxTree);
     connect(m_accountSidebar, &AccountSidebar::accountActivated, this, &MainWindow::switchAccount);
+    connect(m_accountSidebar, &AccountSidebar::accountMenuRequested, this, &MainWindow::showAccountMenu);
 
     // The header region sits above the columns and the footer; it is not resizable
     m_shellHeader = new ShellHeader(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")));
