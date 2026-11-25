@@ -10,6 +10,7 @@
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/Model.h"
+#include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -19,7 +20,9 @@
 
 #include "Plugins/PluginManager.h"
 
+#include <KConfigGroup>
 #include <KLocalizedString>
+#include <KSharedConfig>
 #include <QApplication>
 #include <QDir>
 #include <QFile>
@@ -90,6 +93,33 @@ void openMailbox(Gui::MailBoxTreeView *tree, const QModelIndex &mailbox)
 {
     tree->scrollTo(mailbox);
     QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(mailbox).center());
+}
+
+/** @short Click the message with the highest UID in the message list and return its UID */
+uint clickNewestMessage(Gui::MsgListView *messages)
+{
+    QModelIndex newest;
+    for (int row = 0; row < messages->model()->rowCount(); ++row) {
+        const QModelIndex index = messages->model()->index(row, 0);
+        if (!newest.isValid() || index.data(Imap::Mailbox::RoleMessageUid).toUInt() > newest.data(Imap::Mailbox::RoleMessageUid).toUInt())
+            newest = index;
+    }
+    if (!newest.isValid())
+        return 0;
+    messages->scrollTo(newest);
+    QTest::mouseClick(messages->viewport(), Qt::LeftButton, Qt::NoModifier, messages->visualRect(newest).center());
+    return newest.data(Imap::Mailbox::RoleMessageUid).toUInt();
+}
+
+KConfigGroup savedSelection(const QString &accountId)
+{
+    return KConfigGroup(KSharedConfig::openStateConfig(), QStringLiteral("MailboxSelection")).group(accountId);
+}
+
+QString currentMailbox(Gui::MainWindow &window)
+{
+    auto *list = qobject_cast<Imap::Mailbox::MsgListModel *>(window.imapAccess()->msgListModel());
+    return list ? list->currentMailbox().data(Imap::Mailbox::RoleMailboxName).toString() : QString();
 }
 
 }
@@ -181,6 +211,15 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(inbox.data(Imap::Mailbox::RoleUnreadMessageCount).toInt(), 2, 10000);
         QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(), 2, 10000);
 
+        // Each account saves its own mailbox and message selection.
+        QTRY_VERIFY_WITH_TIMEOUT(messages->model()->index(1, 0).data(Imap::Mailbox::RoleMessageUid).toUInt() > 0, 10000);
+        const uint workUid = clickNewestMessage(messages);
+        QVERIFY(workUid > 1);
+        QCOMPARE(savedSelection(QStringLiteral("account-1")).readEntry("Mailbox", QString()), QStringLiteral("INBOX"));
+        QCOMPARE(savedSelection(QStringLiteral("account-1")).readEntry("MessageUid", 0u), workUid);
+        const uint workUidValidity = savedSelection(QStringLiteral("account-1")).readEntry("MessageUidValidity", 0u);
+        QVERIFY(workUidValidity);
+
         // A background account with a rejected stored password is flagged without prompting.
         QTRY_VERIFY2_WITH_TIMEOUT(switcher->itemText(2).startsWith(QLatin1String("Broken (")),
                                   qPrintable(QStringLiteral("%1 | %2 | %3 prompts: %4")
@@ -218,6 +257,21 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(), 1, 10000);
         QVERIFY(savedNames().isEmpty());
 
+        // The second account's selection is saved separately and leaves the first account's untouched.
+        QTRY_VERIFY_WITH_TIMEOUT(messages->model()->index(0, 0).data(Imap::Mailbox::RoleMessageUid).toUInt() > 0, 10000);
+        const uint homeUid = clickNewestMessage(messages);
+        QVERIFY(homeUid);
+        QVERIFY(homeUid != workUid);
+        QCOMPARE(savedSelection(QStringLiteral("account-2")).readEntry("MessageUid", 0u), homeUid);
+        openMailbox(tree, findMailbox(tree->model(), QStringLiteral("Projects")));
+        QTRY_COMPARE_WITH_TIMEOUT(currentMailbox(window), QStringLiteral("Projects"), 10000);
+        QCOMPARE(savedSelection(QStringLiteral("account-2")).readEntry("Mailbox", QString()), QStringLiteral("Projects"));
+        QCOMPARE(savedSelection(QStringLiteral("account-2")).readEntry("MessageMailbox", QString()), QStringLiteral("INBOX"));
+        QCOMPARE(savedSelection(QStringLiteral("account-2")).readEntry("MessageUid", 0u), homeUid);
+        QCOMPARE(savedSelection(QStringLiteral("account-1")).readEntry("Mailbox", QString()), QStringLiteral("INBOX"));
+        QCOMPARE(savedSelection(QStringLiteral("account-1")).readEntry("MessageUid", 0u), workUid);
+        QCOMPARE(savedSelection(QStringLiteral("account-1")).readEntry("MessageUidValidity", 0u), workUidValidity);
+
         // Switching back keeps the first account's connection, counts and saved searches.
         switcher->setCurrentIndex(0);
         emit switcher->activated(0);
@@ -227,6 +281,22 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(inbox.data(Imap::Mailbox::RoleTotalMessageCount).toInt(), 2, 10000);
         QCOMPARE(savedNames(), QStringList{QStringLiteral("Work search")});
         QVERIFY(switcher->itemText(2).startsWith(QLatin1String("Broken (")));
+
+        // Switching restores each account's own mailbox and message.
+        QTRY_COMPARE_WITH_TIMEOUT(currentMailbox(window), QStringLiteral("INBOX"), 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(tree->currentIndex().data(Imap::Mailbox::RoleMailboxName).toString(), QStringLiteral("INBOX"), 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(messages->currentIndex().data(Imap::Mailbox::RoleMessageUid).toUInt(), workUid, 10000);
+        switcher->setCurrentIndex(1);
+        emit switcher->activated(1);
+        QTRY_COMPARE_WITH_TIMEOUT(currentMailbox(window), QStringLiteral("Projects"), 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(tree->currentIndex().data(Imap::Mailbox::RoleMailboxName).toString(), QStringLiteral("Projects"), 10000);
+        QCOMPARE(messages->model()->rowCount(), 0);
+        switcher->setCurrentIndex(0);
+        emit switcher->activated(0);
+        QCOMPARE(window.imapModel(), workModel);
+        QTRY_COMPARE_WITH_TIMEOUT(messages->currentIndex().data(Imap::Mailbox::RoleMessageUid).toUInt(), workUid, 10000);
+        QCOMPARE(savedSelection(QStringLiteral("account-2")).readEntry("Mailbox", QString()), QStringLiteral("Projects"));
+        QCOMPARE(savedSelection(QStringLiteral("account-1")).readEntry("MessageUid", 0u), workUid);
 
         QCOMPARE(passwordPrompts, 0);
         qInfo("Certificate prompts accepted: %d", certificatePrompts);
