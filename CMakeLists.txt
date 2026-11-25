@@ -325,6 +325,7 @@ endif()
 set(path_Composer ${CMAKE_CURRENT_SOURCE_DIR}/src/Composer)
 set(libComposer_SOURCES
     ${path_Composer}/AbstractComposer.cpp
+    ${path_Composer}/AccountIdentities.cpp
     ${path_Composer}/ComposerAttachments.cpp
     ${path_Composer}/ExistingMessageComposer.cpp
     ${path_Composer}/Mailto.cpp
@@ -1172,6 +1173,7 @@ if(BUILD_TESTING)
     trojita_test(Misc FavoriteTagsModel)
     trojita_test(Misc AccountCapabilities)
     trojita_test(Misc AccountRegistry)
+    trojita_test(Misc AccountIdentities)
     trojita_test(Misc AccountStatus)
     trojita_test(Misc AttachmentCollector)
     target_link_libraries(test_AttachmentCollector PRIVATE UiUtils)
