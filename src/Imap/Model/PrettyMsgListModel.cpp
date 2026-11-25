@@ -118,6 +118,22 @@ QVariant PrettyMsgListModel::data(const QModelIndex &index, int role) const
         }
         break;
 
+    case Qt::AccessibleTextRole:
+        // The indicator columns show only icons, so give screen readers their meaning
+        switch (index.column()) {
+        case MsgListModel::SEEN:
+            if (!translated.data(RoleIsFetched).toBool())
+                return QVariant();
+            return translated.data(RoleMessageIsMarkedRead).toBool() ? tr("Read") : tr("Unread");
+        case MsgListModel::FLAGGED:
+            if (!translated.data(RoleIsFetched).toBool())
+                return QVariant();
+            return translated.data(RoleMessageIsMarkedFlagged).toBool() ? tr("Flagged") : tr("Not flagged");
+        case MsgListModel::ATTACHMENT:
+            return translated.data(RoleMessageHasAttachments).toBool() ? tr("Has attachments") : QVariant();
+        }
+        break;
+
 
     case Qt::TextAlignmentRole:
         switch (index.column()) {
