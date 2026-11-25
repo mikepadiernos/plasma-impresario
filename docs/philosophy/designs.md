@@ -28,6 +28,7 @@ planned · ⚠️ limitation
   - [Themes and appearance](#themes-and-appearance)
   - [Message list presentation](#message-list-presentation)
   - [Aqua Mail-inspired desktop customization](#aqua-mail-inspired-desktop-customization)
+  - [eM Client-inspired feature candidates](#em-client-inspired-feature-candidates)
 - [Proposed interface widgets](#proposed-interface-widgets)
 - [Interaction and accessibility](#interaction-and-accessibility)
 - [Layout recommendations](#layout-recommendations)
@@ -456,6 +457,54 @@ References: Aqua Mail's
 and
 [action arrangement](https://www.aqua-mail.com/blog/unlocking-efficiency-rearrange-action-icons-in-aqua-mail-message-view).
 These are design targets, not claims of feature parity or implementation.
+
+### eM Client-inspired feature candidates
+
+Selected ideas from [eM Client](https://www.emclient.com/?lang=en) are adapted to
+the Plasma shell. These are candidates, not implemented features or milestone
+completion criteria:
+
+- **Context panels:** Communication and attachment history for the selected
+  contact, keeping account and folder scope visible. Calendar and agenda
+  information can appear when the corresponding integration is available.
+- **Triage and follow-up:** Pinning, snoozing and reply reminders. Persistence,
+  offline behavior, account scope and provider support must be defined before
+  promising cross-device synchronization.
+- **Command discovery:** A keyboard-accessible command palette alongside
+  existing menus and shortcuts, showing only actions available in the active
+  context.
+- **Composition and attachments:** Reusable text and templates, plus an
+  attachment search view that identifies each file's source message and account
+  while preserving identity, draft and attachment state.
+
+#### Recommendation: improve spam filtering
+
+> [!NOTE]
+>
+> Tracked in M14.07
+> ([#185](https://github.com/mikepadiernos/plasma-impresario/issues/185)); not
+> implemented.
+
+Use the mail provider's spam filtering as the primary layer where available, and
+offer explicit, reversible **Mark as junk** and **Not junk** actions. Provide
+optional per-account sender or domain block rules and explain whether they run
+locally or on the provider; do not imply that a local rule protects other
+devices. Submit provider training feedback only when supported and clearly
+report failures or unavailable services.
+
+Let users review junk messages and undo mistaken classifications or rules. Treat
+sender addresses as spoofable: allow rules must not bypass malware, phishing or
+other security checks. Avoid automatic permanent deletion and external message
+submission; require informed consent for any external classification. Keep
+malware scanning separate from spam classification, and show unknown or
+unavailable results rather than suggesting a message is safe. Test account
+isolation, offline recovery, false positives and provider capability
+differences.
+
+eM Client's [spam controls](https://www.emclient.com/blogpost.aspx?id=748)
+illustrate the distinction between local and provider-side rules. The
+recommendation above is a proposed Impresario design, not a claim that those
+protections are implemented.
 
 ## Proposed interface widgets
 

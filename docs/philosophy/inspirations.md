@@ -9,16 +9,17 @@ references, not feature-cloning specifications or claims about Plasma
 Impresario's current features; the [designs](designs.md) record what is
 implemented and what is planned.
 
-| Reference                                     | Kind                              | Main lesson for Plasma Impresario                      |
-| --------------------------------------------- | --------------------------------- | ------------------------------------------------------ |
-| [KDE / Trojitá](#kde--trojitá)                | Qt IMAP client; the forked base   | IMAP correctness and a lightweight KDE-native baseline |
-| [Aqua Mail](#aqua-mail)                       | Mobile-first mail client          | Readable density and quick triage actions              |
-| [Vivaldi Mail](#vivaldi-mail)                 | Browser-integrated desktop mail   | Cross-account organization and saved, indexed searches |
-| [Thunderbird](#thunderbird)                   | Desktop mail client               | Optional tabs for multiple mail views                  |
-| [The Bat!](#the-bat)                          | Classic power-user desktop client | Dense, keyboard-first, rule-driven processing          |
-| [Kontact](#kontact)                           | KDE personal-information suite    | Plasma integration and PIM context                     |
-| [ePim](#epim-and-workspace-oriented-patterns) | Personal-information manager      | Tags, local organization and workspace context         |
-| [E-Mail](#e-mail)                             | Rust and GTK IMAP and SMTP client | Safe defaults, guided setup and offline-first sync     |
+| Reference                                     | Kind                                 | Main lesson for Plasma Impresario                           |
+| --------------------------------------------- | ------------------------------------ | ----------------------------------------------------------- |
+| [KDE / Trojitá](#kde--trojitá)                | Qt IMAP client; the forked base      | IMAP correctness and a lightweight KDE-native baseline      |
+| [Aqua Mail](#aqua-mail)                       | Mobile-first mail client             | Readable density and quick triage actions                   |
+| [Vivaldi Mail](#vivaldi-mail)                 | Browser-integrated desktop mail      | Cross-account organization and saved, indexed searches      |
+| [Thunderbird](#thunderbird)                   | Desktop mail client                  | Optional tabs for multiple mail views                       |
+| [eM Client](#em-client)                       | Desktop mail and productivity client | Contextual history, follow-up and recoverable spam controls |
+| [The Bat!](#the-bat)                          | Classic power-user desktop client    | Dense, keyboard-first, rule-driven processing               |
+| [Kontact](#kontact)                           | KDE personal-information suite       | Plasma integration and PIM context                          |
+| [ePim](#epim-and-workspace-oriented-patterns) | Personal-information manager         | Tags, local organization and workspace context              |
+| [E-Mail](#e-mail)                             | Rust and GTK IMAP and SMTP client    | Safe defaults, guided setup and offline-first sync          |
 
 ## KDE / Trojitá
 
@@ -94,6 +95,26 @@ views accessible in tabs.
 Tabs are a planned optional feature, **off by default**; that default is a
 project decision, not a Thunderbird claim. See
 [optional tabs](designs.md#optional-tabs).
+
+## eM Client
+
+**Project:** <https://www.emclient.com/?lang=en> · **References:**
+[feature overview](https://www.emclient.com/features-overview),
+[email features](https://www.emclient.com/features-email?lang=en) and
+[spam controls](https://www.emclient.com/blogpost.aspx?id=748)
+
+eM Client is a desktop reference for contextual mail information, triage and
+follow-up workflows.
+
+- Communication and attachment history for the selected contact
+- A command palette, pinning, snoozing and reply reminders
+- Templates and reusable text
+- Local and server-side spam controls that inform a recoverable, account-aware
+  design
+
+Provider capabilities, cross-device behavior and integrations need separate
+validation. See the
+[feature candidates and spam recommendation](designs.md#em-client-inspired-feature-candidates).
 
 <!-- markdownlint-disable MD026 -->
 
