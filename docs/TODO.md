@@ -29,7 +29,6 @@ Legend: ![Done][done] or verified · ![Needs verification][needs-verification] �
   - [M01 release gate and integration](#m01-release-gate-and-integration)
   - [Milestone feature-issue
     synchronization](#milestone-feature-issue-synchronization)
-  - [M05 search milestone insertion](#m05-search-milestone-insertion)
   - [M13 Microsoft milestone insertion](#m13-microsoft-milestone-insertion)
 
 ## Backlog
@@ -435,19 +434,14 @@ component audit and reproduction steps.
   otherwise to their milestone issue; subsection issues belong to the milestone
   issue. Issue milestone assignments and parent links were verified. Existing
   project statuses were preserved when the cards were created.
-- ![In progress][in-progress] **Milestone numbers:** several board issue titles
-  still use earlier milestone numbers. For example, roadmap M06 is
-  [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7) "M07:
-  Desktop integration and provider support", M10 is
-  [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11) "M05:
-  Reliability, sync, and notification quality", and #304 and #305 are titled
-  "M07:" but belong to roadmap M06.04. The milestone reorder
-  [#249](https://github.com/mikepadiernos/plasma-impresario/issues/249) and its
-  pull request
-  [#250](https://github.com/mikepadiernos/plasma-impresario/pull/250) were
-  closed as superseded on 2026-11-25, so issue titles and GitHub milestone names
-  still need a separate pass to match roadmap numbers. Treat the roadmap
-  numbering as current until then.
+- ![Done][done] **Renumbered, 2026-11-25:** 167 issue titles and 115
+  issue-body `Milestone:` lines now use roadmap milestone numbers, keeping
+  their subsection suffixes. Six GitHub milestones were renamed to match the
+  roadmap (M06, M07, M10, M11, M12 and M14), and eight closed, empty milestones
+  were renamed "Retired: …" instead of being deleted. This replaces the closed
+  reorder [#249](https://github.com/mikepadiernos/plasma-impresario/issues/249)
+  and its pull request
+  [#250](https://github.com/mikepadiernos/plasma-impresario/pull/250).
 - ![Done][done] **Board audit, 2026-11-24:** every roadmap checkbox matches its
   issue's board status, every closed issue is Completed or Merged, and sub-issue
   milestones match their parents. Missing Start and Target dates were filled in
@@ -476,49 +470,6 @@ component audit and reproduction steps.
 - Keep roadmap links, issue parents, milestone assignments and project status
   synchronized when roadmap scope changes.
 
-### M05 search milestone insertion
-
-- ![Done][done] **Inserted, 2026-11-25**
-  ([#322](https://github.com/mikepadiernos/plasma-impresario/issues/322)):
-  search moved out of M04 into the new M05 Search and indexing
-  ([#324](https://github.com/mikepadiernos/plasma-impresario/issues/324)), and
-  roadmap M05–M12 became M06–M13. The GitHub milestone "M05: Search and
-  indexing", subsections #325–#330, features #331–#352 and recommendations
-  #353–#357 were created in the Backlog.
-- ![Done][done] **Moved:**
-  [#95](https://github.com/mikepadiernos/plasma-impresario/issues/95) and
-  [#302](https://github.com/mikepadiernos/plasma-impresario/issues/302) moved
-  from M04 to M05.01 with their board cards.
-  [#40](https://github.com/mikepadiernos/plasma-impresario/issues/40) became
-  "Provide conversation navigation", its saved filters became M05.03 saved
-  searches, and #6 and the GitHub M04 milestone were renamed "M04: Reading and
-  conversation flow". Roadmap-numbered subsection bodies were shifted: M05.0x to
-  M06.0x and M08.xx to M09.xx.
-- ![Done][done] **Recommendations:**
-  [#353](https://github.com/mikepadiernos/plasma-impresario/issues/353) (M04,
-  under #39),
-  [#354](https://github.com/mikepadiernos/plasma-impresario/issues/354) (M06.01,
-  #42), [#355](https://github.com/mikepadiernos/plasma-impresario/issues/355)
-  (M07, #46),
-  [#356](https://github.com/mikepadiernos/plasma-impresario/issues/356) (M08,
-  #47) and [#357](https://github.com/mikepadiernos/plasma-impresario/issues/357)
-  (M10, #52) follow their GitHub milestones' title prefixes.
-- ![In progress][in-progress] **Title clash:** the new M05 issues share the
-  "M05:" prefix with the reliability milestone (roadmap M10,
-  [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11), its
-  features and #357). Resolve this when issue titles are aligned with roadmap
-  numbers; see [milestone numbers](#milestone-feature-issue-synchronization).
-- ![Done][done] **Plasma-session milestone:** the M13 created on
-  `feature/m02-shell-next` is roadmap M15 after the M05 and M13 insertions. Its
-  parent [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)
-  and features #315–#317 were retitled "M15:" on 2026-11-25.
-- ![Planned][planned] **Resume:** pull requests
-  [#250](https://github.com/mikepadiernos/plasma-impresario/pull/250) and
-  [#252](https://github.com/mikepadiernos/plasma-impresario/pull/252) were
-  closed as superseded on 2026-11-25. Retitle board issues and GitHub
-  milestones to roadmap numbers in one pass, then remove this section and the
-  roadmap tip.
-
 ### M13 Microsoft milestone insertion
 
 - ![Done][done] **Inserted, 2026-11-25**
@@ -545,14 +496,6 @@ component audit and reproduction steps.
   recommendation comment links M13.01 (#397, #398).
 - ![Done][done] **E-Mail checklists:** recommendations #369–#375 and #377–#383
   were added to their parent issues' feature lists.
-- ![Planned][planned] **Title prefixes:** Refinements issues keep the GitHub
-  milestone and title prefix "M11:" (roadmap M14), and the empty GitHub
-  milestone "M13: Tagging, Maildir, and Opus workspace integration" shares the
-  "M13:" prefix. The M14.03 grant follow-ups
-  [#428](https://github.com/mikepadiernos/plasma-impresario/issues/428) and
-  [#429](https://github.com/mikepadiernos/plasma-impresario/issues/429) use the
-  same "M11:" prefix as their siblings. Resolve both in the retitling pass under
-  [milestone numbers](#milestone-feature-issue-synchronization).
 - ![Done][done] **Merged:** #385 merged in
   [#418](https://github.com/mikepadiernos/plasma-impresario/pull/418) and is
   closed and Merged on the board.
@@ -575,9 +518,7 @@ component audit and reproduction steps.
      publisher-verified and which tenant holds them.
   5. Ask KDE e.V. whether it can host or publisher-verify the app, and record
      both answers in #396.
-- ![Planned][planned] **Resume:** when the Refinements issues are retitled,
-  remove the title-prefix bullet; remove this section when that and #396 are
-  done.
+- ![Planned][planned] **Resume:** remove this section when #396 is done.
 
 [blocked]: https://img.shields.io/badge/Blocked-cf222e
 [done]: https://img.shields.io/badge/Done-1a7f37
