@@ -360,4 +360,41 @@ void CopyAndFlagTest::testEmptyMailboxFailure()
     justKeepTask();
 }
 
+/** @short The task behind marking messages as read tells when the server has confirmed the change */
+void CopyAndFlagTest::testMarkReadReportsCompletion()
+{
+    helperSyncThreeMessages();
+
+    const QModelIndexList messages{msgListA.model()->index(1, 0, msgListA), msgListA.model()->index(2, 0, msgListA)};
+    ImapTask *task = model->markMessagesRead(messages, FLAG_ADD);
+    QVERIFY(task);
+    QSignalSpy completedSpy(task, &ImapTask::completed);
+    QSignalSpy failedSpy(task, &ImapTask::failed);
+    cClient(t.mk("UID STORE 2:3 +FLAGS (\\Seen)\r\n"));
+    QVERIFY(completedSpy.isEmpty());
+    cServer("* 2 FETCH (FLAGS (\\Seen))\r\n* 3 FETCH (FLAGS (\\Seen))\r\n" + t.last("OK stored\r\n"));
+    QCOMPARE(completedSpy.size(), 1);
+    QVERIFY(failedSpy.isEmpty());
+    cEmpty();
+    justKeepTask();
+}
+
+/** @short A refusal carries the server's explanation, so that it can be shown */
+void CopyAndFlagTest::testMarkReadReportsFailure()
+{
+    helperSyncThreeMessages();
+
+    ImapTask *task = model->markMessagesDeleted(QModelIndexList() << msgListA.model()->index(0, 0, msgListA), FLAG_ADD);
+    QVERIFY(task);
+    QSignalSpy completedSpy(task, &ImapTask::completed);
+    QSignalSpy failedSpy(task, &ImapTask::failed);
+    cClient(t.mk("UID STORE 1 +FLAGS (\\Deleted)\r\n"));
+    cServer(t.last("NO [NOPERM] read-only folder\r\n"));
+    QCOMPARE(failedSpy.size(), 1);
+    QVERIFY(failedSpy.at(0).at(0).toString().contains(QLatin1String("read-only folder")));
+    QVERIFY(completedSpy.isEmpty());
+    cEmpty();
+    justKeepTask();
+}
+
 QTEST_GUILESS_MAIN(CopyAndFlagTest)

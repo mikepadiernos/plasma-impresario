@@ -6,6 +6,7 @@
 #include <QApplication>
 #include <QLabel>
 #include <QLineEdit>
+#include <QProgressBar>
 #include <QPushButton>
 #include <QSignalSpy>
 #include <QStandardPaths>
@@ -35,6 +36,8 @@ private slots:
     void errorPersists();
     void zeroTimeoutKeepsInfo();
     void accessibleNames();
+    void busyShowsProgressUntilReplaced();
+    void dismissBusyKeepsNewerMessages();
 };
 
 namespace {
@@ -209,6 +212,71 @@ void InlineNotificationBarTest::accessibleNames()
     QCOMPARE(f.bar->closeButton()->accessibleName(), QStringLiteral("Close notification"));
     QVERIFY(!f.bar->closeButton()->toolTip().isEmpty());
     QCOMPARE(f.bar->actionButtons().at(0)->accessibleName(), QStringLiteral("Undo"));
+}
+
+void InlineNotificationBarTest::busyShowsProgressUntilReplaced()
+{
+    Fixture f;
+    f.bar->setAutoHideTimeout(50);
+    QVERIFY(!f.bar->isBusy());
+    QVERIFY(f.bar->progressBar()->isHidden());
+
+    f.bar->showBusy(QStringLiteral("Moving 250 messages to Archive…"));
+    QVERIFY(f.bar->isVisible());
+    QVERIFY(f.bar->isBusy());
+    QCOMPARE(f.bar->kind(), InlineNotificationBar::Kind::Busy);
+    QCOMPARE(f.bar->text(), QStringLiteral("Moving 250 messages to Archive…"));
+    QVERIFY(f.bar->progressBar()->isVisible());
+    // Indeterminate: the number of finished messages is not known
+    QCOMPARE(f.bar->progressBar()->minimum(), 0);
+    QCOMPARE(f.bar->progressBar()->maximum(), 0);
+    QVERIFY(!f.bar->progressBar()->accessibleName().isEmpty());
+    QVERIFY(f.bar->actionButtons().isEmpty());
+    // The operation is still running, so the message does not time out
+    QVERIFY(!f.bar->isAutoHideActive());
+    QTest::qWait(150);
+    QVERIFY(f.bar->isBusy());
+
+    // The result replaces it
+    f.bar->showInfo(QStringLiteral("Archived 250 messages"));
+    QVERIFY(!f.bar->isBusy());
+    QCOMPARE(f.bar->kind(), InlineNotificationBar::Kind::Info);
+    QVERIFY(f.bar->progressBar()->isHidden());
+    QVERIFY(f.bar->isAutoHideActive());
+
+    f.bar->showBusy(QStringLiteral("Marking 3 messages as read…"));
+    f.bar->showError(QStringLiteral("Could not mark 3 messages as read: NO busy"));
+    QVERIFY(!f.bar->isBusy());
+    QVERIFY(f.bar->progressBar()->isHidden());
+    QVERIFY(!f.bar->isAutoHideActive());
+
+    // Closing hides it, though the operation goes on
+    f.bar->showBusy(QStringLiteral("Moving 2 messages to Trash…"));
+    QSignalSpy dismissed(f.bar, &InlineNotificationBar::dismissed);
+    f.bar->closeButton()->click();
+    QVERIFY(f.bar->isHidden());
+    QVERIFY(!f.bar->isBusy());
+    QCOMPARE(dismissed.size(), 1);
+}
+
+void InlineNotificationBarTest::dismissBusyKeepsNewerMessages()
+{
+    Fixture f;
+    const quint64 first = f.bar->showBusy(QStringLiteral("Flagging 2 messages…"));
+    const quint64 second = f.bar->showBusy(QStringLiteral("Moving 4 messages to Work…"));
+    QVERIFY(first != second);
+    // An older operation which finished without a message of its own leaves the newer one alone
+    f.bar->dismissBusy(first);
+    QVERIFY(f.bar->isBusy());
+    QCOMPARE(f.bar->text(), QStringLiteral("Moving 4 messages to Work…"));
+    f.bar->dismissBusy(second);
+    QVERIFY(f.bar->isHidden());
+
+    const quint64 third = f.bar->showBusy(QStringLiteral("Flagging 2 messages…"));
+    f.bar->showError(QStringLiteral("Could not move 4 messages to Work: NO quota"));
+    f.bar->dismissBusy(third);
+    QVERIFY(f.bar->isVisible());
+    QCOMPARE(f.bar->kind(), InlineNotificationBar::Kind::Error);
 }
 
 int main(int argc, char **argv)

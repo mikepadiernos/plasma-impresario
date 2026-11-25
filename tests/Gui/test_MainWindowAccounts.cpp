@@ -8,6 +8,7 @@
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MessageListWidget.h"
 #include "Gui/MsgListView.h"
+#include "Gui/ShortcutHandler/ShortcutHandler.h"
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/ItemRoles.h"
@@ -33,6 +34,8 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
+#include <QMenuBar>
+#include <QPushButton>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QStandardItemModel>
@@ -40,6 +43,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QToolButton>
+#include <QTreeWidget>
 
 namespace {
 
@@ -712,6 +716,112 @@ private slots:
         QCOMPARE(tree->selectionModel()->selectedRows(), QModelIndexList{messages.index(0, 0)});
         QVERIFY(refreshStatus());
         QCOMPARE(status->text(), QStringLiteral("3 selected"));
+        tree->setModel(nullptr);
+    }
+
+    void shortcutOverviewAndSelectionOffline()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        Gui::MainWindow window(&settings);
+
+        auto *overview = window.findChild<QAction *>(QStringLiteral("action_shortcut_overview"));
+        QVERIFY(overview);
+        QCOMPARE(overview->shortcut(), QKeySequence(QStringLiteral("?")));
+        QVERIFY(overview->isEnabled());
+        bool inMenu = false;
+        for (QMenu *menu : window.findChildren<QMenu *>())
+            inMenu = inMenu || menu->actions().contains(overview);
+        QVERIFY(inMenu);
+
+        // Every shortcut, including the new one, belongs to one action only
+        QHash<QString, QString> owners;
+        for (QAction *action : window.findChildren<QAction *>()) {
+            if (!action->objectName().startsWith(QLatin1String("action_")))
+                continue;
+            for (const QKeySequence &shortcut : action->shortcuts()) {
+                const QString key = shortcut.toString(QKeySequence::PortableText);
+                if (key.isEmpty())
+                    continue;
+                const QString owner = owners.value(key);
+                QVERIFY2(owner.isEmpty() || owner == action->objectName(),
+                         qPrintable(key + QLatin1String(": ") + owner + QLatin1String(", ") + action->objectName()));
+                owners.insert(key, action->objectName());
+            }
+        }
+
+        overview->trigger();
+        auto *dialog = window.findChild<QDialog *>(QStringLiteral("shortcutOverviewDialog"));
+        QVERIFY(dialog);
+        QVERIFY(dialog->isVisible());
+        QVERIFY(!dialog->isModal());
+        auto *list = dialog->findChild<QTreeWidget *>(QStringLiteral("shortcutOverviewList"));
+        auto *search = dialog->findChild<QLineEdit *>(QStringLiteral("shortcutOverviewSearch"));
+        QVERIFY(list);
+        QVERIFY(search);
+        QVERIFY(dialog->findChild<QPushButton *>(QStringLiteral("shortcutOverviewConfigure")));
+
+        QStringList groups;
+        QHash<QString, QString> areas;
+        QHash<QString, QString> shortcuts;
+        for (int i = 0; i < list->topLevelItemCount(); ++i) {
+            QTreeWidgetItem *group = list->topLevelItem(i);
+            groups << group->text(0);
+            for (int j = 0; j < group->childCount(); ++j) {
+                const QString id = group->child(j)->data(0, Qt::UserRole).toString();
+                areas.insert(id, group->text(0));
+                shortcuts.insert(id, group->child(j)->text(1));
+            }
+        }
+        // Menus come first, in the order of the menu bar
+        QCOMPARE(groups.value(0), QStringLiteral("Application"));
+        QVERIFY(groups.contains(QStringLiteral("Help")));
+        QVERIFY(groups.contains(QStringLiteral("Message List")));
+        // Every defined action is listed once
+        QCOMPARE(areas.size(), Gui::ShortcutHandler::instance()->actionDescriptions().size());
+        QCOMPARE(areas.value(QStringLiteral("action_archive")), QStringLiteral("Message"));
+        QCOMPARE(shortcuts.value(QStringLiteral("action_archive")), QKeySequence(QStringLiteral("A")).toString(QKeySequence::NativeText));
+        QCOMPARE(areas.value(QStringLiteral("action_shortcut_overview")), QStringLiteral("Help"));
+        QCOMPARE(areas.value(QStringLiteral("action_mark_as_junk")), QStringLiteral("Message List"));
+        QCOMPARE(areas.value(QStringLiteral("action_messagewindow_close")), QStringLiteral("Other Windows"));
+#ifdef TROJITA_HAVE_WEBENGINE
+        QCOMPARE(areas.value(QStringLiteral("action_zoom_in")), QStringLiteral("Message Reader"));
+#endif
+
+        const int allGroups = list->topLevelItemCount();
+        search->setText(QStringLiteral("archive"));
+        QVERIFY(list->topLevelItemCount() >= 1);
+        QVERIFY(list->topLevelItemCount() < allGroups);
+        search->setText(QStringLiteral("no such action at all"));
+        QCOMPARE(list->topLevelItemCount(), 0);
+        search->clear();
+        QCOMPARE(list->topLevelItemCount(), allGroups);
+
+        // Triggering it again raises the same dialog
+        overview->trigger();
+        QCOMPARE(window.findChildren<QDialog *>(QStringLiteral("shortcutOverviewDialog")).size(), 1);
+        dialog->close();
+        QTRY_VERIFY(!window.findChild<QDialog *>(QStringLiteral("shortcutOverviewDialog")));
+
+        // Removing the selected messages makes the next remaining one current and selected
+        auto *tree = window.findChild<Gui::MessageListWidget *>()->tree;
+        QStandardItemModel messages;
+        for (uint uid = 1; uid <= 5; ++uid) {
+            auto *item = new QStandardItem(QString::number(uid));
+            item->setData(uid, Imap::Mailbox::RoleMessageUid);
+            messages.appendRow(item);
+        }
+        tree->setModel(&messages);
+        tree->setCurrentIndex(messages.index(1, 0));
+        tree->selectionModel()->select(QItemSelection(messages.index(1, 0), messages.index(2, 0)),
+                                       QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+        QCOMPARE(tree->selectionModel()->selectedRows().size(), 2);
+        messages.removeRows(1, 2);
+        // The selection follows once the rows are gone
+        QTRY_COMPARE(tree->selectionModel()->selectedRows(), QModelIndexList{messages.index(1, 0)});
+        QCOMPARE(tree->currentIndex().data(Imap::Mailbox::RoleMessageUid).toUInt(), 4u);
         tree->setModel(nullptr);
     }
 };

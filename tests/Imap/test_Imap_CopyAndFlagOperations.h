@@ -49,6 +49,8 @@ private slots:
     void testDeletePermanentlyWithoutUidPlus();
     void testEmptyMailbox();
     void testEmptyMailboxFailure();
+    void testMarkReadReportsCompletion();
+    void testMarkReadReportsFailure();
 
 private:
     void helperSyncThreeMessages();
