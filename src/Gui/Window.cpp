@@ -134,6 +134,8 @@
 #include "UiUtils/IconLoader.h"
 #include "UiUtils/QaimDfsIterator.h"
 
+#include "OAuth/OAuth.h"
+
 /** @short All user-facing widgets and related classes */
 namespace Gui
 {
@@ -2052,7 +2054,7 @@ void MainWindow::removeAccountNow(const QString &accountId)
         switchAccount(remaining.first());
     Imap::ImapAccess *access = accountAccess(accountId);
     if (Plugins::PasswordPlugin *password = pluginManager()->password()) {
-        for (const QString &type : {QStringLiteral("imap"), QStringLiteral("smtp")}) {
+        for (const QString &type : {QStringLiteral("imap"), QStringLiteral("smtp"), OAuth::credentialType()}) {
             if (Plugins::PasswordJob *job = password->deletePassword(access->credentialAccountId(), type)) {
                 job->setAutoDelete(true);
                 job->start();
@@ -2649,15 +2651,23 @@ MSA::MSAFactory *MainWindow::msaFactory()
     QString method = accountSettings()->value(SettingsNames::msaMethodKey).toString();
     MSA::MSAFactory *msaFactory = nullptr;
     if (method == SettingsNames::methodSMTP || method == SettingsNames::methodSSMTP) {
-        msaFactory = new MSA::SMTPFactory(accountSettings()->value(SettingsNames::smtpHostKey).toString(),
-                                          accountSettings()->value(SettingsNames::smtpPortKey).toInt(),
-                                          (method == SettingsNames::methodSSMTP),
-                                          (method == SettingsNames::methodSMTP)
-                                          && accountSettings()->value(SettingsNames::smtpStartTlsKey).toBool(),
-                                          accountSettings()->value(SettingsNames::smtpAuthKey).toBool(),
-                                          accountSettings()->value(SettingsNames::smtpAuthReuseImapCredsKey, false).toBool() ?
-                                              accountSettings()->value(SettingsNames::imapUserKey).toString() :
-                                              accountSettings()->value(SettingsNames::smtpUserKey).toString());
+        auto smtpFactory = new MSA::SMTPFactory(accountSettings()->value(SettingsNames::smtpHostKey).toString(),
+                                            accountSettings()->value(SettingsNames::smtpPortKey).toInt(),
+                                            (method == SettingsNames::methodSSMTP),
+                                            (method == SettingsNames::methodSMTP)
+                                            && accountSettings()->value(SettingsNames::smtpStartTlsKey).toBool(),
+                                            accountSettings()->value(SettingsNames::smtpAuthKey).toBool(),
+                                            accountSettings()->value(SettingsNames::smtpAuthReuseImapCredsKey, false).toBool() ?
+                                                accountSettings()->value(SettingsNames::imapUserKey).toString() :
+                                                accountSettings()->value(SettingsNames::smtpUserKey).toString());
+        if (OAuth::isEnabled(*accountSettings(), OAuth::Service::Smtp)) {
+            QPointer<Plugins::PluginManager> plugins = pluginManager();
+            smtpFactory->setOAuth(OAuth::AccountConfig::fromSettings(*accountSettings(), imapAccess()->credentialAccountId()),
+                                  [plugins]() -> Plugins::PasswordPlugin * {
+                                      return plugins ? plugins->password() : nullptr;
+                                  });
+        }
+        msaFactory = smtpFactory;
     } else if (method == SettingsNames::methodSENDMAIL) {
         QStringList args = accountSettings()->value(SettingsNames::sendmailKey, SettingsNames::sendmailDefaultCmd).toString().split(QLatin1Char(' '));
         if (args.isEmpty()) {
