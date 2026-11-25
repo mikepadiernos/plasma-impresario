@@ -17,6 +17,8 @@ a real OpenPGP signature. The messages are:
   news       "Weekly news" from Erin, HTML with a remote image on
              images.example.test and a link whose text shows another site;
              unread
+  travel     "Travel plans" from Frank; unread, and never opened before the
+             test goes offline, so its body is not available offline
 """
 
 import base64
@@ -30,6 +32,7 @@ BOB = f"Bob Example <bob@{DOMAIN}>"
 CAROL = f"Carol Example <carol@{DOMAIN}>"
 DAVE = f"Dave Example <dave@{DOMAIN}>"
 ERIN = f"Erin Example <erin@{DOMAIN}>"
+FRANK = f"Frank Example <frank@{DOMAIN}>"
 
 
 def headers(sender, to, subject, date, message_id, extra=()):
@@ -185,6 +188,14 @@ MESSAGES = [
         text_message(
             headers(ALICE, USER, "Lunch on Friday", "Mon, 23 Nov 2026 12:15:00 +0000", "lunch"),
             "Shall we try the new place on Friday?\n\nAlice",
+        ),
+    ),
+    (
+        "7-travel",
+        None,
+        text_message(
+            headers(FRANK, USER, "Travel plans", "Wed, 25 Nov 2026 07:30:00 +0000", "travel"),
+            "The train leaves at nine on Monday.\n\nFrank",
         ),
     ),
 ]
