@@ -164,9 +164,11 @@ and project status before acting.
   first (it waits on the real-Plasma check for #35 and on OAuth #218).
 - **Current state:** M03 #5 is in Development. Folder navigation #37,
   destructive operations #89, quick actions #83, sorting, filtering and
-  selection #38 and multi-selection and batch feedback #88 are Completed;
-  power-user workflows #84 are in Review. The other feature issues follow in
-  this order: #85, #90, #87, #82, #223 and #86.
+  selection #38, multi-selection and batch feedback #88 and power-user
+  workflows #84 are Completed; grouping and relevance sorting #85 are in
+  Review. The other feature issues follow in this order: #90, #87, #82, #223
+  and #86. M03 work continues in a separate git worktree because the main
+  checkout is in use.
 - **Pending verification:** Delete to Trash, Undo, Delete Permanently, Empty
   Trash/Junk and Rename Folder are covered by model and unit tests but have not
   been exercised in a window against a live server. Extend
