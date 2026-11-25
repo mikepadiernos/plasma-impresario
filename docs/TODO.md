@@ -305,13 +305,20 @@ avoid conflicting changes, these M02 items are held:
 - ⏸️ **Capability-aware actions, #215:** hides actions that the account's
   protocol does not support. Most of those actions are added or changed by M03,
   so this waits until M03 is merged.
-- ⏸️ **Merge M02 into M03:** merge `feature/m02-shell-next` into
-  `feature/m03-mail-operations` once, in that direction only, when the M03
-  worktree has no uncommitted work. On 2026-11-24 it had uncommitted changes, so
-  the merge was not attempted. A trial merge conflicts in `CMakeLists.txt`,
-  `docs/CAVEATS.md`, `docs/EDGE.md`, `docs/philosophy/designs.md`,
-  `src/Common/SettingsNames.h` and `tests/Gui/test_MainWindowAccounts.cpp`;
-  most need both sides kept.
+- ⏸️ **Merge M02 into M03:** the merge is prepared and tested on
+  `merge/m02-into-m03` (pushed). It is M03 at `50f6f2d0` with M02 at `c0719cfa`
+  merged in. The conflicts in `CMakeLists.txt`, `src/Common/SettingsNames.h`
+  and `tests/Gui/test_MainWindowAccounts.cpp` keep both sides. M03's caveat,
+  edge cases and design notes moved into M02's sectioned tables in
+  `docs/CAVEATS.md`, `docs/EDGE.md` and `docs/philosophy/designs.md` (new
+  _Mail operations_ sections). All 88 tests pass, and `test_LiveImapAccounts`
+  passes against Dovecot 2.4.5. The M03 worktree had new uncommitted work
+  (`ViewStateStore`), so `feature/m03-mail-operations` was not changed. When
+  that work is committed, run `git merge merge/m02-into-m03` in the M03
+  worktree; any new conflicts are limited to files M03 changed since
+  `50f6f2d0`. Merge in that direction only, then delete the branch. In a
+  container build of a worktree, also mount the main repository's `.git` at
+  its host path, or the version header step fails.
 
 #### How to resume
 
