@@ -1156,9 +1156,9 @@ if(BUILD_TESTING)
             foreach(account_case migratesSingleProfileIntoFirstAccount switchingKeepsAccountsIndependent backgroundAccountStatusIsShown
                     removingAccountDeletesItsSettingsAndPasswords accountsSwitchFromTheKeyboard
                     savedSearchesAndFolderExpansionFollowTheAccount focusCyclesThroughShellRegions
-                    goToFolderActionsWithoutFolders destructiveActionsOffline quickActionsOffline
+                    goToFolderActionsWithoutFolders checkMailAndNextUnreadFolder destructiveActionsOffline quickActionsOffline
                     messageListFiltersOffline shortcutOverviewAndSelectionOffline powerUserProcessingOffline
-                    groupingAndRelevanceOffline folderViewStateOffline
+                    groupingAndRelevanceOffline folderViewStateOffline unifiedInboxOffline unifiedInboxIsRestored
                     identitiesFollowTheAccount composerSendsWithItsOwnAccount newAccountsStartWithoutIdentities
                     oauthAccountsOfferSignIn)
                 add_test(NAME test_MainWindowAccounts_${account_case} COMMAND test_MainWindowAccounts ${account_case})

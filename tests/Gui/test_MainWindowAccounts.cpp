@@ -1559,6 +1559,221 @@ private slots:
         QCOMPARE(inboxPosition->uid, 3u);
     }
 
+    void unifiedInboxOffline()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        {
+            // All accounts open their disk cache under the same database connection name
+            QSettings second(directory.filePath(QStringLiteral("main-account-2.conf")), QSettings::IniFormat);
+            second.setValue(Common::SettingsNames::cacheOfflineKey, Common::SettingsNames::cacheOfflineNone);
+        }
+        QVERIFY(seedFirstAccountCache());
+        auto unifiedState = []() {
+            return KConfigGroup(KSharedConfig::openStateConfig(), QStringLiteral("UnifiedInbox")).readEntry("Enabled", false);
+        };
+        auto excludedAccounts = []() {
+            KSharedConfig::Ptr config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+            config->reparseConfiguration();
+            return KConfigGroup(config, QStringLiteral("UnifiedInbox")).readEntry("ExcludedAccounts", QStringList());
+        };
+        QVERIFY(!unifiedState());
+
+        {
+            Gui::MainWindow window(&settings);
+            auto action = [&window](const QString &name) {
+                return window.findChild<QAction *>(name);
+            };
+            auto *unified = action(QStringLiteral("action_unified_inbox"));
+            QVERIFY(unified);
+            QVERIFY(unified->isCheckable());
+            QVERIFY(!unified->isChecked());
+            QCOMPARE(unified->shortcut(), QKeySequence(QStringLiteral("Ctrl+Shift+I")));
+            int uses = 0;
+            for (QAction *candidate : window.findChildren<QAction *>()) {
+                if (candidate->shortcuts().contains(unified->shortcut()))
+                    ++uses;
+            }
+            QCOMPARE(uses, 1);
+            auto *accountsMenu = window.findChild<QMenu *>(QStringLiteral("unifiedInboxAccountsMenu"));
+            QVERIFY(accountsMenu);
+            bool inViewMenu = false;
+            for (QAction *menu : window.menuBar()->actions()) {
+                if (menu->menu() && menu->menu()->actions().contains(unified) &&
+                    menu->menu()->actions().contains(accountsMenu->menuAction()))
+                    inViewMenu = true;
+            }
+            QVERIFY(inViewMenu);
+
+            auto *messages = window.findChild<Gui::MessageListWidget *>();
+            QVERIFY(messages);
+            auto *tree = messages->tree;
+            auto *mailboxes = window.findChild<Gui::MailBoxTreeView *>();
+            QVERIFY(mailboxes);
+            auto *scope = window.findChild<QLabel *>(QStringLiteral("messageListScope"));
+            auto *status = window.findChild<QLabel *>(QStringLiteral("messageListStatus"));
+            QVERIFY(scope);
+            QVERIFY(status);
+            auto *groupByMenu = window.findChild<QMenu *>(QStringLiteral("messageListGroupByMenu"));
+            QVERIFY(groupByMenu);
+            QAction *threading = nullptr;
+            for (QAction *candidate : window.findChildren<QAction *>()) {
+                if (candidate->text() == Gui::MainWindow::tr("Show Messages in &Threads"))
+                    threading = candidate;
+            }
+            QVERIFY(threading);
+            auto prettyModel = [&window]() {
+                return window.findChild<Imap::Mailbox::PrettyMsgListModel *>(QStringLiteral("prettyMsgListModel"));
+            };
+            auto openMailbox = [&window]() {
+                auto *msgList = qobject_cast<Imap::Mailbox::MsgListModel *>(window.imapAccess()->msgListModel());
+                return msgList ? msgList->currentMailbox().data(Imap::Mailbox::RoleMailboxName).toString() : QString();
+            };
+            auto *nextAccount = action(QStringLiteral("action_next_account"));
+            auto *moveMenu = window.findChild<QMenu *>(QStringLiteral("moveToMenu"));
+            QVERIFY(moveMenu);
+            auto offeredFolders = [moveMenu]() {
+                emit moveMenu->aboutToShow();
+                QStringList offered;
+                for (QAction *candidate : moveMenu->actions()) {
+                    if (!candidate->isSeparator() && candidate->objectName().isEmpty())
+                        offered << candidate->data().toString();
+                }
+                return offered;
+            };
+
+            // The first account remembers a destination of its own, then the other account becomes the active one
+            mailboxes->restoreMailbox(QStringLiteral("INBOX"));
+            QTRY_COMPARE(openMailbox(), QStringLiteral("INBOX"));
+            QTRY_VERIFY(window.imapModel()->mailboxIndexByName(QStringLiteral("Archive")).isValid());
+            QVERIFY(QMetaObject::invokeMethod(&window, "rememberRecentFolder", Q_ARG(QString, QStringLiteral("Archive"))));
+            QCOMPARE(offeredFolders(), QStringList{QStringLiteral("Archive")});
+            nextAccount->trigger();
+            QCOMPARE(window.imapAccess()->credentialAccountId(), QStringLiteral("account-2"));
+            QVERIFY(scope->isHidden());
+            QVERIFY(offeredFolders().isEmpty());
+            const bool threadingWasEnabled = threading->isEnabled();
+
+            // The INBOX of every account in one list, even of an account which is not the active one
+            unified->trigger();
+            QVERIFY(unified->isChecked());
+            QVERIFY(unifiedState());
+            QCOMPARE(tree->model()->objectName(), QStringLiteral("prettyUnifiedMsgListModel"));
+            QTRY_COMPARE(tree->model()->rowCount(), 5);
+            QCOMPARE(scope->text(), QStringLiteral("Unified Inbox"));
+            QVERIFY(!scope->isHidden());
+            QVERIFY(scope->toolTip().contains(QStringLiteral("Work")));
+            QVERIFY(scope->toolTip().contains(QStringLiteral("Home")));
+            QTRY_VERIFY2(status->text().contains(QStringLiteral("5 messages")), qPrintable(status->text()));
+            QVERIFY2(status->text().contains(QStringLiteral("5 unread")), qPrintable(status->text()));
+            // Neither account is online, but the cached messages are listed
+            QVERIFY2(status->text().contains(QStringLiteral("offline: ")), qPrintable(status->text()));
+            QVERIFY(status->text().contains(QStringLiteral("Home")));
+
+            // Threads, groups and folder views belong to one folder
+            QVERIFY(!threading->isEnabled());
+            QVERIFY(!groupByMenu->menuAction()->isEnabled());
+            QVERIFY(!action(QStringLiteral("messageListViewForAllFolders"))->isEnabled());
+            QVERIFY(!action(QStringLiteral("messageListResetFolderView"))->isEnabled());
+
+            // Actions on a message use the account which the message belongs to
+            tree->selectionModel()->setCurrentIndex(tree->model()->index(0, 0),
+                                                    QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+            QCOMPARE(offeredFolders(), QStringList{QStringLiteral("Archive")});
+            QCOMPARE(window.imapAccess()->credentialAccountId(), QStringLiteral("account-2"));
+
+            // Accounts can be left out, but not all of them
+            emit accountsMenu->aboutToShow();
+            QCOMPARE(accountsMenu->actions().size(), 2);
+            QAction *work = accountsMenu->actions().at(0);
+            QAction *home = accountsMenu->actions().at(1);
+            QCOMPARE(work->data().toString(), QStringLiteral("account-1"));
+            QCOMPARE(home->data().toString(), QStringLiteral("account-2"));
+            QVERIFY(work->isChecked() && work->isEnabled());
+            QVERIFY(home->isChecked() && home->isEnabled());
+            work->setChecked(false);
+            QCOMPARE(excludedAccounts(), QStringList{QStringLiteral("account-1")});
+            QTRY_COMPARE(tree->model()->rowCount(), 0);
+            QVERIFY(!scope->toolTip().contains(QStringLiteral("Work")));
+            emit accountsMenu->aboutToShow();
+            work = accountsMenu->actions().at(0);
+            home = accountsMenu->actions().at(1);
+            QVERIFY(!work->isChecked() && work->isEnabled());
+            QVERIFY(home->isChecked() && !home->isEnabled());
+            work->setChecked(true);
+            QVERIFY(excludedAccounts().isEmpty());
+            QTRY_COMPARE(tree->model()->rowCount(), 5);
+
+            // Leaving it restores the view of the active account
+            unified->trigger();
+            QVERIFY(!unified->isChecked());
+            QVERIFY(!unifiedState());
+            QCOMPARE(tree->model(), prettyModel());
+            QCOMPARE(threading->isEnabled(), threadingWasEnabled);
+            QVERIFY(groupByMenu->menuAction()->isEnabled());
+            QVERIFY(scope->isHidden());
+            QCOMPARE(window.imapAccess()->credentialAccountId(), QStringLiteral("account-2"));
+
+            // Switching to another account leaves it as well
+            unified->trigger();
+            QVERIFY(unified->isChecked());
+            nextAccount->trigger();
+            QCOMPARE(settings.value(QStringLiteral("accounts/active")).toString(), QStringLiteral("account-1"));
+            QVERIFY(!unified->isChecked());
+            QCOMPARE(tree->model(), prettyModel());
+            QTRY_COMPARE(openMailbox(), QStringLiteral("INBOX"));
+            QCOMPARE(scope->text(), QStringLiteral("Work › INBOX"));
+
+            // So does choosing a folder
+            unified->trigger();
+            QVERIFY(unified->isChecked());
+            QCOMPARE(scope->text(), QStringLiteral("Unified Inbox"));
+            const QModelIndex archive = mailboxes->model()->match(mailboxes->model()->index(0, 0), Imap::Mailbox::RoleMailboxName,
+                                                                  QStringLiteral("Archive"), 1, Qt::MatchExactly | Qt::MatchRecursive)
+                                            .value(0);
+            QVERIFY(archive.isValid());
+            emit mailboxes->clicked(archive);
+            QVERIFY(!unified->isChecked());
+            QVERIFY(!unifiedState());
+            QCOMPARE(tree->model(), prettyModel());
+
+            unified->trigger();
+            QVERIFY(unifiedState());
+        }
+    }
+
+    void unifiedInboxIsRestored()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        {
+            QSettings second(directory.filePath(QStringLiteral("main-account-2.conf")), QSettings::IniFormat);
+            second.setValue(Common::SettingsNames::cacheOfflineKey, Common::SettingsNames::cacheOfflineNone);
+        }
+        QVERIFY(seedFirstAccountCache());
+        {
+            KConfigGroup state(KSharedConfig::openStateConfig(), QStringLiteral("UnifiedInbox"));
+            state.writeEntry("Enabled", true);
+            QVERIFY(state.sync());
+        }
+        Gui::MainWindow window(&settings);
+        auto *unified = window.findChild<QAction *>(QStringLiteral("action_unified_inbox"));
+        QVERIFY(unified);
+        QVERIFY(unified->isChecked());
+        auto *tree = window.findChild<Gui::MessageListWidget *>()->tree;
+        QCOMPARE(tree->model()->objectName(), QStringLiteral("prettyUnifiedMsgListModel"));
+        QTRY_COMPARE(tree->model()->rowCount(), 5);
+        QCOMPARE(window.findChild<QLabel *>(QStringLiteral("messageListScope"))->text(), QStringLiteral("Unified Inbox"));
+        // Leaving it shows the list of the active account again
+        unified->trigger();
+        QVERIFY(!unified->isChecked());
+        QCOMPARE(tree->model()->objectName(), QStringLiteral("prettyMsgListModel"));
+    }
+
     void identitiesFollowTheAccount()
     {
         QTemporaryDir directory;
