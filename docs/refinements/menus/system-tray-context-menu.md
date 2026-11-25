@@ -7,7 +7,8 @@
 This proposed menu appears when the user opens the context menu of the Plasma
 system tray icon.
 
-**Legend:** ✅ exists in the current code on `main` · 📋 planned only
+**Legend:** ![Exists][exists] in the current code on `main` ·
+![Planned][planned] not implemented yet
 
 ## Menu tree
 
@@ -22,13 +23,13 @@ system tray icon.
 
 ## Actions
 
-| Action                  | Shortcut | Availability | Notes                                             |
-| ----------------------- | -------- | ------------ | ------------------------------------------------- |
-| Show / hide main window | —        | 📋 Planned   | Clicking the tray icon already toggles the window |
-| New message             | —        | 📋 Planned   |                                                   |
-| Check mail              | —        | 📋 Planned   |                                                   |
-| Settings                | —        | 📋 Planned   |                                                   |
-| Quit                    | —        | ✅ Tray menu | **Quit**                                          |
+| Action                  | Shortcut | Availability                | Notes                                             |
+| ----------------------- | -------- | --------------------------- | ------------------------------------------------- |
+| Show / hide main window | —        | ![Planned][planned]         | Clicking the tray icon already toggles the window |
+| New message             | —        | ![Planned][planned]         |                                                   |
+| Check mail              | —        | ![Planned][planned]         |                                                   |
+| Settings                | —        | ![Planned][planned]         |                                                   |
+| Quit                    | —        | ![Exists][exists] Tray menu | **Quit**                                          |
 
 ## Current menu
 
@@ -48,3 +49,6 @@ also shows network and background-account warnings.
   drafts and pending work by allowing the user to resolve or cancel quitting.
 - Keep actions accessible and localized. Disable or explain unavailable actions
   without exposing private message details in the menu.
+
+[exists]: https://img.shields.io/badge/Exists-1a7f37
+[planned]: https://img.shields.io/badge/Planned-6e7781

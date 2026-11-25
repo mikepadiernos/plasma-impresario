@@ -7,7 +7,8 @@
 This proposed menu appears in the message header row or metadata region for the
 currently selected message.
 
-**Legend:** ✅ exists in the current code on `main` · 📋 planned only
+**Legend:** ![Exists][exists] in the current code on `main` ·
+![Planned][planned] not implemented yet
 
 ## Purpose
 
@@ -40,25 +41,25 @@ pane.
 
 ## Actions
 
-| Action                    | Shortcut                                                     | Availability                                        | Notes                                                                          |
-| ------------------------- | ------------------------------------------------------------ | --------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Open in new window        | <kbd>Ctrl</kbd>+<kbd>Return</kbd>                            | ✅ Shortcut only, in the message list               |                                                                                |
-| Reply                     | <kbd>Ctrl</kbd>+<kbd>R</kbd>                                 | ✅ **Message** menu, navigation toolbar             | **Reply by Guess**                                                             |
-| Reply all                 | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> | ✅ **Message** menu, navigation toolbar             | **Reply to All**                                                               |
-| Forward                   | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>                | ✅ **Message** menu, navigation toolbar             | Forwards as an attachment                                                      |
-| View source               | —                                                            | ✅ Message list context menu                        | **View Message Source…**                                                       |
-| Show details              | <kbd>Ctrl</kbd>+<kbd>U</kbd>                                 | ✅ Message list context menu, Message Details panel | **View Message Headers…**; the Message Details panel is off by default         |
-| Expand / collapse headers | —                                                            | 📋 Planned                                          |                                                                                |
-| Copy sender               | —                                                            | ✅ Header address context menu                      | Right-click the sender: **Copy e-mail address** or **Copy text**               |
-| Copy recipients           | —                                                            | 📋 Planned                                          | Each recipient address can be copied on its own                                |
-| Copy subject              | —                                                            | 📋 Planned                                          |                                                                                |
-| Copy message ID           | —                                                            | 📋 Planned                                          |                                                                                |
-| Add sender to contacts    | —                                                            | 📋 Planned                                          | The Contacts panel offers **Open in Address Book** with an address-book plugin |
-| Add recipient to contacts | —                                                            | 📋 Planned                                          |                                                                                |
-| Move to folder            | —                                                            | ✅ Drag and drop onto the folder tree               |                                                                                |
-| Archive                   | <kbd>A</kbd>                                                 | ✅ Navigation toolbar, message list context menu    |                                                                                |
-| Mark as read              | <kbd>M</kbd>                                                 | ✅ Navigation toolbar, message list context menu    |                                                                                |
-| Flag                      | <kbd>S</kbd>                                                 | ✅ Navigation toolbar, message list context menu    | **Mark as Flagged**                                                            |
+| Action                    | Shortcut                                                     | Availability                                                       | Notes                                                                          |
+| ------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| Open in new window        | <kbd>Ctrl</kbd>+<kbd>Return</kbd>                            | ![Exists][exists] Shortcut only, in the message list               |                                                                                |
+| Reply                     | <kbd>Ctrl</kbd>+<kbd>R</kbd>                                 | ![Exists][exists] **Message** menu, navigation toolbar             | **Reply by Guess**                                                             |
+| Reply all                 | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> | ![Exists][exists] **Message** menu, navigation toolbar             | **Reply to All**                                                               |
+| Forward                   | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>                | ![Exists][exists] **Message** menu, navigation toolbar             | Forwards as an attachment                                                      |
+| View source               | —                                                            | ![Exists][exists] Message list context menu                        | **View Message Source…**                                                       |
+| Show details              | <kbd>Ctrl</kbd>+<kbd>U</kbd>                                 | ![Exists][exists] Message list context menu, Message Details panel | **View Message Headers…**; the Message Details panel is off by default         |
+| Expand / collapse headers | —                                                            | ![Planned][planned]                                                |                                                                                |
+| Copy sender               | —                                                            | ![Exists][exists] Header address context menu                      | Right-click the sender: **Copy e-mail address** or **Copy text**               |
+| Copy recipients           | —                                                            | ![Planned][planned]                                                | Each recipient address can be copied on its own                                |
+| Copy subject              | —                                                            | ![Planned][planned]                                                |                                                                                |
+| Copy message ID           | —                                                            | ![Planned][planned]                                                |                                                                                |
+| Add sender to contacts    | —                                                            | ![Planned][planned]                                                | The Contacts panel offers **Open in Address Book** with an address-book plugin |
+| Add recipient to contacts | —                                                            | ![Planned][planned]                                                |                                                                                |
+| Move to folder            | —                                                            | ![Exists][exists] Drag and drop onto the folder tree               |                                                                                |
+| Archive                   | <kbd>A</kbd>                                                 | ![Exists][exists] Navigation toolbar, message list context menu    |                                                                                |
+| Mark as read              | <kbd>M</kbd>                                                 | ![Exists][exists] Navigation toolbar, message list context menu    |                                                                                |
+| Flag                      | <kbd>S</kbd>                                                 | ![Exists][exists] Navigation toolbar, message list context menu    | **Mark as Flagged**                                                            |
 
 > [!NOTE]
 >
@@ -74,3 +75,6 @@ pane.
   metadata.
 - Security-sensitive actions such as opening external links or viewing raw
   source should be explicit and clearly labeled.
+
+[exists]: https://img.shields.io/badge/Exists-1a7f37
+[planned]: https://img.shields.io/badge/Planned-6e7781

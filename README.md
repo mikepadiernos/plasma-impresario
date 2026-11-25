@@ -74,16 +74,17 @@ show the container's default style rather than a Plasma theme.
 
 ## Project status
 
-Features done are roadmap items whose issues are **Completed** or **Merged** on
-the [project board](https://github.com/users/mikepadiernos/projects/4), as of
+Features done are roadmap items whose issues are
+$\color{#2da44e}\textbf{Completed}$ or $\color{#8957e5}\textbf{Merged}$ on the
+[project board](https://github.com/users/mikepadiernos/projects/4), as of
 2026-11-25.
 
-| Milestone                                     | Branch                        | Done             | State                                                                                                                                                                     |
-| --------------------------------------------- | ----------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 🧱 M01 KDE / Qt 6 baseline                    | `main`                        | 🟩🟩🟩🟩🟩 19/19 | ✅ Merged                                                                                                                                                                 |
-| 🧭 M02 Shell, accounts and mailbox foundation | `main`                        | 🟩🟩🟩🟩🟩 14/14 | ✅ Merged; checks in a real Plasma session moved to M15                                                                                                                   |
-| 📬 M03 Mail operations, sorting and folders   | `feature/m03-mail-operations` | 🟩🟩⬜⬜⬜ 4/12  | 🚧 Folder navigation, sorting and triage, quick actions, and folder actions with recoverable deletion are Completed                                                       |
-| 📋 M04–M15                                    | —                             | —                | Planned, including search and indexing in M05, Microsoft accounts and Exchange in M13 and real Plasma session checks in M15; M09 branding started with the product rename |
+| Milestone                                  | Branch                        | Done                                                                 | State                                                                                                                                                                                |
+| ------------------------------------------ | ----------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| M01 KDE / Qt 6 baseline                    | `main`                        | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]                                                                                                                                                                    |
+| M02 Shell, accounts and mailbox foundation | `main`                        | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]; checks in a real Plasma session moved to M15                                                                                                                      |
+| M03 Mail operations, sorting and folders   | `feature/m03-mail-operations` | ![4 of 12 done](https://img.shields.io/badge/4%2F12-33%25-9a6700)    | ![Development][development] Folder navigation, sorting and triage, quick actions, and folder actions with recoverable deletion are Completed                                         |
+| M04–M15                                    | —                             | —                                                                    | ![Planned][planned] Including search and indexing in M05, Microsoft accounts and Exchange in M13 and real Plasma session checks in M15; M09 branding started with the product rename |
 
 The [roadmap overview](docs/ROADMAP.md#milestones-at-a-glance) tracks every
 milestone, and [pending tasks](docs/TODO.md#in-progress) record what each one
@@ -94,18 +95,18 @@ is waiting on.
 This section covers M01 and M02. M03 features are summarized in
 [project status](#project-status) until their branch is merged.
 
-Legend: ✅ verified against a disposable IMAP server · 🧪 implemented, needs
-verification
+Legend: ![Verified][verified] against a disposable IMAP server ·
+![Needs verification][needs-verification]
 
 ### Inherited from Trojitá
 
-| Area                  | What works                                                                    |
-| --------------------- | ----------------------------------------------------------------------------- |
-| 📬 Mail               | IMAP mailbox discovery, synchronization, offline modes, caching and threading |
-| 🗂️ Folders and search | Folder navigation, search, sorting, flags and tags                            |
-| 📖 Reading            | MIME alternatives, HTML rendering through Qt WebEngine and attachments        |
-| ✍️ Composing          | New messages, replies and forwards, local drafts and configurable delivery    |
-| 🧩 Plugins            | Optional password, address-book, spell-check and OpenPGP plugins              |
+| Area               | What works                                                                    |
+| ------------------ | ----------------------------------------------------------------------------- |
+| Mail               | IMAP mailbox discovery, synchronization, offline modes, caching and threading |
+| Folders and search | Folder navigation, search, sorting, flags and tags                            |
+| Reading            | MIME alternatives, HTML rendering through Qt WebEngine and attachments        |
+| Composing          | New messages, replies and forwards, local drafts and configurable delivery    |
+| Plugins            | Optional password, address-book, spell-check and OpenPGP plugins              |
 
 M01 verified that these build, install and launch with Qt 6. Live reading,
 replies and attachments are scheduled for verification in M04
@@ -113,19 +114,19 @@ replies and attachments are scheduled for verification in M04
 
 ### Added in M02
 
-| Area                 | What works                                                                                                        | Status |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------- | ------ |
-| 👥 Accounts          | Multiple IMAP accounts in one window, each with its own settings, connection, status and stored passwords         | ✅     |
-| 📶 Connection status | Connection, authentication, offline and loading states in the footer and per account                              | ✅     |
-| 🔍 Saved searches    | Folder unread counts and named searches per account, run in the selected folder                                   | ✅     |
-| 💾 Sessions          | Layout, pane sizes, row density and the selected message restored across restarts                                 | ✅     |
-| 🎨 Density           | Compact and comfortable message-list rows                                                                         | ✅     |
-| 🧭 Mail shell        | Left, main and right columns and a footer; folder sidebar on either side; compact, wide and one-at-a-time layouts | 🧪     |
-| 📎 Embedded panels   | Attachments, Message Details, Contacts and Related Messages, each with its own placement                          | 🧪     |
-| 🪪 Identities        | Sender identities per account, with the account's default preselected and a **No identity** option                | 🧪     |
-| 🔑 OAuth             | Google and Microsoft sign-in for IMAP and SMTP, chosen per account                                                | 🧪     |
-| 🧭 Account sidebar   | Folder sidebar grouped by account, and an optional header with the account, folder and status                     | 🧪     |
-| 🧩 Capabilities      | Actions the account's protocol cannot perform are hidden                                                          | 🧪     |
+| Area              | What works                                                                                                        | Status                                    |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| Accounts          | Multiple IMAP accounts in one window, each with its own settings, connection, status and stored passwords         | ![Verified][verified]                     |
+| Connection status | Connection, authentication, offline and loading states in the footer and per account                              | ![Verified][verified]                     |
+| Saved searches    | Folder unread counts and named searches per account, run in the selected folder                                   | ![Verified][verified]                     |
+| Sessions          | Layout, pane sizes, row density and the selected message restored across restarts                                 | ![Verified][verified]                     |
+| Density           | Compact and comfortable message-list rows                                                                         | ![Verified][verified]                     |
+| Mail shell        | Left, main and right columns and a footer; folder sidebar on either side; compact, wide and one-at-a-time layouts | ![Needs verification][needs-verification] |
+| Embedded panels   | Attachments, Message Details, Contacts and Related Messages, each with its own placement                          | ![Needs verification][needs-verification] |
+| Identities        | Sender identities per account, with the account's default preselected and a **No identity** option                | ![Needs verification][needs-verification] |
+| OAuth             | Google and Microsoft sign-in for IMAP and SMTP, chosen per account                                                | ![Needs verification][needs-verification] |
+| Account sidebar   | Folder sidebar grouped by account, and an optional header with the account, folder and status                     | ![Needs verification][needs-verification] |
+| Capabilities      | Actions the account's protocol cannot perform are hidden                                                          | ![Needs verification][needs-verification] |
 
 M02 is headless work (M02.01,
 [#318](https://github.com/mikepadiernos/plasma-impresario/issues/318)). Checks
@@ -139,26 +140,26 @@ record the verification.
 
 ### Accounts
 
-- 🔀 The toolbar account selector switches between accounts without
+- The toolbar account selector switches between accounts without
   reconnecting. <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>PgDown</kbd> and
   <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>PgUp</kbd> switch to the next and previous
   account; both shortcuts can be rebound.
-- ➕ **Add Account**, **Rename Account**, **Remove Account** and **Account
+- **Add Account**, **Rename Account**, **Remove Account** and **Account
   Settings…** are in the application menu. Account Settings edits the active
   account's identities, IMAP, offline and SMTP settings in its own dialog.
   Removing an account deletes its settings and stored passwords, but not its
   offline cache or any mail on the server.
-- 📶 All accounts connect at startup. An account with a network error, a missing
+- All accounts connect at startup. An account with a network error, a missing
   password or failed authentication shows a warning in the selector.
-- 🔑 An existing configuration becomes the first account on startup. New
+- An existing configuration becomes the first account on startup. New
   profiles store passwords with QtKeychain when it is available. An account can
   sign in with a password or with Google or Microsoft OAuth; see
   [caveat #362](docs/CAVEATS.md#oauth-sign-in).
-- 🪪 Each account has its own sender identities by default, and the composer
+- Each account has its own sender identities by default, and the composer
   preselects the account's default identity. An account can instead use the
   shared identities, or **No identity**, which starts the composer with an empty
   From address and no signature.
-- 🧭 With two or more accounts, the folder sidebar shows a header for each
+- With two or more accounts, the folder sidebar shows a header for each
   account. Clicking a header switches to that account; clicking the active
   account's header collapses or expands its folders.
 
@@ -169,17 +170,17 @@ record the verification.
 
 ### Shell and panels
 
-- 🧭 **View › Layout** chooses Compact, Wide or One At a Time, and **View ›
+- **View › Layout** chooses Compact, Wide or One At a Time, and **View ›
   Folder Sidebar Position** puts the folder tree in the left or right column.
-- 🧩 **View › Embedded Panels** shows or hides each panel, hides it while empty
+- **View › Embedded Panels** shows or hides each panel, hides it while empty
   and places it below the reader, in either side column or in the footer.
   Attachments is on by default; the other panels are off.
-- 🧭 **View › Show Header** adds a header above the columns with the active
+- **View › Show Header** adds a header above the columns with the active
   account, the folder and the account's status. It is off by default.
-- ⌨️ <kbd>F6</kbd> and <kbd>Shift</kbd>+<kbd>F6</kbd> move focus through the
+- <kbd>F6</kbd> and <kbd>Shift</kbd>+<kbd>F6</kbd> move focus through the
   header, account selector, folder tree, message list, reader and each visible
   panel.
-- 🧰 The Navigation toolbar docks at the left window edge by default. The menu
+- The Navigation toolbar docks at the left window edge by default. The menu
   bar is hidden; open the menus from the toolbar's main menu button or turn the
   bar on with **View › Show Main Menu Bar**.
 
@@ -257,15 +258,15 @@ the two apps are planned to share file dialogs, themes and workspace context.
 
 ## Documentation
 
-| Start with                                                | For                                                     |
-| --------------------------------------------------------- | ------------------------------------------------------- |
-| 📦 [Installation](docs/INSTALL.md)                        | Installer options, prerequisites and troubleshooting    |
-| 📚 [Documentation index](docs/README.md)                  | Product guides, design, integrations and specifications |
-| 🗺️ [Roadmap](docs/ROADMAP.md)                             | Milestones, status and project-board links              |
-| 🎨 [Interface design](docs/philosophy/designs.md)         | Current shell and the planned Plasma Impresario design  |
-| 📝 [Pending tasks](docs/TODO.md)                          | Blockers, verification records and handoffs             |
-| 🐞 [Bugs](docs/BUGS.md) and ⚠️ [caveats](docs/CAVEATS.md) | Reported issues, limitations and security guidance      |
-| 🛠️ [Contributing](CONTRIBUTING.md)                        | Development workflow and the headless dev container     |
+| Start with                                          | For                                                     |
+| --------------------------------------------------- | ------------------------------------------------------- |
+| [Installation](docs/INSTALL.md)                     | Installer options, prerequisites and troubleshooting    |
+| [Documentation index](docs/README.md)               | Product guides, design, integrations and specifications |
+| [Roadmap](docs/ROADMAP.md)                          | Milestones, status and project-board links              |
+| [Interface design](docs/philosophy/designs.md)      | Current shell and the planned Plasma Impresario design  |
+| [Pending tasks](docs/TODO.md)                       | Blockers, verification records and handoffs             |
+| [Bugs](docs/BUGS.md) and [caveats](docs/CAVEATS.md) | Reported issues, limitations and security guidance      |
+| [Contributing](CONTRIBUTING.md)                     | Development workflow and the headless dev container     |
 
 ## Application icon
 
@@ -278,3 +279,9 @@ it.
 Plasma Impresario keeps Trojitá's license: GPL version 2, or (at your option)
 version 3 or any later version accepted by the membership of KDE e.V. See
 [LICENSE](LICENSE).
+
+[development]: https://img.shields.io/badge/Development-9a6700
+[merged]: https://img.shields.io/badge/Merged-8250df
+[needs-verification]: https://img.shields.io/badge/Needs_verification-0969da
+[planned]: https://img.shields.io/badge/Planned-6e7781
+[verified]: https://img.shields.io/badge/Verified-1a7f37
