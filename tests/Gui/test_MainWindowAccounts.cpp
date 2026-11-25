@@ -41,6 +41,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QToolButton>
 
 namespace {
 
@@ -176,15 +177,32 @@ private slots:
         QVERIFY(window.imapModel() != workModel);
         QVERIFY(switcher->itemData(0, Qt::ToolTipRole).toString().isEmpty());
 
+        auto *alerts = window.findChild<QToolButton *>(QStringLiteral("backgroundAccountAlerts"));
+        QVERIFY(alerts);
+        QVERIFY(alerts->isHidden());
+
         emit workModel->networkError(QStringLiteral("Host lookup failed"));
         QVERIFY(switcher->itemData(0, Qt::ToolTipRole).toString().contains(QStringLiteral("Host lookup failed")));
         QCOMPARE(switcher->itemText(0), QStringLiteral("Work (%1)").arg(Common::AccountStatusTracker::label(Common::AccountStatusKind::NetworkError)));
         QVERIFY(switcher->itemData(1, Qt::ToolTipRole).toString().isEmpty());
+        // The footer names the background account and its error
+        QVERIFY(!alerts->isHidden());
+        QVERIFY(alerts->text().contains(QStringLiteral("Work")));
+        QVERIFY(alerts->toolTip().contains(QStringLiteral("Host lookup failed")));
 
         emit workModel->connectionStateChanged(1u, Imap::CONN_STATE_AUTHENTICATED);
         QVERIFY(switcher->itemData(0, Qt::ToolTipRole).toString().isEmpty());
         QCOMPARE(switcher->itemText(0), QStringLiteral("Work"));
         QCOMPARE(switcher->currentText(), QStringLiteral("Home"));
+        QVERIFY(alerts->isHidden());
+
+        // Clicking the footer switches to the flagged account, which then reports its error itself
+        emit workModel->authAttemptFailed(QStringLiteral("Rejected password"));
+        QVERIFY(!alerts->isHidden());
+        alerts->click();
+        QCOMPARE(switcher->currentText(), QStringLiteral("Work (%1)").arg(Common::AccountStatusTracker::label(Common::AccountStatusKind::AuthFailed)));
+        QCOMPARE(window.imapModel(), workModel);
+        QVERIFY(alerts->isHidden());
     }
 
     void removingAccountDeletesItsSettingsAndPasswords()

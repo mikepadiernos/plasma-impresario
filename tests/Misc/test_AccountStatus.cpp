@@ -85,6 +85,39 @@ void AccountStatusTest::listsAccountsNeedingAttention()
     QCOMPARE(tracker.accountsNeedingAttention(), (QStringList{QStringLiteral("a"), QStringLiteral("c")}));
 }
 
+void AccountStatusTest::raisesAttentionOnceUntilConnected()
+{
+    AccountStatusTracker tracker;
+    QSignalSpy raised(&tracker, &AccountStatusTracker::attentionRaised);
+    tracker.setStatus(QStringLiteral("a"), AccountStatusKind::Connecting);
+    QCOMPARE(raised.count(), 0);
+    tracker.setStatus(QStringLiteral("a"), AccountStatusKind::NetworkError, QStringLiteral("Host lookup failed"));
+    QCOMPARE(raised.count(), 1);
+    QCOMPARE(raised.at(0).at(0).toString(), QStringLiteral("a"));
+
+    // Retrying and failing again, or failing differently, is not news
+    tracker.setStatus(QStringLiteral("a"), AccountStatusKind::Connecting);
+    tracker.setStatus(QStringLiteral("a"), AccountStatusKind::NetworkError, QStringLiteral("Connection refused"));
+    tracker.setStatus(QStringLiteral("a"), AccountStatusKind::AuthFailed, QStringLiteral("Rejected"));
+    tracker.setStatus(QStringLiteral("a"), AccountStatusKind::AuthRequired);
+    QCOMPARE(raised.count(), 1);
+
+    // Other accounts are independent
+    tracker.setStatus(QStringLiteral("b"), AccountStatusKind::AuthRequired);
+    QCOMPARE(raised.count(), 2);
+    QCOMPARE(raised.at(1).at(0).toString(), QStringLiteral("b"));
+
+    // After a successful connection, the next failure is reported again
+    tracker.setStatus(QStringLiteral("a"), AccountStatusKind::Connected);
+    tracker.setStatus(QStringLiteral("a"), AccountStatusKind::NetworkError);
+    QCOMPARE(raised.count(), 3);
+
+    // So is a failure of a removed account's identifier, should it be reused
+    tracker.forget(QStringLiteral("b"));
+    tracker.setStatus(QStringLiteral("b"), AccountStatusKind::AuthFailed);
+    QCOMPARE(raised.count(), 4);
+}
+
 void AccountStatusTest::labelsAreDistinct()
 {
     QSet<QString> labels;
