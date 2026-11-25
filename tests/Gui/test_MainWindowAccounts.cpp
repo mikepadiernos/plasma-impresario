@@ -5,6 +5,7 @@
 #include "Common/MetaTypes.h"
 #include "Common/Paths.h"
 #include "Common/SettingsNames.h"
+#include "Gui/AccountSidebar.h"
 #include "Composer/AccountIdentities.h"
 #include "Composer/SenderIdentitiesModel.h"
 #include "Gui/ComposeWidget.h"
@@ -489,6 +490,69 @@ private slots:
         QVERIFY(dialog->isModal());
         dialog->reject();
         QTRY_VERIFY(!window.findChild<QDialog *>(QStringLiteral("goToFolderDialog")));
+    }
+
+    void checkMailAndNextUnreadFolder()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        {
+            // All accounts open their disk cache under the same database connection name
+            QSettings second(directory.filePath(QStringLiteral("main-account-2.conf")), QSettings::IniFormat);
+            second.setValue(Common::SettingsNames::cacheOfflineKey, Common::SettingsNames::cacheOfflineNone);
+        }
+        QVERIFY(seedFirstAccountCache());
+        Gui::MainWindow window(&settings);
+
+        auto *checkMail = window.findChild<QAction *>(QStringLiteral("action_check_mail"));
+        auto *nextUnread = window.findChild<QAction *>(QStringLiteral("action_go_to_next_unread_folder"));
+        QVERIFY(checkMail);
+        QVERIFY(nextUnread);
+        QCOMPARE(checkMail->shortcut(), QKeySequence(Qt::Key_F5));
+        QCOMPARE(nextUnread->shortcut(), QKeySequence(QStringLiteral("Ctrl+Alt+N")));
+        for (const QKeySequence &key : {checkMail->shortcut(), nextUnread->shortcut()}) {
+            int uses = 0;
+            for (QAction *action : window.findChildren<QAction *>()) {
+                if (action->shortcuts().contains(key))
+                    ++uses;
+            }
+            QCOMPARE(uses, 1);
+        }
+        bool inMailboxMenu = false;
+        for (QAction *menu : window.menuBar()->actions()) {
+            if (menu->menu() && menu->menu()->actions().contains(checkMail) && menu->menu()->actions().contains(nextUnread))
+                inMailboxMenu = true;
+        }
+        QVERIFY(inMailboxMenu);
+        // Checking needs an account that is online, which these are not; it must not disable itself either
+        checkMail->trigger();
+        QVERIFY(checkMail->isEnabled());
+
+        // The sidebar header of the first account shows its cached unread INBOX count
+        auto *sidebar = window.findChild<Gui::AccountSidebar *>();
+        QVERIFY(sidebar);
+        QTRY_COMPARE(sidebar->unreadCount(QStringLiteral("account-1")), 5);
+        QCOMPARE(sidebar->headers().at(0)->text(), QStringLiteral("Work (5)"));
+        QCOMPARE(sidebar->headers().at(0)->accessibleName(), QStringLiteral("Work, 5 unread"));
+        QCOMPARE(sidebar->unreadCount(QStringLiteral("account-2")), -1);
+
+        // Next Unread Folder walks the cached folders that have unread messages, and wraps around
+        auto *mailboxes = window.findChild<Gui::MailBoxTreeView *>();
+        QVERIFY(mailboxes);
+        auto openMailbox = [&window]() {
+            auto *msgList = qobject_cast<Imap::Mailbox::MsgListModel *>(window.imapAccess()->msgListModel());
+            return msgList ? msgList->currentMailbox().data(Imap::Mailbox::RoleMailboxName).toString() : QString();
+        };
+        mailboxes->restoreMailbox(QStringLiteral("INBOX"));
+        QTRY_COMPARE(openMailbox(), QStringLiteral("INBOX"));
+        QTRY_VERIFY(window.imapModel()->mailboxIndexByName(QStringLiteral("Archive"))
+                        .data(Imap::Mailbox::RoleUnreadMessageCount).isValid());
+        nextUnread->trigger();
+        QTRY_COMPARE(openMailbox(), QStringLiteral("Archive"));
+        nextUnread->trigger();
+        QTRY_COMPARE(openMailbox(), QStringLiteral("INBOX"));
     }
 
     void destructiveActionsOffline()

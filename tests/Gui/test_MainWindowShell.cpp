@@ -368,6 +368,57 @@ private slots:
     QVERIFY(folders->isVisible());
   }
 
+  void sidebarShowsUnreadCounts() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings index(directory.filePath(QStringLiteral("index.ini")),
+                    QSettings::IniFormat);
+    auto accounts = registry(directory, index);
+    const QString work = accounts->addAccount(QStringLiteral("Work"));
+    const QString home = accounts->addAccount(QStringLiteral("Home"));
+    accounts->setActiveAccount(work);
+    Common::AccountStatusTracker status;
+    auto *folders = new QTreeView;
+    Gui::AccountSidebar sidebar(folders);
+    sidebar.refresh(*accounts, status);
+    const QList<QToolButton *> headers = sidebar.headers();
+    QCOMPARE(headers.size(), 2);
+    QCOMPARE(sidebar.unreadCount(home), -1);
+
+    sidebar.setUnreadCount(home, 3);
+    QCOMPARE(sidebar.unreadCount(home), 3);
+    QCOMPARE(headers.at(1)->text(), QStringLiteral("Home (3)"));
+    QCOMPARE(headers.at(1)->accessibleName(), QStringLiteral("Home, 3 unread"));
+    QVERIFY(headers.at(1)->toolTip().contains(QStringLiteral("3 unread")));
+    QVERIFY(headers.at(1)->font().bold());
+    QCOMPARE(headers.at(0)->text(), QStringLiteral("Work"));
+    QVERIFY(!headers.at(0)->font().bold());
+
+    // A status change keeps the count, and the status joins it in the tooltip
+    status.setStatus(home, Common::AccountStatusKind::AuthFailed,
+                     QStringLiteral("Rejected password"));
+    sidebar.refresh(*accounts, status);
+    QCOMPARE(headers.at(1)->text(), QStringLiteral("Home (3)"));
+    QVERIFY(headers.at(1)->toolTip().contains(QStringLiteral("Rejected password")));
+    QVERIFY(headers.at(1)->toolTip().contains(QStringLiteral("3 unread")));
+
+    // Read mail and unknown counts show only the name
+    sidebar.setUnreadCount(home, 0);
+    QCOMPARE(headers.at(1)->text(), QStringLiteral("Home"));
+    QCOMPARE(headers.at(1)->accessibleName(), QStringLiteral("Home"));
+    QVERIFY(!headers.at(1)->font().bold());
+    sidebar.setUnreadCount(home, 2);
+    sidebar.setUnreadCount(home, -1);
+    QCOMPARE(headers.at(1)->text(), QStringLiteral("Home"));
+    QCOMPARE(sidebar.unreadCount(home), -1);
+
+    // A removed account forgets its count
+    sidebar.setUnreadCount(home, 4);
+    accounts->removeAccount(home);
+    sidebar.refresh(*accounts, status);
+    QCOMPARE(sidebar.unreadCount(home), -1);
+  }
+
   void sidebarGroupsAccountsInTheWindow() {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());

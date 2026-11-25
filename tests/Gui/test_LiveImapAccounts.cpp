@@ -3,6 +3,7 @@
 */
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
+#include "Gui/AccountSidebar.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MessageListWidget.h"
 #include "Gui/MsgListView.h"
@@ -39,6 +40,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QToolButton>
 
 namespace {
 
@@ -132,6 +134,7 @@ private slots:
      * Expects a loopback IMAPS server on PLASMA_TEST_IMAPS_PORT with two users sharing the synthetic password:
      * work@example.test with exactly two unread messages in INBOX and no other folders, and home@example.test
      * with exactly one message in INBOX and a Projects folder. See tools/dev-container/live-imap-accounts.sh.
+     * When PLASMA_TEST_HOME_MAILDIR names home's Maildir, a message is delivered there to check for new mail.
      */
     void accountsConnectAndSwitchIndependently()
     {
@@ -210,6 +213,13 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(inbox.data(Imap::Mailbox::RoleTotalMessageCount).toInt(), 2, 10000);
         QTRY_COMPARE_WITH_TIMEOUT(inbox.data(Imap::Mailbox::RoleUnreadMessageCount).toInt(), 2, 10000);
         QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(), 2, 10000);
+
+        // The account sidebar shows each account's unread INBOX count, the background account's too
+        auto *sidebar = window.findChild<Gui::AccountSidebar *>();
+        QVERIFY(sidebar);
+        QTRY_COMPARE_WITH_TIMEOUT(sidebar->unreadCount(QStringLiteral("account-1")), 2, 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(sidebar->unreadCount(QStringLiteral("account-2")), 1, 20000);
+        QCOMPARE(sidebar->headers().at(1)->text(), QStringLiteral("Home (1)"));
 
         // Each account saves its own mailbox and message selection.
         QTRY_VERIFY_WITH_TIMEOUT(messages->model()->index(1, 0).data(Imap::Mailbox::RoleMessageUid).toUInt() > 0, 10000);
@@ -302,6 +312,24 @@ private slots:
         qInfo("Certificate prompts accepted: %d", certificatePrompts);
         QVERIFY2(workErrors.isEmpty(), qPrintable(workErrors.isEmpty() ? QString() : workErrors.first().first().toString()));
         QVERIFY2(homeErrors.isEmpty(), qPrintable(homeErrors.isEmpty() ? QString() : homeErrors.first().first().toString()));
+
+        // Check for New Mail asks the background account again, which has a folder other than INBOX open
+        const QString homeMaildir = qEnvironmentVariable("PLASMA_TEST_HOME_MAILDIR");
+        if (!homeMaildir.isEmpty()) {
+            QTRY_VERIFY_WITH_TIMEOUT(sidebar->unreadCount(QStringLiteral("account-2")) >= 0, 10000);
+            const int homeUnread = sidebar->unreadCount(QStringLiteral("account-2"));
+            QFile late(homeMaildir + QStringLiteral("/new/home-late.synthetic"));
+            QVERIFY(late.open(QIODevice::WriteOnly));
+            late.write("From: Synthetic Sender <sender@example.test>\r\nTo: home@example.test\r\n"
+                       "Subject: Synthetic home-late\r\nDate: Tue, 24 Nov 2026 13:00:00 +0000\r\n"
+                       "Message-ID: <home-late@example.test>\r\n\r\nSynthetic body.\r\n");
+            late.close();
+            late.setPermissions(late.permissions() | QFileDevice::ReadOther | QFileDevice::ReadGroup);
+            auto *checkMail = window.findChild<QAction *>(QStringLiteral("action_check_mail"));
+            QVERIFY(checkMail);
+            checkMail->trigger();
+            QTRY_COMPARE_WITH_TIMEOUT(sidebar->unreadCount(QStringLiteral("account-2")), homeUnread + 1, 10000);
+        }
 
         // Removing the connected background account deletes its settings and stored password; the active one stays.
         QVERIFY(QMetaObject::invokeMethod(&window, "removeAccountNow", Q_ARG(QString, QStringLiteral("account-2"))));

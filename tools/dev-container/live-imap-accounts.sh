@@ -32,6 +32,7 @@ for case in accountsConnectAndSwitchIndependently newProfilesKeepPasswordsOutOfS
         QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu \
         QTWEBENGINE_DISABLE_SANDBOX=1 \
         PLASMA_TEST_IMAPS_PORT=$port \
+        PLASMA_TEST_HOME_MAILDIR=$work/home/home/Maildir \
         "$build/test_LiveImapAccounts" "$case" || status=$?
 done
 if [ "$status" != 0 ]; then
