@@ -310,18 +310,24 @@ avoid conflicting changes, these M02 items are held:
 - ⏸️ **Capability-aware actions, #215:** hides actions that the account's
   protocol does not support. Most of those actions are added or changed by M03,
   so this waits until M03 is merged.
-- ⏸️ **Merge M02 into M03:** the merge is prepared and tested on
-  `merge/m02-into-m03` (pushed). It is M03 at `50f6f2d0` with M02 at `c0719cfa`
-  merged in. The conflicts in `CMakeLists.txt`, `src/Common/SettingsNames.h`
-  and `tests/Gui/test_MainWindowAccounts.cpp` keep both sides. M03's caveat,
-  edge cases and design notes moved into M02's sectioned tables in
-  `docs/CAVEATS.md`, `docs/EDGE.md` and `docs/philosophy/designs.md` (new
-  _Mail operations_ sections). All 88 tests pass, and `test_LiveImapAccounts`
-  passes against Dovecot 2.4.5. The M03 worktree had new uncommitted work
-  (`ViewStateStore`), so `feature/m03-mail-operations` was not changed. When
-  that work is committed, run `git merge merge/m02-into-m03` in the M03
-  worktree; any new conflicts are limited to files M03 changed since
-  `50f6f2d0`. Merge in that direction only, then delete the branch. In a
+- ⏸️ **Merge M02 into M03:** wait until the M03 worktree's uncommitted work
+  (`ViewStateStore`) is committed, then merge in two steps in the M03 worktree.
+  1. Run `git merge merge/m02-into-m03` (pushed). It is M03 at `50f6f2d0` with
+     M02 at `c0719cfa` merged in. Its conflicts in `CMakeLists.txt`,
+     `src/Common/SettingsNames.h` and `tests/Gui/test_MainWindowAccounts.cpp`
+     keep both sides, and M03's caveat, edge cases and design notes moved into
+     M02's sectioned tables in `docs/CAVEATS.md`, `docs/EDGE.md` and
+     `docs/philosophy/designs.md` (new _Mail operations_ sections). All 88
+     tests pass, and `test_LiveImapAccounts` passes against Dovecot 2.4.5. Any
+     new conflicts are limited to files M03 changed since `50f6f2d0`.
+  2. Run `git merge feature/m02-shell-next`. It brings the 15 later M02 commits,
+     including the [M05 insertion](#m05-search-milestone-insertion) that
+     `c0719cfa` predates. In `docs/ROADMAP.md`, take M02's renumbered version,
+     re-check M03's Completed items (#37, #38, #83, #84, #88 and #89) and keep
+     any M03 roadmap edits made since `50f6f2d0`. In M03's other docs, move
+     search references from M04 to M05 and shift M05–M12 to M06–M13.
+
+  Merge in that direction only, then delete `merge/m02-into-m03`. In a
   container build of a worktree, also mount the main repository's `.git` at
   its host path, or the version header step fails.
 
