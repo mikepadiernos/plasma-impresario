@@ -1,4 +1,4 @@
-# Mail client inspirations
+# Application inspirations
 
 **[Documentation](../README.md)** · **[Scope](scope.md)** ·
 **[Designs](designs.md)** · **[Roadmap](../ROADMAP.md)** ·
@@ -9,19 +9,35 @@ references, not feature-cloning specifications or claims about Plasma
 Impresario's current features; the [designs](designs.md) record what is
 implemented and what is planned.
 
-| Reference                                     | Kind                                 | Main lesson for Plasma Impresario                           |
-| --------------------------------------------- | ------------------------------------ | ----------------------------------------------------------- |
-| [KDE / Trojitá](#kde--trojitá)                | Qt IMAP client; the forked base      | IMAP correctness and a lightweight KDE-native baseline      |
-| [Aqua Mail](#aqua-mail)                       | Mobile-first mail client             | Readable density and quick triage actions                   |
-| [Vivaldi Mail](#vivaldi-mail)                 | Browser-integrated desktop mail      | Cross-account organization and saved, indexed searches      |
-| [Thunderbird](#thunderbird)                   | Desktop mail client                  | Optional tabs for multiple mail views                       |
-| [eM Client](#em-client)                       | Desktop mail and productivity client | Contextual history, follow-up and recoverable spam controls |
-| [The Bat!](#the-bat)                          | Classic power-user desktop client    | Dense, keyboard-first, rule-driven processing               |
-| [Kontact](#kontact)                           | KDE personal-information suite       | Plasma integration and PIM context                          |
-| [ePim](#epim-and-workspace-oriented-patterns) | Personal-information manager         | Tags, local organization and workspace context              |
-| [E-Mail](#e-mail)                             | Rust and GTK IMAP and SMTP client    | Safe defaults, guided setup and offline-first sync          |
+References are grouped by how directly they fit Plasma Impresario's desktop,
+mail workflows and codebase. Relevance is not a ranking of application quality
+or an implementation priority, and references within a group are not ranked.
 
-## KDE / Trojitá
+- **Foundational:** the codebase Impresario is forked from and the Plasma shell
+  and integration it targets.
+- **Selective:** mail workflow and organization patterns, adapted to
+  keyboard-accessible, Plasma-native desktop use. Their platforms, protocols and
+  full feature sets are not requirements.
+- **Focused:** narrow implementation techniques, not product or architecture
+  models.
+
+| Reference                                                              | Relevance    | Kind                                 | Main lesson for Plasma Impresario                           |
+| ---------------------------------------------------------------------- | ------------ | ------------------------------------ | ----------------------------------------------------------- |
+| [KDE / Trojitá](#kde--trojitá)                                         | Foundational | Qt IMAP client; the forked base      | IMAP correctness and a lightweight KDE-native baseline      |
+| [Plasma Opus](#plasma-opus)                                            | Foundational | Plasma file manager                  | Five-region shell, panels and toolbar placement             |
+| [Kontact](#kontact)                                                    | Foundational | KDE personal-information suite       | Plasma integration and PIM context                          |
+| [Aqua Mail](#aqua-mail)                                                | Selective    | Mobile-first mail client             | Readable density and quick triage actions                   |
+| [Vivaldi Mail](#vivaldi-mail)                                          | Selective    | Browser-integrated desktop mail      | Cross-account organization and saved, indexed searches      |
+| [Thunderbird](#thunderbird)                                            | Selective    | Desktop mail client                  | Optional tabs for multiple mail views                       |
+| [eM Client](#em-client)                                                | Selective    | Desktop mail and productivity client | Contextual history, follow-up and recoverable spam controls |
+| [The Bat!](#the-bat)                                                   | Selective    | Classic power-user desktop client    | Dense, keyboard-first, rule-driven processing               |
+| [ePim](#epim)                                                          | Selective    | Personal-information manager         | Tags, local organization and workspace context              |
+| [E-Mail](#e-mail)                                                      | Selective    | Rust and GTK IMAP and SMTP client    | Safe defaults, guided setup and offline-first sync          |
+| [Qt implementation examples](#focused-qt-mail-implementation-examples) | Focused      | Qt mail clients and prototypes       | Renderer isolation, CID handling and responsive search      |
+
+## Foundational: architecture and Plasma experience
+
+### KDE / Trojitá
 
 **Project:** <https://github.com/KDE/trojita>
 
@@ -33,39 +49,59 @@ Qt-based IMAP client built in the KDE ecosystem.
 - Emphasis on IMAP correctness and protocol cleanliness
 - KDE-style behavior as a lightweight desktop client
 
-## Qt mail client implementation references
+### Plasma Opus
 
-| Project                                                        | Relevant reference                                                                                                                   |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| [Korrespond](https://github.com/topke63/Korrespond)            | Qt Quick and KMime message rendering, remote-image controls, and MIME-based reply text.                                              |
-| [Javelin Mail](https://github.com/ripdog/Javelin-Mail)         | Qt Widgets WebEngine viewer, inline-resource scheme, context menus, and asynchronous search; its backend uses JMAP rather than IMAP. |
-| [Mailove](https://github.com/nekromoff/mailove)                | Qt Quick WebEngine sandbox, CID scheme, request interceptor, and network-egress tests.                                               |
-| [LoveLetter](https://github.com/guoyunhe/loveletter)           | Early KDE/Qt Quick mail interface prototype; its message page is a placeholder rather than a renderer implementation.                |
-| [Argonaut Emails](https://github.com/jgiannop/argonaut-emails) | Qt Widgets IMAP client with a private WebEngine profile, CID handler, remote-content controls, and viewer tests.                     |
+**Project:** <https://github.com/mikepadiernos/plasma-opus>
 
-> [!CAUTION]
->
-> Adapt concepts to Trojitá's on-demand IMAP model and verify message isolation
-> and privacy independently. Review each project's license before reusing code.
+Plasma Opus is a Plasma file manager whose shell is the design reference for a
+consistent companion-app experience.
 
-## Aqua Mail
+- The five-region layout, configurable panels and toolbar placement, adapted to
+  mail navigation, message lists and reading
+- Theme profiles and query syntax that Impresario can share
+- A target design, not an assumed companion-app interface; Plasma Impresario
+  stays useful without it
+
+See the [shell design](designs.md#proposed-plasma-impresario-shell) and
+[Plasma Opus integrations](../integrations/plasma-opus.md).
+
+### Kontact
+
+**Project:** <https://kontact.kde.org/>
+
+Kontact is the most relevant KDE reference for cross-application behavior and
+desktop integration.
+
+- Fit with KDE and Plasma conventions
+- Integration-minded interaction modes and common desktop patterns
+- Clean treatment of personal-information management tasks
+- Alignment with KDE account and system integration expectations
+
+## Selective: mail workflows and organization
+
+### Aqua Mail
 
 **Project:** <https://www.aqua-mail.com/> ·
 **Reference:**
 [Customization](https://www.aqua-mail.com/android/features/customizations)
 
-Aqua Mail is a reference for clear, mobile-first mail workflows.
+Aqua Mail is a reference for clear, mobile-first mail workflows. Adapt its
+patterns to a desktop-first KDE layout rather than copying a mobile design:
 
-- Simple, readable message-list density and multi-line message summaries
-- Quick actions and conversation flow
-- Account grouping and low-friction navigation
-- Fast, readable filters and search
+- Readable message-list density and multi-line summaries without losing action
+  clarity
+- Quick actions in the message list: archive, move, flag, mark read and delete
+- A compact, low-noise triage workflow with fast search and filters
+- Message grouping and conversation visibility with little visual clutter
+- Account grouping and mailbox navigation that keeps actions close to the
+  message list
+- Per-account and per-folder notification settings that limit interruptions
+- Attachments and message content loaded on demand rather than all at once
 
-See [Adoptable Aqua Mail features](#adoptable-aqua-mail-features) for the
-patterns to adopt and the
-[message list design](designs.md#message-list-presentation).
+See the [message list](designs.md#message-list-presentation) and
+[customization](designs.md#aqua-mail-inspired-desktop-customization) designs.
 
-## Vivaldi Mail
+### Vivaldi Mail
 
 **Project:** <https://vivaldi.com/features/mail/>
 
@@ -78,7 +114,7 @@ high-volume, multi-account inboxes.
 - View toggles and multiple views of a message without moving it
 - Keyboard shortcuts, navigation history and queued outgoing messages
 
-## Thunderbird
+### Thunderbird
 
 **Project:** <https://www.thunderbird.net/en-US/>
 
@@ -96,7 +132,7 @@ Tabs are a planned optional feature, **off by default**; that default is a
 project decision, not a Thunderbird claim. See
 [optional tabs](designs.md#optional-tabs).
 
-## eM Client
+### eM Client
 
 **Project:** <https://www.emclient.com/?lang=en> · **References:**
 [feature overview](https://www.emclient.com/features-overview),
@@ -118,36 +154,39 @@ validation. See the
 
 <!-- markdownlint-disable MD026 -->
 
-## The Bat!
+### The Bat!
 
 <!-- markdownlint-enable MD026 -->
 
 **Project:** <https://www.ritlabs.com/en/products/thebat/>
 
 The Bat! provides a classic power-user interface with a traditional desktop
-layout and rule-driven organization.
+layout and rule-driven organization. Adapt it as a desktop-first productivity
+layer rather than copying its full classic workflow, keeping advanced
+organization, batching and filtering available without a cluttered or
+intimidating interface:
 
-- Dense, functional mail management that prioritizes information density
-- Folder and message organization patterns for large volumes
-- Mail-management conventions for keyboard-centric users
+- Dense, keyboard-first processing that prioritizes information density
+- Folder-based organization for large volumes and active queues
+- Rule-based filtering, automatic sorting, prioritization and triage logic
+- Bulk actions, batching, flexible attachment handling and workflow automation
+- Thread-aware behavior that keeps conversations coherent within dense folder
+  organization
 
-See
-[The Bat! power-user workflow patterns](#the-bat-power-user-workflow-patterns)
-for the patterns to adopt.
+### ePim
 
-## Kontact
+**Project:** <https://www.epim.com/>
 
-**Project:** <https://kontact.kde.org/>
+ePim is a reference for structured mail organization, local-mail discipline and
+personal-information management. Borrow its organization ideas without forcing a
+heavy enterprise-style system.
 
-Kontact is the most relevant KDE reference for cross-application behavior and
-desktop integration.
+- Organized mail structures and local storage patterns
+- Conventions for tags, grouping and personal organization
+- Message categorization beyond basic folders
+- A desktop-oriented mindset that complements KDE and Plasma workflows
 
-- Fit with KDE and Plasma conventions
-- Integration-minded interaction modes and common desktop patterns
-- Clean treatment of personal-information management tasks
-- Alignment with KDE account and system integration expectations
-
-## E-Mail
+### E-Mail
 
 **Project:** <https://github.com/digistalter/email>
 
@@ -170,47 +209,20 @@ setup and an offline-first local store.
 See [Adoptable E-Mail patterns](#adoptable-e-mail-patterns) for the patterns
 to adopt.
 
-## Adoptable Aqua Mail features
+## Focused: Qt mail implementation examples
 
-Adapt these patterns to a desktop-first KDE layout rather than copying a mobile
-design:
+| Project                                                        | Relevant reference                                                                                                                   |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| [Korrespond](https://github.com/topke63/Korrespond)            | Qt Quick and KMime message rendering, remote-image controls, and MIME-based reply text.                                              |
+| [Javelin Mail](https://github.com/ripdog/Javelin-Mail)         | Qt Widgets WebEngine viewer, inline-resource scheme, context menus, and asynchronous search; its backend uses JMAP rather than IMAP. |
+| [Mailove](https://github.com/nekromoff/mailove)                | Qt Quick WebEngine sandbox, CID scheme, request interceptor, and network-egress tests.                                               |
+| [LoveLetter](https://github.com/guoyunhe/loveletter)           | Early KDE/Qt Quick mail interface prototype; its message page is a placeholder rather than a renderer implementation.                |
+| [Argonaut Emails](https://github.com/jgiannop/argonaut-emails) | Qt Widgets IMAP client with a private WebEngine profile, CID handler, remote-content controls, and viewer tests.                     |
 
-- Quick actions in the message list: archive, move, flag, mark read and delete
-- A compact, low-noise triage workflow for fast inbox scanning
-- Fast search and filter patterns for triage and retrieval
-- Message grouping and conversation visibility with little visual clutter
-- Readable density without losing action clarity
-- Per-account and per-folder notification settings that limit interruptions
-- Mailbox navigation that keeps actions close to the message list
-- Attachments and message content loaded on demand rather than all at once
-
-## The Bat! power-user workflow patterns
-
-Adapt these as a desktop-first productivity layer rather than copying The Bat!'s
-full classic workflow. Keep advanced organization, batching and filtering
-available without a cluttered or intimidating interface.
-
-- Rule-based filtering and automatic sorting of incoming mail
-- Folder-based organization for large volumes and active queues
-- Bulk actions and keyboard-first processing
-- Structured, high-density message handling
-- Flexible attachment handling, batching and workflow automation
-- Advanced sorting with rules, prioritization and triage logic
-- Thread-aware behavior that keeps conversations coherent within dense folder
-  organization
-
-## ePim and workspace-oriented patterns
-
-**Project:** <https://www.epim.com/>
-
-ePim is a reference for structured mail organization, local-mail discipline and
-personal-information management. Borrow its organization ideas without forcing a
-heavy enterprise-style system.
-
-- Organized mail structures and local storage patterns
-- Conventions for tags, grouping and personal organization
-- Message categorization beyond basic folders
-- A desktop-oriented mindset that complements KDE and Plasma workflows
+> [!CAUTION]
+>
+> Adapt concepts to Trojitá's on-demand IMAP model and verify message isolation
+> and privacy independently. Review each project's license before reusing code.
 
 ## Adoptable E-Mail patterns
 
@@ -261,9 +273,11 @@ familiar and integrated with Plasma without copying any single application.
 | Reference       | Contribution                                       | Where it applies                                                                                                                                                                                                                                                                                                  |
 | --------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 🧱 Trojitá      | KDE-native, IMAP-first discipline                  | The [M01](../ROADMAP.md#m01-kde--qt6-compatibility-baseline) baseline and the [current interface](designs.md#current-interface)                                                                                                                                                                                   |
+| 🪟 Plasma Opus  | Shell regions, panels and companion workflows      | The [shell](designs.md#proposed-plasma-impresario-shell) in M02 and [Plasma Opus integrations](../integrations/plasma-opus.md)                                                                                                                                                                                    |
 | 📬 Aqua Mail    | Clarity, quick actions and unified triage          | Unified inbox and quick actions in [M03](../ROADMAP.md#m03-mail-operations-sorting-and-folder-management)                                                                                                                                                                                                         |
 | 🔍 Vivaldi Mail | Cross-account organization and searchable views    | Saved searches in M02; cross-account search, an opt-in index and list views in [M05](../ROADMAP.md#m05-search-and-indexing)                                                                                                                                                                                       |
 | 🗂️ Thunderbird  | Optional multi-view tabs                           | [Optional tabs](designs.md#optional-tabs) in [M08](../ROADMAP.md#m08-settings-and-workspace-configuration)                                                                                                                                                                                                        |
+| 📇 eM Client    | Contextual history, follow-up and spam controls    | [Feature candidates](designs.md#em-client-inspired-feature-candidates) and spam controls in [M14](../ROADMAP.md#m14-refinements).07                                                                                                                                                                               |
 | ⚙️ The Bat!     | Power-user density, batching and rules             | Batch workflows in M03, rules in [M07](../ROADMAP.md#m07-output-notifications-and-rules-automation) and the MailTicker-inspired widget in [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support)                                                                                                       |
 | 🖥️ Kontact      | Desktop integration and KDE polish                 | KDE services and agenda/contacts in [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support)                                                                                                                                                                                                             |
 | 🏷️ ePim         | Tags, local organization and workspace context     | [My Day / Agenda](designs.md#embedded-panels) and workspaces in [M08](../ROADMAP.md#m08-settings-and-workspace-configuration)                                                                                                                                                                                     |
