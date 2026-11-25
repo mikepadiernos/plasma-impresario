@@ -25,6 +25,7 @@
 #include "ThreadingMsgListModel.h"
 #include "UiUtils/Formatting.h"
 #include "UiUtils/IconLoader.h"
+#include "UiUtils/Relevance.h"
 
 
 namespace Imap
@@ -37,6 +38,8 @@ PrettyMsgListModel::PrettyMsgListModel(QObject *parent):
     QSortFilterProxyModel(parent), m_filters(NoFilter)
 {
     setDynamicSortFilter(true);
+    // Another mailbox reuses the UIDs
+    connect(this, &QAbstractItemModel::modelAboutToBeReset, this, [this]() { m_relevanceCache.clear(); });
 }
 
 QVariant PrettyMsgListModel::data(const QModelIndex &index, int role) const
@@ -355,6 +358,58 @@ void PrettyMsgListModel::sort(int column, Qt::SortOrder order)
         emit sortingPreferenceChanged(column, order);
     else
         emit sortingPreferenceChanged(-1, order);
+}
+
+void PrettyMsgListModel::setRelevanceTerms(const QStringList &terms, Qt::SortOrder order)
+{
+    m_relevanceTerms = terms;
+    m_relevanceCache.clear();
+    // Sorting again by the same column in the same order would be a no-op, so start from the source's order
+    QSortFilterProxyModel::sort(-1, order);
+    if (!terms.isEmpty())
+        QSortFilterProxyModel::sort(0, order);
+}
+
+QStringList PrettyMsgListModel::relevanceTerms() const
+{
+    return m_relevanceTerms;
+}
+
+bool PrettyMsgListModel::isSortingByRelevance() const
+{
+    return !m_relevanceTerms.isEmpty();
+}
+
+int PrettyMsgListModel::relevance(const QModelIndex &sourceIndex) const
+{
+    const uint uid = sourceIndex.data(RoleMessageUid).toUInt();
+    if (uid) {
+        const auto it = m_relevanceCache.constFind(uid);
+        if (it != m_relevanceCache.cend())
+            return *it;
+    }
+    const int score = UiUtils::relevanceScore(sourceIndex, m_relevanceTerms);
+    // A message which is not loaded yet gets its score once it is
+    if (uid && score >= 0)
+        m_relevanceCache.insert(uid, score);
+    return score;
+}
+
+bool PrettyMsgListModel::lessThan(const QModelIndex &left, const QModelIndex &right) const
+{
+    if (m_relevanceTerms.isEmpty())
+        return QSortFilterProxyModel::lessThan(left, right);
+    const int leftScore = relevance(left);
+    const int rightScore = relevance(right);
+    if (leftScore != rightScore)
+        return leftScore > rightScore;
+    if (leftScore >= 0) {
+        const QDateTime leftDate = left.data(RoleMessageDate).toDateTime();
+        const QDateTime rightDate = right.data(RoleMessageDate).toDateTime();
+        if (leftDate != rightDate)
+            return leftDate > rightDate;
+    }
+    return left.row() < right.row();
 }
 
 }

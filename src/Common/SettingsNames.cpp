@@ -94,6 +94,7 @@ const QString SettingsNames::guiMsgListHideRead = QStringLiteral("gui/msgList.hi
 const QString SettingsNames::guiMsgListFilterUnread = QStringLiteral("gui/msgList.filterUnread");
 const QString SettingsNames::guiMsgListFilterFlagged = QStringLiteral("gui/msgList.filterFlagged");
 const QString SettingsNames::guiMsgListFilterAttachments = QStringLiteral("gui/msgList.filterAttachments");
+const QString SettingsNames::guiMsgListGroupBy = QStringLiteral("gui/msgList.groupBy");
 const QString SettingsNames::guiMailboxListShowOnlySubscribed = QStringLiteral("gui/mailboxList.showOnlySubscribed");
 const QString SettingsNames::guiMainWindowLayout = QStringLiteral("gui/mainWindow.layout");
 const QString SettingsNames::guiMainWindowLayoutCompact = QStringLiteral("compact");

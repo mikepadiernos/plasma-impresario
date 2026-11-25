@@ -48,6 +48,7 @@ struct SettingsNames {
     static const QString guiMsgListHideRead;
     /** @short Quick filters of the message list, stored per account */
     static const QString guiMsgListFilterUnread, guiMsgListFilterFlagged, guiMsgListFilterAttachments;
+    static const QString guiMsgListGroupBy;
     static const QString guiMailboxListShowOnlySubscribed;
     static const QString guiPreferPlaintextRendering;
     static const QString guiMainWindowLayout, guiMainWindowLayoutCompact, guiMainWindowLayoutWide, guiMainWindowLayoutOneAtTime;

@@ -22,8 +22,10 @@
 #ifndef PRETTYMSGLISTMODEL_H
 #define PRETTYMSGLISTMODEL_H
 
+#include <QHash>
 #include <QPersistentModelIndex>
 #include <QSortFilterProxyModel>
+#include <QStringList>
 #include "Imap/Model/MailboxModel.h"
 #include "Imap/Model/FavoriteTagsModel.h"
 
@@ -48,6 +50,9 @@ When the messages are shown in threads, a thread is shown as a whole when any of
 
 The message set by setKeptVisibleIndex() stays shown even when it stops matching, for example when reading it clears
 its unread state, until another message takes its place.
+
+While relevance terms are set, the model sorts the messages itself by UiUtils::relevanceScore(), the best matches first
+in ascending order; equally relevant messages are sorted newest first. Otherwise the order of the source is kept.
 */
 class PrettyMsgListModel: public QSortFilterProxyModel
 {
@@ -77,18 +82,29 @@ public:
     int visibleMessageCount() const;
     bool filterAcceptsRow(int source_row, const QModelIndex &source_parent) const override;
     void sort(int column, Qt::SortOrder order) override;
+    /** @short Sort by relevance for @p terms (see UiUtils::relevanceTerms()); no terms keep the order of the source */
+    void setRelevanceTerms(const QStringList &terms, Qt::SortOrder order);
+    QStringList relevanceTerms() const;
+    bool isSortingByRelevance() const;
 
 signals:
     void sortingPreferenceChanged(int column, Qt::SortOrder order);
     void filtersChanged(Imap::Mailbox::PrettyMsgListModel::Filters filters);
 
+protected:
+    bool lessThan(const QModelIndex &left, const QModelIndex &right) const override;
+
 private:
+    int relevance(const QModelIndex &sourceIndex) const;
     bool messageMatches(const QModelIndex &sourceIndex) const;
     bool subtreeMatches(const QModelIndex &sourceIndex) const;
     void refilter(Filters filters);
 
     Filters m_filters;
     QPersistentModelIndex m_keptVisible;
+    QStringList m_relevanceTerms;
+    /** Scores of loaded messages by UID; their envelope does not change */
+    mutable QHash<uint, int> m_relevanceCache;
 };
 
 }

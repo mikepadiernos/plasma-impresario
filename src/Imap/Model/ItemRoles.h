@@ -255,6 +255,9 @@ enum {
     /** @short Special use of a mailbox (Imap::Mailbox::SpecialUse converted to int, see SpecialFolder.h) */
     RoleMailboxSpecialUse,
 
+    /** @short True for the header row of a group in a GroupingMsgListModel, which is not a message */
+    RoleIsGroupHeader,
+
     /** @short The very last role */
     RoleInvalidLastOne
 };
