@@ -98,6 +98,7 @@ trojita_plugin_option(WITH_ABOOKADDRESSBOOK_PLUGIN "Build AbookAddressbook plugi
 trojita_plugin_option(WITH_CLEARTEXT_PLUGIN "Build Cleartext password plugin" STATIC)
 trojita_plugin_option(WITH_QTKEYCHAIN_PLUGIN "Build Qtkeychain password plugin" "${QTKEYCHAIN_DEPENDS}")
 trojita_plugin_option(WITH_SONNET_PLUGIN "Build a plugin for spellchecking via KDE's Sonnet" "WITH_DESKTOP")
+trojita_option(WITH_KNOTIFICATIONS "Report background account errors as desktop notifications" AUTO "WITH_DESKTOP")
 
 trojita_find_package(Git "" "" "" "")
 
@@ -131,6 +132,7 @@ endif()
 
 trojita_find_package(Qt6Keychain QUIET "https://github.com/frankosterfeld/qtkeychain" "QtKeychain library (Qt6 version)" "Needed for QtKeychain password plugin" WITH_QTKEYCHAIN_PLUGIN)
 trojita_find_package(KF6Sonnet ${SONNET_LIB_VERSION} "https://projects.kde.org/projects/frameworks/sonnet" "Qt6 Spell Checking Library from KDE" "Spell checking support" WITH_SONNET_PLUGIN)
+trojita_find_package(KF6Notifications "" "https://invent.kde.org/frameworks/knotifications" "KDE desktop notifications" "Report background account errors as desktop notifications" WITH_KNOTIFICATIONS)
 if(Qt6Keychain_FOUND OR QtKeychain_FOUND)
     message(STATUS "Found QtKeychain library (includes at ${QTKEYCHAIN_INCLUDE_DIRS}, lib at ${QTKEYCHAIN_LIBRARIES})")
 else()
@@ -248,6 +250,12 @@ if(WITH_ZLIB)
 else()
     set(TROJITA_HAVE_ZLIB False)
     message(STATUS "Disabling COMPRESS=DEFLATE, zlib is not available")
+endif()
+
+if(WITH_KNOTIFICATIONS)
+    set(TROJITA_HAVE_KNOTIFICATIONS True)
+else()
+    set(TROJITA_HAVE_KNOTIFICATIONS False)
 endif()
 
 if (WITH_WEBENGINE)
@@ -907,6 +915,11 @@ if(WITH_DESKTOP)
             OAuth
             UiUtils
     )
+
+    if(WITH_KNOTIFICATIONS)
+        target_link_libraries(DesktopGui PRIVATE KF6::Notifications)
+        install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/plasma-impresario.notifyrc DESTINATION ${KDE_INSTALL_KNOTIFYRCDIR})
+    endif()
 
     if(WITH_WEBENGINE)
         target_link_libraries(DesktopGui

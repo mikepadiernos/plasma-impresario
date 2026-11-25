@@ -63,6 +63,9 @@
 #include <KSharedConfig>
 
 #include "configure.cmake.h"
+#ifdef TROJITA_HAVE_KNOTIFICATIONS
+#include <KNotification>
+#endif
 #include "Common/Application.h"
 #include "Common/InvokeMethod.h"
 #include "Common/Paths.h"
@@ -917,6 +920,20 @@ void MainWindow::createWidgets()
     m_connectionStatus->setText(i18nc("@info:status", "Not connected"));
     statusBar()->addPermanentWidget(m_connectionStatus);
 
+    m_backgroundAlerts = new QToolButton(statusBar());
+    m_backgroundAlerts->setObjectName(QStringLiteral("backgroundAccountAlerts"));
+    m_backgroundAlerts->setAccessibleName(i18nc("@label", "Other accounts needing attention"));
+    m_backgroundAlerts->setAutoRaise(true);
+    m_backgroundAlerts->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    m_backgroundAlerts->setIcon(QIcon::fromTheme(QStringLiteral("dialog-warning-symbolic"),
+                                                 QIcon::fromTheme(QStringLiteral("dialog-warning"))));
+    m_backgroundAlerts->hide();
+    connect(m_backgroundAlerts, &QToolButton::clicked, this, [this]() {
+        switchAccount(m_backgroundAlerts->property("accountId").toString());
+    });
+    // Left of the shown account's connection status
+    statusBar()->insertPermanentWidget(0, m_backgroundAlerts);
+
     // The state of the GUI is only saved after a certain time has passed. This is just an optimization to make sure
     // we do not hit the disk continually when e.g. resizing some random widget.
     m_delayedStateSaving = new QTimer(this);
@@ -1758,6 +1775,11 @@ void MainWindow::setupAccounts()
         if (m_accountSwitcher)
             refreshAccountSwitcher();
     });
+    // The shown account reports its own errors in the footer and in dialogs.
+    connect(m_accountStatus, &Common::AccountStatusTracker::attentionRaised, this, [this](const QString &accountId) {
+        if (accountId != m_accounts->activeAccount() && m_accounts->accountIds().contains(accountId))
+            notifyBackgroundAccount(accountId);
+    });
     if (m_accounts->accountIds().isEmpty()) {
         const QString accountId = m_accounts->addAccount(i18n("Mail account"));
         Common::AccountRegistry::copyAccountKeys(*m_settings, *m_accounts->settings(accountId));
@@ -1827,6 +1849,68 @@ void MainWindow::refreshAccountSwitcher()
     m_capabilityGate->apply(Imap::AccountCapabilities::forAccount(*accountSettings()));
     m_accountSidebar->refresh(*m_accounts, *m_accountStatus);
     m_shellHeader->setAccount(*m_accounts, *m_accountStatus);
+    updateBackgroundAlerts();
+}
+
+void MainWindow::updateBackgroundAlerts()
+{
+    if (!m_backgroundAlerts)
+        return;
+    QStringList flagged;
+    // In account order, so that the button switches to the first flagged account in the list
+    for (const QString &accountId : m_accounts->accountIds()) {
+        if (accountId != m_accounts->activeAccount()
+            && Common::AccountStatusTracker::needsAttention(m_accountStatus->status(accountId).kind))
+            flagged << accountId;
+    }
+    m_backgroundAlerts->setVisible(!flagged.isEmpty());
+    m_backgroundAlerts->setProperty("accountId", flagged.value(0));
+    if (flagged.isEmpty())
+        return;
+    QStringList lines;
+    for (const QString &accountId : std::as_const(flagged)) {
+        const Common::AccountStatus status = m_accountStatus->status(accountId);
+        QString line = i18nc("@info:tooltip account name and its status", "%1: %2", m_accounts->displayName(accountId),
+                             Common::AccountStatusTracker::label(status.kind));
+        if (!status.detail.isEmpty())
+            line += QLatin1String(": ") + status.detail;
+        lines << line;
+    }
+    const QString text = flagged.size() == 1
+        ? i18nc("@info:status account name and its status", "%1: %2", m_accounts->displayName(flagged.first()),
+                Common::AccountStatusTracker::label(m_accountStatus->status(flagged.first()).kind))
+        : i18ncp("@info:status", "%1 account needs attention", "%1 accounts need attention", flagged.size());
+    m_backgroundAlerts->setText(text);
+    m_backgroundAlerts->setToolTip(lines.join(QLatin1Char('\n')) + QLatin1Char('\n')
+                                   + i18nc("@info:tooltip", "Click to switch to %1.",
+                                           m_accounts->displayName(flagged.first())));
+    m_backgroundAlerts->setAccessibleDescription(lines.join(QLatin1Char('\n')));
+}
+
+void MainWindow::notifyBackgroundAccount(const QString &accountId)
+{
+    const Common::AccountStatus status = m_accountStatus->status(accountId);
+    const QString title = i18nc("@title notification, %1 is the account name", "%1 needs attention",
+                                m_accounts->displayName(accountId));
+    QString text = Common::AccountStatusTracker::label(status.kind);
+    if (!status.detail.isEmpty())
+        text += QLatin1String(": ") + status.detail;
+#ifdef TROJITA_HAVE_KNOTIFICATIONS
+    auto *notification = new KNotification(QStringLiteral("accountNeedsAttention"), KNotification::CloseOnTimeout);
+    notification->setComponentName(QStringLiteral("plasma-impresario"));
+    notification->setTitle(title);
+    notification->setText(text.toHtmlEscaped());
+    notification->setWindow(windowHandle());
+    KNotificationAction *open = notification->addDefaultAction(i18nc("@action:button", "Open Account"));
+    connect(open, &KNotificationAction::activated, this, [this, accountId]() {
+        switchAccount(accountId);
+        showMainWindow();
+    });
+    notification->sendEvent();
+#else
+    if (m_trayIcon && m_trayIcon->isVisible())
+        m_trayIcon->showMessage(title, text, QSystemTrayIcon::Warning, 3333);
+#endif
 }
 
 void MainWindow::detachAccountModels()

@@ -313,6 +313,12 @@ private:
     /** Rebuild the account selector from the account list. */
     void refreshAccountSwitcher();
 
+    /** Show the other accounts that need attention in the footer. */
+    void updateBackgroundAlerts();
+
+    /** Tell the user that an account other than the shown one needs attention. */
+    void notifyBackgroundAccount(const QString &accountId);
+
     /** @param reconnect connect the account to its server; false when its models already exist */
     void setupModels(bool reconnect = true);
     QStringList copyrightHolders(QFile *file) const;
@@ -440,6 +446,8 @@ private:
 
     QPointer<QStackedWidget> m_mainStack;
     QLabel *m_connectionStatus;
+    /** Footer button listing the other accounts that need attention */
+    QToolButton *m_backgroundAlerts = nullptr;
     bool m_connectionError = false;
 
     LayoutMode m_layoutMode;
