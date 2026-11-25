@@ -95,6 +95,7 @@ namespace Gui
 
 class AccountSidebar;
 class CapabilityActionGate;
+class ShellHeader;
 class AttachmentPanel;
 class ContactPanel;
 class EmbeddedPanel;
@@ -318,7 +319,7 @@ private:
     /** Place the mailbox sidebar on the requested side of the current layout. */
     void setMailboxSidebarRight(bool right);
 
-    /** Create the shell: left column, main column and right column above a footer. */
+    /** Create the shell: the header above the left, main and right columns, and a footer below them. */
     void createShell();
     /** Put the mailbox tree into the column chosen for it. */
     void placeMailboxSidebar();
@@ -421,6 +422,8 @@ private:
     QSet<QSplitter *> m_panelRegionsPending;
     /** The folder tree grouped by account, in the column chosen for the mailbox sidebar */
     AccountSidebar *m_accountSidebar = nullptr;
+    /** The header region above the columns, off by default */
+    ShellHeader *m_shellHeader = nullptr;
     /** Hides the actions which the active account's protocol does not support */
     CapabilityActionGate *m_capabilityGate = nullptr;
 

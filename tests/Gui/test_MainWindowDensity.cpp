@@ -144,7 +144,7 @@ private slots:
         auto *mainColumn = window.findChild<QSplitter *>(QStringLiteral("shellMainColumn"));
         auto *footer = window.findChild<QSplitter *>(QStringLiteral("shellFooter"));
         QVERIFY(body && row && leftColumn && rightColumn && mainColumn && footer);
-        QCOMPARE(window.centralWidget(), body);
+        QCOMPARE(body->parentWidget(), window.centralWidget());
         QCOMPARE(row->indexOf(leftColumn), 0);
         QCOMPARE(row->indexOf(mainColumn), 1);
         QCOMPARE(row->indexOf(rightColumn), 2);

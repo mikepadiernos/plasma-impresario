@@ -134,10 +134,12 @@
 #include "UiUtils/IconLoader.h"
 #include "UiUtils/QaimDfsIterator.h"
 
+#include <QVBoxLayout>
 #include "Imap/Model/AccountCapabilities.h"
 #include "OAuth/OAuth.h"
 #include "AccountSidebar.h"
 #include "CapabilityActionGate.h"
+#include "ShellHeader.h"
 
 /** @short All user-facing widgets and related classes */
 namespace Gui
@@ -803,6 +805,7 @@ void MainWindow::createMenus()
     QMenu *viewMenu = menuBar()->addMenu(tr("&View"));
         ADD_ACTION(viewMenu, showMenuBar);
         ADD_ACTION(viewMenu, showToolBar);
+        viewMenu->addAction(m_shellHeader->toggleAction());
         QMenu *layoutMenu = viewMenu->addMenu(tr("&Layout"));
             ADD_ACTION(layoutMenu, m_actionLayoutCompact);
             ADD_ACTION(layoutMenu, m_actionLayoutWide);
@@ -1822,6 +1825,7 @@ void MainWindow::refreshAccountSwitcher()
     }
     m_capabilityGate->apply(Imap::AccountCapabilities::forAccount(*accountSettings()));
     m_accountSidebar->refresh(*m_accounts, *m_accountStatus);
+    m_shellHeader->setAccount(*m_accounts, *m_accountStatus);
 }
 
 void MainWindow::detachAccountModels()
@@ -2001,6 +2005,7 @@ void MainWindow::cycleFocusRegion(int step)
         QWidget *target;
     };
     QList<Region> regions;
+    regions.append(Region{m_shellHeader, m_shellHeader->focusTarget()});
     if (m_accountSwitcher)
         regions.append(Region{m_accountSwitcher, m_accountSwitcher});
     regions.append(Region{m_accountSidebar, mboxTree});
@@ -3246,6 +3251,8 @@ void MainWindow::slotUpdateWindowTitle()
     } else {
         setWindowTitle(tr("Plasma Impresario") + profileName);
     }
+    if (m_shellHeader)
+        m_shellHeader->setFolder(mailbox.isValid() ? mailbox.data(Imap::Mailbox::RoleShortMailboxName).toString() : QString());
 }
 
 void MainWindow::setMailboxSidebarRight(bool right)
@@ -3320,7 +3327,17 @@ void MainWindow::createShell()
     // The folder tree is grouped by account; the sidebar takes the tree's place in the side columns
     m_accountSidebar = new AccountSidebar(mboxTree);
     connect(m_accountSidebar, &AccountSidebar::accountActivated, this, &MainWindow::switchAccount);
-    setCentralWidget(m_shellBody);
+
+    // The header region sits above the columns and the footer; it is not resizable
+    m_shellHeader = new ShellHeader(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")));
+    auto *shell = new QWidget;
+    shell->setObjectName(QStringLiteral("shell"));
+    auto *shellLayout = new QVBoxLayout(shell);
+    shellLayout->setContentsMargins(0, 0, 0, 0);
+    shellLayout->setSpacing(0);
+    shellLayout->addWidget(m_shellHeader);
+    shellLayout->addWidget(m_shellBody, 1);
+    setCentralWidget(shell);
 }
 
 void MainWindow::placeMailboxSidebar()
