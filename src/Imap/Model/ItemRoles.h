@@ -258,6 +258,13 @@ enum {
     /** @short True for the header row of a group in a GroupingMsgListModel, which is not a message */
     RoleIsGroupHeader,
 
+    /** @short ID of the account which a message of a UnifiedMsgListModel belongs to */
+    RoleMessageAccountId,
+    /** @short Display name of the account which a message of a UnifiedMsgListModel belongs to */
+    RoleMessageAccountName,
+    /** @short Account and folder of a message of a UnifiedMsgListModel, such as "Work · Inbox" */
+    RoleMessageSourceLabel,
+
     /** @short The very last role */
     RoleInvalidLastOne
 };

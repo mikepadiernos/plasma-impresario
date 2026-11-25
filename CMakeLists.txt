@@ -550,6 +550,7 @@ set(libImap_SOURCES
     ${path_Imap}/Model/TaskFactory.cpp
     ${path_Imap}/Model/TaskPresentationModel.cpp
     ${path_Imap}/Model/ThreadingMsgListModel.cpp
+    ${path_Imap}/Model/UnifiedMsgListModel.cpp
     ${path_Imap}/Model/Utils.cpp
     ${path_Imap}/Model/VisibleTasksModel.cpp
 
