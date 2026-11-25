@@ -243,7 +243,8 @@ need a real session.
     screenshots showed panels squeezed to a sliver when sharing a column,
     attachments below the reader showing one row, and a tall footer; panels now
     start at a size for a few rows and keep a size the user drags them to.
-  - Saved pane sizes reset once after upgrading; see
+  - Pane sizes saved before the shell carry over to it; the remaining panel
+    limitations are
     [caveat #264](CAVEATS.md#related-messages-and-message-details-panels).
   - Moved from #35 to later milestones, all Backlog: server-side related
     messages
