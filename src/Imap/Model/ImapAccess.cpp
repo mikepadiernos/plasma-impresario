@@ -339,7 +339,9 @@ void ImapAccess::doConnect()
     if (!shouldUsePersistentCache) {
         cache.reset(new Imap::Mailbox::MemoryCache());
     } else {
-        cache.reset(new Imap::Mailbox::CombinedCache(QStringLiteral("trojita-imap-cache"), m_cacheDir));
+        // Each account needs its own SQLite connection name; a shared name replaces the other accounts' connections.
+        cache.reset(new Imap::Mailbox::CombinedCache(QStringLiteral("trojita-imap-cache-%1").arg(credentialAccountId()),
+                                                     m_cacheDir));
         cache->setErrorHandler([this](const QString &e) { this->onCacheError(e); });
         if (! static_cast<Imap::Mailbox::CombinedCache *>(cache.get())->open()) {
             // Error message was already shown by the cacheError() slot
