@@ -12,6 +12,7 @@
 #include "Gui/InlineNotificationBar.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MessageListWidget.h"
+#include "Gui/MessageRowsMenu.h"
 #include "Gui/MsgListView.h"
 #include "Gui/ShortcutHandler/ShortcutHandler.h"
 #include "Gui/Window.h"
@@ -1086,6 +1087,13 @@ private slots:
         QVERIFY(dense->isCheckable());
         QVERIFY(!dense->isChecked());
         density->setComfortable(true);
+        auto *rows = window.findChild<Gui::MessageRowsMenu *>();
+        auto *rowsView = window.findChild<Gui::MsgListView *>();
+        QVERIFY(rows);
+        QVERIFY(rowsView);
+        rows->setMultiLine(true);
+        QVERIFY(rowsView->multiLineRows());
+        QVERIFY(rowsView->isHeaderHidden());
         QList<QAction *> panels;
         QAction *attachments = nullptr;
         for (const QString &id : {QStringLiteral("Attachments"), QStringLiteral("MessageDetails"), QStringLiteral("Contact"),
@@ -1106,6 +1114,9 @@ private slots:
         dense->trigger();
         QVERIFY(dense->isChecked());
         QVERIFY(!density->isComfortable());
+        QVERIFY(!rows->isMultiLine());
+        QVERIFY(!rowsView->multiLineRows());
+        QVERIFY(!rowsView->isHeaderHidden());
         for (QAction *panel : std::as_const(panels))
             QVERIFY2(!panel->isChecked(), qPrintable(panel->objectName()));
         if (attachments)
@@ -1115,6 +1126,8 @@ private slots:
         dense->trigger();
         QVERIFY(!dense->isChecked());
         QVERIFY(density->isComfortable());
+        QVERIFY(rows->isMultiLine());
+        QVERIFY(rowsView->multiLineRows());
         for (QAction *panel : std::as_const(panels))
             QVERIFY2(panel->isChecked(), qPrintable(panel->objectName()));
         QVERIFY(!KConfigGroup(KSharedConfig::openStateConfig(), QStringLiteral("DenseProcessing")).readEntry("Enabled", true));
