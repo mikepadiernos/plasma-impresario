@@ -1090,7 +1090,7 @@ if(BUILD_TESTING)
                     removingAccountDeletesItsSettingsAndPasswords accountsSwitchFromTheKeyboard
                     savedSearchesAndFolderExpansionFollowTheAccount focusCyclesThroughShellRegions
                     goToFolderActionsWithoutFolders destructiveActionsOffline quickActionsOffline
-                    messageListFiltersOffline shortcutOverviewAndSelectionOffline)
+                    messageListFiltersOffline shortcutOverviewAndSelectionOffline powerUserProcessingOffline)
                 add_test(NAME test_MainWindowAccounts_${account_case} COMMAND test_MainWindowAccounts ${account_case})
                 set_tests_properties(test_MainWindowAccounts_${account_case} PROPERTIES
                     TIMEOUT 60
@@ -1211,6 +1211,8 @@ if(BUILD_TESTING)
     target_link_libraries(test_AttachmentCollector PRIVATE UiUtils)
     trojita_test(Misc RelatedMessages)
     target_link_libraries(test_RelatedMessages PRIVATE UiUtils)
+    trojita_test(Misc QuickFilters)
+    target_link_libraries(test_QuickFilters PRIVATE UiUtils)
     trojita_test(Misc RecentFolders)
     target_link_libraries(test_RecentFolders PRIVATE UiUtils)
     trojita_test(Misc SelectionAfterRemoval)

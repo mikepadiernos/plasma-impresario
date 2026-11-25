@@ -4,6 +4,7 @@
 #include "Common/AccountStatus.h"
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
+#include "Gui/DensityMenu.h"
 #include "Gui/InlineNotificationBar.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MessageListWidget.h"
@@ -823,6 +824,187 @@ private slots:
         QTRY_COMPARE(tree->selectionModel()->selectedRows(), QModelIndexList{messages.index(1, 0)});
         QCOMPARE(tree->currentIndex().data(Imap::Mailbox::RoleMessageUid).toUInt(), 4u);
         tree->setModel(nullptr);
+    }
+
+    void powerUserProcessingOffline()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        Gui::MainWindow window(&settings);
+        auto action = [&window](const QString &name) {
+            return window.findChild<QAction *>(name);
+        };
+
+        // Triage keys next to the unchanged N and P
+#ifdef TROJITA_HAVE_WEBENGINE
+        const QList<std::pair<QString, QString>> triage{
+            {QStringLiteral("action_mark_read_go_to_next_unread"), QStringLiteral("Shift+N")},
+            {QStringLiteral("action_go_to_next_message"), QStringLiteral("F")},
+            {QStringLiteral("action_go_to_previous_message"), QStringLiteral("B")},
+            {QStringLiteral("action_go_to_next_unread"), QStringLiteral("N")},
+            {QStringLiteral("action_go_to_previous_unread"), QStringLiteral("P")},
+        };
+        for (const auto &[name, key] : triage) {
+            QVERIFY2(action(name), qPrintable(name));
+            QCOMPARE(action(name)->shortcut(), QKeySequence(key));
+        }
+#endif
+        QHash<QString, QString> owners;
+        for (QAction *candidate : window.findChildren<QAction *>()) {
+            if (!candidate->objectName().startsWith(QLatin1String("action_")))
+                continue;
+            for (const QKeySequence &shortcut : candidate->shortcuts()) {
+                const QString key = shortcut.toString(QKeySequence::PortableText);
+                if (key.isEmpty())
+                    continue;
+                const QString owner = owners.value(key);
+                QVERIFY2(owner.isEmpty() || owner == candidate->objectName(),
+                         qPrintable(key + QLatin1String(": ") + owner + QLatin1String(", ") + candidate->objectName()));
+                owners.insert(key, candidate->objectName());
+            }
+        }
+
+        auto *tree = window.findChild<Gui::MessageListWidget *>()->tree;
+        auto *relatedMenu = window.findChild<QMenu *>(QStringLiteral("showRelatedMenu"));
+        auto *similarMenu = window.findChild<QMenu *>(QStringLiteral("selectSimilarMenu"));
+        QVERIFY(relatedMenu);
+        QVERIFY(similarMenu);
+        const QStringList relatedNames{QStringLiteral("action_show_related_sender"), QStringLiteral("action_show_related_recipient"),
+                                       QStringLiteral("action_show_related_subject"), QStringLiteral("action_show_related_list")};
+        const QStringList similarNames{QStringLiteral("action_select_same_sender"), QStringLiteral("action_select_same_subject"),
+                                       QStringLiteral("action_select_unread"), QStringLiteral("action_select_flagged")};
+        for (const QString &name : relatedNames)
+            QVERIFY2(relatedMenu->actions().contains(action(name)), qPrintable(name));
+        for (const QString &name : similarNames)
+            QVERIFY2(similarMenu->actions().contains(action(name)), qPrintable(name));
+        for (const QString &name : relatedNames + similarNames) {
+            QCOMPARE(action(name)->shortcutContext(), Qt::WidgetWithChildrenShortcut);
+            QVERIFY2(tree->actions().contains(action(name)), qPrintable(name));
+        }
+
+        // A small list: [1 [2]], 3, 4 (not fetched yet)
+        QStandardItemModel messages;
+        auto message = [](uint uid, const QString &mailbox, const QString &subject, bool read, bool flagged, bool fetched = true) {
+            auto *item = new QStandardItem(subject);
+            item->setData(uid, Imap::Mailbox::RoleMessageUid);
+            item->setData(fetched, Imap::Mailbox::RoleIsFetched);
+            item->setData(QVariantList{QStringList{QStringLiteral("Someone"), QString(), mailbox, QStringLiteral("example.org")}},
+                          Imap::Mailbox::RoleMessageFrom);
+            item->setData(QVariantList{QStringList{QStringLiteral("Team"), QString(), QStringLiteral("team"), QStringLiteral("example.org")}},
+                          Imap::Mailbox::RoleMessageTo);
+            item->setData(subject, Imap::Mailbox::RoleMessageSubject);
+            item->setData(read, Imap::Mailbox::RoleMessageIsMarkedRead);
+            item->setData(flagged, Imap::Mailbox::RoleMessageIsMarkedFlagged);
+            return item;
+        };
+        QStandardItem *root = message(1, QStringLiteral("ann"), QStringLiteral("[dev] Release plan"), true, false);
+        root->appendRow(message(2, QStringLiteral("bob"), QStringLiteral("Re: [dev] Release plan"), false, true));
+        messages.appendRow(root);
+        messages.appendRow(message(3, QStringLiteral("Ann"), QStringLiteral("Lunch"), false, false));
+        messages.appendRow(message(4, QStringLiteral("ann"), QStringLiteral("Release plan"), false, true, false));
+        tree->setModel(&messages);
+        tree->collapseAll();
+        auto uids = [tree]() {
+            QList<uint> result;
+            for (const QModelIndex &index : tree->selectionModel()->selectedRows())
+                result << index.data(Imap::Mailbox::RoleMessageUid).toUInt();
+            std::sort(result.begin(), result.end());
+            return result;
+        };
+
+        tree->setCurrentIndex(messages.index(0, 0));
+        QVERIFY(QMetaObject::invokeMethod(&window, "updateRelatedActions"));
+        for (const QString &name : relatedNames.mid(0, 3) + similarNames)
+            QVERIFY2(action(name)->isEnabled(), qPrintable(name));
+        // Not a list message
+        QVERIFY(!action(QStringLiteral("action_show_related_list"))->isVisible());
+
+        // Only loaded messages count; the collapsed thread is opened so that its other replies are not acted on
+        action(QStringLiteral("action_select_same_sender"))->trigger();
+        QCOMPARE(uids(), (QList<uint>{1, 3}));
+        QCOMPARE(tree->currentIndex(), messages.index(0, 0));
+        QVERIFY(tree->isExpanded(messages.index(0, 0)));
+        // The status counts what the actions would act on
+        QVERIFY(QMetaObject::invokeMethod(&window, "updateMessageListStatus"));
+        QCOMPARE(window.findChild<QLabel *>(QStringLiteral("messageListStatus"))->text(), QStringLiteral("2 selected"));
+        action(QStringLiteral("action_select_same_subject"))->trigger();
+        QCOMPARE(uids(), (QList<uint>{1, 2}));
+        action(QStringLiteral("action_select_unread"))->trigger();
+        QCOMPARE(uids(), (QList<uint>{2, 3, 4}));
+        action(QStringLiteral("action_select_flagged"))->trigger();
+        QCOMPARE(uids(), (QList<uint>{2, 4}));
+
+        // An unknown sender disables the actions which need it
+        tree->setCurrentIndex(messages.index(2, 0));
+        QVERIFY(QMetaObject::invokeMethod(&window, "updateRelatedActions"));
+        QVERIFY(!action(QStringLiteral("action_show_related_sender"))->isEnabled());
+        QVERIFY(!action(QStringLiteral("action_select_same_sender"))->isEnabled());
+        QVERIFY(action(QStringLiteral("action_select_unread"))->isEnabled());
+
+        // Show Related goes through the quick search, where the condition stays visible
+        auto *list = window.findChild<Gui::MessageListWidget *>();
+        auto *search = list->findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        QVERIFY(search);
+        tree->setCurrentIndex(messages.index(0, 0, messages.index(0, 0)));
+        QVERIFY(QMetaObject::invokeMethod(&window, "updateRelatedActions"));
+        QSignalSpy searches(list, &Gui::MessageListWidget::requestingSearch);
+        action(QStringLiteral("action_show_related_subject"))->trigger();
+        QCOMPARE(search->text(), QStringLiteral("subject:Release plan"));
+        QCOMPARE(list->searchConditions(), (QStringList{QStringLiteral("SUBJECT"), QStringLiteral("Release plan")}));
+        QVERIFY(!searches.isEmpty());
+        action(QStringLiteral("action_show_related_sender"))->trigger();
+        QCOMPARE(search->text(), QStringLiteral("from:bob@example.org"));
+        QCOMPARE(list->searchConditions(), (QStringList{QStringLiteral("FROM"), QStringLiteral("bob@example.org")}));
+        QCOMPARE(tree->currentIndex().data(Imap::Mailbox::RoleMessageUid).toUInt(), 2u);
+        // Escape in the field clears the filter
+        search->setFocus();
+        QTest::keyClick(search, Qt::Key_Escape);
+        QVERIFY(search->text().isEmpty());
+        QVERIFY(list->searchConditions().isEmpty());
+        tree->setModel(nullptr);
+
+        // The dense layout is compact, without the panels triage does not need, and gives everything back
+        auto *density = window.findChild<Gui::DensityMenu *>();
+        auto *dense = action(QStringLiteral("action_dense_processing_layout"));
+        QVERIFY(density);
+        QVERIFY(dense);
+        QVERIFY(dense->isCheckable());
+        QVERIFY(!dense->isChecked());
+        density->setComfortable(true);
+        QList<QAction *> panels;
+        QAction *attachments = nullptr;
+        for (const QString &id : {QStringLiteral("Attachments"), QStringLiteral("MessageDetails"), QStringLiteral("Contact"),
+                                  QStringLiteral("RelatedMessages")}) {
+            QAction *panel = window.findChild<QAction *>(QLatin1String("embeddedPanel") + id);
+            if (!panel)
+                continue;
+            if (!panel->isChecked())
+                panel->trigger();
+            QVERIFY(panel->isChecked());
+            if (id == QLatin1String("Attachments"))
+                attachments = panel;
+            else
+                panels << panel;
+        }
+        QVERIFY(!panels.isEmpty());
+
+        dense->trigger();
+        QVERIFY(dense->isChecked());
+        QVERIFY(!density->isComfortable());
+        for (QAction *panel : std::as_const(panels))
+            QVERIFY2(!panel->isChecked(), qPrintable(panel->objectName()));
+        if (attachments)
+            QVERIFY(attachments->isChecked());
+        QVERIFY(KConfigGroup(KSharedConfig::openStateConfig(), QStringLiteral("DenseProcessing")).readEntry("Enabled", false));
+
+        dense->trigger();
+        QVERIFY(!dense->isChecked());
+        QVERIFY(density->isComfortable());
+        for (QAction *panel : std::as_const(panels))
+            QVERIFY2(panel->isChecked(), qPrintable(panel->objectName()));
+        QVERIFY(!KConfigGroup(KSharedConfig::openStateConfig(), QStringLiteral("DenseProcessing")).readEntry("Enabled", true));
     }
 };
 
