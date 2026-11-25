@@ -18,12 +18,13 @@ fixed and Completed or Merged
 
 ## Status
 
-| Status   | Issue                                                                 | Bug                                                            | Board  |
-| -------- | --------------------------------------------------------------------- | -------------------------------------------------------------- | ------ |
-| ✅ Fixed | [#366](https://github.com/mikepadiernos/plasma-impresario/issues/366) | An untrusted SMTP certificate cannot be accepted               | Merged |
-| ✅ Fixed | [#364](https://github.com/mikepadiernos/plasma-impresario/issues/364) | Sending hangs when the SMTP connection fails                   | Merged |
-| ✅ Fixed | [#241](https://github.com/mikepadiernos/plasma-impresario/issues/241) | Plasma displays a generic icon instead of the application icon | Merged |
-| ✅ Fixed | [#228](https://github.com/mikepadiernos/plasma-impresario/issues/228) | Installed app missing from Plasma application menu             | Merged |
+| Status   | Issue                                                                 | Bug                                                              | Board  |
+| -------- | --------------------------------------------------------------------- | ---------------------------------------------------------------- | ------ |
+| ✅ Fixed | [#376](https://github.com/mikepadiernos/plasma-impresario/issues/376) | Reply to All but Me keeps the user's address without an identity | Merged |
+| ✅ Fixed | [#366](https://github.com/mikepadiernos/plasma-impresario/issues/366) | An untrusted SMTP certificate cannot be accepted                 | Merged |
+| ✅ Fixed | [#364](https://github.com/mikepadiernos/plasma-impresario/issues/364) | Sending hangs when the SMTP connection fails                     | Merged |
+| ✅ Fixed | [#241](https://github.com/mikepadiernos/plasma-impresario/issues/241) | Plasma displays a generic icon instead of the application icon   | Merged |
+| ✅ Fixed | [#228](https://github.com/mikepadiernos/plasma-impresario/issues/228) | Installed app missing from Plasma application menu               | Merged |
 
 No open bugs are recorded. Limitations of implemented features are tracked in
 [caveats](CAVEATS.md), and unconfirmed scenarios in [edge cases](EDGE.md).
@@ -35,6 +36,17 @@ No open bugs are recorded. Limitations of implemented features are tracked in
 > issue from the entry.
 
 ## Fixed issues
+
+### [bug] Reply to All but Me keeps the user's address without an identity
+
+| Field            | Details                                                                                                                                                                                                                                                            |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Issue**        | [#376](https://github.com/mikepadiernos/plasma-impresario/issues/376)                                                                                                                                                                                              |
+| **Status**       | ✅ Merged                                                                                                                                                                                                                                                          |
+| **Reproduction** | Set an account to **No identity**, then use *Reply to All but Me* on a message addressed to the account.                                                                                                                                                           |
+| **Expected**     | The account's own address is left out of the recipients.                                                                                                                                                                                                           |
+| **Actual**       | With no identities there was no address to exclude, so the reply kept the account's address, like *Reply to All*.                                                                                                                                                  |
+| **Fix**          | Treat the account's IMAP user name as one of its own addresses when it is a plain email address, and exclude it in the main window and in the composer, which uses the account it was opened for. `test_AccountIdentities` and `test_Composer_responses` cover it. |
 
 ### [bug] An untrusted SMTP certificate cannot be accepted
 
