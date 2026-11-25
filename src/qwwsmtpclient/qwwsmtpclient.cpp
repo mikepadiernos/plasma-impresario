@@ -120,6 +120,9 @@ void QwwSmtpClientPrivate::onConnected() {
 // - checks the cause of disconnection
 // - aborts or continues processing
 void QwwSmtpClientPrivate::onDisconnected() {
+    // A socket error has already finished this connection; the socket reports its end again
+    if (state == QwwSmtpClient::Disconnected)
+        return;
     setState(QwwSmtpClient::Disconnected);
     if (commandqueue.isEmpty()) {
         inProgress = false;
@@ -141,7 +144,12 @@ void QwwSmtpClientPrivate::onDisconnected() {
 
 void QwwSmtpClientPrivate::onError(QAbstractSocket::SocketError e)
 {
-    emit q->socketError(e, socket->errorString());
+    // A waitFor...() call timed out, but the connection is still usable
+    if (e == QAbstractSocket::SocketTimeoutError)
+        return;
+    // QUIT has been sent, so the transaction is complete whatever happens while closing
+    if (state != QwwSmtpClient::Disconnecting)
+        emit q->socketError(e, socket->errorString());
     onDisconnected();
 }
 
@@ -415,6 +423,8 @@ void QwwSmtpClientPrivate::processNextCommand(bool ok) {
         QString hostName = cmd.data.toList().at(0).toString();
         uint port = cmd.data.toList().at(1).toUInt();
         bool ssl = cmd.data.toList().at(2).toBool();
+        // The socket can report a failure before connectToHost() returns
+        setState(QwwSmtpClient::Connecting);
         if(ssl){
             emit q->logSent(QByteArrayLiteral("*** connectToHostEncrypted: ") + hostName.toUtf8() + ':' + QByteArray::number(port));
             socket->connectToHostEncrypted(hostName, port);
@@ -422,7 +432,6 @@ void QwwSmtpClientPrivate::processNextCommand(bool ok) {
             emit q->logSent(QByteArrayLiteral("*** connectToHost: ") + hostName.toUtf8() + ':' + QByteArray::number(port));
             socket->connectToHost(hostName, port);
         }
-        setState(QwwSmtpClient::Connecting);
     }
     break;
     case SMTPCommand::Disconnect: {
@@ -637,7 +646,7 @@ QwwSmtpClient::QwwSmtpClient(QObject *parent)
     d->localName = "localhost";
     d->socket = new QSslSocket(this);
     connect(d->socket, SIGNAL(connected()), this, SLOT(onConnected()));
-    connect(d->socket, SIGNAL(error(QAbstractSocket::SocketError)), this, SLOT(onError(QAbstractSocket::SocketError)) );
+    connect(d->socket, &QAbstractSocket::errorOccurred, this, [this](QAbstractSocket::SocketError e) { d->onError(e); });
     connect(d->socket, SIGNAL(disconnected()), this, SLOT(onDisconnected()));
     connect(d->socket, SIGNAL(readyRead()), this, SLOT(_q_readFromSocket()));
     connect(d->socket, SIGNAL(sslErrors(const QList<QSslError> &)), this, SIGNAL(sslErrors(const QList<QSslError>&)));

@@ -286,10 +286,6 @@ need a real session.
   account's IMAP user name when it is an email address.
 - 📋 **OAuth:** the improvements listed in
   [caveat #362](CAVEATS.md#oauth-sign-in), and live sign-in (#317, M14).
-- 📋 **SMTP socket errors:** `src/qwwsmtpclient/qwwsmtpclient.cpp` connects the
-  old `QAbstractSocket::error` signal by name, which Qt 6 renamed to
-  `errorOccurred`, so socket errors may not reach `onError`. Predates M02; not
-  yet reported as a bug.
 - 🧪 **Saved selection per account, #81 and #222:** not recorded as verified.
 
 #### Account model decisions

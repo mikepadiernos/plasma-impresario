@@ -6,7 +6,7 @@
 **[Project board](https://github.com/users/mikepadiernos/projects/4)**
 
 This log records confirmed user-visible bugs and reliability issues. Statuses
-match the project board as of 2026-11-24.
+match the project board as of 2026-11-25.
 
 Legend: 🐞 open bug · 🚧 fix in progress · 🧪 fixed, needs verification · ✅
 fixed and Completed or Merged
@@ -20,6 +20,7 @@ fixed and Completed or Merged
 
 | Status   | Issue                                                                 | Bug                                                            | Board  |
 | -------- | --------------------------------------------------------------------- | -------------------------------------------------------------- | ------ |
+| ✅ Fixed | [#364](https://github.com/mikepadiernos/plasma-impresario/issues/364) | Sending hangs when the SMTP connection fails                   | Merged |
 | ✅ Fixed | [#241](https://github.com/mikepadiernos/plasma-impresario/issues/241) | Plasma displays a generic icon instead of the application icon | Merged |
 | ✅ Fixed | [#228](https://github.com/mikepadiernos/plasma-impresario/issues/228) | Installed app missing from Plasma application menu             | Merged |
 
@@ -33,6 +34,17 @@ No open bugs are recorded. Limitations of implemented features are tracked in
 > issue from the entry.
 
 ## Fixed issues
+
+### [bug] Sending hangs when the SMTP connection fails
+
+| Field            | Details                                                                                                                                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Issue**        | [#364](https://github.com/mikepadiernos/plasma-impresario/issues/364)                                                                                                                                                    |
+| **Status**       | ✅ Merged                                                                                                                                                                                                                |
+| **Reproduction** | Send a message through an SMTP server that refuses the connection, drops it, or fails the TLS handshake.                                                                                                                 |
+| **Expected**     | Sending fails with the connection error, such as *Connection refused*.                                                                                                                                                   |
+| **Actual**       | A refused connection reports nothing and sending never finishes; other failures report only a generic message. The SMTP client connected Qt 5's `QAbstractSocket::error` signal by name, which no longer exists in Qt 6. |
+| **Fix**          | Connect `errorOccurred`, report each failure once, and ignore errors while closing after `QUIT`. `test_SmtpClient` covers delivery and the three failures.                                                               |
 
 ### [bug] Plasma displays a generic icon instead of the application icon
 
