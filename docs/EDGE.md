@@ -178,22 +178,26 @@ Planned in [M13](ROADMAP.md#m13-microsoft-accounts-and-exchange); see the
 
 ### Interface and embedded panels
 
-| Area            | Scenario                                                                               | Coverage                                                                        |
-| --------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Interface       | Narrow windows, display scaling, RTL locales and high-contrast modes                   | ![Not validated][not-validated]                                                 |
-| Interface       | Upgrading with pane sizes saved before the shell, including a folder tree on the right | ![Offscreen tests][offscreen] `test_MainWindowShell` (compact and wide layouts) |
-| Navigation      | <kbd>F6</kbd> focus cycling with hidden or collapsed panes                             | ![Not validated][not-validated]                                                 |
-| Navigation      | Vim mode keys typed in the composer, search or address fields                          | ![Not validated][not-validated]                                                 |
-| Navigation      | A Plasma Opus keymap that conflicts with the single-key mail shortcuts                 | ![Not validated][not-validated]                                                 |
-| Navigation      | <kbd>F6</kbd> focus cycling with the header region shown                               | ![Offscreen tests][offscreen] `test_MainWindowShell`                            |
-| Embedded panels | Swapping sidebar sides with panels in both columns                                     | ![Not validated][not-validated]                                                 |
-| Embedded panels | One-panel layout with side-column panels                                               | ![Not validated][not-validated]                                                 |
-| Embedded panels | Moving a hidden panel                                                                  | ![Not validated][not-validated]                                                 |
-| Embedded panels | Empty side columns or footer                                                           | ![Offscreen tests][offscreen] `test_MainWindowDensity`                          |
-| Embedded panels | The message model destroyed while a panel shows a message                              | ![Offscreen tests][offscreen] `test_EmbeddedPanels`, `test_AttachmentPanel`     |
-| Embedded panels | A message without a Reply-To header (IMAP reports the sender as Reply-To)              | ![Verified][verified] `test_LiveImapPanels`; the duplicate contact is fixed     |
-| Embedded panels | A short window with several panels in one column                                       | ![Not validated][not-validated]                                                 |
-| Embedded panels | A panel dragged past two thirds of its column (capped when the region is next fitted)  | ![Not validated][not-validated]                                                 |
+| Area            | Scenario                                                                               | Coverage                                                                                              |
+| --------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Interface       | Narrow windows, display scaling, RTL locales and high-contrast modes                   | ![Not validated][not-validated]                                                                       |
+| Interface       | Upgrading with pane sizes saved before the shell, including a folder tree on the right | ![Offscreen tests][offscreen] `test_MainWindowShell` (compact and wide layouts)                       |
+| Navigation      | <kbd>F6</kbd> focus cycling with hidden or collapsed panes                             | ![Not validated][not-validated]                                                                       |
+| Navigation      | <kbd>F6</kbd> order with the folder tree on the right and in right-to-left layouts     | ![Offscreen tests][offscreen] `test_MainWindowAccounts`                                               |
+| Navigation      | <kbd>F6</kbd> order with panels in the right column and the footer                     | ![Verified][verified] `test_LiveImapPanels`                                                           |
+| Navigation      | <kbd>Escape</kbd> from the reader or a panel back to the message list                  | ![Offscreen tests][offscreen] `test_MainWindowAccounts`, ![Verified][verified] `test_LiveImapPanels`  |
+| Navigation      | The Menu key and single-key triage in the message list                                 | ![Verified][verified] `test_LiveImapPanels` (the Menu key's context event is sent directly offscreen) |
+| Navigation      | Vim mode keys typed in the composer, search or address fields                          | ![Not validated][not-validated]                                                                       |
+| Navigation      | A Plasma Opus keymap that conflicts with the single-key mail shortcuts                 | ![Not validated][not-validated]                                                                       |
+| Navigation      | <kbd>F6</kbd> focus cycling with the header region shown                               | ![Offscreen tests][offscreen] `test_MainWindowShell`                                                  |
+| Embedded panels | Swapping sidebar sides with panels in both columns                                     | ![Not validated][not-validated]                                                                       |
+| Embedded panels | One-panel layout with side-column panels                                               | ![Not validated][not-validated]                                                                       |
+| Embedded panels | Moving a hidden panel                                                                  | ![Not validated][not-validated]                                                                       |
+| Embedded panels | Empty side columns or footer                                                           | ![Offscreen tests][offscreen] `test_MainWindowDensity`                                                |
+| Embedded panels | The message model destroyed while a panel shows a message                              | ![Offscreen tests][offscreen] `test_EmbeddedPanels`, `test_AttachmentPanel`                           |
+| Embedded panels | A message without a Reply-To header (IMAP reports the sender as Reply-To)              | ![Verified][verified] `test_LiveImapPanels`; the duplicate contact is fixed                           |
+| Embedded panels | A short window with several panels in one column                                       | ![Not validated][not-validated]                                                                       |
+| Embedded panels | A panel dragged past two thirds of its column (capped when the region is next fitted)  | ![Not validated][not-validated]                                                                       |
 
 ## Validation checklist
 

@@ -957,7 +957,13 @@ otherwise.
 - ![Needs verification][needs-verification] <kbd>F6</kbd> and
   <kbd>Shift</kbd>+<kbd>F6</kbd> cycle focus between the account switcher,
   folder tree, message list, reader and each shown embedded panel, skipping
-  hidden panes.
+  hidden panes. The order follows the screen: the header first, then each
+  column from the leading side, top to bottom, then the footer. It mirrors in
+  right-to-left layouts and follows the folder tree and panel placement.
+- ![Needs verification][needs-verification] <kbd>Escape</kbd> in the reader,
+  the reader's action bar or an embedded panel returns focus to the message
+  list; in One At a Time it first goes back to the list. The find bar and the
+  quick search keep their own <kbd>Escape</kbd>.
 - ![Done][done] Folder expansion is remembered per account, so switching
   accounts restores each account's tree.
 - Make primary actions keyboard accessible with visible focus and predictable

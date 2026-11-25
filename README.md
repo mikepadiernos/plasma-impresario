@@ -171,6 +171,7 @@ M04 is in progress on `feature/m04-reading-flow`
 | Load on demand   | Parts which cannot be loaded, for example offline, are reported in the reader and load again on reconnect or Try Again                                   | ![Needs verification][needs-verification] |
 | Reader actions   | A bar above the reader replies, forwards, archives, trashes, flags, marks read, shows attachments, zooms and switches to plain text for the open message | ![Needs verification][needs-verification] |
 | Reading, triage  | Plain text wraps at a readable width; Space pages through the open message and then opens the next unread one                                            | ![Needs verification][needs-verification] |
+| Keyboard         | F6 follows the screen order of panes and panels, also in right-to-left layouts; Escape returns from the reader or a panel to the message list            | ![Needs verification][needs-verification] |
 
 Inline PGP is detected but not verified; see
 [caveats](docs/CAVEATS.md#message-security).
@@ -216,7 +217,8 @@ Inline PGP is detected but not verified; see
   account, the folder and the account's status. It is off by default.
 - <kbd>F6</kbd> and <kbd>Shift</kbd>+<kbd>F6</kbd> move focus through the
   header, account selector, folder tree, message list, reader and each visible
-  panel.
+  panel in the order they appear on screen. <kbd>Escape</kbd> in the reader or
+  a panel returns to the message list.
 - The Navigation toolbar docks at the left window edge by default. The menu
   bar is hidden; open the menus from the toolbar's main menu button or turn the
   bar on with **View › Show Main Menu Bar**.
