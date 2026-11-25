@@ -181,7 +181,7 @@ Richer per-account and background-task status remains planned.
 ## Proposed Plasma Impresario shell
 
 The target follows the
-[Plasma Opus five-region layout](https://github.com/mikepadiernos/plasma-opus-file-manager/blob/main/docs/philosophy/designs.md#interface-structure):
+[Plasma Opus five-region layout](https://github.com/mikepadiernos/plasma-opus/blob/main/docs/philosophy/designs.md#interface-structure):
 header, left column, main column, right column and footer. The regions
 themselves exist today (see [Current interface](#current-interface)); the
 designed header and the placements below are not yet implemented unless marked.
@@ -294,7 +294,7 @@ a tab bar.
 > is hidden by default.
 
 Follow the
-[Plasma Opus toolbar model](https://github.com/mikepadiernos/plasma-opus-file-manager/blob/main/docs/philosophy/designs.md#toolbars-and-customization)
+[Plasma Opus toolbar model](https://github.com/mikepadiernos/plasma-opus/blob/main/docs/philosophy/designs.md#toolbars-and-customization)
 as a target: toolbars can occupy any of the five regions, including the top or
 bottom of a column, and main content panes can have their own toolbars. Items
 and widgets can be mixed across built-in and custom toolbars while keeping the
