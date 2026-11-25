@@ -23,6 +23,7 @@
 */
 
 #include <algorithm>
+#include <memory>
 #include <QAuthenticator>
 #include <QActionGroup>
 #include <QCheckBox>
@@ -53,6 +54,7 @@
 #include <QSslKey>
 #include <QStackedWidget>
 #include <QStatusBar>
+#include <QTimer>
 #include <QTextDocument>
 #include <QToolBar>
 #include <QToolButton>
@@ -123,6 +125,7 @@
 #include "RelatedMessagesPanel.h"
 #include "ProtocolLoggerWidget.h"
 #include "SettingsDialog.h"
+#include "ShortcutOverviewDialog.h"
 #ifdef TROJITA_HAVE_WEBENGINE
 #include "SimplePartWidget.h"
 #endif
@@ -425,6 +428,8 @@ void MainWindow::defineActions()
     shortcutHandler->defineAction(QStringLiteral("action_tag_7"), QStringLiteral("mail-tag-7"), tr("Tag with &7th tag"), QStringLiteral("7"));
     shortcutHandler->defineAction(QStringLiteral("action_tag_8"), QStringLiteral("mail-tag-8"), tr("Tag with &8th tag"), QStringLiteral("8"));
     shortcutHandler->defineAction(QStringLiteral("action_tag_9"), QStringLiteral("mail-tag-9"), tr("Tag with &9th tag"), QStringLiteral("9"));
+    shortcutHandler->defineAction(QStringLiteral("action_shortcut_overview"), QStringLiteral("help-keyboard-shortcuts"),
+                                  i18nc("@action", "&Keyboard Shortcuts"), QStringLiteral("?"));
 }
 
 void MainWindow::createActions()
@@ -466,6 +471,9 @@ void MainWindow::createActions()
 
     exitAction = ShortcutHandler::instance()->createAction(QStringLiteral("action_application_exit"), qApp, SLOT(quit()), this);
     exitAction->setStatusTip(tr("Exit the application"));
+
+    m_actionShortcutOverview = ShortcutHandler::instance()->createAction(QStringLiteral("action_shortcut_overview"), this);
+    connect(m_actionShortcutOverview, &QAction::triggered, this, &MainWindow::slotShowShortcutOverview);
 
     netOffline = ShortcutHandler::instance()->createAction(QStringLiteral("action_network_offline"));
     netOffline->setCheckable(true);
@@ -1150,12 +1158,16 @@ void MainWindow::createMenus()
         messageMenu->addAction(m_actionDeselectMessages);
         connect(messageMenu, &QMenu::aboutToShow, this, &MainWindow::updateSelectionActions);
 
+    QMenu *helpMenu = menuBar()->addMenu(i18nc("@title:menu", "&Help"));
+        ADD_ACTION(helpMenu, m_actionShortcutOverview);
+
     QMenu *mainMenuBehindToolBar = new QMenu(this);
     m_menuFromToolBar->setMenu(mainMenuBehindToolBar);
     m_menuFromToolBar->menu()->addMenu(applicationMenu);
     m_menuFromToolBar->menu()->addMenu(viewMenu);
     m_menuFromToolBar->menu()->addMenu(mailboxMenu);
     m_menuFromToolBar->menu()->addMenu(messageMenu);
+    m_menuFromToolBar->menu()->addMenu(helpMenu);
     m_menuFromToolBar->menu()->addSeparator();
     m_menuFromToolBar->menu()->addAction(showMenuBar);
 
@@ -1218,6 +1230,7 @@ void MainWindow::createWidgets()
     connect(msgListWidget->tree, &QAbstractItemView::activated, this, &MainWindow::msgListClicked);
     connect(msgListWidget->tree, &QAbstractItemView::clicked, this, &MainWindow::msgListClicked);
     connect(msgListWidget->tree, &QAbstractItemView::doubleClicked, this, &MainWindow::openCompleteMessageWidget);
+    connect(msgListWidget->tree, &MsgListView::currentReplacedAfterRemoval, this, &MainWindow::slotMessageReplacedAfterRemoval);
     connect(msgListWidget, &MessageListWidget::requestingSearch, this, &MainWindow::slotSearchRequested);
     connect(msgListWidget->tree->header(), &QHeaderView::sectionMoved, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
     connect(msgListWidget->tree->header(), &QHeaderView::sectionResized, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
@@ -1669,7 +1682,9 @@ bool MainWindow::eventFilter(QObject *o, QEvent *e)
     if (msgListWidget && o == msgListWidget->tree && m_messageWidget->messageView) {
         if (e->type() == QEvent::KeyPress) {
             QKeyEvent *keyEvent = static_cast<QKeyEvent *>(e);
-            if (keyEvent->key() == Qt::Key_Space || keyEvent->key() == Qt::Key_Backspace) {
+            // Ctrl+Space toggles the selection of the current message instead
+            if ((keyEvent->key() == Qt::Key_Space || keyEvent->key() == Qt::Key_Backspace)
+                    && !(keyEvent->modifiers() & Qt::ControlModifier)) {
                 QCoreApplication::sendEvent(m_messageWidget, keyEvent);
                 return true;
             }
@@ -1737,6 +1752,21 @@ void MainWindow::saveMessageSelection(const QModelIndex &index)
         qWarning() << "Could not save message selection";
 }
 
+void MainWindow::slotMessageReplacedAfterRemoval(const QModelIndex &index)
+{
+    if (!index.isValid() || !index.data(Imap::Mailbox::RoleMessageUid).isValid())
+        return;
+    // Only messages of an IMAP mailbox can be remembered and shown
+    if (!qobject_cast<const Imap::Mailbox::Model *>(Imap::deproxifiedIndex(index).model()))
+        return;
+    saveMessageSelection(index);
+#ifdef TROJITA_HAVE_WEBENGINE
+    // As after keyboard navigation, the reader follows and marks the message as read according to the settings
+    if ((m_messageWidget->isVisible() && !m_messageWidget->size().isEmpty()) || m_layoutMode == LAYOUT_ONE_AT_TIME)
+        m_messageWidget->messageView->setMessage(index);
+#endif
+}
+
 void MainWindow::msgListClicked(const QModelIndex &index)
 {
     Q_ASSERT(index.isValid());
@@ -1759,7 +1789,13 @@ void MainWindow::msgListClicked(const QModelIndex &index)
             return;
         Imap::Mailbox::FlagsOperation flagOp = translated.data(Imap::Mailbox::RoleMessageIsMarkedRead).toBool() ?
                                                Imap::Mailbox::FLAG_REMOVE : Imap::Mailbox::FLAG_ADD;
-        imapModel()->markMessagesRead(QModelIndexList() << translated, flagOp);
+        const bool read = flagOp == Imap::Mailbox::FLAG_ADD;
+        trackFlagChange(imapModel()->markMessagesRead(QModelIndexList() << translated, flagOp), QString(), QString(),
+                        [read](const QString &message) {
+            return read ? i18ncp("@info", "Could not mark %1 message as read: %2", "Could not mark %1 messages as read: %2", 1, message)
+                        : i18ncp("@info", "Could not mark %1 message as unread: %2", "Could not mark %1 messages as unread: %2", 1,
+                                 message);
+        });
 
         if (translated == m_messageWidget->messageView->currentMessage()) {
             m_messageWidget->messageView->stopAutoMarkAsRead();
@@ -1770,7 +1806,13 @@ void MainWindow::msgListClicked(const QModelIndex &index)
 
         Imap::Mailbox::FlagsOperation flagOp = translated.data(Imap::Mailbox::RoleMessageIsMarkedFlagged).toBool() ?
                                                Imap::Mailbox::FLAG_REMOVE : Imap::Mailbox::FLAG_ADD;
-        imapModel()->setMessageFlags(QModelIndexList() << translated, Imap::Mailbox::FlagNames::flagged, flagOp);
+        const bool flagged = flagOp == Imap::Mailbox::FLAG_ADD;
+        trackFlagChange(imapModel()->setMessageFlags(QModelIndexList() << translated, Imap::Mailbox::FlagNames::flagged, flagOp),
+                        QString(), QString(), [flagged](const QString &message) {
+            return flagged ? i18ncp("@info", "Could not flag %1 message: %2", "Could not flag %1 messages: %2", 1, message)
+                           : i18ncp("@info", "Could not remove the flag from %1 message: %2",
+                                    "Could not remove the flag from %1 messages: %2", 1, message);
+        });
     } else {
         if ((m_messageWidget->isVisible() && !m_messageWidget->size().isEmpty()) || m_layoutMode == LAYOUT_ONE_AT_TIME) {
             // isVisible() won't work, the splitter manipulates width, not the visibility state
@@ -2638,14 +2680,22 @@ void MainWindow::handleMarkAsRead(bool value)
     if (translatedIndexes.isEmpty()) {
         qDebug() << "Model::handleMarkAsRead: no valid messages";
     } else {
-        imapModel()->markMessagesRead(translatedIndexes, value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE);
+        const int count = translatedIndexes.size();
+        // The change of a single message is visible in the list
+        const QString done = count < 2 ? QString()
+            : value ? i18ncp("@info", "Marked %1 message as read", "Marked %1 messages as read", count)
+                    : i18ncp("@info", "Marked %1 message as unread", "Marked %1 messages as unread", count);
+        trackFlagChange(imapModel()->markMessagesRead(translatedIndexes, value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE),
+                        value ? i18ncp("@info", "Marking %1 message as read…", "Marking %1 messages as read…", count)
+                              : i18ncp("@info", "Marking %1 message as unread…", "Marking %1 messages as unread…", count),
+                        done, [value, count](const QString &message) {
+            return value ? i18ncp("@info", "Could not mark %1 message as read: %2", "Could not mark %1 messages as read: %2", count,
+                                  message)
+                         : i18ncp("@info", "Could not mark %1 message as unread: %2", "Could not mark %1 messages as unread: %2",
+                                  count, message);
+        });
         if (translatedIndexes.contains(m_messageWidget->messageView->currentMessage())) {
             m_messageWidget->messageView->stopAutoMarkAsRead();
-        }
-        // The change of a single message is visible in the list
-        if (const int count = translatedIndexes.size(); count > 1) {
-            m_notificationBar->showInfo(value ? i18ncp("@info", "Marked %1 message as read", "Marked %1 messages as read", count)
-                                              : i18ncp("@info", "Marked %1 message as unread", "Marked %1 messages as unread", count));
         }
     }
 #endif
@@ -2698,9 +2748,23 @@ void MainWindow::handleTag(const bool checked, const int index)
     if (translatedIndexes.isEmpty()) {
         qDebug() << "Model::handleTag: no valid messages";
     } else {
-        const auto &tagName = m_favoriteTags->tagNameByIndex(index);
-        if (!tagName.isEmpty())
-            imapModel()->setMessageFlags(translatedIndexes, tagName, checked ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE);
+        const QString tagName = m_favoriteTags->tagNameByIndex(index);
+        if (tagName.isEmpty())
+            return;
+        const int count = translatedIndexes.size();
+        const QString done = count < 2 ? QString()
+            : checked ? i18ncp("@info", "Added the tag %2 to %1 message", "Added the tag %2 to %1 messages", count, tagName)
+                      : i18ncp("@info", "Removed the tag %2 from %1 message", "Removed the tag %2 from %1 messages", count, tagName);
+        trackFlagChange(imapModel()->setMessageFlags(translatedIndexes, tagName, checked ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE),
+                        checked ? i18ncp("@info", "Adding the tag %2 to %1 message…", "Adding the tag %2 to %1 messages…", count, tagName)
+                                : i18ncp("@info", "Removing the tag %2 from %1 message…", "Removing the tag %2 from %1 messages…", count,
+                                         tagName),
+                        done, [checked, count, tagName](const QString &message) {
+            return checked ? i18ncp("@info", "Could not add the tag %2 to %1 message: %3", "Could not add the tag %2 to %1 messages: %3",
+                                    count, tagName, message)
+                           : i18ncp("@info", "Could not remove the tag %2 from %1 message: %3",
+                                    "Could not remove the tag %2 from %1 messages: %3", count, tagName, message);
+        });
     }
 }
 
@@ -2716,7 +2780,20 @@ void MainWindow::handleMarkAsDeleted(bool value)
         // A shortcut can fire while the action still says "Move to Trash", which is not a toggle
         if (!markAsDeleted->isCheckable())
             value = true;
-        imapModel()->markMessagesDeleted(translatedIndexes, value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE);
+        const int count = translatedIndexes.size();
+        const QString done = count < 2 ? QString()
+            : value ? i18ncp("@info", "Marked %1 message as deleted", "Marked %1 messages as deleted", count)
+                    : i18ncp("@info", "Removed the deleted mark from %1 message", "Removed the deleted mark from %1 messages", count);
+        trackFlagChange(imapModel()->markMessagesDeleted(translatedIndexes, value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE),
+                        value ? i18ncp("@info", "Marking %1 message as deleted…", "Marking %1 messages as deleted…", count)
+                              : i18ncp("@info", "Removing the deleted mark from %1 message…",
+                                       "Removing the deleted mark from %1 messages…", count),
+                        done, [value, count](const QString &message) {
+            return value ? i18ncp("@info", "Could not mark %1 message as deleted: %2", "Could not mark %1 messages as deleted: %2",
+                                  count, message)
+                         : i18ncp("@info", "Could not remove the deleted mark from %1 message: %2",
+                                  "Could not remove the deleted mark from %1 messages: %2", count, message);
+        });
     }
 }
 
@@ -2726,12 +2803,19 @@ void MainWindow::handleMarkAsFlagged(const bool value)
     if (translatedIndexes.isEmpty()) {
         qDebug() << "Model::handleMarkAsFlagged: no valid messages";
     } else {
-        imapModel()->setMessageFlags(translatedIndexes, Imap::Mailbox::FlagNames::flagged, value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE);
-        if (const int count = translatedIndexes.size(); count > 1) {
-            m_notificationBar->showInfo(value ? i18ncp("@info", "Flagged %1 message", "Flagged %1 messages", count)
-                                              : i18ncp("@info", "Removed the flag from %1 message",
-                                                       "Removed the flag from %1 messages", count));
-        }
+        const int count = translatedIndexes.size();
+        const QString done = count < 2 ? QString()
+            : value ? i18ncp("@info", "Flagged %1 message", "Flagged %1 messages", count)
+                    : i18ncp("@info", "Removed the flag from %1 message", "Removed the flag from %1 messages", count);
+        trackFlagChange(imapModel()->setMessageFlags(translatedIndexes, Imap::Mailbox::FlagNames::flagged,
+                                                     value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE),
+                        value ? i18ncp("@info", "Flagging %1 message…", "Flagging %1 messages…", count)
+                              : i18ncp("@info", "Removing the flag from %1 message…", "Removing the flag from %1 messages…", count),
+                        done, [value, count](const QString &message) {
+            return value ? i18ncp("@info", "Could not flag %1 message: %2", "Could not flag %1 messages: %2", count, message)
+                         : i18ncp("@info", "Could not remove the flag from %1 message: %2",
+                                  "Could not remove the flag from %1 messages: %2", count, message);
+        });
     }
 }
 
@@ -2741,10 +2825,26 @@ void MainWindow::handleMarkAsJunk(const bool value)
     if (translatedIndexes.isEmpty()) {
         qDebug() << "Model::handleMarkAsJunk: no valid messages";
     } else {
+        const int count = translatedIndexes.size();
+        auto failed = [value, count](const QString &message) {
+            return value ? i18ncp("@info", "Could not mark %1 message as junk: %2", "Could not mark %1 messages as junk: %2", count,
+                                  message)
+                         : i18ncp("@info", "Could not remove the junk mark from %1 message: %2",
+                                  "Could not remove the junk mark from %1 messages: %2", count, message);
+        };
         if (value) {
-            imapModel()->setMessageFlags(translatedIndexes, Imap::Mailbox::FlagNames::notjunk, Imap::Mailbox::FLAG_REMOVE);
+            trackFlagChange(imapModel()->setMessageFlags(translatedIndexes, Imap::Mailbox::FlagNames::notjunk, Imap::Mailbox::FLAG_REMOVE),
+                            QString(), QString(), failed);
         }
-        imapModel()->setMessageFlags(translatedIndexes, Imap::Mailbox::FlagNames::junk, value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE);
+        const QString done = count < 2 ? QString()
+            : value ? i18ncp("@info", "Marked %1 message as junk", "Marked %1 messages as junk", count)
+                    : i18ncp("@info", "Removed the junk mark from %1 message", "Removed the junk mark from %1 messages", count);
+        trackFlagChange(imapModel()->setMessageFlags(translatedIndexes, Imap::Mailbox::FlagNames::junk,
+                                                     value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE),
+                        value ? i18ncp("@info", "Marking %1 message as junk…", "Marking %1 messages as junk…", count)
+                              : i18ncp("@info", "Removing the junk mark from %1 message…", "Removing the junk mark from %1 messages…",
+                                       count),
+                        done, failed);
     }
 }
 
@@ -2754,16 +2854,36 @@ void MainWindow::handleMarkAsNotJunk(const bool value)
     if (translatedIndexes.isEmpty()) {
         qDebug() << "Model::handleMarkAsNotJunk: no valid messages";
     } else {
+        const int count = translatedIndexes.size();
+        auto failed = [value, count](const QString &message) {
+            return value ? i18ncp("@info", "Could not mark %1 message as not junk: %2", "Could not mark %1 messages as not junk: %2",
+                                  count, message)
+                         : i18ncp("@info", "Could not remove the not-junk mark from %1 message: %2",
+                                  "Could not remove the not-junk mark from %1 messages: %2", count, message);
+        };
         if (value) {
-          imapModel()->setMessageFlags(translatedIndexes, Imap::Mailbox::FlagNames::junk, Imap::Mailbox::FLAG_REMOVE);
+            trackFlagChange(imapModel()->setMessageFlags(translatedIndexes, Imap::Mailbox::FlagNames::junk, Imap::Mailbox::FLAG_REMOVE),
+                            QString(), QString(), failed);
         }
-        imapModel()->setMessageFlags(translatedIndexes, Imap::Mailbox::FlagNames::notjunk, value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE);
+        const QString done = count < 2 ? QString()
+            : value ? i18ncp("@info", "Marked %1 message as not junk", "Marked %1 messages as not junk", count)
+                    : i18ncp("@info", "Removed the not-junk mark from %1 message", "Removed the not-junk mark from %1 messages",
+                             count);
+        trackFlagChange(imapModel()->setMessageFlags(translatedIndexes, Imap::Mailbox::FlagNames::notjunk,
+                                                     value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE),
+                        value ? i18ncp("@info", "Marking %1 message as not junk…", "Marking %1 messages as not junk…", count)
+                              : i18ncp("@info", "Removing the not-junk mark from %1 message…",
+                                       "Removing the not-junk mark from %1 messages…", count),
+                        done, failed);
     }
 }
 
-void MainWindow::slotMoveToArchiveFailed(const QString &error)
+void MainWindow::slotMoveToArchiveFailed(const QString &error, const int count)
 {
-    m_notificationBar->showError(i18nc("@info", "Failed to archive: %1", error));
+    if (count > 0)
+        m_notificationBar->showError(i18ncp("@info", "Could not archive %1 message: %2", "Could not archive %1 messages: %2", count, error));
+    else
+        m_notificationBar->showError(i18nc("@info", "Failed to archive: %1", error));
 }
 
 void MainWindow::handleMoveToArchive()
@@ -2832,10 +2952,12 @@ void MainWindow::handleDeletePermanently()
                                            "Expunge removes all messages marked as deleted in this folder.", deleted),
                                     {expungeNow});
     });
-    connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, model](const QString &message) {
+    connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, model, deleted](const QString &message) {
         if (model && model == imapModel())
-            m_notificationBar->showError(i18nc("@info", "Could not delete the messages permanently: %1", message));
+            m_notificationBar->showError(i18ncp("@info", "Could not delete %1 message permanently: %2",
+                                                "Could not delete %1 messages permanently: %2", deleted, message));
     });
+    showBusyWhileRunning(task, i18ncp("@info", "Deleting %1 message permanently…", "Deleting %1 messages permanently…", deleted));
 }
 
 void MainWindow::setConfirmationPrompt(const ConfirmationPrompt &prompt)
@@ -2919,6 +3041,80 @@ void MainWindow::updateDeleteActionMode()
     }
 }
 
+void MainWindow::slotShowShortcutOverview()
+{
+    if (!m_shortcutOverview) {
+        // Menus first, in the order of the menu bar, then the parts of the window
+        QStringList areaOrder;
+        for (const QAction *top : menuBar()->actions()) {
+            if (top->menu())
+                areaOrder << UiUtils::ShortcutOverview::plainText(top->text());
+        }
+        areaOrder << i18nc("@title:group", "Message List") << i18nc("@title:group", "Message Reader")
+                  << i18nc("@title:group", "General") << i18nc("@title:group", "Other Windows");
+        m_shortcutOverview = new ShortcutOverviewDialog([this]() { return shortcutOverviewEntries(); }, areaOrder, this);
+    }
+    m_shortcutOverview->show();
+    m_shortcutOverview->raise();
+    m_shortcutOverview->activateWindow();
+}
+
+QList<UiUtils::ShortcutOverview::Entry> MainWindow::shortcutOverviewEntries() const
+{
+    using UiUtils::ShortcutOverview::Entry;
+    using UiUtils::ShortcutOverview::plainText;
+
+    // The top-level menu which each action of the menu bar is in, including its submenus
+    QHash<const QAction *, QString> menuAreas;
+    std::function<void(const QMenu *, const QString &)> collect = [&menuAreas, &collect](const QMenu *menu, const QString &area) {
+        for (const QAction *action : menu->actions()) {
+            if (const QMenu *submenu = action->menu())
+                collect(submenu, area);
+            else if (!menuAreas.contains(action))
+                menuAreas.insert(action, area);
+        }
+    };
+    for (const QAction *top : menuBar()->actions()) {
+        if (const QMenu *menu = top->menu())
+            collect(menu, plainText(top->text()));
+    }
+
+    const QString listArea = i18nc("@title:group", "Message List");
+    const QString readerArea = i18nc("@title:group", "Message Reader");
+    const QString generalArea = i18nc("@title:group", "General");
+    const QString otherArea = i18nc("@title:group", "Other Windows");
+    const QList<QAction *> listActions = msgListWidget->tree->actions();
+    QList<Entry> entries;
+    const auto &descriptions = ShortcutHandler::instance()->actionDescriptions();
+    for (auto it = descriptions.cbegin(); it != descriptions.cend(); ++it) {
+        const QAction *action = it->action;
+        Entry entry;
+        entry.id = it.key();
+        entry.text = plainText(action ? action->text() : it->text);
+        if (action)
+            entry.shortcuts = action->shortcuts();
+        else if (!it->shortcut.isEmpty())
+            entry.shortcuts = {QKeySequence(it->shortcut)};
+
+        QWidget *owner = action ? qobject_cast<QWidget *>(action->parent()) : nullptr;
+        bool inReader = false;
+        for (QWidget *widget = owner; widget && !inReader; widget = widget->parentWidget())
+            inReader = qobject_cast<MessageView *>(widget);
+        if (!action)
+            entry.area = otherArea; // Created only with a window which is not open
+        else if (menuAreas.contains(action))
+            entry.area = menuAreas.value(action);
+        else if (inReader)
+            entry.area = readerArea;
+        else if (listActions.contains(const_cast<QAction *>(action)))
+            entry.area = listArea;
+        else
+            entry.area = owner && owner->window() != this ? otherArea : generalArea;
+        entries << entry;
+    }
+    return entries;
+}
+
 void MainWindow::trackMove(Imap::Mailbox::ImapTask *task, const QString &source, const QString &target, const int count,
                            const MoveKind kind)
 {
@@ -2964,14 +3160,36 @@ void MainWindow::trackMove(Imap::Mailbox::ImapTask *task, const QString &source,
         }
         m_notificationBar->showInfo(text, {action});
     });
-    connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, model, target, kind](const QString &message) {
+    connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, model, target, count, kind](const QString &message) {
         if (!model || model != imapModel())
             return;
-        if (kind == MoveKind::Archive)
-            slotMoveToArchiveFailed(message);
-        else
-            m_notificationBar->showError(i18nc("@info", "Could not move the messages to %1: %2", target, message));
+        switch (kind) {
+        case MoveKind::Archive:
+            slotMoveToArchiveFailed(message, count);
+            break;
+        case MoveKind::Trash:
+            m_notificationBar->showError(i18ncp("@info", "Could not move %1 message to Trash: %2",
+                                                "Could not move %1 messages to Trash: %2", count, message));
+            break;
+        case MoveKind::Folder:
+            m_notificationBar->showError(i18ncp("@info", "Could not move %1 message to %2: %3", "Could not move %1 messages to %2: %3",
+                                                count, target, message));
+            break;
+        }
     });
+    QString busy;
+    switch (kind) {
+    case MoveKind::Trash:
+        busy = i18ncp("@info", "Moving %1 message to Trash…", "Moving %1 messages to Trash…", count);
+        break;
+    case MoveKind::Archive:
+        busy = i18ncp("@info", "Archiving %1 message…", "Archiving %1 messages…", count);
+        break;
+    case MoveKind::Folder:
+        busy = i18ncp("@info", "Moving %1 message to %2…", "Moving %1 messages to %2…", count, target);
+        break;
+    }
+    showBusyWhileRunning(task, busy);
 }
 
 void MainWindow::trackCopy(Imap::Mailbox::ImapTask *task, const QString &target, const int count)
@@ -2990,11 +3208,59 @@ void MainWindow::trackCopy(Imap::Mailbox::ImapTask *task, const QString &target,
         m_notificationBar->showInfo(i18ncp("@info", "Copied %1 message to %2", "Copied %1 messages to %2", count, target),
                                     {open});
     });
-    connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, model, target](const QString &message) {
+    connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, model, target, count](const QString &message) {
         if (!model || model != imapModel())
             return;
-        m_notificationBar->showError(i18nc("@info", "Could not copy the messages to %1: %2", target, message));
+        m_notificationBar->showError(i18ncp("@info", "Could not copy %1 message to %2: %3", "Could not copy %1 messages to %2: %3",
+                                            count, target, message));
     });
+    showBusyWhileRunning(task, i18ncp("@info", "Copying %1 message to %2…", "Copying %1 messages to %2…", count, target));
+}
+
+void MainWindow::showBusyWhileRunning(Imap::Mailbox::ImapTask *task, const QString &busyText)
+{
+    if (!task || task->isFinished() || busyText.isEmpty())
+        return;
+    QPointer<Imap::Mailbox::Model> model = imapModel();
+    auto busyId = std::make_shared<quint64>(0);
+    // Quick operations finish without a flash of the progress indicator
+    QPointer<QTimer> delay = new QTimer(task);
+    delay->setSingleShot(true);
+    delay->setInterval(400);
+    // The bar as the context: tasks can outlive it while the window goes away
+    connect(delay, &QTimer::timeout, m_notificationBar, [this, model, busyId, busyText]() {
+        if (model && model == imapModel())
+            *busyId = m_notificationBar->showBusy(busyText);
+    });
+    auto finish = [this, delay, busyId]() {
+        if (delay)
+            delay->stop();
+        // A result shown in the meantime stays
+        m_notificationBar->dismissBusy(*busyId);
+    };
+    connect(task, &Imap::Mailbox::ImapTask::completed, m_notificationBar, finish);
+    connect(task, &Imap::Mailbox::ImapTask::failed, m_notificationBar, finish);
+    connect(task, &QObject::destroyed, m_notificationBar, finish);
+    delay->start();
+}
+
+void MainWindow::trackFlagChange(Imap::Mailbox::ImapTask *task, const QString &busyText, const QString &doneText,
+                                 const std::function<QString(const QString &)> &failedText)
+{
+    if (!task)
+        return;
+    QPointer<Imap::Mailbox::Model> model = imapModel();
+    if (!doneText.isEmpty()) {
+        connect(task, &Imap::Mailbox::ImapTask::completed, this, [this, model, doneText]() {
+            if (model && model == imapModel())
+                m_notificationBar->showInfo(doneText);
+        });
+    }
+    connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, model, failedText](const QString &message) {
+        if (model && model == imapModel())
+            m_notificationBar->showError(failedText(message));
+    });
+    showBusyWhileRunning(task, busyText);
 }
 
 void MainWindow::undoMove(const QString &source, const QString &target, const uint uidValidity, const Imap::Uids &uids)
@@ -3022,6 +3288,7 @@ void MainWindow::undoMove(const QString &source, const QString &target, const ui
         m_notificationBar->showError(i18nc("@info", "Could not move the messages back to %1: %2", source, message));
         reopenCurrentMailbox(target);
     });
+    showBusyWhileRunning(task, i18ncp("@info", "Moving %1 message back to %2…", "Moving %1 messages back to %2…", count, source));
 }
 
 void MainWindow::reopenCurrentMailbox(const QString &usedMailbox)

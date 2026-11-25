@@ -322,6 +322,8 @@ public:
     void addExclusivityGroup(const QStringList &group);
     QSettings *settingsObject();
     QAction *action(const QString &actionName);
+    /** @short All defined actions by their name, with the action last created for each, if any */
+    const QHash<QString, ActionDescription> &actionDescriptions() const { return m_actionDescriptions; }
     QAction *shortcutConfigAction();
     ShortcutConfigWidget *configWidget();
     void accept();

@@ -42,6 +42,7 @@
 #include "Imap/Parser/Uids.h"
 #include "UiUtils/DestructiveActions.h"
 #include "UiUtils/RecentFolders.h"
+#include "UiUtils/ShortcutOverview.h"
 #include "MessageActionHandler.h"
 
 class QAuthenticator;
@@ -113,6 +114,7 @@ class InlineNotificationBar;
 class MailBoxTreeView;
 class MessageListWidget;
 class ProtocolLoggerWidget;
+class ShortcutOverviewDialog;
 class TaskProgressIndicator;
 
 class MainWindow: public QMainWindow
@@ -202,7 +204,7 @@ private slots:
     void handleMarkAsFlagged(const bool);
     void handleMarkAsJunk(const bool);
     void handleMarkAsNotJunk(const bool);
-    void slotMoveToArchiveFailed(const QString &error);
+    void slotMoveToArchiveFailed(const QString &error, int count = 0);
     void handleMoveToArchive();
     void slotMoveToFolder();
     void slotCopyToFolder();
@@ -213,6 +215,9 @@ private slots:
     void slotPreviousUnread();
     void msgListClicked(const QModelIndex &);
     void saveMessageSelection(const QModelIndex &);
+    /** @short Show the message which became current because the previous one left the list */
+    void slotMessageReplacedAfterRemoval(const QModelIndex &index);
+    void slotShowShortcutOverview();
     void openCompleteMessageWidget();
     void slotCreateMailboxBelowCurrent();
     void slotMarkCurrentMailboxRead();
@@ -420,6 +425,16 @@ private:
     void trackMove(Imap::Mailbox::ImapTask *task, const QString &source, const QString &target, int count, MoveKind kind);
     /** @short Report the result of copying @p count messages to @p target */
     void trackCopy(Imap::Mailbox::ImapTask *task, const QString &target, int count);
+    /** @short Show @p busyText while @p task runs for longer than a moment, until its result replaces it */
+    void showBusyWhileRunning(Imap::Mailbox::ImapTask *task, const QString &busyText);
+    /** @short Report the result of changing flags of @p count messages
+
+    @p doneText is shown on success unless it is empty; @p failedText builds the error from the server's message.
+    */
+    void trackFlagChange(Imap::Mailbox::ImapTask *task, const QString &busyText, const QString &doneText,
+                         const std::function<QString(const QString &)> &failedText);
+    /** @short The actions defined in ShortcutHandler, each with the menu or the part of the window it belongs to */
+    QList<UiUtils::ShortcutOverview::Entry> shortcutOverviewEntries() const;
     /** @short The folder which Archive moves messages to */
     QString archiveTarget() const;
     /** @short Copy or move the messages to @p mailbox, remembering it as a recent destination */
@@ -604,6 +619,8 @@ private:
     QAction *m_actionInvertSelection = nullptr;
     QAction *m_actionDeselectMessages = nullptr;
     QTimer *m_listStatusTimer = nullptr;
+    QAction *m_actionShortcutOverview = nullptr;
+    QPointer<ShortcutOverviewDialog> m_shortcutOverview;
 
     QAction *m_actionSubscribeMailbox;
     QAction *m_actionShowOnlySubscribed;

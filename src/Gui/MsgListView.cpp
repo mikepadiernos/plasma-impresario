@@ -29,15 +29,21 @@
 #include <QKeyEvent>
 #include <QPainter>
 #include <QScreen>
+#include <QSet>
 #include <QSignalMapper>
+#include <QStyle>
 #include <QTimer>
 #include "MsgItemDelegate.h"
+#include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/PrettyMsgListModel.h"
 #include "Imap/Model/ThreadingMsgListModel.h"
+#include "UiUtils/SelectionAfterRemoval.h"
 
 #include <algorithm>
 #include <array>
+#include <optional>
+#include <utility>
 
 namespace {
 
@@ -94,7 +100,52 @@ void MsgListView::keyPressEvent(QKeyEvent *ke)
 
     if (hasNaviActivationBlocker)
         m_naviActivationTimer->stop();
+
+    // Ctrl moves the cursor without touching the selection. Most styles let QAbstractItemView do that already.
+    if (ke->modifiers() == Qt::ControlModifier && selectionModel()
+            && !style()->styleHint(QStyle::SH_ItemView_MovementWithoutUpdatingSelection, nullptr, this)) {
+        std::optional<CursorAction> action;
+        switch (ke->key()) {
+        case Qt::Key_Up:
+            action = MoveUp;
+            break;
+        case Qt::Key_Down:
+            action = MoveDown;
+            break;
+        case Qt::Key_PageUp:
+            action = MovePageUp;
+            break;
+        case Qt::Key_PageDown:
+            action = MovePageDown;
+            break;
+        case Qt::Key_Home:
+            action = MoveHome;
+            break;
+        case Qt::Key_End:
+            action = MoveEnd;
+            break;
+        default:
+            break;
+        }
+        if (action) {
+            const QModelIndex next = moveCursor(*action, ke->modifiers());
+            if (next.isValid()) {
+                selectionModel()->setCurrentIndex(next, QItemSelectionModel::NoUpdate);
+                scrollTo(next);
+            }
+            ke->accept();
+            return;
+        }
+    }
     QTreeView::keyPressEvent(ke);
+}
+
+void MsgListView::keyboardSearch(const QString &search)
+{
+    // A letter which is not an enabled shortcut must not collapse a selection of several messages to one
+    if (selectionModel() && selectionModel()->selectedRows().size() > 1)
+        return;
+    QTreeView::keyboardSearch(search);
 }
 
 void MsgListView::keyReleaseEvent(QKeyEvent *ke)
@@ -446,63 +497,118 @@ void MsgListView::setModel(QAbstractItemModel *model)
     }
 }
 
-/** @short Get ThreadingMsgListModel index and call the next handler */
+/** @short Get the PrettyMsgListModel indexes of messages which are about to go away
+
+The ThreadingMsgListModel only marks such messages and prunes them later, so the rows of the view stay in place
+for a while. Messages which are on their way out have no UID any more.
+*/
 void MsgListView::slotMsgListModelRowsAboutToBeRemoved(const QModelIndex &parent, int start, int end)
 {
     Q_ASSERT(!parent.isValid());
 
-    auto threadingModel = qobject_cast<Imap::Mailbox::ThreadingMsgListModel*>(findPrettyMsgListModel(model())->sourceModel());
+    Imap::Mailbox::PrettyMsgListModel *prettyModel = findPrettyMsgListModel(model());
+    auto threadingModel = qobject_cast<Imap::Mailbox::ThreadingMsgListModel*>(prettyModel->sourceModel());
+    QSet<QModelIndex> removed;
     for (int i = start; i <= end; ++i) {
         QModelIndex index = threadingModel->sourceModel()->index(i, 0, parent);
         Q_ASSERT(index.isValid());
         QModelIndex translated = threadingModel->mapFromSource(index);
 
         if (translated.isValid())
-            slotThreadingMsgListModelRowAboutToBeRemoved(translated);
+            translated = prettyModel->mapFromSource(translated);
+        if (translated.isValid())
+            removed.insert(translated);
     }
+    if (removed.isEmpty())
+        return;
+    prepareForRemoval([&removed](const QModelIndex &index) {
+        return removed.contains(index.siblingAtColumn(0));
+    });
 }
 
-/** @short Keep the cursor in place for better keyboard usability
-
-In the worst case this is an O(log n). Such a worst case is when messages are removed in descending
-order starting from last one of the view. But in practice, there are many cases when it performs
-well better.
-
-A performance-wise approach could be to hook signal layoutAboutToBeChanged, but the underlying model
-has removed the rows by then and it makes everything complicated.
-*/
-void MsgListView::slotThreadingMsgListModelRowAboutToBeRemoved(const QModelIndex &index)
+void MsgListView::rowsAboutToBeRemoved(const QModelIndex &parent, int start, int end)
 {
-    Imap::Mailbox::PrettyMsgListModel *prettyModel = findPrettyMsgListModel(model());
-    Q_ASSERT(!index.isValid() || index.model() == qobject_cast<Imap::Mailbox::ThreadingMsgListModel*>(prettyModel->sourceModel()));
-    QModelIndex current = currentIndex();
-    if (current.isValid() && prettyModel->mapFromSource(index) == current) {
-        setCurrentIndexToNextValid(current);
+    // Messages of an IMAP mailbox are followed through the MsgListModel instead, see setModel()
+    if (!findPrettyMsgListModel(model())) {
+        prepareForRemoval([&parent, start, end](const QModelIndex &index) {
+            return UiUtils::SelectionAfterRemoval::isWithinRemovedRows(index, parent, start, end);
+        });
     }
+    // Last, because QTreeView forgets its rows here, and indexBelow() needs them
+    QTreeView::rowsAboutToBeRemoved(parent, start, end);
 }
 
-/** @short Try to move the cursor to next message
+/** @short Keep the cursor in the list for better keyboard usability
 
-Used when the current message disappearing.
+When the current message goes away, the next remaining message becomes current, or the previous one at the end of
+the list. Other selected messages are skipped while possible, because they are usually on their way out as well:
+moving a selection sends one command, but the server may report the removed messages one at a time.
 */
-void MsgListView::setCurrentIndexToNextValid(const QModelIndex &current)
+void MsgListView::prepareForRemoval(const std::function<bool(const QModelIndex &)> &isRemoved)
 {
-    Q_ASSERT(current.isValid());
-    Imap::Mailbox::PrettyMsgListModel *prettyModel = findPrettyMsgListModel(model());
-    Q_ASSERT(current.model() == prettyModel);
-    for (bool forward : {true,false}) {
-        QModelIndex walker = forward ? indexBelow(current) : indexAbove(current);
-        while (walker.isValid()) {
-            // Queued for pruning..?
-            if (prettyModel->data(walker, Imap::Mailbox::RoleMessageUid).isValid()) {
-                // Do not activate, just keep the cursor in place.
-                selectionModel()->setCurrentIndex(walker, QItemSelectionModel::NoUpdate);
-                // It has won. For now.
-                return;
-            }
-            walker = forward ? indexBelow(walker) : indexAbove(walker);
+    QItemSelectionModel *selection = selectionModel();
+    if (!selection)
+        return;
+    const QModelIndex current = currentIndex().isValid() ? currentIndex().siblingAtColumn(0) : QModelIndex();
+    const QModelIndexList selected = selection->selectedRows(0);
+    const bool currentRemoved = current.isValid() && isRemoved(current);
+    const bool selectionTouched = std::any_of(selected.cbegin(), selected.cend(), isRemoved);
+    if (!currentRemoved && !selectionTouched)
+        return;
+
+    if (currentRemoved) {
+        QSet<QModelIndex> pending;
+        if (selected.contains(current))
+            pending = QSet<QModelIndex>(selected.cbegin(), selected.cend());
+        const QModelIndex next = UiUtils::SelectionAfterRemoval::successor(
+            current,
+            [this](const QModelIndex &index) { return indexBelow(index); },
+            [this](const QModelIndex &index) { return indexAbove(index); },
+            [&isRemoved](const QModelIndex &index) {
+                return !isRemoved(index) && index.data(Imap::Mailbox::RoleMessageUid).isValid();
+            },
+            [&pending](const QModelIndex &index) { return pending.contains(index.siblingAtColumn(0)); });
+        if (next.isValid()) {
+            // Not activated yet: the models are still busy removing rows
+            selection->setCurrentIndex(next, QItemSelectionModel::NoUpdate);
+            m_currentReplacedByRemoval = true;
         }
     }
+    m_selectionTouchedByRemoval = m_selectionTouchedByRemoval || selectionTouched;
+    m_focusedBeforeRemoval = m_focusedBeforeRemoval || hasFocus();
+    if (!m_removalFinishQueued) {
+        m_removalFinishQueued = true;
+        QMetaObject::invokeMethod(this, &MsgListView::finishRemoval, Qt::QueuedConnection);
+    }
+}
+
+void MsgListView::finishRemoval()
+{
+    m_removalFinishQueued = false;
+    const bool replaced = std::exchange(m_currentReplacedByRemoval, false);
+    const bool touched = std::exchange(m_selectionTouchedByRemoval, false);
+    const bool focused = std::exchange(m_focusedBeforeRemoval, false);
+    QItemSelectionModel *selection = selectionModel();
+    const QModelIndex current = currentIndex();
+    // Nothing is selected in an empty list
+    if (!selection || !current.isValid() || !current.data(Imap::Mailbox::RoleMessageUid).isValid())
+        return;
+    if (!replaced) {
+        if (!touched)
+            return;
+        // The cursor was elsewhere; only an emptied selection falls back to the current message
+        const QModelIndexList selected = selection->selectedRows(0);
+        const bool selectionRemains = std::any_of(selected.cbegin(), selected.cend(), [](const QModelIndex &index) {
+            return index.data(Imap::Mailbox::RoleMessageUid).isValid();
+        });
+        if (selectionRemains)
+            return;
+    }
+    selection->select(current, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    scrollTo(current);
+    if (focused && !hasFocus())
+        setFocus(Qt::OtherFocusReason);
+    emit currentReplacedAfterRemoval(current);
 }
 
 void MsgListView::slotHandleSortCriteriaChanged(int column, Qt::SortOrder order)
