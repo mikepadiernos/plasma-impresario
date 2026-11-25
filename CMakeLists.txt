@@ -310,6 +310,7 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/Color.cpp
     ${path_UiUtils}/Formatting.cpp
     ${path_UiUtils}/IconLoader.cpp
+    ${path_UiUtils}/LinkSafety.cpp
     ${path_UiUtils}/MessageSecurity.cpp
     ${path_UiUtils}/PasswordWatcher.cpp
     ${path_UiUtils}/PlainTextFormatter.cpp
