@@ -7,6 +7,8 @@
 
 #include <QString>
 
+class QSettings;
+
 namespace Imap {
 
 /** Mail protocols an account can use. */
@@ -51,6 +53,23 @@ public:
      * @param ok set to false when the name is not recognized
      */
     static AccountProtocol protocolFromName(const QString &name, bool *ok);
+
+    /** Return the name under which a protocol is stored: "imap", "pop3" or "jmap". */
+    static QString protocolName(AccountProtocol protocol);
+
+    /** Return the key that holds the protocol in an account's own settings. */
+    static QString protocolSettingsKey();
+
+    /**
+     * Return the capabilities of the account whose settings are given.
+     * Accounts without a stored protocol use IMAP, which every account used before protocols were stored.
+     * @param account settings of one account
+     * @param recognized set to false when the stored protocol is unknown; the account then reports IMAP
+     */
+    static AccountCapabilities forAccount(const QSettings &account, bool *recognized = nullptr);
+
+    /** Store the protocol in an account's own settings. */
+    static void setProtocol(QSettings &account, AccountProtocol protocol);
 
 private:
     AccountProtocol m_protocol;

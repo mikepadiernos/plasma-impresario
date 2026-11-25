@@ -19,6 +19,10 @@ private slots:
     void limitationIsEmptyOnlyWhenSupported();
     void parsesStoredProtocolNames_data();
     void parsesStoredProtocolNames();
+    void protocolNamesRoundTrip();
+    void accountsWithoutAProtocolUseImap();
+    void accountsReadTheirStoredProtocol();
+    void unknownStoredProtocolIsReported();
 };
 
 #endif
