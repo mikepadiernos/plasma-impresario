@@ -24,7 +24,9 @@
 
 #include <QHeaderView>
 #include <QTreeView>
+#include <QPersistentModelIndex>
 #include <functional>
+#include <optional>
 #include "Imap/Model/FavoriteTagsModel.h"
 
 class QSignalMapper;
@@ -43,6 +45,7 @@ The optimizations (or rather modifications) include:
 - automatically expanding a whole subtree when root item is expanded
 - setting up reasonable size hints for all columns
 - when the current message leaves the list, the next remaining one becomes current and the only selected message
+- when messages arrive, leave or are sorted again, the current message stays where it was on the screen
 */
 class MsgListView : public QTreeView
 {
@@ -94,6 +97,20 @@ private:
     static Imap::Mailbox::PrettyMsgListModel *findPrettyMsgListModel(QAbstractItemModel *model);
     /** @short Map an index of the PrettyMsgListModel to the model of the view, through proxies such as the groups */
     QModelIndex mapFromPrettyModel(const QModelIndex &prettyIndex) const;
+    /** @short Remember where the current message, or else the top row, is on the screen before the rows change */
+    void captureScrollAnchor(bool insertion);
+    /** @short Scroll so that the remembered row is where it was */
+    void restoreScrollAnchor();
+
+    struct ScrollAnchor {
+        QPersistentModelIndex index;
+        int y = 0;
+        /** At the top of the list before rows were inserted; stay there while the current message remains visible */
+        bool keepTop = false;
+    };
+    std::optional<ScrollAnchor> m_scrollAnchor;
+    int m_scrollAnchorDepth = 0;
+    QList<QMetaObject::Connection> m_scrollAnchorConnections;
 
     QSignalMapper *headerFieldsMapper;
     QTimer *m_naviActivationTimer;

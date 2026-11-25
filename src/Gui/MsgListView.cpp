@@ -29,6 +29,7 @@
 #include <QKeyEvent>
 #include <QPainter>
 #include <QScreen>
+#include <QScrollBar>
 #include <QSet>
 #include <QSignalMapper>
 #include <QStyle>
@@ -487,7 +488,26 @@ void MsgListView::setModel(QAbstractItemModel *model)
                     this, &MsgListView::slotMsgListModelRowsAboutToBeRemoved);
         }
     }
+    for (const QMetaObject::Connection &connection : std::as_const(m_scrollAnchorConnections))
+        disconnect(connection);
+    m_scrollAnchorConnections.clear();
+    m_scrollAnchor.reset();
+    m_scrollAnchorDepth = 0;
     QTreeView::setModel(model);
+    if (model) {
+        // After the view's own handlers, so that the rows have their new places already
+        m_scrollAnchorConnections
+            << connect(model, &QAbstractItemModel::layoutAboutToBeChanged, this, [this]() { captureScrollAnchor(false); })
+            << connect(model, &QAbstractItemModel::layoutChanged, this, &MsgListView::restoreScrollAnchor)
+            << connect(model, &QAbstractItemModel::rowsAboutToBeInserted, this, [this]() { captureScrollAnchor(true); })
+            << connect(model, &QAbstractItemModel::rowsInserted, this, &MsgListView::restoreScrollAnchor)
+            << connect(model, &QAbstractItemModel::rowsAboutToBeRemoved, this, [this]() { captureScrollAnchor(false); })
+            << connect(model, &QAbstractItemModel::rowsRemoved, this, &MsgListView::restoreScrollAnchor)
+            << connect(model, &QAbstractItemModel::modelReset, this, [this]() {
+                   m_scrollAnchor.reset();
+                   m_scrollAnchorDepth = 0;
+               });
+    }
     if (Imap::Mailbox::PrettyMsgListModel *prettyModel = findPrettyMsgListModel(model)) {
         connect(prettyModel, &Imap::Mailbox::PrettyMsgListModel::sortingPreferenceChanged,
                 this, &MsgListView::slotHandleSortCriteriaChanged);
@@ -665,6 +685,65 @@ void MsgListView::finishRemoval()
     if (focused && !hasFocus())
         setFocus(Qt::OtherFocusReason);
     emit currentReplacedAfterRemoval(current);
+}
+
+/** @short Remember the place of the row which shall stay put while the rows change
+
+Without this, the view keeps its scroll offset, so new messages above the current one push it down and sorting again
+moves it anywhere. The current message is the anchor while it is visible, otherwise the top row is; a list which
+shows its top keeps showing it.
+*/
+void MsgListView::captureScrollAnchor(bool insertion)
+{
+    if (m_scrollAnchorDepth++ > 0)
+        return;
+    m_scrollAnchor.reset();
+    if (!isVisible())
+        return;
+    const QRect area = viewport()->rect();
+    const QScrollBar *bar = verticalScrollBar();
+    const bool atTop = bar->value() == bar->minimum();
+    QModelIndex anchor = currentIndex();
+    QRect rect = anchor.isValid() ? visualRect(anchor) : QRect();
+    if (!rect.isValid() || !rect.intersects(area)) {
+        if (atTop)
+            return;
+        anchor = indexAt(QPoint(area.left() + 1, area.top() + 1));
+        rect = anchor.isValid() ? visualRect(anchor) : QRect();
+        if (!rect.isValid())
+            return;
+    }
+    m_scrollAnchor = ScrollAnchor{QPersistentModelIndex(anchor), rect.top(), insertion && atTop};
+}
+
+void MsgListView::restoreScrollAnchor()
+{
+    if (m_scrollAnchorDepth == 0 || --m_scrollAnchorDepth > 0)
+        return;
+    const std::optional<ScrollAnchor> anchor = std::exchange(m_scrollAnchor, std::nullopt);
+    if (!anchor || !anchor->index.isValid())
+        return;
+    executeDelayedItemsLayout();
+    updateGeometries();
+    QScrollBar *bar = verticalScrollBar();
+    QRect rect = visualRect(anchor->index);
+    // Collapsed into a thread or a group, for example
+    if (!rect.isValid())
+        return;
+    if (anchor->keepTop) {
+        bar->setValue(bar->minimum());
+        rect = visualRect(anchor->index);
+        if (viewport()->rect().contains(rect))
+            return;
+    }
+    const int delta = rect.top() - anchor->y;
+    if (!delta)
+        return;
+    if (verticalScrollMode() == ScrollPerPixel) {
+        bar->setValue(bar->value() + delta);
+    } else if (rect.height() > 0) {
+        bar->setValue(bar->value() + qRound(double(delta) / rect.height()));
+    }
 }
 
 void MsgListView::slotHandleSortCriteriaChanged(int column, Qt::SortOrder order)

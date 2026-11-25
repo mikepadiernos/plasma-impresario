@@ -24,11 +24,26 @@ MessageSelectionRestorer::MessageSelectionRestorer(QTreeView *view, QObject *par
 
 void MessageSelectionRestorer::restore(const QString &mailbox, uint uidValidity, uint uid)
 {
+    restorePosition(mailbox, uidValidity, uid, 0);
+    m_reportMissing = false;
+}
+
+void MessageSelectionRestorer::restorePosition(const QString &mailbox, uint uidValidity, uint uid, uint anchorUid,
+                                               const QList<uint> &selectedUids)
+{
     m_mailbox = mailbox;
     m_uidValidity = uidValidity;
     m_uid = uid;
-    m_pending = !mailbox.isEmpty() && uidValidity && uid;
+    m_anchorUid = anchorUid;
+    m_selectedUids = selectedUids;
+    m_reportMissing = true;
+    m_pending = !mailbox.isEmpty() && uidValidity && (uid || anchorUid);
     scheduleCheck();
+}
+
+bool MessageSelectionRestorer::isPending() const
+{
+    return m_pending;
 }
 
 void MessageSelectionRestorer::cancel()
@@ -63,21 +78,63 @@ void MessageSelectionRestorer::check()
     QAbstractItemModel *viewModel = m_view->model();
     if (!viewModel || !viewModel->rowCount())
         return;
-    const auto matches = viewModel->match(viewModel->index(0, 0), Imap::Mailbox::RoleMessageUid, m_uid, -1,
-                                          Qt::MatchExactly | Qt::MatchRecursive);
-    for (const QModelIndex &index : matches) {
-        if (index.data(Imap::Mailbox::RoleMailboxName).toString() != m_mailbox)
-            continue;
-        const uint validity = index.data(Imap::Mailbox::RoleMailboxUidValidity).toUInt();
-        if (!validity)
-            continue;
-        m_pending = false;
-        if (validity == m_uidValidity) {
-            m_view->setCurrentIndex(index);
-            m_view->scrollTo(index);
-            emit messageRestored(index);
+    // The first row may be the header of a group, so look for any message of the mailbox
+    const QModelIndex first = viewModel->index(0, 0);
+    auto findMessage = [viewModel, &first, this](uint uid) -> QModelIndex {
+        if (!uid)
+            return {};
+        const auto matches = viewModel->match(first, Imap::Mailbox::RoleMessageUid, uid, -1,
+                                              Qt::MatchExactly | Qt::MatchRecursive);
+        for (const QModelIndex &index : matches) {
+            if (index.data(Imap::Mailbox::RoleMailboxName).toString() == m_mailbox)
+                return index;
         }
+        return {};
+    };
+    QModelIndex current = findMessage(m_uid);
+    QModelIndex anchor = findMessage(m_anchorUid);
+    QModelIndex known = current.isValid() ? current : anchor;
+    if (!known.isValid()) {
+        const auto messages = viewModel->match(first, Imap::Mailbox::RoleMailboxName, m_mailbox, 1,
+                                               Qt::MatchExactly | Qt::MatchRecursive);
+        if (messages.isEmpty())
+            return;
+        known = messages.constFirst();
+    }
+    const uint validity = known.data(Imap::Mailbox::RoleMailboxUidValidity).toUInt();
+    if (!validity)
         return;
+    if (validity != m_uidValidity) {
+        m_pending = false;
+        emit restoreFailed();
+        return;
+    }
+    if (!current.isValid() && m_uid) {
+        // Messages whose UID is still being synchronized might turn out to be the saved one
+        if (!m_reportMissing || !viewModel->match(first, Imap::Mailbox::RoleMessageUid, 0u, 1,
+                                                  Qt::MatchExactly | Qt::MatchRecursive).isEmpty())
+            return;
+    }
+    m_pending = false;
+    if (anchor.isValid())
+        m_view->scrollTo(anchor, QAbstractItemView::PositionAtTop);
+    if (current.isValid()) {
+        m_view->setCurrentIndex(current);
+        if (QItemSelectionModel *selection = m_view->selectionModel(); selection && !m_selectedUids.isEmpty()) {
+            QItemSelection selected;
+            const int lastColumn = viewModel->columnCount(current.parent()) - 1;
+            for (const uint uid : std::as_const(m_selectedUids)) {
+                const QModelIndex index = uid == m_uid ? current : findMessage(uid);
+                if (index.isValid())
+                    selected.select(index.siblingAtColumn(0), index.siblingAtColumn(qMax(0, lastColumn)));
+            }
+            selected.select(current.siblingAtColumn(0), current.siblingAtColumn(qMax(0, lastColumn)));
+            selection->select(selected, QItemSelectionModel::ClearAndSelect);
+        }
+        m_view->scrollTo(current);
+        emit messageRestored(current);
+    } else if (m_uid) {
+        emit restoreFailed();
     }
 }
 
