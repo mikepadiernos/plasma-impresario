@@ -19,6 +19,8 @@ a real OpenPGP signature. The messages are:
              unread
   travel     "Travel plans" from Frank; unread, and never opened before the
              test goes offline, so its body is not available offline
+  digest     "Release digest" from Grace, multipart/alternative with plain
+             text and HTML versions which can be told apart; unread
 """
 
 import base64
@@ -33,6 +35,7 @@ CAROL = f"Carol Example <carol@{DOMAIN}>"
 DAVE = f"Dave Example <dave@{DOMAIN}>"
 ERIN = f"Erin Example <erin@{DOMAIN}>"
 FRANK = f"Frank Example <frank@{DOMAIN}>"
+GRACE = f"Grace Example <grace@{DOMAIN}>"
 
 
 def headers(sender, to, subject, date, message_id, extra=()):
@@ -197,6 +200,32 @@ MESSAGES = [
             headers(FRANK, USER, "Travel plans", "Wed, 25 Nov 2026 07:30:00 +0000", "travel"),
             "The train leaves at nine on Monday.\n\nFrank",
         ),
+    ),
+    (
+        "8-digest",
+        None,
+        headers(
+            GRACE,
+            USER,
+            "Release digest",
+            "Tue, 24 Nov 2026 18:00:00 +0000",
+            "digest",
+            ['Content-Type: multipart/alternative; boundary="synthetic-digest-boundary"'],
+        )
+        + [
+            "",
+            "--synthetic-digest-boundary",
+            "Content-Type: text/plain; charset=utf-8",
+            "",
+            "Release digest (plain text version)",
+            "",
+            "Grace",
+            "--synthetic-digest-boundary",
+            "Content-Type: text/html; charset=utf-8",
+            "",
+            '<html><body><p class="html-only">Release digest (HTML version)</p><p>Grace</p></body></html>',
+            "--synthetic-digest-boundary--",
+        ],
     ),
 ]
 
