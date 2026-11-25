@@ -63,6 +63,8 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned
   options of the account that is active then. Switching accounts while a
   composer is open can therefore send or file the message with the other
   account's settings.
+- ⚠️ **Account Settings…** edits only the active account. There is no way yet to
+  open the settings of another account without switching to it.
 
 **Workarounds:**
 
@@ -71,6 +73,7 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned
 - Prefer servers with trusted certificates.
 - Switch back to the composer's account before sending, or finish the message
   before switching.
+- Switch to an account before opening **Account Settings…**.
 
 **Proposed improvements:**
 
@@ -81,6 +84,8 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned
 - 📋 Bind each composer to the account it was opened from, including its
   sending settings; this is planned with keeping the originating account in
   composition.
+- 📋 Offer **Account Settings…** for any account from the account's context
+  menu, once accounts are grouped in the folder tree (#80).
 
 ### Related messages and message details panels
 

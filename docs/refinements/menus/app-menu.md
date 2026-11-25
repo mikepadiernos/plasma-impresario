@@ -178,19 +178,19 @@ paths such as **Application › Exit** refer to the
 
 ### Edit
 
-| Action               | Shortcut                                      | Availability                         | Notes                                                    |
-| -------------------- | --------------------------------------------- | ------------------------------------ | -------------------------------------------------------- |
-| Undo                 | <kbd>Ctrl</kbd>+<kbd>Z</kbd>                  | ✅ Composer editor context menu      | Standard Qt text editing                                 |
-| Redo                 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> | ✅ Composer editor context menu      | Standard Qt text editing                                 |
-| Cut                  | <kbd>Ctrl</kbd>+<kbd>X</kbd>                  | ✅ Composer editor context menu      | Standard Qt text editing                                 |
-| Copy                 | <kbd>Ctrl</kbd>+<kbd>C</kbd>                  | ✅ Reader and composer context menus |                                                          |
-| Paste                | <kbd>Ctrl</kbd>+<kbd>V</kbd>                  | ✅ Composer editor context menu      | **Paste as Quoted Text** is also available               |
-| Select all           | <kbd>Ctrl</kbd>+<kbd>A</kbd>                  | ✅ Reader and composer context menus |                                                          |
-| Find in message      | <kbd>Ctrl</kbd>+<kbd>F</kbd>                  | ✅ Reader context menu               | **Search…** opens the find bar                           |
-| Find in folder       | <kbd>/</kbd>                                  | ✅ Shortcut only                     | **Move Focus to Quick Search**                           |
-| Preferences          | —                                             | ✅ **Application › Settings…**       |                                                          |
-| Account settings     | —                                             | ✅ **Application › Settings…**       | The IMAP, Offline and SMTP pages edit the active account |
-| Application settings | —                                             | ✅ **Application › Settings…**       | General and Favorite tags pages                          |
+| Action               | Shortcut                                      | Availability                           | Notes                                                          |
+| -------------------- | --------------------------------------------- | -------------------------------------- | -------------------------------------------------------------- |
+| Undo                 | <kbd>Ctrl</kbd>+<kbd>Z</kbd>                  | ✅ Composer editor context menu        | Standard Qt text editing                                       |
+| Redo                 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> | ✅ Composer editor context menu        | Standard Qt text editing                                       |
+| Cut                  | <kbd>Ctrl</kbd>+<kbd>X</kbd>                  | ✅ Composer editor context menu        | Standard Qt text editing                                       |
+| Copy                 | <kbd>Ctrl</kbd>+<kbd>C</kbd>                  | ✅ Reader and composer context menus   |                                                                |
+| Paste                | <kbd>Ctrl</kbd>+<kbd>V</kbd>                  | ✅ Composer editor context menu        | **Paste as Quoted Text** is also available                     |
+| Select all           | <kbd>Ctrl</kbd>+<kbd>A</kbd>                  | ✅ Reader and composer context menus   |                                                                |
+| Find in message      | <kbd>Ctrl</kbd>+<kbd>F</kbd>                  | ✅ Reader context menu                 | **Search…** opens the find bar                                 |
+| Find in folder       | <kbd>/</kbd>                                  | ✅ Shortcut only                       | **Move Focus to Quick Search**                                 |
+| Preferences          | —                                             | ✅ **Application › Settings…**         |                                                                |
+| Account settings     | —                                             | ✅ **Application › Account Settings…** | Identities, IMAP, Offline and SMTP pages of the active account |
+| Application settings | —                                             | ✅ **Application › Settings…**         | General and Favorite tags pages                                |
 
 ### View
 
@@ -265,17 +265,17 @@ paths such as **Application › Exit** refer to the
 
 ### Account
 
-| Action           | Shortcut | Availability                                             | Notes                                                                   |
-| ---------------- | -------- | -------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Add account      | —        | ✅ **Application › Add Account…**                        |                                                                         |
-| Remove account   | —        | ✅ **Application › Remove Account…**                     | Asks for confirmation; needs at least two accounts; server mail is kept |
-| Edit account     | —        | ✅ **Application › Rename Account…**, **Settings…**      | Rename changes the display name; Settings edits the active account      |
-| Account settings | —        | ✅ **Application › Settings…**                           | IMAP, Offline and SMTP pages                                            |
-| Synchronize now  | —        | ✅ Folder tree context menu, **Application › Debugging** | **Reload Everything**                                                   |
-| Pause sync       | —        | ✅ **Application › Network Access › Offline**            | Also in the toolbar network indicator                                   |
-| Resume sync      | —        | ✅ **Application › Network Access**                      | **Free Access** or **Expensive Connection**                             |
-| Reconnect        | —        | 📋 Planned                                               | No dedicated action; **Network Access** controls the connection         |
-| Export settings  | —        | 📋 Planned                                               |                                                                         |
+| Action           | Shortcut | Availability                                                | Notes                                                                      |
+| ---------------- | -------- | ----------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Add account      | —        | ✅ **Application › Add Account…**                           |                                                                            |
+| Remove account   | —        | ✅ **Application › Remove Account…**                        | Asks for confirmation; needs at least two accounts; server mail is kept    |
+| Edit account     | —        | ✅ **Application › Rename Account…**, **Account Settings…** | Rename changes the display name; Account Settings edits the active account |
+| Account settings | —        | ✅ **Application › Account Settings…**                      | Identities, IMAP, Offline and SMTP pages; titled with the account name     |
+| Synchronize now  | —        | ✅ Folder tree context menu, **Application › Debugging**    | **Reload Everything**                                                      |
+| Pause sync       | —        | ✅ **Application › Network Access › Offline**               | Also in the toolbar network indicator                                      |
+| Resume sync      | —        | ✅ **Application › Network Access**                         | **Free Access** or **Expensive Connection**                                |
+| Reconnect        | —        | 📋 Planned                                                  | No dedicated action; **Network Access** controls the connection            |
+| Export settings  | —        | 📋 Planned                                                  |                                                                            |
 
 ### Tools
 
@@ -322,7 +322,7 @@ the end of the navigation toolbar opens the same menus.
 
 | Menu        | Entries                                                                                                                                                                                           |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Application | Address Book…, Network Access, Debugging, Add Account…, Rename Account…, Remove Account…, Settings…, Configure Shortcuts…, About Plasma Impresario…, Exit                                         |
+| Application | Address Book…, Network Access, Debugging, Add Account…, Account Settings…, Rename Account…, Remove Account…, Settings…, Configure Shortcuts…, About Plasma Impresario…, Exit                      |
 | View        | Show Main Menu Bar, Show Toolbar, Layout (Compact, Wide, One At a Time), Folder Sidebar Position (Left, Right), Row Density (Compact, Comfortable), Embedded Panels, Show Only Subscribed Folders |
 | Mailbox     | Sorting (sort keys, ascending or descending, Show Messages in Threads, Hide Read Messages), Previous Unread Message, Next Unread Message, Expunge                                                 |
 | Message     | New Message…, Edit Draft…, Reply by Guess, Private Reply, Reply to All, Reply to All but Me, Reply to Mailing List, Forward, Resend…                                                              |

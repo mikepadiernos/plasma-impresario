@@ -243,6 +243,9 @@ starting their feature issues.
 Pending headless implementation, isolated account verification, and the
 M02.02 Plasma-session checks:
 [M02 handoff](TODO.md#m02-shell-and-account-foundation).
+Account grouping (#80), the design-spec skeleton (#74) and capability-aware
+actions (#215) are held while M03 is in development:
+[M02 work held for M03](TODO.md#m02-work-held-for-m03).
 
 Caveats: [multiple accounts](CAVEATS.md#multiple-accounts)
 ([#262](https://github.com/mikepadiernos/plasma-impresario/issues/262));
