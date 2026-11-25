@@ -7,8 +7,7 @@
 This proposed menu appears in the message header row or metadata region for the
 currently selected message.
 
-**Legend:** ✅ exists in the current code on `feature/m02-shell-next` · 📋
-planned only
+**Legend:** ✅ exists in the current code on `main` · 📋 planned only
 
 ## Purpose
 

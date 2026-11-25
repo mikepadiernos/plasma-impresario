@@ -7,8 +7,7 @@
 This proposed menu appears when the user right-clicks a mailbox or folder in the
 folder tree.
 
-**Legend:** ✅ exists in the current code on `feature/m02-shell-next` · 📋
-planned only
+**Legend:** ✅ exists in the current code on `main` · 📋 planned only
 
 ## Purpose
 

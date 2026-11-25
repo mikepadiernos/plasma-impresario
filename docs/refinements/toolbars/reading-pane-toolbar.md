@@ -7,8 +7,7 @@
 This proposed toolbar appears in the message reading area and supports
 message-level actions while reading.
 
-**Legend:** ✅ exists in the current code on `feature/m02-shell-next` · 📋
-planned only
+**Legend:** ✅ exists in the current code on `main` · 📋 planned only
 
 ## Purpose
 

@@ -33,13 +33,12 @@ keys; this page does not repeat them.
 
 > [!NOTE]
 >
-> The shell, sidebar placement and embedded panels are on
-> `feature/m02-shell-next` and are not yet merged into `main`. Offscreen tests
-> and opt-in live IMAP tests against a synthetic Dovecot
+> The shell, sidebar placement and embedded panels were built in M02. Offscreen
+> tests and opt-in live IMAP tests against a synthetic Dovecot
 > (`tools/dev-container/`) cover them; a real Plasma session has not been
 > verified. M14
-> ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319))
-> tracks that check.
+> ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)) tracks
+> that check.
 
 The main window is `MainWindow` in `src/Gui/Window.cpp`; the panels are in
 `src/Gui/` (`AttachmentPanel`, `MessageDetailsPanel`, `ContactPanel`,
