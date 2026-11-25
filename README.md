@@ -78,12 +78,12 @@ Features done are roadmap items whose issues are **Completed** or **Merged** on
 the [project board](https://github.com/users/mikepadiernos/projects/4), as of
 2026-11-25.
 
-| Milestone                                     | Branch                        | Done             | State                                                                                                                             |
-| --------------------------------------------- | ----------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| 🧱 M01 KDE / Qt 6 baseline                    | `main`                        | 🟩🟩🟩🟩🟩 19/19 | ✅ Merged                                                                                                                         |
-| 🧭 M02 Shell, accounts and mailbox foundation | `main`                        | 🟩🟩🟩🟩🟩 14/14 | ✅ Merged; checks in a real Plasma session moved to M14                                                                           |
-| 📬 M03 Mail operations, sorting and folders   | `feature/m03-mail-operations` | 🟩🟩⬜⬜⬜ 4/12  | 🚧 Folder navigation, sorting and triage, quick actions, and folder actions with recoverable deletion are Completed               |
-| 📋 M04–M14                                    | —                             | —                | Planned, including search and indexing in M05 and real Plasma session checks in M14; M09 branding started with the product rename |
+| Milestone                                     | Branch                        | Done             | State                                                                                                                                                                     |
+| --------------------------------------------- | ----------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🧱 M01 KDE / Qt 6 baseline                    | `main`                        | 🟩🟩🟩🟩🟩 19/19 | ✅ Merged                                                                                                                                                                 |
+| 🧭 M02 Shell, accounts and mailbox foundation | `main`                        | 🟩🟩🟩🟩🟩 14/14 | ✅ Merged; checks in a real Plasma session moved to M15                                                                                                                   |
+| 📬 M03 Mail operations, sorting and folders   | `feature/m03-mail-operations` | 🟩🟩⬜⬜⬜ 4/12  | 🚧 Folder navigation, sorting and triage, quick actions, and folder actions with recoverable deletion are Completed                                                       |
+| 📋 M04–M15                                    | —                             | —                | Planned, including search and indexing in M05, Microsoft accounts and Exchange in M13 and real Plasma session checks in M15; M09 branding started with the product rename |
 
 The [roadmap overview](docs/ROADMAP.md#milestones-at-a-glance) tracks every
 milestone, and [pending tasks](docs/TODO.md#in-progress) record what each one
@@ -129,7 +129,7 @@ replies and attachments are scheduled for verification in M04
 
 M02 is headless work (M02.01,
 [#318](https://github.com/mikepadiernos/plasma-impresario/issues/318)). Checks
-that need a real Plasma session are their own milestone (M14,
+that need a real Plasma session are their own milestone (M15,
 [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)), and none
 has been done yet. The mail shell and embedded panels are Completed
 ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); the
