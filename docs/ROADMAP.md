@@ -865,17 +865,21 @@ Make Outlook.com, Microsoft 365 and Exchange Server accounts work properly, from
 sign-in to mail, calendar, contacts, tasks and files. IMAP and SMTP with OAuth
 stay the default; Microsoft Graph covers what IMAP does not expose, and EWS is
 used only for on-premises Exchange Server because Microsoft announced that it
-would start blocking EWS in Exchange Online on October 1, 2026. See the
-[Microsoft guide](integrations/microsoft.md).
+would start blocking EWS in Exchange Online on October 1, 2026. Graph mail
+ships in the first M13 release, and KDE PIM's EWS and Graph code is reused;
+see the [Microsoft guide](integrations/microsoft.md) and its
+[decisions](integrations/microsoft.md#decisions).
 
 - **M13.01: Microsoft sign-in and consent**
 
   **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318118461)
 
-  - [ ] Ship a publisher-verified multi-tenant Microsoft Entra app registration
-    with a built-in client ID, request permissions only for the features in use,
-    and let administrators supply their own client ID, tenant and redirect
-    settings, including system-wide KConfig defaults
+  - [ ] Register a Plasma Impresario Microsoft Entra app for work, school and
+    personal accounts, build its client ID into release packages, seek
+    publisher verification once an organization such as KDE e.V. can hold
+    it, request permissions only for the features in use, and let users
+    and administrators replace the client ID, tenant and redirect settings
+    in the account settings or through system-wide KConfig defaults
     [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318120621)
   - [ ] Choose personal accounts, any work or school account, or a specific
     tenant instead of the fixed `common` tenant, and explain admin consent,
@@ -892,6 +896,12 @@ would start blocking EWS in Exchange Online on October 1, 2026. See the
 
   **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318118794)
 
+  - [ ] Add Microsoft Graph as an optional mail protocol in the account model
+    in the first M13 release, reusing KDE PIM's Graph client, with delta sync,
+    sending through Graph when SMTP AUTH is turned off (first, if the M06.05
+    protocol layer is not ready) and Retry-After handling for throttling, and
+    register its capabilities with `CapabilityActionGate`
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318122004)
   - [ ] Support consumer Outlook.com, Hotmail, and Live accounts using
     provider-supported OAuth and mail interfaces
     [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314595964)
@@ -900,11 +910,6 @@ would start blocking EWS in Exchange Online on October 1, 2026. See the
     SMTP AUTH is turned off for the mailbox, and never fall back to a password
     where Microsoft has disabled Basic authentication
     [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318121659)
-  - [ ] Add Microsoft Graph as an optional mail protocol in the account model,
-    with delta sync, sending through Graph when SMTP AUTH is turned off and
-    Retry-After handling for throttling, and register its capabilities with
-    `CapabilityActionGate`
-    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318122004)
   - [ ] Map Outlook categories to tags with their colors, keep follow-up flags
     and due dates in step, and offer Focused and Other as a message-list filter,
     using Graph where IMAP does not expose them
@@ -936,10 +941,10 @@ would start blocking EWS in Exchange Online on October 1, 2026. See the
     never send credentials to an unconfirmed host
     [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318123531)
   - [ ] Sync on-premises Exchange Server through IMAP and SMTP when they are
-    enabled and EWS otherwise, using OAuth with hybrid modern authentication,
-    Kerberos, NTLM or, with a warning, Basic authentication over TLS; use EWS
-    only for on-premises servers, test with Exchange Server Subscription Edition
-    and document older versions as untested
+    enabled and otherwise through EWS, reusing KDE PIM's EWS client, using OAuth
+    with hybrid modern authentication, Kerberos, NTLM or, with a warning, Basic
+    authentication over TLS; use EWS only for on-premises servers, test with
+    Exchange Server Subscription Edition and document older versions as untested
     [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318123844)
 
 - **M13.04: Calendar and scheduling**
@@ -947,9 +952,9 @@ would start blocking EWS in Exchange Online on October 1, 2026. See the
   **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318119417)
 
   - [ ] Show Outlook and Exchange calendars in the M06.04 agenda panel through
-    KDE PIM and Akonadi when a resource provides them and Graph or EWS
-    otherwise, read-only at first, cached for offline use, with Windows time
-    zones converted and no duplicate events
+    KDE PIM's Microsoft 365 (Graph) or EWS Akonadi resource when installed and
+    Graph or EWS otherwise, read-only at first, cached for offline use, with
+    Windows time zones converted and no duplicate events
     [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318124143)
   - [ ] Accept, tentatively accept or decline meeting invitations, or propose a
     new time, from the reader, updating the Exchange calendar, with iTIP and
@@ -994,18 +999,19 @@ would start blocking EWS in Exchange Online on October 1, 2026. See the
 
   **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318120314)
 
-  - [ ] Reuse Microsoft accounts from KDE Online Accounts or KDE PIM where they
-    provide one, and offer to add Outlook calendars and contacts to KDE PIM so
-    Merkuro and Plasma Opus can use them
+  - [ ] Reuse Microsoft accounts already set up in KDE PIM's Graph or EWS
+    resources (KDE Online Accounts has no Microsoft provider), and offer to
+    add Outlook calendars and contacts to KDE PIM so Merkuro and Plasma Opus
+    can use them
     [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318126231)
   - [ ] Show the Microsoft permissions granted for each feature, let users turn
     features off per account and remove their cached data, and send no telemetry
     [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318126537)
-  - [ ] Test Microsoft interfaces offline against local fake Graph, EWS,
-    Autodiscover and OAuth servers with anonymized recordings, covering
-    throttling, consent errors and delta resets, and run opt-in live tests with
-    a disposable Outlook.com account, a Microsoft 365 test tenant and an
-    Exchange Server; real-session checks belong in M15
+  - [ ] Test Microsoft interfaces offline against local fake Graph, EWS (reusing
+    KDE PIM's fake EWS server), Autodiscover and OAuth servers with anonymized
+    recordings, covering throttling, consent errors and delta resets, and run
+    opt-in live tests with a disposable Outlook.com account, a Microsoft 365
+    test tenant and an Exchange Server; real-session checks belong in M15
     [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318126827)
   - [ ] Document Microsoft account setup for users and administrators, including
     turning on IMAP and SMTP AUTH, app consent and Conditional Access, with
