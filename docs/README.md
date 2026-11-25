@@ -57,11 +57,12 @@ to it instead of repeating it.
 
 ## Integrations
 
-| Guide                                                     | What it covers                                          |
-| --------------------------------------------------------- | ------------------------------------------------------- |
-| 🔌 [Integrations overview](integrations/README.md)        | Which roadmap milestones each integration guide feeds   |
-| 🖥️ [KDE Plasma integration](integrations/kde-plasma.md)   | Desktop services, Plasma widgets and KDE conventions    |
-| 🌀 [Plasma Opus integration](integrations/plasma-opus.md) | File dialogs, attachments, workspaces and shared themes |
+| Guide                                                           | What it covers                                          |
+| --------------------------------------------------------------- | ------------------------------------------------------- |
+| 🔌 [Integrations overview](integrations/README.md)              | Which roadmap milestones each integration guide feeds   |
+| 🖥️ [KDE Plasma integration](integrations/kde-plasma.md)         | Desktop services, Plasma widgets and KDE conventions    |
+| 🌀 [Plasma Opus integration](integrations/plasma-opus.md)       | File dialogs, attachments, workspaces and shared themes |
+| 🏢 [Microsoft accounts and Exchange](integrations/microsoft.md) | Outlook.com, Microsoft 365 and Exchange Server planning |
 
 ## Specifications and references
 
