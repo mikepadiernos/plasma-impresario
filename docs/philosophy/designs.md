@@ -164,7 +164,7 @@ once another message becomes current.
 **View › Group By** and the Sort button's menu offer **None**,
 **Conversation**, **Date**, **Sender**, **Subject**, **Tag**, **Read State**
 and **Mailing List**. None and Conversation are the flat and threaded lists
-from before and follow the threading preference of all accounts. The other
+from before. The other
 choices turn threading off and add a bold, collapsible header for each group
 with its message and unread counts, such as _Today (5, 2 unread)_. Date groups
 are Today, Yesterday, Earlier This Week, Last Week, Earlier This Month and then
@@ -176,14 +176,43 @@ Read State shows Unread before Read, so reading a message moves it to Read.
 Messages whose envelope has not arrived wait in a _Loading…_ group while it
 is requested. Date groups follow the sort direction, newest first when
 descending; the other groups are alphabetical, and the sorting applies inside
-each group. The choice is stored per account as `gui/msgList.groupBy`, which
-is absent for None and Conversation. **Expand All Groups** and **Collapse All
+each group. **Expand All Groups** and **Collapse All
 Groups** are in the Group By menu and, while grouping, in the context menu.
 Collapsed groups stay collapsed until the grouping or the account changes.
 Headers cannot be selected; message actions, Select All, drag and drop, the
 reader and the related-messages panel skip them. Up and Down step over the
 headers of expanded groups, and Left and Right collapse and expand a group
 from its header.
+
+Each folder remembers its own **view**: sort column and direction, threading
+and grouping. Choosing a sorting, threading or grouping changes only the open
+folder. A folder without its own view uses the account's default view, and an
+account without one uses the sorting saved with the list's columns and the
+former threading preference. **Use This View for All Folders** (after a
+confirmation) makes the open folder's view the account default and removes the
+views of the other folders. **Reset View for This Folder** lets the folder
+follow the account default again; it is disabled while the folder has no view
+of its own. Both are in View, after Group By, and in the Sort button's menu.
+Views are stored per account as JSON in `gui/msgList.folderViews` (at most 200
+folders, the least recently used dropped first) and `gui/msgList.defaultView`.
+`gui/msgList.groupBy` keeps the grouping of the account default for older
+versions. Views follow a renamed folder and are dropped once a folder is gone.
+Quick filters stay per account, and Relevance is never remembered.
+
+Each folder also remembers its **position**: the current and selected
+messages and the message at the top of the view. Coming back to the folder
+through the folder tree, Go to Folder or an account switch selects them again
+and scrolls to them. If the current message is gone or the folder's
+UIDVALIDITY changed, nothing is selected and the list shows its newest
+messages, at the top when sorted descending and at the bottom otherwise.
+Positions are kept in the state configuration (`MessageListPositions`, one
+JSON entry per account, at most 200 folders) and survive restarts. While the
+folder is open, new mail, flag changes, messages removed by other clients and
+the server sorting or threading again keep the same messages selected and
+current, and the current message stays where it was on the screen. A list
+scrolled to its top stays at its top when new mail arrives there. When a
+resynchronization replaces all messages of the folder, the same messages are
+selected again by UID.
 
 **Relevance** in the Sorting menu is available only while a quick search or
 Show Related filter is on; otherwise it is disabled and its tooltip says why.
@@ -192,8 +221,11 @@ most, then in the sender, then in the recipients, and the newer message wins a
 tie. Messages which have not loaded yet come last. When the search is cleared,
 the list returns to the sorting from before.
 
-Below the list, a **status line** shows the folder's message and unread
-counts as reported by the server (_120 messages, 7 unread_). It adds _showing
+Below the list, a **status line** starts with the **scope**, the account and
+folder of the list (_Work › INBOX_), with the full folder name in its tooltip
+and an accessible name such as _Showing folder INBOX of account Work_. It is
+hidden while no folder is open. The status line then shows the folder's
+message and unread counts as reported by the server (_120 messages, 7 unread_). It adds _showing
 7 of 120_ while filters are on and _3 selected_ when more than one message is
 selected. **Select All** (Ctrl+A), **Select Thread**, **Invert Selection** and
 **Deselect** are in the Message menu. Their shortcuts apply only while the
@@ -497,10 +529,11 @@ claims that every component is implemented.
   and The Bat!. Unread, Flagged and With Attachments quick filters, a Sort
   button, selection commands, folder counts and Show Related filters by the
   current message's sender, recipient, subject or mailing list, grouping by
-  conversation, date, sender, subject, tag, read state or mailing list, and
-  relevance sorting of search results are implemented (see
-  [Current interface](#current-interface)); filters by tag or date and
-  per-folder filter state remain planned.
+  conversation, date, sender, subject, tag, read state or mailing list,
+  relevance sorting of search results, per-folder sorting, threading and
+  grouping with account defaults, per-folder positions and a scope indicator
+  are implemented (see [Current interface](#current-interface)); filters by
+  tag or date and per-folder filter state remain planned.
 - **Conversation reader:** Display message content, metadata, quoted text and
   reply actions in a focused reading pane. Inspired by Trojitá and Aqua Mail.
 - **Compose and recipients:** Provide identity selection, recipient entry,
