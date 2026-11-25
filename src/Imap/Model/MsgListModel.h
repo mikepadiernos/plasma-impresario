@@ -82,6 +82,11 @@ public slots:
 signals:
     void messageRemoved(void *);
     void mailboxChanged(const QModelIndex &mailbox);
+    /** @short The shown mailbox was removed from the tree, for example when the mailbox list was reloaded
+
+    The list is empty afterwards; a mailbox of the same name may be listed again.
+    */
+    void mailboxLost(const QString &mailboxName);
 
     /** @short Messages are available for the first time after selecting new mailbox */
     void messagesAvailable();
