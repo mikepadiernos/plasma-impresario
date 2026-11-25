@@ -141,7 +141,9 @@ alone. Each header shows the account's name and flags an account that needs
 attention. Clicking another account's header switches to that account, like the
 toolbar's account selector; clicking the active account's header collapses or
 expands its folders. The headers take keyboard focus and announce whether the
-folders are shown.
+folders are shown. Once an account's INBOX count is known, its header shows the
+unread count in bold, for example _Work (3)_, and screen readers announce
+_Work, 3 unread_; background accounts are included.
 
 **View › Show Header** adds a header region above the columns with the active
 account, the current folder and the account's status when it needs attention.
@@ -226,7 +228,11 @@ while the account has no such folder. **Mailbox › Go to Folder…** (Ctrl+J)
 opens a searchable list of the folders already loaded in the tree: typing
 filters it, the arrow keys move through matches and Enter opens the folder.
 Both select the folder in the tree and move focus to the message list, also
-in one-panel-at-a-time navigation.
+in one-panel-at-a-time navigation. **Mailbox › Go to Next Unread Folder**
+(Ctrl+Alt+N) opens the next folder of the active account, in tree order and
+wrapping around, that has unread messages. **Mailbox › Check for New Mail**
+(F5) asks every online account for new counts, including background accounts,
+and resynchronizes the open folder.
 
 **Deleting messages** depends on the account's Trash folder. While the active
 account has one and the open folder is not that Trash, Delete (the **Move to

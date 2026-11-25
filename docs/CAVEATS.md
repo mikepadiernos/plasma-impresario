@@ -253,6 +253,15 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
   rows share one height, so date group headings are as tall as a two-line row.
   The column header, with its column chooser and sorting by clicking, is
   hidden in Two Lines.
+- ⚠️ Check for New Mail asks each online account for the counts it already
+  knew and resynchronizes the open folder; it does not list new folders or
+  download messages of closed folders. Accounts are otherwise refreshed every
+  five minutes, or immediately in the open folder when the server supports
+  IDLE.
+- ⚠️ Account headers show only the INBOX unread count, not a total across
+  folders. Go to Next Unread Folder covers the active account and folders
+  already listed in the tree; folders whose count has not arrived are skipped,
+  so the first use after connecting may skip some.
 - ⚠️ These paths are unit-tested but not yet exercised in a window against a
   live server.
 
@@ -269,6 +278,8 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
   keep.
 - In Two Lines, sort from View > Sorting, or switch View > Message Rows to
   Columns to choose and resize columns.
+- Use Reload All Folders to pick up new folders, and expand a branch so that
+  Go to Next Unread Folder can visit it.
 
 **Proposed improvements:**
 
@@ -284,6 +295,9 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
 - 📋 Keep the dense layout's preferences separate from the normal ones.
 - 📋 Offer an opt-in preview line from already downloaded text, contact photos
   from the address book only, and shorter date group headings.
+- 📋 Let Check for New Mail re-list folders, add per-account and per-folder
+  check intervals, and offer an account-wide or all-accounts unread total and
+  next-unread search.
 - 📋 Add live window-level tests.
 
 ## Before reporting results
