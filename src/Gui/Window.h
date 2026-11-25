@@ -170,6 +170,8 @@ private slots:
     void slotFocusNextRegion();
     void slotFocusPreviousRegion();
     void removeAccountNow(const QString &accountId);
+    /** Authorize an OAuth account in the browser again, then reconnect it */
+    void signInAccount(const QString &accountId);
     void slotRenameAccount();
     /** Show the menu of an account's sidebar header, with its settings, renaming and removal */
     void showAccountMenu(const QString &accountId, const QPoint &globalPos);
@@ -288,6 +290,8 @@ private:
 
     /** Ask whether to remove an account, and remove it. */
     void confirmRemoveAccount(const QString &accountId);
+    /** Whether another account signs in with the same provider, client and user, so a revocation would reach it */
+    bool sharesOAuthGrant(const QString &accountId) const;
 
     /** Disconnect the window from the models of the active account. */
     void detachAccountModels();
@@ -448,6 +452,8 @@ private:
     QLabel *m_connectionStatus;
     /** Footer button listing the other accounts that need attention */
     QToolButton *m_backgroundAlerts = nullptr;
+    /** Footer button which signs the shown OAuth account in again after its sign-in failed */
+    QToolButton *m_oauthSignIn = nullptr;
     bool m_connectionError = false;
 
     LayoutMode m_layoutMode;

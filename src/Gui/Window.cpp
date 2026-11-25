@@ -141,6 +141,7 @@
 #include <QVBoxLayout>
 #include "Imap/Model/AccountCapabilities.h"
 #include "OAuth/OAuth.h"
+#include "OAuth/Session.h"
 #include "AccountSidebar.h"
 #include "CapabilityActionGate.h"
 #include "ShellHeader.h"
@@ -933,6 +934,18 @@ void MainWindow::createWidgets()
     });
     // Left of the shown account's connection status
     statusBar()->insertPermanentWidget(0, m_backgroundAlerts);
+
+    m_oauthSignIn = new QToolButton(statusBar());
+    m_oauthSignIn->setObjectName(QStringLiteral("oauthSignInButton"));
+    m_oauthSignIn->setAutoRaise(true);
+    m_oauthSignIn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    m_oauthSignIn->setIcon(QIcon::fromTheme(QStringLiteral("dialog-password-symbolic"),
+                                            QIcon::fromTheme(QStringLiteral("dialog-password"))));
+    m_oauthSignIn->setText(i18nc("@action:button", "Sign In…"));
+    m_oauthSignIn->setToolTip(i18nc("@info:tooltip", "Sign in to this account again in your web browser"));
+    m_oauthSignIn->hide();
+    connect(m_oauthSignIn, &QToolButton::clicked, this, [this]() { signInAccount(m_accounts->activeAccount()); });
+    statusBar()->insertPermanentWidget(1, m_oauthSignIn);
 
     // The state of the GUI is only saved after a certain time has passed. This is just an optimization to make sure
     // we do not hit the disk continually when e.g. resizing some random widget.
@@ -1730,6 +1743,26 @@ void MainWindow::slotShowAccountSettings()
 
 namespace {
 const QString legacyAccountKey = QStringLiteral("accounts/legacy");
+
+bool usesOAuth(const QSettings &settings)
+{
+    return OAuth::isEnabled(settings, OAuth::Service::Imap) || OAuth::isEnabled(settings, OAuth::Service::Smtp);
+}
+
+OAuth::TokenStore::PluginGetter passwordGetter(Plugins::PluginManager *manager)
+{
+    QPointer<Plugins::PluginManager> plugins = manager;
+    return [plugins]() -> Plugins::PasswordPlugin * { return plugins ? plugins->password() : nullptr; };
+}
+
+/** @short Revoke and delete a stored grant without an account session, e.g. of a removed account */
+void revokeDetached(const OAuth::AccountConfig &config, Plugins::PluginManager *manager)
+{
+    auto *session = new OAuth::Session(config, passwordGetter(manager), nullptr);
+    QObject::connect(session, &OAuth::Session::signedOut, session, &QObject::deleteLater);
+    QObject::connect(session, &OAuth::Session::signOutFailed, session, &QObject::deleteLater);
+    session->signOut();
+}
 }
 
 QSettings *MainWindow::accountSettings() const
@@ -1850,6 +1883,12 @@ void MainWindow::refreshAccountSwitcher()
     m_accountSidebar->refresh(*m_accounts, *m_accountStatus);
     m_shellHeader->setAccount(*m_accounts, *m_accountStatus);
     updateBackgroundAlerts();
+    if (m_oauthSignIn) {
+        const Common::AccountStatusKind kind = m_accountStatus->status(m_accounts->activeAccount()).kind;
+        m_oauthSignIn->setVisible(usesOAuth(*accountSettings())
+                                  && (kind == Common::AccountStatusKind::AuthFailed
+                                      || kind == Common::AccountStatusKind::AuthRequired));
+    }
 }
 
 void MainWindow::updateBackgroundAlerts()
@@ -1906,6 +1945,10 @@ void MainWindow::notifyBackgroundAccount(const QString &accountId)
         switchAccount(accountId);
         showMainWindow();
     });
+    if (status.kind == Common::AccountStatusKind::AuthFailed && usesOAuth(*m_accounts->settings(accountId))) {
+        KNotificationAction *signIn = notification->addAction(i18nc("@action:button", "Sign In"));
+        connect(signIn, &KNotificationAction::activated, this, [this, accountId]() { signInAccount(accountId); });
+    }
     notification->sendEvent();
 #else
     if (m_trayIcon && m_trayIcon->isVisible())
@@ -2152,9 +2195,17 @@ void MainWindow::confirmRemoveAccount(const QString &accountId)
         Gui::Util::messageBoxWarning(this, i18n("Cannot Remove Account"), i18n("At least one account is required."));
         return;
     }
-    if (QMessageBox::question(this, i18n("Remove Account"),
-                              i18n("Remove account \"%1\" and its settings? Messages on the server are not affected.",
-                                   m_accounts->displayName(accountId))) != QMessageBox::Yes)
+    QString question = i18n("Remove account \"%1\" and its settings? Messages on the server are not affected.",
+                            m_accounts->displayName(accountId));
+    const QSettings &settings = *m_accounts->settings(accountId);
+    if (usesOAuth(settings)) {
+        const OAuth::Provider provider = OAuth::AccountConfig::fromSettings(settings, accountId).provider;
+        if (provider.isValid() && !provider.revocationEndpoint.isValid())
+            question += QLatin1String("\n\n")
+                + i18n("%1 cannot revoke the sign-in from Plasma Impresario. Afterwards, remove its access at %2.",
+                       provider.displayName, provider.accessManagementPage.toString());
+    }
+    if (QMessageBox::question(this, i18n("Remove Account"), question) != QMessageBox::Yes)
         return;
     removeAccountNow(accountId);
 }
@@ -2177,6 +2228,13 @@ void MainWindow::showAccountMenu(const QString &accountId, const QPoint &globalP
     QAction *rename = menu->addAction(m_actionRenameAccount->text());
     rename->setObjectName(QStringLiteral("action_account_menu_rename"));
     connect(rename, &QAction::triggered, this, [this, accountId]() { renameAccount(accountId); }, Qt::QueuedConnection);
+    if (usesOAuth(*m_accounts->settings(accountId))) {
+        QAction *signIn = menu->addAction(QIcon::fromTheme(QStringLiteral("dialog-password")),
+                                          i18nc("@action:inmenu", "Sign In…"));
+        signIn->setObjectName(QStringLiteral("action_account_menu_sign_in"));
+        connect(signIn, &QAction::triggered, this, [this, accountId]() { signInAccount(accountId); },
+                Qt::QueuedConnection);
+    }
     menu->addSeparator();
     QAction *remove = menu->addAction(m_actionRemoveAccount->icon(), m_actionRemoveAccount->text());
     remove->setObjectName(QStringLiteral("action_account_menu_remove"));
@@ -2194,14 +2252,23 @@ void MainWindow::removeAccountNow(const QString &accountId)
     if (accountId == m_accounts->activeAccount())
         switchAccount(remaining.first());
     Imap::ImapAccess *access = accountAccess(accountId);
+    const QSettings &removed = *m_accounts->settings(accountId);
+    const bool revokeOAuth = usesOAuth(removed) && !sharesOAuthGrant(accountId);
+    const OAuth::AccountConfig oauthConfig = OAuth::AccountConfig::fromSettings(removed, access->credentialAccountId());
     if (Plugins::PasswordPlugin *password = pluginManager()->password()) {
-        for (const QString &type : {QStringLiteral("imap"), QStringLiteral("smtp"), OAuth::credentialType()}) {
+        QStringList types{QStringLiteral("imap"), QStringLiteral("smtp")};
+        // Revoking deletes the stored grant once the provider has answered
+        if (!revokeOAuth)
+            types << OAuth::credentialType();
+        for (const QString &type : std::as_const(types)) {
             if (Plugins::PasswordJob *job = password->deletePassword(access->credentialAccountId(), type)) {
                 job->setAutoDelete(true);
                 job->start();
             }
         }
     }
+    if (revokeOAuth)
+        revokeDetached(oauthConfig, pluginManager());
     const QString cacheDirectory = access->cacheDirectory();
     // Deleting the account's models also closes its cache database, so the files can be removed.
     delete m_accountAccess.take(accountId);
@@ -2213,6 +2280,73 @@ void MainWindow::removeAccountNow(const QString &accountId)
     m_accounts->removeAccount(accountId);
     refreshAccountSwitcher();
     slotUpdateWindowTitle();
+}
+
+bool MainWindow::sharesOAuthGrant(const QString &accountId) const
+{
+    // Google revokes every token of a user's grant to the client, so another account would be signed out too
+    const QSettings &settings = *m_accounts->settings(accountId);
+    const OAuth::AccountConfig config = OAuth::AccountConfig::fromSettings(settings, accountId);
+    const QString user = settings.value(Common::SettingsNames::imapUserKey).toString();
+    for (const QString &other : m_accounts->accountIds()) {
+        if (other == accountId)
+            continue;
+        const QSettings &otherSettings = *m_accounts->settings(other);
+        if (!usesOAuth(otherSettings))
+            continue;
+        const OAuth::AccountConfig otherConfig = OAuth::AccountConfig::fromSettings(otherSettings, other);
+        if (otherConfig.provider.id == config.provider.id && otherConfig.clientId == config.clientId
+            && otherSettings.value(Common::SettingsNames::imapUserKey).toString().compare(user, Qt::CaseInsensitive)
+                == 0)
+            return true;
+    }
+    return false;
+}
+
+void MainWindow::signInAccount(const QString &accountId)
+{
+    if (!m_accounts->accountIds().contains(accountId) || !usesOAuth(*m_accounts->settings(accountId)))
+        return;
+    QPointer<Imap::ImapAccess> access = accountAccess(accountId);
+    auto *session = access->imapModel() ? qobject_cast<OAuth::Session *>(OAuth::TokenSource::find(access->imapModel()))
+                                        : nullptr;
+    if (!session) {
+        // Only SMTP signs in with OAuth, or the account is not connected yet
+        session = new OAuth::Session(
+            OAuth::AccountConfig::fromSettings(*m_accounts->settings(accountId), access->credentialAccountId()),
+            passwordGetter(pluginManager()), this);
+        connect(session, &OAuth::Session::authorized, session, &QObject::deleteLater);
+        connect(session, &OAuth::Session::authorizationFailed, session, &QObject::deleteLater);
+    }
+    if (session->isAuthorizing())
+        return;
+    // Answers only this attempt: whichever outcome arrives first disconnects both
+    auto *attempt = new QObject(this);
+    connect(session, &QObject::destroyed, attempt, &QObject::deleteLater);
+    connect(session, &OAuth::Session::authorized, attempt, [this, accountId, access, attempt]() {
+        attempt->deleteLater();
+        if (!access || !m_accounts->accountIds().contains(accountId))
+            return;
+        m_accountStatus->setStatus(accountId, Common::AccountStatusKind::Idle);
+        if (accountId == m_accounts->activeAccount()) {
+            m_connectionError = false;
+            updateConnectionStatus(i18nc("@info:status", "Signed in"));
+        }
+        // A failed sign-in left the account offline; connect it with the new grant
+        if (auto *watcher = qobject_cast<Imap::Mailbox::NetworkWatcher *>(access->networkWatcher()))
+            watcher->setNetworkOnline();
+        if (auto *model = qobject_cast<Imap::Mailbox::Model *>(access->imapModel());
+            model && accountId != m_accounts->activeAccount())
+            model->reloadMailboxList();
+    });
+    connect(session, &OAuth::Session::authorizationFailed, attempt, [this, accountId, attempt](const QString &message) {
+        attempt->deleteLater();
+        if (m_accounts->accountIds().contains(accountId))
+            m_accountStatus->setStatus(accountId, Common::AccountStatusKind::AuthFailed, message);
+    });
+    if (accountId == m_accounts->activeAccount())
+        updateConnectionStatus(i18nc("@info:status", "Waiting for you to finish signing in in your web browser…"));
+    session->authorize();
 }
 
 void MainWindow::authenticationRequested()

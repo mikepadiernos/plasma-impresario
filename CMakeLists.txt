@@ -1111,7 +1111,8 @@ if(BUILD_TESTING)
             foreach(account_case migratesSingleProfileIntoFirstAccount switchingKeepsAccountsIndependent backgroundAccountStatusIsShown
                     removingAccountDeletesItsSettingsAndPasswords accountsSwitchFromTheKeyboard
                     savedSearchesAndFolderExpansionFollowTheAccount focusCyclesThroughShellRegions
-                    identitiesFollowTheAccount composerSendsWithItsOwnAccount newAccountsStartWithoutIdentities)
+                    identitiesFollowTheAccount composerSendsWithItsOwnAccount newAccountsStartWithoutIdentities
+                    oauthAccountsOfferSignIn)
                 add_test(NAME test_MainWindowAccounts_${account_case} COMMAND test_MainWindowAccounts ${account_case})
                 set_tests_properties(test_MainWindowAccounts_${account_case} PROPERTIES
                     TIMEOUT 60

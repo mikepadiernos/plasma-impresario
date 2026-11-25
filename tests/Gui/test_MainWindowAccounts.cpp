@@ -14,6 +14,7 @@
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/Model.h"
+#include "OAuth/Session.h"
 #include "Plugins/PasswordPlugin.h"
 #include "Plugins/PluginManager.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
@@ -42,6 +43,7 @@
 #include <QTest>
 #include <QTimer>
 #include <QToolButton>
+#include <QUrlQuery>
 
 namespace {
 
@@ -93,6 +95,18 @@ Gui::ComposeWidget *openComposer(Gui::MainWindow &window)
             sender->setEditText(QStringLiteral("pat@example.test"));
     }
     return composer;
+}
+
+QMenu *openAccountMenu(Gui::MainWindow &window, const QString &accountId)
+{
+    for (QMenu *old : window.findChildren<QMenu *>(QStringLiteral("accountMenu")))
+        old->close();
+    QMetaObject::invokeMethod(&window, "showAccountMenu", Q_ARG(QString, accountId), Q_ARG(QPoint, QPoint(10, 10)));
+    for (QMenu *menu : window.findChildren<QMenu *>(QStringLiteral("accountMenu"))) {
+        if (menu->isVisible())
+            return menu;
+    }
+    return nullptr;
 }
 
 QComboBox *accountSwitcher(Gui::MainWindow &window)
@@ -490,6 +504,102 @@ private slots:
         QTest::qWait(200);
         QVERIFY(!QFile::exists(directory.filePath(QStringLiteral("work.eml"))));
         delete composer;
+    }
+
+    void oauthAccountsOfferSignIn()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        {
+            QSettings work(directory.filePath(QStringLiteral("main-account-1.conf")), QSettings::IniFormat);
+            work.setValue(Common::SettingsNames::imapAuthMethodKey, Common::SettingsNames::authMethodOAuth);
+            work.setValue(Common::SettingsNames::oauthProviderKey, QStringLiteral("microsoft"));
+            work.setValue(Common::SettingsNames::oauthClientIdKey, QStringLiteral("work-client"));
+            work.setValue(Common::SettingsNames::imapUserKey, QStringLiteral("pat@example.test"));
+        }
+        // Never open a real browser
+        QList<QUrl> opened;
+        OAuth::Session::setDefaultBrowserLauncher([&](const QUrl &url) {
+            opened << url;
+            return false;
+        });
+
+        Gui::MainWindow window(&settings);
+        auto *switcher = accountSwitcher(window);
+        auto *signIn = window.findChild<QToolButton *>(QStringLiteral("oauthSignInButton"));
+        QVERIFY(switcher && signIn);
+        QVERIFY(signIn->isHidden());
+
+        // Only OAuth accounts offer to sign in from their menu
+        QMenu *menu = openAccountMenu(window, QStringLiteral("account-2"));
+        QVERIFY(menu);
+        QVERIFY(!menu->findChild<QAction *>(QStringLiteral("action_account_menu_sign_in")));
+        menu = openAccountMenu(window, QStringLiteral("account-1"));
+        QVERIFY(menu);
+        QAction *menuSignIn = menu->findChild<QAction *>(QStringLiteral("action_account_menu_sign_in"));
+        QVERIFY(menuSignIn);
+
+        // A failed OAuth sign-in offers to sign in again from the footer
+        emit window.imapModel()->authAttemptFailed(OAuth::errorMessage(OAuth::Error::Revoked));
+        QVERIFY(!signIn->isHidden());
+
+        // Signing in again reports its failure on the account, without a dialog: the fake browser cannot open, or
+        // without an encrypted credential store, the sign-in fails before it would
+        QTRY_VERIFY(window.pluginManager()->password() != nullptr);
+        const bool encrypted =
+            window.pluginManager()->password()->features() & Plugins::PasswordPlugin::FeatureEncryptedStorage;
+        const QString failure =
+            OAuth::errorMessage(encrypted ? OAuth::Error::BrowserUnavailable : OAuth::Error::StorageUnavailable);
+        signIn->click();
+        QTRY_VERIFY(switcher->itemData(0, Qt::ToolTipRole).toString().contains(failure));
+        QCOMPARE(opened.size(), encrypted ? 1 : 0);
+        if (encrypted) {
+            const QUrlQuery query(opened.first());
+            QCOMPARE(opened.first().host(), QStringLiteral("login.microsoftonline.com"));
+            QCOMPARE(query.queryItemValue(QStringLiteral("client_id")), QStringLiteral("work-client"));
+            QCOMPARE(query.queryItemValue(QStringLiteral("login_hint"), QUrl::FullyDecoded), QStringLiteral("pat@example.test"));
+        }
+        QVERIFY(!signIn->isHidden());
+        for (auto *widget : QApplication::topLevelWidgets()) {
+            auto *box = qobject_cast<QMessageBox *>(widget);
+            QVERIFY2(!box || !box->isVisible(), qPrintable(box ? box->text() : QString()));
+        }
+        // The menu starts the same sign-in
+        emit window.imapModel()->authAttemptFailed(OAuth::errorMessage(OAuth::Error::Revoked));
+        QVERIFY(!switcher->itemData(0, Qt::ToolTipRole).toString().contains(failure));
+        menu = openAccountMenu(window, QStringLiteral("account-1"));
+        QVERIFY(menu);
+        menuSignIn = menu->findChild<QAction *>(QStringLiteral("action_account_menu_sign_in"));
+        QVERIFY(menuSignIn);
+        menuSignIn->trigger();
+        QTRY_VERIFY(switcher->itemData(0, Qt::ToolTipRole).toString().contains(failure));
+        QCOMPARE(opened.size(), encrypted ? 2 : 0);
+
+        // Removing an account at a provider without revocation tells where to remove its access
+        menu = openAccountMenu(window, QStringLiteral("account-1"));
+        QVERIFY(menu);
+        QString question;
+        QTimer poll;
+        connect(&poll, &QTimer::timeout, [&]() {
+            if (auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+                question = box->text();
+                box->button(QMessageBox::No)->click();
+            }
+        });
+        poll.start(20);
+        menu->findChild<QAction *>(QStringLiteral("action_account_menu_remove"))->trigger();
+        QTRY_VERIFY(!question.isEmpty());
+        QVERIFY(question.contains(OAuth::provider(QStringLiteral("microsoft")).accessManagementPage.toString()));
+        QCOMPARE(settings.value(QStringLiteral("accounts/ids")).toStringList().size(), 2);
+
+        // A password account which failed does not offer it
+        switcher->setCurrentIndex(1);
+        emit switcher->activated(1);
+        emit window.imapModel()->authAttemptFailed(QStringLiteral("Rejected password"));
+        QVERIFY(signIn->isHidden());
+        OAuth::Session::setDefaultBrowserLauncher(nullptr);
     }
 
     void newAccountsStartWithoutIdentities()
