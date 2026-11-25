@@ -1094,7 +1094,7 @@ if(BUILD_TESTING)
                     savedSearchesAndFolderExpansionFollowTheAccount focusCyclesThroughShellRegions
                     goToFolderActionsWithoutFolders destructiveActionsOffline quickActionsOffline
                     messageListFiltersOffline shortcutOverviewAndSelectionOffline powerUserProcessingOffline
-                    groupingAndRelevanceOffline)
+                    groupingAndRelevanceOffline folderViewStateOffline)
                 add_test(NAME test_MainWindowAccounts_${account_case} COMMAND test_MainWindowAccounts ${account_case})
                 set_tests_properties(test_MainWindowAccounts_${account_case} PROPERTIES
                     TIMEOUT 60

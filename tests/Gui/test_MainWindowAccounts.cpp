@@ -3,6 +3,7 @@
 */
 #include "Common/AccountStatus.h"
 #include "Common/MetaTypes.h"
+#include "Common/Paths.h"
 #include "Common/SettingsNames.h"
 #include "Gui/DensityMenu.h"
 #include "Gui/InlineNotificationBar.h"
@@ -13,12 +14,16 @@
 #include "Gui/Window.h"
 #include "Imap/Model/GroupingMsgListModel.h"
 #include "Imap/Model/ImapAccess.h"
+#include "Imap/Model/CombinedCache.h"
 #include "Imap/Model/ItemRoles.h"
+#include "Imap/Model/MailboxMetadata.h"
 #include "Imap/Model/Model.h"
+#include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/PrettyMsgListModel.h"
 #include "Plugins/PasswordPlugin.h"
 #include "Plugins/PluginManager.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
+#include "UiUtils/ViewStateStore.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
 #include "Gui/WebEngineMessageProfile.h"
@@ -32,12 +37,14 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QDialog>
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QSettings>
 #include <QSignalSpy>
@@ -45,6 +52,7 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTimer>
 #include <QToolButton>
 #include <QTreeWidget>
 
@@ -72,6 +80,35 @@ void seedTwoAccounts(const QTemporaryDir &directory, QSettings &settings)
     QSettings second(directory.filePath(QStringLiteral("main-account-2.conf")), QSettings::IniFormat);
     configureOffline(second, QStringLiteral("home.example.test"));
     second.sync();
+}
+
+/** @short Let the offline first account know the folders INBOX and Archive with five messages each */
+bool seedFirstAccountCache()
+{
+    // The first account is the migrated one, whose cache has no account directory of its own
+    const QString cacheDir = Common::writablePath(Common::LOCATION_CACHE) + QLatin1Char('/');
+    if (!QDir().mkpath(cacheDir))
+        return false;
+    Imap::Mailbox::CombinedCache cache(QStringLiteral("trojita-imap-cache"), cacheDir);
+    if (!cache.open())
+        return false;
+    const QString separator = QStringLiteral(".");
+    cache.setChildMailboxes(QString(), {Imap::Mailbox::MailboxMetadata(QStringLiteral("Archive"), separator, {}),
+                                        Imap::Mailbox::MailboxMetadata(QStringLiteral("INBOX"), separator, {})});
+    const QList<std::pair<QString, uint>> folders{{QStringLiteral("INBOX"), 7}, {QStringLiteral("Archive"), 8}};
+    for (const auto &[mailbox, validity] : folders) {
+        Imap::Mailbox::SyncState sync;
+        sync.setExists(5);
+        sync.setUidValidity(validity);
+        sync.setUidNext(6);
+        sync.setUnSeenCount(5);
+        sync.setRecent(0);
+        cache.setMailboxSyncState(mailbox, sync);
+        cache.setUidMapping(mailbox, Imap::Uids{1, 2, 3, 4, 5});
+        for (uint uid = 1; uid <= 5; ++uid)
+            cache.setMsgFlags(mailbox, uid, QStringList());
+    }
+    return true;
 }
 
 QComboBox *accountSwitcher(Gui::MainWindow &window)
@@ -1175,6 +1212,200 @@ private slots:
         QTest::keyPress(tree, Qt::Key_Right);
         QVERIFY(tree->isExpanded(read));
         tree->setModel(nullptr);
+    }
+
+    void folderViewStateOffline()
+    {
+        using Imap::Mailbox::GroupingMsgListModel;
+        using UiUtils::ViewStateStore;
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        {
+            // All accounts open their disk cache under the same database connection name, so the second account
+            // would take the connection of the first one away
+            QSettings second(directory.filePath(QStringLiteral("main-account-2.conf")), QSettings::IniFormat);
+            second.setValue(Common::SettingsNames::cacheOfflineKey, Common::SettingsNames::cacheOfflineNone);
+        }
+        QVERIFY(seedFirstAccountCache());
+        Gui::MainWindow window(&settings);
+        auto action = [&window](const QString &name) {
+            return window.findChild<QAction *>(name);
+        };
+        auto prettyModel = [&window]() {
+            return window.findChild<Imap::Mailbox::PrettyMsgListModel *>(QStringLiteral("prettyMsgListModel"));
+        };
+        auto groupingModel = [&window]() {
+            return window.findChild<GroupingMsgListModel *>(QStringLiteral("groupingMsgListModel"));
+        };
+        auto openMailbox = [&window]() {
+            auto *msgList = qobject_cast<Imap::Mailbox::MsgListModel *>(window.imapAccess()->msgListModel());
+            return msgList ? msgList->currentMailbox().data(Imap::Mailbox::RoleMailboxName).toString() : QString();
+        };
+        auto *list = window.findChild<Gui::MessageListWidget *>();
+        auto *tree = list->tree;
+        auto *mailboxes = window.findChild<Gui::MailBoxTreeView *>();
+        QVERIFY(mailboxes);
+        auto *scope = window.findChild<QLabel *>(QStringLiteral("messageListScope"));
+        QVERIFY(scope);
+        auto *forAll = action(QStringLiteral("messageListViewForAllFolders"));
+        auto *resetFolder = action(QStringLiteral("messageListResetFolderView"));
+        QVERIFY(forAll);
+        QVERIFY(resetFolder);
+        auto *sortMenu = window.findChild<QMenu *>(QStringLiteral("sortMenu"));
+        QVERIFY(sortMenu);
+        QVERIFY(sortMenu->actions().contains(forAll));
+        QVERIFY(sortMenu->actions().contains(resetFolder));
+        QAction *descending = nullptr;
+        for (QAction *candidate : sortMenu->actions()) {
+            if (candidate->text() == QLatin1String("&Descending"))
+                descending = candidate;
+        }
+        QVERIFY(descending);
+        auto messageIndex = [tree](uint uid) {
+            const QAbstractItemModel *model = tree->model();
+            const auto matches = model->match(model->index(0, 0), Imap::Mailbox::RoleMessageUid, uid, 1,
+                                              Qt::MatchExactly | Qt::MatchRecursive);
+            return matches.isEmpty() ? QModelIndex() : matches.constFirst();
+        };
+        auto goTo = [&](const QString &mailbox) {
+            mailboxes->restoreMailbox(mailbox);
+            QTRY_COMPARE(openMailbox(), mailbox);
+            QTRY_COMPARE(prettyModel()->rowCount(), 5);
+        };
+        auto storedViews = [&window]() {
+            ViewStateStore store;
+            store.load(*window.accountSettings());
+            return store;
+        };
+        auto answerConfirmation = [&window](QMessageBox::ButtonRole role) {
+            QTimer::singleShot(0, &window, [&window, role]() {
+                auto *box = window.findChild<QMessageBox *>(QStringLiteral("messageListViewForAllFoldersConfirmation"));
+                QVERIFY(box);
+                for (QAbstractButton *button : box->buttons()) {
+                    if (box->buttonRole(button) == role) {
+                        button->click();
+                        return;
+                    }
+                }
+                box->reject();
+            });
+        };
+
+        // Without an open folder there is no scope and nothing to apply to the folders
+        QVERIFY(scope->isHidden());
+        QVERIFY(!forAll->isEnabled());
+        QVERIFY(!resetFolder->isEnabled());
+
+        goTo(QStringLiteral("INBOX"));
+        QCOMPARE(scope->text(), QStringLiteral("Work › INBOX"));
+        QVERIFY(!scope->isHidden());
+        QVERIFY(scope->accessibleName().contains(QStringLiteral("INBOX")));
+        QVERIFY(scope->accessibleName().contains(QStringLiteral("Work")));
+        QVERIFY(forAll->isEnabled());
+        QVERIFY(!resetFolder->isEnabled());
+        QCOMPARE(tree->model(), prettyModel());
+
+        // The arrangement chosen in a folder belongs to that folder only
+        action(QStringLiteral("messageListGroupByDate"))->trigger();
+        QCOMPARE(tree->model(), groupingModel());
+        QCOMPARE(groupingModel()->grouping(), GroupingMsgListModel::Grouping::Date);
+        descending->trigger();
+        QCOMPARE(tree->header()->sortIndicatorOrder(), Qt::DescendingOrder);
+        QVERIFY(resetFolder->isEnabled());
+        QVERIFY(window.accountSettings()->contains(ViewStateStore::folderViewsKey));
+        QVERIFY(!window.accountSettings()->contains(Common::SettingsNames::guiMsgListGroupBy));
+        QVERIFY(!settings.contains(Common::SettingsNames::guiMsgListShowThreading));
+        {
+            const auto inbox = storedViews().folderView(QStringLiteral("INBOX"));
+            QVERIFY(inbox);
+            QCOMPARE(inbox->groupBy, GroupingMsgListModel::groupingName(GroupingMsgListModel::Grouping::Date));
+            QCOMPARE(inbox->sortOrder, Qt::DescendingOrder);
+            QCOMPARE(storedViews().scope(QStringLiteral("Archive")), ViewStateStore::Scope::Global);
+        }
+
+        // The current message of the folder comes back with it
+        QTRY_VERIFY(messageIndex(3).isValid());
+        tree->selectionModel()->setCurrentIndex(messageIndex(3),
+                                                QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+        QCOMPARE(tree->currentIndex().data(Imap::Mailbox::RoleMessageUid).toUInt(), 3u);
+
+        // Another folder without its own arrangement looks like all folders by default
+        goTo(QStringLiteral("Archive"));
+        QCOMPARE(scope->text(), QStringLiteral("Work › Archive"));
+        QCOMPARE(tree->model(), prettyModel());
+        QVERIFY(action(QStringLiteral("messageListGroupByNone"))->isChecked());
+        QCOMPARE(tree->header()->sortIndicatorOrder(), Qt::AscendingOrder);
+        QVERIFY(!descending->isChecked());
+        QVERIFY(!resetFolder->isEnabled());
+
+        goTo(QStringLiteral("INBOX"));
+        QCOMPARE(tree->model(), groupingModel());
+        QCOMPARE(groupingModel()->grouping(), GroupingMsgListModel::Grouping::Date);
+        QVERIFY(descending->isChecked());
+        QCOMPARE(tree->header()->sortIndicatorOrder(), Qt::DescendingOrder);
+        QTRY_COMPARE(tree->currentIndex().data(Imap::Mailbox::RoleMessageUid).toUInt(), 3u);
+        QVERIFY(tree->selectionModel()->isSelected(tree->currentIndex()));
+
+        // Declining the confirmation changes nothing
+        answerConfirmation(QMessageBox::RejectRole);
+        forAll->trigger();
+        QVERIFY(resetFolder->isEnabled());
+        QCOMPARE(storedViews().scope(QStringLiteral("Archive")), ViewStateStore::Scope::Global);
+
+        // The view of this folder becomes the view of all folders of the account
+        answerConfirmation(QMessageBox::AcceptRole);
+        forAll->trigger();
+        QVERIFY(!resetFolder->isEnabled());
+        QVERIFY(storedViews().folders().isEmpty());
+        QCOMPARE(storedViews().scope(QStringLiteral("INBOX")), ViewStateStore::Scope::Account);
+        QCOMPARE(window.accountSettings()->value(Common::SettingsNames::guiMsgListGroupBy).toString(),
+                 GroupingMsgListModel::groupingName(GroupingMsgListModel::Grouping::Date));
+        goTo(QStringLiteral("Archive"));
+        QCOMPARE(tree->model(), groupingModel());
+        QCOMPARE(groupingModel()->grouping(), GroupingMsgListModel::Grouping::Date);
+        QVERIFY(descending->isChecked());
+
+        // A folder which has its own view again can go back to the view of the account
+        action(QStringLiteral("messageListGroupBySender"))->trigger();
+        QCOMPARE(groupingModel()->grouping(), GroupingMsgListModel::Grouping::Sender);
+        QVERIFY(resetFolder->isEnabled());
+        QCOMPARE(storedViews().folders(), QStringList{QStringLiteral("Archive")});
+        resetFolder->trigger();
+        QCOMPARE(groupingModel()->grouping(), GroupingMsgListModel::Grouping::Date);
+        QVERIFY(action(QStringLiteral("messageListGroupByDate"))->isChecked());
+        QVERIFY(!resetFolder->isEnabled());
+        QVERIFY(storedViews().folders().isEmpty());
+
+        // The other account has its own views and no folder open
+        auto *nextAccount = action(QStringLiteral("action_next_account"));
+        nextAccount->trigger();
+        QCOMPARE(window.imapAccess()->credentialAccountId(), QStringLiteral("account-2"));
+        QVERIFY(scope->isHidden());
+        QCOMPARE(tree->model(), prettyModel());
+        QVERIFY(action(QStringLiteral("messageListGroupByNone"))->isChecked());
+        QVERIFY(!descending->isChecked());
+        QVERIFY(!forAll->isEnabled());
+
+        nextAccount->trigger();
+        QCOMPARE(settings.value(QStringLiteral("accounts/active")).toString(), QStringLiteral("account-1"));
+        QCOMPARE(openMailbox(), QStringLiteral("Archive"));
+        QCOMPARE(scope->text(), QStringLiteral("Work › Archive"));
+        QCOMPARE(tree->model(), groupingModel());
+        QCOMPARE(groupingModel()->grouping(), GroupingMsgListModel::Grouping::Date);
+        QVERIFY(descending->isChecked());
+
+        // The position of INBOX was kept for the next session as well
+        QVERIFY(QMetaObject::invokeMethod(&window, "flushUiState"));
+        const QString positions = KConfigGroup(KSharedConfig::openStateConfig(), QStringLiteral("MessageListPositions"))
+                                      .readEntry(window.imapAccess()->credentialAccountId(), QString());
+        UiUtils::FolderPositionStore stored;
+        stored.loadJson(positions);
+        const auto inboxPosition = stored.position(QStringLiteral("INBOX"));
+        QVERIFY(inboxPosition);
+        QCOMPARE(inboxPosition->uidValidity, 7u);
+        QCOMPARE(inboxPosition->uid, 3u);
     }
 };
 

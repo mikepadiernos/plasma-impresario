@@ -157,12 +157,30 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     m_listStatus->setContentsMargins(margin, margin / 2, margin, margin / 2);
     m_listStatus->hide();
 
+    m_statusRow = new QWidget(this);
+    m_scope = new QLabel(m_statusRow);
+    m_scope->setObjectName(QStringLiteral("messageListScope"));
+    m_scope->setTextFormat(Qt::PlainText);
+    // Shrinks rather than widening the list when the names are long
+    m_scope->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Preferred);
+    m_scope->setMinimumWidth(1);
+    m_scope->setForegroundRole(QPalette::PlaceholderText);
+    m_scope->setContentsMargins(margin, margin / 2, 0, margin / 2);
+    m_scope->hide();
+    m_listStatus->setParent(m_statusRow);
+    auto *statusLayout = new QHBoxLayout(m_statusRow);
+    statusLayout->setSpacing(0);
+    statusLayout->setContentsMargins(0, 0, 0, 0);
+    statusLayout->addWidget(m_scope);
+    statusLayout->addWidget(m_listStatus, 1);
+    m_statusRow->hide();
+
     QVBoxLayout *layout = new QVBoxLayout(this);
     layout->setSpacing(0);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addLayout(m_toolRow);
     layout->addWidget(tree);
-    layout->addWidget(m_listStatus);
+    layout->addWidget(m_statusRow);
 
     m_searchResetTimer = new QTimer(this);
     m_searchResetTimer->setSingleShot(true);
@@ -256,6 +274,23 @@ void MessageListWidget::setListStatus(const QString &text)
 {
     m_listStatus->setText(text);
     m_listStatus->setVisible(!text.isEmpty());
+    m_statusRow->setVisible(!m_scope->isHidden() || !m_listStatus->isHidden());
+}
+
+void MessageListWidget::setScope(const QString &account, const QString &folder, const QString &fullFolderName)
+{
+    if (folder.isEmpty()) {
+        m_scope->clear();
+        m_scope->setToolTip(QString());
+        m_scope->setAccessibleName(QString());
+        m_scope->hide();
+    } else {
+        m_scope->setText(i18nc("@info:status account and folder shown in the message list", "%1 \u203A %2", account, folder));
+        m_scope->setToolTip(i18nc("@info:tooltip", "Account: %1\nFolder: %2", account, fullFolderName));
+        m_scope->setAccessibleName(i18nc("@info:accessible", "Showing folder %1 of account %2", folder, account));
+        m_scope->show();
+    }
+    m_statusRow->setVisible(!m_scope->isHidden() || !m_listStatus->isHidden());
 }
 
 KConfigGroup MessageListWidget::savedSearchGroup() const

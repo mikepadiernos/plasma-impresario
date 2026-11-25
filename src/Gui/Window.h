@@ -45,6 +45,7 @@
 #include "UiUtils/QuickFilters.h"
 #include "UiUtils/RecentFolders.h"
 #include "UiUtils/ShortcutOverview.h"
+#include "UiUtils/ViewStateStore.h"
 #include "MessageActionHandler.h"
 
 class QActionGroup;
@@ -118,6 +119,7 @@ class EmbeddedPanelsMenu;
 class InlineNotificationBar;
 class MailBoxTreeView;
 class MessageListWidget;
+class MessageSelectionRestorer;
 class ProtocolLoggerWidget;
 class ShortcutOverviewDialog;
 class TaskProgressIndicator;
@@ -426,9 +428,37 @@ private:
 
     /** @short Show the message list flat, in conversations or in groups; @p remember stores the choice for the account */
     void setMessageListGrouping(Imap::Mailbox::GroupingMsgListModel::Grouping grouping, bool remember = true);
-    /** @short Show the message list in the active account's grouping */
-    void applyMessageListGrouping();
-    void saveMessageListGrouping();
+    /** @short Arrange the message list as remembered for the current folder, or as the account's default */
+    void applyMessageListView();
+    /** @short Sort the message list as the arrangement of the current folder says, unless it is sorted by relevance */
+    void applyMessageListSort();
+    /** @short The threading or grouping which the message list shows */
+    Imap::Mailbox::GroupingMsgListModel::Grouping shownGrouping() const;
+    /** @short Remember the shown threading and grouping as the arrangement of the current folder */
+    void rememberMessageListView();
+    /** @short Remember a sorting picked by the user as the arrangement of the current folder */
+    void rememberMessageListSort(int column, Qt::SortOrder order);
+    /** @short Store m_view for the current folder, or as the account's default when no folder is open */
+    void storeMessageListView();
+    void saveMessageListViews();
+    /** @short Make the current folder's arrangement the account's default for all folders, after asking */
+    void applyMessageListViewToAllFolders();
+    /** @short Let the current folder follow the account's default arrangement again */
+    void resetMessageListViewForFolder();
+    void updateMessageListViewActions();
+    /** @short Forget the arrangements and positions of folders which are gone */
+    void pruneFolderStates();
+    /** @short The remembered positions in the message lists of the active account's folders */
+    UiUtils::FolderPositionStore &folderPositions();
+    /** @short Note where the message list of the open folder is, so that coming back can restore it */
+    void captureFolderPosition(bool anchorOnly = false);
+    /** @short Remember the noted position of the folder which the message list showed */
+    void commitFolderPosition();
+    /** @short Go back to the remembered position in the message list of the open folder */
+    void restoreFolderPosition();
+    void saveFolderPositions();
+    /** @short Show the account and the folder of the message list */
+    void updateMessageListScope();
     void syncGroupByActions();
     /** @short Show @p model in the message list, keeping the current and the selected messages */
     void swapMessageListModel(QAbstractItemModel *model);
@@ -498,6 +528,21 @@ private:
     /** Shown on top of prettyMsgListModel while the messages are grouped by something else than conversations */
     Imap::Mailbox::GroupingMsgListModel *m_groupingMsgListModel = nullptr;
     Imap::Mailbox::GroupingMsgListModel::Grouping m_groupBy = Imap::Mailbox::GroupingMsgListModel::Grouping::None;
+    /** Arrangements of the message list of the active account's folders */
+    UiUtils::ViewStateStore m_viewStore;
+    /** Arrangement which the message list should have for m_viewMailbox */
+    UiUtils::MessageListView m_view;
+    QString m_viewMailbox;
+    /** Nonzero while the message list is arranged from m_view rather than by the user */
+    int m_applyingView = 0;
+    /** Sorting from the saved header state, the default of all accounts */
+    std::optional<std::pair<int, Qt::SortOrder>> m_globalSort;
+    /** Positions in the message lists, per account ID */
+    QHash<QString, UiUtils::FolderPositionStore> m_folderPositions;
+    /** Folder which the message list shows, and where in it the list is */
+    QString m_positionMailbox;
+    UiUtils::FolderPosition m_livePosition;
+    QPointer<MessageSelectionRestorer> m_messageRestorer;
     /** Keys of the groups which the user has collapsed during this session */
     QSet<QString> m_collapsedGroups;
     Composer::SenderIdentitiesModel *m_senderIdentities;
@@ -650,6 +695,8 @@ private:
     QActionGroup *m_groupByActions = nullptr;
     QMenu *m_groupByMenu = nullptr;
     QAction *m_actionExpandAllGroups = nullptr;
+    QAction *m_actionViewForAllFolders = nullptr;
+    QAction *m_actionResetFolderView = nullptr;
     QAction *m_actionCollapseAllGroups = nullptr;
     QAction *m_actionLayoutCompact;
     QAction *m_actionLayoutWide;

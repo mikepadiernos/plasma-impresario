@@ -60,6 +60,8 @@ public:
     QToolButton *addToolMenuButton(QMenu *menu, const QIcon &icon, const QString &text);
     /** @short Show @p text below the list, for example message counts; an empty text hides it */
     void setListStatus(const QString &text);
+    /** @short Show which account and folder the list belongs to next to the status; an empty folder hides it */
+    void setScope(const QString &account, const QString &folder, const QString &fullFolderName);
 
     // FIXME: consider making this private and moving the logic from Window with it
     MsgListView *tree;
@@ -104,6 +106,9 @@ private:
     /** The quick search field and the buttons next to it */
     QHBoxLayout *m_toolRow;
     QLabel *m_listStatus;
+    /** Account and folder of the list, in the row of the status */
+    QLabel *m_scope;
+    QWidget *m_statusRow;
     QAction *m_searchOptions;
     QAction *m_searchInSubject;
     QAction *m_searchInBody;

@@ -53,6 +53,7 @@
 #include <QSslError>
 #include <QSslKey>
 #include <QStackedWidget>
+#include <QStandardItemModel>
 #include <QStatusBar>
 #include <QTimer>
 #include <QTextDocument>
@@ -217,7 +218,17 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     connectBackgroundAccounts();
     createActions();
     createMenus();
-    applyMessageListGrouping();
+    applyMessageListView();
+    connect(msgListWidget->tree->header(), &QHeaderView::sectionClicked, this, [this]() {
+        // Sorting by relevance is never remembered
+        if (m_actionSortByRelevance && m_actionSortByRelevance->isChecked())
+            return;
+        const QHeaderView *header = msgListWidget->tree->header();
+        rememberMessageListSort(header->sortIndicatorSection(), header->sortIndicatorOrder());
+    });
+    connect(msgListWidget->tree->verticalScrollBar(), &QScrollBar::valueChanged, this, [this]() {
+        captureFolderPosition(true);
+    });
     slotToggleSysTray();
     slotPluginsChanged();
 
@@ -295,6 +306,33 @@ QIcon quickActionIcon(const QString &name)
 {
     const QString symbolic = name + QLatin1String("-symbolic");
     return QIcon::hasThemeIcon(symbolic) ? QIcon::fromTheme(symbolic) : UiUtils::loadIcon(name);
+}
+
+/** @short Sort indicator stored in a saved QHeaderView state, or (-1, ascending) when there is none */
+std::pair<int, Qt::SortOrder> headerStateSort(const QByteArray &state, int columns)
+{
+    if (state.isEmpty() || columns <= 0)
+        return {-1, Qt::AscendingOrder};
+    QStandardItemModel model(0, columns);
+    QHeaderView probe(Qt::Horizontal);
+    probe.setModel(&model);
+    if (!probe.restoreState(state))
+        return {-1, Qt::AscendingOrder};
+    return {probe.sortIndicatorSection(), probe.sortIndicatorOrder()};
+}
+
+/** @short Saved QHeaderView @p state with its sort indicator replaced, so that a folder's sort never leaks into the global default */
+QByteArray headerStateWithSort(const QByteArray &state, int columns, int column, Qt::SortOrder order)
+{
+    if (state.isEmpty() || columns <= 0)
+        return state;
+    QStandardItemModel model(0, columns);
+    QHeaderView probe(Qt::Horizontal);
+    probe.setModel(&model);
+    if (!probe.restoreState(state))
+        return state;
+    probe.setSortIndicator(column, order);
+    return probe.saveState();
 }
 
 /** @short Add the row of @p index and the rows shown below it; selectedTree() adds the rest of collapsed threads */
@@ -815,6 +853,7 @@ void MainWindow::createActions()
         slotThreadMsgList();
         m_groupBy = checked ? GroupingMsgListModel::Grouping::Conversation : GroupingMsgListModel::Grouping::None;
         syncGroupByActions();
+        rememberMessageListView();
     });
 
     QActionGroup *sortOrderGroup = new QActionGroup(this);
@@ -825,7 +864,6 @@ void MainWindow::createActions()
     m_actionSortDescending->setCheckable(true);
     // QActionGroup has no toggle signal, but connecting descending will implicitly catch the acscending complement ;-)
     connect(m_actionSortDescending, &QAction::toggled, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
-    connect(m_actionSortDescending, &QAction::toggled, this, &MainWindow::slotScrollToCurrent);
     connect(sortOrderGroup, &QActionGroup::triggered, this, &MainWindow::slotSortingPreferenceChanged);
 
     QActionGroup *sortColumnGroup = new QActionGroup(this);
@@ -887,6 +925,19 @@ void MainWindow::createActions()
                    i18nc("@action:inmenu group by", "&Mailing List"));
         // The Conversation grouping needs threading support on the server
         connect(actionThreadMsgList, &QAction::changed, this, &MainWindow::syncGroupByActions);
+
+        m_actionViewForAllFolders = new QAction(i18nc("@action:inmenu", "Use This View for A&ll Folders"), this);
+        m_actionViewForAllFolders->setObjectName(QStringLiteral("messageListViewForAllFolders"));
+        m_actionViewForAllFolders->setToolTip(
+            i18nc("@info:tooltip", "Sort, thread and group all folders of this account like the current one"));
+        m_actionViewForAllFolders->setEnabled(false);
+        connect(m_actionViewForAllFolders, &QAction::triggered, this, &MainWindow::applyMessageListViewToAllFolders);
+        m_actionResetFolderView = new QAction(i18nc("@action:inmenu", "Reset &View for This Folder"), this);
+        m_actionResetFolderView->setObjectName(QStringLiteral("messageListResetFolderView"));
+        m_actionResetFolderView->setToolTip(
+            i18nc("@info:tooltip", "Sort, thread and group this folder like the other folders of the account"));
+        m_actionResetFolderView->setEnabled(false);
+        connect(m_actionResetFolderView, &QAction::triggered, this, &MainWindow::resetMessageListViewForFolder);
 
         m_actionExpandAllGroups = new QAction(quickActionIcon(QStringLiteral("expand-all")),
                                               i18nc("@action:inmenu", "&Expand All Groups"), this);
@@ -1245,6 +1296,8 @@ void MainWindow::createMenus()
             m_groupByMenu->addSeparator();
             ADD_ACTION(m_groupByMenu, m_actionExpandAllGroups);
             ADD_ACTION(m_groupByMenu, m_actionCollapseAllGroups);
+        viewMenu->addAction(m_actionViewForAllFolders);
+        viewMenu->addAction(m_actionResetFolderView);
         viewMenu->addSeparator();
         ADD_ACTION(viewMenu, m_actionShowOnlySubscribed);
 
@@ -1270,6 +1323,9 @@ void MainWindow::createMenus()
             ADD_ACTION(sortMenu, actionThreadMsgList);
             sortMenu->addMenu(m_groupByMenu);
             ADD_ACTION(sortMenu, actionHideRead);
+            sortMenu->addSeparator();
+            ADD_ACTION(sortMenu, m_actionViewForAllFolders);
+            ADD_ACTION(sortMenu, m_actionResetFolderView);
         sortMenu->setObjectName(QStringLiteral("sortMenu"));
         m_sortButton = msgListWidget->addToolMenuButton(sortMenu, quickActionIcon(QStringLiteral("view-sort-ascending")),
                                                         i18nc("@action:button", "Sort"));
@@ -1533,6 +1589,22 @@ void MainWindow::setupModels(bool reconnect)
     prettyMsgListModel = new Imap::Mailbox::PrettyMsgListModel(this);
     prettyMsgListModel->setSourceModel(m_imapAccess->threadingMsgListModel());
     prettyMsgListModel->setObjectName(QStringLiteral("prettyMsgListModel"));
+    {
+        // The defaults of all accounts are the threading preference and the sorting of the saved header
+        UiUtils::MessageListView global;
+        global.threading = m_settings->value(Common::SettingsNames::guiMsgListShowThreading).toBool();
+        if (m_globalSort) {
+            global.sortColumn = m_globalSort->first;
+            global.sortOrder = m_globalSort->second;
+        }
+        m_viewStore = UiUtils::ViewStateStore();
+        m_viewStore.load(*accountSettings());
+        m_viewStore.setGlobalDefault(global);
+        m_viewMailbox.clear();
+        // The message list of an account which was shown before still has its folder open
+        m_positionMailbox = currentMailboxName();
+        m_livePosition = UiUtils::FolderPosition();
+    }
     applyMessageListFilters();
     connect(prettyMsgListModel, &Imap::Mailbox::PrettyMsgListModel::filtersChanged, this, &MainWindow::syncMessageListFilterUi);
     connect(prettyMsgListModel, &QAbstractItemModel::rowsInserted, this, &MainWindow::scheduleMessageListStatus);
@@ -1562,8 +1634,21 @@ void MainWindow::setupModels(bool reconnect)
             realMsgListModel,
             static_cast<void (Imap::Mailbox::MsgListModel::*)(const QModelIndex &)>(&Imap::Mailbox::MsgListModel::setMailbox));
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::dataChanged, this, &MainWindow::updateMessageFlags);
+    // Sorting an empty list does not stick, so the folder's sorting applies once its messages are there
+    connect(realMsgListModel, &Imap::Mailbox::MsgListModel::messagesAvailable, this, [this]() {
+        if (!m_viewMailbox.isEmpty() && m_viewMailbox == currentMailboxName())
+            applyMessageListSort();
+    });
     connect(qobject_cast<Imap::Mailbox::MsgListModel*>(m_imapAccess->msgListModel()), &Imap::Mailbox::MsgListModel::messagesAvailable,
             this, &MainWindow::slotScrollToUnseenMessage);
+    // When a resynchronization replaces all messages of the folder, the same messages are selected again
+    connect(realMsgListModel, &QAbstractItemModel::rowsRemoved, this, [this, realMsgListModel](const QModelIndex &parent) {
+        if (parent.isValid() || realMsgListModel->rowCount() || !m_messageRestorer || !m_livePosition.isValid() ||
+            m_positionMailbox.isEmpty() || m_positionMailbox != currentMailboxName() || m_messageRestorer->isPending())
+            return;
+        m_messageRestorer->restorePosition(m_positionMailbox, m_livePosition.uidValidity, m_livePosition.uid,
+                                           m_livePosition.anchorUid, m_livePosition.selectedUids);
+    });
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::rowsInserted, msgListWidget, &MessageListWidget::slotAutoEnableDisableSearch);
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::rowsRemoved, msgListWidget, &MessageListWidget::slotAutoEnableDisableSearch);
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::rowsRemoved, this, &MainWindow::updateMessageFlags);
@@ -1572,6 +1657,16 @@ void MainWindow::setupModels(bool reconnect)
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::modelReset, msgListWidget, &MessageListWidget::slotAutoEnableDisableSearch);
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::modelReset, this, &MainWindow::updateMessageFlags);
     connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, this, &MainWindow::slotMailboxChanged);
+    connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, this, [this]() {
+        commitFolderPosition();
+        m_positionMailbox = currentMailboxName();
+        m_livePosition = UiUtils::FolderPosition();
+        pruneFolderStates();
+        applyMessageListView();
+        updateMessageListScope();
+        // Later, after a click on the folder has cancelled restoring another message
+        QMetaObject::invokeMethod(this, [this]() { restoreFolderPosition(); }, Qt::QueuedConnection);
+    });
     KConfigGroup selection(KSharedConfig::openStateConfig(), QStringLiteral("MailboxSelection"));
     KConfigGroup accountSelection = selection.group(m_imapAccess->credentialAccountId());
     connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, this,
@@ -1653,7 +1748,14 @@ void MainWindow::setupModels(bool reconnect)
 
     msgListWidget->tree->setModel(prettyMsgListModel);
     auto *messageRestorer = new MessageSelectionRestorer(msgListWidget->tree, prettyMsgListModel);
+    m_messageRestorer = messageRestorer;
     connect(messageRestorer, &MessageSelectionRestorer::messageRestored, this, &MainWindow::msgListClicked);
+    connect(messageRestorer, &MessageSelectionRestorer::restoreFailed, this, [this]() {
+        // The message is gone, so nothing is selected and the list shows its newest messages
+        if (QItemSelectionModel *selection = msgListWidget->tree->selectionModel())
+            selection->clear();
+        slotScrollToUnseenMessage();
+    });
     connect(imapModel(), &QAbstractItemModel::dataChanged, messageRestorer, &MessageSelectionRestorer::scheduleCheck);
     connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, messageRestorer,
             [messageRestorer](const QModelIndex &) { messageRestorer->cancel(); });
@@ -1672,7 +1774,10 @@ void MainWindow::setupModels(bool reconnect)
     });
     mboxTree->restoreMailbox(accountSelection.readEntry("Mailbox", QString()));
     connectMessageListSelection();
-    applyMessageListGrouping();
+    applyMessageListView();
+    updateMessageListScope();
+    if (!m_positionMailbox.isEmpty())
+        QMetaObject::invokeMethod(this, [this]() { restoreFolderPosition(); }, Qt::QueuedConnection);
     if (m_actionSortByRelevance)
         updateRelevanceSorting(realThreadingModel->currentSearchCondition());
     scheduleMessageListStatus();
@@ -1892,6 +1997,7 @@ bool MainWindow::eventFilter(QObject *o, QEvent *e)
                     m_actionSortDescending->toggle();
                     Qt::SortOrder order = m_actionSortDescending->isChecked() ? Qt::DescendingOrder : Qt::AscendingOrder;
                     msgListWidget->tree->header()->setSortIndicator(-1, order);
+                    rememberMessageListSort(-1, order);
                     return true; // prevent regular click
             }
         }
@@ -2404,6 +2510,7 @@ void MainWindow::slotShowSettings()
     SettingsDialog *dialog = new SettingsDialog(this, m_senderIdentities, m_favoriteTags, m_settings);
     if (dialog->exec() == QDialog::Accepted) {
         // FIXME: wipe cache in case we're moving between servers
+        commitFolderPosition();
         nukeModels();
         setupModels();
         connectModelActions();
@@ -2595,6 +2702,7 @@ void MainWindow::switchAccount(const QString &accountId)
 {
     if (accountId == m_accounts->activeAccount() || !m_accounts->accountIds().contains(accountId))
         return;
+    commitFolderPosition();
     detachAccountModels();
     nukeModels();
     m_accounts->setActiveAccount(accountId);
@@ -2716,6 +2824,7 @@ void MainWindow::slotRenameAccount()
         return;
     m_accounts->setDisplayName(accountId, name);
     refreshAccountSwitcher();
+    updateMessageListScope();
     slotUpdateWindowTitle();
 }
 
@@ -4053,6 +4162,16 @@ void MainWindow::slotMailboxSyncFailed(const QString &mailbox, const QString &ms
 void MainWindow::slotMailboxRenameSucceeded(const QString &oldName, const QString &newName)
 {
     m_notificationBar->showInfo(i18nc("@info", "Renamed %1 to %2", oldName, newName));
+    {
+        // The folder and those below it keep their arrangement and position
+        const QString separator = imapModel()->mailboxIndexByName(newName).data(Imap::Mailbox::RoleMailboxSeparator).toString();
+        if (m_viewStore.renameFolder(oldName, newName, separator))
+            saveMessageListViews();
+        if (folderPositions().renameFolder(oldName, newName, separator))
+            saveFolderPositions();
+        if (m_positionMailbox == oldName)
+            m_positionMailbox = newName;
+    }
     const QString reopen = m_renamedCurrentMailbox.take(oldName);
     if (!reopen.isEmpty())
         goToMailbox(reopen);
@@ -4326,10 +4445,13 @@ void MainWindow::slotShowOnlySubscribed()
 
 void MainWindow::slotScrollToUnseenMessage()
 {
-    // Now this is much, much more reliable than messing around with finding out an "interesting message"...
-    if (!m_actionSortNone->isChecked() && !m_actionSortThreading->isChecked()) {
-        // we're using some funky sorting, better don't scroll anywhere
+    // The message which the user is at, or which was restored, stays in view
+    const QModelIndex current = msgListWidget->tree->currentIndex();
+    if (current.isValid()) {
+        msgListWidget->tree->scrollTo(current);
+        return;
     }
+    // Otherwise the newest messages, which are at the end of the list unless it is sorted in descending order
     if (m_actionSortDescending->isChecked()) {
         msgListWidget->tree->scrollToTop();
     } else {
@@ -4378,7 +4500,6 @@ void MainWindow::slotThreadMsgList()
         msgListWidget->tree->setRootIsDecorated(false);
         qobject_cast<Imap::Mailbox::ThreadingMsgListModel *>(m_imapAccess->threadingMsgListModel())->setUserWantsThreading(false);
     }
-    m_settings->setValue(Common::SettingsNames::guiMsgListShowThreading, QVariant(useThreading));
 
     if (currentItem.isValid()) {
         msgListWidget->tree->scrollTo(currentItem);
@@ -4430,6 +4551,7 @@ void MainWindow::slotSortingPreferenceChanged()
         column = -1;
     }
 
+    rememberMessageListSort(column, order);
     msgListWidget->tree->header()->setSortIndicator(column, order);
 }
 
@@ -4544,6 +4666,8 @@ void MainWindow::connectMessageListSelection()
         return;
     connect(selection, &QItemSelectionModel::selectionChanged, this, &MainWindow::updateMessageFlags);
     connect(selection, &QItemSelectionModel::selectionChanged, this, &MainWindow::scheduleMessageListStatus);
+    connect(selection, &QItemSelectionModel::selectionChanged, this, [this]() { captureFolderPosition(); });
+    connect(selection, &QItemSelectionModel::currentChanged, this, [this]() { captureFolderPosition(); });
     connect(selection, &QItemSelectionModel::currentChanged, prettyMsgListModel, [this, model = prettyMsgListModel]() {
         // Later, because the current message also changes while the models are busy removing rows
         QMetaObject::invokeMethod(model, [this, model]() {
@@ -4650,44 +4774,266 @@ void MainWindow::setMessageListGrouping(Imap::Mailbox::GroupingMsgListModel::Gro
                 m_actionSortThreading->setEnabled(false);
                 tree->setRootIsDecorated(false);
                 threadingModel->setUserWantsThreading(false);
-                if (remember)
-                    m_settings->setValue(Common::SettingsNames::guiMsgListShowThreading, false);
             }
         }
     }
-    if (remember)
-        saveMessageListGrouping();
     syncGroupByActions();
+    if (remember)
+        rememberMessageListView();
 }
 
-void MainWindow::applyMessageListGrouping()
+Imap::Mailbox::GroupingMsgListModel::Grouping MainWindow::shownGrouping() const
 {
     using Imap::Mailbox::GroupingMsgListModel;
-    if (!m_groupByActions || !m_groupingMsgListModel)
-        return;
-    const GroupingMsgListModel::Grouping stored = GroupingMsgListModel::groupingFromName(
-        accountSettings()->value(Common::SettingsNames::guiMsgListGroupBy).toString());
-    if (GroupingMsgListModel::isRealGrouping(stored)) {
-        setMessageListGrouping(stored, false);
-    } else if (GroupingMsgListModel::isRealGrouping(m_groupBy)) {
-        // The account shown before had groups; this one follows the threading preference
-        const bool threaded = m_settings->value(Common::SettingsNames::guiMsgListShowThreading).toBool();
-        setMessageListGrouping(threaded ? GroupingMsgListModel::Grouping::Conversation : GroupingMsgListModel::Grouping::None,
-                               false);
-    } else {
-        syncGroupByActions();
-    }
-}
-
-void MainWindow::saveMessageListGrouping()
-{
-    using Imap::Mailbox::GroupingMsgListModel;
-    QSettings *account = accountSettings();
-    // Flat and threaded lists follow the threading preference of all accounts
     if (GroupingMsgListModel::isRealGrouping(m_groupBy))
-        account->setValue(Common::SettingsNames::guiMsgListGroupBy, GroupingMsgListModel::groupingName(m_groupBy));
+        return m_groupBy;
+    return actionThreadMsgList && actionThreadMsgList->isChecked() ? GroupingMsgListModel::Grouping::Conversation
+                                                                   : GroupingMsgListModel::Grouping::None;
+}
+
+void MainWindow::applyMessageListView()
+{
+    using Imap::Mailbox::GroupingMsgListModel;
+    const QString mailbox = currentMailboxName();
+    m_view = m_viewStore.effectiveView(mailbox);
+    m_viewMailbox = mailbox;
+    if (!m_groupByActions || !m_groupingMsgListModel || !prettyMsgListModel)
+        return;
+    GroupingMsgListModel::Grouping grouping = GroupingMsgListModel::groupingFromName(m_view.groupBy);
+    if (!GroupingMsgListModel::isRealGrouping(grouping))
+        grouping = m_view.threading ? GroupingMsgListModel::Grouping::Conversation : GroupingMsgListModel::Grouping::None;
+    ++m_applyingView;
+    if (grouping != shownGrouping())
+        setMessageListGrouping(grouping, false);
     else
-        account->remove(Common::SettingsNames::guiMsgListGroupBy);
+        syncGroupByActions();
+    --m_applyingView;
+    applyMessageListSort();
+    updateMessageListViewActions();
+}
+
+void MainWindow::applyMessageListSort()
+{
+    if (!m_actionSortNone || !prettyMsgListModel || !msgListWidget->tree->model())
+        return;
+    MsgListView *tree = msgListWidget->tree;
+    QHeaderView *header = tree->header();
+    const int column = m_view.sortColumn;
+    const Qt::SortOrder order = m_view.sortOrder;
+    const bool relevance = m_actionSortByRelevance && m_actionSortByRelevance->isChecked();
+    const QAbstractItemModel *threads = prettyMsgListModel->sourceModel();
+    ++m_applyingView;
+    if (relevance || !threads || !threads->rowCount()) {
+        // An empty list refuses to be sorted; the header keeps the sorting to apply later, or to go back to after relevance
+        {
+            const QSignalBlocker blocker(header);
+            header->setSortIndicator(column, order);
+        }
+        header->viewport()->update();
+        if (!relevance) {
+            slotSortingConfirmed(column, order);
+            if (tree->model() == m_groupingMsgListModel)
+                m_groupingMsgListModel->setGroupOrder(order);
+        }
+    } else if (header->sortIndicatorSection() != column || header->sortIndicatorOrder() != order) {
+        // The view sorts its model
+        header->setSortIndicator(column, order);
+    } else {
+        tree->model()->sort(column, order);
+    }
+    --m_applyingView;
+    updateSortButton();
+}
+
+void MainWindow::rememberMessageListView()
+{
+    using Imap::Mailbox::GroupingMsgListModel;
+    if (m_applyingView || !actionThreadMsgList)
+        return;
+    const bool grouped = GroupingMsgListModel::isRealGrouping(m_groupBy);
+    m_view.groupBy = grouped ? GroupingMsgListModel::groupingName(m_groupBy) : QString();
+    m_view.threading = !grouped && actionThreadMsgList->isChecked();
+    storeMessageListView();
+}
+
+void MainWindow::rememberMessageListSort(int column, Qt::SortOrder order)
+{
+    if (m_applyingView)
+        return;
+    m_view.sortColumn = qMax(-1, column);
+    m_view.sortOrder = order;
+    storeMessageListView();
+}
+
+void MainWindow::storeMessageListView()
+{
+    const QString mailbox = currentMailboxName();
+    // Without an open folder, the choice is the account's default
+    if (mailbox.isEmpty())
+        m_viewStore.setAccountDefault(m_view);
+    else
+        m_viewStore.setFolderView(mailbox, m_view);
+    m_viewMailbox = mailbox;
+    saveMessageListViews();
+    updateMessageListViewActions();
+}
+
+void MainWindow::saveMessageListViews()
+{
+    m_viewStore.save(*accountSettings());
+}
+
+void MainWindow::applyMessageListViewToAllFolders()
+{
+    const QString mailbox = currentMailboxName();
+    if (mailbox.isEmpty())
+        return;
+    const QString account = m_accounts->displayName(m_accounts->activeAccount());
+    QMessageBox box(QMessageBox::Question, i18nc("@title:window", "Use This View for All Folders"),
+                    i18nc("@info", "Sort, thread and group all folders of %1 like %2? Folders which have their own view "
+                                   "will follow it as well.", account, mailbox),
+                    QMessageBox::NoButton, this);
+    box.setObjectName(QStringLiteral("messageListViewForAllFoldersConfirmation"));
+    QPushButton *apply = box.addButton(i18nc("@action:button", "Use for All Folders"), QMessageBox::AcceptRole);
+    box.addButton(QMessageBox::Cancel);
+    box.setDefaultButton(apply);
+    box.exec();
+    if (box.clickedButton() != apply)
+        return;
+    m_viewStore.applyToAllFolders(m_view);
+    saveMessageListViews();
+    updateMessageListViewActions();
+}
+
+void MainWindow::resetMessageListViewForFolder()
+{
+    const QString mailbox = currentMailboxName();
+    if (mailbox.isEmpty() || !m_viewStore.resetFolder(mailbox))
+        return;
+    saveMessageListViews();
+    applyMessageListView();
+}
+
+void MainWindow::updateMessageListViewActions()
+{
+    if (!m_actionResetFolderView || !m_actionViewForAllFolders)
+        return;
+    const QString mailbox = currentMailboxName();
+    m_actionViewForAllFolders->setEnabled(!mailbox.isEmpty());
+    m_actionResetFolderView->setEnabled(!mailbox.isEmpty() &&
+                                        m_viewStore.scope(mailbox) == UiUtils::ViewStateStore::Scope::Folder);
+}
+
+void MainWindow::pruneFolderStates()
+{
+    UiUtils::FolderPositionStore &positions = folderPositions();
+    if (m_viewStore.folders().isEmpty() && positions.folders().isEmpty())
+        return;
+    // The unfiltered folder tree, so that unsubscribed folders do not look deleted
+    const UiUtils::RecentFolders::StateLookup state = UiUtils::RecentFolders::stateFromModel(m_imapAccess->mailboxModel());
+    if (m_viewStore.prune(state))
+        saveMessageListViews();
+    if (positions.prune(state))
+        saveFolderPositions();
+}
+
+namespace {
+const QString folderPositionsGroup = QStringLiteral("MessageListPositions");
+}
+
+UiUtils::FolderPositionStore &MainWindow::folderPositions()
+{
+    const QString account = m_imapAccess->credentialAccountId();
+    auto it = m_folderPositions.find(account);
+    if (it == m_folderPositions.end()) {
+        it = m_folderPositions.insert(account, UiUtils::FolderPositionStore());
+        it->loadJson(KConfigGroup(KSharedConfig::openStateConfig(), folderPositionsGroup).readEntry(account, QString()));
+    }
+    return *it;
+}
+
+void MainWindow::captureFolderPosition(bool anchorOnly)
+{
+    using namespace Imap::Mailbox;
+    if (m_positionMailbox.isEmpty() || !prettyMsgListModel || m_positionMailbox != currentMailboxName())
+        return;
+    // Until the remembered position is back, the list is not where the user left it
+    if (m_messageRestorer && m_messageRestorer->isPending())
+        return;
+    MsgListView *tree = msgListWidget->tree;
+    UiUtils::FolderPosition position = anchorOnly ? m_livePosition : UiUtils::FolderPosition();
+    const auto *msgList = qobject_cast<MsgListModel *>(m_imapAccess->msgListModel());
+    position.uidValidity = msgList->currentMailbox().data(RoleMailboxUidValidity).toUInt();
+    position.anchorUid = 0;
+    const int height = tree->viewport()->height();
+    for (QModelIndex index = tree->indexAt(QPoint(0, 0)); index.isValid() && tree->visualRect(index).top() < height;
+         index = tree->indexBelow(index)) {
+        // The header of a group is not a message
+        if (const uint uid = index.data(RoleMessageUid).toUInt()) {
+            position.anchorUid = uid;
+            break;
+        }
+    }
+    if (!anchorOnly) {
+        const QModelIndex current = tree->currentIndex();
+        position.uid = current.data(RoleIsGroupHeader).toBool() ? 0 : current.data(RoleMessageUid).toUInt();
+        if (QItemSelectionModel *selection = tree->selectionModel()) {
+            const QModelIndexList rows = selection->selectedRows(0);
+            if (rows.size() <= UiUtils::FolderPosition::MaxSelectedUids) {
+                for (const QModelIndex &row : rows) {
+                    const uint uid = row.data(RoleMessageUid).toUInt();
+                    if (uid && uid != position.uid)
+                        position.selectedUids << uid;
+                }
+            }
+        }
+    }
+    // An emptied list says nothing about where the user was
+    if (position.isValid())
+        m_livePosition = position;
+}
+
+void MainWindow::commitFolderPosition()
+{
+    if (m_positionMailbox.isEmpty() || !m_livePosition.isValid())
+        return;
+    folderPositions().setPosition(m_positionMailbox, m_livePosition);
+    saveFolderPositions();
+}
+
+void MainWindow::restoreFolderPosition()
+{
+    if (!m_messageRestorer || m_positionMailbox.isEmpty() || m_positionMailbox != currentMailboxName())
+        return;
+    const auto position = folderPositions().position(m_positionMailbox);
+    if (!position)
+        return;
+    m_messageRestorer->restorePosition(m_positionMailbox, position->uidValidity, position->uid, position->anchorUid,
+                                       position->selectedUids);
+}
+
+void MainWindow::saveFolderPositions()
+{
+    KConfigGroup positions(KSharedConfig::openStateConfig(), folderPositionsGroup);
+    for (auto it = m_folderPositions.cbegin(); it != m_folderPositions.cend(); ++it) {
+        if (it->folders().isEmpty())
+            positions.deleteEntry(it.key());
+        else
+            positions.writeEntry(it.key(), it->toJson());
+    }
+    if (!positions.sync())
+        qWarning() << "Could not save the positions in the message lists";
+}
+
+void MainWindow::updateMessageListScope()
+{
+    if (!m_imapAccess || !msgListWidget)
+        return;
+    const auto *msgList = qobject_cast<Imap::Mailbox::MsgListModel *>(m_imapAccess->msgListModel());
+    const QModelIndex mailbox = msgList ? msgList->currentMailbox() : QModelIndex();
+    msgListWidget->setScope(m_accounts->displayName(m_accounts->activeAccount()),
+                            mailbox.data(Imap::Mailbox::RoleShortMailboxName).toString(),
+                            mailbox.data(Imap::Mailbox::RoleMailboxName).toString());
 }
 
 void MainWindow::syncGroupByActions()
@@ -4994,8 +5340,13 @@ void MainWindow::slotCapabilitiesUpdated(const QStringList &capabilities)
     Q_FOREACH(const QString &capability, capabilities) {
         if (supportedCapabilities.contains(capability)) {
             actionThreadMsgList->setEnabled(true);
-            if (actionThreadMsgList->isChecked())
+            if (actionThreadMsgList->isChecked()) {
+                // Threading resets the sorting, which the folder's sorting replaces again
+                ++m_applyingView;
                 slotThreadMsgList();
+                --m_applyingView;
+                applyMessageListSort();
+            }
             return;
         }
     }
@@ -5540,7 +5891,12 @@ void MainWindow::saveSizesAndState()
     }
     m_settings->setValue(QStringLiteral("mailboxSidebarOnRight"), m_mailboxSidebarOnRight);
 
-    m_settings->setValue(Common::SettingsNames::messageListState, msgListWidget->tree->header()->saveState());
+    // The header keeps the sorting of all accounts rather than that of the open folder
+    if (m_globalSort) {
+        QHeaderView *header = msgListWidget->tree->header();
+        m_settings->setValue(Common::SettingsNames::messageListState,
+                             headerStateWithSort(header->saveState(), header->count(), m_globalSort->first, m_globalSort->second));
+    }
     m_settings->beginWriteArray(Common::SettingsNames::messageListHeader);
     for (auto i = 0; i < msgListWidget->tree->header()->count(); ++i) {
         m_settings->setArrayIndex(i);
@@ -5557,6 +5913,7 @@ void MainWindow::saveSizesAndState()
 void MainWindow::flushUiState()
 {
     m_delayedStateSaving->stop();
+    commitFolderPosition();
     saveSizesAndState();
     m_settings->sync();
     if (m_settings->status() != QSettings::NoError)
@@ -5642,8 +5999,24 @@ void MainWindow::applySizesAndState()
         updateShellRegions(false, true);
     }
 
-    const auto s = m_settings->value(Common::SettingsNames::messageListState).toByteArray();
-    msgListWidget->tree->header()->restoreState(s);
+    QHeaderView *listHeader = msgListWidget->tree->header();
+    QByteArray s = m_settings->value(Common::SettingsNames::messageListState).toByteArray();
+    const bool firstHeaderRestore = !m_globalSort;
+    if (firstHeaderRestore) {
+        // The saved sorting is the default of all accounts and folders
+        m_globalSort = headerStateSort(s, listHeader->count());
+    } else {
+        // The list keeps the sorting of the open folder
+        s = headerStateWithSort(s, listHeader->count(), listHeader->sortIndicatorSection(), listHeader->sortIndicatorOrder());
+    }
+    listHeader->restoreState(s);
+    if (firstHeaderRestore) {
+        UiUtils::MessageListView global = m_viewStore.globalDefault();
+        global.sortColumn = m_globalSort->first;
+        global.sortOrder = m_globalSort->second;
+        m_viewStore.setGlobalDefault(global);
+        applyMessageListView();
+    }
     // got to manually update the state of the actions which control the visibility state
     msgListWidget->tree->updateActionsAfterRestoredState();
     connect(msgListWidget->tree->header(), &QHeaderView::sectionCountChanged, msgListWidget->tree, &MsgListView::slotHandleNewColumns);
