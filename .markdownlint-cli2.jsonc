@@ -1,0 +1,28 @@
+{
+  "config": {
+    "default": true,
+    "MD013": {
+      "line_length": 80,
+      "tables": false,
+      "code_blocks": false,
+      "headings": false
+    },
+    "MD024": { "siblings_only": true },
+    "MD033": {
+      "allowed_elements": [
+        "a",
+        "br",
+        "details",
+        "em",
+        "img",
+        "kbd",
+        "p",
+        "picture",
+        "source",
+        "strong",
+        "summary"
+      ]
+    }
+  },
+  "ignores": ["3rdparty/**", "build/**", "docs/old/**", "node_modules/**"]
+}
