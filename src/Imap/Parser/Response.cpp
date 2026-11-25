@@ -503,12 +503,13 @@ State::State(const QByteArray &tag, const Kind kind, const QByteArray &line, int
             uint uidValidity = originalList[1].toUInt(&ok);
             if (!ok)
                 throw InvalidResponseCode("Malformed APPENDUID: cannot extract UIDVALIDITY", line, start);
+            // LowLevelParser::getSequence() expects the usual trailing CRLF of a response line
             int pos = 0;
-            QByteArray s1 = originalList[2].toByteArray();
+            QByteArray s1 = originalList[2].toByteArray() + "\r\n";
             Sequence seq = Sequence::fromVector(LowLevelParser::getSequence(s1, pos));
             if (!seq.isValid())
                 throw InvalidResponseCode("Malformed APPENDUID: cannot extract UID or the list of UIDs", line, start);
-            if (pos != s1.size())
+            if (pos != s1.size() - 2)
                 throw InvalidResponseCode("Malformed APPENDUID: garbage found after the list of UIDs", line, start);
             respCodeData = QSharedPointer<AbstractData>(new RespData<QPair<uint,Sequence> >(qMakePair(uidValidity, seq)));
             break;
