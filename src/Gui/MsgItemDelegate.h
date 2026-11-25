@@ -75,6 +75,8 @@ private:
         QRect attachment;
         QRect status;
         QRect secondLine;
+        /** The account of a message in a list which shows several accounts */
+        QRect source;
     };
     RowLayout multiLineLayout(const QStyleOptionViewItem &option, const QModelIndex &index) const;
     QColor itemColor(const QModelIndex &index) const;

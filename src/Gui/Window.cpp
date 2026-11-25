@@ -96,6 +96,7 @@
 #include "Imap/Model/PrettyMsgListModel.h"
 #include "Imap/Model/SpecialFlagNames.h"
 #include "Imap/Model/ThreadingMsgListModel.h"
+#include "Imap/Model/UnifiedMsgListModel.h"
 #include "Imap/Model/FavoriteTagsModel.h"
 #include "Imap/Model/GroupingMsgListModel.h"
 #include "Imap/Model/Utils.h"
@@ -167,6 +168,14 @@ namespace Gui
 
     static const char * const netErrorUnseen = "net_error_unseen";
 
+namespace {
+/** @short The state and settings group of the Unified Inbox */
+QString unifiedInboxGroup()
+{
+    return QStringLiteral("UnifiedInbox");
+}
+}
+
 MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr),
     m_mainStack(nullptr), m_layoutMode(LAYOUT_COMPACT), m_skipSavingOfUI(true), m_delayedStateSaving(nullptr), m_actionSortNone(nullptr),
     m_ignoreStoredPassword(false), m_settings(settings), m_pluginManager(nullptr), m_msgActionHandler(this),m_networkErrorMessageBox(nullptr), m_trayIcon(nullptr)
@@ -236,11 +245,21 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     createActions();
     createMenus();
     applyMessageListView();
+    // Choosing a folder leaves the Unified Inbox for it
+    connect(mboxTree, &MailBoxTreeView::clicked, this, [this]() { setUnifiedInbox(false, false); });
+    connect(mboxTree, &MailBoxTreeView::activated, this, [this]() { setUnifiedInbox(false, false); });
+    if (KConfigGroup(KSharedConfig::openStateConfig(), unifiedInboxGroup()).readEntry("Enabled", false))
+        m_actionUnifiedInbox->setChecked(true);
     connect(msgListWidget->tree->header(), &QHeaderView::sectionClicked, this, [this]() {
         // Sorting by relevance is never remembered
         if (m_actionSortByRelevance && m_actionSortByRelevance->isChecked())
             return;
         const QHeaderView *header = msgListWidget->tree->header();
+        // The Unified Inbox sorts by itself and has no folder to remember the sorting for
+        if (m_unifiedInbox) {
+            slotSortingConfirmed(header->sortIndicatorSection(), header->sortIndicatorOrder());
+            return;
+        }
         rememberMessageListSort(header->sortIndicatorSection(), header->sortIndicatorOrder());
     });
     connect(msgListWidget->tree->verticalScrollBar(), &QScrollBar::valueChanged, this, [this]() {
@@ -297,6 +316,16 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     m_skipSavingOfUI = false;
 }
 
+MainWindow::~MainWindow()
+{
+    // The message lists of the accounts go away with the child widgets, after this destructor; the Unified Inbox would
+    // report their rows as removed to a window which is no longer one
+    delete m_prettyUnifiedModel;
+    m_prettyUnifiedModel = nullptr;
+    delete m_unifiedModel;
+    m_unifiedModel = nullptr;
+}
+
 void MainWindow::reply(const Composer::ReplyMode mode)
 {
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -308,10 +337,15 @@ void MainWindow::reply(const Composer::ReplyMode mode)
         if (!window || !messageIndex.isValid())
             return;
 
-        if (isCryptoMessage)
-            window->m_msgActionHandler.reply(messageIndex, mode, text, MessageActionHandler::CryptoMessage);
-        else
-            window->m_msgActionHandler.reply(messageIndex, mode, text, MessageActionHandler::Message);
+        auto replyNow = [&]() {
+            if (isCryptoMessage)
+                window->m_msgActionHandler.reply(messageIndex, mode, text, MessageActionHandler::CryptoMessage);
+            else
+                window->m_msgActionHandler.reply(messageIndex, mode, text, MessageActionHandler::Message);
+        };
+        // The reply comes from the account which received the message
+        if (!window->actOnModel(qobject_cast<const Imap::Mailbox::Model *>(Imap::deproxifiedIndex(messageIndex).model()), replyNow))
+            replyNow();
     });
 #endif
 }
@@ -436,6 +470,8 @@ void MainWindow::defineActions()
                                   i18nc("@action", "Ne&xt Message"), QStringLiteral("F"));
     shortcutHandler->defineAction(QStringLiteral("action_go_to_previous_message"), QStringLiteral("go-up"),
                                   i18nc("@action", "Pre&vious Message"), QStringLiteral("B"));
+    shortcutHandler->defineAction(QStringLiteral("action_unified_inbox"), QStringLiteral("mail-folder-inbox"),
+                                  i18nc("@action", "&Unified Inbox"), QStringLiteral("Ctrl+Shift+I"));
     shortcutHandler->defineAction(QStringLiteral("action_dense_processing_layout"), QStringLiteral("view-list-details"),
                                   i18nc("@action", "&Dense Processing Layout"));
     shortcutHandler->defineAction(QStringLiteral("action_mark_as_deleted"), QStringLiteral("list-remove"), tr("Mark as &Deleted"), QKeySequence(Qt::Key_Delete).toString());
@@ -1087,6 +1123,32 @@ void MainWindow::createActions()
     }
     connect(m_selectSimilarMenu, &QMenu::aboutToShow, this, &MainWindow::updateRelatedActions);
 
+    m_unifiedModel = new Imap::Mailbox::UnifiedMsgListModel(this);
+    m_unifiedModel->setObjectName(QStringLiteral("unifiedMsgListModel"));
+    m_prettyUnifiedModel = new Imap::Mailbox::PrettyUnifiedMsgListModel(this);
+    m_prettyUnifiedModel->setObjectName(QStringLiteral("prettyUnifiedMsgListModel"));
+    m_prettyUnifiedModel->setSourceModel(m_unifiedModel);
+    connect(m_unifiedModel, &QAbstractItemModel::dataChanged, this, &MainWindow::updateMessageFlags);
+    connect(m_unifiedModel, &QAbstractItemModel::rowsRemoved, this, &MainWindow::updateMessageFlags);
+    connect(m_prettyUnifiedModel, &QAbstractItemModel::rowsInserted, this, &MainWindow::scheduleMessageListStatus);
+    connect(m_prettyUnifiedModel, &QAbstractItemModel::rowsRemoved, this, &MainWindow::scheduleMessageListStatus);
+    connect(m_prettyUnifiedModel, &QAbstractItemModel::modelReset, this, &MainWindow::scheduleMessageListStatus);
+    connect(m_prettyUnifiedModel, &QAbstractItemModel::layoutChanged, this, &MainWindow::scheduleMessageListStatus);
+    connect(m_unifiedModel, &Imap::Mailbox::UnifiedMsgListModel::accountsChanged, this, [this]() {
+        if (m_unifiedInbox) {
+            updateMessageListScope();
+            scheduleMessageListStatus();
+        }
+    });
+    connect(m_accountStatus, &Common::AccountStatusTracker::statusChanged, this, &MainWindow::updateUnifiedStates);
+    m_actionUnifiedInbox = ShortcutHandler::instance()->createAction(QStringLiteral("action_unified_inbox"), this);
+    m_actionUnifiedInbox->setCheckable(true);
+    m_actionUnifiedInbox->setToolTip(i18nc("@info:tooltip", "Show the INBOX of all accounts in one list"));
+    connect(m_actionUnifiedInbox, &QAction::toggled, this, [this](bool checked) { setUnifiedInbox(checked); });
+    m_unifiedAccountsMenu = new QMenu(i18nc("@title:menu", "Unified Inbox &Accounts"), this);
+    m_unifiedAccountsMenu->setObjectName(QStringLiteral("unifiedInboxAccountsMenu"));
+    connect(m_unifiedAccountsMenu, &QMenu::aboutToShow, this, &MainWindow::populateUnifiedAccountsMenu);
+
     m_actionDenseProcessing = ShortcutHandler::instance()->createAction(QStringLiteral("action_dense_processing_layout"), this);
     m_actionDenseProcessing->setCheckable(true);
     m_actionDenseProcessing->setToolTip(i18nc("@info:tooltip", "Compact rows without the message details, contact and related "
@@ -1313,6 +1375,8 @@ void MainWindow::createMenus()
         m_actionDenseProcessing->setChecked(KConfigGroup(KSharedConfig::openStateConfig(), QStringLiteral("DenseProcessing"))
                                                 .readEntry("Enabled", false));
         connect(m_actionDenseProcessing, &QAction::toggled, this, &MainWindow::setDenseProcessingLayout);
+        ADD_ACTION(viewMenu, m_actionUnifiedInbox);
+        viewMenu->addMenu(m_unifiedAccountsMenu);
         QMenu *filterMenu = viewMenu->addMenu(quickActionIcon(QStringLiteral("view-filter")), i18nc("@title:menu", "&Filter"));
         filterMenu->setObjectName(QStringLiteral("messageListFilterMenu"));
             ADD_ACTION(filterMenu, m_actionFilterUnread);
@@ -1703,7 +1767,7 @@ void MainWindow::setupModels(bool reconnect)
             this, &MainWindow::slotScrollToUnseenMessage);
     // When a resynchronization replaces all messages of the folder, the same messages are selected again
     connect(realMsgListModel, &QAbstractItemModel::rowsRemoved, this, [this, realMsgListModel](const QModelIndex &parent) {
-        if (parent.isValid() || realMsgListModel->rowCount() || !m_messageRestorer || !m_livePosition.isValid() ||
+        if (m_unifiedInbox || parent.isValid() || realMsgListModel->rowCount() || !m_messageRestorer || !m_livePosition.isValid() ||
             m_positionMailbox.isEmpty() || m_positionMailbox != currentMailboxName() || m_messageRestorer->isPending())
             return;
         m_messageRestorer->restorePosition(m_positionMailbox, m_livePosition.uidValidity, m_livePosition.uid,
@@ -1730,7 +1794,10 @@ void MainWindow::setupModels(bool reconnect)
     KConfigGroup selection(KSharedConfig::openStateConfig(), QStringLiteral("MailboxSelection"));
     KConfigGroup accountSelection = selection.group(m_imapAccess->credentialAccountId());
     connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, this,
-            [accountSelection](const QModelIndex &mailbox) mutable {
+            [this, accountSelection](const QModelIndex &mailbox) mutable {
+        // The Unified Inbox opens the INBOX without the user choosing it
+        if (m_unifiedInbox)
+            return;
         const QString name = mailbox.data(Imap::Mailbox::RoleMailboxName).toString();
         if (!name.isEmpty()) {
             accountSelection.writeEntry("Mailbox", name);
@@ -1822,10 +1889,18 @@ void MainWindow::setupModels(bool reconnect)
     connect(mboxTree, &MailBoxTreeView::clicked, messageRestorer, [messageRestorer](const QModelIndex &) { messageRestorer->cancel(); });
     connect(mboxTree, &MailBoxTreeView::activated, messageRestorer, [messageRestorer](const QModelIndex &) { messageRestorer->cancel(); });
     mboxTree->setModel(prettyMboxModel);
-    connect(mboxTree, &MailBoxTreeView::mailboxRestored, realMsgListModel,
-            static_cast<void (Imap::Mailbox::MsgListModel::*)(const QModelIndex &)>(&Imap::Mailbox::MsgListModel::setMailbox));
+    connect(mboxTree, &MailBoxTreeView::mailboxRestored, realMsgListModel, [this, realMsgListModel](const QModelIndex &mailbox) {
+        // The folder from the last session is the one to go back to from the Unified Inbox
+        if (m_unifiedInbox) {
+            m_unifiedReturnMailbox = mailbox.data(Imap::Mailbox::RoleMailboxName).toString();
+            return;
+        }
+        realMsgListModel->setMailbox(mailbox);
+    });
     connect(mboxTree, &MailBoxTreeView::mailboxRestored, messageRestorer,
-            [messageRestorer, accountSelection](const QModelIndex &mailbox) {
+            [this, messageRestorer, accountSelection](const QModelIndex &mailbox) {
+        if (m_unifiedInbox)
+            return;
         const QString name = mailbox.data(Imap::Mailbox::RoleMailboxName).toString();
         if (name == accountSelection.readEntry("MessageMailbox", QString())) {
             messageRestorer->restore(name, accountSelection.readEntry("MessageUidValidity", 0u),
@@ -2083,6 +2158,9 @@ void MainWindow::showMainWindow()
 
 void MainWindow::saveMessageSelection(const QModelIndex &index)
 {
+    // Messages of the Unified Inbox may belong to other accounts than the shown one
+    if (m_unifiedInbox)
+        return;
     KConfigGroup selection(KSharedConfig::openStateConfig(), QStringLiteral("MailboxSelection"));
     KConfigGroup accountSelection = selection.group(m_imapAccess->credentialAccountId());
     const QString mailbox = index.data(Imap::Mailbox::RoleMailboxName).toString();
@@ -2135,7 +2213,11 @@ void MainWindow::msgListClicked(const QModelIndex &index)
     // Because it's quite possible that we have switched into another mailbox, make sure that we're in the "current" one so that
     // user will be notified about new arrivals, etc.
     QModelIndex translated = Imap::deproxifiedIndex(index);
-    imapModel()->switchToMailbox(translated.parent().parent());
+    // In the Unified Inbox, the message may belong to another account than the shown one
+    auto *messageModel = qobject_cast<Imap::Mailbox::Model *>(const_cast<QAbstractItemModel *>(translated.model()));
+    if (!messageModel)
+        messageModel = imapModel();
+    messageModel->switchToMailbox(translated.parent().parent());
 
     if (index.column() == Imap::Mailbox::MsgListModel::SEEN) {
         if (!translated.data(Imap::Mailbox::RoleIsFetched).toBool())
@@ -2143,11 +2225,14 @@ void MainWindow::msgListClicked(const QModelIndex &index)
         Imap::Mailbox::FlagsOperation flagOp = translated.data(Imap::Mailbox::RoleMessageIsMarkedRead).toBool() ?
                                                Imap::Mailbox::FLAG_REMOVE : Imap::Mailbox::FLAG_ADD;
         const bool read = flagOp == Imap::Mailbox::FLAG_ADD;
-        trackFlagChange(imapModel()->markMessagesRead(QModelIndexList() << translated, flagOp), QString(), QString(),
-                        [read](const QString &message) {
-            return read ? i18ncp("@info", "Could not mark %1 message as read: %2", "Could not mark %1 messages as read: %2", 1, message)
-                        : i18ncp("@info", "Could not mark %1 message as unread: %2", "Could not mark %1 messages as unread: %2", 1,
-                                 message);
+        actOnModel(messageModel, [&]() {
+            trackFlagChange(imapModel()->markMessagesRead(QModelIndexList() << translated, flagOp), QString(), QString(),
+                            [read](const QString &message) {
+                return read ? i18ncp("@info", "Could not mark %1 message as read: %2", "Could not mark %1 messages as read: %2", 1,
+                                     message)
+                            : i18ncp("@info", "Could not mark %1 message as unread: %2", "Could not mark %1 messages as unread: %2",
+                                     1, message);
+            });
         });
 
         if (translated == m_messageWidget->messageView->currentMessage()) {
@@ -2160,11 +2245,13 @@ void MainWindow::msgListClicked(const QModelIndex &index)
         Imap::Mailbox::FlagsOperation flagOp = translated.data(Imap::Mailbox::RoleMessageIsMarkedFlagged).toBool() ?
                                                Imap::Mailbox::FLAG_REMOVE : Imap::Mailbox::FLAG_ADD;
         const bool flagged = flagOp == Imap::Mailbox::FLAG_ADD;
-        trackFlagChange(imapModel()->setMessageFlags(QModelIndexList() << translated, Imap::Mailbox::FlagNames::flagged, flagOp),
-                        QString(), QString(), [flagged](const QString &message) {
-            return flagged ? i18ncp("@info", "Could not flag %1 message: %2", "Could not flag %1 messages: %2", 1, message)
-                           : i18ncp("@info", "Could not remove the flag from %1 message: %2",
-                                    "Could not remove the flag from %1 messages: %2", 1, message);
+        actOnModel(messageModel, [&]() {
+            trackFlagChange(imapModel()->setMessageFlags(QModelIndexList() << translated, Imap::Mailbox::FlagNames::flagged, flagOp),
+                            QString(), QString(), [flagged](const QString &message) {
+                return flagged ? i18ncp("@info", "Could not flag %1 message: %2", "Could not flag %1 messages: %2", 1, message)
+                               : i18ncp("@info", "Could not remove the flag from %1 message: %2",
+                                        "Could not remove the flag from %1 messages: %2", 1, message);
+            });
         });
     } else {
         if ((m_messageWidget->isVisible() && !m_messageWidget->size().isEmpty()) || m_layoutMode == LAYOUT_ONE_AT_TIME) {
@@ -2432,6 +2519,7 @@ void MainWindow::goToMailbox(const QString &mailbox)
 {
     if (mailbox.isEmpty() || !prettyMboxModel)
         return;
+    setUnifiedInbox(false, false);
     // The tree selects the mailbox and opens it as soon as its MailboxFinder locates the index
     mboxTree->restoreMailbox(mailbox);
     if (m_mainStack) {
@@ -2500,6 +2588,9 @@ void MainWindow::slotCopyToFolder()
 
 void MainWindow::pickFolder(const Imap::Mailbox::CopyMoveOperation op)
 {
+    // Folders belong to one account, so the messages have to be of one account as well
+    if (routeToMessageAccounts([this, op]() { pickFolder(op); }, true))
+        return;
     if (!prettyMboxModel || !imapModel()->isNetworkAvailable())
         return;
     QList<QPersistentModelIndex> messages;
@@ -2516,7 +2607,10 @@ void MainWindow::pickFolder(const Imap::Mailbox::CopyMoveOperation op)
     dialog->setWindowTitle(move ? i18nc("@title:window", "Move to Folder") : i18nc("@title:window", "Copy to Folder"));
     dialog->setPrompt(move ? i18ncp("@label", "Move %1 message to:", "Move %1 messages to:", messages.size())
                            : i18ncp("@label", "Copy %1 message to:", "Copy %1 messages to:", messages.size()));
-    dialog->setMailboxes(prettyMboxModel, {current});
+    if (currentAccess() != m_imapAccess)
+        dialog->setMailboxes(new Imap::Mailbox::PrettyMailboxModel(dialog, currentAccess()->mailboxModel()), {current});
+    else
+        dialog->setMailboxes(prettyMboxModel, {current});
     const QStringList recent = UiUtils::RecentFolders::load(*accountSettings(), Common::SettingsNames::imapRecentDestinationFolders)
             .offered(UiUtils::RecentFolders::StateLookup(), {current});
     if (!recent.isEmpty())
@@ -2524,14 +2618,14 @@ void MainWindow::pickFolder(const Imap::Mailbox::CopyMoveOperation op)
     QPointer<Imap::Mailbox::Model> model = imapModel();
     connect(dialog, &QDialog::accepted, this, [this, dialog, model, messages, op]() {
         // The selection may have changed, or the messages may be gone, while the dialog was open
-        if (!model || model != imapModel())
+        if (!showsModel(model))
             return;
         QModelIndexList stillThere;
         for (const QPersistentModelIndex &index : messages) {
             if (index.isValid())
                 stillThere << index;
         }
-        copyOrMoveToFolder(stillThere, dialog->selectedMailbox(), op);
+        actOnModel(model, [&]() { copyOrMoveToFolder(stillThere, dialog->selectedMailbox(), op); });
     });
     dialog->open();
 }
@@ -2539,11 +2633,26 @@ void MainWindow::pickFolder(const Imap::Mailbox::CopyMoveOperation op)
 void MainWindow::populateRecentFoldersMenu(QMenu *menu, const Imap::Mailbox::CopyMoveOperation op)
 {
     using UiUtils::RecentFolders;
+    if (m_unifiedInbox && !m_acting) {
+        // The recent folders of the account which all selected messages belong to
+        QString accountId;
+        bool oneAccount = true;
+        for (const QModelIndex &message : translatedSelection()) {
+            const QString id = accountOfModel(qobject_cast<const Imap::Mailbox::Model *>(message.model()));
+            if (!accountId.isEmpty() && id != accountId)
+                oneAccount = false;
+            accountId = id;
+        }
+        if (oneAccount && !accountId.isEmpty() && accountId != m_accounts->activeAccount()) {
+            actAs(accountId, QModelIndexList(), [this, menu, op]() { populateRecentFoldersMenu(menu, op); });
+            return;
+        }
+    }
     menu->clear();
     QSettings *settings = accountSettings();
     RecentFolders recent = RecentFolders::load(*settings, Common::SettingsNames::imapRecentDestinationFolders);
     // The unfiltered folder tree, so that unsubscribed folders do not look deleted
-    const RecentFolders::StateLookup state = RecentFolders::stateFromModel(m_imapAccess->mailboxModel());
+    const RecentFolders::StateLookup state = RecentFolders::stateFromModel(currentAccess()->mailboxModel());
     if (recent.prune(state))
         recent.save(*settings, Common::SettingsNames::imapRecentDestinationFolders);
 
@@ -2556,7 +2665,8 @@ void MainWindow::populateRecentFoldersMenu(QMenu *menu, const Imap::Mailbox::Cop
         const QIcon special = Imap::Mailbox::PrettyMailboxModel::specialFolderIcon(imapModel()->mailboxSpecialUse(mailbox));
         action->setIcon(special.isNull() ? UiUtils::loadIcon(QStringLiteral("folder")) : special);
         connect(action, &QAction::triggered, this, [this, mailbox, op]() {
-            copyOrMoveToFolder(translatedSelection(), mailbox, op);
+            if (!routeToMessageAccounts([this, mailbox, op]() { copyOrMoveToFolder(translatedSelection(), mailbox, op); }, true))
+                copyOrMoveToFolder(translatedSelection(), mailbox, op);
         });
     }
     if (!folders.isEmpty())
@@ -2618,6 +2728,7 @@ void MainWindow::slotShowAccountSettings()
     dialog->setWindowTitle(i18nc("@title:window %1 is the account name", "Account Settings: %1",
                                  m_accounts->displayName(m_accounts->activeAccount())));
     if (dialog->exec() == QDialog::Accepted) {
+        setUnifiedInbox(false, false);
         // FIXME: wipe cache in case we're moving between servers
         commitFolderPosition();
         nukeModels();
@@ -2662,7 +2773,7 @@ void revokeDetached(const OAuth::AccountConfig &config, Plugins::PluginManager *
 
 QSettings *MainWindow::accountSettings() const
 {
-    return m_accounts->settings(m_accounts->activeAccount());
+    return m_accounts->settings(currentAccountId());
 }
 
 Composer::SenderIdentitiesModel *MainWindow::senderIdentitiesModel()
@@ -2682,7 +2793,7 @@ Composer::SenderIdentitiesModel *MainWindow::senderIdentitiesModel()
 
 Composer::SenderIdentitiesModel *MainWindow::accountIdentitiesModel()
 {
-    const QString accountId = m_accounts->activeAccount();
+    const QString accountId = currentAccountId();
     if (Composer::SenderIdentitiesModel *existing = m_accountIdentities.value(accountId))
         return existing;
     auto *identities = new Composer::SenderIdentitiesModel(this);
@@ -2992,8 +3103,14 @@ void MainWindow::connectBackgroundAccounts()
 
 void MainWindow::switchAccount(const QString &accountId)
 {
+    // Choosing the shown account goes back to its folder
+    if (m_unifiedInbox && accountId == m_accounts->activeAccount()) {
+        setUnifiedInbox(false);
+        return;
+    }
     if (accountId == m_accounts->activeAccount() || !m_accounts->accountIds().contains(accountId))
         return;
+    setUnifiedInbox(false, false);
     commitFolderPosition();
     detachAccountModels();
     nukeModels();
@@ -3122,6 +3239,8 @@ void MainWindow::renameAccount(const QString &accountId)
     if (!accepted || name.isEmpty())
         return;
     m_accounts->setDisplayName(accountId, name);
+    if (m_unifiedInbox)
+        syncUnifiedSources();
     refreshAccountSwitcher();
     updateMessageListScope();
     slotUpdateWindowTitle();
@@ -3213,6 +3332,8 @@ void MainWindow::removeAccountNow(const QString &accountId)
     if (revokeOAuth)
         revokeDetached(oauthConfig, pluginManager());
     const QString cacheDirectory = access->cacheDirectory();
+    if (m_unifiedModel)
+        m_unifiedModel->removeAccount(accountId);
     // Deleting the account's models also closes its cache database, so the files can be removed.
     delete m_accountAccess.take(accountId);
     if (!Imap::removeAccountCache(cacheDirectory, Common::writablePath(Common::LOCATION_CACHE)))
@@ -3221,6 +3342,8 @@ void MainWindow::removeAccountNow(const QString &accountId)
     m_accountIdentities.remove(accountId);
     m_accountStatus->forget(accountId);
     m_accounts->removeAccount(accountId);
+    if (m_unifiedInbox)
+        syncUnifiedSources();
     refreshAccountSwitcher();
     slotUpdateWindowTitle();
 }
@@ -3399,6 +3522,9 @@ void MainWindow::slotEditDraft()
 
 QModelIndexList MainWindow::translatedSelection() const
 {
+    // The messages of the account which an action works on right now
+    if (m_acting)
+        return m_actingSelection;
     QModelIndexList translatedIndexes;
     Q_FOREACH(const QModelIndex &index, msgListWidget->tree->selectedTree()) {
         // The headers of groups have no message behind them
@@ -3411,6 +3537,8 @@ QModelIndexList MainWindow::translatedSelection() const
 
 void MainWindow::handleMarkAsRead(bool value)
 {
+    if (routeToMessageAccounts([this, value]() { handleMarkAsRead(value); }))
+        return;
 #ifdef TROJITA_HAVE_WEBENGINE
     const QModelIndexList translatedIndexes = translatedSelection();
     if (translatedIndexes.isEmpty()) {
@@ -3531,6 +3659,8 @@ void MainWindow::slotPreviousUnread()
 
 void MainWindow::handleTag(const bool checked, const int index)
 {
+    if (routeToMessageAccounts([this, checked, index]() { handleTag(checked, index); }))
+        return;
     const QModelIndexList &translatedIndexes = translatedSelection();
     if (translatedIndexes.isEmpty()) {
         qDebug() << "Model::handleTag: no valid messages";
@@ -3557,6 +3687,8 @@ void MainWindow::handleTag(const bool checked, const int index)
 
 void MainWindow::handleMarkAsDeleted(bool value)
 {
+    if (routeToMessageAccounts([this, value]() { handleMarkAsDeleted(value); }))
+        return;
     const QModelIndexList translatedIndexes = translatedSelection();
     if (translatedIndexes.isEmpty()) {
         qDebug() << "Model::handleMarkAsDeleted: no valid messages";
@@ -3586,6 +3718,8 @@ void MainWindow::handleMarkAsDeleted(bool value)
 
 void MainWindow::handleMarkAsFlagged(const bool value)
 {
+    if (routeToMessageAccounts([this, value]() { handleMarkAsFlagged(value); }))
+        return;
     const QModelIndexList translatedIndexes = translatedSelection();
     if (translatedIndexes.isEmpty()) {
         qDebug() << "Model::handleMarkAsFlagged: no valid messages";
@@ -3608,6 +3742,8 @@ void MainWindow::handleMarkAsFlagged(const bool value)
 
 void MainWindow::handleMarkAsJunk(const bool value)
 {
+    if (routeToMessageAccounts([this, value]() { handleMarkAsJunk(value); }))
+        return;
     const QModelIndexList translatedIndexes = translatedSelection();
     if (translatedIndexes.isEmpty()) {
         qDebug() << "Model::handleMarkAsJunk: no valid messages";
@@ -3637,6 +3773,8 @@ void MainWindow::handleMarkAsJunk(const bool value)
 
 void MainWindow::handleMarkAsNotJunk(const bool value)
 {
+    if (routeToMessageAccounts([this, value]() { handleMarkAsNotJunk(value); }))
+        return;
     const QModelIndexList translatedIndexes = translatedSelection();
     if (translatedIndexes.isEmpty()) {
         qDebug() << "Model::handleMarkAsNotJunk: no valid messages";
@@ -3675,6 +3813,8 @@ void MainWindow::slotMoveToArchiveFailed(const QString &error, const int count)
 
 void MainWindow::handleMoveToArchive()
 {
+    if (routeToMessageAccounts([this]() { handleMoveToArchive(); }))
+        return;
     const QModelIndexList translatedIndexes = translatedSelection();
     if (translatedIndexes.isEmpty()) {
         qDebug() << "Model::handleMoveToArchive: no valid messages";
@@ -3690,13 +3830,23 @@ void MainWindow::handleDeletePermanently()
 {
     using UiUtils::DestructiveActions::Confirmation;
     const QModelIndexList translatedIndexes = translatedSelection();
-    if (translatedIndexes.isEmpty() || !imapModel()->isNetworkAvailable())
+    // Messages of other accounts than the shown one are deleted by their accounts, after one question for all
+    const bool routing = m_unifiedInbox && !m_acting &&
+                         std::any_of(translatedIndexes.cbegin(), translatedIndexes.cend(), [this](const QModelIndex &message) {
+        return message.model() != m_imapAccess->imapModel();
+    });
+    if (translatedIndexes.isEmpty())
         return;
+    if (!routing && !imapModel()->isNetworkAvailable()) {
+        if (m_acting)
+            m_notificationBar->showError(forAccountOf(imapModel(), i18nc("@info", "Could not delete the messages because the account is offline.")));
+        return;
+    }
 
     // The model can change while the question is shown
     const QList<QPersistentModelIndex> selected(translatedIndexes.cbegin(), translatedIndexes.cend());
     const int count = selected.size();
-    if (!confirmPermanentAction(Confirmation::DeletePermanently, i18nc("@title:window", "Delete Permanently"),
+    if (!m_acting && !confirmPermanentAction(Confirmation::DeletePermanently, i18nc("@title:window", "Delete Permanently"),
                                 i18ncp("@info", "Permanently delete %1 message? It cannot be recovered.",
                                        "Permanently delete %1 messages? They cannot be recovered.", count),
                                 i18nc("@action:button", "&Delete Permanently"))) {
@@ -3710,6 +3860,10 @@ void MainWindow::handleDeletePermanently()
     }
     if (messages.isEmpty())
         return;
+    if (routing) {
+        routeToMessageAccounts([this]() { handleDeletePermanently(); }, false, messages);
+        return;
+    }
 
     bool expungeScheduled = false;
     Imap::Mailbox::ImapTask *task = imapModel()->deleteMessagesPermanently(messages, &expungeScheduled);
@@ -3720,29 +3874,30 @@ void MainWindow::handleDeletePermanently()
     QPointer<Imap::Mailbox::Model> model = imapModel();
     const int deleted = messages.size();
     connect(task, &Imap::Mailbox::ImapTask::completed, this, [this, model, deleted, expungeScheduled]() {
-        if (!model || model != imapModel())
+        if (!showsModel(model))
             return;
         if (expungeScheduled) {
-            m_notificationBar->showInfo(i18ncp("@info", "Permanently deleted %1 message", "Permanently deleted %1 messages", deleted));
+            m_notificationBar->showInfo(forAccountOf(model, i18ncp("@info", "Permanently deleted %1 message",
+                                                                   "Permanently deleted %1 messages", deleted)));
             return;
         }
         // Without UIDPLUS, only an EXPUNGE of the whole folder can remove them
         InlineNotificationBar::Action expungeNow{i18nc("@action:button", "Expunge"), QStringLiteral("trash-empty"),
                                                  QStringLiteral("expungeMailbox"), [this, model]() {
-            if (model && model == imapModel())
-                slotExpunge();
+            if (showsModel(model))
+                actOnModel(model, [this]() { slotExpunge(); });
         }};
-        m_notificationBar->showInfo(i18ncp("@info",
+        m_notificationBar->showInfo(forAccountOf(model, i18ncp("@info",
                                            "Marked %1 message as deleted. The server cannot remove single messages; "
                                            "Expunge removes all messages marked as deleted in this folder.",
                                            "Marked %1 messages as deleted. The server cannot remove single messages; "
-                                           "Expunge removes all messages marked as deleted in this folder.", deleted),
+                                           "Expunge removes all messages marked as deleted in this folder.", deleted)),
                                     {expungeNow});
     });
     connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, model, deleted](const QString &message) {
-        if (model && model == imapModel())
-            m_notificationBar->showError(i18ncp("@info", "Could not delete %1 message permanently: %2",
-                                                "Could not delete %1 messages permanently: %2", deleted, message));
+        if (showsModel(model))
+            m_notificationBar->showError(forAccountOf(model, i18ncp("@info", "Could not delete %1 message permanently: %2",
+                                                                    "Could not delete %1 messages permanently: %2", deleted, message)));
     });
     showBusyWhileRunning(task, i18ncp("@info", "Deleting %1 message permanently…", "Deleting %1 messages permanently…", deleted));
 }
@@ -3779,7 +3934,7 @@ bool MainWindow::confirmPermanentAction(const UiUtils::DestructiveActions::Confi
 
 QString MainWindow::currentMailboxName() const
 {
-    auto *model = qobject_cast<Imap::Mailbox::MsgListModel *>(m_imapAccess->msgListModel());
+    auto *model = qobject_cast<Imap::Mailbox::MsgListModel *>(currentAccess()->msgListModel());
     return model ? model->currentMailbox().data(Imap::Mailbox::RoleMailboxName).toString() : QString();
 }
 
@@ -3910,7 +4065,7 @@ void MainWindow::trackMove(Imap::Mailbox::ImapTask *task, const QString &source,
     QPointer<Imap::Mailbox::Model> model = imapModel();
     connect(task, &Imap::Mailbox::ImapTask::completed, this,
             [this, model, source, target, count, kind](Imap::Mailbox::ImapTask *finished) {
-        if (!model || model != imapModel())
+        if (!showsModel(model))
             return;
         QString text;
         QString openText;
@@ -3935,32 +4090,36 @@ void MainWindow::trackMove(Imap::Mailbox::ImapTask *task, const QString &source,
             const Imap::Uids uids = copyMove->copyUidDestinationUids();
             action = {i18nc("@action:button", "Undo"), QStringLiteral("edit-undo"), QStringLiteral("undoMove"),
                       [this, model, source, target, uidValidity, uids]() {
-                if (model && model == imapModel())
-                    undoMove(source, target, uidValidity, uids);
+                if (showsModel(model))
+                    actOnModel(model, [&]() { undoMove(source, target, uidValidity, uids); });
             }};
         } else {
             // Without COPYUID (RFC 4315) there is no telling which messages in the target are the moved ones
             action = {openText, QStringLiteral("go-jump"), QStringLiteral("openMoveTarget"), [this, model, target]() {
-                if (model && model == imapModel())
-                    goToMailbox(target);
+                if (!showsModel(model))
+                    return;
+                // The folder belongs to the account of the messages, which the Unified Inbox may not show
+                if (const QString accountId = accountOfModel(model); !accountId.isEmpty() && accountId != m_accounts->activeAccount())
+                    switchAccount(accountId);
+                goToMailbox(target);
             }};
         }
-        m_notificationBar->showInfo(text, {action});
+        m_notificationBar->showInfo(forAccountOf(model, text), {action});
     });
     connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, model, target, count, kind](const QString &message) {
-        if (!model || model != imapModel())
+        if (!showsModel(model))
             return;
         switch (kind) {
         case MoveKind::Archive:
-            slotMoveToArchiveFailed(message, count);
+            slotMoveToArchiveFailed(forAccountOf(model, message), count);
             break;
         case MoveKind::Trash:
-            m_notificationBar->showError(i18ncp("@info", "Could not move %1 message to Trash: %2",
-                                                "Could not move %1 messages to Trash: %2", count, message));
+            m_notificationBar->showError(forAccountOf(model, i18ncp("@info", "Could not move %1 message to Trash: %2",
+                                                                    "Could not move %1 messages to Trash: %2", count, message)));
             break;
         case MoveKind::Folder:
-            m_notificationBar->showError(i18ncp("@info", "Could not move %1 message to %2: %3", "Could not move %1 messages to %2: %3",
-                                                count, target, message));
+            m_notificationBar->showError(forAccountOf(model, i18ncp("@info", "Could not move %1 message to %2: %3",
+                                                                    "Could not move %1 messages to %2: %3", count, target, message)));
             break;
         }
     });
@@ -3985,21 +4144,26 @@ void MainWindow::trackCopy(Imap::Mailbox::ImapTask *task, const QString &target,
         return;
     QPointer<Imap::Mailbox::Model> model = imapModel();
     connect(task, &Imap::Mailbox::ImapTask::completed, this, [this, model, target, count]() {
-        if (!model || model != imapModel())
+        if (!showsModel(model))
             return;
         const InlineNotificationBar::Action open{i18nc("@action:button", "Open Folder"), QStringLiteral("go-jump"),
                                                  QStringLiteral("openCopyTarget"), [this, model, target]() {
-            if (model && model == imapModel())
-                goToMailbox(target);
+            if (!showsModel(model))
+                return;
+            // The folder belongs to the account of the messages, which the Unified Inbox may not show
+            if (const QString accountId = accountOfModel(model); !accountId.isEmpty() && accountId != m_accounts->activeAccount())
+                switchAccount(accountId);
+            goToMailbox(target);
         }};
-        m_notificationBar->showInfo(i18ncp("@info", "Copied %1 message to %2", "Copied %1 messages to %2", count, target),
+        m_notificationBar->showInfo(forAccountOf(model, i18ncp("@info", "Copied %1 message to %2", "Copied %1 messages to %2",
+                                                               count, target)),
                                     {open});
     });
     connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, model, target, count](const QString &message) {
-        if (!model || model != imapModel())
+        if (!showsModel(model))
             return;
-        m_notificationBar->showError(i18ncp("@info", "Could not copy %1 message to %2: %3", "Could not copy %1 messages to %2: %3",
-                                            count, target, message));
+        m_notificationBar->showError(forAccountOf(model, i18ncp("@info", "Could not copy %1 message to %2: %3",
+                                                                "Could not copy %1 messages to %2: %3", count, target, message)));
     });
     showBusyWhileRunning(task, i18ncp("@info", "Copying %1 message to %2…", "Copying %1 messages to %2…", count, target));
 }
@@ -4016,8 +4180,8 @@ void MainWindow::showBusyWhileRunning(Imap::Mailbox::ImapTask *task, const QStri
     delay->setInterval(400);
     // The bar as the context: tasks can outlive it while the window goes away
     connect(delay, &QTimer::timeout, m_notificationBar, [this, model, busyId, busyText]() {
-        if (model && model == imapModel())
-            *busyId = m_notificationBar->showBusy(busyText);
+        if (showsModel(model))
+            *busyId = m_notificationBar->showBusy(forAccountOf(model, busyText));
     });
     auto finish = [this, delay, busyId]() {
         if (delay)
@@ -4039,13 +4203,13 @@ void MainWindow::trackFlagChange(Imap::Mailbox::ImapTask *task, const QString &b
     QPointer<Imap::Mailbox::Model> model = imapModel();
     if (!doneText.isEmpty()) {
         connect(task, &Imap::Mailbox::ImapTask::completed, this, [this, model, doneText]() {
-            if (model && model == imapModel())
-                m_notificationBar->showInfo(doneText);
+            if (showsModel(model))
+                m_notificationBar->showInfo(forAccountOf(model, doneText));
         });
     }
     connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, model, failedText](const QString &message) {
-        if (model && model == imapModel())
-            m_notificationBar->showError(failedText(message));
+        if (showsModel(model))
+            m_notificationBar->showError(forAccountOf(model, failedText(message)));
     });
     showBusyWhileRunning(task, busyText);
 }
@@ -4064,16 +4228,17 @@ void MainWindow::undoMove(const QString &source, const QString &target, const ui
     QPointer<Imap::Mailbox::Model> guard = model;
     const int count = uids.size();
     connect(task, &Imap::Mailbox::ImapTask::completed, this, [this, guard, source, target, count]() {
-        if (!guard || guard != imapModel())
+        if (!showsModel(guard))
             return;
-        m_notificationBar->showInfo(i18ncp("@info", "Moved %1 message back to %2", "Moved %1 messages back to %2", count, source));
-        reopenCurrentMailbox(target);
+        m_notificationBar->showInfo(forAccountOf(guard, i18ncp("@info", "Moved %1 message back to %2", "Moved %1 messages back to %2",
+                                                               count, source)));
+        actOnModel(guard, [&]() { reopenCurrentMailbox(target); });
     });
     connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, guard, source, target](const QString &message) {
-        if (!guard || guard != imapModel())
+        if (!showsModel(guard))
             return;
-        m_notificationBar->showError(i18nc("@info", "Could not move the messages back to %1: %2", source, message));
-        reopenCurrentMailbox(target);
+        m_notificationBar->showError(forAccountOf(guard, i18nc("@info", "Could not move the messages back to %1: %2", source, message)));
+        actOnModel(guard, [&]() { reopenCurrentMailbox(target); });
     });
     showBusyWhileRunning(task, i18ncp("@info", "Moving %1 message back to %2…", "Moving %1 messages back to %2…", count, source));
 }
@@ -4081,7 +4246,7 @@ void MainWindow::undoMove(const QString &source, const QString &target, const ui
 void MainWindow::reopenCurrentMailbox(const QString &usedMailbox)
 {
     // Only one mailbox is selected per connection; selecting another one leaves the message list stale
-    auto *msgList = qobject_cast<Imap::Mailbox::MsgListModel *>(m_imapAccess->msgListModel());
+    auto *msgList = qobject_cast<Imap::Mailbox::MsgListModel *>(currentAccess()->msgListModel());
     const QModelIndex current = msgList ? msgList->currentMailbox() : QModelIndex();
     if (current.isValid() && current.data(Imap::Mailbox::RoleMailboxName).toString() != usedMailbox)
         imapModel()->switchToMailbox(current);
@@ -4089,7 +4254,7 @@ void MainWindow::reopenCurrentMailbox(const QString &usedMailbox)
 
 void MainWindow::slotExpunge()
 {
-    auto *msgList = qobject_cast<Imap::Mailbox::MsgListModel *>(m_imapAccess->msgListModel());
+    auto *msgList = qobject_cast<Imap::Mailbox::MsgListModel *>(currentAccess()->msgListModel());
     const QModelIndex mailbox = msgList->currentMailbox();
     if (!mailbox.isValid())
         return;
@@ -4267,7 +4432,19 @@ void MainWindow::updateMessageFlagsOf(const QModelIndex &index)
     const bool isValid = !indexes.isEmpty() &&
                          // either we operate on the -already valided- selection or the index must be valid
                          (!index.isValid() || index.data(Imap::Mailbox::RoleMessageUid).toUInt() > 0);
-    const bool okToModify = imapModel()->isNetworkAvailable() && isValid;
+    bool okToModify = isValid;
+    if (m_unifiedInbox && !m_acting) {
+        // Every account of the selected messages has to be reachable
+        for (const QModelIndex &message : std::as_const(indexes)) {
+            const auto *model = qobject_cast<const Imap::Mailbox::Model *>(message.model());
+            if (!model || !model->isNetworkAvailable()) {
+                okToModify = false;
+                break;
+            }
+        }
+    } else {
+        okToModify = okToModify && imapModel()->isNetworkAvailable();
+    }
 
     markAsRead->setEnabled(okToModify);
     markAsDeleted->setEnabled(okToModify);
@@ -4390,6 +4567,12 @@ void MainWindow::updateActionsOnlineOffline(bool online)
 void MainWindow::slotUpdateMessageActions()
 {
 #ifdef TROJITA_HAVE_WEBENGINE
+    // The identities of the account which received the message decide who a reply goes to
+    const auto *messageModel = qobject_cast<const Imap::Mailbox::Model *>(
+        Imap::deproxifiedIndex(m_messageWidget->messageView->currentMessage()).model());
+    if (!m_acting && messageModel && messageModel != imapModel() &&
+        actOnModel(messageModel, [this]() { slotUpdateMessageActions(); }))
+        return;
     Composer::RecipientList dummy;
     m_replyPrivate->setEnabled(Composer::Util::replyRecipientList(Composer::REPLY_PRIVATE, senderIdentitiesModel(),
                                                                   m_messageWidget->messageView->currentMessage(), dummy));
@@ -4462,7 +4645,9 @@ void MainWindow::slotForwardAsAttachment()
 {
 #ifdef TROJITA_HAVE_WEBENGINE
     const QModelIndex messageIndex = m_messageWidget->message();
-    m_msgActionHandler.forward(messageIndex, Composer::ForwardMode::FORWARD_AS_ATTACHMENT);
+    auto forwardNow = [&]() { m_msgActionHandler.forward(messageIndex, Composer::ForwardMode::FORWARD_AS_ATTACHMENT); };
+    if (!actOnModel(qobject_cast<const Imap::Mailbox::Model *>(Imap::deproxifiedIndex(messageIndex).model()), forwardNow))
+        forwardNow();
 #endif
 }
 
@@ -4502,9 +4687,11 @@ void MainWindow::slotResend()
         }
     }
 
-    ComposeWidget::warnIfMsaNotConfigured(
-                ComposeWidget::createFromReadOnly(this, index, recipients),
-                this);
+    auto resendNow = [&]() {
+        ComposeWidget::warnIfMsaNotConfigured(ComposeWidget::createFromReadOnly(this, index, recipients), this);
+    };
+    if (!actOnModel(qobject_cast<const Imap::Mailbox::Model *>(index.model()), resendNow))
+        resendNow();
 
 }
 
@@ -4907,7 +5094,7 @@ void MainWindow::slotScrollToCurrent()
 void MainWindow::slotThreadMsgList()
 {
     // The groups show a flat list; choosing the Conversation grouping brings the threads back
-    if (Imap::Mailbox::GroupingMsgListModel::isRealGrouping(m_groupBy))
+    if (m_unifiedInbox || Imap::Mailbox::GroupingMsgListModel::isRealGrouping(m_groupBy))
         return;
 
     // We want to save user's preferences and not override them with "threading disabled" when the server
@@ -5008,7 +5195,7 @@ void MainWindow::slotSortingConfirmed(int column, Qt::SortOrder order)
     case MsgListModel::COLUMN_COUNT:
     case MsgListModel::BCC:
     case -1:
-        if (actionThreadMsgList->isChecked())
+        if (actionThreadMsgList->isChecked() && !m_unifiedInbox)
             action = m_actionSortThreading;
         else
             action = m_actionSortNone;
@@ -5091,7 +5278,8 @@ QModelIndex MainWindow::toPrettyIndex(const QModelIndex &viewIndex) const
 
 QModelIndex MainWindow::fromPrettyIndex(const QModelIndex &prettyIndex) const
 {
-    if (prettyIndex.isValid() && m_groupingMsgListModel && msgListWidget->tree->model() == m_groupingMsgListModel)
+    if (prettyIndex.isValid() && prettyIndex.model() == prettyMsgListModel && m_groupingMsgListModel &&
+        msgListWidget->tree->model() == m_groupingMsgListModel)
         return m_groupingMsgListModel->mapFromSource(prettyIndex);
     return prettyIndex;
 }
@@ -5105,12 +5293,23 @@ void MainWindow::connectMessageListSelection()
     connect(selection, &QItemSelectionModel::selectionChanged, this, &MainWindow::scheduleMessageListStatus);
     connect(selection, &QItemSelectionModel::selectionChanged, this, [this]() { captureFolderPosition(); });
     connect(selection, &QItemSelectionModel::currentChanged, this, [this]() { captureFolderPosition(); });
+    if (m_prettyUnifiedModel && msgListWidget->tree->model() == m_prettyUnifiedModel) {
+        connect(selection, &QItemSelectionModel::currentChanged, m_prettyUnifiedModel, [this, model = m_prettyUnifiedModel]() {
+            QMetaObject::invokeMethod(model, [this, model]() {
+                const QModelIndex current = msgListWidget->tree->currentIndex();
+                if (current.model() == model)
+                    model->setKeptVisibleIndex(current);
+            }, Qt::QueuedConnection);
+            scheduleMessageListStatus();
+        });
+        return;
+    }
     connect(selection, &QItemSelectionModel::currentChanged, prettyMsgListModel, [this, model = prettyMsgListModel]() {
         // Later, because the current message also changes while the models are busy removing rows
         QMetaObject::invokeMethod(model, [this, model]() {
             const QModelIndex current = msgListWidget->tree->currentIndex();
             // On the header of a group, the message from before stays shown until another one takes its place
-            if (!current.data(Imap::Mailbox::RoleIsGroupHeader).toBool())
+            if (!current.data(Imap::Mailbox::RoleIsGroupHeader).toBool() && toPrettyIndex(current).model() == model)
                 model->setKeptVisibleIndex(toPrettyIndex(current));
         }, Qt::QueuedConnection);
         scheduleMessageListStatus();
@@ -5131,7 +5330,7 @@ void MainWindow::swapMessageListModel(QAbstractItemModel *model)
                 selected << pretty;
         }
     }
-    const bool relevance = m_actionSortByRelevance && m_actionSortByRelevance->isChecked();
+    const bool relevance = !m_unifiedInbox && m_actionSortByRelevance && m_actionSortByRelevance->isChecked();
 
     tree->setModel(model);
     if (oldSelection && oldSelection != tree->selectionModel())
@@ -5146,13 +5345,14 @@ void MainWindow::swapMessageListModel(QAbstractItemModel *model)
     QItemSelection selection;
     for (const QPersistentModelIndex &index : std::as_const(selected)) {
         const QModelIndex row = fromPrettyIndex(index);
-        if (row.isValid())
+        // The messages of the Unified Inbox and of a folder are not the same rows
+        if (row.isValid() && row.model() == model)
             selection.select(row, row.siblingAtColumn(model->columnCount(row.parent()) - 1));
     }
     if (!selection.isEmpty())
         tree->selectionModel()->select(selection, QItemSelectionModel::ClearAndSelect);
     const QModelIndex newCurrent = fromPrettyIndex(current);
-    if (newCurrent.isValid()) {
+    if (newCurrent.isValid() && newCurrent.model() == model) {
         tree->selectionModel()->setCurrentIndex(newCurrent, QItemSelectionModel::NoUpdate);
         tree->scrollTo(newCurrent);
     }
@@ -5161,7 +5361,7 @@ void MainWindow::swapMessageListModel(QAbstractItemModel *model)
 void MainWindow::setMessageListGrouping(Imap::Mailbox::GroupingMsgListModel::Grouping grouping, bool remember)
 {
     using Imap::Mailbox::GroupingMsgListModel;
-    if (!m_groupingMsgListModel || !m_groupByActions)
+    if (m_unifiedInbox || !m_groupingMsgListModel || !m_groupByActions)
         return;
     MsgListView *tree = msgListWidget->tree;
     auto threadingModel = qobject_cast<Imap::Mailbox::ThreadingMsgListModel *>(m_imapAccess->threadingMsgListModel());
@@ -5230,6 +5430,9 @@ Imap::Mailbox::GroupingMsgListModel::Grouping MainWindow::shownGrouping() const
 
 void MainWindow::applyMessageListView()
 {
+    // The Unified Inbox has a view of its own, see setUnifiedInbox()
+    if (m_unifiedInbox)
+        return;
     using Imap::Mailbox::GroupingMsgListModel;
     const QString mailbox = currentMailboxName();
     m_view = m_viewStore.effectiveView(mailbox);
@@ -5251,7 +5454,7 @@ void MainWindow::applyMessageListView()
 
 void MainWindow::applyMessageListSort()
 {
-    if (!m_actionSortNone || !prettyMsgListModel || !msgListWidget->tree->model())
+    if (m_unifiedInbox || !m_actionSortNone || !prettyMsgListModel || !msgListWidget->tree->model())
         return;
     MsgListView *tree = msgListWidget->tree;
     QHeaderView *header = tree->header();
@@ -5285,7 +5488,7 @@ void MainWindow::applyMessageListSort()
 void MainWindow::rememberMessageListView()
 {
     using Imap::Mailbox::GroupingMsgListModel;
-    if (m_applyingView || !actionThreadMsgList)
+    if (m_unifiedInbox || m_applyingView || !actionThreadMsgList)
         return;
     const bool grouped = GroupingMsgListModel::isRealGrouping(m_groupBy);
     m_view.groupBy = grouped ? GroupingMsgListModel::groupingName(m_groupBy) : QString();
@@ -5295,7 +5498,7 @@ void MainWindow::rememberMessageListView()
 
 void MainWindow::rememberMessageListSort(int column, Qt::SortOrder order)
 {
-    if (m_applyingView)
+    if (m_unifiedInbox || m_applyingView)
         return;
     m_view.sortColumn = qMax(-1, column);
     m_view.sortOrder = order;
@@ -5355,6 +5558,11 @@ void MainWindow::updateMessageListViewActions()
 {
     if (!m_actionResetFolderView || !m_actionViewForAllFolders)
         return;
+    if (m_unifiedInbox) {
+        m_actionViewForAllFolders->setEnabled(false);
+        m_actionResetFolderView->setEnabled(false);
+        return;
+    }
     const QString mailbox = currentMailboxName();
     m_actionViewForAllFolders->setEnabled(!mailbox.isEmpty());
     m_actionResetFolderView->setEnabled(!mailbox.isEmpty() &&
@@ -5392,7 +5600,7 @@ UiUtils::FolderPositionStore &MainWindow::folderPositions()
 void MainWindow::captureFolderPosition(bool anchorOnly)
 {
     using namespace Imap::Mailbox;
-    if (m_positionMailbox.isEmpty() || !prettyMsgListModel || m_positionMailbox != currentMailboxName())
+    if (m_unifiedInbox || m_positionMailbox.isEmpty() || !prettyMsgListModel || m_positionMailbox != currentMailboxName())
         return;
     // Until the remembered position is back, the list is not where the user left it
     if (m_messageRestorer && m_messageRestorer->isPending())
@@ -5440,7 +5648,7 @@ void MainWindow::commitFolderPosition()
 
 void MainWindow::restoreFolderPosition()
 {
-    if (!m_messageRestorer || m_positionMailbox.isEmpty() || m_positionMailbox != currentMailboxName())
+    if (m_unifiedInbox || !m_messageRestorer || m_positionMailbox.isEmpty() || m_positionMailbox != currentMailboxName())
         return;
     const auto position = folderPositions().position(m_positionMailbox);
     if (!position)
@@ -5466,6 +5674,35 @@ void MainWindow::updateMessageListScope()
 {
     if (!m_imapAccess || !msgListWidget)
         return;
+    if (m_unifiedInbox && m_unifiedModel) {
+        using State = Imap::Mailbox::UnifiedMsgListModel::AccountState;
+        QStringList accounts;
+        for (const QString &accountId : m_unifiedModel->accountIds()) {
+            const QString name = m_unifiedModel->accountName(accountId);
+            switch (m_unifiedModel->accountState(accountId)) {
+            case State::Ready:
+                accounts << name;
+                break;
+            case State::Syncing:
+                accounts << i18nc("@info:tooltip account name", "%1 (synchronizing)", name);
+                break;
+            case State::Offline:
+                accounts << i18nc("@info:tooltip account name", "%1 (offline)", name);
+                break;
+            case State::Failed:
+                accounts << i18nc("@info:tooltip account name, error", "%1 (failed: %2)", name,
+                                  m_unifiedModel->accountStateDetail(accountId));
+                break;
+            case State::Unavailable:
+                accounts << i18nc("@info:tooltip account name", "%1 (unavailable)", name);
+                break;
+            }
+        }
+        msgListWidget->setCustomScope(i18nc("@label", "Unified Inbox"),
+                                      i18nc("@info:tooltip list of accounts, one per line", "The INBOX of these accounts:\n%1",
+                                            accounts.join(QLatin1Char('\n'))));
+        return;
+    }
     const auto *msgList = qobject_cast<Imap::Mailbox::MsgListModel *>(m_imapAccess->msgListModel());
     const QModelIndex mailbox = msgList ? msgList->currentMailbox() : QModelIndex();
     msgListWidget->setScope(m_accounts->displayName(m_accounts->activeAccount()),
@@ -5546,6 +5783,9 @@ void MainWindow::syncMessageListFilterUi()
         return;
     using Imap::Mailbox::PrettyMsgListModel;
     const PrettyMsgListModel::Filters filters = prettyMsgListModel->filters();
+    // The filters of the folder apply to the Unified Inbox as well
+    if (m_prettyUnifiedModel)
+        m_prettyUnifiedModel->setFilters(filters);
     actionHideRead->setChecked(filters.testFlag(PrettyMsgListModel::FilterUnread));
     m_actionFilterUnread->setChecked(filters.testFlag(PrettyMsgListModel::FilterUnread));
     m_actionFilterFlagged->setChecked(filters.testFlag(PrettyMsgListModel::FilterFlagged));
@@ -5570,7 +5810,38 @@ void MainWindow::updateMessageListStatus()
     QStringList parts;
     const auto *msgList = qobject_cast<MsgListModel *>(m_imapAccess->msgListModel());
     const QModelIndex mailbox = msgList ? msgList->currentMailbox() : QModelIndex();
-    if (mailbox.isValid()) {
+    if (m_unifiedInbox && m_unifiedModel) {
+        const int total = m_unifiedModel->messageCount();
+        parts << i18nc("@info:status message count, unread count", "%1, %2",
+                       i18ncp("@info:status", "%1 message", "%1 messages", total),
+                       i18ncp("@info:status", "%1 unread", "%1 unread", m_unifiedModel->unreadCount()));
+        if (m_prettyUnifiedModel->filters() != PrettyMsgListModel::NoFilter) {
+            parts << i18nc("@info:status filters hide some messages", "showing %1 of %2",
+                           m_prettyUnifiedModel->visibleMessageCount(), total);
+        }
+        // Their cached messages may still be listed, but nothing new arrives
+        QStringList offline;
+        QStringList unavailable;
+        for (const QString &accountId : m_unifiedModel->accountIds()) {
+            switch (m_unifiedModel->accountState(accountId)) {
+            case UnifiedMsgListModel::AccountState::Ready:
+            case UnifiedMsgListModel::AccountState::Syncing:
+                break;
+            case UnifiedMsgListModel::AccountState::Offline:
+                offline << m_unifiedModel->accountName(accountId);
+                break;
+            case UnifiedMsgListModel::AccountState::Failed:
+            case UnifiedMsgListModel::AccountState::Unavailable:
+                unavailable << m_unifiedModel->accountName(accountId);
+                break;
+            }
+        }
+        const QString separator = i18nc("@info:status separator of account names", ", ");
+        if (!offline.isEmpty())
+            parts << i18nc("@info:status list of account names", "offline: %1", offline.join(separator));
+        if (!unavailable.isEmpty())
+            parts << i18nc("@info:status list of account names", "unavailable: %1", unavailable.join(separator));
+    } else if (mailbox.isValid()) {
         const QVariant total = mailbox.data(RoleTotalMessageCount);
         const QVariant unread = mailbox.data(RoleUnreadMessageCount);
         if (total.isValid()) {
@@ -5651,6 +5922,11 @@ void MainWindow::updateRelatedActions()
     m_actionRelatedList->setEnabled(list);
     m_actionSelectSameSender->setEnabled(m_actionRelatedSender->isEnabled());
     m_actionSelectSameSubject->setEnabled(m_actionRelatedSubject->isEnabled());
+    // Show Related searches a folder on the server, and the Unified Inbox has none
+    if (m_unifiedInbox) {
+        for (QAction *action : {m_actionRelatedSender, m_actionRelatedRecipient, m_actionRelatedSubject, m_actionRelatedList})
+            action->setEnabled(false);
+    }
     const QAbstractItemModel *model = msgListWidget->tree->model();
     const bool hasRows = model && model->rowCount() > 0;
     m_actionSelectUnread->setEnabled(hasRows);
@@ -5659,6 +5935,8 @@ void MainWindow::updateRelatedActions()
 
 void MainWindow::showRelatedMessages(UiUtils::FieldFilter field)
 {
+    if (m_unifiedInbox)
+        return;
     const QString value = UiUtils::fieldFilterValue(msgListWidget->tree->currentIndex(), field);
     if (value.isEmpty())
         return;
@@ -6315,7 +6593,338 @@ void MainWindow::activateRelatedMessage(const QModelIndex &message)
 
 Imap::Mailbox::Model *MainWindow::imapModel() const
 {
-    return qobject_cast<Imap::Mailbox::Model *>(m_imapAccess->imapModel());
+    return qobject_cast<Imap::Mailbox::Model *>(currentAccess()->imapModel());
+}
+
+Imap::ImapAccess *MainWindow::currentAccess() const
+{
+    return m_acting ? m_actingAccess : m_imapAccess;
+}
+
+QString MainWindow::currentAccountId() const
+{
+    return m_acting ? m_actingAccountId : m_accounts->activeAccount();
+}
+
+bool MainWindow::showsModel(const Imap::Mailbox::Model *model) const
+{
+    if (!model)
+        return false;
+    if (static_cast<const QObject *>(model) == m_imapAccess->imapModel())
+        return true;
+    return m_unifiedInbox && m_unifiedModel && m_unifiedModel->accountIds().contains(accountOfModel(model));
+}
+
+QString MainWindow::accountOfModel(const Imap::Mailbox::Model *model) const
+{
+    if (!model)
+        return QString();
+    for (auto it = m_accountAccess.cbegin(); it != m_accountAccess.cend(); ++it) {
+        if (it.value() && it.value()->imapModel() == static_cast<const QObject *>(model))
+            return it.key();
+    }
+    return QString();
+}
+
+void MainWindow::actAs(const QString &accountId, const QModelIndexList &selection, const std::function<void()> &fn)
+{
+    Imap::ImapAccess *access = m_accountAccess.value(accountId);
+    if (!access)
+        return;
+    const bool wasActing = m_acting;
+    Imap::ImapAccess *const previousAccess = m_actingAccess;
+    const QString previousAccountId = m_actingAccountId;
+    const QModelIndexList previousSelection = m_actingSelection;
+    m_acting = true;
+    m_actingAccess = access;
+    m_actingAccountId = accountId;
+    m_actingSelection = selection;
+    fn();
+    m_acting = wasActing;
+    m_actingAccess = previousAccess;
+    m_actingAccountId = previousAccountId;
+    m_actingSelection = previousSelection;
+}
+
+bool MainWindow::actOnModel(const Imap::Mailbox::Model *model, const std::function<void()> &fn)
+{
+    if (!model)
+        return false;
+    if (static_cast<const QObject *>(model) == currentAccess()->imapModel()) {
+        fn();
+        return true;
+    }
+    const QString accountId = accountOfModel(model);
+    if (accountId.isEmpty())
+        return false;
+    actAs(accountId, QModelIndexList(), fn);
+    return true;
+}
+
+bool MainWindow::routeToMessageAccounts(const std::function<void()> &fn, bool singleAccount, const QModelIndexList &selection)
+{
+    if (!m_unifiedInbox || m_acting)
+        return false;
+    const QModelIndexList messages = selection.isEmpty() ? translatedSelection() : selection;
+    QStringList order;
+    QHash<QString, QModelIndexList> byAccount;
+    for (const QModelIndex &message : messages) {
+        const QString accountId = accountOfModel(qobject_cast<const Imap::Mailbox::Model *>(message.model()));
+        if (accountId.isEmpty())
+            continue;
+        if (!byAccount.contains(accountId))
+            order << accountId;
+        byAccount[accountId] << message;
+    }
+    if (order.isEmpty() || (order.size() == 1 && order.constFirst() == m_accounts->activeAccount()))
+        return false;
+    if (singleAccount && order.size() > 1) {
+        m_notificationBar->showError(i18nc("@info", "Messages of different accounts cannot be moved or copied together. "
+                                                    "Select the messages of one account."));
+        return true;
+    }
+    for (const QString &accountId : std::as_const(order))
+        actAs(accountId, byAccount.value(accountId), fn);
+    return true;
+}
+
+QString MainWindow::forAccountOf(const Imap::Mailbox::Model *model, const QString &text) const
+{
+    if (text.isEmpty() || !m_unifiedInbox || !m_unifiedModel || m_unifiedModel->accountIds().size() < 2)
+        return text;
+    const QString accountId = accountOfModel(model);
+    if (accountId.isEmpty())
+        return text;
+    return i18nc("@info account name and what happened to its messages", "%1: %2", m_accounts->displayName(accountId), text);
+}
+
+QStringList MainWindow::unifiedAccountIds() const
+{
+    const QStringList excluded = KConfigGroup(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), unifiedInboxGroup())
+            .readEntry("ExcludedAccounts", QStringList());
+    QStringList ids;
+    for (const QString &accountId : m_accounts->accountIds()) {
+        if (!excluded.contains(accountId))
+            ids << accountId;
+    }
+    return ids;
+}
+
+void MainWindow::populateUnifiedAccountsMenu()
+{
+    m_unifiedAccountsMenu->clear();
+    const QStringList included = unifiedAccountIds();
+    for (const QString &accountId : m_accounts->accountIds()) {
+        QString label = m_accounts->displayName(accountId);
+        QAction *action = m_unifiedAccountsMenu->addAction(label.replace(QLatin1Char('&'), QLatin1String("&&")));
+        action->setCheckable(true);
+        action->setChecked(included.contains(accountId));
+        action->setData(accountId);
+        // At least one account stays in the list
+        action->setEnabled(!(included.size() == 1 && included.contains(accountId)));
+        connect(action, &QAction::toggled, this, [this, accountId](bool checked) {
+            KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), unifiedInboxGroup());
+            QStringList excluded = group.readEntry("ExcludedAccounts", QStringList());
+            excluded.removeAll(accountId);
+            if (!checked)
+                excluded << accountId;
+            group.writeEntry("ExcludedAccounts", excluded);
+            if (!group.sync())
+                qWarning() << "Could not save the accounts of the Unified Inbox";
+            if (m_unifiedInbox)
+                syncUnifiedSources();
+        });
+    }
+}
+
+void MainWindow::syncUnifiedSources()
+{
+    if (!m_unifiedModel)
+        return;
+    const QStringList wanted = m_unifiedInbox ? unifiedAccountIds() : QStringList();
+    for (const QString &accountId : m_unifiedModel->accountIds()) {
+        if (!wanted.contains(accountId))
+            m_unifiedModel->removeAccount(accountId);
+    }
+    for (const QString &accountId : wanted) {
+        Imap::ImapAccess *access = m_accountAccess.value(accountId);
+        auto *model = access ? qobject_cast<Imap::Mailbox::Model *>(access->imapModel()) : nullptr;
+        auto *msgList = access ? qobject_cast<Imap::Mailbox::MsgListModel *>(access->msgListModel()) : nullptr;
+        QAbstractItemModel *source = nullptr;
+        if (model && msgList) {
+            if (!model->property("unifiedInboxHooked").toBool()) {
+                model->setProperty("unifiedInboxHooked", true);
+                // The INBOX can only be opened once the folders are listed
+                connect(model, &QAbstractItemModel::rowsInserted, m_unifiedModel, [this](const QModelIndex &parent) {
+                    if (!parent.isValid() && m_unifiedInbox)
+                        syncUnifiedSources();
+                });
+                connect(msgList, &Imap::Mailbox::MsgListModel::mailboxChanged, m_unifiedModel, [this]() {
+                    if (!m_unifiedInbox)
+                        return;
+                    QMetaObject::invokeMethod(m_unifiedModel, [this]() {
+                        if (m_unifiedInbox)
+                            syncUnifiedSources();
+                    }, Qt::QueuedConnection);
+                });
+            }
+            const QModelIndex inbox = model->mailboxIndexByName(QStringLiteral("INBOX"));
+            if (inbox.isValid()) {
+                if (msgList->currentMailbox() != inbox)
+                    msgList->setMailbox(inbox);
+                source = msgList;
+            }
+        }
+        const QString name = m_accounts->displayName(accountId);
+        m_unifiedModel->setAccountSource(accountId, name, source);
+        if (m_unifiedModel->accountName(accountId) != name)
+            m_unifiedModel->setAccountName(accountId, name);
+    }
+    updateUnifiedStates();
+}
+
+void MainWindow::updateUnifiedStates()
+{
+    if (!m_unifiedModel)
+        return;
+    using Common::AccountStatusKind;
+    using State = Imap::Mailbox::UnifiedMsgListModel::AccountState;
+    for (const QString &accountId : m_unifiedModel->accountIds()) {
+        const Common::AccountStatus status = m_accountStatus->status(accountId);
+        Imap::ImapAccess *access = m_accountAccess.value(accountId);
+        State state = State::Ready;
+        QString detail;
+        if (!access || !access->isConfigured() || !access->imapModel()) {
+            state = State::Unavailable;
+        } else {
+            switch (status.kind) {
+            case AccountStatusKind::Idle:
+            case AccountStatusKind::Connected:
+                state = State::Ready;
+                break;
+            case AccountStatusKind::Connecting:
+                state = State::Syncing;
+                break;
+            case AccountStatusKind::Offline:
+                state = State::Offline;
+                break;
+            case AccountStatusKind::NetworkError:
+            case AccountStatusKind::AuthRequired:
+            case AccountStatusKind::AuthFailed:
+                state = State::Failed;
+                detail = status.detail.isEmpty() ? Common::AccountStatusTracker::label(status.kind) : status.detail;
+                break;
+            }
+        }
+        m_unifiedModel->setAccountState(accountId, state, detail);
+    }
+    if (m_unifiedInbox) {
+        updateMessageListScope();
+        updateMessageFlags();
+        scheduleMessageListStatus();
+    }
+}
+
+void MainWindow::setUnifiedInbox(bool enabled, bool returnToFolder)
+{
+    if (!m_unifiedModel || !prettyMsgListModel || enabled == m_unifiedInbox) {
+        if (m_actionUnifiedInbox && m_actionUnifiedInbox->isChecked() != m_unifiedInbox) {
+            const QSignalBlocker blocker(m_actionUnifiedInbox);
+            m_actionUnifiedInbox->setChecked(m_unifiedInbox);
+        }
+        return;
+    }
+    using Imap::Mailbox::GroupingMsgListModel;
+    MsgListView *tree = msgListWidget->tree;
+    QHeaderView *header = tree->header();
+    const QList<QAction *> folderViewActions = {m_groupByMenu ? m_groupByMenu->menuAction() : nullptr,
+                                                m_showRelatedMenu ? m_showRelatedMenu->menuAction() : nullptr,
+                                                m_actionRelatedSender, m_actionRelatedRecipient, m_actionRelatedSubject,
+                                                m_actionRelatedList, m_actionSortByRelevance, m_actionViewForAllFolders,
+                                                m_actionResetFolderView, m_actionExpandAllGroups, m_actionCollapseAllGroups};
+    if (enabled) {
+        captureFolderPosition();
+        commitFolderPosition();
+        m_unifiedReturnMailbox = currentMailboxName();
+        if (m_messageRestorer)
+            m_messageRestorer->cancel();
+        m_unifiedInbox = true;
+        syncUnifiedSources();
+        m_prettyUnifiedModel->setFilters(prettyMsgListModel->filters());
+        swapMessageListModel(m_prettyUnifiedModel);
+        tree->setRootIsDecorated(false);
+        if (header->sortIndicatorSection() < 0)
+            header->setSortIndicator(Imap::Mailbox::MsgListModel::DATE, Qt::DescendingOrder);
+        slotSortingConfirmed(header->sortIndicatorSection(), header->sortIndicatorOrder());
+        // Neither threads, nor groups, nor a search on the server span several accounts
+        m_unifiedThreadingEnabled = actionThreadMsgList->isEnabled();
+        actionThreadMsgList->setEnabled(false);
+        m_actionSortThreading->setEnabled(false);
+        m_actionSortNone->setEnabled(true);
+        if (m_groupByActions)
+            m_groupByActions->setEnabled(false);
+        for (QAction *action : folderViewActions) {
+            if (action)
+                action->setEnabled(false);
+        }
+        msgListWidget->setSearchAvailable(false);
+        if (QItemSelectionModel *folders = mboxTree->selectionModel())
+            folders->clearSelection();
+    } else {
+        m_unifiedInbox = false;
+        const bool grouped = GroupingMsgListModel::isRealGrouping(m_groupBy);
+        {
+            // The folder's own sorting, rather than the one of the Unified Inbox
+            const UiUtils::MessageListView view = m_viewStore.effectiveView(currentMailboxName());
+            const QSignalBlocker blocker(header);
+            header->setSortIndicator(view.sortColumn, view.sortOrder);
+        }
+        swapMessageListModel(grouped ? static_cast<QAbstractItemModel *>(m_groupingMsgListModel) : prettyMsgListModel);
+        tree->setRootIsDecorated(grouped || actionThreadMsgList->isChecked());
+        actionThreadMsgList->setEnabled(m_unifiedThreadingEnabled);
+        m_actionSortThreading->setEnabled(!grouped && actionThreadMsgList->isChecked());
+        m_actionSortNone->setEnabled(!m_actionSortThreading->isEnabled());
+        if (m_groupByActions)
+            m_groupByActions->setEnabled(true);
+        for (QAction *action : folderViewActions) {
+            if (action)
+                action->setEnabled(true);
+        }
+        msgListWidget->setSearchAvailable(true);
+        syncUnifiedSources();
+        applyMessageListView();
+        if (auto *threading = qobject_cast<Imap::Mailbox::ThreadingMsgListModel *>(m_imapAccess->threadingMsgListModel()))
+            updateRelevanceSorting(threading->currentSearchCondition());
+    }
+    {
+        const QSignalBlocker blocker(m_actionUnifiedInbox);
+        m_actionUnifiedInbox->setChecked(m_unifiedInbox);
+    }
+    updateMessageListScope();
+    updateMessageFlags();
+    scheduleMessageListStatus();
+    KConfigGroup state(KSharedConfig::openStateConfig(), unifiedInboxGroup());
+    state.writeEntry("Enabled", m_unifiedInbox);
+    if (!state.sync())
+        qWarning() << "Could not save the state of the Unified Inbox";
+    if (!enabled) {
+        const QString target = m_unifiedReturnMailbox;
+        m_unifiedReturnMailbox.clear();
+        if (returnToFolder && !target.isEmpty() && target != currentMailboxName()) {
+            goToMailbox(target);
+        } else {
+            restoreFolderPosition();
+            // While the Unified Inbox was shown, choosing this folder was not remembered
+            const QString mailbox = currentMailboxName();
+            if (!mailbox.isEmpty()) {
+                KConfigGroup selection(KSharedConfig::openStateConfig(), QStringLiteral("MailboxSelection"));
+                KConfigGroup accountSelection = selection.group(m_imapAccess->credentialAccountId());
+                accountSelection.writeEntry("Mailbox", mailbox);
+                if (!accountSelection.sync())
+                    qWarning() << "Could not save mailbox selection";
+            }
+        }
+    }
 }
 
 void MainWindow::desktopGeometryChanged()
@@ -6687,7 +7296,7 @@ void MainWindow::possiblyLoadMessageOnSplittersChanged()
 
 Imap::ImapAccess *MainWindow::imapAccess() const
 {
-    return m_imapAccess;
+    return currentAccess();
 }
 
 void MainWindow::enableLoggingToDisk()

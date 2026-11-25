@@ -293,6 +293,29 @@ void MessageListWidget::setScope(const QString &account, const QString &folder, 
     m_statusRow->setVisible(!m_scope->isHidden() || !m_listStatus->isHidden());
 }
 
+void MessageListWidget::setCustomScope(const QString &text, const QString &toolTip)
+{
+    m_scope->setText(text);
+    m_scope->setToolTip(toolTip);
+    m_scope->setAccessibleName(text);
+    m_scope->setVisible(!text.isEmpty());
+    m_statusRow->setVisible(!m_scope->isHidden() || !m_listStatus->isHidden());
+}
+
+void MessageListWidget::setSearchAvailable(bool available)
+{
+    if (m_searchAvailable == available)
+        return;
+    m_searchAvailable = available;
+    // A search which still filters a single folder would look like it applies to the shown list
+    if (!available && !m_quickSearchText->text().isEmpty()) {
+        m_quickSearchText->clear();
+        m_searchResetTimer->stop();
+        slotApplySearch();
+    }
+    slotAutoEnableDisableSearch();
+}
+
 KConfigGroup MessageListWidget::savedSearchGroup() const
 {
     KConfigGroup searches(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), QStringLiteral("SavedSearches"));
@@ -383,7 +406,9 @@ void MessageListWidget::slotApplySearch()
 void MessageListWidget::slotAutoEnableDisableSearch()
 {
     bool isEnabled;
-    if (!m_quickSearchText->text().isEmpty()) {
+    if (!m_searchAvailable) {
+        isEnabled = false;
+    } else if (!m_quickSearchText->text().isEmpty()) {
         // Some search criteria are in effect and suddenly all matching messages
         // disappear. We have to make sure that the search bar remains enabled.
         isEnabled = true;

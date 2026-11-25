@@ -90,6 +90,8 @@ class Model;
 class PrettyMailboxModel;
 class ThreadingMsgListModel;
 class PrettyMsgListModel;
+class PrettyUnifiedMsgListModel;
+class UnifiedMsgListModel;
 class FavoriteTagsModel;
 
 }
@@ -136,6 +138,7 @@ class MainWindow: public QMainWindow
     typedef enum { LAYOUT_COMPACT, LAYOUT_WIDE, LAYOUT_ONE_AT_TIME } LayoutMode;
 public:
     MainWindow(QSettings *settings);
+    ~MainWindow() override;
     void showMainWindow();
     QSize sizeHint() const override;
 
@@ -554,6 +557,34 @@ private:
     bool canRenameMailbox(const QModelIndex &index) const;
     void emptySpecialFolder(Imap::Mailbox::SpecialUse kind);
 
+    /** @short The account which actions work on: the shown one, or the one of the messages handled right now */
+    Imap::ImapAccess *currentAccess() const;
+    QString currentAccountId() const;
+    /** @short Whether the message list shows messages of @p model, so that feedback about them makes sense */
+    bool showsModel(const Imap::Mailbox::Model *model) const;
+    /** @short The ID of the account which @p model belongs to, or an empty string */
+    QString accountOfModel(const Imap::Mailbox::Model *model) const;
+    /** @short Run @p fn while actions work on @p accountId and its messages in @p selection */
+    void actAs(const QString &accountId, const QModelIndexList &selection, const std::function<void()> &fn);
+    /** @short Run @p fn while actions work on the account of @p model; false when that account is gone */
+    bool actOnModel(const Imap::Mailbox::Model *model, const std::function<void()> &fn);
+    /** @short Run @p fn once for each account of the selected messages in the Unified Inbox
+
+    Returns false, doing nothing, when the messages all belong to the shown account or no unified list is shown. With
+    @p singleAccount, messages of several accounts are refused with an error. An empty @p selection means the selected
+    messages.
+    */
+    bool routeToMessageAccounts(const std::function<void()> &fn, bool singleAccount = false,
+                                const QModelIndexList &selection = QModelIndexList());
+    /** @short @p text, prefixed with the account of @p model while the Unified Inbox shows several accounts */
+    QString forAccountOf(const Imap::Mailbox::Model *model, const QString &text) const;
+    /** @short Show the INBOX of all accounts in one list, or go back to the folder which was shown before */
+    void setUnifiedInbox(bool enabled, bool returnToFolder = true);
+    void syncUnifiedSources();
+    void updateUnifiedStates();
+    QStringList unifiedAccountIds() const;
+    void populateUnifiedAccountsMenu();
+
     Common::AccountRegistry *m_accounts = nullptr;
     Common::AccountStatusTracker *m_accountStatus = nullptr;
     QHash<QString, Imap::ImapAccess *> m_accountAccess;
@@ -819,6 +850,21 @@ private:
     ConfirmationPrompt m_confirmationPrompt;
     /** @short For each folder being renamed, the new name of the open mailbox which the rename affects */
     QHash<QString, QString> m_renamedCurrentMailbox;
+
+    Imap::Mailbox::UnifiedMsgListModel *m_unifiedModel = nullptr;
+    Imap::Mailbox::PrettyUnifiedMsgListModel *m_prettyUnifiedModel = nullptr;
+    bool m_unifiedInbox = false;
+    QAction *m_actionUnifiedInbox = nullptr;
+    QMenu *m_unifiedAccountsMenu = nullptr;
+    /** The folder to go back to when the Unified Inbox is left */
+    QString m_unifiedReturnMailbox;
+    /** Whether threading could be chosen before the Unified Inbox disabled it */
+    bool m_unifiedThreadingEnabled = true;
+    /** While an action works on messages of another account than the shown one */
+    Imap::ImapAccess *m_actingAccess = nullptr;
+    QString m_actingAccountId;
+    QModelIndexList m_actingSelection;
+    bool m_acting = false;
 
     MainWindow(const MainWindow &); // don't implement
     MainWindow &operator=(const MainWindow &); // don't implement

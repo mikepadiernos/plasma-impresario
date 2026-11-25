@@ -62,6 +62,10 @@ public:
     void setListStatus(const QString &text);
     /** @short Show which account and folder the list belongs to next to the status; an empty folder hides it */
     void setScope(const QString &account, const QString &folder, const QString &fullFolderName);
+    /** @short Show @p text as the scope instead of an account and a folder, with @p toolTip describing it */
+    void setCustomScope(const QString &text, const QString &toolTip);
+    /** @short Offer the quick search, or clear and disable it for a list which it cannot search */
+    void setSearchAvailable(bool available);
 
     // FIXME: consider making this private and moving the logic from Window with it
     MsgListView *tree;
@@ -119,6 +123,7 @@ private:
     QMenu *m_savedSearches;
     QString m_accountId;
     bool m_supportsFuzzySearch;
+    bool m_searchAvailable = true;
     QTimer *m_searchResetTimer;
     QString m_queryPlaceholder;
 

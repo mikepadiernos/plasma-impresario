@@ -223,12 +223,19 @@ MsgItemDelegate::RowLayout MsgItemDelegate::multiLineLayout(const QStyleOptionVi
         layout.status = QRect(second.left(), second.top() + (line - iconSize) / 2, iconSize, iconSize);
         second.setLeft(layout.status.right() + 1 + margin / 2);
     }
+    // Only lists of several accounts name the account; it gets at most a third of the line
+    const QString account = index.data(Imap::Mailbox::RoleMessageAccountName).toString();
+    if (!account.isEmpty()) {
+        const int accountWidth = qMin(option.fontMetrics.horizontalAdvance(account), second.width() / 3);
+        layout.source = QRect(second.right() - accountWidth + 1, second.top(), accountWidth, line);
+        second.setRight(qMax(second.left(), layout.source.left() - margin));
+    }
     layout.firstLine = first;
     layout.secondLine = second;
 
     // Mirror the layout in right-to-left languages
     for (QRect *part : {&layout.readState, &layout.avatar, &layout.firstLine, &layout.date, &layout.flag, &layout.attachment,
-                        &layout.status, &layout.secondLine}) {
+                        &layout.status, &layout.secondLine, &layout.source}) {
         if (part->isValid())
             *part = QStyle::visualRect(option.direction, rect, *part);
     }
@@ -347,6 +354,12 @@ void MsgItemDelegate::paintMultiLineRow(QPainter *painter, const QStyleOptionVie
     painter->setPen(text);
     const QString subject = index.sibling(index.row(), MsgListModel::SUBJECT).data(Qt::DisplayRole).toString();
     painter->drawText(layout.secondLine, leading, QFontMetrics(subjectFont).elidedText(subject, Qt::ElideRight, layout.secondLine.width()));
+    if (layout.source.isValid()) {
+        painter->setFont(opt.font);
+        painter->setPen(secondary);
+        const QString account = index.data(RoleMessageAccountName).toString();
+        painter->drawText(layout.source, trailing, opt.fontMetrics.elidedText(account, Qt::ElideRight, layout.source.width()));
+    }
     painter->restore();
 }
 
