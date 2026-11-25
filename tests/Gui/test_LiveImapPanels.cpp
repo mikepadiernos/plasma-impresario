@@ -12,6 +12,7 @@
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MessageDetailsPanel.h"
 #include "Gui/MsgListView.h"
+#include "Gui/ReaderActionBar.h"
 #include "Gui/RelatedMessagesPanel.h"
 #include "Gui/Window.h"
 #include "Gui/InlineNotificationBar.h"
@@ -40,6 +41,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QToolButton>
 #include <memory>
 
 namespace {
@@ -199,14 +201,15 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT((inbox = findMailbox(tree->model(), QStringLiteral("INBOX"))).isValid(), 20000);
         tree->scrollTo(inbox);
         QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(inbox).center());
-        QTRY_COMPARE_WITH_TIMEOUT(inbox.data(Imap::Mailbox::RoleTotalMessageCount).toInt(), 7, 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(inbox.data(Imap::Mailbox::RoleTotalMessageCount).toInt(), 8, 10000);
         for (const auto *subject : {"Quarterly plan", "Re: Quarterly plan", "Budget numbers", "Signed release note", "Lunch on Friday",
-                                    "Weekly news", "Travel plans"})
+                                    "Weekly news", "Travel plans", "Release digest"})
             QTRY_VERIFY2_WITH_TIMEOUT(findMessage(messages, QString::fromUtf8(subject)).isValid(), subject, 10000);
 
         const auto open = [&](const QString &subject) {
-            const QModelIndex message = findMessage(messages, subject);
-            QVERIFY2(message.isValid(), qPrintable(subject));
+            // The list is filled again after a reconnect
+            QModelIndex message;
+            QTRY_VERIFY2_WITH_TIMEOUT((message = findMessage(messages, subject)).isValid(), qPrintable(subject), 10000);
             messages->expandAll();
             messages->scrollTo(message);
             // Click inside the visible part of the row; a narrow list column clips long rows.
@@ -367,6 +370,80 @@ private slots:
         QTRY_VERIFY(!remote->isVisible());
         open(QStringLiteral("Lunch on Friday"));
         QVERIFY(remote->blockedHosts().isEmpty());
+
+        // The bar above the reader works on the open message, whatever is selected in the list.
+        auto *bar = window.findChild<Gui::ReaderActionBar *>(QStringLiteral("readerActions"));
+        QVERIFY(bar);
+        const auto barButton = [bar](const char *name) {
+            auto *button = bar->findChild<QToolButton *>(QLatin1String(name));
+            Q_ASSERT(button);
+            return button;
+        };
+        open(QStringLiteral("Quarterly plan"));
+        QVERIFY(bar->isVisible());
+        QTRY_COMPARE_WITH_TIMEOUT(bar->attachmentCount(), 2, 15000);
+        QVERIFY(bar->isAttachmentChipShown());
+        QTRY_VERIFY_WITH_TIMEOUT(barButton("readerFlag")->isEnabled(), 10000);
+        QVERIFY(barButton("readerFlag")->isChecked());
+        QVERIFY(barButton("readerArchive")->isEnabled());
+        QVERIFY(barButton("readerReply")->isEnabled());
+        const QModelIndex plan = findMessage(messages, QStringLiteral("Quarterly plan"));
+        const QModelIndex lunch = findMessage(messages, QStringLiteral("Lunch on Friday"));
+        QVERIFY(!lunch.data(Imap::Mailbox::RoleMessageIsMarkedFlagged).toBool());
+        messages->selectionModel()->select(lunch, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+        QCOMPARE(details->message().data(Imap::Mailbox::RoleMessageSubject).toString(), QStringLiteral("Quarterly plan"));
+        barButton("readerFlag")->click();
+        QTRY_VERIFY_WITH_TIMEOUT(!plan.data(Imap::Mailbox::RoleMessageIsMarkedFlagged).toBool(), 10000);
+        QTRY_VERIFY(!barButton("readerFlag")->isChecked());
+        QVERIFY(!lunch.data(Imap::Mailbox::RoleMessageIsMarkedFlagged).toBool());
+        barButton("readerRead")->click();
+        QTRY_VERIFY_WITH_TIMEOUT(!plan.data(Imap::Mailbox::RoleMessageIsMarkedRead).toBool(), 10000);
+        QVERIFY(lunch.data(Imap::Mailbox::RoleMessageIsMarkedRead).toBool());
+        barButton("readerRead")->click();
+        barButton("readerFlag")->click();
+        QTRY_VERIFY_WITH_TIMEOUT(plan.data(Imap::Mailbox::RoleMessageIsMarkedFlagged).toBool(), 10000);
+        QTRY_VERIFY_WITH_TIMEOUT(plan.data(Imap::Mailbox::RoleMessageIsMarkedRead).toBool(), 10000);
+        QTRY_VERIFY(barButton("readerFlag")->isChecked() && barButton("readerRead")->isChecked());
+
+        // The chip brings the attachments panel back, even when it was turned off.
+        setChecked(action(window, QStringLiteral("embeddedPanelAttachments")), false);
+        QTRY_VERIFY(!attachments->isVisible());
+        barButton("readerAttachments")->click();
+        QTRY_VERIFY(attachments->isVisible());
+        QVERIFY(action(window, QStringLiteral("embeddedPanelAttachments"))->isChecked());
+        QTRY_COMPARE(window.focusWidget(), attachments->listView());
+        snapshot(window, QStringLiteral("13-wide-reader-actions"));
+
+        // Zoom and the plain-text preference apply to the open message.
+        const auto shownViews = [reader]() {
+            QList<Gui::EmbeddedWebView *> shown;
+            for (auto *view : reader->findChildren<Gui::EmbeddedWebView *>()) {
+                if (view->isVisible())
+                    shown << view;
+            }
+            return shown;
+        };
+        const auto shownText = std::make_shared<QString>();
+        const auto readShown = [&]() {
+            for (auto *view : shownViews())
+                view->page()->toPlainText([shownText](const QString &text) { *shownText = text; });
+            return *shownText;
+        };
+        open(QStringLiteral("Release digest"));
+        QVERIFY(barButton("readerPlainText")->isChecked());
+        QTRY_VERIFY_WITH_TIMEOUT(readShown().contains(QLatin1String("plain text version")), 15000);
+        barButton("readerZoomIn")->click();
+        QTRY_VERIFY(!shownViews().isEmpty() && shownViews().constFirst()->zoomFactor() > 1.0);
+        barButton("readerZoomReset")->click();
+        QTRY_VERIFY(!shownViews().isEmpty() && qFuzzyCompare(shownViews().constFirst()->zoomFactor(), 1.0));
+        barButton("readerPlainText")->click();
+        QVERIFY(!settings.value(Common::SettingsNames::guiPreferPlaintextRendering).toBool());
+        shownText->clear();
+        QTRY_VERIFY_WITH_TIMEOUT(readShown().contains(QLatin1String("HTML version")), 15000);
+        QCOMPARE(details->message().data(Imap::Mailbox::RoleMessageSubject).toString(), QStringLiteral("Release digest"));
+        barButton("readerPlainText")->click();
+        shownText->clear();
+        QTRY_VERIFY_WITH_TIMEOUT(readShown().contains(QLatin1String("plain text version")), 15000);
 
         // Offline, a body which was never downloaded is reported instead of a blank or a Chromium error page,
         // and it loads on its own when the network comes back.
