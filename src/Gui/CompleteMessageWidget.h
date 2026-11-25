@@ -55,6 +55,8 @@ public:
     void setMessage(const QModelIndex &index);
 
     void quoteText(const std::function<void(const QString &)> &callback) const;
+    /** Show a bar of actions above the message; the widget takes ownership */
+    void setActionBar(QWidget *bar);
 
     MessageView *messageView;
     QScrollArea *area;

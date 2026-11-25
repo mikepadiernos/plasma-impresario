@@ -113,6 +113,7 @@ class AccountSidebar;
 class CapabilityActionGate;
 class ShellHeader;
 class AttachmentPanel;
+class ReaderActionBar;
 class ContactPanel;
 class EmbeddedPanel;
 class MessageDetailsPanel;
@@ -446,6 +447,12 @@ private:
     void fitPanelRegion(QSplitter *region);
     /** Select a message picked in the related messages panel. */
     void activateRelatedMessage(const QModelIndex &message);
+    /** @short Run @p fn while actions work on the message open in the reader, and on its account */
+    void actOnOpenMessage(const std::function<void()> &fn);
+    /** Bring the reader's action bar in line with the open message and its account */
+    void updateReaderActions();
+    /** Show the attachments panel, even when it was turned off, and move the focus into it */
+    void showAttachmentPanel();
 
     /** Display the current connection status in the window footer. */
     void updateConnectionStatus(const QString &message);
@@ -519,6 +526,8 @@ private:
     };
     /** @short Name of the mailbox shown in the message list */
     QString currentMailboxName() const;
+    /** @short The mailbox holding all of @arg messages, such as a message opened from another folder, else the list's */
+    QString sourceMailboxName(const QModelIndexList &messages) const;
     /** @short Ask before a permanent operation unless the user opted out; true means go ahead */
     bool confirmPermanentAction(UiUtils::DestructiveActions::Confirmation kind, const QString &title, const QString &text,
                                 const QString &acceptText);
@@ -636,6 +645,8 @@ private:
     /** The reader and the embedded panels which follow its message, stacked vertically */
     QSplitter *m_readerColumn = nullptr;
     AttachmentPanel *m_attachmentPanel = nullptr;
+    /** Actions above the reader which work on the open message */
+    ReaderActionBar *m_readerActions = nullptr;
     MessageDetailsPanel *m_messageDetailsPanel = nullptr;
     ContactPanel *m_contactPanel = nullptr;
     RelatedMessagesPanel *m_relatedMessagesPanel = nullptr;

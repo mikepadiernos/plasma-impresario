@@ -106,6 +106,8 @@ public:
     QString highlightTerm() const;
     /** @short Ask again for the current message, or for its parts which could not be loaded */
     void retryLoading();
+    /** @short Show the current message again, for example after the preferred rendering changed */
+    void reloadMessage();
 public slots:
     void setMessage(const QModelIndex &index);
     void setEmpty();

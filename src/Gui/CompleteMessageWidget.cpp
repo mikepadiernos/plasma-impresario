@@ -92,6 +92,12 @@ void CompleteMessageWidget::quoteText(const std::function<void(const QString &)>
     messageView->quoteText(callback);
 }
 
+void CompleteMessageWidget::setActionBar(QWidget *bar)
+{
+    bar->setParent(this);
+    static_cast<QVBoxLayout *>(layout())->insertWidget(0, bar);
+}
+
 void CompleteMessageWidget::keyPressEvent(QKeyEvent *ke)
 {
     if (ke->key() == Qt::Key_Home) {

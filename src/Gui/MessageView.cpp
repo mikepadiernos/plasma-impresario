@@ -475,6 +475,15 @@ void MessageView::showMessageUnavailable()
     m_stack->setCurrentWidget(m_unavailablePage);
 }
 
+void MessageView::reloadMessage()
+{
+    const QPersistentModelIndex current = message;
+    if (!current.isValid())
+        return;
+    unsetPreviousMessage();
+    setMessage(current);
+}
+
 void MessageView::retryLoading()
 {
     if (!message.isValid())

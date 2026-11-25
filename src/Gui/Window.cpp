@@ -131,6 +131,7 @@
 #include "MessageSelectionRestorer.h"
 #include "OnePanelAtTimeWidget.h"
 #include "PasswordDialog.h"
+#include "ReaderActionBar.h"
 #include "RelatedMessagesPanel.h"
 #include "ProtocolLoggerWidget.h"
 #include "SettingsDialog.h"
@@ -1199,6 +1200,42 @@ void MainWindow::createActions()
     m_replyMenu->addAction(m_replyList);
     m_replyButton->setMenu(m_replyMenu);
     m_replyButton->setDefaultAction(m_replyPrivate);
+
+#ifdef TROJITA_HAVE_WEBENGINE
+    // The bar above the reader works on the open message, whatever is selected in the list
+    m_readerActions = new ReaderActionBar();
+    m_readerActions->setReplyMenu(m_replyMenu);
+    m_readerActions->setReplyAction(m_replyButton->defaultAction());
+    m_readerActions->setForwardAction(m_forwardAsAttachment);
+    m_readerActions->setPreferPlainText(m_settings->value(Common::SettingsNames::guiPreferPlaintextRendering, QVariant(true)).toBool());
+    m_messageWidget->setActionBar(m_readerActions);
+    connect(m_readerActions, &ReaderActionBar::archiveRequested, this, [this]() {
+        actOnOpenMessage([this]() { handleMoveToArchive(); });
+    });
+    connect(m_readerActions, &ReaderActionBar::trashRequested, this, [this]() {
+        actOnOpenMessage([this]() {
+            handleMarkAsDeleted(!translatedSelection().constFirst().data(Imap::Mailbox::RoleMessageIsMarkedDeleted).toBool());
+        });
+    });
+    connect(m_readerActions, &ReaderActionBar::markReadRequested, this, [this](bool read) {
+        actOnOpenMessage([this, read]() { handleMarkAsRead(read); });
+    });
+    connect(m_readerActions, &ReaderActionBar::flagRequested, this, [this](bool flagged) {
+        actOnOpenMessage([this, flagged]() { handleMarkAsFlagged(flagged); });
+    });
+    connect(m_readerActions, &ReaderActionBar::zoomInRequested, m_messageWidget->messageView, &MessageView::zoomIn);
+    connect(m_readerActions, &ReaderActionBar::zoomOutRequested, m_messageWidget->messageView, &MessageView::zoomOut);
+    connect(m_readerActions, &ReaderActionBar::zoomResetRequested, m_messageWidget->messageView, &MessageView::zoomOriginal);
+    connect(m_readerActions, &ReaderActionBar::preferPlainTextToggled, this, [this](bool preferPlainText) {
+        m_settings->setValue(Common::SettingsNames::guiPreferPlaintextRendering, preferPlainText);
+        m_messageWidget->messageView->reloadMessage();
+    });
+    connect(m_readerActions, &ReaderActionBar::attachmentsRequested, this, &MainWindow::showAttachmentPanel);
+    connect(m_attachmentPanel, &AttachmentPanel::attachmentCountChanged, m_readerActions, &ReaderActionBar::setAttachmentCount);
+    m_readerActions->setAttachmentCount(m_attachmentPanel->attachmentCount());
+    connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::updateReaderActions);
+    connect(m_messageWidget->messageView, &MessageView::messageModelChanged, this, &MainWindow::updateReaderActions);
+#endif
 
     m_accountSwitcher = new QComboBox(this);
     m_accountSwitcher->setToolTip(i18n("Account"));
@@ -2696,7 +2733,7 @@ void MainWindow::copyOrMoveToFolder(const QModelIndexList &messages, const QStri
     rememberRecentFolder(mailbox);
     Imap::Mailbox::ImapTask *task = model->copyMoveMessages(mailbox, messages, op);
     if (op == Imap::Mailbox::MOVE)
-        trackMove(task, currentMailboxName(), mailbox, messages.size(), MoveKind::Folder);
+        trackMove(task, sourceMailboxName(messages), mailbox, messages.size(), MoveKind::Folder);
     else
         trackCopy(task, mailbox, messages.size());
 }
@@ -3695,7 +3732,7 @@ void MainWindow::handleMarkAsDeleted(bool value)
         qDebug() << "Model::handleMarkAsDeleted: no valid messages";
     } else if (const QString trash = deleteTrashTarget(); !trash.isEmpty()) {
         auto task = imapModel()->copyMoveMessages(trash, translatedIndexes, Imap::Mailbox::CopyMoveOperation::MOVE);
-        trackMove(task, currentMailboxName(), trash, translatedIndexes.size(), MoveKind::Trash);
+        trackMove(task, sourceMailboxName(translatedIndexes), trash, translatedIndexes.size(), MoveKind::Trash);
     } else {
         // A shortcut can fire while the action still says "Move to Trash", which is not a toggle
         if (!markAsDeleted->isCheckable())
@@ -3823,7 +3860,8 @@ void MainWindow::handleMoveToArchive()
         const QString archiveFolderName = archiveTarget();
         auto copyMoveMessagesTask = imapModel()->copyMoveMessages(archiveFolderName, translatedIndexes,
                                                                   Imap::Mailbox::CopyMoveOperation::MOVE);
-        trackMove(copyMoveMessagesTask, currentMailboxName(), archiveFolderName, translatedIndexes.size(), MoveKind::Archive);
+        trackMove(copyMoveMessagesTask, sourceMailboxName(translatedIndexes), archiveFolderName, translatedIndexes.size(),
+                  MoveKind::Archive);
     }
 }
 
@@ -3939,6 +3977,15 @@ QString MainWindow::currentMailboxName() const
     return model ? model->currentMailbox().data(Imap::Mailbox::RoleMailboxName).toString() : QString();
 }
 
+QString MainWindow::sourceMailboxName(const QModelIndexList &messages) const
+{
+    const QString first = messages.isEmpty() ? QString() : messages.constFirst().data(Imap::Mailbox::RoleMailboxName).toString();
+    const bool shared = !first.isEmpty() && std::all_of(messages.cbegin(), messages.cend(), [&first](const QModelIndex &message) {
+        return message.data(Imap::Mailbox::RoleMailboxName).toString() == first;
+    });
+    return shared ? first : currentMailboxName();
+}
+
 QString MainWindow::archiveTarget() const
 {
     // A folder chosen in the settings wins, even before the folder above it has been listed
@@ -3963,7 +4010,9 @@ QString MainWindow::deleteTrashTarget() const
     if (!model)
         return QString();
     const QString trash = model->specialFolderMailbox(Imap::Mailbox::SpecialUse::Trash);
-    return chooseDeleteAction(deleteMovesToTrash(), trash, currentMailboxName()) == DeleteAction::MoveToTrash ? trash : QString();
+    return chooseDeleteAction(deleteMovesToTrash(), trash, sourceMailboxName(translatedSelection())) == DeleteAction::MoveToTrash
+               ? trash
+               : QString();
 }
 
 void MainWindow::updateDeleteActionMode()
@@ -3982,6 +4031,7 @@ void MainWindow::updateDeleteActionMode()
         markAsDeleted->setIcon(quickActionIcon(QStringLiteral("user-trash")));
         markAsDeleted->setToolTip(i18nc("@info:tooltip", "Move the selected messages to %1", trash));
     }
+    updateReaderActions();
 }
 
 void MainWindow::slotShowShortcutOverview()
@@ -4429,6 +4479,8 @@ void MainWindow::updateMessageFlags()
 
 void MainWindow::updateMessageFlagsOf(const QModelIndex &index)
 {
+    if (!m_acting)
+        updateReaderActions();
     QModelIndexList indexes = index.isValid() ? QModelIndexList() << index : translatedSelection();
     const bool isValid = !indexes.isEmpty() &&
                          // either we operate on the -already valided- selection or the index must be valid
@@ -4596,6 +4648,8 @@ void MainWindow::slotUpdateMessageActions()
     } else {
         m_replyButton->setDefaultAction(m_replyPrivate);
     }
+    if (m_readerActions)
+        m_readerActions->setReplyAction(m_replyButton->defaultAction());
 
     m_forwardAsAttachment->setEnabled(m_messageWidget->messageView->currentMessage().isValid());
     m_resend->setEnabled(m_messageWidget->messageView->currentMessage().isValid());
@@ -6595,6 +6649,54 @@ void MainWindow::activateRelatedMessage(const QModelIndex &message)
 #ifdef TROJITA_HAVE_WEBENGINE
     m_messageWidget->messageView->setMessage(deproxified);
 #endif
+}
+
+void MainWindow::actOnOpenMessage(const std::function<void()> &fn)
+{
+#ifdef TROJITA_HAVE_WEBENGINE
+    const QModelIndex message = Imap::deproxifiedIndex(m_messageWidget->messageView->currentMessage());
+    const QString accountId = accountOfModel(qobject_cast<const Imap::Mailbox::Model *>(message.model()));
+    if (message.isValid() && !accountId.isEmpty())
+        actAs(accountId, {message}, fn);
+#else
+    Q_UNUSED(fn);
+#endif
+}
+
+void MainWindow::updateReaderActions()
+{
+#ifdef TROJITA_HAVE_WEBENGINE
+    if (!m_readerActions || !m_deleteMovesToTrash)
+        return;
+    const QModelIndex message = Imap::deproxifiedIndex(m_messageWidget->messageView->currentMessage());
+    bool marks = false;
+    bool archive = false;
+    bool movesToTrash = true;
+    actOnOpenMessage([&]() {
+        marks = imapModel()->isNetworkAvailable() && message.data(Imap::Mailbox::RoleMessageUid).toUInt() > 0;
+        archive = message.data(Imap::Mailbox::RoleMailboxName).toString() != archiveTarget();
+        movesToTrash = !deleteTrashTarget().isEmpty();
+    });
+    m_readerActions->setMessage(message);
+    m_readerActions->setMarksEnabled(marks);
+    m_readerActions->setArchiveEnabled(archive);
+    m_readerActions->setMovesToTrash(movesToTrash);
+#endif
+}
+
+void MainWindow::showAttachmentPanel()
+{
+    if (!m_attachmentPanel)
+        return;
+    if (!m_attachmentPanel->isPanelEnabled() && m_embeddedPanelsMenu) {
+        if (QAction *visible = m_embeddedPanelsMenu->visibleAction(m_attachmentPanel))
+            visible->setChecked(true);
+    }
+    // The panel is shown once its region has been laid out again
+    QTimer::singleShot(0, this, [this]() {
+        if (m_attachmentPanel->isVisible())
+            m_attachmentPanel->focusTarget()->setFocus(Qt::OtherFocusReason);
+    });
 }
 
 Imap::Mailbox::Model *MainWindow::imapModel() const
