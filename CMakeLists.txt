@@ -707,6 +707,7 @@ target_link_libraries(MSA
         Qt::Core
         Common
         Imap
+        OAuth
         qwwsmtpclient
     PRIVATE
         UiUtils

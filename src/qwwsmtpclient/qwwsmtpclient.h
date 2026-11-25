@@ -15,6 +15,7 @@
 #include <QObject>
 #include <QHostAddress>
 #include <QString>
+#include <QStringList>
 #include <QSslError>
 
 class QwwSmtpClientPrivate;
@@ -64,6 +65,20 @@ public:
     int connectToHostEncrypted(const QString &hostName, quint16 port = 465);
 //     int connectToHost ( const QHostAddress & address, quint16 port = 25);
     int authenticate(const QString &user, const QString &password, AuthMode mode = AuthAny);
+    /*! Authenticate with the first candidate whose SASL mechanism the server advertises.
+
+        Each candidate holds the mechanism name, the base64 initial response sent with the AUTH command, and the
+        response which acknowledges an error challenge. This suits mechanisms with a single client response, such as
+        XOAUTH2 and OAUTHBEARER. A failure is reported by saslAuthenticationFailed() before done(false).
+    */
+    struct SaslCandidate {
+        QByteArray mechanism;
+        QByteArray initialResponse;
+        QByteArray cancelResponse;
+    };
+    int authenticateSasl(const QList<SaslCandidate> &candidates);
+    /*! SASL mechanisms advertised by the server, in upper case */
+    QStringList supportedSaslMechanisms() const;
     int sendMail(const QByteArray &from, const QList<QByteArray> &to, const QByteArray &content);
     int sendMailBurl(const QByteArray &from, const QList<QByteArray> &to, const QByteArray &url);
     int rawCommand(const QString &cmd);
@@ -84,6 +99,9 @@ signals:
     void commandStarted(int);
     void tlsStarted();
     void authenticated();
+    /*! SASL authentication failed; the mechanism is empty when the server offers none of the candidates, and the
+        challenge holds the server's base64 error challenge, if any */
+    void saslAuthenticationFailed(const QByteArray &mechanism, const QByteArray &challenge);
     void rawCommandReply(int code, const QString &details);
     void sslErrors(const QList<QSslError> &);
     void socketError(QAbstractSocket::SocketError err, const QString& message);
