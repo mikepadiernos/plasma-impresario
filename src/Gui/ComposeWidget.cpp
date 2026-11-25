@@ -41,6 +41,7 @@
 
 #include "configure.cmake.h"
 #include "ui_ComposeWidget.h"
+#include "Composer/AccountIdentities.h"
 #include "Composer/ExistingMessageComposer.h"
 #include "Composer/MessageComposer.h"
 #include "Composer/ReplaceSignature.h"
@@ -953,7 +954,8 @@ void ComposeWidget::setResponseData(const QList<QPair<Composer::RecipientKind, Q
                                                                                 m_replyingToMessage, dummy));
         m_actionReplyModeAllButMe->setEnabled(Composer::Util::replyRecipientList(Composer::REPLY_ALL_BUT_ME,
                                                                                  m_senderIdentities,
-                                                                                 m_replyingToMessage, dummy));
+                                                                                 m_replyingToMessage, dummy,
+                                                                                 ownLoginAddresses()));
         m_actionReplyModeAll->setEnabled(Composer::Util::replyRecipientList(Composer::REPLY_ALL,
                                                                             m_senderIdentities,
                                                                             m_replyingToMessage, dummy));
@@ -1675,6 +1677,13 @@ void ComposeWidget::slotUpdateSignature()
 
 In case of an error, the original list of recipients is left as is.
 */
+/** @short The login address of the account this composer was opened for, which replies treat as the user's own */
+QList<Imap::Message::MailAddress> ComposeWidget::ownLoginAddresses() const
+{
+    return m_accountSettings ? Composer::AccountIdentities::loginAddresses(*m_accountSettings)
+                             : QList<Imap::Message::MailAddress>();
+}
+
 bool ComposeWidget::setReplyMode(const Composer::ReplyMode mode)
 {
     if (!m_replyingToMessage.isValid())
@@ -1683,7 +1692,7 @@ bool ComposeWidget::setReplyMode(const Composer::ReplyMode mode)
     // Determine the new list of recipients
     Composer::RecipientList list;
     if (!Composer::Util::replyRecipientList(mode, m_senderIdentities,
-                                            m_replyingToMessage, list)) {
+                                            m_replyingToMessage, list, ownLoginAddresses())) {
         return false;
     }
 

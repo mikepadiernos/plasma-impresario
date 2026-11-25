@@ -5,7 +5,9 @@
 #include "AccountIdentities.h"
 
 #include "Common/SettingsNames.h"
+#include "Imap/Parser/MailAddress.h"
 #include "SenderIdentitiesModel.h"
+#include <QRegularExpression>
 #include <QSettings>
 
 namespace Composer {
@@ -34,6 +36,15 @@ bool usesSharedIdentities(const QSettings &account)
 void setUsesSharedIdentities(QSettings &account, bool shared)
 {
     setSource(account, shared ? Source::Shared : Source::Own);
+}
+
+QList<Imap::Message::MailAddress> loginAddresses(const QSettings &account)
+{
+    static const QRegularExpression plainAddress(QStringLiteral("^[^@\\s]+@[^@\\s]+$"));
+    const QString user = account.value(Common::SettingsNames::imapUserKey).toString().trimmed();
+    if (!plainAddress.match(user).hasMatch())
+        return {};
+    return {Imap::Message::MailAddress::fromNameAndMail(QString(), user)};
 }
 
 void initializeNewAccount(QSettings &account)
