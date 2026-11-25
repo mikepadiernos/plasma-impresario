@@ -1120,7 +1120,8 @@ if(BUILD_TESTING)
             endforeach()
             foreach(shell_case capabilityGateHidesOnlyUnsupportedActions unsupportedActionsFollowTheActiveAccount
                     sidebarShowsHeadersOnlyForSeveralAccounts sidebarGroupsAccountsInTheWindow sidebarHeaderMenuActsOnItsAccount
-                    headerRegionIsOptional headerShowsFolderAndStatus)
+                    headerRegionIsOptional headerShowsFolderAndStatus legacyCompactPaneSizesCarryOver
+                    legacyWidePaneSizesCarryOver)
                 add_test(NAME test_MainWindowShell_${shell_case} COMMAND test_MainWindowShell ${shell_case})
                 set_tests_properties(test_MainWindowShell_${shell_case} PROPERTIES
                     TIMEOUT 60

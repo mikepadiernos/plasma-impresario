@@ -3692,6 +3692,21 @@ int hintExtent(const QSplitter *splitter, const QWidget *widget)
     const QSize hint = widget->sizeHint();
     return splitter->orientation() == Qt::Horizontal ? hint.width() : hint.height();
 }
+
+/** @short Pane sizes from QSplitter::saveState(), whose header has not changed since Qt 4 */
+QList<int> savedSplitterSizes(const QByteArray &state)
+{
+    constexpr qint32 splitterMagic = 0xff;
+    QDataStream stream(state);
+    stream.setVersion(QDataStream::Qt_5_0);
+    qint32 marker = 0;
+    qint32 version = 0;
+    QList<int> sizes;
+    stream >> marker >> version >> sizes;
+    if (stream.status() != QDataStream::Ok || marker != splitterMagic)
+        return {};
+    return sizes;
+}
 }
 
 void MainWindow::fitPanelRegion(QSplitter *region)
@@ -4061,7 +4076,7 @@ void MainWindow::applySizesAndState()
     }
 
     {
-        // Sizes saved before the shell existed are not migrated; the shell starts from its defaults once.
+        const QList<int> legacyMainSizes = migrateLegacyPaneSizes();
         const bool savedOnRight = m_settings->value(QStringLiteral("mailboxSidebarOnRight"), false).toBool();
         const bool swapSides = savedOnRight != m_mailboxSidebarOnRight;
         auto readExtent = [this](const QString &key, int &extent) {
@@ -4074,7 +4089,11 @@ void MainWindow::applySizesAndState()
         readExtent(QStringLiteral("shellRightColumnWidth"), swapSides ? m_shellLeft.extent : m_shellRight.extent);
         readExtent(QStringLiteral("shellFooterHeight"), m_shellFooter.extent);
         const Qt::Orientation mainOrientation = m_mainColumn->orientation();
-        m_mainColumn->restoreState(m_settings->value(QStringLiteral("shellMainColumnState")).toByteArray());
+        const QByteArray mainState = m_settings->value(QStringLiteral("shellMainColumnState")).toByteArray();
+        if (!mainState.isEmpty())
+            m_mainColumn->restoreState(mainState);
+        else if (!legacyMainSizes.isEmpty())
+            m_mainColumn->setSizes(legacyMainSizes);
         m_mainColumn->setOrientation(mainOrientation);
         updateShellRegions(false, true);
     }
@@ -4212,6 +4231,38 @@ void MainWindow::convertSizesAndStateSetting(const LayoutMode layout)
 
     m_settings->endGroup();
     qWarning() << "Finished conversion of layout settings for:" << layoutToString(layout);
+}
+
+/** @short Carry the pane sizes of builds before the shell over to the shell, in the current layout's group
+
+Those builds kept the folder tree and the mail panes in one horizontal splitter, and the compact layout split the
+message list and the reader in a vertical one. Returns the message list and reader sizes for the main column, or an
+empty list when there is nothing to carry over.
+*/
+QList<int> MainWindow::migrateLegacyPaneSizes()
+{
+    const QString outerKey = Common::SettingsNames::mainHSplitterState;
+    const QString innerKey = Common::SettingsNames::mainVSplitterState;
+    if (!m_settings->contains(outerKey) && !m_settings->contains(innerKey))
+        return {};
+    QList<int> outer = savedSplitterSizes(m_settings->value(outerKey).toByteArray());
+    const QList<int> inner = savedSplitterSizes(m_settings->value(innerKey).toByteArray());
+    m_settings->remove(outerKey);
+    m_settings->remove(innerKey);
+    // Sizes the shell saved since then win
+    if (m_settings->contains(QStringLiteral("shellMainColumnState")))
+        return {};
+
+    // The folder tree was the first pane, or the last one on the side recorded in the same group
+    const bool treeOnRight = m_settings->value(QStringLiteral("mailboxSidebarOnRight"), false).toBool();
+    const int tree = outer.isEmpty() ? 0 : (treeOnRight ? outer.takeLast() : outer.takeFirst());
+    if (tree > 0)
+        m_settings->setValue(treeOnRight ? QStringLiteral("shellRightColumnWidth") : QStringLiteral("shellLeftColumnWidth"), tree);
+
+    const QList<int> &mailPanes = m_layoutMode == LAYOUT_COMPACT ? inner : outer;
+    if (m_layoutMode == LAYOUT_ONE_AT_TIME || mailPanes.size() != 2 || mailPanes.at(0) <= 0 || mailPanes.at(1) <= 0)
+        return {};
+    return mailPanes;
 }
 
 void MainWindow::resizeEvent(QResizeEvent *)
