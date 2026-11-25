@@ -234,6 +234,21 @@ wrapping around, that has unread messages. **Mailbox › Check for New Mail**
 (F5) asks every online account for new counts, including background accounts,
 and resynchronizes the open folder.
 
+**View › Unified Inbox** (Ctrl+Shift+I) lists the INBOX of every account in one
+message list, sorted on the client, with the scope shown as _Unified Inbox_
+and each account's state in its tooltip. **View › Unified Inbox Accounts**
+leaves accounts out; at least one stays included. Two-line rows name each
+message's account, and the status line names accounts that are offline or
+unavailable while their cached messages stay listed. Reading, flagging,
+moving, deleting, replying, forwarding and notifications use the account of
+each message, so a selection spanning accounts is split per account; moving
+or copying such a selection is refused because folders belong to one account.
+Threads, Group By, quick search and Show Related stay with single folders and
+are disabled meanwhile. Choosing a folder or another account leaves the
+Unified Inbox, and its state is restored at startup
+([#223](https://github.com/mikepadiernos/plasma-impresario/issues/223),
+[caveats](../CAVEATS.md#mail-operations)).
+
 **Deleting messages** depends on the account's Trash folder. While the active
 account has one and the open folder is not that Trash, Delete (the **Move to
 Trash** action) moves the selected messages there with IMAP MOVE. In Trash,
@@ -627,10 +642,10 @@ to mail.
 > default, or the single-line Columns, and Two Lines can show the sender's
 > initials. Both follow the
 > [compact or comfortable density](#row-density-and-restored-selection), and
-> the dense processing layout switches to Columns. Combined views do not yet
-> show the source account and folder
-> ([#223](https://github.com/mikepadiernos/plasma-impresario/issues/223)); see
-> the [caveats](../CAVEATS.md#mail-operations).
+> the dense processing layout switches to Columns. In the Unified Inbox
+> ([#223](https://github.com/mikepadiernos/plasma-impresario/issues/223)),
+> Two Lines names each message's account, and Columns show it in the row's
+> tooltip; see the [caveats](../CAVEATS.md#mail-operations).
 
 An Aqua Mail-inspired, multi-line message list is the target presentation,
 adapted to a keyboard- and mouse-driven Plasma desktop. Each row emphasizes the
@@ -764,7 +779,7 @@ otherwise.
 | -------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 🔍 Search                         | Search the current folder or selected accounts, with visible scope, filters and saved searches.       | Vivaldi Mail, Aqua Mail | ✅ per-account saved searches ([#76](https://github.com/mikepadiernos/plasma-impresario/issues/76)); 📋 cross-account scope, index and virtual folders in [M05](../ROADMAP.md#m05-search-and-indexing)                                                                                                                       |
 | 🧭 Account and folder navigation  | Account groups, folder hierarchy and unread counts with clear account context.                        | Trojitá, Aqua Mail      | ✅ account selector, counts, special folders and folder picker ([#37](https://github.com/mikepadiernos/plasma-impresario/issues/37)); 🚧 account groups ([#80](https://github.com/mikepadiernos/plasma-impresario/issues/80))                                                                                                |
-| 📥 Unified inbox                  | Combine selected accounts while identifying each message's source and keeping actions account-aware.  | Vivaldi Mail            | 📋 M03 ([#223](https://github.com/mikepadiernos/plasma-impresario/issues/223))                                                                                                                                                                                                                                              |
+| 📥 Unified inbox                  | Combine selected accounts while identifying each message's source and keeping actions account-aware.  | Vivaldi Mail            | ✅ INBOX of selected accounts with account labels and account-aware actions ([#223](https://github.com/mikepadiernos/plasma-impresario/issues/223)); 📋 other folders and threads                                                                                                                                            |
 | 📬 Message list and quick actions | Sender, subject, date and unread state with accessible archive, move, flag and delete actions.        | Aqua Mail, The Bat!     | ✅ [quick actions](#mail-operations) and recent destinations ([#83](https://github.com/mikepadiernos/plasma-impresario/issues/83)); 📋 hover actions and compact rows ([#87](https://github.com/mikepadiernos/plasma-impresario/issues/87))                                                                                  |
 | 🔃 Filters and sorting            | Active filters, sort order and threading, without obscuring the current folder or selection.          | Vivaldi Mail, The Bat!  | ✅ [quick filters, grouping, relevance sort and per-folder views](#mail-operations) ([#38](https://github.com/mikepadiernos/plasma-impresario/issues/38), [#85](https://github.com/mikepadiernos/plasma-impresario/issues/85), [#90](https://github.com/mikepadiernos/plasma-impresario/issues/90)); 📋 tag and date filters |
 | 📖 Conversation reader            | Message content, metadata, quoted text and reply actions in a focused reading pane.                   | Trojitá, Aqua Mail      | 📋 M04                                                                                                                                                                                                                                                                                                                      |

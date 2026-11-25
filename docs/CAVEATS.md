@@ -198,9 +198,9 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
 
 ### Mail operations
 
-| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                                       |
-| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
-| [#312](https://github.com/mikepadiernos/plasma-impresario/issues/312) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/312#issuecomment-7148901982) | Folder actions, message list filters and sorting |
+| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                                                      |
+| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| [#312](https://github.com/mikepadiernos/plasma-impresario/issues/312) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/312#issuecomment-7148901982) | Folder actions, message list filters and sorting, Unified Inbox |
 
 **Current behavior:**
 
@@ -248,9 +248,9 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
   only after its message UIDs have loaded.
 - ⚠️ Two-line message rows show no preview text, because message bodies are
   not fetched for the list, and no contact photos, only the sender's initials.
-  Combined views do not yet show each message's account and folder
-  ([#223](https://github.com/mikepadiernos/plasma-impresario/issues/223)). All
-  rows share one height, so date group headings are as tall as a two-line row.
+  In the Unified Inbox, Two Lines names each message's account; Columns show it
+  only in the row's tooltip. All rows share one height, so date group headings
+  are as tall as a two-line row.
   The column header, with its column chooser and sorting by clicking, is
   hidden in Two Lines.
 - ⚠️ Check for New Mail asks each online account for the counts it already
@@ -262,6 +262,15 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
   folders. Go to Next Unread Folder covers the active account and folders
   already listed in the tree; folders whose count has not arrived are skipped,
   so the first use after connecting may skip some.
+- ⚠️ The Unified Inbox
+  ([#223](https://github.com/mikepadiernos/plasma-impresario/issues/223)) lists
+  the INBOX of each included account only. It has no threads, Group By, drag
+  and drop, quick search or Show Related, and sorts on the client rather than
+  on the server. Moving or copying messages of several accounts at once is
+  refused. Notifications about different accounts replace each other. An
+  account added while the Unified Inbox is shown appears after turning it off
+  and on again. Offline accounts still list their cached messages, and the
+  status line names them.
 - ⚠️ These paths are unit-tested but not yet exercised in a window against a
   live server.
 
@@ -280,6 +289,8 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
   Columns to choose and resize columns.
 - Use Reload All Folders to pick up new folders, and expand a branch so that
   Go to Next Unread Folder can visit it.
+- In the Unified Inbox, move or copy the messages of one account at a time,
+  and open an account's INBOX to thread, group or search its messages.
 
 **Proposed improvements:**
 
@@ -298,6 +309,8 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
 - 📋 Let Check for New Mail re-list folders, add per-account and per-folder
   check intervals, and offer an account-wide or all-accounts unread total and
   next-unread search.
+- 📋 Extend the Unified Inbox to other special folders, threads and quick
+  search across accounts, and moves between accounts.
 - 📋 Add live window-level tests.
 
 ## Before reporting results
