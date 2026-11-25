@@ -294,9 +294,8 @@ need a real session.
 - 📋 **OAuth:** the M02 items of [caveat #362](CAVEATS.md#oauth-sign-in) are
   merged in [#421](https://github.com/mikepadiernos/plasma-impresario/pull/421).
   Still open: the Microsoft tenant and shared token session (#397, #398,
-  M13.01), live sign-in (#317, M15), and two proposals without a milestone:
-  keeping a replaced grant until the dialog is saved, and skipping revocation
-  in Account Settings for a grant another account shares.
+  M13.01), live sign-in (#317, M15), and the grant follow-ups #428 and #429
+  in M14.03.
 - 📋 **Panels:** the M02 item of
   [caveat #264](CAVEATS.md#related-messages-and-message-details-panels), pane
   sizes after upgrading, is merged in
@@ -437,10 +436,12 @@ component audit and reproduction steps.
   [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11) "M05:
   Reliability, sync, and notification quality", and #304 and #305 are titled
   "M07:" but belong to roadmap M06.04. The milestone reorder
-  [#249](https://github.com/mikepadiernos/plasma-impresario/issues/249) is in
-  Review in pull request
-  [#250](https://github.com/mikepadiernos/plasma-impresario/pull/250). Treat the
-  roadmap numbering as current until the titles are updated.
+  [#249](https://github.com/mikepadiernos/plasma-impresario/issues/249) and its
+  pull request
+  [#250](https://github.com/mikepadiernos/plasma-impresario/pull/250) were
+  closed as superseded on 2026-11-25, so issue titles and GitHub milestone
+  names still need a separate pass to match roadmap numbers. Treat the roadmap
+  numbering as current until then.
 - ✅ **Board audit, 2026-11-24:** every roadmap checkbox matches its issue's
   board status, every closed issue is Completed or Merged, and sub-issue
   milestones match their parents. Missing Start and Target dates were filled
@@ -461,10 +462,11 @@ component audit and reproduction steps.
 - 📋 **Pending wording, #87:** M03 issue
   [#87](https://github.com/mikepadiernos/plasma-impresario/issues/87) is
   titled "Provide an Aqua Mail-inspired message list", while its roadmap item
-  still reads "Provide readable compact message rows…". The open pull request
-  [#257](https://github.com/mikepadiernos/plasma-impresario/pull/257) rewords
-  the roadmap item to match; keep both as they are until it is merged or
-  closed.
+  still reads "Provide readable compact message rows…". The
+  [message list design](philosophy/designs.md#message-list-presentation)
+  merged in [#259](https://github.com/mikepadiernos/plasma-impresario/pull/259)
+  without rewording the item, because the M03 branch edits the adjacent roadmap
+  lines. Reword it on `feature/m03-mail-operations` and link the design.
 - Keep roadmap links, issue parents, milestone assignments and project status
   synchronized when roadmap scope changes.
 
@@ -498,17 +500,19 @@ component audit and reproduction steps.
 - 🚧 **Title clash:** the new M05 issues share the "M05:" prefix with the
   reliability milestone (roadmap M10,
   [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11), its
-  features and #357). Resolve this in the milestone reorder
-  [#249](https://github.com/mikepadiernos/plasma-impresario/issues/249).
+  features and #357). Resolve this when issue titles are aligned with roadmap
+  numbers; see
+  [milestone numbers](#milestone-feature-issue-synchronization).
 - ✅ **Plasma-session milestone:** the M13 created on `feature/m02-shell-next`
   is roadmap M15 after the M05 and M13 insertions. Its parent
   [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) and
   features #315–#317 were retitled "M15:" on 2026-11-25.
-- 📋 **Resume:** rebase pull requests
+- 📋 **Resume:** pull requests
   [#250](https://github.com/mikepadiernos/plasma-impresario/pull/250) and
-  [#252](https://github.com/mikepadiernos/plasma-impresario/pull/252) onto this
-  insertion before merging them, then retitle board issues to roadmap numbers
-  and remove this section and the roadmap tip.
+  [#252](https://github.com/mikepadiernos/plasma-impresario/pull/252) were
+  closed as superseded on 2026-11-25. Retitle board issues and GitHub
+  milestones to roadmap numbers in one pass, then remove this section and the
+  roadmap tip.
 
 ### M13 Microsoft milestone insertion
 
@@ -536,8 +540,12 @@ component audit and reproduction steps.
   to their parent issues' feature lists.
 - 📋 **Title prefixes:** Refinements issues keep the GitHub milestone and title
   prefix "M11:" (roadmap M14), and the empty GitHub milestone "M13: Tagging,
-  Maildir, and Opus workspace integration" shares the "M13:" prefix. Resolve
-  both in the milestone reorder [#249](https://github.com/mikepadiernos/plasma-impresario/issues/249).
+  Maildir, and Opus workspace integration" shares the "M13:" prefix. The
+  M14.03 grant follow-ups
+  [#428](https://github.com/mikepadiernos/plasma-impresario/issues/428) and
+  [#429](https://github.com/mikepadiernos/plasma-impresario/issues/429) use the
+  same "M11:" prefix as their siblings. Resolve both in the retitling pass under
+  [milestone numbers](#milestone-feature-issue-synchronization).
 - ✅ **Merged:** #385 merged in
   [#418](https://github.com/mikepadiernos/plasma-impresario/pull/418) and is
   closed and Merged on the board.
@@ -560,5 +568,5 @@ component audit and reproduction steps.
      publisher-verified and which tenant holds them.
   5. Ask KDE e.V. whether it can host or publisher-verify the app, and record
      both answers in #396.
-- 📋 **Resume:** when #249 retitles the Refinements issues, remove the
+- 📋 **Resume:** when the Refinements issues are retitled, remove the
   title-prefix bullet; remove this section when that and #396 are done.
