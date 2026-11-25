@@ -136,6 +136,9 @@ public:
 
     Q_INVOKABLE void nukeCache();
 
+    /** @short The directory of this account's offline cache */
+    QString cacheDirectory() const;
+
     Q_INVOKABLE QString mailboxListShortMailboxName() const;
     Q_INVOKABLE QString mailboxListMailboxName() const;
 

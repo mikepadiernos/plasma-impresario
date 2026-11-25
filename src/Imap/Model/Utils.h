@@ -51,6 +51,15 @@ QModelIndex deproxifiedIndex(const QModelIndex& index);
 
 bool removeRecursively(const QString &dirName);
 
+/**
+ * @short Delete the offline cache of a removed account
+ *
+ * An account with its own directory, @arg cacheDir below @arg cacheRoot, loses the whole directory. The account migrated
+ * from a single profile keeps its cache directly in @arg cacheRoot, beside saved drafts, the connection log and the other
+ * accounts' directories, so only its database and its message-part directories are deleted there.
+ */
+bool removeAccountCache(const QString &cacheDir, const QString &cacheRoot);
+
 }
 
 

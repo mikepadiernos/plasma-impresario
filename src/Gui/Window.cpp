@@ -2082,7 +2082,11 @@ void MainWindow::removeAccountNow(const QString &accountId)
             }
         }
     }
+    const QString cacheDirectory = access->cacheDirectory();
+    // Deleting the account's models also closes its cache database, so the files can be removed.
     delete m_accountAccess.take(accountId);
+    if (!Imap::removeAccountCache(cacheDirectory, Common::writablePath(Common::LOCATION_CACHE)))
+        qWarning() << "Could not delete the offline cache of the removed account in" << cacheDirectory;
     // Open composers may still list this account's identities, so the model lives until the window closes.
     m_accountIdentities.remove(accountId);
     m_accountStatus->forget(accountId);

@@ -583,6 +583,11 @@ void ImapAccess::nukeCache()
     Imap::removeRecursively(m_cacheDir);
 }
 
+QString ImapAccess::cacheDirectory() const
+{
+    return m_cacheDir;
+}
+
 QModelIndex ImapAccess::deproxifiedIndex(const QModelIndex index)
 {
     return Imap::deproxifiedIndex(index);
