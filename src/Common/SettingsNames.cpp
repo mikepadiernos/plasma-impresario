@@ -69,6 +69,7 @@ const QString SettingsNames::netOnline = QStringLiteral("ONLINE");
 const QString SettingsNames::obsImapStartOffline = QStringLiteral("imap.offline");
 const QString SettingsNames::obsImapSslPemCertificate = QStringLiteral("imap.ssl.pemCertificate");
 const QString SettingsNames::imapSslPemPubKey = QStringLiteral("imap.ssl.pemPubKey");
+const QString SettingsNames::sslTrustedPublicKeys = QStringLiteral("ssl.trustedPublicKeys");
 const QString SettingsNames::imapBlacklistedCapabilities = QStringLiteral("imap.capabilities.blacklist");
 const QString SettingsNames::imapUseSystemProxy = QStringLiteral("imap.proxy.system");
 const QString SettingsNames::imapNeedsNetwork = QStringLiteral("imap.needsNetwork");

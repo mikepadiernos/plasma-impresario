@@ -51,6 +51,7 @@
 #include "Common/InvokeMethod.h"
 #include "Common/Paths.h"
 #include "Common/SettingsNames.h"
+#include "Common/TrustedCertificates.h"
 #include "Gui/CompleteMessageWidget.h"
 #include "Gui/ComposeWidget.h"
 #include "Gui/FromAddressProxyModel.h"
@@ -697,6 +698,16 @@ void ComposeWidget::passwordError()
 
 void ComposeWidget::certificateCheckRequested(const QList<QSslCertificate> &chain, const QList<QSslError> &errors)
 {
+    const QString host = m_accountSettings ? m_accountSettings->value(Common::SettingsNames::smtpHostKey).toString()
+                                           : QString();
+    QSettings *profile = m_mainWindow ? m_mainWindow->settings() : nullptr;
+    if (profile && !chain.isEmpty() && Common::TrustedCertificates::isTrusted(*profile, host, chain.first())) {
+        // Another account, or this host's IMAP service, already got the user's approval for this key
+        if (m_accountSettings)
+            m_accountSettings->setValue(Common::SettingsNames::smtpSslPemPubKey, chain.first().publicKey().toPem());
+        m_submission->setCertificateAccepted(true);
+        return;
+    }
     const QByteArray oldPubKey = m_accountSettings ?
                 m_accountSettings->value(Common::SettingsNames::smtpSslPemPubKey).toByteArray() : QByteArray();
     QString title, message;
@@ -710,6 +721,8 @@ void ComposeWidget::certificateCheckRequested(const QList<QSslCertificate> &chai
         return;
     if (accepted && m_accountSettings && !chain.isEmpty())
         m_accountSettings->setValue(Common::SettingsNames::smtpSslPemPubKey, chain.first().publicKey().toPem());
+    if (accepted && profile && !chain.isEmpty())
+        Common::TrustedCertificates::trust(*profile, host, chain.first());
     m_submission->setCertificateAccepted(accepted);
 }
 

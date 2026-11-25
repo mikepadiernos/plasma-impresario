@@ -44,6 +44,8 @@ struct SettingsNames {
     /** @short Per-account authentication method for IMAP and SMTP, and the account's OAuth 2.0 configuration */
     static const QString imapAuthMethodKey, smtpAuthMethodKey, authMethodPassword, authMethodOAuth,
            oauthProviderKey, oauthClientIdKey, oauthClientSecretKey;
+    /** @short Profile-wide list of accepted server keys, as "host sha256-of-public-key" */
+    static const QString sslTrustedPublicKeys;
     static const QString composerSaveToImapKey, composerImapSentKey, smtpUseBurlKey, composerUseSharedIdentitiesKey;
     static const QString cacheMetadataKey, cacheMetadataMemory,
            cacheOfflineKey, cacheOfflineNone, cacheOfflineXDays, cacheOfflineAll, cacheOfflineNumberDaysKey;

@@ -277,6 +277,7 @@ set(path_Common ${CMAKE_CURRENT_SOURCE_DIR}/src/Common)
 set(libCommon_SOURCES
     ${path_Common}/AccountRegistry.cpp
     ${path_Common}/AccountStatus.cpp
+    ${path_Common}/TrustedCertificates.cpp
     ${path_Common}/Application.cpp
     ${path_Common}/ConnectionId.cpp
     ${path_Common}/FileLogger.cpp
