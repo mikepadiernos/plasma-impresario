@@ -1197,6 +1197,10 @@ if(BUILD_TESTING)
     trojita_test(Misc RelatedMessages)
     target_link_libraries(test_RelatedMessages PRIVATE UiUtils)
     trojita_test(Misc SpecialFolder)
+    if(WITH_DESKTOP)
+        trojita_test(Misc DestructiveActions)
+        target_link_libraries(test_DestructiveActions PRIVATE UiUtils KF6::ConfigCore)
+    endif()
 
 endif()
 
