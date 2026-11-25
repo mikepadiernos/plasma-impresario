@@ -15,6 +15,7 @@ actions that exist today.
 | Specification                                                 | Scope                                           | Exists today                                    |
 | ------------------------------------------------------------- | ----------------------------------------------- | ----------------------------------------------- |
 | [Application menu](app-menu.md)                               | Top-level application menu bar                  | ✅ Application, View, Mailbox and Message menus |
+| [System tray context menu](system-tray-context-menu.md)       | Tray access to global actions                   | ✅ Quit only                                    |
 | [Account context menu](account-tree-context-menu.md)          | Account navigation actions                      | 📋 No account tree; toolbar account selector    |
 | [Folder context menu](folder-tree-context-menu.md)            | Mailbox and folder actions                      | ✅ Folder tree context menu                     |
 | [Message list context menu](message-list-context-menu.md)     | Message and selection actions                   | ✅ Message list context menu                    |

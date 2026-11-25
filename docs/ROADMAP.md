@@ -554,8 +554,13 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   access, drafts and pending work when switching, closing or disabling tabs.
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=315436993)
 - [ ] Cover appearance, density, mail behavior, notifications, workspaces, and
-  productivity preferences. Include tabs settings for enablement (off by
-  default), placement (header by default) and orientation.
+  productivity preferences. Adapt Aqua Mail customization to the desktop:
+  list and reader display, folder indicators, actions and shortcuts, account
+  identities and signatures, sync, notifications, and optional gestures and
+  widgets. Expose settings only for available features. Include tabs settings
+  for enablement (off by default), placement (header by default) and
+  orientation. See the
+  [customization design](philosophy/designs.md#aqua-mail-inspired-desktop-customization).
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570018)
 - [ ] Define account-specific options and default configuration for the app shell [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570030)
 - [ ] Keep the settings model separate from the core feature work so it can evolve after the app is working [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570033)
