@@ -1615,6 +1615,7 @@ void MainWindow::createWidgets()
     connect(m_attachmentPanel, &AttachmentPanel::transferError, this, &MainWindow::slotDownloadTransferError);
 
     m_messageDetailsPanel = new MessageDetailsPanel();
+    connect(m_messageWidget->messageView, &MessageView::messageModelChanged, m_messageDetailsPanel, &MessageDetailsPanel::setMessageModel);
     m_contactPanel = new ContactPanel();
     m_relatedMessagesPanel = new RelatedMessagesPanel();
     for (MessageContextPanel *panel : std::initializer_list<MessageContextPanel *>{m_messageDetailsPanel, m_contactPanel, m_relatedMessagesPanel}) {
