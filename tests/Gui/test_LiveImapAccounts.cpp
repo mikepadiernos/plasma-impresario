@@ -241,14 +241,17 @@ private slots:
         QCOMPARE(window.imapModel(), workModel);
         QVERIFY(settings.contains(QStringLiteral("accountPasswords/account-1/imap")));
 
-        // Removing the active account switches to the remaining one, which connects with its own password.
+        // Removing the active account switches to the remaining one, which keeps its own stored password. The server
+        // rejects that password, so the now active account may ask for a new one once; when depends on timing.
         QVERIFY(QMetaObject::invokeMethod(&window, "removeAccountNow", Q_ARG(QString, QStringLiteral("account-1"))));
         QTRY_VERIFY(!settings.contains(QStringLiteral("accountPasswords/account-1/imap")));
         QVERIFY(!QFile::exists(directory.filePath(QStringLiteral("main-account-1.conf"))));
         QCOMPARE(settings.value(QStringLiteral("accounts/ids")).toStringList(), QStringList{QStringLiteral("account-3")});
         QCOMPARE(window.imapAccess()->credentialAccountId(), QStringLiteral("account-3"));
         QCOMPARE(switcher->count(), 1);
-        QCOMPARE(passwordPrompts, 0);
+        QCOMPARE(settings.value(QStringLiteral("accountPasswords/account-3/imap")).toString(),
+                 QStringLiteral("incorrect-synthetic-password"));
+        QVERIFY2(passwordPrompts <= 1, qPrintable(QString::number(passwordPrompts)));
     }
 
     /**

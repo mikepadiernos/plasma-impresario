@@ -165,8 +165,8 @@ need a real session.
 - ✅ **Credential defaults and removal, #78:** verified with
   `test_LiveImapAccounts` against Dovecot 2.4.5. Removing a connected
   background account and then the active account deleted each one's settings
-  file and stored password, and the remaining account took over without a
-  prompt. A new profile selected QtKeychain, signed in through the password
+  file and stored password, and the remaining account took over with its own
+  stored password. A new profile selected QtKeychain, signed in through the password
   prompt when no secret store was available, and wrote no password to any
   settings file. Storage in KWallet still needs a real session (#316).
 - 🧪 **Sender identities, #78:** each account has its own identities by
