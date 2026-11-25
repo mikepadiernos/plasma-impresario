@@ -74,6 +74,16 @@ offscreen tests only · ⚠️ known limitation · 📋 not yet validated
 | A grant revoked at the provider while the app is open    | 📋                                                                                              |
 | Signing in against a real Google or Microsoft account    | 📋                                                                                              |
 
+### Sending
+
+| Scenario                                                    | Coverage                                                                                        |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| The SMTP server refuses the connection                      | 🧪 `test_SmtpClient`, fixed in [#364](BUGS.md#bug-sending-hangs-when-the-smtp-connection-fails) |
+| The SMTP server drops the connection during the transaction | 🧪 `test_SmtpClient`                                                                            |
+| An implicit TLS connection to a plain-text server           | 🧪 `test_SmtpClient`                                                                            |
+| An untrusted SMTP certificate                               | 📋 Sending fails; unlike IMAP, the certificate cannot be accepted                               |
+| The server closes the connection right after `QUIT`         | 🧪 `test_SmtpClient`                                                                            |
+
 ### Interface and embedded panels
 
 | Area               | Scenario                                                                              | Coverage                                                 |
