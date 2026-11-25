@@ -1,37 +1,59 @@
+<!-- markdownlint-disable MD013 -->
+
 # Plasma Impresario roadmap
 
 **[Documentation](README.md)** · **[Scope](philosophy/scope.md)** ·
-**[Inspirations](philosophy/inspirations.md)** ·
+**[Design](philosophy/designs.md)** · **[Pending tasks](TODO.md)** ·
 **[Caveats and security](CAVEATS.md#security-and-data-protection)** ·
 **[Project board](https://github.com/users/mikepadiernos/projects/4)**
 
-Plasma Impresario is an in-development mail client for the KDE Plasma desktop only,
-built with C++, Qt 6 and KDE Frameworks. Other desktop environments are outside
-the supported product scope. This roadmap orders foundational mailbox work
-before desktop integration, productivity features and release-quality refinements.
+Plasma Impresario is an in-development IMAP mail client for the KDE Plasma
+desktop only, forked from Trojitá and built with C++20, Qt 6 and KDE
+Frameworks 6. This roadmap orders foundational mailbox work before desktop
+integration, productivity features and release-quality refinements.
 
 > [!NOTE]
 >
-> Feature completion is synchronized with the project board. An item
-> is checked only when its issue is **Completed** or **Merged** and its
-> implementation is verified. Blocked or unverifiable work remains recorded
-> in [pending tasks](TODO.md).
-
-The [backend](parity/backend.md) and [UI](parity/ui.md) references distinguish
-the existing Trojitá client from planned Plasma Impresario features.
+> Feature completion follows the project board. An item is checked only when
+> its issue is **Completed** or **Merged** and its implementation is verified.
+> Blocked or unverifiable work is recorded in [pending tasks](TODO.md), and
+> limitations of completed features in [caveats](CAVEATS.md).
 
 ## Contents
 
+- [Milestones at a glance](#milestones-at-a-glance)
+- [Recommended priority](#recommended-priority)
 - [Milestones](#milestones)
-- [M01-M05: Foundations](#m01-kde--qt6-compatibility-baseline)
-- [M06-M10: Workflows and quality](#m06-output-notifications-and-rules-automation)
-- [M11-M12: Assets and refinements](#m11-nextcloud-and-digital-asset-management)
+- [Keeping the roadmap current](#keeping-the-roadmap-current)
 
-## Milestones
+## Milestones at a glance
 
-This roadmap is ordered by product dependency. Compare proposed milestones
-with the current baseline described in the parity guides before treating
-foundational mailbox functionality as entirely new.
+Legend: ✅ merged into `main` · 🚧 in development · 📋 backlog. **Done** counts
+roadmap features whose issues are **Completed** or **Merged** (🟩 = 20%).
+Board statuses as of 2026-11-25.
+
+| Milestone | Focus | Parent issue | Done | Board |
+| --- | --- | --- | --- | --- |
+| [M01](#m01-kde--qt6-compatibility-baseline) | 🧱 KDE / Qt 6 compatibility baseline | [#1](https://github.com/mikepadiernos/plasma-impresario/issues/1) | 🟩🟩🟩🟩🟩 19/19 | ✅ Merged |
+| [M02](#m02-shell-accounts-and-core-mailbox-foundation) | 🧭 Shell, accounts and core mailbox foundation | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4) | 🟩🟩🟩⬜⬜ 7/14 | 🚧 Development on `feature/m02-shell-next` |
+| [M03](#m03-mail-operations-sorting-and-folder-management) | 📬 Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5) | 🟩🟩⬜⬜⬜ 4/12 | 🚧 Development on `feature/m03-mail-operations`, where its items are checked |
+| [M04](#m04-reading-and-conversation-flow) | 📖 Reading and conversation flow | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6) | ⬜⬜⬜⬜⬜ 0/13 | 📋 Backlog |
+| [M05](#m05-search-and-indexing) | 🔍 Search and indexing | [#324](https://github.com/mikepadiernos/plasma-impresario/issues/324) | ⬜⬜⬜⬜⬜ 0/24 | 📋 Backlog |
+| [M06](#m06-desktop-integration-and-provider-support) | 🖥️ Desktop integration and provider support | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7) | ⬜⬜⬜⬜⬜ 0/24 | 📋 Backlog |
+| [M07](#m07-output-notifications-and-rules-automation) | 🔔 Output, notifications and rules automation | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8) | ⬜⬜⬜⬜⬜ 0/10 | 📋 Backlog |
+| [M08](#m08-settings-and-workspace-configuration) | ⚙️ Settings and workspace configuration | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9) | ⬜⬜⬜⬜⬜ 0/13 | 📋 Backlog |
+| [M09](#m09-themes-and-branding-foundation) | 🎨 Themes and branding foundation | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10) | ⬜⬜⬜⬜⬜ 1/32 | 🚧 Development: M09.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
+| [M10](#m10-reliability-sync-and-notification-quality) | 🔄 Reliability, sync and notification quality | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11) | ⬜⬜⬜⬜⬜ 0/10 | 📋 Backlog |
+| [M11](#m11-release-readiness-and-polish) | 🚀 Release readiness and polish | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12) | ⬜⬜⬜⬜⬜ 0/8 | 📋 Backlog |
+| [M12](#m12-nextcloud-and-digital-asset-management) | ☁️ Nextcloud and digital asset management | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31) | ⬜⬜⬜⬜⬜ 0/7 | 📋 Backlog |
+| [M13](#m13-refinements) | ✨ Refinements | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15) | ⬜⬜⬜⬜⬜ 0/80 | 📋 Backlog |
+| [M14](#m14-real-plasma-session-verification) | 🖥️ Real Plasma session verification | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ⬜⬜⬜⬜⬜ 0/3 | 📋 Defined |
+
+> [!TIP]
+>
+> Some board issue titles still use earlier milestone numbers; the parent issue
+> links above and each **Project** link point to the right item. See
+> [pending tasks](TODO.md#milestone-feature-issue-synchronization).
 
 ## Recommended priority
 
@@ -42,11 +64,17 @@ foundational mailbox functionality as entirely new.
 | **P2** | Shell and reliability | Prototype the Plasma Impresario layout over existing mailbox/list/reader behavior; validate accessibility, keyboard use, responsive layouts and partial-failure recovery |
 | **P3** | Optional productivity features | Add provider APIs, rules, Nextcloud, calendar/contacts and workspace features only after core reliability, permissions and privacy behavior are defined |
 
-These are recommended sequencing priorities, not issue statuses or feature
-completion markers. Follow the project workflow below before updating milestone
-completion.
+These are sequencing priorities, not issue statuses or completion markers.
+Follow the [board workflow](../CONTRIBUTING.md#board-statuses) before updating
+milestone completion.
 
-The issue synchronization handoff is tracked in [TODO](TODO.md#milestone-feature-issue-synchronization).
+## Milestones
+
+Milestones are ordered by product dependency. Compare each one with the current
+baseline in the [backend](parity/backend.md) and [UI](parity/ui.md) parity
+guides before treating foundational mailbox functionality as entirely new. The
+issue synchronization handoff is tracked in
+[pending tasks](TODO.md#milestone-feature-issue-synchronization).
 
 ### M01: KDE / Qt6 compatibility baseline
 
@@ -58,7 +86,7 @@ for later milestones.
 
 **Verification handoff:** The renderer and M01.04 release-gate issues are
 merged. Live account, message-reading and Plasma-session checks remain
-unverified and are deferred to M02, M04 and M05. See
+unverified and are deferred to M02, M04 and M06. See
 [TODO](TODO.md#m01-release-gate-and-integration).
 
 Work through the supported environment, renderer, installer, and verification
@@ -143,7 +171,7 @@ installation depends on the working renderer.
     environment. Run renderer and privacy regression tests and verify recovery
     from build, startup, installer, and configuration failures.
     Account setup, live mailbox reading, replies and attachment workflows are
-    deferred to M02 and M04; Plasma session integration is deferred to M05.
+    deferred to M02 and M04; Plasma session integration is deferred to M06.
     [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498915)
   - [x] Record tested environments, reproducible verification steps, and remaining
     protocol, storage, rendering, and desktop-service limitations. Later
@@ -151,37 +179,63 @@ installation depends on the working renderer.
 
 ### M02: Shell, accounts, and core mailbox foundation
 
-**Project:** [M02 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314497855) ·
-[Mail shell](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314539964) ·
-[Accounts and mailbox state](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540057)
+**Project:** [M02 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314497855)
 
-- [ ] Build a Plasma Opus-inspired shell with a header, left column, main
-  column, right column, and footer. Place sidebar panels on either side;
-  arrange message-list and reading panes side by side or stacked in the main
-  column; and support configurable embedded panels for metadata, attachments,
-  contact information, and related content. See the
-  [shell and interface widget designs](philosophy/designs.md).
-  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314539964)
-- [ ] Provide Thunderbird-inspired tabs for mail views and messages as an
-  optional setting, **off by default**. Allow the tab bar in any shell region,
-  horizontally or vertically; when first enabled, place it in the header by
-  default. Save its placement and orientation. Preserve tab context, keyboard
-  access, drafts and pending work when switching, closing or disabling tabs.
-  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=315436993)
-- [ ] Define account models, connection state, folder structure, and mailbox lifecycle [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540057)
-- [ ] Support multiple simultaneous mail accounts in one window with independent account state and configuration [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314607650)
-- [ ] Design protocol-aware account and capability models that preserve existing IMAP behavior and allow POP3 and JMAP integrations in M05 [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314594590)
-- [ ] Support OAuth account authentication with secure desktop authorization, per-account token storage, renewal, and recovery [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314595922)
-- [ ] Implement the app skeleton in the same overall layout as the design spec [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568848)
-- [ ] Support compact and comfortable density modes before moving into feature-heavy workflows [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568860)
-- [ ] Add folder counts, unread counts, and saved-search entry points to the mailbox foundation [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568869)
-- [ ] Keep this milestone as the blocker for all later mailbox productivity work [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569071)
-- [ ] Provide account setup, editing, removal, identities, and secure credential storage for IMAP and sending accounts [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569080)
-- [ ] Verify baseline account setup and recovery with an isolated test account,
-  as the M01.04 live-account acceptance handoff. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569080)
-- [ ] Expose connection, authentication, offline, and loading states without blocking the interface [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569089)
-- [ ] Support account grouping, collapsible folder navigation, and keyboard focus across the shell [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569100)
-- [ ] Preserve pane layout, selection, and density preferences across sessions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569110)
+- **M02.01: Headless implementation and verification**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317303874)
+
+  Work that can be built and verified without a desktop session, using
+  offscreen QtTest runs and the synthetic Dovecot server in
+  `tools/dev-container/`.
+
+  - [x] Build a Plasma Opus-inspired shell with a header, left column, main
+    column, right column, and footer. Existing widgets and panes, such as the
+    folder tree, message list, and reader, keep their current appearance and
+    layout, adapted to the new shell, so the default look is unchanged. See the
+    [shell and interface widget designs](philosophy/designs.md).
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314539964)
+    - Keep the current toolbar and menus as the header, and show connection
+      status in the footer.
+    - Place the mailbox sidebar in either side column, and arrange the message
+      list and reader side by side, stacked, or one panel at a time in the main
+      column.
+    - Show side columns and the footer only while they hold content, and save
+      region sizes, sidebar side, and layout per layout.
+    - Provide attachments, message details, contacts, and related messages
+      embedded panels. Each can be shown, hidden when empty, and placed below
+      the reader, in either side column, or in the footer; include shown panels
+      in F6 focus cycling.
+  - [ ] Define account models, connection state, folder structure, and mailbox lifecycle [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540057)
+  - [x] Support multiple simultaneous mail accounts in one window with independent account state and configuration [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314607650)
+  - [ ] Design protocol-aware account and capability models that preserve existing IMAP behavior and allow POP3 and JMAP integrations in M06 [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314594590)
+  - [ ] Support OAuth account authentication with secure desktop authorization, per-account token storage, renewal, and recovery [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314595922)
+  - [ ] Implement the app skeleton in the same overall layout as the design spec [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568848)
+  - [x] Support compact and comfortable density modes before moving into feature-heavy workflows [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568860)
+  - [x] Add folder counts, unread counts, and saved-search entry points to the mailbox foundation [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568869)
+  - [x] Keep this milestone as the blocker for all later mailbox productivity work [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569071)
+  - [ ] Provide account setup, editing, removal, identities, and secure credential storage for IMAP and sending accounts [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569080)
+  - [ ] Verify baseline account setup and recovery with an isolated test account,
+    as the M01.04 live-account acceptance handoff. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569080)
+  - [x] Expose connection, authentication, offline, and loading states without blocking the interface [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569089)
+  - [ ] Support account grouping, collapsible folder navigation, and keyboard focus across the shell [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569100)
+  - [x] Preserve pane layout, selection, and density preferences across sessions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569110)
+
+Later milestone parent issues are blocked by #4. Apply the same gate when
+starting their feature issues.
+
+Pending headless implementation and isolated account verification:
+[M02 handoff](TODO.md#m02-shell-and-account-foundation). Checks that need a
+real Plasma session moved to
+[M14](#m14-real-plasma-session-verification) so they do not block M02.
+Account grouping (#80), the design-spec skeleton (#74) and capability-aware
+actions (#215) are held while M03 is in development:
+[M02 work held for M03](TODO.md#m02-work-held-for-m03).
+
+Caveats: [multiple accounts](CAVEATS.md#multiple-accounts)
+([#262](https://github.com/mikepadiernos/plasma-impresario/issues/262));
+[related messages and message details panels](CAVEATS.md#related-messages-and-message-details-panels)
+([#264](https://github.com/mikepadiernos/plasma-impresario/issues/264)).
 
 ### M03: Mail operations, sorting, and folder management
 
@@ -195,22 +249,23 @@ installation depends on the working renderer.
 - [ ] Support folder sync, account grouping, and desktop-heavy triage behavior [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569116)
 - [ ] Add quick actions for archive, move, flag, mark read, and delete [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569131)
 - [ ] Include The Bat!-style power-user workflows: batch actions, filtering, and dense desktop processing [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569139)
-- [ ] Add advanced sorting and threading controls for date, relevance, and conversation grouping [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569324)
+- [ ] Add advanced sorting and threading controls for date, relevance, and conversation grouping, and thread messages by sender address, subject, tag, unread state, mailing list, and similar attributes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569324)
 - [ ] This milestone is the blocker for all reading/search and productivity work that depends on real mailbox behavior [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569335)
 - [ ] Provide readable compact message rows with clear sender, subject, date, unread, flag, and attachment indicators [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569342)
 - [ ] Add predictable multi-selection, keyboard shortcuts, and progress or error feedback for batch operations [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569349)
 - [ ] Define folder actions and confirmation or recovery behavior for destructive message operations [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569359)
 - [ ] Support account and folder scoped views and preserve selection and sort state during message updates [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569367)
 
-### M04: Reading, search, and conversation flow
+### M04: Reading and conversation flow
 
 **Project:** [M04 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498050) ·
 [Reading](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540493) ·
-[Search and conversations](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540557) ·
+[Conversations](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540557) ·
 [Composition and sending](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540653)
 
 - [ ] Build the reading pane with metadata, preview controls, attachments, and action buttons [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540493)
-- [ ] Add search, thread-aware grouping, saved filters, and conversation navigation [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540557)
+- [ ] Show the reader's verified signature and decryption results, including inline PGP, in the message details panel [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317147460)
+- [ ] Add thread-aware grouping and conversation navigation [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540557)
 - [ ] Improve the preview panel for readability and fast triage [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569371)
 - [ ] Ensure keyboard navigation works for desktop-heavy usage [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569380)
 - [ ] Validate the full reading flow from list selection through reading and response actions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569544)
@@ -220,45 +275,213 @@ installation depends on the working renderer.
 - [ ] Load message bodies and attachments on demand and show clear loading, unavailable, and error states [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569551)
 - [ ] Support compose, reply, reply-all, forward, drafts, sending, and failed-send recovery [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540653)
 - [ ] Preserve the originating account and sending identity in reading, replies, drafts, and composition across individual and unified mail views [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314607717)
-- [ ] Provide scoped search by sender, recipient, subject, date, and message content where supported [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569556)
 - [ ] Keep threaded and flat views navigable and preserve conversation context across filters [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569569)
 - [ ] Protect reading privacy with explicit remote-content and external-link handling [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569578)
+- [ ] Highlight active search terms in the reader and step through matches with
+  the find bar, without loading remote content. See
+  [M05](#m05-search-and-indexing).
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317852924)
 
-### M05: Desktop integration and provider support
+### M05: Search and indexing
 
-**Project:** [M05 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498116) ·
-[KDE and Plasma](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540788) ·
-[Mail providers](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540857) ·
-[Security and privacy](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540934)
+**Project:** [M05 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317845712)
 
-- [ ] Connect the app to KDE and Plasma system services, notifications, and account lifecycle behavior [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540788)
-- [ ] Provide optional Plasma desktop and panel widgets, including an
-  unread-mail marquee inspired by The Bat!'s MailTicker. Support configurable
-  scope, privacy, accessibility, and unavailable-service feedback; consider
-  unread-count, sync-status, and compose widgets. See the
-  [integration design](integrations/kde-plasma.md#plasma-widgets).
-  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=315433787)
-- [ ] Add provider support for Gmail, Outlook, and other major mail services alongside IMAP [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540857)
-- [ ] Support consumer Outlook.com, Hotmail, and Live accounts using provider-supported OAuth and mail interfaces [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314595964)
-- [ ] Support Exchange Online and on-premises Exchange Server mail accounts using supported interfaces and authentication, subject to server and tenant policies [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314595997)
-- [ ] Support POP3 mail retrieval with SMTP submission, secure authentication and transport, and explicit local-storage and server-retention behavior [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314594687)
-- [ ] Support JMAP mail accounts with capability discovery, secure authentication, mailbox and message synchronization, and supported sending options [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314594740)
-- [ ] Define workspace-aware behavior for cross-context desktop usage and Plasma conventions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569584)
-- [ ] Add ClamAV and spam-handling hooks for safer mail processing and filtering [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540934)
-- [ ] Keep service integrations in this milestone so provider and desktop features are not mixed into core app deliverables [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569594)
-- [ ] Use KDE-native file, credential, session, and notification services where supported [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569603)
-- [ ] Implement KDE Plasma desktop integration for session lifecycle, file dialogs, KIO, KConfig, KWallet, and Plasma notification conventions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569755)
-- [ ] Verify live desktop-session startup, recovery, and integration behavior
-  as the M01.04 Plasma-session smoke handoff. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569755)
-- [ ] Define Plasma mail integration expectations for rich desktop feedback without interrupting the reading workflow [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569766)
-- [ ] Support accessibility and theming parity with KDE/Plasma, including contrast, focus visibility, localization, and icon consistency [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569771)
-- [ ] Document provider authentication, capabilities, limitations, and setup for Gmail, Outlook, and generic IMAP/SMTP [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569776)
-- [ ] Define how scan results, unavailable scanners, spam classification, and user overrides are surfaced [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569785)
-- [ ] Avoid exposing message content or attachments to external services without informed user action [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569792)
+Find mail quickly across folders and accounts, online and offline. M05 builds on
+the existing per-mailbox IMAP quick search, with its subject, body, sender and
+recipient fields, raw IMAP queries, fuzzy matching and per-account saved
+searches. Server search stays the default, and the local index is opt-in. See
+the [search patterns](philosophy/inspirations.md#search-patterns) and the
+[Plasma Opus search integration](integrations/plasma-opus.md#search-and-indexing).
+Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 
-### M06: Output, notifications, and rules automation
+- **M05.01: Search scope and server search**
 
-**Project:** [M06 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498225) ·
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317846014)
+
+  - [ ] Provide scoped search by sender, recipient, subject, date, and message
+    content where supported
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569556)
+  - [ ] Search the current folder, selected folders, one account or all
+    accounts, and show each result's account and folder
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317847205)
+  - [ ] Run searches in the background with progress, cancellation, partial
+    results and per-account errors, so one slow or failing server does not block
+    the others
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317847423)
+  - [ ] Keep the IMAP quick-search baseline of subject, body, sender and
+    recipient fields, the raw IMAP query mode and fuzzy matching; use ESEARCH
+    where the server advertises it and explain unsupported criteria instead of
+    showing empty results
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317848088)
+  - [ ] Search related messages on the server and across folders as an opt-in
+    option of the related messages panel
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317147283)
+
+- **M05.02: Queries and filters**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317846191)
+
+  - [ ] Support a query syntax with AND, OR and NOT, field prefixes such as
+    `from:`, `to:`, `subject:`, `has:attachment`, `is:unread`, `tag:` and
+    `list:`, and date ranges. Validate queries, explain errors, and translate
+    them to IMAP SEARCH or the local index; align the syntax with Plasma Opus
+    advanced search and keep the raw IMAP mode
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317848327)
+  - [ ] Provide a search builder with match-all or match-any conditions that
+    shows the equivalent query text
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317848533)
+  - [ ] Combine search with the M03 message-list filters, show the active scope
+    and filters, and clear them in one step
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317848767)
+  - [ ] Offer optional search history and suggestions from recent queries,
+    contacts, folders and tags, with controls to clear or turn them off
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317848994)
+
+- **M05.03: Saved searches and virtual folders**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317846412)
+
+  - [ ] Extend saved searches to folders, accounts or all accounts and show them
+    as virtual folders with live counts, without moving or copying messages
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317849223)
+  - [ ] Edit, rename, reorder and delete saved searches, show their scope, and
+    report folders or accounts that no longer exist
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317849481)
+  - [ ] Offer mailing-list views grouped by List-Id that the user can pin as
+    saved searches
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317849725)
+
+- **M05.04: Local index and offline search**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317846628)
+
+  - [ ] Offer an opt-in, per-account full-text index of headers and downloaded
+    message bodies in the existing SQLite cache, evaluating SQLite FTS5 first.
+    Search indexed mail offline and never download whole folders without consent
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317849976)
+  - [ ] Show index coverage and progress with pause, resume and rebuild;
+    distinguish configured scope from confirmed coverage and warn when the index
+    is stale
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317850232)
+  - [ ] Answer searches from the index first, offer server search beyond its
+    coverage, and merge results without duplicates by account, mailbox,
+    UIDVALIDITY and UID
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317850492)
+  - [ ] Let users exclude folders such as Trash and Junk, do not index the
+    decrypted content of encrypted mail unless enabled, and delete an account's
+    index when the account is removed or its cache is cleared
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317850817)
+  - [ ] Optionally index the text of downloaded attachments through
+    KFileMetaData, on demand and within size limits, and report missing
+    extractors
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317851093)
+
+- **M05.05: Results and navigation**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317846844)
+
+  - [ ] Show results with account, folder, sender, date and a highlighted
+    snippet, sorted by relevance or date
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317851301)
+  - [ ] Narrow results with facets for account, folder, sender, date,
+    attachments and tags
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317851568)
+  - [ ] Show results in the message list or an embedded Search Results panel;
+    open a result without changing the current folder selection and reveal it in
+    its folder
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317851804)
+  - [ ] Provide a toolbar search field with keyboard access and F6 focus cycling
+    until the designed header (M13.02) hosts search
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317852045)
+
+- **M05.06: Plasma Opus and desktop search**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317847027)
+
+  - [ ] Find saved attachments and exported messages with Baloo by opening KIO
+    `baloosearch:` URLs in the default file manager, such as Plasma Opus;
+    explain when file indexing is off or incomplete and offer a live search
+    instead
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317852252)
+  - [ ] Open a message by Message-ID through `mid:` URLs (RFC 2392) and a
+    command-line option, for example from the Plasma Opus `.eml` preview, and
+    report when the message is not found
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317852484)
+  - [ ] Share query syntax, coverage notices and saved-search conventions with
+    Plasma Opus without depending on it; reuse its query parser only if Plasma
+    Opus publishes it as a library
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317852714)
+
+### M06: Desktop integration and provider support
+
+**Project:** [M06 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498116)
+
+- **M06.01: KDE and Plasma services**
+
+  **Project:** [KDE and Plasma](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540788)
+
+  - [ ] Connect the app to KDE and Plasma system services, notifications, and account lifecycle behavior [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540788)
+  - [ ] Use KDE-native file, credential, session, and notification services where supported [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569603)
+  - [ ] Implement KDE Plasma desktop integration for session lifecycle, file dialogs, KIO, KConfig, KWallet, and Plasma notification conventions. Open files through the XDG portal file chooser so that Plasma Opus can provide the file open dialog when it serves the portal, falling back to the standard KDE dialog [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569755)
+  - [ ] Verify live desktop-session startup, recovery, and integration behavior
+    as the M01.04 Plasma-session smoke handoff. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569755)
+  - [ ] Define workspace-aware behavior for cross-context desktop usage and Plasma conventions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569584)
+  - [ ] Support accessibility and theming parity with KDE/Plasma, including contrast, focus visibility, localization, and icon consistency [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569771)
+  - [ ] Keep service integrations in this milestone so provider and desktop features are not mixed into core app deliverables [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569594)
+  - [ ] Provide an opt-in KRunner (Plasma Search) provider for mail from the
+    local search index, showing only subject, sender and date, and staying
+    silent when the index is off. See [M05](#m05-search-and-indexing).
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317853140)
+
+- **M06.02: Plasma widgets and desktop feedback**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317152866)
+
+  - [ ] Provide optional Plasma desktop and panel widgets, including an
+    unread-mail marquee inspired by The Bat!'s MailTicker. Support configurable
+    scope, privacy, accessibility, and unavailable-service feedback; consider
+    unread-count, sync-status, and compose widgets. See the
+    [integration design](integrations/kde-plasma.md#plasma-widgets).
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=315433787)
+  - [ ] Define Plasma mail integration expectations for rich desktop feedback without interrupting the reading workflow [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569766)
+
+- **M06.03: File manager handoff**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317153051)
+
+  - [ ] Accept attachments in compose requests from file managers such as Plasma Opus, through the XDG Email portal and a supported command-line handoff, and open them in an unsent draft [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317001066)
+  - [ ] Attach remote files dropped or handed off from file managers such as Plasma Opus, fetching them through KIO with progress and cancellation [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317001559)
+  - [ ] After the user saves an attachment, offer to show it in the default file manager, such as Plasma Opus, through the `org.freedesktop.FileManager1` service [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317001997)
+
+- **M06.04: Agenda and contacts**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317153236)
+
+  - [ ] Provide a My Day / Agenda embedded panel with today's events, due tasks, and flagged or follow-up mail, using KDE PIM and Akonadi when available and mail-derived items otherwise. See the [design](philosophy/designs.md#embedded-panels). [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317147641)
+  - [ ] Show KDE address-book names, photos, and organizations in the contacts panel, with open and add actions, without remote lookups [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317147800)
+
+- **M06.05: Mail providers**
+
+  **Project:** [Mail providers](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540857)
+
+  - [ ] Add provider support for Gmail, Outlook, and other major mail services alongside IMAP [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540857)
+  - [ ] Support consumer Outlook.com, Hotmail, and Live accounts using provider-supported OAuth and mail interfaces [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314595964)
+  - [ ] Support Exchange Online and on-premises Exchange Server mail accounts using supported interfaces and authentication, subject to server and tenant policies [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314595997)
+  - [ ] Support POP3 mail retrieval with SMTP submission, secure authentication and transport, and explicit local-storage and server-retention behavior [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314594687)
+  - [ ] Support JMAP mail accounts with capability discovery, secure authentication, mailbox and message synchronization, and supported sending options [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314594740)
+  - [ ] Document provider authentication, capabilities, limitations, and setup for Gmail, Outlook, and generic IMAP/SMTP [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569776)
+
+- **M06.06: Security and privacy**
+
+  **Project:** [Security and privacy](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540934)
+
+  - [ ] Add ClamAV and spam-handling hooks for safer mail processing and filtering [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540934)
+  - [ ] Define how scan results, unavailable scanners, spam classification, and user overrides are surfaced [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569785)
+  - [ ] Avoid exposing message content or attachments to external services without informed user action [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569792)
+
+### M07: Output, notifications, and rules automation
+
+**Project:** [M07 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498225) ·
 [Output and notifications](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541075) ·
 [Rule execution](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541165)
 
@@ -271,14 +494,23 @@ installation depends on the working renderer.
 - [ ] Define rule order, matching conditions, actions, and account or folder scope for incoming mail [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569988)
 - [ ] Preview or test rule matches and report execution failures before rules perform destructive actions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569999)
 - [ ] Make background sync, scanning, and rule activity visible with actionable error and progress states [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570007)
+- [ ] Create a rule or notification from a search or saved search, previewing
+  the matching messages first. See [M05](#m05-search-and-indexing).
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317853439)
 
-### M07: Settings and workspace configuration
+### M08: Settings and workspace configuration
 
-**Project:** [M07 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498306) ·
+**Project:** [M08 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498306) ·
 [Mail settings](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541330) ·
 [Workspace integrations](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541421)
 
 - [ ] Design the settings surface using a Plasma Opus-style layout: grouped, readable, and extensible [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541330)
+- [ ] Provide Thunderbird-inspired tabs for mail views and messages as an
+  optional setting, **off by default**. Allow the tab bar in any shell region,
+  horizontally or vertically; when first enabled, place it in the header by
+  default. Save its placement and orientation. Preserve tab context, keyboard
+  access, drafts and pending work when switching, closing or disabling tabs.
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=315436993)
 - [ ] Cover appearance, density, mail behavior, notifications, workspaces, and
   productivity preferences. Include tabs settings for enablement (off by
   default), placement (header by default) and orientation.
@@ -296,41 +528,227 @@ installation depends on the working renderer.
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541421)
 - [ ] Add defaults and toggles for mail-to-calendar, mail-to-notes, and work-context-aware productivity actions when those integrations are enabled [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570247)
 - [ ] Keep unavailable or optional integrations gracefully hidden and clearly explained in the settings surface [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570281)
+- [ ] Provide search and index settings for default scope, server or local
+  search, indexed accounts, excluded folders, attachment indexing, history
+  retention and reset, stored in KConfig. See [M05](#m05-search-and-indexing).
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317853651)
 
-### M08: Themes and branding foundation
+### M09: Themes and branding foundation
 
-**Project:** [M08 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498380) ·
-[Plasma visual language](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541568) ·
-[Accessible density](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541647)
+**Project:** [M09 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498380)
 
-- [ ] Rename the application, installed identity, documentation, repository, and project board to Plasma Impresario while preserving Trojitá configuration and compatibility aliases [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314606649)
-- [ ] Transition project-owned functions, symbols, namespaces, filenames, and
-  code conventions to Plasma Impresario. Preserve historical Trojitá references
-  in parity documents, old folders, `inspirations.md`, and README files, as
-  well as required copyright and license attribution. Plan and verify
-  migration of existing configuration and launch compatibility.
-  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=315412467)
-- [ ] Define the default visual language, palette, and KDE-native desktop styling [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541568)
-- [ ] Establish spacing, density, and readability rules for all mail panes.
-  Provide theme spacing options for compact, normal, comfortable, and custom
-  spacing. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541647)
-- [ ] Align the product shell with Plasma visual expectations for polish and
-  clarity. Replace the carets beside navigation toolbar icons that open menus with
-  small theme-accented corner markers on the icons. The marker indicates an
-  available menu, not selection. Preserve contrast, accessible menu semantics,
-  keyboard access, and visible focus; retain disclosure indicators for
-  expandable trees.
-  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570268)
-- [ ] Follow the active Plasma color scheme, accent, icon theme, and light or
-  dark appearance. Provide an option to use a symbolic icon from the active
-  icon theme in the system tray.
-  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570286)
-- [ ] Validate contrast, text scaling, focus indicators, and high-contrast behavior across panes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570471)
-- [ ] Keep compact and comfortable layouts readable across common window sizes and display scales [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570493)
+Customize the appearance of Plasma Impresario without changing the desktop's
+global appearance. Every option follows Plasma by default, can be saved in a
+theme profile and can be attached to a workspace; see the
+[interface design](philosophy/designs.md#themes-and-appearance). Adapted from
+[Plasma Opus M17](https://github.com/mikepadiernos/plasma-opus/blob/main/docs/ROADMAP.md#m17-themes)
+for mail; HTML message content keeps its own styling and the reader's privacy
+policy.
 
-### M09: Reliability, sync, and notification quality
+- **M09.01: Branding and visual language**
 
-**Project:** [M09 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498466) ·
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317042105)
+
+  - [x] Rename the application, installed identity, documentation, repository, and project board to Plasma Impresario while preserving Trojitá configuration and compatibility aliases [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314606649)
+  - [ ] Transition project-owned functions, symbols, namespaces, filenames, and
+    code conventions to Plasma Impresario. Preserve historical Trojitá references
+    in parity documents, old folders, `inspirations.md`, and README files, as
+    well as required copyright and license attribution. Plan and verify
+    migration of existing configuration and launch compatibility.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=315412467)
+  - [ ] Define the default visual language, palette, and KDE-native desktop styling [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541568)
+  - [ ] Align the product shell with Plasma visual expectations for polish and
+    clarity. Replace the carets beside navigation toolbar icons that open menus with
+    small theme-accented corner markers on the icons. The marker indicates an
+    available menu, not selection. Preserve contrast, accessible menu semantics,
+    keyboard access, and visible focus; retain disclosure indicators for
+    expandable trees.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570268)
+
+- **M09.02: Color schemes**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317042664)
+
+  - [ ] Follow the active Plasma color scheme, accent, icon theme, and light or
+    dark appearance. Provide an option to use a symbolic icon from the active
+    icon theme in the system tray.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570286)
+  - [ ] Offer app-local light and dark presets and installed KDE color schemes
+    without changing the desktop's global appearance, widget style, or window
+    decorations.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317042960)
+  - [ ] Apply app-local colors consistently across Plasma Impresario windows,
+    panes, the composer, and dialogs, respecting accessibility settings, native
+    icon themes, and the appearance boundaries of the HTML message reader and
+    external components. Leave HTML message content to the reader's own
+    rendering and privacy policy.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317043194)
+  - [ ] Provide an app-local color editor with named palette roles, including
+    unread, flagged, and account colors, and live preview. Preserve readable
+    text, selection, and focus indicators; validate contrast and allow changes
+    to be reverted without saving.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317043451)
+  - [ ] Follow Plasma's accent color by default or choose an app-local accent for
+    selection, focus, the active pane, progress, unread indicators, and tab
+    indicators. Validate contrast against the active color scheme.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317043723)
+  - [ ] Tint the background of all panes, or only the active or inactive pane.
+    Keep text, selection, unread state, and account and folder colors readable.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317043947)
+
+- **M09.03: Effects and shape**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317044224)
+
+  - [ ] Offer optional background blur behind translucent windows and panels
+    using KWin's blur effect through KWindowEffects; blur strength follows
+    KWin's effect settings. Without KWin compositing, report blur as unavailable
+    and keep an opaque background. If translucency cannot change live, apply it
+    when the window next opens.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317044462)
+  - [ ] Adjust background opacity separately for windows, panes, and panels,
+    with or without blur, while keeping text, icons, selection, and message
+    content fully opaque.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317044705)
+  - [ ] Choose a corner radius (none, small, medium, large, or a custom value
+    scaled with the display) for item highlights, message cards, panels, input
+    fields, tabs, and tooltips, using custom delegates and app-local style
+    rules. Leave window corners to KWin and the window decoration, and document
+    controls that the widget style draws without a radius.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317044955)
+
+- **M09.04: Lines and dividers**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317045136)
+
+  - [ ] Show, thin, or hide visible dividers, including splitter handles, panel
+    and toolbar separators, header and grid lines, and pane frames. Hidden
+    splitters keep a resize area, cursor feedback, keyboard resizing, and
+    pane-size reset, and can optionally reveal themselves on hover.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317045372)
+  - [ ] Show or hide tree lines in the folder tree and threaded message lists,
+    and choose solid or dotted lines. Draw the lines in Plasma Impresario when
+    the widget style does not provide the chosen style.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317045603)
+  - [ ] Color tree lines with a single color, a configurable palette by nesting
+    depth, or each account's or folder's color. Validate contrast and keep
+    nesting and thread structure distinguishable without relying on color
+    alone.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317045837)
+
+- **M09.05: Message list styles**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317046066)
+
+  - [ ] Add a card layout alongside compact and comfortable message rows. Show
+    each message as a card with the sender, subject, date, an optional preview
+    snippet when available, its account or folder color, and unread, flag,
+    attachment, and thread indicators. Support card size, density, selection
+    markers, drag and drop to folders, quick actions, and keyboard navigation,
+    and remember the layout wherever row density is remembered, including
+    workspace layouts.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317046290)
+  - [ ] Choose row striping in the message list and folder tree, hover
+    highlighting, and a selection style such as filled, outlined, rounded, or
+    an accent bar. Keep focus, selection, and unread state distinguishable for
+    keyboard users.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317046525)
+
+- **M09.06: Account and folder colors**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317046718)
+
+  - [ ] Assign colors to accounts and folders and show them consistently in the
+    folder tree, unified-inbox source indicators, message cards, tabs, and
+    folder pickers. Use the icon theme's colored folder icons, such as Breeze's
+    `folder-red`, when available and tint them otherwise; alternatively show a
+    color badge or colored name. Store colors locally in KConfig without
+    changing server folders, and never rely on color alone to identify an
+    account.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317046937)
+  - [ ] Color folders by rules that match an account, folder path, or name
+    pattern, with optional inheritance by subfolders. Explicit folder colors
+    take precedence over rules, and rules never modify folders, messages, or
+    server state.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317047188)
+
+- **M09.07: Text and spacing**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317047398)
+
+  - [ ] Establish spacing, density, and readability rules for all mail panes.
+    Provide theme spacing options for compact, normal, comfortable, and custom
+    spacing. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541647)
+  - [ ] Follow Plasma's fonts by default or override the font family, size, and
+    weight for the message list, folder tree, message headers, plain-text
+    messages, tabs, and the status bar, scaled consistently with the display.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317047620)
+  - [ ] Scale padding and spacing globally, extending M02 row density to
+    toolbars, tabs, panels, and the status bar.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317047870)
+  - [ ] Style the optional tabs and the status bar, including the tab shape, the
+    active tab indicator, and the strength of account and folder colors on tabs.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317048143)
+
+- **M09.08: Motion and accessibility**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317048436)
+
+  - [ ] Follow Plasma's animation speed by default, or reduce or disable Plasma
+    Impresario transitions such as pane changes, panel slides, and hover fades.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317048712)
+  - [ ] Offer to suspend blur, translucency, tints, and custom corner radii with
+    high-contrast color schemes, and validate contrast for every custom color.
+    Provide a one-step reset of global appearance options to Plasma defaults
+    from settings and the command line, and a way to start without workspace
+    appearance overrides.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317048962)
+  - [ ] Validate contrast, text scaling, focus indicators, and high-contrast behavior across panes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570471)
+  - [ ] Keep compact and comfortable layouts readable across common window sizes and display scales [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570493)
+
+- **M09.09: Profiles and stylesheets**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317049325)
+
+  - [ ] Save, import, and export versioned app-owned theme profiles with palette
+    choices, the appearance options in this milestone, and optional
+    stylesheets. Validate them, confirm overwrites, and offer a safe reset to
+    system appearance; do not execute code from theme files. Report unavailable
+    themes and preserve saved references for retry.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317049664)
+  - [ ] Support an optional app-local Qt Style Sheet (QSS, a CSS-like subset
+    rather than full web CSS) entered in a text box or imported from a file.
+    Allow preview, application, disabling, reversion, and export separately or
+    with a theme profile. Report invalid or unsupported input, bound resource
+    use, and prevent unapproved external resource loading. Stylesheets style
+    the application, not HTML message content.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317049979)
+  - [ ] Carry theme settings over from Plasma Opus and back. Import its
+    app-local appearance choice, palette roles and theme profile, optionally
+    following later changes, and export the Plasma Impresario theme for Plasma
+    Opus to import. Validate shared profiles, keep applying opt-in and
+    reversible, and fall back to the active Plasma color scheme without Plasma
+    Opus. See [Plasma Opus integrations](integrations/plasma-opus.md#themes-and-appearance).
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317017949)
+
+- **M09.10: Workspaces**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317050309)
+
+  - [ ] Attach a theme profile and selected appearance options, such as the
+    message card layout, folder color rules, blur, corner radius, and divider
+    visibility, to an M08 workspace. Choose all, selected, or none of them as
+    workspace behaviors and apply them live when switching workspaces. Layer
+    them in a documented order from Plasma defaults through the theme profile
+    and workspace overrides to the custom stylesheet. Preserve unselected
+    global state, report unavailable themes or effects, such as blur without
+    KWin, and keep saved references for retry. Workspaces associated with
+    Plasma Activities apply their appearance with that Activity.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317050543)
+
+### M10: Reliability, sync, and notification quality
+
+**Project:** [M10 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498466) ·
 [Connection and recovery](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541795) ·
 [Mailbox performance](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314541868)
 
@@ -345,10 +763,15 @@ installation depends on the working renderer.
 - [ ] Exercise memory, lifetime, undefined-behavior, and data-race-sensitive
   network, cache, and Qt background-task paths with suitable sanitizers before
   extending concurrency or sync behavior [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570499)
+- [ ] Keep the search index consistent with incremental updates through
+  CONDSTORE and QRESYNC, rebuild it after UIDVALIDITY changes or corruption, and
+  measure indexing time, disk use and query latency. See
+  [M05](#m05-search-and-indexing).
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317853918)
 
-### M10: Release readiness and polish
+### M11: Release readiness and polish
 
-**Project:** [M10 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498549) ·
+**Project:** [M11 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498549) ·
 [Accessible workflows](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542030) ·
 [Release guidance and triage](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542126)
 
@@ -363,28 +786,29 @@ installation depends on the working renderer.
   supported dependency checks, and static analysis results in the release CI
   gate; document tools, environment, findings, and residual risk [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542126)
 
-### M11: Nextcloud and digital asset management
+### M12: Nextcloud and digital asset management
 
-**Project:** [M11 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314506848) ·
+**Project:** [M12 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314506848) ·
 [Nextcloud assets](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542272) ·
 [Permissions and transfers](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542357)
 
 - [ ] Nextcloud and digital asset management [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570735)
 - [ ] Connect accounts securely and browse authorized Nextcloud files without interrupting mail workflows [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542272)
 - [ ] Attach or link existing files, and save received attachments to a user-selected Nextcloud location [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570744)
+- [ ] Reuse the KDE Online Accounts Nextcloud identities that Plasma Opus also uses, and accept Nextcloud share links handed off from Plasma Opus for a draft after the user reviews the link and its permissions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317002425)
 - [ ] Show upload, download, sharing permissions, failures, and retry states before completing file actions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542357)
 - [ ] Respect access permissions and make shared-link visibility explicit before sending [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570751)
 - [ ] Validate asset workflows with local and provider-backed mail accounts and document offline limitations [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570921)
 
-### M12: Refinements
+### M13: Refinements
 
-**Project:** [M12 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314499855)
+**Project:** [M13 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314499855)
 
 Adapt the menu, layout, interaction, settings, performance, and testing principles
-from [Plasma Opus refinements](https://github.com/mikepadiernos/plasma-opus-file-manager/blob/main/docs/ROADMAP.md#m32-refinements)
+from [Plasma Opus refinements](https://github.com/mikepadiernos/plasma-opus/blob/main/docs/ROADMAP.md#m32-refinements)
 to mail workflows without blocking this milestone on unavailable features.
 
-- **M12.01: Cross-product quality**
+- **M13.01: Cross-product quality**
 
   **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568448) · [Workflow friction](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314500156) ·
   [Usability and accessibility](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314500285) ·
@@ -409,7 +833,7 @@ to mail workflows without blocking this milestone on unavailable features.
     licensing and host support allow. Report every analyzer limitation
     explicitly. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314570972)
 
-- **M12.02: Shell and interaction**
+- **M13.02: Shell and interaction**
 
   **Project:** [Shell and interaction](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314502413)
 
@@ -424,6 +848,8 @@ to mail workflows without blocking this milestone on unavailable features.
     full-app-height placement at either window edge, from the top of the header
     to the bottom of the status bar; other toolbars remain horizontal.
     [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571181)
+  - [ ] Build the designed header with search, compose, the account switcher, and connection status, as a toolbar region in the shared customization mode [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317147971)
+  - [ ] Add sliding and floating panel placements, and rearrange sidebar and embedded panels between regions in the customization mode [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317148200)
   - [ ] Verify keyboard-only navigation, visible focus, and predictable focus restoration after dialogs and actions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571193)
   - [ ] Validate compact, comfortable, and focus modes at narrow window sizes and different display scales [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571207)
   - [ ] Keep menu and toolbar actions synchronized with the active account, folder, and selection, including while views refresh [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571217)
@@ -431,7 +857,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Restore windows to a usable visible position after display changes without overriding window-manager placement [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571245)
   - [ ] Keep controls usable with long translations, right-to-left layouts, and reduced-motion preferences [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571407)
 
-- **M12.03: Accounts, sync, and storage**
+- **M13.03: Accounts, sync, and storage**
 
   **Project:** [Accounts, sync, and storage](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314502624)
 
@@ -441,7 +867,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Preserve local changes during interruptions and make conflicts or unsent changes visible before recovery [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571437)
   - [ ] Explain local cache usage and allow users to manage storage without deleting server messages unintentionally [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571443)
 
-- **M12.04: Mail organization and triage**
+- **M13.04: Mail organization and triage**
 
   **Project:** [Mail organization and triage](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314502794)
 
@@ -453,7 +879,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Keep context-menu actions bound to the messages for which the menu opened, even if the selection changes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571660)
   - [ ] Distinguish cancellation from rollback and identify completed, skipped, and failed messages in batch results [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571675)
 
-- **M12.05: Reading, composition, and attachments**
+- **M13.05: Reading, composition, and attachments**
 
   **Project:** [Reading, composition, and attachments](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314502998)
 
@@ -464,9 +890,11 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Validate reply, reply-all, and forward behavior, including recipient visibility and attachment handling [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571856)
   - [ ] Prevent delayed message or attachment results from replacing the current view after selection changes or cancellation [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571865)
 
-- **M12.06: Search, sorting, and automation**
+- **M13.06: Search, sorting, and automation**
 
   **Project:** [Search, sorting, and automation](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314503192)
+
+  Refines [M05 search and indexing](#m05-search-and-indexing) once it ships.
 
   - [ ] Refine search, saved filters, sorting, threading, and existing rules; define refinement criteria for potential tagging and advanced automation [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571876)
   - [ ] Make account and folder search scope, active filters, and unsupported search capabilities explicit [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571890)
@@ -474,7 +902,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Allow users to inspect rule order and test matches before applying potentially destructive actions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571912)
   - [ ] Define how potential tags and advanced automation would interact with folders, search, and existing rules [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571919)
 
-- **M12.07: Security and privacy**
+- **M13.07: Security and privacy**
 
   **Project:** [Security and privacy](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314503352)
 
@@ -486,7 +914,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Test untrusted message content, attachment names, links, and imported data across validation, permissions, and error boundaries [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314572134)
   - [ ] Check that settings, logs, temporary files, and backups do not inadvertently expose credentials or message contents [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314572145)
 
-- **M12.08: Settings and notifications**
+- **M13.08: Settings and notifications**
 
   **Project:** [Settings and notifications](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314503553)
 
@@ -500,7 +928,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Confirm page-specific or global resets and distinguish app-owned settings from shared KDE data and credentials [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314572372)
   - [ ] Keep settings search, keyboard navigation, and unsaved edits responsive while loading larger account or provider lists [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314572381)
 
-- **M12.09: Desktop, services, and assets**
+- **M13.09: Desktop, services, and assets**
 
   **Project:** [Desktop, services, and assets](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314503752)
 
@@ -512,7 +940,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Review mail integration with KDE Plasma services such as notifications, KIO, file handling, session integration, account storage, and desktop-level actions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314572563)
   - [ ] Define the user-facing contract for Plasma Opus-aware mail flows: calendar handoff, notes capture, contact lookup, workspace-aware context, and graceful fallback when a companion app is unavailable [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314572568)
 
-- **M12.10: Calendar and contacts**
+- **M13.10: Calendar and contacts**
 
   **Project:** [Calendar and contacts](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314503888)
 
@@ -522,7 +950,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Define privacy, permissions, and error expectations for provider-backed event and contact data [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314572749)
   - [ ] Describe how potential mail-to-event and contact-to-compose workflows should preserve context [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314572758)
 
-- **M12.11: Notes, journal, and workspaces**
+- **M13.11: Notes, journal, and workspaces**
 
   **Project:** [Notes, journal, and workspaces](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314504035)
 
@@ -534,6 +962,35 @@ to mail workflows without blocking this milestone on unavailable features.
 
 This milestone follows the core app and Nextcloud integration. Refine implemented features here and document criteria for potential future work.
 
-## Notes
+### M14: Real Plasma session verification
 
-Update this page with real milestones, owners, dependencies, and acceptance criteria as work begins.
+**Project:** [M14 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317303994)
+
+Checks that need a real KDE Plasma session, KWallet, or a real provider
+account, and cannot be completed in the headless environment. They moved here
+from M02 so the headless M02 foundation can be completed and merged; each
+verifies a feature that is already implemented and tested headless.
+
+- [ ] Verify the mail shell, embedded panels, and F6 focus cycling in a real
+  Plasma session with the active Plasma style, color scheme, and icon theme.
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317304059)
+- [ ] Verify secure credential storage with KWallet in a real Plasma session.
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317304111)
+- [ ] Verify OAuth authorization, token renewal, and recovery with a real
+  provider account in a Plasma session.
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317304160)
+
+This milestone is blocked by M02 but does not block later milestones. Pending
+checks: [M14 handoff](TODO.md#m14-real-plasma-session-verification).
+
+## Keeping the roadmap current
+
+- 🗂️ Keep each milestone's headings, subsections and feature bullets; mark
+  progress only with checkboxes.
+- ✅ Check an item only after its issue is **Completed** or **Merged** on the
+  [project board](https://github.com/users/mikepadiernos/projects/4); leave
+  items in **Review** or earlier unchecked.
+- ⛔ Record blocked work and handoffs in [pending tasks](TODO.md) and link them
+  briefly from the affected milestone.
+- ⚠️ Record limitations of completed features in [caveats](CAVEATS.md) and
+  reference them at the end of the milestone.
