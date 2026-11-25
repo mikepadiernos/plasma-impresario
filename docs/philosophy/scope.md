@@ -77,8 +77,9 @@ limitations.
 ## Reference model
 
 Trojitá provides the IMAP-first, KDE-native baseline. Aqua Mail, Vivaldi Mail,
-Thunderbird, The Bat!, Kontact and ePim inform triage, cross-account views,
-optional tabs, dense power-user workflows and Plasma integration. The
+Thunderbird, The Bat!, Kontact, ePim and E-Mail inform triage, cross-account
+views, optional tabs, dense power-user workflows, Plasma integration and safe
+defaults. The
 [inspirations](inspirations.md#design-synthesis) document lists what each
 contributes.
 

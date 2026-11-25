@@ -37,16 +37,16 @@ Board statuses as of 2026-11-25.
 | [M01](#m01-kde--qt6-compatibility-baseline) | 🧱 KDE / Qt 6 compatibility baseline | [#1](https://github.com/mikepadiernos/plasma-impresario/issues/1) | 🟩🟩🟩🟩🟩 19/19 | ✅ Merged |
 | [M02](#m02-shell-accounts-and-core-mailbox-foundation) | 🧭 Shell, accounts and core mailbox foundation | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4) | 🟩🟩🟩🟩🟩 14/14 | ✅ Merged |
 | [M03](#m03-mail-operations-sorting-and-folder-management) | 📬 Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5) | 🟩🟩⬜⬜⬜ 4/12 | 🚧 Development on `feature/m03-mail-operations`, where its items are checked |
-| [M04](#m04-reading-and-conversation-flow) | 📖 Reading and conversation flow | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6) | ⬜⬜⬜⬜⬜ 0/13 | 📋 Backlog |
+| [M04](#m04-reading-and-conversation-flow) | 📖 Reading and conversation flow | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6) | ⬜⬜⬜⬜⬜ 0/15 | 📋 Backlog |
 | [M05](#m05-search-and-indexing) | 🔍 Search and indexing | [#324](https://github.com/mikepadiernos/plasma-impresario/issues/324) | ⬜⬜⬜⬜⬜ 0/24 | 📋 Backlog |
-| [M06](#m06-desktop-integration-and-provider-support) | 🖥️ Desktop integration and provider support | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7) | ⬜⬜⬜⬜⬜ 0/24 | 📋 Backlog |
-| [M07](#m07-output-notifications-and-rules-automation) | 🔔 Output, notifications and rules automation | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8) | ⬜⬜⬜⬜⬜ 0/10 | 📋 Backlog |
+| [M06](#m06-desktop-integration-and-provider-support) | 🖥️ Desktop integration and provider support | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7) | ⬜⬜⬜⬜⬜ 0/29 | 📋 Backlog |
+| [M07](#m07-output-notifications-and-rules-automation) | 🔔 Output, notifications and rules automation | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8) | ⬜⬜⬜⬜⬜ 0/11 | 📋 Backlog |
 | [M08](#m08-settings-and-workspace-configuration) | ⚙️ Settings and workspace configuration | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9) | ⬜⬜⬜⬜⬜ 0/13 | 📋 Backlog |
 | [M09](#m09-themes-and-branding-foundation) | 🎨 Themes and branding foundation | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10) | ⬜⬜⬜⬜⬜ 1/32 | 🚧 Development: M09.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
-| [M10](#m10-reliability-sync-and-notification-quality) | 🔄 Reliability, sync and notification quality | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11) | ⬜⬜⬜⬜⬜ 0/10 | 📋 Backlog |
-| [M11](#m11-release-readiness-and-polish) | 🚀 Release readiness and polish | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12) | ⬜⬜⬜⬜⬜ 0/8 | 📋 Backlog |
+| [M10](#m10-reliability-sync-and-notification-quality) | 🔄 Reliability, sync and notification quality | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11) | ⬜⬜⬜⬜⬜ 0/12 | 📋 Backlog |
+| [M11](#m11-release-readiness-and-polish) | 🚀 Release readiness and polish | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12) | ⬜⬜⬜⬜⬜ 0/10 | 📋 Backlog |
 | [M12](#m12-nextcloud-and-digital-asset-management) | ☁️ Nextcloud and digital asset management | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31) | ⬜⬜⬜⬜⬜ 0/7 | 📋 Backlog |
-| [M13](#m13-refinements) | ✨ Refinements | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15) | ⬜⬜⬜⬜⬜ 0/80 | 📋 Backlog |
+| [M13](#m13-refinements) | ✨ Refinements | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15) | ⬜⬜⬜⬜⬜ 0/82 | 📋 Backlog |
 | [M14](#m14-real-plasma-session-verification) | 🖥️ Real Plasma session verification | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ⬜⬜⬜⬜⬜ 0/3 | 📋 Defined |
 
 > [!TIP]
@@ -279,6 +279,16 @@ Caveats: [multiple accounts](CAVEATS.md#multiple-accounts)
   the find bar, without loading remote content. See
   [M05](#m05-search-and-indexing).
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317852924)
+- [ ] Group replies that lack References and In-Reply-To headers by their
+  normalized subject within a time window, ignoring localized prefixes such as
+  Re:, AW: and Re[2]: and leading list tags, and merge conversations that a new
+  message links together. See [E-Mail](philosophy/inspirations.md#e-mail).
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318073350)
+- [ ] In dark color schemes, show plain-text mail in the app's colors and HTML
+  mail that sets no background of its own on a light page, without loading
+  remote content or running scripts. See
+  [E-Mail](philosophy/inspirations.md#e-mail).
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318073669)
 
 ### M05: Search and indexing
 
@@ -430,6 +440,11 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
     local search index, showing only subject, sender and date, and staying
     silent when the index is off. See [M05](#m05-search-and-indexing).
     [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317853140)
+  - [ ] Offer opt-in background running and starting after login through the XDG
+    Background portal or an XDG autostart entry, keeping sync, notifications and
+    the tray icon active while the window is closed. See
+    [E-Mail](philosophy/inspirations.md#e-mail).
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318073987)
 
 - **M06.02: Plasma widgets and desktop feedback**
 
@@ -468,6 +483,12 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   - [ ] Support POP3 mail retrieval with SMTP submission, secure authentication and transport, and explicit local-storage and server-retention behavior [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314594687)
   - [ ] Support JMAP mail accounts with capability discovery, secure authentication, mailbox and message synchronization, and supported sending options [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314594740)
   - [ ] Document provider authentication, capabilities, limitations, and setup for Gmail, Outlook, and generic IMAP/SMTP [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569776)
+  - [ ] Discover IMAP and SMTP settings from the email address through built-in
+    providers, autoconfig and ISPDB, DNS SRV (RFC 6186), MX hosts and common
+    host names; show app-password guidance for known providers, and confirm
+    servers found through unsigned DNS outside the mail domain before sending a
+    password. See [E-Mail](philosophy/inspirations.md#e-mail).
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318074343)
 
 - **M06.06: Security and privacy**
 
@@ -476,6 +497,20 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   - [ ] Add ClamAV and spam-handling hooks for safer mail processing and filtering [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540934)
   - [ ] Define how scan results, unavailable scanners, spam classification, and user overrides are surfaced [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569785)
   - [ ] Avoid exposing message content or attachments to external services without informed user action [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569792)
+  - [ ] Strip line breaks and control characters from header input, remove Bcc
+    before sending while keeping it in Sent and drafts, and create Message-IDs
+    without the computer's host name. See
+    [E-Mail](philosophy/inspirations.md#e-mail).
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318074727)
+  - [ ] Show a link's real target before it opens, pointing out user information
+    in the address, punycode host names and link text that names a different
+    address. See [E-Mail](philosophy/inspirations.md#e-mail).
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318074996)
+  - [ ] Keep the offline cache and opened attachments user-only (folders 0700,
+    files 0600, never executable), keep attachment names inside their folder,
+    and remove opened attachment copies after a day. See
+    [E-Mail](philosophy/inspirations.md#e-mail).
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318075280)
 
 ### M07: Output, notifications, and rules automation
 
@@ -495,6 +530,11 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 - [ ] Create a rule or notification from a search or saved search, previewing
   the matching messages first. See [M05](#m05-search-and-indexing).
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317853439)
+- [ ] Keep one updatable new-mail notification per account, skip old mail moved
+  into the inbox and the conversation being read, and offer Mark as read and
+  Delete actions; test the notification decisions without a desktop. See
+  [E-Mail](philosophy/inspirations.md#e-mail).
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318075528)
 
 ### M08: Settings and workspace configuration
 
@@ -766,6 +806,15 @@ policy.
   measure indexing time, disk use and query latency. See
   [M05](#m05-search-and-indexing).
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317853918)
+- [ ] Queue sending and draft saves in a persistent outbox that survives
+  restarts and offline periods, never sends a message twice even if filing it in
+  Sent fails, and turns a refused message back into a draft. See
+  [E-Mail](philosophy/inspirations.md#e-mail).
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318075809)
+- [ ] Sync the last 30 days of headers first and older headers in small
+  background batches, always sending the user's changes and the outbox before
+  sync work. See [E-Mail](philosophy/inspirations.md#e-mail).
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318076184)
 
 ### M11: Release readiness and polish
 
@@ -783,6 +832,16 @@ policy.
 - [ ] Require clean formatting, reproducible CMake builds, test coverage,
   supported dependency checks, and static analysis results in the release CI
   gate; document tools, environment, findings, and residual risk [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542126)
+- [ ] Script end-to-end user scenarios through AT-SPI in a headless session
+  against the synthetic Dovecot server, recording screenshots and a report per
+  scenario, and generate documentation screenshots from invented example mail.
+  See [E-Mail](philosophy/inspirations.md#e-mail).
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318076576)
+- [ ] Verify the QtWebEngine renderer sandbox on Ubuntu 24.04 and later, which
+  restrict unprivileged user namespaces, and install a minimal AppArmor profile
+  when needed instead of disabling the sandbox. See
+  [E-Mail](philosophy/inspirations.md#e-mail).
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318076926)
 
 ### M12: Nextcloud and digital asset management
 
@@ -864,6 +923,11 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Show per-account sync progress, last successful sync, offline state, and actionable retry options [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571432)
   - [ ] Preserve local changes during interruptions and make conflicts or unsent changes visible before recovery [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571437)
   - [ ] Explain local cache usage and allow users to manage storage without deleting server messages unintentionally [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571443)
+  - [ ] Check new or changed account settings by signing in to IMAP and SMTP
+    before saving them, and explain failures by stage: incoming server, sign-in,
+    app password or mail access, outgoing server and mailbox. See
+    [E-Mail](philosophy/inspirations.md#e-mail).
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318077264)
 
 - **M13.04: Mail organization and triage**
 
@@ -876,6 +940,11 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Improve folder hierarchy, account grouping, and dense message indicators without obscuring message state [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571650)
   - [ ] Keep context-menu actions bound to the messages for which the menu opened, even if the selection changes [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571660)
   - [ ] Distinguish cancellation from rollback and identify completed, skipped, and failed messages in batch results [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571675)
+  - [ ] Apply moves, deletions and spam marking locally at once and send them to
+    the server after a short delay, offering Undo until then and restoring
+    messages whose change the server refuses. See
+    [E-Mail](philosophy/inspirations.md#e-mail).
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318077543)
 
 - **M13.05: Reading, composition, and attachments**
 
