@@ -5243,6 +5243,9 @@ void MainWindow::slotSearchRequested(const QStringList &searchConditions)
     threadingMsgListModel->setUserSearchingSortingPreference(searchConditions, threadingMsgListModel->currentSortCriterium(),
                                                              threadingMsgListModel->currentSortOrder());
     updateRelevanceSorting(searchConditions);
+#ifdef TROJITA_HAVE_WEBENGINE
+    m_messageWidget->messageView->setHighlightTerm(UiUtils::searchHighlightTerm(searchConditions));
+#endif
 }
 
 void MainWindow::updateRelevanceSorting(const QStringList &searchConditions)

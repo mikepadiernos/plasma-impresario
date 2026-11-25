@@ -96,6 +96,11 @@ public:
     bool isCryptoMessage() const;
     /** The network manager which serves the parts of the current message */
     Imap::Network::MsgPartNetAccessManager *networkAccessManager() const;
+    /** @short Text from the active search to find in the next messages which are opened
+
+    An empty string turns this off. The message which is shown already is left alone. */
+    void setHighlightTerm(const QString &term);
+    QString highlightTerm() const;
 public slots:
     void setMessage(const QModelIndex &index);
     void setEmpty();
@@ -123,6 +128,8 @@ signals:
     void messageModelChanged(QAbstractItemModel *model);
     void linkHovered(const QString &url);
     void searchRequestedBy(Gui::EmbeddedWebView *webView);
+    /** @short The first loaded part of the current message which contains the highlight term */
+    void highlightTermFound(Gui::EmbeddedWebView *webView, const QString &term);
     void transferError(const QString &errorString);
 private:
     bool eventFilter(QObject *object, QEvent *event) override;
@@ -156,6 +163,9 @@ private:
     Plugins::PluginManager *m_pluginManager;
     TagHandler m_taghandler;
     QSet<QWebEngineView*> m_loadingItems;
+    QString m_highlightTerm;
+    /** Whether a part of the current message has been reported through highlightTermFound() */
+    bool m_highlightFound = false;
 
     std::vector<QMetaObject::Connection> m_waitingMessageConns;
 

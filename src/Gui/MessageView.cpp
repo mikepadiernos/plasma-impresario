@@ -26,6 +26,7 @@
 #include <QMenu>
 #include <QSettings>
 #include <QStackedLayout>
+#include <QWebEngineFindTextResult>
 
 #include "Common/InvokeMethod.h"
 #include "Common/SettingsNames.h"
@@ -150,6 +151,7 @@ void MessageView::unsetPreviousMessage()
 {
     clearWaitingConns();
     m_loadingItems.clear();
+    m_highlightFound = false;
     message = QModelIndex();
     markAsReadTimer->stop();
     if (auto w = bodyWidget()) {
@@ -474,6 +476,40 @@ void MessageView::onWebViewLoadFinished()
     m_loadingItems.remove(wv);
     if (m_loadingItems.isEmpty())
         m_loadingSpinner->stop();
+
+    auto view = qobject_cast<EmbeddedWebView *>(wv);
+    if (!view || m_highlightTerm.isEmpty() || m_highlightFound)
+        return;
+    // Searching the rendered part is local; it never enables remote content
+    const QString term = m_highlightTerm;
+    QPointer<MessageView> self(this);
+    QPointer<EmbeddedWebView> part(view);
+    // A plain text part loads twice, the second time with its markup. Repeating a search for the same text
+    // would continue the earlier one, which the reload has cancelled, so start afresh.
+    view->findText(QString());
+    view->findText(term, {}, [self, part, term](const QWebEngineFindTextResult &result) {
+        if (!self || !part)
+            return;
+        if (result.numberOfMatches() == 0)
+            return;
+        if (self->m_highlightFound || self->m_highlightTerm != term) {
+            // Another part was first, or the search has changed meanwhile
+            part->findText(QString());
+            return;
+        }
+        self->m_highlightFound = true;
+        emit self->highlightTermFound(part, term);
+    });
+}
+
+void MessageView::setHighlightTerm(const QString &term)
+{
+    m_highlightTerm = term;
+}
+
+QString MessageView::highlightTerm() const
+{
+    return m_highlightTerm;
 }
 
 Plugins::PluginManager *MessageView::pluginManager() const

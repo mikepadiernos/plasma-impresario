@@ -56,6 +56,11 @@ CompleteMessageWidget::CompleteMessageWidget(QWidget *parent, QSettings *setting
             this, [this](EmbeddedWebView *w) {
         searchRequestedBy(w);
     });
+    connect(messageView, &MessageView::highlightTermFound,
+            this, [this](EmbeddedWebView *w, const QString &term) {
+        m_findBar->setAssociatedWebView(w);
+        m_findBar->showSearchTerm(term);
+    });
     // because the FindBarMixin is not a QObject, we have to use lambda above, otherwise a cast
     // from FindBarMixin * to QObject * fails
 

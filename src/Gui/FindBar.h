@@ -52,6 +52,11 @@ public:
 
     void setVisible(bool visible) override;
     void setAssociatedWebView(QWebEngineView *webView);
+    /** @short Show the bar with @arg term and select its first match in the associated web view
+
+    Unlike show(), this keeps the keyboard focus where it is, so that the user can go on
+    browsing the message list and still step through the matches with F3 and Shift+F3. */
+    void showSearchTerm(const QString &term);
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;
