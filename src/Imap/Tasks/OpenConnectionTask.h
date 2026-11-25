@@ -26,6 +26,11 @@
 #include "ImapTask.h"
 #include <QSslError>
 #include "../Model/Model.h"
+#include "OAuth/OAuth.h"
+
+namespace OAuth {
+class TokenSource;
+}
 
 namespace Imap
 {
@@ -85,6 +90,12 @@ private:
 
     void askForAuth();
 
+    /** @short Authenticate with an OAuth access token instead of a password */
+    void askForOAuthToken(OAuth::TokenSource *source);
+    void oauthTokenAvailable(const QString &accessToken);
+    void oauthTokenFailed(const QString &message);
+    void handleOAuthFailure(const Imap::Responses::State *const resp);
+
 private:
     CommandHandle startTlsCmd;
     CommandHandle capabilityCmd;
@@ -92,6 +103,10 @@ private:
     CommandHandle compressCmd;
     QList<QSslCertificate> m_sslChain;
     QList<QSslError> m_sslErrors;
+    OAuth::Mechanism m_oauthMechanism = OAuth::Mechanism::None;
+    QString m_oauthToken;
+    bool m_oauthRetried = false;
+    bool m_waitingForOAuthToken = false;
 };
 
 }

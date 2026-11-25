@@ -737,6 +737,7 @@ target_link_libraries(Imap
     PRIVATE
         Qt::Gui
         KF6::ItemModels
+        OAuth
         Streams
 )
 

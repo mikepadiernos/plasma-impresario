@@ -23,6 +23,7 @@
 #include "ImapAccess.h"
 #include <QDir>
 #include <QFileInfo>
+#include <QPointer>
 #include <QSslKey>
 #include <QSettings>
 #include "Common/MetaTypes.h"
@@ -43,6 +44,8 @@
 #include "Imap/Model/Utils.h"
 #include "Imap/Model/VisibleTasksModel.h"
 #include "Imap/Network/MsgPartNetAccessManager.h"
+#include "OAuth/Session.h"
+#include "Plugins/PluginManager.h"
 #include "Streams/SocketFactory.h"
 #include "UiUtils/PasswordWatcher.h"
 
@@ -366,6 +369,16 @@ void ImapAccess::doConnect()
     m_imapModel->setProperty("trojita-imap-id-no-versions", !m_appSettings->value(Common::SettingsNames::interopRevealVersions, true).toBool());
     m_imapModel->setProperty("trojita-imap-idle-renewal", m_appSettings->value(Common::SettingsNames::imapIdleRenewal).toUInt() * 60 * 1000);
     m_imapModel->setNumberRefreshInterval(numberRefreshInterval());
+    if (OAuth::isEnabled(*m_settings, OAuth::Service::Imap)) {
+        // The connections find this token source through the model and authenticate with it instead of a password
+        QPointer<Plugins::PluginManager> pluginManager = m_pluginManager;
+        auto oauth = new OAuth::Session(OAuth::AccountConfig::fromSettings(*m_settings, credentialAccountId()),
+                                        [pluginManager]() -> Plugins::PasswordPlugin * {
+                                            return pluginManager ? pluginManager->password() : nullptr;
+                                        },
+                                        m_imapModel);
+        oauth->setServer(m_server, m_port);
+    }
     connect(m_imapModel, &Mailbox::Model::alertReceived, this, &ImapAccess::alertReceived);
     connect(m_imapModel, &Mailbox::Model::imapError, this, &ImapAccess::imapError);
     connect(m_imapModel, &Mailbox::Model::networkError, this, &ImapAccess::networkError);
