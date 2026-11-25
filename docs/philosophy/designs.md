@@ -25,6 +25,7 @@ Legend: ![Done][done] · ![Needs verification][needs-verification] ·
   - [Remote content and links](#remote-content-and-links)
   - [Loading and unavailable content](#loading-and-unavailable-content)
   - [Reader actions](#reader-actions)
+  - [Reading and triage](#reading-and-triage)
   - [Status bar](#status-bar)
 - [Proposed Plasma Impresario shell](#proposed-plasma-impresario-shell)
   - [Panes and placement](#panes-and-placement)
@@ -594,6 +595,24 @@ is selected in the list ([#39](https://github.com/mikepadiernos/plasma-impresari
 Buttons use the theme's symbolic icons and have accessible names; the bar
 collapses into an overflow menu when narrow. See
 [caveats](../CAVEATS.md#reader-actions).
+
+### Reading and triage
+
+The reader is laid out for reading, and the list keys work through a folder
+without the mouse ([#91](https://github.com/mikepadiernos/plasma-impresario/issues/91)):
+
+- Plain-text mail wraps at about 90 characters of its font, so lines stay
+  readable in a wide reader; hard-wrapped mail and a few levels of quotes still
+  fit. A `message.css` in the data folder can override the width.
+- With the focus in the message list, <kbd>Space</kbd> and
+  <kbd>Backspace</kbd> page through the open message. At its end,
+  <kbd>Space</kbd> opens the next unread message, as in Thunderbird; after the
+  last unread message it does nothing.
+- <kbd>N</kbd> and <kbd>P</kbd> go to the next and previous unread message,
+  <kbd>Shift</kbd>+<kbd>N</kbd> marks the selection read and goes to the next
+  unread one, and <kbd>F</kbd> and <kbd>B</kbd> go to the next and previous
+  message. Archive and Trash select the following message.
+- Opening a message marks it read, after the delay set in the reader settings.
 
 ### Status bar
 

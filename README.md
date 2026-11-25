@@ -170,6 +170,7 @@ M04 is in progress on `feature/m04-reading-flow`
 | Reading privacy  | The remote-content bar names the blocked servers; deceptive links ask before opening                                                                     | ![Needs verification][needs-verification] |
 | Load on demand   | Parts which cannot be loaded, for example offline, are reported in the reader and load again on reconnect or Try Again                                   | ![Needs verification][needs-verification] |
 | Reader actions   | A bar above the reader replies, forwards, archives, trashes, flags, marks read, shows attachments, zooms and switches to plain text for the open message | ![Needs verification][needs-verification] |
+| Reading, triage  | Plain text wraps at a readable width; Space pages through the open message and then opens the next unread one                                            | ![Needs verification][needs-verification] |
 
 Inline PGP is detected but not verified; see
 [caveats](docs/CAVEATS.md#message-security).

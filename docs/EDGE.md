@@ -54,6 +54,10 @@ Legend: ![Verified][verified] against a synthetic live IMAP server ·
 | Reader actions   | Buttons follow the marks, the Trash mode and a removed message; requests carry the button state                                                         | ![Offscreen tests][offscreen] `test_ReaderActionBar`                                    |
 | Reader actions   | Flag and Read change the open message, not the list selection; the chip shows a hidden Attachments panel; zoom and Prefer Plain Text reload the message | ![Verified][verified] `test_LiveImapPanels`                                             |
 | Reader actions   | Archive or Trash, and Undo, for a message opened from Related Messages in another folder                                                                | ![Not validated][not-validated] Undo uses the message's own folder                      |
+| Triage           | Space at the end of a message opens the next unread one in the list                                                                                     | ![Verified][verified] `test_LiveImapPanels`                                             |
+| Triage           | Space before a long body has loaded, or after the last unread message                                                                                   | ![Not validated][not-validated]                                                         |
+| Readability      | Plain text wraps at about 90 characters of its font in a wide reader                                                                                    | ![Offscreen tests][offscreen] `test_WebEngineMessageProfile`                            |
+| Readability      | Wide preformatted text, tables drawn with characters, and right-to-left plain text                                                                      | ![Not validated][not-validated]                                                         |
 
 ### Message security
 
