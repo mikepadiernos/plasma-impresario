@@ -237,6 +237,16 @@ private slots:
     QVERIFY(archive && junk && tag && read && createFolder && subscribed);
     for (QAction *each : {archive, junk, tag, read, createFolder, subscribed})
       QVERIFY2(each->isVisible(), qPrintable(each->text()));
+    // Mail operations that need server folders follow the same gate
+    QAction *moveTo = action(window, QStringLiteral("action_move_to_folder"));
+    QAction *copyTo = action(window, QStringLiteral("action_copy_to_folder"));
+    QAction *goTo = action(window, QStringLiteral("action_go_to_folder"));
+    QAction *rename = actionByText(window, QStringLiteral("Re&name Folder\u2026"));
+    QAction *emptyTrash = actionByText(window, QStringLiteral("Empty &Trash\u2026"));
+    QVERIFY(moveTo && copyTo && goTo && rename && emptyTrash);
+    const QList<QAction *> folderOperations{moveTo, copyTo, goTo, rename, emptyTrash};
+    for (QAction *each : folderOperations)
+      QVERIFY2(each->isVisible(), qPrintable(each->text()));
 
     auto *sidebar = window.findChild<Gui::AccountSidebar *>();
     QVERIFY(sidebar);
@@ -250,10 +260,14 @@ private slots:
       QVERIFY2(!each->isVisible(), qPrintable(each->text()));
     // Read state can be kept locally, so it stays available
     QVERIFY(read->isVisible());
+    for (QAction *each : folderOperations)
+      QVERIFY2(!each->isVisible(), qPrintable(each->text()));
 
     sidebar->headers().at(0)->click();
     QCOMPARE(window.imapAccess()->credentialAccountId(), workCredentials);
     for (QAction *each : {archive, junk, tag, read, createFolder, subscribed})
+      QVERIFY2(each->isVisible(), qPrintable(each->text()));
+    for (QAction *each : folderOperations)
       QVERIFY2(each->isVisible(), qPrintable(each->text()));
   }
 
