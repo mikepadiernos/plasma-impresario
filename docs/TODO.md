@@ -185,8 +185,11 @@ need a real session.
   without WebEngine. Separate-process tests verify saved selection identifiers,
   pane proportions in wide, compact and one-panel layouts, sidebar position and
   density across close, quit and hidden-window quit.
-- 🧪 **Saved selection per account, #81 and #222:** isolation of saved
-  selections between accounts is not recorded as verified.
+- ✅ **Saved selection per account, #81 and #222:** verified with
+  `test_LiveImapAccounts` against Dovecot 2.4.5. Selecting a message in one
+  account and a message and then another folder in a second account saved each
+  selection under its own account and left the other unchanged. Switching back
+  and forth restored each account's own mailbox and message.
 - ✅ **Folder counts and saved searches, #76:** folders show unread indicators,
   and tooltips show total, unread and recent counts; unknown counts are omitted
   rather than reported as zero. The search options menu saves, runs and deletes
@@ -282,7 +285,6 @@ need a real session.
 
 - 📋 **OAuth:** the improvements listed in
   [caveat #362](CAVEATS.md#oauth-sign-in), and live sign-in (#317, M14).
-- 🧪 **Saved selection per account, #81 and #222:** not recorded as verified.
 
 #### Account model decisions
 
