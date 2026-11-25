@@ -1,21 +1,29 @@
 # Toolbar layout specification
 
+**[Refinements](../README.md)** · **[Menus](../menus/README.md)** ·
+**[Interface design](../../philosophy/designs.md)** ·
+**[M12 in roadmap](../../ROADMAP.md#m12-refinements)**
+
 These proposed toolbar layouts keep primary actions visible and consistent
-without crowding each surface.
+without crowding each surface. Each specification maps its entries to actions
+that exist today.
+
+**Legend:** ✅ exists in the current code on `feature/m02-shell-next` · 📋
+planned only
 
 ## Toolbar tree map
 
-| Specification                                   | Scope                                         |
-| ----------------------------------------------- | --------------------------------------------- |
-| [Navigation toolbar](main-window-toolbar.md)    | Movable icon toolbar and global actions       |
-| [Message list toolbar](message-list-toolbar.md) | Message triage and selection actions          |
-| [Reading pane toolbar](reading-pane-toolbar.md) | Actions while reading a message               |
-| [Compose toolbar](compose-toolbar.md)           | Message composition                           |
-| [Attachment toolbar](attachment-toolbar.md)     | Attachment actions while reading or composing |
+| Specification                                   | Scope                                         | Exists today                           |
+| ----------------------------------------------- | --------------------------------------------- | -------------------------------------- |
+| [Navigation toolbar](main-window-toolbar.md)    | Movable icon toolbar and global actions       | ✅ **Navigation** toolbar, docked left |
+| [Message list toolbar](message-list-toolbar.md) | Message triage and selection actions          | 📋 Quick search field only             |
+| [Reading pane toolbar](reading-pane-toolbar.md) | Actions while reading a message               | 📋 No toolbar                          |
+| [Compose toolbar](compose-toolbar.md)           | Message composition                           | 📋 Button row only                     |
+| [Attachment toolbar](attachment-toolbar.md)     | Attachment actions while reading or composing | ✅ Attachments panel header buttons    |
 
 ## Layout principles
 
-- Toolbars should mirror the user’s current context rather than repeat
+- Toolbars should mirror the user's current context rather than repeat
   everything from every surface.
 - Primary actions should be concise and visible at a glance.
 - Make destructive actions recognizable and confirm them when appropriate.

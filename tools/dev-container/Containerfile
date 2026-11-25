@@ -2,9 +2,11 @@
 #
 # This environment builds the app and runs its QtTest suite with the offscreen
 # platform. Dovecot serves the synthetic live IMAP tests, and Xvfb, x11vnc and
-# Openbox provide the VNC session of vnc.sh. It does not provide a Plasma
-# session, so D-Bus services, KWallet, notifications, and visual behavior still
-# need verification on Plasma.
+# Openbox provide the VNC session of vnc.sh. The Fedora release is pinned;
+# synthetic-dovecot.sh requires the Dovecot 2.4 series and prints the exact
+# version on each run. The image does not provide a Plasma session, so D-Bus
+# services, KWallet, notifications, and visual behavior still need verification
+# on Plasma.
 #
 # Build and use it through tools/dev-container/run.sh. Wrap app runs in
 # dbus-run-session when they need a session bus.

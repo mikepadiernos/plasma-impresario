@@ -1,37 +1,58 @@
+<!-- markdownlint-disable MD013 -->
+
 # Plasma Impresario roadmap
 
 **[Documentation](README.md)** · **[Scope](philosophy/scope.md)** ·
-**[Inspirations](philosophy/inspirations.md)** ·
+**[Design](philosophy/designs.md)** · **[Pending tasks](TODO.md)** ·
 **[Caveats and security](CAVEATS.md#security-and-data-protection)** ·
 **[Project board](https://github.com/users/mikepadiernos/projects/4)**
 
-Plasma Impresario is an in-development mail client for the KDE Plasma desktop only,
-built with C++, Qt 6 and KDE Frameworks. Other desktop environments are outside
-the supported product scope. This roadmap orders foundational mailbox work
-before desktop integration, productivity features and release-quality refinements.
+Plasma Impresario is an in-development IMAP mail client for the KDE Plasma
+desktop only, forked from Trojitá and built with C++20, Qt 6 and KDE
+Frameworks 6. This roadmap orders foundational mailbox work before desktop
+integration, productivity features and release-quality refinements.
 
 > [!NOTE]
 >
-> Feature completion is synchronized with the project board. An item
-> is checked only when its issue is **Completed** or **Merged** and its
-> implementation is verified. Blocked or unverifiable work remains recorded
-> in [pending tasks](TODO.md).
-
-The [backend](parity/backend.md) and [UI](parity/ui.md) references distinguish
-the existing Trojitá client from planned Plasma Impresario features.
+> Feature completion follows the project board. An item is checked only when
+> its issue is **Completed** or **Merged** and its implementation is verified.
+> Blocked or unverifiable work is recorded in [pending tasks](TODO.md), and
+> limitations of completed features in [caveats](CAVEATS.md).
 
 ## Contents
 
+- [Milestones at a glance](#milestones-at-a-glance)
+- [Recommended priority](#recommended-priority)
 - [Milestones](#milestones)
-- [M01-M05: Foundations](#m01-kde--qt6-compatibility-baseline)
-- [M06-M10: Workflows and quality](#m06-output-notifications-and-rules-automation)
-- [M11-M12: Assets and refinements](#m11-nextcloud-and-digital-asset-management)
+- [Keeping the roadmap current](#keeping-the-roadmap-current)
 
-## Milestones
+## Milestones at a glance
 
-This roadmap is ordered by product dependency. Compare proposed milestones
-with the current baseline described in the parity guides before treating
-foundational mailbox functionality as entirely new.
+Legend: ✅ merged into `main` · 🚧 in development · 📋 backlog. Board statuses
+as of 2026-11-24.
+
+| Milestone | Focus | Parent issue | Board |
+| --- | --- | --- | --- |
+| [M01](#m01-kde--qt6-compatibility-baseline) | 🧱 KDE / Qt 6 compatibility baseline | [#1](https://github.com/mikepadiernos/plasma-impresario/issues/1) | ✅ Merged |
+| [M02](#m02-shell-accounts-and-core-mailbox-foundation) | 🧭 Shell, accounts and core mailbox foundation | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4) | 🚧 Development |
+| [M03](#m03-mail-operations-sorting-and-folder-management) | 📬 Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5) | 🚧 Development on `feature/m03-mail-operations` |
+| [M04](#m04-reading-search-and-conversation-flow) | 📖 Reading, search and conversation flow | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6) | 📋 Backlog |
+| [M05](#m05-desktop-integration-and-provider-support) | 🖥️ Desktop integration and provider support | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7) | 📋 Backlog |
+| [M06](#m06-output-notifications-and-rules-automation) | 🔔 Output, notifications and rules automation | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8) | 📋 Backlog |
+| [M07](#m07-settings-and-workspace-configuration) | ⚙️ Settings and workspace configuration | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9) | 📋 Backlog |
+| [M08](#m08-themes-and-branding-foundation) | 🎨 Themes and branding foundation | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10) | 🚧 Development: M08.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
+| [M09](#m09-reliability-sync-and-notification-quality) | 🔄 Reliability, sync and notification quality | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11) | 📋 Backlog |
+| [M10](#m10-release-readiness-and-polish) | 🚀 Release readiness and polish | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12) | 📋 Backlog |
+| [M11](#m11-nextcloud-and-digital-asset-management) | ☁️ Nextcloud and digital asset management | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31) | 📋 Backlog |
+| [M12](#m12-refinements) | ✨ Refinements | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15) | 📋 Backlog |
+
+> [!TIP]
+>
+> Board issue titles still use the earlier milestone numbers (for example,
+> roadmap M05 is titled "M07" on the board) until the milestone reorder in
+> [#249](https://github.com/mikepadiernos/plasma-impresario/issues/249) is
+> complete. The parent issue links above and each milestone's **Project** link
+> point to the right item.
 
 ## Recommended priority
 
@@ -42,11 +63,17 @@ foundational mailbox functionality as entirely new.
 | **P2** | Shell and reliability | Prototype the Plasma Impresario layout over existing mailbox/list/reader behavior; validate accessibility, keyboard use, responsive layouts and partial-failure recovery |
 | **P3** | Optional productivity features | Add provider APIs, rules, Nextcloud, calendar/contacts and workspace features only after core reliability, permissions and privacy behavior are defined |
 
-These are recommended sequencing priorities, not issue statuses or feature
-completion markers. Follow the project workflow below before updating milestone
-completion.
+These are sequencing priorities, not issue statuses or completion markers.
+Follow the [board workflow](../CONTRIBUTING.md#board-statuses) before updating
+milestone completion.
 
-The issue synchronization handoff is tracked in [TODO](TODO.md#milestone-feature-issue-synchronization).
+## Milestones
+
+Milestones are ordered by product dependency. Compare each one with the current
+baseline in the [backend](parity/backend.md) and [UI](parity/ui.md) parity
+guides before treating foundational mailbox functionality as entirely new. The
+issue synchronization handoff is tracked in
+[pending tasks](TODO.md#milestone-feature-issue-synchronization).
 
 ### M01: KDE / Qt6 compatibility baseline
 
@@ -618,7 +645,7 @@ policy.
 **Project:** [M12 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314499855)
 
 Adapt the menu, layout, interaction, settings, performance, and testing principles
-from [Plasma Opus refinements](https://github.com/mikepadiernos/plasma-opus-file-manager/blob/main/docs/ROADMAP.md#m32-refinements)
+from [Plasma Opus refinements](https://github.com/mikepadiernos/plasma-opus/blob/main/docs/ROADMAP.md#m32-refinements)
 to mail workflows without blocking this milestone on unavailable features.
 
 - **M12.01: Cross-product quality**
@@ -773,6 +800,14 @@ to mail workflows without blocking this milestone on unavailable features.
 
 This milestone follows the core app and Nextcloud integration. Refine implemented features here and document criteria for potential future work.
 
-## Notes
+## Keeping the roadmap current
 
-Update this page with real milestones, owners, dependencies, and acceptance criteria as work begins.
+- 🗂️ Keep each milestone's headings, subsections and feature bullets; mark
+  progress only with checkboxes.
+- ✅ Check an item only after its issue is **Completed** or **Merged** on the
+  [project board](https://github.com/users/mikepadiernos/projects/4); leave
+  items in **Review** or earlier unchecked.
+- ⛔ Record blocked work and handoffs in [pending tasks](TODO.md) and link them
+  briefly from the affected milestone.
+- ⚠️ Record limitations of completed features in [caveats](CAVEATS.md) and
+  reference them at the end of the milestone.

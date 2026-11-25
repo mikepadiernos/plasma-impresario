@@ -2,178 +2,298 @@
 
 **[Documentation](README.md)** · **[Roadmap](ROADMAP.md)** ·
 **[Project board](https://github.com/users/mikepadiernos/projects/4)** ·
-**[Bugs](BUGS.md)** · **[Caveats](CAVEATS.md)**
+**[Bugs](BUGS.md)** · **[Caveats](CAVEATS.md)** · **[Edge cases](EDGE.md)**
 
-This log records unfinished work and resumable handoffs. Confirm current issue
-and project status before acting.
+This log records unfinished work, blockers and resumable handoffs. Issue
+statuses below match the project board as of 2026-11-24.
+
+Legend: ✅ done or verified · 🧪 implemented, needs verification · 🚧 in
+progress · 📋 planned · ⛔ blocked
+
+> [!IMPORTANT]
+>
+> Confirm the current issue and project status before acting. An issue is done
+> only when its board status is **Completed** or **Merged**. **Review** is not
+> done, and **Completed** does not mean merged into `main`.
+
+## Contents
+
+- [Backlog](#backlog)
+- [In progress](#in-progress)
+- [Pending verification](#pending-verification)
+  - [M02 shell and account foundation](#m02-shell-and-account-foundation)
+  - [M01 release gate and integration](#m01-release-gate-and-integration)
+  - [Milestone feature-issue synchronization](#milestone-feature-issue-synchronization)
 
 ## Backlog
 
-- [ ] Validate the [initial compatibility target](philosophy/compatibility.md) with a
-      complete reader and desktop session before declaring release support
+- [ ] Validate the [initial compatibility target](philosophy/compatibility.md)
+      with a complete reader and desktop session before declaring release
+      support
 - [ ] Define the minimum viable account and mailbox acceptance scenarios
-- [ ] Verify the main window, message list and preview layout in an end-to-end flow
+- [ ] Verify the main window, message list and preview layout in an end-to-end
+      flow
 - [ ] Add implementation-backed acceptance criteria to planned notification,
       search and mailbox-organization features
 
 ## In progress
 
-- Review the documentation structure and keep milestone status synchronized
-  with project-board decisions.
-- M01 installer: package-manager selection now follows distribution identity
-  and fails for unsupported or missing managers instead of selecting an
-  unrelated one. The installer supports dependency-only checks, build-only
-  builds and explicit renderer selection. Its mock suite and real temporary-prefix
-  renderer-free/WebEngine installations passed on CachyOS. Package lists and
-  real installations still need verification across supported distribution families.
-- M01.02 renderer: merged and complete. The WebEngine reader is integrated with
-  MIME parts, alternatives, attachments, headers, source, asynchronous quoting
-  and search. Issues #33 and #65-#71 are Merged.
-- M01 verification: on CachyOS x86_64 with Qt 6.12.0, CMake 4.5.1 and GCC
-  16.2.1, a renderer-free build and user-prefix install succeeded; the
-  installed executable's `--help`, handbook, man page, desktop entry and
-  translations were present. A renderer-enabled Debug build using Qt 6.12.0 and
-  Qt WebEngine 6.140.0 passed all 35 CTest cases. Installation to a temporary
-  prefix, executable startup, and installer checks also passed. Account setup,
-  live message reading, replies, attachments, and Plasma-session behavior
-  remain unverified. The clean renderer-free Debug build was also rebuilt and
-  passed all available CTest cases with `WITH_WEBENGINE=OFF`.
+- 🚧 **M02 shell, accounts and mailbox foundation**
+  ([#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)): work
+  continues on `feature/m02-shell-next`, which is not merged into `main`. See
+  the [M02 handoff](#m02-shell-and-account-foundation).
+- 🚧 **M03 mail operations, sorting and folder management**
+  ([#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)): in
+  Development on `feature/m03-mail-operations`.
+- 🚧 **M08 themes and branding foundation**
+  ([#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)): in
+  Development because M08.01 Branding and visual language
+  ([#269](https://github.com/mikepadiernos/plasma-impresario/issues/269))
+  started with the product rename
+  ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), which
+  is Merged. The other M08.01 features and M08.02–M08.10 are in the Backlog.
+- 🚧 **Documentation:** keep the roadmap and these documents synchronized with
+  project-board decisions. See
+  [issue synchronization](#milestone-feature-issue-synchronization).
 
 ## Pending verification
 
 ### M02 shell and account foundation
 
-- **Current state:** M02 #4, shell #35, skeleton #74, account setup #78,
-  account foundation #36, shell navigation #80 and protocol-aware account #215
-  are in Development. Connection status #79, folder counts and saved
-  searches #76, multiple accounts #222, session persistence #81, density #75
-  and dependency gate #77 are Completed; OAuth #218 is Defined. The
-  `feature/m02-shell-accounts` branch adds a row-density selector; the
-  continuation branch adds left/right folder sidebar placement in the compact
-  and wide layouts. A further continuation adds persistent connection status
-  in the footer. Multiple accounts, per-account status and keyboard account
-  switching are described below; F6 and Shift+F6 cycle focus between the
-  account switcher, folder tree, message list, reader and attachments panel.
-  Shell #35 is implemented on `feature/m02-shell-next` and awaits review;
-  the My Day / Agenda panel and OAuth are not implemented.
-- **Account acceptance:** #78 has been exercised against a disposable Dovecot
-  2.4.4 container using temporary configuration and synthetic credentials.
-  The application saved IMAP settings, recovered from a rejected password,
-  selected INBOX and reconnected after going offline. New profiles default to
-  QtKeychain, and account removal deletes the account's settings and stored
-  passwords; both still need verification against disposable IMAP.
-  The opt-in `test_LiveImap` executable uses `PLASMA_TEST_IMAPS_PORT` for a
-  loopback-only Dovecot IMAPS listener configured with the synthetic password
-  `synthetic-test-only`; never point it at a real account or service.
-- **Session selection:** #81 saves a message's account, mailbox, UIDVALIDITY
-  and UID, restores it after asynchronous mailbox loading, and cancels pending
-  restoration on navigation. Synthetic live IMAP checks exercised restoration
-  and rapid offline/reconnect with and without WebEngine. To include message
-  restoration in `test_LiveImap`, seed INBOX with a synthetic message and set
-  `PLASMA_TEST_IMAP_RESTORE_UID` and `PLASMA_TEST_IMAP_RESTORE_VALIDITY`.
-  Separate-process tests verify saved selection identifiers, pane proportions
-  in wide, compact and one-panel layouts, sidebar position and density across
-  close, quit and hidden-window quit. End-to-end message restoration across
-  application restarts passed against disposable IMAP with and without
-  WebEngine. Multi-account isolation remains to be verified with #222.
-- **Folder counts and saved searches:** #76 has existing unread indicators and
-  total, unread and recent counts in folder tooltips. Unknown counts are omitted
+All M02 work is on `feature/m02-shell-next`, which already contains the earlier
+`feature/m02-shell-accounts` and `feature/m02-shell-continuation` branches. It
+is not merged into `main`. No M02 feature has been verified in a real Plasma
+session.
+
+#### Issue status
+
+| Issue                                                                 | Feature                                                     | Board       | State                                                                            |
+| --------------------------------------------------------------------- | ----------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------- |
+| [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)     | M02 milestone                                               | Development | 🚧 Waits on the open features below                                              |
+| [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)   | Mail shell                                                  | Review      | 🧪 Implemented; needs a real Plasma session                                      |
+| [#74](https://github.com/mikepadiernos/plasma-impresario/issues/74)   | App skeleton in the design-spec layout                      | Development | 🚧 Open                                                                          |
+| [#36](https://github.com/mikepadiernos/plasma-impresario/issues/36)   | Account setup and mailbox state                             | Development | 🚧 Open decisions below                                                          |
+| [#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)   | Account setup, editing, removal, identities and credentials | Development | 🚧 Live setup accepted; open decisions below                                     |
+| [#80](https://github.com/mikepadiernos/plasma-impresario/issues/80)   | Account grouping, folder navigation and keyboard focus      | Development | 🚧 Needs account grouping in the folder tree                                     |
+| [#215](https://github.com/mikepadiernos/plasma-impresario/issues/215) | Protocol-aware account and capability model                 | Development | 🚧 Model exists; the interface does not use it                                   |
+| [#218](https://github.com/mikepadiernos/plasma-impresario/issues/218) | OAuth account authentication                                | Defined     | 📋 Not started; live verification needs a real provider account (see below)      |
+| [#75](https://github.com/mikepadiernos/plasma-impresario/issues/75)   | Density modes                                               | Completed   | ✅ Row-density selector                                                          |
+| [#76](https://github.com/mikepadiernos/plasma-impresario/issues/76)   | Folder counts and saved searches                            | Completed   | ✅ Verified against disposable IMAP                                              |
+| [#77](https://github.com/mikepadiernos/plasma-impresario/issues/77)   | Milestone gate for later mailbox work                       | Completed   | ✅                                                                               |
+| [#79](https://github.com/mikepadiernos/plasma-impresario/issues/79)   | Connection, authentication, offline and loading states      | Completed   | ✅ Footer and per-account status                                                 |
+| [#81](https://github.com/mikepadiernos/plasma-impresario/issues/81)   | Pane layout, selection and density across sessions          | Completed   | ✅ Verified against disposable IMAP                                              |
+| [#222](https://github.com/mikepadiernos/plasma-impresario/issues/222) | Multiple simultaneous accounts                              | Completed   | ✅ Verified against disposable IMAP; caveat [#262](CAVEATS.md#multiple-accounts) |
+
+Completed issues move to Merged when `feature/m02-shell-next` is merged into
+`main`.
+
+#### Live verification environment
+
+> [!WARNING]
+>
+> The live tests are opt-in and use only loopback-only Dovecot servers with
+> synthetic users and the synthetic password `synthetic-test-only`. Never point
+> them at a real account or service.
+
+| Check                   | How to run                                                                                     | Server                                                                                | Verifies                         |
+| ----------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------- |
+| `test_LiveImap`         | Set `PLASMA_TEST_IMAPS_PORT` to a loopback-only Dovecot IMAPS listener                         | Dovecot 2.4.4 in a disposable container with temporary configuration (recorded run)   | #78, #81, #76                    |
+| `test_LiveImapAccounts` | `tools/dev-container/run.sh sh tools/dev-container/live-imap-accounts.sh` in the dev container | Loopback-only Dovecot 2.4 with synthetic users; 2.4.5 at the recorded run             | #222, #79, per-account #76       |
+| `test_LiveImapPanels`   | `tools/dev-container/run.sh sh tools/dev-container/live-imap-panels.sh`                        | Same Dovecot 2.4 helper, seeded with a conversation, attachments and a signed message | #35 embedded panels, screenshots |
+| VNC view                | `tools/dev-container/vnc.sh`                                                                   | The same seeded mailbox, shown in a VNC session                                       | #35 by hand                      |
+
+The dev container pins Fedora 44, and `synthetic-dovecot.sh` refuses any Dovecot
+outside the 2.4 series, which its configuration requires. It prints the exact
+version on each run; record it with new results. The dev container has no Plasma
+session, so D-Bus services, KWallet, notifications and the Plasma look still
+need a real session.
+
+| Variable                                                                                 | Used by               | Purpose                                                                                                                                                        |
+| ---------------------------------------------------------------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PLASMA_TEST_IMAPS_PORT`                                                                 | All live tests        | Loopback IMAPS port. The dev-container scripts set it.                                                                                                         |
+| `PLASMA_TEST_IMAP_RESTORE_UID`, `PLASMA_TEST_IMAP_RESTORE_VALIDITY`                      | `test_LiveImap`       | Include message restoration. Seed INBOX with a synthetic message with this UID and UIDVALIDITY.                                                                |
+| `PLASMA_TEST_IMAP_RESTART_PHASE` (`write`, then `read`), `PLASMA_TEST_IMAP_RESTART_HOME` | `test_LiveImap`       | Check restoration across two processes. Requires the restore variables; the home must be a temporary directory named `plasma-impresario-imap-restart-*`.       |
+| `PLASMA_TEST_IMAP_SEARCH_SUBJECT`                                                        | `test_LiveImap`       | Check folder counts and saved-search filtering. Requires the matching message's UID and UIDVALIDITY; INBOX must contain exactly two unread synthetic messages. |
+| `PLASMA_TEST_SCREENSHOT_DIR`                                                             | `test_LiveImapPanels` | Save layout screenshots. `live-imap-panels.sh` defaults to `<build-dir>/shell-screenshots`.                                                                    |
+
+#### Verification record
+
+- ✅ **Account setup, #78:** against the disposable Dovecot 2.4.4 container, the
+  app saved IMAP settings, recovered from a rejected password, selected INBOX
+  and reconnected after going offline.
+- 🧪 **Credential defaults and removal, #78:** new profiles default to
+  QtKeychain, and removing an account deletes its settings and stored passwords.
+  Offscreen tests cover removal; both still need verification against disposable
+  IMAP.
+- ✅ **Session selection, #81:** the app saves a message's account, mailbox,
+  UIDVALIDITY and UID, restores it after asynchronous mailbox loading, and
+  cancels pending restoration on navigation. Live checks passed restoration,
+  rapid offline/reconnect and restoration across application restarts, with and
+  without WebEngine. Separate-process tests verify saved selection identifiers,
+  pane proportions in wide, compact and one-panel layouts, sidebar position and
+  density across close, quit and hidden-window quit.
+- 🧪 **Saved selection per account, #81 and #222:** isolation of saved
+  selections between accounts is not recorded as verified.
+- ✅ **Folder counts and saved searches, #76:** folders show unread indicators,
+  and tooltips show total, unread and recent counts; unknown counts are omitted
   rather than reported as zero. The search options menu saves, runs and deletes
-  named searches for the active account profile and selected folder. Folder
-  counts and saved-search filtering were verified with two synthetic messages
-  against disposable IMAP, with and without WebEngine. The opt-in live test
-  uses `PLASMA_TEST_IMAP_SEARCH_SUBJECT` with the matching synthetic UID and
-  UIDVALIDITY; its INBOX must contain exactly two unread synthetic messages.
-  Per-account folders, counts and saved searches were verified with three
-  accounts in `test_LiveImapAccounts` (below).
-- **Multiple accounts:** #222 and #79 are implemented on
-  `feature/m02-shell-next`. Each account has its own settings file and
-  `ImapAccess`; a toolbar selector, menu actions and Ctrl+Alt+PgUp/PgDown
-  switch accounts without reconnecting. Accounts other than the active one
-  connect at startup, and their connection, network and authentication status
-  appears in the selector. Cleartext passwords are kept per account, new
-  profiles default to the QtKeychain backend, and removing an account deletes
-  its settings and stored passwords. Saved searches and folder expansion
-  follow the active account; only the migrated legacy account inherits the
-  previously shared expansion state. Offscreen tests cover migration,
-  switching, background status, removal, keyboard navigation, per-account
-  saved searches and expansion, and pane focus cycling. The opt-in
-  `test_LiveImapAccounts`, run by `tools/dev-container/live-imap-accounts.sh`
-  inside the dev container, starts a loopback-only Dovecot 2.4.5 with
-  synthetic users. It verified that two background accounts connect at
-  startup, that a rejected stored password is flagged in the selector without
-  a prompt, and that switching keeps each account's folders, counts and saved
-  searches without reconnecting. That check found and fixed two bugs:
-  background accounts never logged in because the model connects lazily, and
-  certificate prompts were answered for the active account instead of the
-  requesting one. Not yet verified: a real Plasma session. Known limits:
-  accounts are grouped by a selector, not in the folder tree; background
-  accounts surface errors only in the selector; each account asks about the
-  same untrusted certificate separately; the offline message cache of a
-  removed account is not deleted. See [caveat #262](CAVEATS.md#multiple-accounts).
-- **Implemented, #35:** the shell has a left column, main column, right
-  column and footer below the header toolbar. The mailbox sidebar can sit in
-  either side column, and the message list and reader can be stacked or side
-  by side. View › Embedded Panels has a submenu per panel to show it, hide it
-  when it has nothing to show, and place it below the reader, in either side
-  column or in the footer. Side columns and the footer appear only while they
-  hold the sidebar or a visible panel, and remember their sizes. Attachments
-  stays on below the reader by default; the new message details (metadata),
-  contact and related messages panels are off by default in the right column,
-  so the default look is unchanged. Offscreen tests cover placement, sidebar
-  swaps, hiding empty regions, one-panel layout and size persistence. The
-  opt-in `test_LiveImapPanels`, run by
-  `tools/dev-container/live-imap-panels.sh`, verified the details, contact,
-  related messages and attachments panels against a synthetic Dovecot
-  mailbox with a conversation, attachments and a signed message, and saves
-  layout screenshots. It found that Contacts listed the sender twice when a
-  message has no Reply-To header, which is fixed. The screenshots also showed
-  panels squeezed to a sliver when sharing a column, attachments below the
-  reader showing one row, and a tall footer; panels now start at a size for a
-  few rows, and each keeps a size the user drags it to. `tools/dev-container/vnc.sh`
-  opens the same mailbox in a VNC view for manual checks. Not verified: a
-  real Plasma session. Saved pane sizes reset once after upgrading; see
-  [caveat #264](CAVEATS.md#related-messages-and-message-details-panels).
-  Remaining for #35 before Completed: verification in a real Plasma session.
-  Moved from #35 to other milestones (all Backlog): server-side related
-  messages #302 and verified security details #303 (M04); the My Day / Agenda
-  panel #304 and address-book contacts #305 (M05.04); the designed header #306
-  and sliding, floating or rearrangeable panels #307 (M12.02).
-- **Blocked, #218:** OAuth needs XOAUTH2 or OAUTHBEARER authentication in the
-  IMAP layer, which has none, and a token source. KAccounts and signond are
-  installed, but token retrieval and renewal cannot be verified without a
-  real Google or Microsoft account. Steps to resume: add SASL support with
-  parser tests, add a token interface backed by KAccounts, then verify with an
-  account you control.
-- **Open, #78, #36 and #215:** `AccountCapabilities` exists but nothing in the
-  interface consults it yet; POP3 and JMAP belong to M05.05. Account editing uses
-  the settings dialog; per-account identities are not separate from the shared
-  sender identities.
-- **Resume:** #79 and #222 are Completed. #80 still needs account grouping in
-  the folder tree before Review. Resolve the decisions above, then
-  implement the remaining issues. Advance each issue through Completed before
-  checking its roadmap item; merge the milestone only when all items and
-  acceptance checks are complete. Reconcile the pending roadmap changes in
-  #250 and #252 before merging.
+  named searches for the active account and selected folder. Verified with two
+  synthetic messages, with and without WebEngine, and per account with three
+  accounts in `test_LiveImapAccounts`.
+- ✅ **Multiple accounts, #222 and #79:** each account has its own settings file
+  and `ImapAccess`. A toolbar selector, menu actions and
+  <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>PgUp</kbd> /
+  <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>PgDown</kbd> switch accounts without
+  reconnecting. Other accounts connect at startup, and their connection, network
+  and authentication status appears in the selector. Cleartext passwords are
+  kept per account. Saved searches and folder expansion follow the active
+  account; only the migrated legacy account inherits the previously shared
+  expansion state.
+  - Offscreen tests cover migration, switching, background status, removal,
+    keyboard navigation, per-account saved searches and expansion, and pane
+    focus cycling.
+  - `test_LiveImapAccounts` verified that two background accounts connect at
+    startup, that a rejected stored password is flagged in the selector without
+    a prompt, and that switching keeps each account's folders, counts and saved
+    searches without reconnecting.
+  - That check found and fixed two bugs: background accounts never logged in
+    because the model connects lazily, and certificate prompts were answered for
+    the active account instead of the requesting one.
+  - Known limits are recorded in [caveat #262](CAVEATS.md#multiple-accounts).
+- 🧪 **Mail shell, #35:** the shell has a left column, main column, right column
+  and footer, with connection status in the footer. The Navigation toolbar docks
+  at the left window edge by default, and the menu bar is hidden by default. The
+  mailbox sidebar can sit in either side column; the message list and reader can
+  be side by side, stacked or shown one panel at a time.
+  - View › Embedded Panels has a submenu per panel: **Show Panel**, **Hide When
+    Empty** and a position below the reader, in either side column or in the
+    footer. Side columns and the footer appear only while they hold the sidebar
+    or a visible panel, and remember their sizes.
+  - Attachments is on below the reader by default; Message Details, Contacts and
+    Related Messages are off by default in the right column, so the default look
+    is unchanged.
+  - <kbd>F6</kbd> and <kbd>Shift</kbd>+<kbd>F6</kbd> cycle focus through the
+    account selector, folder tree, message list, reader and each visible
+    embedded panel.
+  - Offscreen tests cover placement, sidebar swaps, hiding empty regions,
+    one-panel layout and size persistence.
+  - `test_LiveImapPanels` verified the details, contacts, related messages and
+    attachments panels and saves layout screenshots. It found that Contacts
+    listed the sender twice when a message has no Reply-To header (fixed). The
+    screenshots showed panels squeezed to a sliver when sharing a column,
+    attachments below the reader showing one row, and a tall footer; panels now
+    start at a size for a few rows and keep a size the user drags them to.
+  - Saved pane sizes reset once after upgrading; see
+    [caveat #264](CAVEATS.md#related-messages-and-message-details-panels).
+  - Moved from #35 to later milestones, all Backlog: server-side related
+    messages
+    [#302](https://github.com/mikepadiernos/plasma-impresario/issues/302) and
+    verified security details
+    [#303](https://github.com/mikepadiernos/plasma-impresario/issues/303) (M04);
+    the My Day / Agenda panel
+    [#304](https://github.com/mikepadiernos/plasma-impresario/issues/304) and
+    address-book contacts
+    [#305](https://github.com/mikepadiernos/plasma-impresario/issues/305)
+    (M05.04); the designed header
+    [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306) and
+    sliding, floating or rearrangeable panels
+    [#307](https://github.com/mikepadiernos/plasma-impresario/issues/307)
+    (M12.02).
+
+#### Blockers and open decisions
+
+- ⛔ **OAuth verification, #218:** the work is not started, so the issue stays
+  in Defined. The IMAP layer has no XOAUTH2 or OAUTHBEARER authentication and
+  there is no token source; both can be implemented and covered by parser tests
+  now. KAccounts and signond are installed, but token retrieval and renewal
+  cannot be verified without a real Google or Microsoft account, which needs
+  your input.
+- 🚧 **Account model, #78, #36 and #215:** `AccountCapabilities` exists, but
+  nothing in the interface consults it yet; POP3 and JMAP belong to M05.05.
+  Account editing uses the settings dialog, and per-account identities are not
+  separate from the shared sender identities.
+- 🚧 **Navigation, #80:** accounts are grouped by the toolbar selector, not in
+  the folder tree; grouping in the folder tree is needed before Review.
+- 🧪 **Plasma session, #35:** verification in a real Plasma session is the
+  remaining step before Completed.
+
+#### How to resume
+
+1. Confirm the board status of every issue in the table above.
+2. Verify #35 in a real Plasma session, then move it to Completed.
+3. Resolve the open decisions and finish #74, #36, #78, #80 and #215.
+4. For #218, add SASL support with parser tests, add a token interface backed by
+   KAccounts, then verify with an account you control.
+5. Advance each issue through Completed before checking its roadmap item.
+6. Reconcile the pending roadmap changes in the open pull requests
+   [#250](https://github.com/mikepadiernos/plasma-impresario/pull/250)
+   (milestone reorder,
+   [#249](https://github.com/mikepadiernos/plasma-impresario/issues/249)) and
+   [#252](https://github.com/mikepadiernos/plasma-impresario/pull/252) (feature
+   priority,
+   [#251](https://github.com/mikepadiernos/plasma-impresario/issues/251)). Both
+   issues are in Review.
+7. Merge `feature/m02-shell-next` into `main` only when all M02 roadmap items
+   and acceptance checks are complete.
 
 ### M01 release gate and integration
 
-- **Deferred by milestone scope:** Live account setup belongs to M02 issue #78.
-  Live message reading, replies and attachments belong to M04 issue #93.
-  Plasma desktop-session startup and recovery belong to M05.01 issue #101.
-  M01.04 is complete from automated build, installer, launch and privacy
-  evidence without an isolated account or live Plasma session.
-- **Pending:** Verify renderer-enabled and renderer-free installs at system
-  prefixes and validate package-manager branches on distribution families other
-  than CachyOS before claiming them as supported.
+M01 ([#1](https://github.com/mikepadiernos/plasma-impresario/issues/1)) and all
+its feature issues, including the renderer port
+([#33](https://github.com/mikepadiernos/plasma-impresario/issues/33), #65–#71)
+and the installer
+([#57](https://github.com/mikepadiernos/plasma-impresario/issues/57)), are
+Merged into `main`. M01.04 was completed from automated build, installer, launch
+and privacy evidence, without an isolated account or a live Plasma session.
+
+| Handoff                                                                                               | Moved to                                                                     | Board       | State                                                                                |
+| ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------ |
+| Live account setup                                                                                    | M02 [#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)      | Development | 🚧 Accepted against disposable Dovecot; see [M02](#m02-shell-and-account-foundation) |
+| Live message reading, replies and attachments                                                         | M04 [#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)      | Backlog     | 📋                                                                                   |
+| Plasma desktop-session startup and recovery                                                           | M05.01 [#101](https://github.com/mikepadiernos/plasma-impresario/issues/101) | Backlog     | 📋                                                                                   |
+| Renderer-enabled and renderer-free installs at protected system prefixes                              | Not assigned                                                                 | —           | 📋 Pending                                                                           |
+| Package lists, package-manager branches and real installs on distribution families other than CachyOS | Not assigned                                                                 | —           | 📋 Pending; do not claim support until verified                                      |
+
+<details>
+<summary>Recorded M01 evidence on CachyOS</summary>
+
+- ✅ **Renderer-free:** on CachyOS x86_64 with Qt 6.12.0, CMake 4.5.1 and GCC
+  16.2.1, a renderer-free build and user-prefix install succeeded; the installed
+  executable's `--help`, handbook, man page, desktop entry and translations were
+  present. A clean renderer-free Debug rebuild passed all available CTest cases
+  with `WITH_WEBENGINE=OFF`.
+- ✅ **Renderer-enabled:** a Debug build with Qt 6.12.0 and the `qt6-webengine`
+  6.140.0 package passed all 35 CTest cases. Installation to a temporary prefix,
+  executable startup and installer checks also passed.
+- ✅ **Installer:** package-manager selection follows the distribution identity
+  and fails for unsupported or missing managers instead of selecting an
+  unrelated one. `install.sh` supports dependency-only checks (`--check-deps`),
+  build-only runs (`--build-only`) and explicit renderer selection
+  (`--with-webengine`, `--without-webengine`). Its mock suite and real
+  temporary-prefix renderer-free and WebEngine installations passed on CachyOS.
+
+The [compatibility baseline](philosophy/compatibility.md) records the full
+component audit and reproduction steps.
+
+</details>
 
 ### Milestone feature-issue synchronization
 
-- **M01-M12:** Each roadmap item has its own linked project card and issue.
-  Items belong to their subsection issue where applicable, or otherwise to
-  their milestone issue; subsection issues belong to the milestone issue.
-  Issue milestone assignments and parent links were verified. Existing project
-  statuses were preserved; newly created M01 issues are Defined and other
-  newly created issues are Backlog.
-- Keep roadmap links, issue parents, milestone assignments, and project status
+- ✅ **M01–M12:** each roadmap item has its own linked project card and issue.
+  Items belong to their subsection issue where applicable, or otherwise to their
+  milestone issue; subsection issues belong to the milestone issue. Issue
+  milestone assignments and parent links were verified. Existing project
+  statuses were preserved when the cards were created.
+- 🚧 **Milestone numbers:** several board issue titles still use earlier
+  milestone numbers. For example, roadmap M05 is
+  [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7) "M07:
+  Desktop integration and provider support", M09 is
+  [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11) "M05:
+  Reliability, sync, and notification quality", and #304 and #305 are titled
+  "M07:" but belong to roadmap M05.04. The milestone reorder
+  [#249](https://github.com/mikepadiernos/plasma-impresario/issues/249) is in
+  Review in pull request
+  [#250](https://github.com/mikepadiernos/plasma-impresario/pull/250). Treat the
+  roadmap numbering as current until the titles are updated.
+- Keep roadmap links, issue parents, milestone assignments and project status
   synchronized when roadmap scope changes.
