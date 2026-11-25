@@ -168,12 +168,17 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
   at [account.live.com/consent/Manage](https://account.live.com/consent/Manage).
 - Sign out before switching an account to another provider or client, so the
   old grant is revoked.
-- For single-tenant Microsoft accounts, use an app registration that allows the
+- For Microsoft accounts, register your own app in Microsoft Entra ID as
+  described under
+  [App registration](integrations/microsoft.md#app-registration) and enter
+  its client ID. For single-tenant accounts, let the registration accept the
   `common` endpoint, or keep password sign-in where the server allows it.
 - Prefer a public client without a secret.
 
 **Proposed improvements:**
 
+- 📋 Build a Plasma Impresario Microsoft client ID into release packages
+  (M13.01, [#396](https://github.com/mikepadiernos/plasma-impresario/issues/396)).
 - 📋 Add a tenant choice for Microsoft accounts (M13.01,
   [#397](https://github.com/mikepadiernos/plasma-impresario/issues/397)).
 - 📋 Share one token session between IMAP and SMTP per account, and reuse the
