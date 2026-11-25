@@ -309,6 +309,13 @@ if(WITH_WEBENGINE)
     )
 endif()
 
+if(WITH_DESKTOP)
+    set(libUiUtils_SOURCES
+        ${libUiUtils_SOURCES}
+        ${path_UiUtils}/DestructiveActions.cpp
+    )
+endif()
+
 set(path_IPC ${CMAKE_CURRENT_SOURCE_DIR}/src/IPC)
 
 if(WITH_DBUS)
@@ -636,6 +643,9 @@ target_link_libraries(UiUtils
         Imap
         Plugins
 )
+if(WITH_DESKTOP)
+    target_link_libraries(UiUtils PRIVATE KF6::ConfigCore)
+endif()
 
 add_library(Streams STATIC ${libStreams_SOURCES})
 set_property(TARGET Streams APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
