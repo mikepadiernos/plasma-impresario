@@ -2725,6 +2725,15 @@ void MainWindow::refreshAccountSwitcher()
         for (QAction *action : {markAsJunk, markAsNotJunk, tag1, tag2, tag3, tag4, tag5, tag6, tag7, tag8, tag9})
             m_capabilityGate->addAction(action, Imap::AccountOperation::ServerSideFlags);
         m_capabilityGate->addAction(moveToArchive, Imap::AccountOperation::ServerSideMove);
+        for (QAction *action : {m_renameMailbox, m_emptyTrash, m_emptyJunk, m_goToFolder, m_deleteMovesToTrash,
+                                m_copyToFolder, m_copyToMenu->menuAction()})
+            m_capabilityGate->addAction(action, Imap::AccountOperation::ServerFolders);
+        for (auto it = m_goToSpecialFolderActions.cbegin(); it != m_goToSpecialFolderActions.cend(); ++it) {
+            if (it.key() != Imap::Mailbox::SpecialUse::Inbox)
+                m_capabilityGate->addAction(it.value(), Imap::AccountOperation::ServerFolders);
+        }
+        for (QAction *action : {m_moveToFolder, m_moveToMenu->menuAction()})
+            m_capabilityGate->addAction(action, Imap::AccountOperation::ServerSideMove);
     }
     m_capabilityGate->apply(Imap::AccountCapabilities::forAccount(*accountSettings()));
     m_accountSidebar->refresh(*m_accounts, *m_accountStatus);
