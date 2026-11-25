@@ -75,6 +75,7 @@ const QString SettingsNames::imapAccountIcon = QStringLiteral("imap.accountIcon"
 const QString SettingsNames::imapArchiveFolderName = QStringLiteral("imap.archiveFolderName");
 const QString SettingsNames::imapDefaultArchiveFolderName = QStringLiteral("Archive");
 const QString SettingsNames::imapDeleteMovesToTrash = QStringLiteral("imap.deleteMovesToTrash");
+const QString SettingsNames::imapRecentDestinationFolders = QStringLiteral("imap.recentDestinationFolders");
 const QString SettingsNames::composerSaveToImapKey = QStringLiteral("composer/saveToImapEnabled");
 const QString SettingsNames::composerImapSentKey = QStringLiteral("composer/imapSentName");
 const QString SettingsNames::cacheMetadataKey = QStringLiteral("offline.metadataCache");

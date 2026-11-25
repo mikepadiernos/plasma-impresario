@@ -38,7 +38,8 @@ struct SettingsNames {
            imapPortKey, imapStartTlsKey, imapUserKey, imapProcessKey, imapStartMode, netOffline, netExpensive, netOnline,
            obsImapStartOffline, obsImapSslPemCertificate, imapSslPemPubKey,
            imapBlacklistedCapabilities, imapUseSystemProxy, imapNeedsNetwork, imapNumberRefreshInterval,
-           imapAccountIcon, imapArchiveFolderName, imapDefaultArchiveFolderName, imapDeleteMovesToTrash;
+           imapAccountIcon, imapArchiveFolderName, imapDefaultArchiveFolderName, imapDeleteMovesToTrash,
+           imapRecentDestinationFolders;
     static const QString composerSaveToImapKey, composerImapSentKey, smtpUseBurlKey;
     static const QString cacheMetadataKey, cacheMetadataMemory,
            cacheOfflineKey, cacheOfflineNone, cacheOfflineXDays, cacheOfflineAll, cacheOfflineNumberDaysKey;
