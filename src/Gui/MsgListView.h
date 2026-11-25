@@ -59,6 +59,17 @@ public:
     int sizeHintForColumn(int column) const override;
     QHeaderView::ResizeMode resizeModeForColumn(const int column) const;
     void keyboardSearch(const QString &search) override;
+    QModelIndex indexAt(const QPoint &point) const override;
+    QRect visualRect(const QModelIndex &index) const override;
+
+    /** @short Show each message as two lines, sender and date above the subject, instead of columns
+
+    The columns and their saved layout stay; only the header is hidden, and sorting stays available from the menus.
+    */
+    void setMultiLineRows(bool enabled);
+    bool multiLineRows() const { return m_multiLineRows; }
+    /** @short Show the initials of the sender in multi-line rows */
+    void setSenderInitials(bool shown);
 signals:
     /** @short Messages left the list, and @arg index became current and the only selected message
 
@@ -72,6 +83,7 @@ protected:
     bool event(QEvent *event) override;
     void rowsAboutToBeRemoved(const QModelIndex &parent, int start, int end) override;
     QModelIndex moveCursor(CursorAction cursorAction, Qt::KeyboardModifiers modifiers) override;
+    void drawRow(QPainter *painter, const QStyleOptionViewItem &options, const QModelIndex &index) const override;
     /** @short Returns a list of all selected and related (collapsed) message indexes for column 0 */
     QModelIndexList selectedTree() const;
 private slots:
@@ -95,6 +107,12 @@ private:
     /** @short Select the new current message once the rows are gone */
     void finishRemoval();
     static Imap::Mailbox::PrettyMsgListModel *findPrettyMsgListModel(QAbstractItemModel *model);
+    /** @short Index in the first shown column of the row at @arg y, ignoring how wide the columns are */
+    QModelIndex rowAt(int y) const;
+    /** @short Where the multi-line row of @arg index is painted, after the indentation of threads */
+    QRect multiLineRowRect(const QModelIndex &index, const QRect &row) const;
+    /** @short Style option of the multi-line row of @arg index painted in @arg rect */
+    QStyleOptionViewItem multiLineOption(const QModelIndex &index, const QRect &rect) const;
     /** @short Map an index of the PrettyMsgListModel to the model of the view, through proxies such as the groups */
     QModelIndex mapFromPrettyModel(const QModelIndex &prettyIndex) const;
     /** @short Remember where the current message, or else the top row, is on the screen before the rows change */
@@ -120,6 +138,7 @@ private:
     bool m_selectionTouchedByRemoval = false;
     bool m_focusedBeforeRemoval = false;
     bool m_removalFinishQueued = false;
+    bool m_multiLineRows = false;
 
     friend class MainWindow; // needs access to slotHandleNewColumns
 };

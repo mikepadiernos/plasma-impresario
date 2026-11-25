@@ -25,6 +25,8 @@
 
 #include <QFont>
 #include <QFontMetrics>
+#include <QHash>
+#include <QIcon>
 #include <QModelIndex>
 #include <QPainter>
 #include <QStyleOptionViewItem>
@@ -39,13 +41,50 @@ class MsgItemDelegate : public ColoredItemDelegate
 {
     Q_OBJECT
 public:
+    /** @short Indicator of a multi-line row that acts on the message when clicked */
+    enum class RowHit { None, ReadState, Flag };
     explicit MsgItemDelegate(QObject* parent, Imap::Mailbox::FavoriteTagsModel *m_favoriteTagsModel);
     void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override;
+    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;
+
+    /** @short Size rows for two lines: the sender, indicators and date above the subject */
+    void setMultiLine(bool multiLine);
+    bool isMultiLine() const { return m_multiLine; }
+    /** @short Show a badge with the initials of the sender in multi-line rows; nothing is fetched for it */
+    void setSenderInitials(bool shown);
+    bool showsSenderInitials() const { return m_senderInitials; }
+
+    /** @short Paint the whole multi-line row of the message @arg index into option.rect */
+    void paintMultiLineRow(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const;
+    /** @short Indicator at @arg pos in the multi-line row of @arg index laid out in option.rect */
+    RowHit multiLineHit(const QStyleOptionViewItem &option, const QModelIndex &index, const QPoint &pos) const;
+
+    /** @short Initials of a display name or address, such as "JD" for "Jane Doe" */
+    static QString senderInitials(const QString &sender);
+    /** @short Sender, or the recipients in Sent and Drafts, as shown in a multi-line row */
+    static QString correspondent(const QModelIndex &index);
+
 private:
+    struct RowLayout
+    {
+        QRect readState;
+        QRect avatar;
+        QRect firstLine;
+        QRect date;
+        QRect flag;
+        QRect attachment;
+        QRect status;
+        QRect secondLine;
+    };
+    RowLayout multiLineLayout(const QStyleOptionViewItem &option, const QModelIndex &index) const;
     QColor itemColor(const QModelIndex &index) const;
     QFont itemFont(const QModelIndex &index) const;
+    QIcon indicatorIcon(const QString &name) const;
 
     Imap::Mailbox::FavoriteTagsModel *m_favoriteTagsModel;
+    bool m_multiLine = false;
+    bool m_senderInitials = true;
+    mutable QHash<QString, QIcon> m_icons;
 };
 
 }

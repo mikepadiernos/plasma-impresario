@@ -23,6 +23,7 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QCursor>
 #include <QDrag>
 #include <QFontMetrics>
 #include <QHeaderView>
@@ -83,6 +84,8 @@ MsgListView::MsgListView(QWidget *parent, Imap::Mailbox::FavoriteTagsModel *m_fa
     setIndentation(15);
 
     setItemDelegate(new MsgItemDelegate(this, m_favoriteTagsModel));
+    // Hovering a multi-line row shows the toggles of its read state and flag
+    viewport()->setAttribute(Qt::WA_Hover);
 
     setSortingEnabled(true);
     // By default, we don't do any sorting
@@ -91,6 +94,129 @@ MsgListView::MsgListView(QWidget *parent, Imap::Mailbox::FavoriteTagsModel *m_fa
     m_naviActivationTimer = new QTimer(this);
     m_naviActivationTimer->setSingleShot(true);
     connect(m_naviActivationTimer, &QTimer::timeout, this, &MsgListView::slotCurrentActivated);
+}
+
+void MsgListView::setMultiLineRows(bool enabled)
+{
+    auto *delegate = qobject_cast<MsgItemDelegate *>(itemDelegate());
+    if (!delegate || (enabled == m_multiLineRows && delegate->isMultiLine() == enabled))
+        return;
+    m_multiLineRows = enabled;
+    delegate->setMultiLine(enabled);
+    setHeaderHidden(enabled);
+    setHorizontalScrollBarPolicy(enabled ? Qt::ScrollBarAlwaysOff : Qt::ScrollBarAsNeeded);
+    if (enabled)
+        horizontalScrollBar()->setValue(0);
+    doItemsLayout();
+    viewport()->update();
+}
+
+void MsgListView::setSenderInitials(bool shown)
+{
+    if (auto *delegate = qobject_cast<MsgItemDelegate *>(itemDelegate())) {
+        delegate->setSenderInitials(shown);
+        viewport()->update();
+    }
+}
+
+QModelIndex MsgListView::rowAt(int y) const
+{
+    for (int visual = 0; visual < header()->count(); ++visual) {
+        const int logical = header()->logicalIndex(visual);
+        if (header()->isSectionHidden(logical) || header()->sectionSize(logical) <= 0)
+            continue;
+        return QTreeView::indexAt(QPoint(header()->sectionViewportPosition(logical) + header()->sectionSize(logical) - 1, y));
+    }
+    return QModelIndex();
+}
+
+QRect MsgListView::multiLineRowRect(const QModelIndex &index, const QRect &row) const
+{
+    int depth = 0;
+    for (QModelIndex parent = index.parent(); parent.isValid(); parent = parent.parent())
+        ++depth;
+    const int indent = indentation() * (depth + (rootIsDecorated() ? 1 : 0));
+    QRect rect(0, row.top(), viewport()->width(), row.height());
+    if (isRightToLeft())
+        rect.setRight(rect.right() - indent);
+    else
+        rect.setLeft(indent);
+    return rect;
+}
+
+QStyleOptionViewItem MsgListView::multiLineOption(const QModelIndex &index, const QRect &rect) const
+{
+    QStyleOptionViewItem option;
+    initViewItemOption(&option);
+    option.rect = rect;
+    option.index = index;
+    if (selectionModel() && selectionModel()->isSelected(index))
+        option.state |= QStyle::State_Selected;
+    const QModelIndex current = currentIndex();
+    if (hasFocus() && current.isValid() && current.row() == index.row() && current.parent() == index.parent())
+        option.state |= QStyle::State_HasFocus;
+    if (viewport()->underMouse() && rect.contains(viewport()->mapFromGlobal(QCursor::pos())))
+        option.state |= QStyle::State_MouseOver;
+    if (!isActiveWindow())
+        option.state &= ~QStyle::State_Active;
+    return option;
+}
+
+void MsgListView::drawRow(QPainter *painter, const QStyleOptionViewItem &options, const QModelIndex &index) const
+{
+    auto *delegate = qobject_cast<MsgItemDelegate *>(itemDelegate());
+    if (!m_multiLineRows || !delegate || index.data(Imap::Mailbox::RoleIsGroupHeader).toBool()) {
+        QTreeView::drawRow(painter, options, index);
+        return;
+    }
+    const QModelIndex message = index.sibling(index.row(), 0);
+    const QRect rect = multiLineRowRect(message, options.rect);
+    if (rect.left() > 0 || rect.right() < viewport()->width() - 1) {
+        const QRect branches = isRightToLeft() ? QRect(rect.right() + 1, rect.top(), viewport()->width() - rect.right() - 1, rect.height())
+                                               : QRect(0, rect.top(), rect.left(), rect.height());
+        drawBranches(painter, branches, message);
+    }
+    delegate->paintMultiLineRow(painter, multiLineOption(message, rect), message);
+}
+
+QModelIndex MsgListView::indexAt(const QPoint &point) const
+{
+    if (!m_multiLineRows)
+        return QTreeView::indexAt(point);
+    const QModelIndex row = rowAt(point.y());
+    if (!row.isValid() || row.data(Imap::Mailbox::RoleIsGroupHeader).toBool())
+        return row.isValid() ? row.sibling(row.row(), 0) : row;
+    const QModelIndex message = row.sibling(row.row(), 0);
+    auto *delegate = qobject_cast<MsgItemDelegate *>(itemDelegate());
+    const QRect rect = multiLineRowRect(message, QTreeView::visualRect(row));
+    if (delegate && model()->columnCount(message.parent()) > Imap::Mailbox::MsgListModel::FLAGGED) {
+        // Clicking an indicator acts like clicking its column in the single-line layout
+        switch (delegate->multiLineHit(multiLineOption(message, rect), message, point)) {
+        case MsgItemDelegate::RowHit::ReadState:
+            return message.sibling(message.row(), Imap::Mailbox::MsgListModel::SEEN);
+        case MsgItemDelegate::RowHit::Flag:
+            return message.sibling(message.row(), Imap::Mailbox::MsgListModel::FLAGGED);
+        case MsgItemDelegate::RowHit::None:
+            break;
+        }
+    }
+    return message;
+}
+
+QRect MsgListView::visualRect(const QModelIndex &index) const
+{
+    if (!m_multiLineRows || !index.isValid())
+        return QTreeView::visualRect(index);
+    QRect rect = QTreeView::visualRect(index);
+    for (int column = 0; !rect.isValid() && column < header()->count(); ++column) {
+        if (!header()->isSectionHidden(column))
+            rect = QTreeView::visualRect(index.sibling(index.row(), column));
+    }
+    if (rect.isValid()) {
+        rect.setLeft(0);
+        rect.setRight(viewport()->width() - 1);
+    }
+    return rect;
 }
 
 MsgListView::~MsgListView()

@@ -122,6 +122,7 @@
 #include "MailboxPickerDialog.h"
 #include "MessageDetailsPanel.h"
 #include "MessageListWidget.h"
+#include "MessageRowsMenu.h"
 #include "MessageView.h"
 #include "MessageSourceWidget.h"
 #include "Gui/MessageHeadersWidget.h"
@@ -1290,6 +1291,8 @@ void MainWindow::createMenus()
         });
         m_densityMenu = new DensityMenu(mboxTree, msgListWidget->tree, config, viewMenu);
         viewMenu->addMenu(m_densityMenu);
+        m_messageRowsMenu = new MessageRowsMenu(msgListWidget->tree, config, viewMenu);
+        viewMenu->addMenu(m_messageRowsMenu);
         if (!m_embeddedPanels.isEmpty()) {
             m_embeddedPanelsMenu = new EmbeddedPanelsMenu(config, viewMenu);
             for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels))
@@ -5610,6 +5613,11 @@ void MainWindow::setDenseProcessingLayout(bool enabled)
             state.writeEntry("PreviousComfortable", m_densityMenu->isComfortable());
             m_densityMenu->setComfortable(false);
         }
+        // Columns fit more messages on the screen and can be sorted from their header
+        if (m_messageRowsMenu) {
+            state.writeEntry("PreviousMultiLine", m_messageRowsMenu->isMultiLine());
+            m_messageRowsMenu->setMultiLine(false);
+        }
         QStringList hidden;
         if (m_embeddedPanelsMenu) {
             for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels)) {
@@ -5630,6 +5638,8 @@ void MainWindow::setDenseProcessingLayout(bool enabled)
         // Only undo what the preset changed; a panel shown again meanwhile is left alone
         if (m_densityMenu && state.readEntry("PreviousComfortable", false))
             m_densityMenu->setComfortable(true);
+        if (m_messageRowsMenu && state.readEntry("PreviousMultiLine", false))
+            m_messageRowsMenu->setMultiLine(true);
         const QStringList hidden = state.readEntry("HiddenPanels", QStringList());
         if (m_embeddedPanelsMenu) {
             for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels)) {
@@ -5640,6 +5650,7 @@ void MainWindow::setDenseProcessingLayout(bool enabled)
             }
         }
         state.deleteEntry("PreviousComfortable");
+        state.deleteEntry("PreviousMultiLine");
         state.deleteEntry("HiddenPanels");
         state.writeEntry("Enabled", false);
     }

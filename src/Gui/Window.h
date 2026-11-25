@@ -118,6 +118,7 @@ class RelatedMessagesPanel;
 class CompleteMessageWidget;
 class ComposeWidget;
 class DensityMenu;
+class MessageRowsMenu;
 class EmbeddedPanelsMenu;
 class InlineNotificationBar;
 class MailBoxTreeView;
@@ -769,6 +770,7 @@ private:
     QAction *m_previousAnyMessage = nullptr;
     QAction *m_actionDenseProcessing = nullptr;
     DensityMenu *m_densityMenu = nullptr;
+    MessageRowsMenu *m_messageRowsMenu = nullptr;
     EmbeddedPanelsMenu *m_embeddedPanelsMenu = nullptr;
     QTimer *m_listStatusTimer = nullptr;
     QAction *m_actionShortcutOverview = nullptr;
