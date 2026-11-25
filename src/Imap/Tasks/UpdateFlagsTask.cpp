@@ -135,7 +135,7 @@ bool UpdateFlagsTask::handleStateHelper(const Imap::Responses::State *const resp
             // nothing should be needed here
             _completed();
         } else {
-            _failed(tr("Failed to update FLAGS"));
+            _failed(tr("Failed to update FLAGS: %1").arg(resp->message));
             // FIXME: error handling
         }
         return true;

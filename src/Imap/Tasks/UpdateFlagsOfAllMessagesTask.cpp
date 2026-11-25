@@ -98,7 +98,7 @@ bool UpdateFlagsOfAllMessagesTask::handleStateHelper(const Imap::Responses::Stat
             list->fetchNumbers(model);
             _completed();
         } else {
-            _failed(tr("Failed to update Mailbox FLAGS"));
+            _failed(tr("Failed to update Mailbox FLAGS: %1").arg(resp->message));
         }
         return true;
     }

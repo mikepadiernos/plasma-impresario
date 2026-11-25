@@ -65,7 +65,7 @@ bool ExpungeMailboxTask::handleStateHelper(const Imap::Responses::State *const r
         if (resp->kind == Responses::OK) {
             _completed();
         } else {
-            _failed(tr("Expunge failed"));
+            _failed(tr("Expunge failed: %1").arg(resp->message));
         }
         return true;
     } else {
