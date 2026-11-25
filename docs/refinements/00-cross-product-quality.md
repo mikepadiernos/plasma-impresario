@@ -1,14 +1,14 @@
 # Cross-product quality refinement
 
 **[Refinements](README.md)** ·
-**[M13 in roadmap](../ROADMAP.md#m13-refinements)** ·
+**[M14 in roadmap](../ROADMAP.md#m14-refinements)** ·
 **[Next: Shell and interaction](01-shell-and-interaction.md)**
 
 Sets the product-level quality bar and acceptance criteria that apply across all
 mail workflows and companion services.
 
 **Roadmap subsection:**
-[M13.01: Cross-product quality](../ROADMAP.md#m13-refinements) · **Issue:**
+[M14.01: Cross-product quality](../ROADMAP.md#m14-refinements) · **Issue:**
 [#60](https://github.com/mikepadiernos/plasma-impresario/issues/60)
 
 ## Focus

@@ -1,7 +1,7 @@
 # Security and privacy refinement
 
 **[Refinements](README.md)** ·
-**[M13 in roadmap](../ROADMAP.md#m13-refinements)** ·
+**[M14 in roadmap](../ROADMAP.md#m14-refinements)** ·
 **[Previous: Search, sorting and automation](05-search-sorting-and-automation.md)**
 · **[Next: Settings and notifications](07-settings-and-notifications.md)** ·
 **[Security caveats](../CAVEATS.md#security-and-data-protection)**
@@ -10,7 +10,7 @@ Refines credential handling, remote-content controls, attachment safety, ClamAV
 and spam feedback, and privacy settings.
 
 **Roadmap subsection:**
-[M13.07: Security and privacy](../ROADMAP.md#m13-refinements) · **Issue:**
+[M14.07: Security and privacy](../ROADMAP.md#m14-refinements) · **Issue:**
 [#26](https://github.com/mikepadiernos/plasma-impresario/issues/26)
 
 ## Focus
