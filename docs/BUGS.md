@@ -18,16 +18,16 @@ fixed and Completed or Merged
 
 ## Status
 
-| Status    | Issue                                                                 | Bug                                                              | Board       |
-| --------- | --------------------------------------------------------------------- | ---------------------------------------------------------------- | ----------- |
-| 🚧 Fixing | [#427](https://github.com/mikepadiernos/plasma-impresario/issues/427) | APPENDUID with several UIDs reads past the end of the response   | Development |
-| 🧪 Fixed  | [#426](https://github.com/mikepadiernos/plasma-impresario/issues/426) | Message list view can crash while being destroyed                | Review      |
-| ✅ Fixed  | [#425](https://github.com/mikepadiernos/plasma-impresario/issues/425) | Threaded quick search sends search words unquoted                | Merged      |
-| ✅ Fixed  | [#376](https://github.com/mikepadiernos/plasma-impresario/issues/376) | Reply to All but Me keeps the user's address without an identity | Merged      |
-| ✅ Fixed  | [#366](https://github.com/mikepadiernos/plasma-impresario/issues/366) | An untrusted SMTP certificate cannot be accepted                 | Merged      |
-| ✅ Fixed  | [#364](https://github.com/mikepadiernos/plasma-impresario/issues/364) | Sending hangs when the SMTP connection fails                     | Merged      |
-| ✅ Fixed  | [#241](https://github.com/mikepadiernos/plasma-impresario/issues/241) | Plasma displays a generic icon instead of the application icon   | Merged      |
-| ✅ Fixed  | [#228](https://github.com/mikepadiernos/plasma-impresario/issues/228) | Installed app missing from Plasma application menu               | Merged      |
+| Status   | Issue                                                                 | Bug                                                              | Board  |
+| -------- | --------------------------------------------------------------------- | ---------------------------------------------------------------- | ------ |
+| 🧪 Fixed | [#427](https://github.com/mikepadiernos/plasma-impresario/issues/427) | APPENDUID with several UIDs reads past the end of the response   | Review |
+| ✅ Fixed | [#426](https://github.com/mikepadiernos/plasma-impresario/issues/426) | Message list view can crash while being destroyed                | Merged |
+| ✅ Fixed | [#425](https://github.com/mikepadiernos/plasma-impresario/issues/425) | Threaded quick search sends search words unquoted                | Merged |
+| ✅ Fixed | [#376](https://github.com/mikepadiernos/plasma-impresario/issues/376) | Reply to All but Me keeps the user's address without an identity | Merged |
+| ✅ Fixed | [#366](https://github.com/mikepadiernos/plasma-impresario/issues/366) | An untrusted SMTP certificate cannot be accepted                 | Merged |
+| ✅ Fixed | [#364](https://github.com/mikepadiernos/plasma-impresario/issues/364) | Sending hangs when the SMTP connection fails                     | Merged |
+| ✅ Fixed | [#241](https://github.com/mikepadiernos/plasma-impresario/issues/241) | Plasma displays a generic icon instead of the application icon   | Merged |
+| ✅ Fixed | [#228](https://github.com/mikepadiernos/plasma-impresario/issues/228) | Installed app missing from Plasma application menu               | Merged |
 
 Limitations of implemented features are tracked in [caveats](CAVEATS.md), and
 unconfirmed scenarios in [edge cases](EDGE.md).
@@ -38,26 +38,25 @@ unconfirmed scenarios in [edge cases](EDGE.md).
 > issue titled `[bug] …` with the `bug` label on the project board. Link the
 > issue from the entry.
 
-## Open issues
+## Fixed issues
 
 ### [bug] APPENDUID with several UIDs reads past the end of the response
 
-| Field            | Details                                                                                                                                                                                               |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Issue**        | [#427](https://github.com/mikepadiernos/plasma-impresario/issues/427)                                                                                                                                 |
-| **Status**       | 🚧 Development                                                                                                                                                                                        |
-| **Reproduction** | The server answers an APPEND with a UID set, such as `A003 OK [APPENDUID 38505 3955:3957] APPEND completed`.                                                                                          |
-| **Expected**     | The response is parsed into the UIDVALIDITY and the UIDs, or rejected as malformed.                                                                                                                   |
-| **Actual**       | `LowLevelParser::getSequence()` expects a trailing CRLF, which the APPENDUID branch does not add, so a UID set reads past the end of the buffer. Debug builds abort on `ASSERT: "n <= d.size - pos"`. |
-
-## Fixed issues
+| Field            | Details                                                                                                                                                                                                                           |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Issue**        | [#427](https://github.com/mikepadiernos/plasma-impresario/issues/427)                                                                                                                                                             |
+| **Status**       | 🧪 Review                                                                                                                                                                                                                         |
+| **Reproduction** | The server answers an APPEND with a UID set, such as `A003 OK [APPENDUID 38505 3955:3957] APPEND completed`.                                                                                                                      |
+| **Expected**     | The response is parsed into the UIDVALIDITY and the UIDs, or rejected as malformed.                                                                                                                                               |
+| **Actual**       | `LowLevelParser::getSequence()` expects a trailing CRLF, which the APPENDUID branch does not add, so a UID set reads past the end of the buffer. Debug builds abort on `ASSERT: "n <= d.size - pos"`.                             |
+| **Fix**          | Append the CRLF that `getSequence()` expects before parsing the UID set, as COPYUID parsing does, and   check for trailing garbage before it. `test_Imap_Parser_parse` covers a UID list, a UID range and garbage after the UIDs. |
 
 ### [bug] Message list view can crash while being destroyed
 
 | Field            | Details                                                                                                                                                                                                                                                |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Issue**        | [#426](https://github.com/mikepadiernos/plasma-impresario/issues/426)                                                                                                                                                                                  |
-| **Status**       | 🧪 Review                                                                                                                                                                                                                                              |
+| **Status**       | ✅ Merged                                                                                                                                                                                                                                              |
 | **Reproduction** | Delete a message list view while its header still reports a geometry change, for example right after a resize.                                                                                                                                         |
 | **Expected**     | The view is destroyed cleanly.                                                                                                                                                                                                                         |
 | **Actual**       | The header is deleted after `~MsgListView` has run, and its late `geometriesChanged` signal still calls `slotFixSize()` on the partly destroyed view. `test_MsgListViewSelection` on the M03 branch disconnects the signal by hand to avoid the crash. |
