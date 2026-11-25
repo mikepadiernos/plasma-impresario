@@ -276,9 +276,15 @@ private slots:
         open(QStringLiteral("Budget numbers"));
         QTRY_COMPARE_WITH_TIMEOUT(subjects(related->conversation()), QStringList{QStringLiteral("Quarterly plan")}, 10000);
 
-        // MIME-level signing is reported without claiming that the signature is valid.
+        // The reader's verification of the synthetic signature is reported, never as a valid signature.
         open(QStringLiteral("Signed release note"));
-        QTRY_COMPARE_WITH_TIMEOUT(details->fieldText(QStringLiteral("Security")), QStringLiteral("Signed"), 15000);
+        QTRY_VERIFY_WITH_TIMEOUT(details->security().signature != UiUtils::MessageSecurity::Signature::None
+                                     && !details->security().isPending(),
+                                 15000);
+        QVERIFY2(details->security().signature != UiUtils::MessageSecurity::Signature::Trusted
+                     && details->security().signature != UiUtils::MessageSecurity::Signature::Untrusted,
+                 qPrintable(details->fieldText(QStringLiteral("Security"))));
+        QVERIFY(details->fieldText(QStringLiteral("Security")).startsWith(QLatin1String("Signed")));
         snapshot(window, QStringLiteral("09-wide-signed-message"));
 
         // Another message from the same sender.

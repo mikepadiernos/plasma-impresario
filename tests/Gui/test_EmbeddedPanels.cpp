@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 Plasma Impresario contributors
    SPDX-License-Identifier: GPL-2.0-or-later
 */
+#include "Cryptography/MessageModel.h"
 #include "Gui/ContactPanel.h"
 #include "Gui/EmbeddedPanelsMenu.h"
 #include "Gui/MessageDetailsPanel.h"
@@ -155,7 +156,8 @@ private slots:
         QCOMPARE(panel->fieldText(QStringLiteral("Status")),
                  i18nc("@info message status", "Unread") + i18nc("@info separator of message status", ", ")
                      + i18nc("@info message status", "Flagged"));
-        QCOMPARE(panel->fieldText(QStringLiteral("Security")), i18nc("@info message security", "Signed"));
+        // Without the reader's results, MIME-level signing is never presented as verified
+        QCOMPARE(panel->fieldText(QStringLiteral("Security")), i18nc("@info message security", "Signed, not verified"));
 
         item->setData(true, Imap::Mailbox::RoleMessageIsMarkedRead);
         QTRY_VERIFY(panel->fieldText(QStringLiteral("Status")).startsWith(i18nc("@info message status", "Read")));
@@ -169,6 +171,118 @@ private slots:
         QVERIFY(panel->isVisible());
         panel->setPanelEnabled(false);
         QVERIFY(panel->isHidden());
+    }
+
+    void securityFollowsTheReader()
+    {
+        using Security = UiUtils::MessageSecurity;
+        QStandardItemModel model;
+        auto *item = messageItem(QStringLiteral("Release"), QStringLiteral("ann@example.org"));
+        auto *body = new QStandardItem(QStringLiteral("body"));
+        body->setData(QByteArrayLiteral("multipart/signed"), Imap::Mailbox::RolePartMimeType);
+        auto *signedText = new QStandardItem(QStringLiteral("text"));
+        signedText->setData(QByteArrayLiteral("text/plain"), Imap::Mailbox::RolePartMimeType);
+        body->appendRow(signedText);
+        item->appendRow(body);
+        model.appendRow(item);
+
+        Host host;
+        auto *panel = host.add(new Gui::MessageDetailsPanel);
+        panel->setPanelEnabled(true);
+        panel->setMessage(item->index());
+        const auto *row = child<QWidget>(panel, QStringLiteral("messageDetailsPanelSecurityRow"));
+        const auto *icon = child<QLabel>(panel, QStringLiteral("messageDetailsPanelSecurityIcon"));
+        QVERIFY(row && icon);
+        QCOMPARE(panel->security().signature, Security::Signature::NotVerified);
+        QCOMPARE(panel->fieldText(QStringLiteral("Security")), i18nc("@info message security", "Signed, not verified"));
+        QVERIFY(!icon->isHidden());
+        QCOMPARE(icon->accessibleName(), panel->fieldText(QStringLiteral("Security")));
+        QVERIFY(row->accessibleName().contains(panel->fieldText(QStringLiteral("Security"))));
+
+        // The reader's part model forwards results of the cryptography layer, which arrive asynchronously.
+        Cryptography::MessageModel reader(nullptr, item->index());
+        panel->setMessageModel(&reader);
+        QTRY_COMPARE(panel->security().signature, Security::Signature::NotVerified);
+        body->setData(true, Imap::Mailbox::RolePartSignatureVerifySupported);
+        body->setData(false, Imap::Mailbox::RolePartDecryptionSupported);
+        body->setData(true, Imap::Mailbox::RolePartCryptoNotFinishedYet);
+        QTRY_COMPARE(panel->security().signature, Security::Signature::Pending);
+        QCOMPARE(panel->fieldText(QStringLiteral("Security")), i18nc("@info message security", "Signed, verifying the signature…"));
+
+        body->setData(QStringLiteral("Ann <ann@example.org>"), Imap::Mailbox::RolePartSignatureSignerName);
+        body->setData(QStringLiteral("Verified signature"), Imap::Mailbox::RolePartCryptoTLDR);
+        body->setData(true, Imap::Mailbox::RolePartSignatureValidDisregardingTrust);
+        body->setData(true, Imap::Mailbox::RolePartSignatureValidTrusted);
+        body->setData(false, Imap::Mailbox::RolePartCryptoNotFinishedYet);
+        QTRY_COMPARE(panel->security().signature, Security::Signature::Trusted);
+        QCOMPARE(panel->fieldText(QStringLiteral("Security")),
+                 i18nc("@info message security", "Valid signature from %1", QStringLiteral("Ann <ann@example.org>")));
+        QVERIFY(row->toolTip().contains(QLatin1String("Verified signature")));
+        QCOMPARE(icon->accessibleName(), panel->fieldText(QStringLiteral("Security")));
+
+        body->setData(false, Imap::Mailbox::RolePartSignatureValidTrusted);
+        body->setData(false, Imap::Mailbox::RolePartSignatureValidDisregardingTrust);
+        body->setData(true, Imap::Mailbox::RolePartSignatureKeyMissing);
+        QTRY_COMPARE(panel->security().signature, Security::Signature::UnknownKey);
+        QCOMPARE(panel->fieldText(QStringLiteral("Security")), i18nc("@info message security", "Signed with an unknown key, not verified"));
+
+        // A part model of another message is ignored, and so is a destroyed one.
+        auto *other = messageItem(QStringLiteral("Other"), QStringLiteral("bob@example.org"));
+        model.appendRow(other);
+        {
+            Cryptography::MessageModel otherReader(nullptr, other->index());
+            panel->setMessageModel(&otherReader);
+            QTRY_COMPARE(panel->security().signature, Security::Signature::UnknownKey);
+        }
+        QTRY_COMPARE(panel->security().signature, Security::Signature::UnknownKey);
+        panel->setMessageModel(nullptr);
+        QTRY_COMPARE(panel->security().signature, Security::Signature::UnknownKey);
+
+        // Unprotected mail hides the row and the icon.
+        panel->setMessage(other->index());
+        QVERIFY(panel->security().isEmpty());
+        QVERIFY(panel->fieldText(QStringLiteral("Security")).isEmpty());
+    }
+
+    void securityTexts()
+    {
+        using Security = UiUtils::MessageSecurity;
+        Security security;
+        QVERIFY(Gui::MessageDetailsPanel::securityText(security).isEmpty());
+        QVERIFY(Gui::MessageDetailsPanel::securityIconName(security).isEmpty());
+        const QList<Security::Signature> signatures{Security::Signature::Pending, Security::Signature::NotVerified,
+                                                    Security::Signature::Trusted, Security::Signature::Untrusted,
+                                                    Security::Signature::Bad, Security::Signature::UnknownKey,
+                                                    Security::Signature::Unverifiable};
+        QSet<QString> texts;
+        for (const auto signature : signatures) {
+            security.signature = signature;
+            texts.insert(Gui::MessageDetailsPanel::securityText(security));
+            QVERIFY(!Gui::MessageDetailsPanel::securityIconName(security).isEmpty());
+        }
+        // Every state has its own text, so that none depends on the icon alone
+        QCOMPARE(texts.size(), signatures.size());
+
+        security = {};
+        const QList<Security::Encryption> encryptions{Security::Encryption::Pending, Security::Encryption::NotDecrypted,
+                                                      Security::Encryption::Decrypted, Security::Encryption::Failed};
+        texts.clear();
+        for (const auto encryption : encryptions) {
+            security.encryption = encryption;
+            texts.insert(Gui::MessageDetailsPanel::securityText(security));
+            QVERIFY(!Gui::MessageDetailsPanel::securityIconName(security).isEmpty());
+        }
+        QCOMPARE(texts.size(), encryptions.size());
+
+        security.encryption = Security::Encryption::NotDecrypted;
+        security.inlinePgp = true;
+        QCOMPARE(Gui::MessageDetailsPanel::securityText(security),
+                 i18nc("@info message security", "Encrypted with inline PGP, not decrypted"));
+        security.encryption = Security::Encryption::Decrypted;
+        security.inlinePgp = false;
+        security.signature = Security::Signature::Bad;
+        QCOMPARE(Gui::MessageDetailsPanel::securityText(security).split(QLatin1Char('\n')).size(), 2);
+        QCOMPARE(Gui::MessageDetailsPanel::securityIconName(security), QStringLiteral("security-low"));
     }
 
     void sizeHintIgnoresContent()

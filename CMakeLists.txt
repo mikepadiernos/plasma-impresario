@@ -1280,6 +1280,7 @@ if(BUILD_TESTING)
       add_custom_target(crypto_test_data DEPENDS crypto_test_data.h)
 
       trojita_test(Cryptography Cryptography_PGP)
+      target_link_libraries(test_Cryptography_PGP PRIVATE UiUtils)
       set_property(TEST test_Cryptography_PGP PROPERTY ENVIRONMENT "${UBSAN_ENV_SUPPRESSIONS}")
       add_dependencies(test_Cryptography_PGP crypto_test_data)
     endif()
