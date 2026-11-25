@@ -75,8 +75,6 @@ private slots:
 
     void cleanup()
     {
-        // The header outlives the view part of the object and would still report its geometry to it
-        QObject::disconnect(m_view->header(), &QHeaderView::geometriesChanged, m_view, nullptr);
         delete m_view;
         m_view = nullptr;
         delete m_tags;

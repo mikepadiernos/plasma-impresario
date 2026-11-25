@@ -1180,6 +1180,20 @@ void ImapModelThreadingTest::testDynamicSearch()
     letsTrickyThreadingSearch(conditions, ordering, threading);
     QCOMPARE(treeToThreading(QModelIndex()), threading);
 
+    // A value with a space is quoted in THREAD as in SEARCH
+    threading = QByteArray("(9 10)");
+    ordering = QByteArray("9,10");
+    threadingModel->setUserSearchingSortingPreference(QStringList() << QStringLiteral("SUBJECT") << QStringLiteral("foo bar"),
+                                                      threadingModel->currentSortCriterium(), threadingModel->currentSortOrder());
+    auto quoted = t.mk("UID SEARCH RETURN (ALL) CHARSET utf-8 SUBJECT \"foo bar\"\r\n");
+    searchTag = t.last();
+    quoted.append(t.mk("UID THREAD REFS utf-8 SUBJECT \"foo bar\"\r\n"));
+    cClient(quoted);
+    cServer("* ESEARCH (TAG \"" + searchTag + "\") UID ALL " + ordering + "\r\n" + t.prev("OK searched\r\n"));
+    cServer(QByteArray("* THREAD ") + threading + QByteArray("\r\n") + t.last("OK thread\r\n"));
+    cEmpty();
+    QCOMPARE(treeToThreading(QModelIndex()), threading);
+
     injector.injectCapability(QStringLiteral("CONTEXT=SEARCH"));
 
 #define letsThreadingSearchUpdate(CONDITIONS, ORDERING, THREADING) \

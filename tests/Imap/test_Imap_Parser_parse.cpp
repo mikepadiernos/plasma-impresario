@@ -150,15 +150,20 @@ void ImapParserParseTest::testParseTagged_data()
                                                               new RespData<QPair<uint,Imap::Sequence> >(
                                                                   qMakePair(38505u, Imap::Sequence(3955)))
                                                               )));
-    /*
     QTest::newRow("appenduid-seq")
             << QByteArray("A003 OK [APPENDUID 38505 3955,333666] APPEND completed\r\n")
-            << QSharedPointer<AbstractResponse>(new State("A003", OK, "APPEND completed", APPENDUID,
+            << QSharedPointer<AbstractResponse>(new State("A003", OK, QStringLiteral("APPEND completed"), APPENDUID,
                                                           QSharedPointer<AbstractData>(
                                                               new RespData<QPair<uint,Imap::Sequence> >(
-                                                                  qMakePair(38505u, Imap::Sequence(3955)))
+                                                                  qMakePair(38505u, Imap::Sequence::fromVector(Imap::Uids() << 3955 << 333666)))
                                                               )));
-    */
+    QTest::newRow("appenduid-range")
+            << QByteArray("A003 OK [APPENDUID 38505 3955:3957] APPEND completed\r\n")
+            << QSharedPointer<AbstractResponse>(new State("A003", OK, QStringLiteral("APPEND completed"), APPENDUID,
+                                                          QSharedPointer<AbstractData>(
+                                                              new RespData<QPair<uint,Imap::Sequence> >(
+                                                                  qMakePair(38505u, Imap::Sequence::fromVector(Imap::Uids() << 3955 << 3956 << 3957)))
+                                                              )));
 
     QTest::newRow("copyuid-simple")
             << QByteArray("A004 OK [COPYUID 38505 304 3956] Done\r\n")
@@ -1266,6 +1271,9 @@ void ImapParserParseTest::testThrow_data()
 
     QTest::newRow("thread-non-numbers")
             << QByteArray("* THREAD (ahoj)\r\n") << QStringLiteral("UnexpectedHere") << QStringLiteral("THREAD response: cannot parse \"ahoj\" as an unsigned integer");
+
+    QTest::newRow("appenduid-garbage-after-uids")
+            << QByteArray("* OK [APPENDUID 38505 3955:3957x] Done\r\n") << QStringLiteral("InvalidResponseCode") << QStringLiteral("Malformed APPENDUID: garbage found after the list of UIDs");
 }
 
 QTEST_GUILESS_MAIN( ImapParserParseTest )

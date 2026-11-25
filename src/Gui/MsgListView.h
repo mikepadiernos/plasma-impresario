@@ -52,7 +52,7 @@ class MsgListView : public QTreeView
     Q_OBJECT
 public:
     explicit MsgListView(QWidget *parent, Imap::Mailbox::FavoriteTagsModel *m_favoriteTagsModel);
-    ~MsgListView() override {}
+    ~MsgListView() override;
     void setModel(QAbstractItemModel *model) override;
     void setAutoActivateAfterKeyNavigation(bool enabled);
     void updateActionsAfterRestoredState();

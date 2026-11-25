@@ -20,6 +20,9 @@ fixed and Completed or Merged
 
 | Status   | Issue                                                                 | Bug                                                              | Board  |
 | -------- | --------------------------------------------------------------------- | ---------------------------------------------------------------- | ------ |
+| ✅ Fixed | [#427](https://github.com/mikepadiernos/plasma-impresario/issues/427) | APPENDUID with several UIDs reads past the end of the response   | Merged |
+| ✅ Fixed | [#426](https://github.com/mikepadiernos/plasma-impresario/issues/426) | Message list view can crash while being destroyed                | Merged |
+| ✅ Fixed | [#425](https://github.com/mikepadiernos/plasma-impresario/issues/425) | Threaded quick search sends search words unquoted                | Merged |
 | ✅ Fixed | [#376](https://github.com/mikepadiernos/plasma-impresario/issues/376) | Reply to All but Me keeps the user's address without an identity | Merged |
 | ✅ Fixed | [#366](https://github.com/mikepadiernos/plasma-impresario/issues/366) | An untrusted SMTP certificate cannot be accepted                 | Merged |
 | ✅ Fixed | [#364](https://github.com/mikepadiernos/plasma-impresario/issues/364) | Sending hangs when the SMTP connection fails                     | Merged |
@@ -36,6 +39,39 @@ No open bugs are recorded. Limitations of implemented features are tracked in
 > issue from the entry.
 
 ## Fixed issues
+
+### [bug] APPENDUID with several UIDs reads past the end of the response
+
+| Field            | Details                                                                                                                                                                                                                           |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Issue**        | [#427](https://github.com/mikepadiernos/plasma-impresario/issues/427)                                                                                                                                                             |
+| **Status**       | ✅ Merged                                                                                                                                                                                                                         |
+| **Reproduction** | The server answers an APPEND with a UID set, such as `A003 OK [APPENDUID 38505 3955:3957] APPEND completed`.                                                                                                                      |
+| **Expected**     | The response is parsed into the UIDVALIDITY and the UIDs, or rejected as malformed.                                                                                                                                               |
+| **Actual**       | `LowLevelParser::getSequence()` expects a trailing CRLF, which the APPENDUID branch does not add, so a UID set reads past the end of the buffer. Debug builds abort on `ASSERT: "n <= d.size - pos"`.                             |
+| **Fix**          | Append the CRLF that `getSequence()` expects before parsing the UID set, as COPYUID parsing does, and   check for trailing garbage before it. `test_Imap_Parser_parse` covers a UID list, a UID range and garbage after the UIDs. |
+
+### [bug] Message list view can crash while being destroyed
+
+| Field            | Details                                                                                                                                                                                                                                                |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Issue**        | [#426](https://github.com/mikepadiernos/plasma-impresario/issues/426)                                                                                                                                                                                  |
+| **Status**       | ✅ Merged                                                                                                                                                                                                                                              |
+| **Reproduction** | Delete a message list view while its header still reports a geometry change, for example right after a resize.                                                                                                                                         |
+| **Expected**     | The view is destroyed cleanly.                                                                                                                                                                                                                         |
+| **Actual**       | The header is deleted after `~MsgListView` has run, and its late `geometriesChanged` signal still calls `slotFixSize()` on the partly destroyed view. `test_MsgListViewSelection` on the M03 branch disconnects the signal by hand to avoid the crash. |
+| **Fix**          | Disconnect the header's signals from the view in `~MsgListView`, before QWidget deletes the header. `test_MsgListViewTeardown` destroys a shown, resized view and emits the signals of a header that outlives its view.                                |
+
+### [bug] Threaded quick search sends search words unquoted
+
+| Field            | Details                                                                                                                                                                                                                                                               |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Issue**        | [#425](https://github.com/mikepadiernos/plasma-impresario/issues/425)                                                                                                                                                                                                 |
+| **Status**       | ✅ Merged                                                                                                                                                                                                                                                             |
+| **Reproduction** | Turn on threading in a folder on a server with THREAD, then quick-search for two words, such as `quarterly report`.                                                                                                                                                   |
+| **Expected**     | The client sends `UID THREAD REFS utf-8 SUBJECT "quarterly report"` and shows the matching threads.                                                                                                                                                                   |
+| **Actual**       | Every THREAD search criterion was sent as an atom, `SUBJECT quarterly report`, so the server rejected the command or searched for other words.                                                                                                                        |
+| **Fix**          | Encode THREAD search criteria as SORT and SEARCH do: a single pre-formatted criterion is sent as is, and other values are quoted when needed. Incremental threading passes its `INTHREAD` criterion pre-formatted. `test_Imap_Threading` covers a value with a space. |
 
 ### [bug] Reply to All but Me keeps the user's address without an identity
 

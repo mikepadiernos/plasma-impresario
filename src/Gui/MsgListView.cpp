@@ -93,6 +93,13 @@ MsgListView::MsgListView(QWidget *parent, Imap::Mailbox::FavoriteTagsModel *m_fa
     connect(m_naviActivationTimer, &QTimer::timeout, this, &MsgListView::slotCurrentActivated);
 }
 
+MsgListView::~MsgListView()
+{
+    // QWidget deletes the header after this destructor, and the header still reports its geometry
+    // and section count while it goes away
+    disconnect(header(), nullptr, this, nullptr);
+}
+
 void MsgListView::keyPressEvent(QKeyEvent *ke)
 {
     const bool hasNaviActivationBlocker = std::find(gs_naviActivationBlockers.begin(),

@@ -412,9 +412,13 @@ CommandHandle Parser::threadHelper(const QByteArray &command, const QByteArray &
 
     cmd << Commands::PartOfCommand(Commands::ATOM, command) << algo << charset;
 
-    for (QStringList::const_iterator it = searchCriteria.begin(); it != searchCriteria.end(); ++it) {
-        // FIXME: this is another place which needs proper structure for this searching stuff...
-        cmd << Commands::PartOfCommand(Commands::ATOM, it->toUtf8());
+    if (searchCriteria.size() == 1) {
+        // As in sortHelper(): a single item is already formatted by the caller
+        cmd << Commands::PartOfCommand(Commands::ATOM, searchCriteria.front().toUtf8());
+    } else {
+        // Quote values such as a subject with spaces, as SORT and SEARCH do
+        for (QStringList::const_iterator it = searchCriteria.begin(); it != searchCriteria.end(); ++it)
+            cmd << it->toUtf8();
     }
 
     return queueCommand(cmd);
