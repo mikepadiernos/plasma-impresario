@@ -35,7 +35,7 @@ Board statuses as of 2026-11-24.
 | Milestone | Focus | Parent issue | Done | Board |
 | --- | --- | --- | --- | --- |
 | [M01](#m01-kde--qt6-compatibility-baseline) | 🧱 KDE / Qt 6 compatibility baseline | [#1](https://github.com/mikepadiernos/plasma-impresario/issues/1) | 🟩🟩🟩🟩🟩 19/19 | ✅ Merged |
-| [M02](#m02-shell-accounts-and-core-mailbox-foundation) | 🧭 Shell, accounts and core mailbox foundation | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4) | 🟩🟩⬜⬜⬜ 6/17 | 🚧 Development on `feature/m02-shell-next` |
+| [M02](#m02-shell-accounts-and-core-mailbox-foundation) | 🧭 Shell, accounts and core mailbox foundation | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4) | 🟩🟩⬜⬜⬜ 7/17 | 🚧 Development on `feature/m02-shell-next` |
 | [M03](#m03-mail-operations-sorting-and-folder-management) | 📬 Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5) | 🟩🟩⬜⬜⬜ 4/12 | 🚧 Development on `feature/m03-mail-operations`, where its items are checked |
 | [M04](#m04-reading-search-and-conversation-flow) | 📖 Reading, search and conversation flow | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6) | ⬜⬜⬜⬜⬜ 0/14 | 📋 Backlog |
 | [M05](#m05-desktop-integration-and-provider-support) | 🖥️ Desktop integration and provider support | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7) | ⬜⬜⬜⬜⬜ 0/23 | 📋 Backlog |
@@ -189,7 +189,7 @@ installation depends on the working renderer.
   offscreen QtTest runs and the synthetic Dovecot server in
   `tools/dev-container/`.
 
-  - [ ] Build a Plasma Opus-inspired shell with a header, left column, main
+  - [x] Build a Plasma Opus-inspired shell with a header, left column, main
     column, right column, and footer. Existing widgets and panes, such as the
     folder tree, message list, and reader, keep their current appearance and
     layout, adapted to the new shell, so the default look is unchanged. See the

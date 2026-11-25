@@ -91,7 +91,7 @@ is not merged into `main`. The milestone has two subsections:
 | --------------------------------------------------------------------- | ----------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------- |
 | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)     | M02 milestone                                               | Development | 🚧 Waits on the open features below                                              |
 | [#318](https://github.com/mikepadiernos/plasma-impresario/issues/318) | M02.01 Headless implementation and verification             | Development | 🚧 Parent of the 13 features below                                               |
-| [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)   | Mail shell                                                  | Review      | 🧪 Implemented; Plasma-session check moved to #315                               |
+| [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)   | Mail shell                                                  | Completed   | ✅ Verified headless; Plasma-session check moved to #315                         |
 | [#74](https://github.com/mikepadiernos/plasma-impresario/issues/74)   | App skeleton in the design-spec layout                      | Development | 🚧 Open                                                                          |
 | [#36](https://github.com/mikepadiernos/plasma-impresario/issues/36)   | Account setup and mailbox state                             | Development | 🚧 Open decisions below                                                          |
 | [#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)   | Account setup, editing, removal, identities and credentials | Development | 🚧 Live setup accepted; open decisions below                                     |
@@ -185,11 +185,12 @@ need a real session.
     because the model connects lazily, and certificate prompts were answered for
     the active account instead of the requesting one.
   - Known limits are recorded in [caveat #262](CAVEATS.md#multiple-accounts).
-- 🧪 **Mail shell, #35:** the shell has a left column, main column, right column
-  and footer, with connection status in the footer. The Navigation toolbar docks
-  at the left window edge by default, and the menu bar is hidden by default. The
-  mailbox sidebar can sit in either side column; the message list and reader can
-  be side by side, stacked or shown one panel at a time.
+- ✅ **Mail shell, #35 (Completed):** the shell has a left column, main
+  column, right column and footer, with connection status in the footer. The
+  Navigation toolbar docks at the left window edge by default, and the menu bar
+  is hidden by default. The mailbox sidebar can sit in either side column; the
+  message list and reader can be side by side, stacked or shown one panel at a
+  time.
   - View › Embedded Panels has a submenu per panel: **Show Panel**, **Hide When
     Empty** and a position below the reader, in either side column or in the
     footer. Side columns and the footer appear only while they hold the sidebar
@@ -242,7 +243,7 @@ need a real session.
   the folder tree; grouping in the folder tree is needed before Review.
 - ⛔ **Plasma session, M02.02:** the dev container has no Plasma session, so
   the shell (#315, from #35) and KWallet storage (#316, from #78) checks wait
-  for a real session. #35's only remaining step is now tracked in #315.
+  for a real session. #35 is Completed; its Plasma check is tracked in #315.
 
 #### How to resume
 

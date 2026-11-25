@@ -398,6 +398,6 @@ selection while switching layouts.
 | Step                                                                             | Status                                                                                                                         |
 | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | 1. Record the current main-window behavior and its acceptance tests              | ✅ Offscreen QtTest suites such as `test_EmbeddedPanels`, `test_MainWindowDensity` and `test_SessionRestart`                   |
-| 2. Build the new shell without changing IMAP, cache or composition behavior      | 🧪 [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35) in Review                                               |
+| 2. Build the new shell without changing IMAP, cache or composition behavior      | 🧪 [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35) Completed                                               |
 | 3. Validate layouts, accessibility and navigation with representative data       | 🚧 Synthetic Dovecot checks (`test_LiveImapPanels`) pass; a real Plasma session (M02.02, #319) and accessibility review remain |
 | 4. Migrate settings and saved window state only after the new behavior is tested | ⚠️ Pre-shell pane sizes are not migrated; see [#264](https://github.com/mikepadiernos/plasma-impresario/issues/264)            |
