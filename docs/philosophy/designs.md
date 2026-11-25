@@ -22,6 +22,7 @@ Legend: ![Done][done] · ![Needs verification][needs-verification] ·
   - [Mail operations](#mail-operations)
   - [Reader colors](#reader-colors)
   - [Search highlighting](#search-highlighting)
+  - [Remote content and links](#remote-content-and-links)
   - [Status bar](#status-bar)
 - [Proposed Plasma Impresario shell](#proposed-plasma-impresario-shell)
   - [Panes and placement](#panes-and-placement)
@@ -525,6 +526,28 @@ is still a key press away.
   and remote content stays blocked.
 - A message without a match opens without the find bar. Clearing the search
   turns highlighting off for the next message; the open one is left as it is.
+
+### Remote content and links
+
+The reader blocks remote content, such as images and style sheets on other
+servers, until the user asks for it. A bar above the message names the servers
+it would contact, up to three and then a count, and explains that loading it can
+tell the sender when the message is read. **Load Remote Content** loads it for
+the open message only; the next message starts blocked again.
+
+Links open in the default browser. Before opening an http or https link, the
+reader asks for confirmation when the link may not go where it appears to:
+
+- the link text is a web address on another site than the target;
+- the address has a user name before the host;
+- the host is a numeric IP address;
+- the host has internationalized labels, which can imitate another name.
+
+The dialog names the site that would open, lists the reasons and shows the full
+address. **Cancel** is the default. Other links open without asking; their
+target is shown in a tooltip on hover. Scripts stay disabled throughout; the
+link text is read from an isolated script. See
+[caveats](../CAVEATS.md#reading-privacy).
 
 ### Status bar
 

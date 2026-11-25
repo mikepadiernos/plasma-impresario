@@ -23,6 +23,7 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned · ✅ resolved
   - [Multiple accounts](#multiple-accounts)
   - [Related messages and message details panels](#related-messages-and-message-details-panels)
   - [Message security](#message-security)
+  - [Reading privacy](#reading-privacy)
   - [OAuth sign-in](#oauth-sign-in)
   - [Mail operations](#mail-operations)
 - [Before reporting results](#before-reporting-results)
@@ -39,6 +40,7 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned · ✅ resolved
 | ⚠️ Embedded panels   | Related messages search only loaded messages in the current folder ([details](#related-messages-and-message-details-panels)); message details do not verify inline PGP ([details](#message-security))              |
 | ⚠️ Mail operations   | Special folders need server attributes or English names, Go to Folder and related searches use loaded data only, and Undo after a move needs server COPYUID support ([details](#mail-operations))                  |
 | ⚠️ OAuth sign-in     | Microsoft uses the `common` tenant only and cannot revoke grants from the app, IMAP and SMTP refresh tokens independently, and switching provider replaces a grant without revoking it ([details](#oauth-sign-in)) |
+| ⚠️ Reading privacy   | Link warnings are heuristic and remote content consent applies to the open message only ([details](#reading-privacy))                                                                                              |
 | ⚠️ Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                             |
 | 🔒 Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings`                                                     |
 | 🔒 Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used                                                                                                                            |
@@ -147,6 +149,43 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
   details panel can report the result. Not yet scheduled.
 - 📋 List each protected part in the Security tooltip when a message has more
   than one.
+
+### Reading privacy
+
+| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                                           |
+| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| [#443](https://github.com/mikepadiernos/plasma-impresario/issues/443) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/443#issuecomment-7175141140) | Messages with remote content or links, in the reader |
+
+**Current behavior:**
+
+- ✅ Remote content stays blocked until **Load Remote Content**; the bar names
+  the servers it would contact. Links that look deceptive ask before opening
+  (#97).
+- ⚠️ Link warnings are heuristics. Sites are compared by name, without the
+  public suffix list: a subdomain counts as its parent's site.
+- ⚠️ Links whose text is not an address, such as "Sign in", never warn; their
+  target shows only in the hover tooltip.
+- ⚠️ Newsletters that route links through a tracking server while showing the
+  destination as the link text warn on every link.
+- ⚠️ Consent is all or nothing for the open message and is not remembered; there
+  is no per-sender allow list.
+- ⚠️ The bar lists the servers the page has tried so far; content requested
+  later adds its server then.
+
+**Workarounds:**
+
+- Hover over a link to see its target before clicking.
+- For a warning caused by a tracking server, check that the named site is the
+  sender's mail service before choosing **Open Link**.
+- Load remote content only for senders you trust.
+
+**Proposed improvements:**
+
+- 📋 Compare sites with the public suffix list.
+- 📋 Remember remote-content consent per sender, with a way to review and
+  revoke it (M14.07).
+- 📋 Show the target in the status bar as well, for links whose text is not an
+  address.
 
 ### OAuth sign-in
 

@@ -167,6 +167,7 @@ M04 is in progress on `feature/m04-reading-flow`
 | Message security | Message Details shows the reader's signature and decryption results, with the signer, an icon and an accessible name | ![Needs verification][needs-verification] |
 | Dark schemes     | Plain text follows the color scheme; HTML without its own background is shown on a light page                        | ![Needs verification][needs-verification] |
 | Search highlight | A message opened from a quick search shows the term in the find bar; F3 steps through the matches                    | ![Needs verification][needs-verification] |
+| Reading privacy  | The remote-content bar names the blocked servers; deceptive links ask before opening                                 | ![Needs verification][needs-verification] |
 
 Inline PGP is detected but not verified; see
 [caveats](docs/CAVEATS.md#message-security).
