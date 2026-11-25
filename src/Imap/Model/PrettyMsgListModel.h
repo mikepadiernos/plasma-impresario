@@ -26,6 +26,7 @@
 #include <QPersistentModelIndex>
 #include <QSortFilterProxyModel>
 #include <QStringList>
+#include <optional>
 #include "Imap/Model/MailboxModel.h"
 #include "Imap/Model/FavoriteTagsModel.h"
 
@@ -68,6 +69,10 @@ public:
 
     explicit PrettyMsgListModel(QObject *parent);
     QVariant data(const QModelIndex &index, int role) const override;
+    /** @short How the list shows @p column of the message @p message for @p role; nothing when the message's own data applies */
+    static std::optional<QVariant> presentationData(const QModelIndex &message, int column, int role);
+    /** @short Whether the message @p message passes the quick @p filters */
+    static bool matchesFilters(const QModelIndex &message, Filters filters);
     /** @short Show only unread messages; the same as the FilterUnread quick filter */
     void setHideRead(bool value);
     bool hideRead() const;

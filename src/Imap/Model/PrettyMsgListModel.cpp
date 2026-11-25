@@ -53,20 +53,25 @@ QVariant PrettyMsgListModel::data(const QModelIndex &index, int role) const
     if (index.row() < 0 || index.row() >= rowCount(index.parent()))
         return QVariant();
 
-    QModelIndex translated = mapToSource(index);
+    if (const auto pretty = presentationData(mapToSource(index), index.column(), role))
+        return *pretty;
+    return QSortFilterProxyModel::data(index, role);
+}
 
+std::optional<QVariant> PrettyMsgListModel::presentationData(const QModelIndex &translated, const int column, const int role)
+{
     switch (role) {
 
     case Qt::DisplayRole:
     case Qt::ToolTipRole:
-        switch (index.column()) {
+        switch (column) {
         case MsgListModel::TO:
         case MsgListModel::FROM:
         case MsgListModel::CC:
         case MsgListModel::BCC:
         {
             int backendRole = 0;
-            switch (index.column()) {
+            switch (column) {
             case MsgListModel::FROM:
                 backendRole = RoleMessageFrom;
                 break;
@@ -120,7 +125,7 @@ QVariant PrettyMsgListModel::data(const QModelIndex &index, int role) const
 
     case Qt::AccessibleTextRole:
         // The indicator columns show only icons, so give screen readers their meaning
-        switch (index.column()) {
+        switch (column) {
         case MsgListModel::SEEN:
             if (!translated.data(RoleIsFetched).toBool())
                 return QVariant();
@@ -136,7 +141,7 @@ QVariant PrettyMsgListModel::data(const QModelIndex &index, int role) const
 
 
     case Qt::TextAlignmentRole:
-        switch (index.column()) {
+        switch (column) {
         case MsgListModel::DATE:
         case MsgListModel::RECEIVED_DATE:
         case MsgListModel::SIZE:
@@ -149,7 +154,7 @@ QVariant PrettyMsgListModel::data(const QModelIndex &index, int role) const
         // We will need the data, but asking for Flags or IsMarkedXYZ doesn't cause a fetch
         translated.data(RoleMessageSubject);
 
-        switch (index.column()) {
+        switch (column) {
         case MsgListModel::SUBJECT:
         {
             if (! translated.data(RoleIsFetched).toBool())
@@ -193,7 +198,7 @@ QVariant PrettyMsgListModel::data(const QModelIndex &index, int role) const
 
     }
 
-    return QSortFilterProxyModel::data(index, role);
+    return std::nullopt;
 }
 
 void PrettyMsgListModel::setHideRead(bool value)
@@ -266,19 +271,24 @@ QModelIndex PrettyMsgListModel::keptVisibleIndex() const
 
 bool PrettyMsgListModel::messageMatches(const QModelIndex &sourceIndex) const
 {
+    return matchesFilters(sourceIndex, m_filters);
+}
+
+bool PrettyMsgListModel::matchesFilters(const QModelIndex &sourceIndex, const Filters filters)
+{
     const QVariant fetched = sourceIndex.data(RoleIsFetched);
     if (!fetched.isValid()) {
         // A placeholder for a message which is missing from a thread
         return false;
     }
     // Neither of these roles fetches anything, and messages with unknown flags count as unread and not flagged
-    if (m_filters.testFlag(FilterUnread) && !sourceIndex.data(RoleMessageWasUnread).toBool()
+    if (filters.testFlag(FilterUnread) && !sourceIndex.data(RoleMessageWasUnread).toBool()
             && sourceIndex.data(RoleMessageIsMarkedRead).toBool())
         return false;
-    if (m_filters.testFlag(FilterFlagged) && !sourceIndex.data(RoleMessageIsMarkedFlagged).toBool())
+    if (filters.testFlag(FilterFlagged) && !sourceIndex.data(RoleMessageIsMarkedFlagged).toBool())
         return false;
     // Asking about attachments would fetch the message, and before that it says "no attachments"
-    if (m_filters.testFlag(FilterAttachments) && fetched.toBool() && !sourceIndex.data(RoleMessageHasAttachments).toBool())
+    if (filters.testFlag(FilterAttachments) && fetched.toBool() && !sourceIndex.data(RoleMessageHasAttachments).toBool())
         return false;
     return true;
 }
