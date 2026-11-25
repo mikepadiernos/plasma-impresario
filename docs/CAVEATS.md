@@ -22,6 +22,7 @@ recommended parity goals.
 | Product identity  | The application remains based on Trojitá; the Plasma Impresario product redesign is not complete                                                                                                                                                                                                          |
 | Accounts          | One window holds several IMAP accounts behind a toolbar selector, not grouped in the folder tree; background account errors appear only in the selector, removing an account keeps its offline cache, and each account confirms the same untrusted certificate separately ([details](#multiple-accounts)) |
 | Embedded panels   | Related messages search only loaded messages in the current folder, message details show MIME-level security only, and pane sizes reset once after upgrading ([details](#related-messages-and-message-details-panels))                                                                                    |
+| Mail operations   | Special folders need server attributes or English names, Go to Folder lists loaded folders only, and Undo after a move needs server COPYUID support ([details](#folder-navigation-and-destructive-operations))                                                                                            |
 | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                    |
 | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings`                                                                                                                                            |
 | Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used                                                                                                                                                                                                                   |
@@ -86,6 +87,41 @@ are saved.
 the details panel from the reader's verification result, including inline PGP
 (M04, [#303](https://github.com/mikepadiernos/plasma-impresario/issues/303)).
 Migrating the old splitter sizes is optional before release.
+
+### Folder navigation and destructive operations
+
+Tracked in [#312](https://github.com/mikepadiernos/plasma-impresario/issues/312);
+see its [recommendation](https://github.com/mikepadiernos/plasma-impresario/issues/312#issuecomment-7148901982).
+
+**Current behavior:**
+
+- Special folders (Sent, Drafts, Trash, Junk, Archive) are recognized from
+  server SPECIAL-USE attributes or English folder names, not localized names.
+  Only the first name match of each kind is used. The configured archive
+  folder wins over the server's `\Archive`, and a changed name applies after
+  reconnecting.
+- Go to Folder lists only folders already loaded in the folder tree.
+- Undo after moving to Trash or Archive appears only when the server returns
+  `COPYUID` (UIDPLUS); otherwise the notification offers to open the folder.
+  Undo and Empty Trash/Junk may briefly select another folder.
+- Counts in confirmations may be incomplete before the folder is synchronized;
+  the Expunge count covers loaded messages only.
+- Renaming re-lists only the renamed folder and does not update the archive or
+  Sent folder settings.
+- These paths are unit-tested but not yet exercised in a window against a
+  live server.
+
+**Workarounds:** enable SPECIAL-USE on the server or set the archive folder in
+the account settings and reconnect. Expand the folder tree before using Go to
+Folder. Without Undo, open the destination from the notification and move the
+messages back. Update the account settings after renaming the archive or Sent
+folder.
+
+**Proposed improvements:** recognize localized names and allow assigning
+special folders per account; query the server from Go to Folder; locate moved
+messages by `Message-ID` when COPYUID is missing; run Empty and Undo on a
+dedicated connection; follow renamed archive and Sent folders; add live
+window-level tests.
 
 ## Before reporting results
 
