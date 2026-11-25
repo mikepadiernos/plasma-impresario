@@ -1039,6 +1039,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_MessageSelectionRestorer PRIVATE DesktopGui Qt6::Test)
         add_executable(test_SessionRestart tests/Gui/test_SessionRestart.cpp)
         target_link_libraries(test_SessionRestart PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_AccountSettingsDialog tests/Gui/test_AccountSettingsDialog.cpp)
+        target_link_libraries(test_AccountSettingsDialog PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         if(NOT CMAKE_CROSSCOMPILING)
             add_test(NAME test_DensityMenu COMMAND test_DensityMenu)
             set_tests_properties(test_DensityMenu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
@@ -1067,6 +1069,15 @@ if(BUILD_TESTING)
             endforeach()
             add_test(NAME test_SessionRestart COMMAND test_SessionRestart)
             set_tests_properties(test_SessionRestart PROPERTIES TIMEOUT 120 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            # One main window per process: the shortcut handler is a singleton.
+            foreach(settings_case accountsKeepTheirOwnCaches applicationSettingsLeaveTheAccountAlone
+                    accountSettingsEditOnlyTheActiveAccount cancellingAccountSettingsKeepsTheAccount
+                    addingAnAccountOpensItsAccountSettings)
+                add_test(NAME test_AccountSettingsDialog_${settings_case} COMMAND test_AccountSettingsDialog ${settings_case})
+                set_tests_properties(test_AccountSettingsDialog_${settings_case} PROPERTIES
+                    TIMEOUT 60
+                    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
+            endforeach()
             set_tests_properties(test_MainWindowDensity PROPERTIES
                 TIMEOUT 30
                 ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")

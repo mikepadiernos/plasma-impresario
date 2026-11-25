@@ -158,6 +158,7 @@ private slots:
     void networkPolicyExpensive();
     void networkPolicyOnline();
     void slotShowSettings();
+    void slotShowAccountSettings();
     void slotAddAccount();
     void slotRemoveAccount();
     void slotNextAccount();
@@ -445,6 +446,7 @@ private:
     QAction *showToolBar;
     QAction *configSettings;
     QAction *m_actionAddAccount;
+    QAction *m_actionAccountSettings;
     QAction *m_actionRenameAccount;
     QAction *m_actionRemoveAccount;
     QAction *m_oneAtTimeGoBack;

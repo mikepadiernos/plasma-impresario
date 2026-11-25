@@ -327,13 +327,23 @@ signals:
 };
 
 
+/** @short Settings of the application, or of the active account, each in its own dialog */
 class SettingsDialog : public QDialog
 {
     Q_OBJECT
 public:
-    SettingsDialog(MainWindow *parent, Composer::SenderIdentitiesModel *sharedIdentities,
+    enum class Scope {
+        /** General and Favorite tags pages, stored in the application settings */
+        Application,
+        /** Identities, IMAP, Offline and SMTP pages of the active account */
+        Account,
+    };
+
+    SettingsDialog(MainWindow *parent, Scope scope, Composer::SenderIdentitiesModel *sharedIdentities,
         Composer::SenderIdentitiesModel *accountIdentities, Imap::Mailbox::FavoriteTagsModel *favoriteTagsModel,
         QSettings *settings);
+
+    Scope scope() const;
 
     Plugins::PluginManager *pluginManager();
     Imap::ImapAccess* imapAccess();
@@ -353,6 +363,7 @@ private slots:
     void slotAccept();
 private:
     MainWindow *mainWindow;
+    Scope m_scope;
     QDialogButtonBox *buttons;
     QTabWidget *stack;
     QVector<ConfigurationWidgetInterface*> pages;

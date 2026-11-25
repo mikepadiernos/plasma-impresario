@@ -79,27 +79,31 @@ bool checkProblemWithEmptyTextField(T *field, const QString &message)
     }
 }
 
-SettingsDialog::SettingsDialog(MainWindow *parent, Composer::SenderIdentitiesModel *sharedIdentities,
+SettingsDialog::SettingsDialog(MainWindow *parent, Scope scope, Composer::SenderIdentitiesModel *sharedIdentities,
         Composer::SenderIdentitiesModel *accountIdentities, Imap::Mailbox::FavoriteTagsModel *favoriteTagsModel,
         QSettings *settings):
-    QDialog(parent), mainWindow(parent), m_accountSettings(parent->accountSettings()),
+    QDialog(parent), mainWindow(parent), m_scope(scope), m_accountSettings(parent->accountSettings()),
         m_senderIdentities(sharedIdentities), m_accountIdentities(accountIdentities),
         m_favoriteTags(favoriteTagsModel), m_settings(settings)
 {
-    setWindowTitle(tr("Settings"));
+    setWindowTitle(scope == Scope::Account ? i18nc("@title:window", "Account Settings")
+                                           : i18nc("@title:window", "Settings"));
 
     QVBoxLayout *layout = new QVBoxLayout(this);
     stack = new QTabWidget(this);
     layout->addWidget(stack);
     stack->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 
-    addPage(new GeneralPage(this, *m_settings), tr("&General"), m_settings);
-    addPage(new IdentitiesPage(this, *m_accountSettings, *m_settings, m_accountIdentities, m_senderIdentities),
-            i18nc("@title:tab", "I&dentities"), m_accountSettings);
-    addPage(new ImapPage(this, *m_accountSettings), tr("I&MAP"), m_accountSettings);
-    addPage(new CachePage(this, *m_accountSettings), tr("&Offline"), m_accountSettings);
-    addPage(new OutgoingPage(this, *m_accountSettings), tr("&SMTP"), m_accountSettings);
-    addPage(new FavoriteTagsPage(this, *m_settings, m_favoriteTags), tr("Favorite &tags"), m_settings);
+    if (scope == Scope::Account) {
+        addPage(new IdentitiesPage(this, *m_accountSettings, *m_settings, m_accountIdentities, m_senderIdentities),
+                i18nc("@title:tab", "I&dentities"), m_accountSettings);
+        addPage(new ImapPage(this, *m_accountSettings), tr("I&MAP"), m_accountSettings);
+        addPage(new CachePage(this, *m_accountSettings), tr("&Offline"), m_accountSettings);
+        addPage(new OutgoingPage(this, *m_accountSettings), tr("&SMTP"), m_accountSettings);
+    } else {
+        addPage(new GeneralPage(this, *m_settings), tr("&General"), m_settings);
+        addPage(new FavoriteTagsPage(this, *m_settings, m_favoriteTags), tr("Favorite &tags"), m_settings);
+    }
 
     buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, Qt::Horizontal, this);
     connect(buttons, &QDialogButtonBox::accepted, this, &SettingsDialog::accept);
@@ -107,6 +111,11 @@ SettingsDialog::SettingsDialog(MainWindow *parent, Composer::SenderIdentitiesMod
     layout->addWidget(buttons);
 
     EMIT_LATER_NOARG(this, reloadPasswordsRequested);
+}
+
+SettingsDialog::Scope SettingsDialog::scope() const
+{
+    return m_scope;
 }
 
 void SettingsDialog::setOriginalPlugins(const QString &passwordPlugin, const QString &addressBookPlugin,

@@ -200,7 +200,7 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
         Composer::AccountIdentities::migrateAccount(*m_settings, *m_accounts->settings(accountId));
 
     if (! accountSettings()->contains(Common::SettingsNames::imapMethodKey)) {
-        QTimer::singleShot(0, this, SLOT(slotShowSettings()));
+        QTimer::singleShot(0, this, SLOT(slotShowAccountSettings()));
     }
 
 
@@ -437,6 +437,9 @@ void MainWindow::createActions()
     connect(configSettings, &QAction::triggered, this, &MainWindow::slotShowSettings);
     m_actionAddAccount = new QAction(UiUtils::loadIcon(QStringLiteral("list-add")), i18n("&Add Account..."), this);
     connect(m_actionAddAccount, &QAction::triggered, this, &MainWindow::slotAddAccount);
+    m_actionAccountSettings = new QAction(UiUtils::loadIcon(QStringLiteral("configure")), i18n("A&ccount Settings..."), this);
+    m_actionAccountSettings->setObjectName(QStringLiteral("action_account_settings"));
+    connect(m_actionAccountSettings, &QAction::triggered, this, &MainWindow::slotShowAccountSettings);
     m_actionRenameAccount = new QAction(i18n("Re&name Account..."), this);
     connect(m_actionRenameAccount, &QAction::triggered, this, &MainWindow::slotRenameAccount);
     m_actionRemoveAccount = new QAction(UiUtils::loadIcon(QStringLiteral("list-remove")), i18n("&Remove Account..."), this);
@@ -781,6 +784,7 @@ void MainWindow::createMenus()
             ADD_ACTION(debugMenu, resyncMbox);
         applicationMenu->addSeparator();
         ADD_ACTION(applicationMenu, m_actionAddAccount);
+        ADD_ACTION(applicationMenu, m_actionAccountSettings);
         ADD_ACTION(applicationMenu, m_actionRenameAccount);
         ADD_ACTION(applicationMenu, m_actionRemoveAccount);
         applicationMenu->addSeparator();
@@ -1664,7 +1668,22 @@ void MainWindow::slotResetReconnectState()
 
 void MainWindow::slotShowSettings()
 {
-    SettingsDialog *dialog = new SettingsDialog(this, m_senderIdentities, accountIdentitiesModel(), m_favoriteTags, m_settings);
+    // Application settings are read where they are used, so the account connection stays as it is.
+    SettingsDialog dialog(this, SettingsDialog::Scope::Application, m_senderIdentities, accountIdentitiesModel(),
+                          m_favoriteTags, m_settings);
+    if (dialog.exec() == QDialog::Accepted) {
+        removeSysTray();
+        slotToggleSysTray();
+    }
+}
+
+void MainWindow::slotShowAccountSettings()
+{
+    SettingsDialog *dialog = new SettingsDialog(this, SettingsDialog::Scope::Account, m_senderIdentities,
+                                                accountIdentitiesModel(), m_favoriteTags, m_settings);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setWindowTitle(i18nc("@title:window %1 is the account name", "Account Settings: %1",
+                                 m_accounts->displayName(m_accounts->activeAccount())));
     if (dialog->exec() == QDialog::Accepted) {
         // FIXME: wipe cache in case we're moving between servers
         nukeModels();
@@ -1908,7 +1927,7 @@ void MainWindow::slotAddAccount()
     const QString accountId = m_accounts->addAccount(name);
     Composer::AccountIdentities::initializeNewAccount(*m_accounts->settings(accountId));
     switchAccount(accountId);
-    slotShowSettings();
+    slotShowAccountSettings();
 }
 
 void MainWindow::cycleAccount(int step)

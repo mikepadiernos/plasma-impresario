@@ -130,11 +130,13 @@ private slots:
 
         window.show();
         QCoreApplication::processEvents();
-        QVERIFY(QMetaObject::invokeMethod(&window, "slotShowSettings", Qt::DirectConnection));
+        QVERIFY(QMetaObject::invokeMethod(&window, "slotShowAccountSettings", Qt::DirectConnection));
         QVERIFY(setupSubmitted);
-        QCOMPARE(settings.value(Common::SettingsNames::imapHostKey).toString(), QStringLiteral("127.0.0.1"));
-        QCOMPARE(settings.value(Common::SettingsNames::imapPortKey).toInt(), port);
-        QCOMPARE(settings.value(Common::SettingsNames::imapUserKey).toString(), QStringLiteral("synthetic@example.test"));
+        // Since accounts were introduced, the dialog saves to the active account's own settings.
+        QSettings *account = window.accountSettings();
+        QCOMPARE(account->value(Common::SettingsNames::imapHostKey).toString(), QStringLiteral("127.0.0.1"));
+        QCOMPARE(account->value(Common::SettingsNames::imapPortKey).toInt(), port);
+        QCOMPARE(account->value(Common::SettingsNames::imapUserKey).toString(), QStringLiteral("synthetic@example.test"));
         QCoreApplication::processEvents();
         QSignalSpy failures(window.imapModel(), &Imap::Mailbox::Model::authAttemptFailed);
         QSignalSpy errors(window.imapModel(), &Imap::Mailbox::Model::imapError);
