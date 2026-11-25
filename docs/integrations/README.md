@@ -8,10 +8,10 @@ recommendations and verification scenarios for each integration. They keep
 planned work separate from the current mail baseline, which is recorded in the
 [UI](../parity/ui.md) and [backend](../parity/backend.md) parity guides.
 
-| Guide                            | Purpose                                                | Roadmap                                                                                                                                                                                         |
-| -------------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 🖥️ [KDE Plasma](kde-plasma.md)   | Desktop services, KDE conventions and system behavior  | M05.01–M05.03 in [M05](../ROADMAP.md#m05-desktop-integration-and-provider-support)                                                                                                              |
-| 🧩 [Plasma Opus](plasma-opus.md) | Cross-app, workspace, theme and productivity workflows | M05.03, [M07](../ROADMAP.md#m07-settings-and-workspace-configuration), [M08](../ROADMAP.md#m08-themes-and-branding-foundation), [M11](../ROADMAP.md#m11-nextcloud-and-digital-asset-management) |
+| Guide                            | Purpose                                                | Roadmap                                                                                                                                                                                                                                       |
+| -------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🖥️ [KDE Plasma](kde-plasma.md)   | Desktop services, KDE conventions and system behavior  | M05.06 in [M05](../ROADMAP.md#m05-search-and-indexing); M06.01–M06.03 in [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support)                                                                                                    |
+| 🧩 [Plasma Opus](plasma-opus.md) | Cross-app, workspace, theme and productivity workflows | [M05](../ROADMAP.md#m05-search-and-indexing), M06.03, [M08](../ROADMAP.md#m08-settings-and-workspace-configuration), [M09](../ROADMAP.md#m09-themes-and-branding-foundation), [M12](../ROADMAP.md#m12-nextcloud-and-digital-asset-management) |
 
 Most integrations are planned. Each guide starts with a table that separates
 what the client does today from planned work.

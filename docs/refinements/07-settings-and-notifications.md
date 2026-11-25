@@ -1,7 +1,7 @@
 # Settings and notifications refinement
 
 **[Refinements](README.md)** ·
-**[M12 in roadmap](../ROADMAP.md#m12-refinements)** ·
+**[M13 in roadmap](../ROADMAP.md#m13-refinements)** ·
 **[Previous: Security and privacy](06-security-and-privacy.md)** ·
 **[Next: Desktop, services and assets](08-desktop-services-and-assets.md)**
 
@@ -9,7 +9,7 @@ Refines settings organization, defaults, workspace preferences, notifications,
 status output and background-task feedback.
 
 **Roadmap subsection:**
-[M12.08: Settings and notifications](../ROADMAP.md#m12-refinements) · **Issue:**
+[M13.08: Settings and notifications](../ROADMAP.md#m13-refinements) · **Issue:**
 [#27](https://github.com/mikepadiernos/plasma-impresario/issues/27)
 
 ## Focus

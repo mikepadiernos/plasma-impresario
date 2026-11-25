@@ -1,7 +1,7 @@
 # KDE Plasma integrations
 
 **[Integrations](README.md)** · **[Plasma Opus](plasma-opus.md)** ·
-**[Roadmap: M05](../ROADMAP.md#m05-desktop-integration-and-provider-support)** ·
+**[Roadmap: M06](../ROADMAP.md#m06-desktop-integration-and-provider-support)** ·
 **[UI parity](../parity/ui.md)** · **[Caveats](../CAVEATS.md)**
 
 Plasma Impresario targets KDE Plasma only. This guide lists the intended desktop
@@ -19,21 +19,23 @@ Status: ✅ done or verified · 🧪 implemented, needs verification · 📋 pla
 ## Status
 
 Roadmap work is in
-[M05](../ROADMAP.md#m05-desktop-integration-and-provider-support): **M05.01**
-KDE and Plasma services, **M05.02** Plasma widgets and desktop feedback, and
-**M05.03** file manager handoff. Notification controls are also part of
-[M06](../ROADMAP.md#m06-output-notifications-and-rules-automation), and app
-themes are part of [M08](../ROADMAP.md#m08-themes-and-branding-foundation).
+[M06](../ROADMAP.md#m06-desktop-integration-and-provider-support): **M06.01**
+KDE and Plasma services, **M06.02** Plasma widgets and desktop feedback, and
+**M06.03** file manager handoff. Baloo search is part of [M05](../ROADMAP.md#m05-search-and-indexing).
+Notification controls are also part of
+[M07](../ROADMAP.md#m07-output-notifications-and-rules-automation), and app
+themes are part of [M09](../ROADMAP.md#m09-themes-and-branding-foundation).
 
 | Area                                                                     | Status | Current behavior                                                                                                                                                              | Roadmap        |
 | ------------------------------------------------------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| 🪟 [Windows and session lifecycle](#windows-and-session-lifecycle)       | 🧪     | Shell layout, panel and density preferences are stored with KConfig; the selected folder and message with `KSharedConfig::openStateConfig()`. No Plasma session-restore hooks | M05.01         |
-| 🔔 [Notifications and status](#notifications-and-status)                 | ⚠️     | The footer shows connection status; an optional tray icon shows unread counts and network errors. KNotification is not used                                                   | M05.01, M06    |
-| 🧩 [Plasma widgets](#plasma-widgets)                                     | 📋     | None                                                                                                                                                                          | M05.02         |
-| 📎 [Files and attachments](#files-and-attachments)                       | ⚠️     | `QFileDialog` for open and save; attachments open through desktop file associations; the composer accepts dropped local files only. KIO is not used                           | M05.01, M05.03 |
-| 🔑 [Settings and credentials](#settings-and-credentials)                 | ⚠️     | Account settings use `QSettings`; passwords use the QtKeychain or cleartext plugin ([details](../CAVEATS.md#security-and-data-protection))                                    | M05.01         |
-| 🎨 [Appearance and accessibility](#appearance-and-accessibility)         | 🧪     | Theme icons and a row density selector; accessibility, high-contrast and scaling checks are not recorded                                                                      | M05.01, M08    |
-| 🚀 [Desktop actions and availability](#desktop-actions-and-availability) | 🧪     | The desktop entry registers the `mailto:` scheme handler and a Composer action                                                                                                | M05.01         |
+| 🪟 [Windows and session lifecycle](#windows-and-session-lifecycle)       | 🧪     | Shell layout, panel and density preferences are stored with KConfig; the selected folder and message with `KSharedConfig::openStateConfig()`. No Plasma session-restore hooks | M06.01         |
+| 🔔 [Notifications and status](#notifications-and-status)                 | ⚠️     | The footer shows connection status; an optional tray icon shows unread counts and network errors. KNotification is not used                                                   | M06.01, M07    |
+| 🧩 [Plasma widgets](#plasma-widgets)                                     | 📋     | None                                                                                                                                                                          | M06.02         |
+| 📎 [Files and attachments](#files-and-attachments)                       | ⚠️     | `QFileDialog` for open and save; attachments open through desktop file associations; the composer accepts dropped local files only. KIO is not used                           | M06.01, M06.03 |
+| 🔍 [Search and indexing](#search-and-indexing)                           | 📋     | Search runs on the IMAP server for the selected mailbox; Baloo, KRunner and a local index are not used                                                                        | M05, M06.01    |
+| 🔑 [Settings and credentials](#settings-and-credentials)                 | ⚠️     | Account settings use `QSettings`; passwords use the QtKeychain or cleartext plugin ([details](../CAVEATS.md#security-and-data-protection))                                    | M06.01         |
+| 🎨 [Appearance and accessibility](#appearance-and-accessibility)         | 🧪     | Theme icons and a row density selector; accessibility, high-contrast and scaling checks are not recorded                                                                      | M06.01, M09    |
+| 🚀 [Desktop actions and availability](#desktop-actions-and-availability) | 🧪     | The desktop entry registers the `mailto:` scheme handler and a Composer action                                                                                                | M06.01         |
 
 ## Windows and session lifecycle
 
@@ -66,7 +68,7 @@ themes are part of [M08](../ROADMAP.md#m08-themes-and-branding-foundation).
 
 ## Plasma widgets
 
-Planned in **M05.02** (Plasma widgets and desktop feedback).
+Planned in **M06.02** (Plasma widgets and desktop feedback).
 
 - **What:** Offer optional Plasma widgets for the desktop or panel, such as an
   unread-count summary, account sync status, a compose shortcut and a scrolling
@@ -89,9 +91,9 @@ Planned in **M05.02** (Plasma widgets and desktop feedback).
 
 ## Files and attachments
 
-KDE file dialogs and KIO are part of **M05.01**; compose requests, dropped
+KDE file dialogs and KIO are part of **M06.01**; compose requests, dropped
 remote files and showing saved attachments in the file manager are part of
-**M05.03** (see
+**M06.03** (see
 [Plasma Opus integrations](plasma-opus.md#plasma-opus-features-to-use)).
 
 - **What:** Save, open, preview and share attachments using familiar Plasma file
@@ -106,6 +108,26 @@ remote files and showing saved attachments in the file manager are part of
 - **Verify:** Test local and KIO destinations, unavailable or read-only
   locations, interrupted downloads, duplicate filenames and missing file
   associations with isolated attachments.
+
+## Search and indexing
+
+Mail search and the optional local index are planned in
+[M05](../ROADMAP.md#m05-search-and-indexing); the KRunner provider is part of
+**M06.01** (see [Plasma Opus search and
+indexing](plasma-opus.md#search-and-indexing)).
+
+- **What:** Find saved attachments and exported messages with Plasma's file
+  search, and optionally find mail from KRunner (Plasma Search).
+- **How:** Open KIO `baloosearch:` URLs in the default file manager for files on
+  disk. Keep the mail index in the app's SQLite cache, and serve a KRunner
+  provider from it only when the user enables it.
+- **Recommendations:** Never send message content to Baloo. Show only subject,
+  sender and date in KRunner and return nothing when the index is off. Explain
+  when Baloo file indexing is disabled or excludes the save location, and offer
+  a live search instead.
+- **Verify:** Test with Baloo indexing on, off and excluding the save location,
+  and with the KRunner provider enabled and disabled, using isolated files and
+  synthetic messages.
 
 ## Settings and credentials
 

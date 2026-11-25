@@ -81,8 +81,8 @@ Thunderbird is a desktop reference for keeping multiple mail and productivity
 views accessible in tabs.
 
 - Switch between open mail views and messages without losing context.
-- Keep the tab bar unobtrusive when it is not needed; Thunderbird's
-  [main-window guide](https://support.mozilla.org/en-US/kb/getting-started-thunderbird-main-window-supernova)
+- Keep the tab bar unobtrusive when it is not needed; Thunderbird's [main-window
+  guide](https://support.mozilla.org/en-US/kb/getting-started-thunderbird-main-window-supernova)
   describes its tab bar and mail layout.
 - Adapt tab navigation to Plasma Impresario's pane layout rather than
   reproducing Thunderbird's interface.
@@ -164,6 +164,23 @@ heavy enterprise-style system.
 - Message categorization beyond basic folders
 - A desktop-oriented mindset that complements KDE and Plasma workflows
 
+## Search patterns
+
+Search in [M05](../ROADMAP.md#m05-search-and-indexing) starts from Trojitá's
+per-mailbox IMAP quick search and adds the patterns below. Plasma Opus
+contributes its query syntax and indexing conventions; see [Plasma Opus search
+and indexing](../integrations/plasma-opus.md#search-and-indexing).
+
+| Reference            | Pattern                                                                                                                 | Roadmap                 |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| 🧱 Trojitá           | Server-side quick search per mailbox with field toggles, raw IMAP queries and fuzzy matching                            | Baseline kept in M05.01 |
+| 🗂️ Thunderbird       | Global search with facets, saved searches as virtual folders, a match-all or match-any search builder and quick filters | M05.02, M05.03, M05.05  |
+| 🔍 Vivaldi Mail      | A full-text index across accounts, cross-account results and mailing-list views                                         | M05.01, M05.03, M05.04  |
+| 📬 Aqua Mail         | Local results first with optional server search, and search history                                                     | M05.02, M05.04          |
+| ⚙️ The Bat!          | Detailed search conditions and rules created from searches                                                              | M05.02, M07             |
+| 🖥️ KMail and Kontact | Search folders over an index and desktop search integration                                                             | M05.03, M05.04, M06.01  |
+| 🚀 Javelin Mail      | Asynchronous search that keeps the interface responsive                                                                 | M05.01                  |
+
 ## Design synthesis
 
 Plasma Impresario combines these influences into a client that feels fast,
@@ -173,8 +190,8 @@ familiar and integrated with Plasma without copying any single application.
 | --------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 🧱 Trojitá      | KDE-native, IMAP-first discipline               | The [M01](../ROADMAP.md#m01-kde--qt6-compatibility-baseline) baseline and the [current interface](designs.md#current-interface)                                                                             |
 | 📬 Aqua Mail    | Clarity, quick actions and unified triage       | Unified inbox and quick actions in [M03](../ROADMAP.md#m03-mail-operations-sorting-and-folder-management)                                                                                                   |
-| 🔍 Vivaldi Mail | Cross-account organization and searchable views | Saved searches in M02; scoped search in [M04](../ROADMAP.md#m04-reading-search-and-conversation-flow)                                                                                                       |
-| 🗂️ Thunderbird  | Optional multi-view tabs                        | [Optional tabs](designs.md#optional-tabs) in [M07](../ROADMAP.md#m07-settings-and-workspace-configuration)                                                                                                  |
-| ⚙️ The Bat!     | Power-user density, batching and rules          | Batch workflows in M03, rules in [M06](../ROADMAP.md#m06-output-notifications-and-rules-automation) and the MailTicker-inspired widget in [M05](../ROADMAP.md#m05-desktop-integration-and-provider-support) |
-| 🖥️ Kontact      | Desktop integration and KDE polish              | KDE services and agenda/contacts in [M05](../ROADMAP.md#m05-desktop-integration-and-provider-support)                                                                                                       |
-| 🏷️ ePim         | Tags, local organization and workspace context  | [My Day / Agenda](designs.md#embedded-panels) and workspaces in [M07](../ROADMAP.md#m07-settings-and-workspace-configuration)                                                                               |
+| 🔍 Vivaldi Mail | Cross-account organization and searchable views | Saved searches in M02; cross-account search, an opt-in index and list views in [M05](../ROADMAP.md#m05-search-and-indexing)                                                                                 |
+| 🗂️ Thunderbird  | Optional multi-view tabs                        | [Optional tabs](designs.md#optional-tabs) in [M08](../ROADMAP.md#m08-settings-and-workspace-configuration)                                                                                                  |
+| ⚙️ The Bat!     | Power-user density, batching and rules          | Batch workflows in M03, rules in [M07](../ROADMAP.md#m07-output-notifications-and-rules-automation) and the MailTicker-inspired widget in [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support) |
+| 🖥️ Kontact      | Desktop integration and KDE polish              | KDE services and agenda/contacts in [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support)                                                                                                       |
+| 🏷️ ePim         | Tags, local organization and workspace context  | [My Day / Agenda](designs.md#embedded-panels) and workspaces in [M08](../ROADMAP.md#m08-settings-and-workspace-configuration)                                                                               |

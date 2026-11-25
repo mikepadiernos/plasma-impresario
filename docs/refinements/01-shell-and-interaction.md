@@ -1,7 +1,7 @@
 # Shell and interaction refinement
 
 **[Refinements](README.md)** ·
-**[M12 in roadmap](../ROADMAP.md#m12-refinements)** ·
+**[M13 in roadmap](../ROADMAP.md#m13-refinements)** ·
 **[Previous: Cross-product quality](00-cross-product-quality.md)** ·
 **[Next: Accounts, sync and storage](02-accounts-sync-and-storage.md)**
 
@@ -9,7 +9,7 @@ Refines navigation, panes, layouts, keyboard flow and general interaction
 quality.
 
 **Roadmap subsection:**
-[M12.02: Shell and interaction](../ROADMAP.md#m12-refinements) · **Issue:**
+[M13.02: Shell and interaction](../ROADMAP.md#m13-refinements) · **Issue:**
 [#21](https://github.com/mikepadiernos/plasma-impresario/issues/21) · **Specs:**
 [menus](menus/README.md), [toolbars](toolbars/README.md)
 

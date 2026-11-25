@@ -1,15 +1,15 @@
 # Search, sorting, and automation refinement
 
 **[Refinements](README.md)** ·
-**[M12 in roadmap](../ROADMAP.md#m12-refinements)** ·
+**[M13 in roadmap](../ROADMAP.md#m13-refinements)** ·
 **[Previous: Reading, composition and attachments](04-reading-composition-and-attachments.md)**
 · **[Next: Security and privacy](06-security-and-privacy.md)**
 
 Refines search, saved filters, sorting, threading and existing rules or
-automation.
+automation. Search itself is built in [M05](../ROADMAP.md#m05-search-and-indexing).
 
 **Roadmap subsection:**
-[M12.06: Search, sorting, and automation](../ROADMAP.md#m12-refinements) ·
+[M13.06: Search, sorting, and automation](../ROADMAP.md#m13-refinements) ·
 **Issue:** [#25](https://github.com/mikepadiernos/plasma-impresario/issues/25)
 
 ## Focus
