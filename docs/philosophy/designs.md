@@ -395,6 +395,9 @@ is requested. Date groups follow the sort direction, newest first when
 descending; the other groups are alphabetical, and the sorting applies inside
 each group. **Expand All Groups** and **Collapse All
 Groups** are in the Group By menu and, while grouping, in the context menu.
+Likewise **Expand All Conversations** (<kbd>Ctrl</kbd>+<kbd>.</kbd>) and
+**Collapse All Conversations** (<kbd>Ctrl</kbd>+<kbd>,</kbd>) open and close
+every thread while the list is grouped by Conversation.
 Collapsed groups stay collapsed until the grouping or the account changes.
 Headers cannot be selected; message actions, Select All, drag and drop, the
 reader and the related-messages panel skip them. Up and Down step over the
@@ -613,6 +616,15 @@ without the mouse ([#91](https://github.com/mikepadiernos/plasma-impresario/issu
   unread one, and <kbd>F</kbd> and <kbd>B</kbd> go to the next and previous
   message. Archive and Trash select the following message.
 - Opening a message marks it read, after the delay set in the reader settings.
+- <kbd>Alt</kbd>+<kbd>Down</kbd> and <kbd>Alt</kbd>+<kbd>Up</kbd> (**Next** and
+  **Previous Message in Conversation** in the Mailbox menu) step through the
+  conversation of the current message from the oldest message to the newest,
+  whatever the list's sorting, and stop at either end
+  ([#40](https://github.com/mikepadiernos/plasma-impresario/issues/40)). In a
+  threaded list the conversation is the thread, and a collapsed thread opens
+  on the way. In a flat or grouped list it follows the loaded messages linked
+  to the current one by subject, In-Reply-To or Message-ID, and through them
+  to further replies, so a reply under a new subject is included.
 
 ### Status bar
 

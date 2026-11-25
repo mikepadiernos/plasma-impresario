@@ -171,6 +171,7 @@ M04 is in progress on `feature/m04-reading-flow`
 | Load on demand   | Parts which cannot be loaded, for example offline, are reported in the reader and load again on reconnect or Try Again                                   | ![Needs verification][needs-verification] |
 | Reader actions   | A bar above the reader replies, forwards, archives, trashes, flags, marks read, shows attachments, zooms and switches to plain text for the open message | ![Needs verification][needs-verification] |
 | Reading, triage  | Plain text wraps at a readable width; Space pages through the open message and then opens the next unread one                                            | ![Needs verification][needs-verification] |
+| Conversations    | Alt+Down and Alt+Up step through a conversation from oldest to newest, threaded or not; Ctrl+. and Ctrl+, expand and collapse every thread               | ![Needs verification][needs-verification] |
 | Keyboard         | F6 follows the screen order of panes and panels, also in right-to-left layouts; Escape returns from the reader or a panel to the message list            | ![Needs verification][needs-verification] |
 
 Inline PGP is detected but not verified; see
