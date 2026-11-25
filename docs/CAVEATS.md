@@ -186,9 +186,11 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
   [#398](https://github.com/mikepadiernos/plasma-impresario/issues/398), for
   Microsoft accounts).
 - 📋 Keep the previous grant until a dialog that signed in with another
-  provider or client is saved, then revoke it.
+  provider or client is saved, then revoke it (M14.03,
+  [#428](https://github.com/mikepadiernos/plasma-impresario/issues/428)).
 - 📋 Skip revocation when signing out in Account Settings if another account
-  shares the grant.
+  shares the grant (M14.03,
+  [#429](https://github.com/mikepadiernos/plasma-impresario/issues/429)).
 - 📋 Verify sign-in and revocation with a real provider account
   ([#317](https://github.com/mikepadiernos/plasma-impresario/issues/317), M15).
 

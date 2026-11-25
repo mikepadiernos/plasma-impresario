@@ -294,9 +294,8 @@ need a real session.
 - 📋 **OAuth:** the M02 items of [caveat #362](CAVEATS.md#oauth-sign-in) are
   merged in [#421](https://github.com/mikepadiernos/plasma-impresario/pull/421).
   Still open: the Microsoft tenant and shared token session (#397, #398,
-  M13.01), live sign-in (#317, M15), and two proposals without a milestone:
-  keeping a replaced grant until the dialog is saved, and skipping revocation
-  in Account Settings for a grant another account shares.
+  M13.01), live sign-in (#317, M15), and the grant follow-ups #428 and #429
+  in M14.03.
 - 📋 **Panels:** the M02 item of
   [caveat #264](CAVEATS.md#related-messages-and-message-details-panels), pane
   sizes after upgrading, is merged in

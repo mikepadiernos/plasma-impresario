@@ -47,7 +47,7 @@ Board statuses as of 2026-11-25.
 | [M11](#m11-release-readiness-and-polish) | 🚀 Release readiness and polish | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12) | ⬜⬜⬜⬜⬜ 0/10 | 📋 Backlog |
 | [M12](#m12-nextcloud-and-digital-asset-management) | ☁️ Nextcloud and digital asset management | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31) | ⬜⬜⬜⬜⬜ 0/7 | 📋 Backlog |
 | [M13](#m13-microsoft-accounts-and-exchange) | 🏢 Microsoft accounts and Exchange | [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388) | ⬜⬜⬜⬜⬜ 0/24 | 📋 Backlog |
-| [M14](#m14-refinements) | ✨ Refinements | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15) | ⬜⬜⬜⬜⬜ 0/82 | 📋 Backlog |
+| [M14](#m14-refinements) | ✨ Refinements | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15) | ⬜⬜⬜⬜⬜ 0/84 | 📋 Backlog |
 | [M15](#m15-real-plasma-session-verification) | 🖥️ Real Plasma session verification | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ⬜⬜⬜⬜⬜ 0/3 | 📋 Defined |
 
 > [!TIP]
@@ -1098,6 +1098,13 @@ to mail workflows without blocking this milestone on unavailable features.
     app password or mail access, outgoing server and mailbox. See
     [E-Mail](philosophy/inspirations.md#e-mail).
     [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318077264)
+  - [ ] Keep an account's previous OAuth grant when Account Settings signs in
+    with another provider or client, and replace it only when the dialog is
+    saved
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318235163)
+  - [ ] Skip revocation when signing out in Account Settings if another account
+    shares the OAuth grant
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318235339)
 
 - **M14.04: Mail organization and triage**
 
