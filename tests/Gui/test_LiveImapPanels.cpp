@@ -14,8 +14,11 @@
 #include "Gui/MsgListView.h"
 #include "Gui/RelatedMessagesPanel.h"
 #include "Gui/Window.h"
+#include "Gui/InlineNotificationBar.h"
+#include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/Model.h"
+#include "Imap/Model/NetworkWatcher.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -37,6 +40,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <memory>
 
 namespace {
 
@@ -195,9 +199,9 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT((inbox = findMailbox(tree->model(), QStringLiteral("INBOX"))).isValid(), 20000);
         tree->scrollTo(inbox);
         QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(inbox).center());
-        QTRY_COMPARE_WITH_TIMEOUT(inbox.data(Imap::Mailbox::RoleTotalMessageCount).toInt(), 6, 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(inbox.data(Imap::Mailbox::RoleTotalMessageCount).toInt(), 7, 10000);
         for (const auto *subject : {"Quarterly plan", "Re: Quarterly plan", "Budget numbers", "Signed release note", "Lunch on Friday",
-                                    "Weekly news"})
+                                    "Weekly news", "Travel plans"})
             QTRY_VERIFY2_WITH_TIMEOUT(findMessage(messages, QString::fromUtf8(subject)).isValid(), subject, 10000);
 
         const auto open = [&](const QString &subject) {
@@ -363,6 +367,32 @@ private slots:
         QTRY_VERIFY(!remote->isVisible());
         open(QStringLiteral("Lunch on Friday"));
         QVERIFY(remote->blockedHosts().isEmpty());
+
+        // Offline, a body which was never downloaded is reported instead of a blank or a Chromium error page,
+        // and it loads on its own when the network comes back.
+        auto *watcher = qobject_cast<Imap::Mailbox::NetworkWatcher *>(window.imapAccess()->networkWatcher());
+        auto *partErrors = reader->findChild<Gui::InlineNotificationBar *>(QStringLiteral("partLoadErrors"));
+        QVERIFY(watcher);
+        QVERIFY(partErrors);
+        QVERIFY(!partErrors->isVisible());
+        watcher->setNetworkOffline();
+        QTRY_VERIFY_WITH_TIMEOUT(!window.imapModel()->isNetworkAvailable(), 10000);
+        open(QStringLiteral("Travel plans"));
+        QTRY_VERIFY_WITH_TIMEOUT(partErrors->isVisible(), 15000);
+        QCOMPARE(partErrors->kind(), Gui::InlineNotificationBar::Kind::Error);
+        QVERIFY2(partErrors->text().contains(QLatin1String("offline")), qPrintable(partErrors->text()));
+        QVERIFY(partErrors->actionButtons().isEmpty());
+        snapshot(window, QStringLiteral("12-wide-part-unavailable-offline"));
+        watcher->setNetworkOnline();
+        QTRY_VERIFY_WITH_TIMEOUT(!partErrors->isVisible(), 20000);
+        auto *travelBody = reader->findChild<Gui::EmbeddedWebView *>();
+        QVERIFY(travelBody);
+        // Callbacks still pending when the window goes away must not write into this stack frame
+        const auto bodyText = std::make_shared<QString>();
+        QTRY_VERIFY_WITH_TIMEOUT(
+            (travelBody->page()->toPlainText([bodyText](const QString &text) { *bodyText = text; }),
+             bodyText->contains(QLatin1String("The train leaves at nine"))),
+            20000);
 
         QCOMPARE(passwordPrompts, 0);
         QVERIFY2(imapErrors.isEmpty(), qPrintable(imapErrors.isEmpty() ? QString() : imapErrors.first().first().toString()));
