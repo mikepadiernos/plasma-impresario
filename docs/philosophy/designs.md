@@ -161,6 +161,37 @@ current message stays listed while it is current, even after it stops
 matching (for example, when reading marks it read under Unread). It is hidden
 once another message becomes current.
 
+**View › Group By** and the Sort button's menu offer **None**,
+**Conversation**, **Date**, **Sender**, **Subject**, **Tag**, **Read State**
+and **Mailing List**. None and Conversation are the flat and threaded lists
+from before and follow the threading preference of all accounts. The other
+choices turn threading off and add a bold, collapsible header for each group
+with its message and unread counts, such as _Today (5, 2 unread)_. Date groups
+are Today, Yesterday, Earlier This Week, Last Week, Earlier This Month and then
+one group per month. Sender groups by address, Subject by the subject without
+reply prefixes and list tags, and Mailing List by the List-Post address, with
+_Not from a list_ last. Tag puts a message with several tags under its first
+favourite tag, or else under its alphabetically first tag, with _No Tag_ last.
+Read State shows Unread before Read, so reading a message moves it to Read.
+Messages whose envelope has not arrived wait in a _Loading…_ group while it
+is requested. Date groups follow the sort direction, newest first when
+descending; the other groups are alphabetical, and the sorting applies inside
+each group. The choice is stored per account as `gui/msgList.groupBy`, which
+is absent for None and Conversation. **Expand All Groups** and **Collapse All
+Groups** are in the Group By menu and, while grouping, in the context menu.
+Collapsed groups stay collapsed until the grouping or the account changes.
+Headers cannot be selected; message actions, Select All, drag and drop, the
+reader and the related-messages panel skip them. Up and Down step over the
+headers of expanded groups, and Left and Right collapse and expand a group
+from its header.
+
+**Relevance** in the Sorting menu is available only while a quick search or
+Show Related filter is on; otherwise it is disabled and its tooltip says why.
+It ranks the loaded messages locally: a search word in the subject counts
+most, then in the sender, then in the recipients, and the newer message wins a
+tie. Messages which have not loaded yet come last. When the search is cleared,
+the list returns to the sorting from before.
+
 Below the list, a **status line** shows the folder's message and unread
 counts as reported by the server (_120 messages, 7 unread_). It adds _showing
 7 of 120_ while filters are on and _3 selected_ when more than one message is
@@ -465,8 +496,10 @@ claims that every component is implemented.
   without obscuring the current folder or selection. Inspired by Vivaldi Mail
   and The Bat!. Unread, Flagged and With Attachments quick filters, a Sort
   button, selection commands, folder counts and Show Related filters by the
-  current message's sender, recipient, subject or mailing list are implemented
-  (see [Current interface](#current-interface)); filters by tag or date and
+  current message's sender, recipient, subject or mailing list, grouping by
+  conversation, date, sender, subject, tag, read state or mailing list, and
+  relevance sorting of search results are implemented (see
+  [Current interface](#current-interface)); filters by tag or date and
   per-folder filter state remain planned.
 - **Conversation reader:** Display message content, metadata, quoted text and
   reply actions in a focused reading pane. Inspired by Trojitá and Aqua Mail.
