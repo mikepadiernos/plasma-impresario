@@ -24,6 +24,7 @@
 #include "test_Imap_DisappearingMailboxes.h"
 #include "data.h"
 #include "Imap/Model/ItemRoles.h"
+#include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/TaskPresentationModel.h"
 #include "Streams/FakeSocket.h"
 #include "Utils/FakeCapabilitiesInjector.h"
@@ -297,6 +298,65 @@ void ImapModelDisappearingMailboxTest::testPartFetchAfterMailboxDisappears()
     QVERIFY(!idxB.isValid());
     cServer(fetchResponse);
     QVERIFY(errorSpy->isEmpty());
+}
+
+/** @short Reloading the mailbox list tells the message list which mailbox it lost, so that it can be opened again */
+void ImapModelDisappearingMailboxTest::testMessageListReportsLostMailbox()
+{
+    helperSyncBNoMessages();
+    msgListModel->setMailbox(idxB);
+    QCOMPARE(msgListModel->currentMailbox().data(Imap::Mailbox::RoleMailboxName).toString(), QStringLiteral("b"));
+    QSignalSpy lost(msgListModel, &Imap::Mailbox::MsgListModel::mailboxLost);
+    taskFactoryUnsafe->fakeListChildMailboxes = false;
+    FakeCapabilitiesInjector injector(model);
+    injector.injectCapability(QStringLiteral("UNSELECT"));
+    model->reloadMailboxList();
+    cClient(t.mk("LIST \"\" \"%\"\r\n"));
+    cServer(QByteArray("* LIST (\\HasNoChildren) \".\" \"b\"\r\n"
+                       "* LIST (\\HasNoChildren) \".\" \"a\"\r\n") + t.last("OK listed\r\n"));
+    QCOMPARE(lost.size(), 1);
+    QCOMPARE(lost.first().first().toString(), QStringLiteral("b"));
+    QVERIFY(!msgListModel->currentMailbox().isValid());
+    QCOMPARE(msgListModel->rowCount(), 0);
+    // The new item of the same name is there to be opened again
+    QVERIFY(model->mailboxIndexByName(QStringLiteral("b")).isValid());
+}
+
+void ImapModelDisappearingMailboxTest::testSelectPipelinedAfterUnselect_data()
+{
+    QTest::addColumn<bool>("qresync");
+    QTest::newRow("plain") << false;
+    QTest::newRow("qresync") << true;
+}
+
+/** @short Reopening a reloaded mailbox sends SELECT right after the UNSELECT of its old item; the UNSELECT's reply must not
+reset the connection under the SELECT, and no CLOSED is due for a SELECT after an UNSELECT */
+void ImapModelDisappearingMailboxTest::testSelectPipelinedAfterUnselect()
+{
+    QFETCH(bool, qresync);
+    helperSyncBNoMessages();
+    msgListModel->setMailbox(idxB);
+    taskFactoryUnsafe->fakeListChildMailboxes = false;
+    FakeCapabilitiesInjector injector(model);
+    injector.injectCapability(QStringLiteral("UNSELECT"));
+    if (qresync)
+        injector.injectCapability(QStringLiteral("QRESYNC"));
+    model->reloadMailboxList();
+    cClient(t.mk("LIST \"\" \"%\"\r\n"));
+    cServer(QByteArray("* LIST (\\HasNoChildren) \".\" \"b\"\r\n"
+                       "* LIST (\\HasNoChildren) \".\" \"a\"\r\n") + t.last("OK listed\r\n"));
+    msgListModel->setMailbox(QStringLiteral("b"));
+    const QByteArray unselect = t.mk("UNSELECT\r\n");
+    const QByteArray unselectDone = t.last("OK unselected\r\n");
+    cClient(unselect + t.mk("SELECT b\r\n"));
+    const QByteArray selectDone = t.last("OK selected\r\n");
+    cServer(unselectDone);
+    cServer("* 0 EXISTS\r\n" + selectDone);
+    cEmpty();
+    QVERIFY(errorSpy->isEmpty());
+    QCOMPARE(msgListModel->currentMailbox().data(Imap::Mailbox::RoleMailboxName).toString(), QStringLiteral("b"));
+    const QModelIndex newMsgList = model->index(0, 0, model->mailboxIndexByName(QStringLiteral("b")));
+    QVERIFY(newMsgList.data(Imap::Mailbox::RoleIsFetched).toBool());
 }
 
 /** @short Connection going offline shall not be reused for further requests for message structure
