@@ -22,6 +22,7 @@
 #include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QFile>
 #include <QInputDialog>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -245,6 +246,55 @@ private slots:
         QCOMPARE(window.imapAccess()->server(), QStringLiteral("work.example.test"));
         QCOMPARE(window.accountSettings()->value(Common::SettingsNames::imapHostKey).toString(),
             QStringLiteral("work.example.test"));
+    }
+
+    void clientSecretStaysOutOfTheSettings()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        {
+            QSettings work(directory.filePath(QStringLiteral("main-account-1.conf")), QSettings::IniFormat);
+            work.setValue(Common::SettingsNames::imapAuthMethodKey, Common::SettingsNames::authMethodOAuth);
+            work.setValue(Common::SettingsNames::oauthProviderKey, QStringLiteral("microsoft"));
+            work.setValue(Common::SettingsNames::oauthClientIdKey, QStringLiteral("work-client"));
+            // Saved by an older version, before the secret moved into the stored grant
+            work.setValue(Common::SettingsNames::oauthClientSecretKey, QStringLiteral("legacy-secret"));
+        }
+        Gui::MainWindow window(&settings);
+
+        bool blocked = false;
+        QString legacyPlaceholder;
+        QVERIFY(
+            handleDialog([&]() { window.findChild<QAction *>(QStringLiteral("action_account_settings"))->trigger(); },
+                [&](QDialog *dialog) {
+                    auto *secret = dialog->findChild<QLineEdit *>(QStringLiteral("oauthClientSecret"));
+                    QVERIFY(secret);
+                    // The field never shows a saved secret
+                    QVERIFY(secret->text().isEmpty());
+                    legacyPlaceholder = secret->placeholderText();
+                    auto *smtpHost = dialog->findChild<QLineEdit *>(QStringLiteral("smtpHost"));
+                    QVERIFY(smtpHost);
+                    smtpHost->setText(QStringLiteral("smtp.work.example.test"));
+                    // A new secret is only kept by signing in, so saving it unsigned is refused
+                    secret->setText(QStringLiteral("typed-secret"));
+                    save(dialog);
+                    blocked = dialog->isVisible();
+                    secret->clear();
+                    save(dialog);
+
+                }));
+        QVERIFY(blocked);
+        QVERIFY(!legacyPlaceholder.isEmpty());
+        QFile file(directory.filePath(QStringLiteral("main-account-1.conf")));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QByteArray saved = file.readAll();
+        QVERIFY(!saved.contains("typed-secret"));
+        // Without a grant to move it into, the legacy secret stays for the next connection
+        QSettings work(directory.filePath(QStringLiteral("main-account-1.conf")), QSettings::IniFormat);
+        QCOMPARE(work.value(Common::SettingsNames::oauthClientSecretKey).toString(), QStringLiteral("legacy-secret"));
+        QCOMPARE(work.value(Common::SettingsNames::oauthClientIdKey).toString(), QStringLiteral("work-client"));
     }
 
     void addingAnAccountOpensItsAccountSettings()

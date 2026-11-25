@@ -33,6 +33,19 @@ class Session : public TokenSource
 public:
     using BrowserLauncher = std::function<bool(const QUrl &)>;
 
+    /** @short What happened to the grant at the provider when signing out */
+    enum class Revocation {
+        /** No grant was stored */
+        NotNeeded,
+        /** The provider revoked the grant, or already considered it invalid */
+        Revoked,
+        /** The provider offers no revocation endpoint; see Provider::accessManagementPage */
+        Unsupported,
+        /** The revocation request failed; the grant may still be valid at the provider */
+        Failed,
+    };
+    Q_ENUM(Revocation)
+
     Session(const AccountConfig &config, TokenStore::PluginGetter passwordPlugin, QObject *parent = nullptr);
     ~Session() override;
 
@@ -46,6 +59,8 @@ public:
     void setNetworkAccessManager(QNetworkAccessManager *manager);
     /** @short Replace the system browser, e.g. in tests; returns false when the URL cannot be opened */
     void setBrowserLauncher(BrowserLauncher launcher);
+    /** @short Replace the browser of every session created afterwards, e.g. in tests of the main window */
+    static void setDefaultBrowserLauncher(BrowserLauncher launcher);
     /** @short How long authorize() waits for the browser to return */
     void setAuthorizationTimeout(int milliseconds);
 
@@ -54,12 +69,23 @@ public:
     /** @short The loopback redirect URI of the running authorization, or an empty string */
     QString redirectUri() const;
 
+    /** @short The client secret stored with the grant, once checkSignedIn() or authorize() found or stored one */
+    QString storedClientSecret() const;
+
+    /**
+     * @short Move a client secret from the settings file into the stored grant
+     *
+     * Calls @arg moved once the grant holds the configured secret, so that the caller can remove it from the
+     * settings. Nothing happens without a configured secret or without a grant for the current configuration.
+     */
+    void migrateClientSecret(std::function<void()> moved);
+
 public slots:
     /** @short Open the browser for consent and store the resulting grant; answered by authorized() or authorizationFailed() */
     void authorize();
     /** @short Stop a running authorization */
     void cancel();
-    /** @short Forget the cached access token and delete the stored grant */
+    /** @short Revoke the stored grant at the provider where possible, then delete it; answered by signedOut() */
     void signOut();
     /** @short Find out whether a grant for the current configuration is stored; answered by signInStateKnown() */
     void checkSignedIn();
@@ -67,7 +93,7 @@ public slots:
 signals:
     void authorized();
     void authorizationFailed(const QString &message);
-    void signedOut();
+    void signedOut(OAuth::Session::Revocation revocation);
     void signOutFailed(const QString &message);
     void signInStateKnown(bool signedIn);
 
@@ -81,6 +107,11 @@ private:
     void handleRedirectRequest(QTcpSocket *socket, const QByteArray &request);
     void respond(QTcpSocket *socket, int status, const QByteArray &reason, const QString &message);
     void exchangeCode(const QString &code);
+    void exchangeCodeWithSecret(const QString &code, const QString &clientSecret);
+    void revoke(const Grant &grant);
+    void removeGrant(Revocation revocation);
+    /** @short The configuration with the client secret of the stored grant, unless one is configured */
+    AccountConfig configWithSecret(const Grant &grant) const;
     void stopListening();
     void failAuthorization(Error error, const QString &detail = QString());
     static void dropReply(QPointer<QNetworkReply> &reply);
@@ -93,6 +124,8 @@ private:
     QDateTime m_accessTokenExpiry;
     bool m_refreshing = false;
     QPointer<QNetworkReply> m_refreshReply;
+    QPointer<QNetworkReply> m_revocationReply;
+    QString m_storedClientSecret;
 
     bool m_authorizing = false;
     QList<QTcpServer *> m_servers;

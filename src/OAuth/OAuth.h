@@ -54,6 +54,10 @@ struct Provider {
     QList<Mechanism> mechanisms;
     /** @short Client ID configured at build time; may be empty */
     QString defaultClientId;
+    /** @short Token revocation endpoint, RFC 7009; empty when the provider offers none */
+    QUrl revocationEndpoint;
+    /** @short Page where the user can remove the application's access to the account */
+    QUrl accessManagementPage;
 
     bool isValid() const { return !id.isEmpty(); }
 };
@@ -103,7 +107,11 @@ struct AccountConfig {
     QString accountId;
     Provider provider;
     QString clientId;
-    /** @short Optional; only for providers which issue a secret to installed applications. Never built in. */
+    /** @short Optional; only for providers which issue a secret to installed applications. Never built in.
+
+    Normally empty here: the secret is stored with the grant. A value in the settings file predates that and is moved
+    into the grant by Session::migrateClientSecret().
+    */
     QString clientSecret;
     QString loginHint;
 
@@ -128,6 +136,8 @@ QUrl authorizationUrl(const AccountConfig &config, const QString &redirectUri, c
 QByteArray authorizationCodeRequestBody(const AccountConfig &config, const QString &code, const QString &redirectUri,
                                         const QByteArray &codeVerifier);
 QByteArray refreshRequestBody(const AccountConfig &config, const QString &refreshToken);
+/** @short Request body which revokes a refresh token, RFC 7009 section 2.1 */
+QByteArray revocationRequestBody(const AccountConfig &config, const QString &refreshToken);
 
 struct TokenResponse {
     Error error = Error::NoError;
@@ -143,11 +153,15 @@ TokenResponse parseTokenResponse(const QByteArray &body, int httpStatus);
 /** @short Credential type of the stored grant in the password plugin */
 QString credentialType();
 
-/** @short The long-lived part of an authorization, as stored per account */
+/** @short The long-lived part of an authorization, as stored per account
+
+The optional client secret is kept with the refresh token, so that it is never written to the settings file.
+*/
 struct Grant {
     QString provider;
     QString clientId;
     QString refreshToken;
+    QString clientSecret;
 
     bool isValid() const { return !provider.isEmpty() && !refreshToken.isEmpty(); }
     /** @short Whether the grant was issued for the account's current provider and client */

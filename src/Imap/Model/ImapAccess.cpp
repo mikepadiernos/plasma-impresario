@@ -379,6 +379,14 @@ void ImapAccess::doConnect()
                                         },
                                         m_imapModel);
         oauth->setServer(m_server, m_port);
+        if (m_settings->contains(Common::SettingsNames::oauthClientSecretKey)) {
+            // Older versions kept the client secret in the settings file; keep it with the grant instead
+            QPointer<QSettings> settings = m_settings;
+            oauth->migrateClientSecret([settings]() {
+                if (settings)
+                    settings->remove(Common::SettingsNames::oauthClientSecretKey);
+            });
+        }
     }
     connect(m_imapModel, &Mailbox::Model::alertReceived, this, &ImapAccess::alertReceived);
     connect(m_imapModel, &Mailbox::Model::imapError, this, &ImapAccess::imapError);
