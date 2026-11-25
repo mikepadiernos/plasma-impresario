@@ -160,6 +160,7 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
     , m_genUrlAuthReceived(false)
     , m_mainWindow(mainWindow)
     , m_settings(mainWindow->settings())
+    , m_senderIdentities(mainWindow->senderIdentitiesModel())
     , m_composer(messageComposer)
     , m_submission(nullptr)
     , m_completionPopup(nullptr)
@@ -308,7 +309,7 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
     updateWindowTitle();
 
     FromAddressProxyModel *proxy = new FromAddressProxyModel(this);
-    proxy->setSourceModel(m_mainWindow->senderIdentitiesModel());
+    proxy->setSourceModel(m_senderIdentities);
     ui->sender->setModel(proxy);
 
     connect(ui->sender, static_cast<void (QComboBox::*)(const int)>(&QComboBox::currentIndexChanged), this, &ComposeWidget::slotUpdateSignature);
@@ -925,16 +926,16 @@ void ComposeWidget::setResponseData(const QList<QPair<Composer::RecipientKind, Q
         // Enable only those Reply Modes that are applicable to the message to be replied
         Composer::RecipientList dummy;
         m_actionReplyModePrivate->setEnabled(Composer::Util::replyRecipientList(Composer::REPLY_PRIVATE,
-                                                                                m_mainWindow->senderIdentitiesModel(),
+                                                                                m_senderIdentities,
                                                                                 m_replyingToMessage, dummy));
         m_actionReplyModeAllButMe->setEnabled(Composer::Util::replyRecipientList(Composer::REPLY_ALL_BUT_ME,
-                                                                                 m_mainWindow->senderIdentitiesModel(),
+                                                                                 m_senderIdentities,
                                                                                  m_replyingToMessage, dummy));
         m_actionReplyModeAll->setEnabled(Composer::Util::replyRecipientList(Composer::REPLY_ALL,
-                                                                            m_mainWindow->senderIdentitiesModel(),
+                                                                            m_senderIdentities,
                                                                             m_replyingToMessage, dummy));
         m_actionReplyModeList->setEnabled(Composer::Util::replyRecipientList(Composer::REPLY_LIST,
-                                                                             m_mainWindow->senderIdentitiesModel(),
+                                                                             m_senderIdentities,
                                                                              m_replyingToMessage, dummy));
     } else {
         m_markButton->hide();
@@ -944,9 +945,9 @@ void ComposeWidget::setResponseData(const QList<QPair<Composer::RecipientKind, Q
     }
 
     int row = -1;
-    bool ok = Composer::Util::chooseSenderIdentityForReply(m_mainWindow->senderIdentitiesModel(), replyingToMessage, row);
+    bool ok = Composer::Util::chooseSenderIdentityForReply(m_senderIdentities, replyingToMessage, row);
     if (ok) {
-        Q_ASSERT(row >= 0 && row < m_mainWindow->senderIdentitiesModel()->rowCount());
+        Q_ASSERT(row >= 0 && row < m_senderIdentities->rowCount());
         ui->sender->setCurrentIndex(row);
     }
 
@@ -1658,7 +1659,7 @@ bool ComposeWidget::setReplyMode(const Composer::ReplyMode mode)
 
     // Determine the new list of recipients
     Composer::RecipientList list;
-    if (!Composer::Util::replyRecipientList(mode, m_mainWindow->senderIdentitiesModel(),
+    if (!Composer::Util::replyRecipientList(mode, m_senderIdentities,
                                             m_replyingToMessage, list)) {
         return false;
     }

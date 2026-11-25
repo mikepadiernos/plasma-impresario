@@ -67,6 +67,7 @@
 #include "Common/Paths.h"
 #include "Common/PortNumbers.h"
 #include "Common/SettingsNames.h"
+#include "Composer/AccountIdentities.h"
 #include "Composer/Mailto.h"
 #include "Composer/SenderIdentitiesModel.h"
 #ifdef TROJITA_HAVE_CRYPTO_MESSAGES
@@ -195,6 +196,8 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
 
     m_senderIdentities = new Composer::SenderIdentitiesModel(this);
     m_senderIdentities->loadFromSettings(*m_settings);
+    for (const QString &accountId : m_accounts->accountIds())
+        Composer::AccountIdentities::migrateAccount(*m_settings, *m_accounts->settings(accountId));
 
     if (! accountSettings()->contains(Common::SettingsNames::imapMethodKey)) {
         QTimer::singleShot(0, this, SLOT(slotShowSettings()));
@@ -1661,7 +1664,7 @@ void MainWindow::slotResetReconnectState()
 
 void MainWindow::slotShowSettings()
 {
-    SettingsDialog *dialog = new SettingsDialog(this, m_senderIdentities, m_favoriteTags, m_settings);
+    SettingsDialog *dialog = new SettingsDialog(this, m_senderIdentities, accountIdentitiesModel(), m_favoriteTags, m_settings);
     if (dialog->exec() == QDialog::Accepted) {
         // FIXME: wipe cache in case we're moving between servers
         nukeModels();
@@ -1687,6 +1690,24 @@ const QString legacyAccountKey = QStringLiteral("accounts/legacy");
 QSettings *MainWindow::accountSettings() const
 {
     return m_accounts->settings(m_accounts->activeAccount());
+}
+
+Composer::SenderIdentitiesModel *MainWindow::senderIdentitiesModel()
+{
+    if (Composer::AccountIdentities::usesSharedIdentities(*accountSettings()))
+        return m_senderIdentities;
+    return accountIdentitiesModel();
+}
+
+Composer::SenderIdentitiesModel *MainWindow::accountIdentitiesModel()
+{
+    const QString accountId = m_accounts->activeAccount();
+    if (Composer::SenderIdentitiesModel *existing = m_accountIdentities.value(accountId))
+        return existing;
+    auto *identities = new Composer::SenderIdentitiesModel(this);
+    identities->loadFromSettings(*accountSettings());
+    m_accountIdentities.insert(accountId, identities);
+    return identities;
 }
 
 void MainWindow::setupAccounts()
@@ -1884,7 +1905,9 @@ void MainWindow::slotAddAccount()
                                                QLineEdit::Normal, QString(), &accepted).trimmed();
     if (!accepted || name.isEmpty())
         return;
-    switchAccount(m_accounts->addAccount(name));
+    const QString accountId = m_accounts->addAccount(name);
+    Composer::AccountIdentities::initializeNewAccount(*m_accounts->settings(accountId));
+    switchAccount(accountId);
     slotShowSettings();
 }
 
@@ -2010,6 +2033,8 @@ void MainWindow::removeAccountNow(const QString &accountId)
         }
     }
     delete m_accountAccess.take(accountId);
+    // Open composers may still list this account's identities, so the model lives until the window closes.
+    m_accountIdentities.remove(accountId);
     m_accountStatus->forget(accountId);
     m_accounts->removeAccount(accountId);
     refreshAccountSwitcher();

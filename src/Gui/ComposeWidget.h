@@ -52,6 +52,7 @@ class QSettings;
 class QToolButton;
 
 namespace Composer {
+class SenderIdentitiesModel;
 class Submission;
 }
 
@@ -199,6 +200,8 @@ private:
 
     MainWindow *m_mainWindow;
     QSettings *m_settings;
+    /** Identities of the account that was active when this composer opened */
+    Composer::SenderIdentitiesModel *m_senderIdentities;
 
     std::shared_ptr<Composer::AbstractComposer> m_composer;
     Composer::Submission *m_submission;

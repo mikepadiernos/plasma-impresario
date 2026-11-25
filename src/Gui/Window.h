@@ -118,7 +118,12 @@ public:
 
     Imap::Mailbox::Model *imapModel() const;
 
-    Composer::SenderIdentitiesModel *senderIdentitiesModel() { return m_senderIdentities; }
+    /** Return the sender identities the active account sends from: its own, or the shared ones if it opts out. */
+    Composer::SenderIdentitiesModel *senderIdentitiesModel();
+    /** Return the identities shared by accounts that do not use their own. */
+    Composer::SenderIdentitiesModel *sharedIdentitiesModel() { return m_senderIdentities; }
+    /** Return the active account's own identities, whether or not it currently uses them. */
+    Composer::SenderIdentitiesModel *accountIdentitiesModel();
     Imap::Mailbox::FavoriteTagsModel *favoriteTagsModel() { return m_favoriteTags; }
     Plugins::PluginManager *pluginManager() { return m_pluginManager; }
     QSettings *settings() const { return m_settings; }
@@ -360,6 +365,7 @@ private:
     Imap::Mailbox::PrettyMailboxModel *prettyMboxModel;
     Imap::Mailbox::PrettyMsgListModel *prettyMsgListModel;
     Composer::SenderIdentitiesModel *m_senderIdentities;
+    QHash<QString, Composer::SenderIdentitiesModel *> m_accountIdentities;
     Imap::Mailbox::FavoriteTagsModel *m_favoriteTags;
 
     MailBoxTreeView *mboxTree;

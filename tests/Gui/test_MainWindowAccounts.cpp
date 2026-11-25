@@ -4,6 +4,8 @@
 #include "Common/AccountStatus.h"
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
+#include "Composer/AccountIdentities.h"
+#include "Composer/SenderIdentitiesModel.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MessageListWidget.h"
 #include "Gui/MsgListView.h"
@@ -316,6 +318,69 @@ private slots:
         previous->trigger();
         QVERIFY(window.focusWidget() != mailboxes && window.focusWidget() != messages);
         QVERIFY(window.focusWidget() != switcher);
+    }
+
+    void identitiesFollowTheAccount()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        {
+            Composer::SenderIdentitiesModel legacy;
+            legacy.appendIdentity(Composer::ItemSenderIdentity(QStringLiteral("Pat"), QStringLiteral("pat@example.test"),
+                                                               QString(), QString()));
+            legacy.saveToSettings(settings);
+        }
+
+        Gui::MainWindow window(&settings);
+        auto *shared = window.sharedIdentitiesModel();
+        auto *work = window.senderIdentitiesModel();
+        QVERIFY(work != shared);
+        QCOMPARE(work, window.accountIdentitiesModel());
+        // Existing accounts start with a copy of the identities they used before.
+        QCOMPARE(work->rowCount(), 1);
+        QCOMPARE(work->index(0, Composer::SenderIdentitiesModel::COLUMN_EMAIL).data().toString(),
+                 QStringLiteral("pat@example.test"));
+        QVERIFY(!Composer::AccountIdentities::usesSharedIdentities(*window.accountSettings()));
+
+        work->appendIdentity(Composer::ItemSenderIdentity(QStringLiteral("Pat"), QStringLiteral("pat@work.test"),
+                                                          QString(), QString()));
+        window.findChild<QAction *>(QStringLiteral("action_next_account"))->trigger();
+        QCOMPARE(window.imapAccess()->credentialAccountId(), QStringLiteral("account-2"));
+        auto *home = window.senderIdentitiesModel();
+        QVERIFY(home != work);
+        QVERIFY(home != shared);
+        QCOMPARE(home->rowCount(), 1);
+        QCOMPARE(shared->rowCount(), 1);
+
+        Composer::AccountIdentities::setUsesSharedIdentities(*window.accountSettings(), true);
+        QCOMPARE(window.senderIdentitiesModel(), shared);
+        QCOMPARE(window.accountIdentitiesModel(), home);
+
+        window.findChild<QAction *>(QStringLiteral("action_previous_account"))->trigger();
+        QCOMPARE(window.senderIdentitiesModel(), work);
+        QCOMPARE(work->rowCount(), 2);
+    }
+
+    void newAccountsStartWithoutIdentities()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings shared(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        QSettings account(directory.filePath(QStringLiteral("main-account-3.conf")), QSettings::IniFormat);
+        Composer::SenderIdentitiesModel legacy;
+        legacy.appendIdentity(Composer::ItemSenderIdentity(QStringLiteral("Pat"), QStringLiteral("pat@example.test"),
+                                                           QString(), QString()));
+        legacy.saveToSettings(shared);
+
+        Composer::AccountIdentities::initializeNewAccount(account);
+        // A recorded choice stops the start-up migration from copying the shared identities.
+        QVERIFY(!Composer::AccountIdentities::migrateAccount(shared, account));
+        Composer::SenderIdentitiesModel identities;
+        identities.loadFromSettings(account);
+        QCOMPARE(identities.rowCount(), 0);
+        QVERIFY(!Composer::AccountIdentities::usesSharedIdentities(account));
     }
 };
 

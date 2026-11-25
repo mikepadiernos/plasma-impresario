@@ -49,6 +49,7 @@
 #include "Common/InvokeMethod.h"
 #include "Common/PortNumbers.h"
 #include "Common/SettingsNames.h"
+#include "Composer/AccountIdentities.h"
 #include "Gui/Util.h"
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
@@ -58,6 +59,7 @@
 #include "Plugins/PluginManager.h"
 #include "UiUtils/IconLoader.h"
 #include "UiUtils/PasswordWatcher.h"
+#include <KLocalizedString>
 #include "ShortcutHandler/ShortcutHandler.h"
 
 namespace Gui
@@ -77,10 +79,12 @@ bool checkProblemWithEmptyTextField(T *field, const QString &message)
     }
 }
 
-SettingsDialog::SettingsDialog(MainWindow *parent, Composer::SenderIdentitiesModel *identitiesModel,
-        Imap::Mailbox::FavoriteTagsModel *favoriteTagsModel, QSettings *settings):
-    QDialog(parent), mainWindow(parent), m_senderIdentities(identitiesModel), m_favoriteTags(favoriteTagsModel),
-        m_settings(settings), m_accountSettings(parent->accountSettings())
+SettingsDialog::SettingsDialog(MainWindow *parent, Composer::SenderIdentitiesModel *sharedIdentities,
+        Composer::SenderIdentitiesModel *accountIdentities, Imap::Mailbox::FavoriteTagsModel *favoriteTagsModel,
+        QSettings *settings):
+    QDialog(parent), mainWindow(parent), m_accountSettings(parent->accountSettings()),
+        m_senderIdentities(sharedIdentities), m_accountIdentities(accountIdentities),
+        m_favoriteTags(favoriteTagsModel), m_settings(settings)
 {
     setWindowTitle(tr("Settings"));
 
@@ -89,7 +93,9 @@ SettingsDialog::SettingsDialog(MainWindow *parent, Composer::SenderIdentitiesMod
     layout->addWidget(stack);
     stack->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 
-    addPage(new GeneralPage(this, *m_settings, m_senderIdentities), tr("&General"), m_settings);
+    addPage(new GeneralPage(this, *m_settings), tr("&General"), m_settings);
+    addPage(new IdentitiesPage(this, *m_accountSettings, *m_settings, m_accountIdentities, m_senderIdentities),
+            i18nc("@title:tab", "I&dentities"), m_accountSettings);
     addPage(new ImapPage(this, *m_accountSettings), tr("I&MAP"), m_accountSettings);
     addPage(new CachePage(this, *m_accountSettings), tr("&Offline"), m_accountSettings);
     addPage(new OutgoingPage(this, *m_accountSettings), tr("&SMTP"), m_accountSettings);
@@ -234,6 +240,7 @@ void SettingsDialog::reject()
     HANDLE_PLUGIN(spellchecker, Spellchecker)
 #undef HANDLE_PLUGIN
     m_senderIdentities->loadFromSettings(*m_settings);
+    m_accountIdentities->loadFromSettings(*m_accountSettings);
     m_favoriteTags->loadFromSettings(*m_settings);
     QDialog::reject();
 }
@@ -353,26 +360,10 @@ bool FavoriteTagsPage::passwordFailures(QString &message) const
     return false;
 }
 
-GeneralPage::GeneralPage(SettingsDialog *parent, QSettings &s, Composer::SenderIdentitiesModel *identitiesModel):
-    QScrollArea(parent), Ui_GeneralPage(), m_identitiesModel(identitiesModel), m_parent(parent)
+GeneralPage::GeneralPage(SettingsDialog *parent, QSettings &s):
+    QScrollArea(parent), Ui_GeneralPage(), m_parent(parent)
 {
     Ui_GeneralPage::setupUi(this);
-    Q_ASSERT(m_identitiesModel);
-    editButton->setEnabled(false);
-    deleteButton->setEnabled(false);
-    moveUpButton->setIcon(UiUtils::loadIcon(QStringLiteral("go-up")));
-    moveDownButton->setIcon(UiUtils::loadIcon(QStringLiteral("go-down")));
-    moveUpButton->setEnabled(false);
-    moveDownButton->setEnabled(false);
-    identityTabelView->setModel(m_identitiesModel);
-    identityTabelView->setSelectionBehavior(QAbstractItemView::SelectRows);
-    identityTabelView->setSelectionMode(QAbstractItemView::SingleSelection);
-    identityTabelView->setGridStyle(Qt::NoPen);
-    identityTabelView->hideColumn(Composer::SenderIdentitiesModel::COLUMN_ORGANIZATION);
-    identityTabelView->setColumnHidden(Composer::SenderIdentitiesModel::COLUMN_SIGNATURE, true);
-    identityTabelView->resizeColumnToContents(Composer::SenderIdentitiesModel::COLUMN_NAME);
-    identityTabelView->resizeRowsToContents();
-    identityTabelView->horizontalHeader()->setStretchLastSection(true);
 
     Plugins::PluginManager *pluginManager = parent->pluginManager();
     QMap<QString, QString>::const_iterator it;
@@ -434,17 +425,6 @@ GeneralPage::GeneralPage(SettingsDialog *parent, QSettings &s, Composer::SenderI
     preferPlaintextCheckbox->setChecked(s.value(Common::SettingsNames::guiPreferPlaintextRendering).toBool());
     revealTrojitaVersions->setChecked(s.value(Common::SettingsNames::interopRevealVersions, QVariant(true)).toBool());
 
-    connect(identityTabelView, &QAbstractItemView::clicked, this, &GeneralPage::updateWidgets);
-    connect(identityTabelView, &QAbstractItemView::doubleClicked, this, &GeneralPage::editButtonClicked);
-    connect(m_identitiesModel, &QAbstractItemModel::layoutChanged, this, &GeneralPage::updateWidgets);
-    connect(m_identitiesModel, &QAbstractItemModel::rowsInserted, this, &GeneralPage::updateWidgets);
-    connect(m_identitiesModel, &QAbstractItemModel::rowsRemoved, this, &GeneralPage::updateWidgets);
-    connect(m_identitiesModel, &QAbstractItemModel::dataChanged, this, &GeneralPage::updateWidgets);
-    connect(moveUpButton, &QAbstractButton::clicked, this, &GeneralPage::moveIdentityUp);
-    connect(moveDownButton, &QAbstractButton::clicked, this, &GeneralPage::moveIdentityDown);
-    connect(addButton, &QAbstractButton::clicked, this, &GeneralPage::addButtonClicked);
-    connect(editButton, &QAbstractButton::clicked, this, &GeneralPage::editButtonClicked);
-    connect(deleteButton, &QAbstractButton::clicked, this, &GeneralPage::deleteButtonClicked);
     connect(passwordBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &GeneralPage::passwordPluginChanged);
 
     connect(this, &GeneralPage::reloadPasswords, m_parent, &SettingsDialog::reloadPasswordsRequested);
@@ -465,6 +445,70 @@ void GeneralPage::passwordPluginChanged()
 
 void GeneralPage::updateWidgets()
 {
+    emit widgetsUpdated();
+}
+
+IdentitiesPage::IdentitiesPage(SettingsDialog *parent, QSettings &account, QSettings &shared,
+                               Composer::SenderIdentitiesModel *accountIdentities,
+                               Composer::SenderIdentitiesModel *sharedIdentities):
+    QScrollArea(parent), Ui_IdentitiesPage(), m_accountIdentities(accountIdentities),
+    m_sharedIdentities(sharedIdentities), m_identitiesModel(nullptr), m_shared(shared)
+{
+    Ui_IdentitiesPage::setupUi(this);
+    Q_ASSERT(m_accountIdentities);
+    Q_ASSERT(m_sharedIdentities);
+    sharedIdentitiesCheckbox->setText(i18nc("@option:check",
+                                            "Use the identities shared by all accounts instead of this account's own"));
+    addButton->setText(i18nc("@action:button", "Add"));
+    editButton->setText(i18nc("@action:button", "Edit"));
+    deleteButton->setText(i18nc("@action:button", "Delete"));
+    moveUpButton->setIcon(UiUtils::loadIcon(QStringLiteral("go-up")));
+    moveDownButton->setIcon(UiUtils::loadIcon(QStringLiteral("go-down")));
+    moveUpButton->setToolTip(i18nc("@info:tooltip", "Move identity up"));
+    moveDownButton->setToolTip(i18nc("@info:tooltip", "Move identity down"));
+    identityTabelView->setSelectionBehavior(QAbstractItemView::SelectRows);
+    identityTabelView->setSelectionMode(QAbstractItemView::SingleSelection);
+    identityTabelView->setGridStyle(Qt::NoPen);
+    identityTabelView->horizontalHeader()->setStretchLastSection(true);
+
+    sharedIdentitiesCheckbox->setChecked(Composer::AccountIdentities::usesSharedIdentities(account));
+
+    for (auto *model : {m_accountIdentities, m_sharedIdentities}) {
+        connect(model, &QAbstractItemModel::modelReset, this, &IdentitiesPage::updateWidgets);
+        connect(model, &QAbstractItemModel::layoutChanged, this, &IdentitiesPage::updateWidgets);
+        connect(model, &QAbstractItemModel::rowsInserted, this, &IdentitiesPage::updateWidgets);
+        connect(model, &QAbstractItemModel::rowsRemoved, this, &IdentitiesPage::updateWidgets);
+        connect(model, &QAbstractItemModel::dataChanged, this, &IdentitiesPage::updateWidgets);
+    }
+    connect(sharedIdentitiesCheckbox, &QAbstractButton::toggled, this, &IdentitiesPage::showIdentitiesInUse);
+    connect(identityTabelView, &QAbstractItemView::clicked, this, &IdentitiesPage::updateWidgets);
+    connect(identityTabelView, &QAbstractItemView::doubleClicked, this, &IdentitiesPage::editButtonClicked);
+    connect(moveUpButton, &QAbstractButton::clicked, this, &IdentitiesPage::moveIdentityUp);
+    connect(moveDownButton, &QAbstractButton::clicked, this, &IdentitiesPage::moveIdentityDown);
+    connect(addButton, &QAbstractButton::clicked, this, &IdentitiesPage::addButtonClicked);
+    connect(editButton, &QAbstractButton::clicked, this, &IdentitiesPage::editButtonClicked);
+    connect(deleteButton, &QAbstractButton::clicked, this, &IdentitiesPage::deleteButtonClicked);
+
+    showIdentitiesInUse();
+}
+
+void IdentitiesPage::showIdentitiesInUse()
+{
+    const bool shared = sharedIdentitiesCheckbox->isChecked();
+    m_identitiesModel = shared ? m_sharedIdentities : m_accountIdentities;
+    identityTabelView->setModel(m_identitiesModel);
+    identityTabelView->hideColumn(Composer::SenderIdentitiesModel::COLUMN_ORGANIZATION);
+    identityTabelView->hideColumn(Composer::SenderIdentitiesModel::COLUMN_SIGNATURE);
+    identityTabelView->resizeRowsToContents();
+    scopeLabel->setText(shared
+            ? i18nc("@info", "This account sends from the shared identities. "
+                             "Changes here apply to every account that uses them.")
+            : i18nc("@info", "This account sends from its own identities. Other accounts are not affected."));
+    updateWidgets();
+}
+
+void IdentitiesPage::updateWidgets()
+{
     bool enabled = identityTabelView->currentIndex().isValid();
     deleteButton->setEnabled(enabled);
     editButton->setEnabled(enabled);
@@ -479,7 +523,7 @@ void GeneralPage::updateWidgets()
     emit widgetsUpdated();
 }
 
-void GeneralPage::moveIdentityUp()
+void IdentitiesPage::moveIdentityUp()
 {
     int from = identityTabelView->currentIndex().row();
     int to = identityTabelView->currentIndex().row() - 1;
@@ -488,7 +532,7 @@ void GeneralPage::moveIdentityUp()
     updateWidgets();
 }
 
-void GeneralPage::moveIdentityDown()
+void IdentitiesPage::moveIdentityDown()
 {
     int from = identityTabelView->currentIndex().row();
     int to = identityTabelView->currentIndex().row() + 1;
@@ -497,7 +541,7 @@ void GeneralPage::moveIdentityDown()
     updateWidgets();
 }
 
-void GeneralPage::addButtonClicked()
+void IdentitiesPage::addButtonClicked()
 {
     m_identitiesModel->appendIdentity(Composer::ItemSenderIdentity());
     identityTabelView->setCurrentIndex(m_identitiesModel->index(m_identitiesModel->rowCount() - 1, 0));
@@ -508,14 +552,14 @@ void GeneralPage::addButtonClicked()
     updateWidgets();
 }
 
-void GeneralPage::editButtonClicked()
+void IdentitiesPage::editButtonClicked()
 {
     EditIdentity *dialog = new EditIdentity(this,  m_identitiesModel, identityTabelView->currentIndex());
     dialog->setWindowTitle(tr("Edit Identity"));
     dialog->show();
 }
 
-void GeneralPage::deleteButtonClicked()
+void IdentitiesPage::deleteButtonClicked()
 {
     Q_ASSERT(identityTabelView->currentIndex().isValid());
     QMessageBox::StandardButton answer =
@@ -532,9 +576,34 @@ void GeneralPage::deleteButtonClicked()
     }
 }
 
+void IdentitiesPage::save(QSettings &s)
+{
+    // Both lists are saved: an account that switches to the shared identities keeps its own for later.
+    Composer::AccountIdentities::setUsesSharedIdentities(s, sharedIdentitiesCheckbox->isChecked());
+    m_accountIdentities->saveToSettings(s);
+    m_sharedIdentities->saveToSettings(m_shared);
+    emit saved();
+}
+
+QWidget *IdentitiesPage::asWidget()
+{
+    return this;
+}
+
+bool IdentitiesPage::checkValidity() const
+{
+    // A new account starts without identities; the composer then accepts a typed From address.
+    return true;
+}
+
+bool IdentitiesPage::passwordFailures(QString &message) const
+{
+    Q_UNUSED(message);
+    return false;
+}
+
 void GeneralPage::save(QSettings &s)
 {
-    m_identitiesModel->saveToSettings(s);
     s.setValue(Common::SettingsNames::autoMarkReadEnabled, markReadCheckbox->isChecked());
     s.setValue(Common::SettingsNames::autoMarkReadSeconds, markReadSeconds->value());
     s.setValue(Common::SettingsNames::mboxDropAction,
@@ -566,11 +635,6 @@ QWidget *GeneralPage::asWidget()
 
 bool GeneralPage::checkValidity() const
 {
-    if (m_identitiesModel->rowCount() < 1) {
-        QToolTip::showText(identityTabelView->mapToGlobal(QPoint(10, identityTabelView->height() / 2)),
-                           tr("Please define some identities here"), nullptr);
-        return false;
-    }
     return true;
 }
 
