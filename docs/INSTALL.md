@@ -9,7 +9,8 @@ the WebEngine message reader and installs it to `$HOME/.local`. This guide
 covers its options, supported distributions, installed files and
 troubleshooting.
 
-Legend: ✅ verified · 🧪 implemented, needs verification · ⚠️ limitation
+Legend: ![Verified][verified] · ![Needs verification][needs-verification] ·
+![Limitation][limitation]
 
 ## Contents
 
@@ -17,7 +18,8 @@ Legend: ✅ verified · 🧪 implemented, needs verification · ⚠️ limitatio
 - [Options](#options)
 - [Requirements by distribution](#requirements-by-distribution)
 - [What gets installed](#what-gets-installed)
-- [Upgrading from Trojitá or Plasma Mail](#upgrading-from-trojitá-or-plasma-mail)
+- [Upgrading from Trojitá or Plasma
+  Mail](#upgrading-from-trojitá-or-plasma-mail)
 - [Launch and troubleshooting](#launch-and-troubleshooting)
 - [Development checks](#development-checks)
 
@@ -29,17 +31,18 @@ Legend: ✅ verified · 🧪 implemented, needs verification · ⚠️ limitatio
 
 The installer then:
 
-1. 🧭 Reads `/etc/os-release` and selects a package manager from the first
+1. Reads `/etc/os-release` and selects a package manager from the first
    recognized value of `ID` or `ID_LIKE`. It fails instead of selecting an
    unrelated package manager.
-2. 📦 Checks the [listed packages](#requirements-by-distribution) and installs
+2. Checks the [listed packages](#requirements-by-distribution) and installs
    only the missing ones, using `sudo` when not run as root.
-3. 🛠️ Configures `build/` in the repository with Ninja, `RelWithDebInfo`,
+3. Configures `build/` in the repository with Ninja, `RelWithDebInfo`,
    `BUILD_TESTING=OFF` and `WITH_WEBENGINE=ON`, then builds in parallel.
-4. 🖥️ Installs to the prefix, using `sudo` only when the prefix (or its nearest
+4. Installs to the prefix, using `sudo` only when the prefix (or its nearest
    existing parent) is not writable.
-5. 🔁 [Converts older Trojitá or Plasma Mail installations](#upgrading-from-trojitá-or-plasma-mail)
-   and makes Plasma Impresario the mail handler wherever the user chose them.
+5. [Converts older Trojitá or Plasma Mail
+   installations](#upgrading-from-trojitá-or-plasma-mail) and makes Plasma
+   Impresario the mail handler wherever the user chose them.
 
 On unsupported distributions, install the dependencies manually and use
 `--no-deps`.
@@ -62,7 +65,7 @@ Run `./install.sh --help` for the same list.
 | `--prefix PATH`       | Install to `PATH` instead of `$HOME/.local`. The path must be absolute.                                                                                     |
 | `--build-dir PATH`    | Use `PATH` as the build directory instead of `build/` in the repository.                                                                                    |
 | `--with-webengine`    | Require Qt 6 WebEngineWidgets for the message reader. This is the default.                                                                                  |
-| `--without-webengine` | ⚠️ Build without message viewing and skip the WebEngine package. See the warning above.                                                                     |
+| `--without-webengine` | ![Limitation][limitation] Build without message viewing and skip the WebEngine package. See the warning above.                                              |
 | `--keep-legacy`       | Leave Trojitá and Plasma Mail installations and mail handler settings unchanged.                                                                            |
 | `--help`, `-h`        | Show the option summary and exit.                                                                                                                           |
 
@@ -96,12 +99,12 @@ For example:
 The [compatibility baseline](philosophy/compatibility.md) records the verified
 environment and the CMake-level dependencies.
 
-| Family        | `ID` or `ID_LIKE` values                         | Package manager                       | WebEngine package            | Status                                  |
-| ------------- | ------------------------------------------------ | ------------------------------------- | ---------------------------- | --------------------------------------- |
-| Arch          | `arch`, `cachyos`, `manjaro`                     | `pacman`; else `paru`, `yay`, `pamac` | `qt6-webengine`              | ✅ CachyOS with `pacman`; 🧪 the others |
-| Debian/Ubuntu | `debian`, `ubuntu`                               | `apt-get`                             | `qt6-webengine-dev`          | 🧪 not verified                         |
-| Fedora/RHEL   | `fedora`, `rhel`, `centos`, `rocky`, `almalinux` | `dnf`                                 | `qt6-qtwebengine-devel`      | 🧪 not verified                         |
-| openSUSE/SUSE | `opensuse*`, `suse`, `sles`                      | `zypper`                              | `qt6-webenginewidgets-devel` | 🧪 not verified                         |
+| Family        | `ID` or `ID_LIKE` values                         | Package manager                       | WebEngine package            | Status                                                                                            |
+| ------------- | ------------------------------------------------ | ------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------- |
+| Arch          | `arch`, `cachyos`, `manjaro`                     | `pacman`; else `paru`, `yay`, `pamac` | `qt6-webengine`              | ![Verified][verified] CachyOS with `pacman`; ![Needs verification][needs-verification] the others |
+| Debian/Ubuntu | `debian`, `ubuntu`                               | `apt-get`                             | `qt6-webengine-dev`          | ![Needs verification][needs-verification] not verified                                            |
+| Fedora/RHEL   | `fedora`, `rhel`, `centos`, `rocky`, `almalinux` | `dnf`                                 | `qt6-qtwebengine-devel`      | ![Needs verification][needs-verification] not verified                                            |
+| openSUSE/SUSE | `opensuse*`, `suse`, `sles`                      | `zypper`                              | `qt6-webenginewidgets-devel` | ![Needs verification][needs-verification] not verified                                            |
 
 > [!WARNING]
 >
@@ -209,3 +212,7 @@ The [compatibility baseline](philosophy/compatibility.md) records tested
 environments and reproducible component checks. Live account and desktop
 workflows remain subject to
 [pending verification](TODO.md#pending-verification).
+
+[limitation]: https://img.shields.io/badge/Limitation-bc4c00
+[needs-verification]: https://img.shields.io/badge/Needs_verification-0969da
+[verified]: https://img.shields.io/badge/Verified-1a7f37
