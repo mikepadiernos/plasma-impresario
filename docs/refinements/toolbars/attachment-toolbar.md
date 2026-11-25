@@ -7,7 +7,8 @@
 This proposed toolbar appears for attachment actions in the reading pane or
 compose workflow.
 
-**Legend:** ✅ exists in the current code on `main` · 📋 planned only
+**Legend:** ![Exists][exists] in the current code on `main` ·
+![Planned][planned] not implemented yet
 
 ## Purpose
 
@@ -43,21 +44,21 @@ The closest existing toolbar is the header of the Attachments embedded panel,
 which has **Open Attachment** and **Save Attachment As…** buttons. The panel is
 shown by default. Other actions are listed where they exist.
 
-| Action                 | Shortcut | Availability                             | Notes                                  |
-| ---------------------- | -------- | ---------------------------------------- | -------------------------------------- |
-| Open                   | —        | ✅ Attachments panel header              | **Open Attachment**                    |
-| Save as                | —        | ✅ Attachments panel header              | **Save Attachment As…**                |
-| Preview                | —        | ✅ Inline attachment menu                | **Show Preview** for previewable types |
-| Download               | —        | ✅ Inline attachment menu                | **Download**                           |
-| Open with              | —        | 📋 Planned                               |                                        |
-| Add attachment         | —        | ✅ Composer **Attach…** button           |                                        |
-| Remove attachment      | —        | ✅ Composer attachment list context menu | **Remove**                             |
-| Rename attachment      | —        | ✅ Composer attachment list context menu | **Rename…**                            |
-| Inspect security state | —        | 📋 Planned                               |                                        |
-| Save all attachments   | —        | 📋 Planned                               |                                        |
-| Share                  | —        | 📋 Planned                               |                                        |
-| Show in file manager   | —        | 📋 Planned                               |                                        |
-| Scan with ClamAV       | —        | 📋 Planned                               |                                        |
+| Action                 | Shortcut | Availability                                            | Notes                                  |
+| ---------------------- | -------- | ------------------------------------------------------- | -------------------------------------- |
+| Open                   | —        | ![Exists][exists] Attachments panel header              | **Open Attachment**                    |
+| Save as                | —        | ![Exists][exists] Attachments panel header              | **Save Attachment As…**                |
+| Preview                | —        | ![Exists][exists] Inline attachment menu                | **Show Preview** for previewable types |
+| Download               | —        | ![Exists][exists] Inline attachment menu                | **Download**                           |
+| Open with              | —        | ![Planned][planned]                                     |                                        |
+| Add attachment         | —        | ![Exists][exists] Composer **Attach…** button           |                                        |
+| Remove attachment      | —        | ![Exists][exists] Composer attachment list context menu | **Remove**                             |
+| Rename attachment      | —        | ![Exists][exists] Composer attachment list context menu | **Rename…**                            |
+| Inspect security state | —        | ![Planned][planned]                                     |                                        |
+| Save all attachments   | —        | ![Planned][planned]                                     |                                        |
+| Share                  | —        | ![Planned][planned]                                     |                                        |
+| Show in file manager   | —        | ![Planned][planned]                                     |                                        |
+| Scan with ClamAV       | —        | ![Planned][planned]                                     |                                        |
 
 See the
 [attachment context menu](../menus/attachment-context-menu.md#current-menus) for
@@ -71,3 +72,6 @@ every current attachment menu.
   large or partially loaded.
 - The toolbar should not cluster all file management tasks into one overloaded
   area.
+
+[exists]: https://img.shields.io/badge/Exists-1a7f37
+[planned]: https://img.shields.io/badge/Planned-6e7781

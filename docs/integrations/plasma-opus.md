@@ -12,7 +12,7 @@ These are proposed workflows between Plasma Impresario and the
 implemented integration contracts. Plasma Impresario stays useful without a
 companion application.
 
-Status: ✅ done · 📋 planned or proposed
+Status: ![Done][done] · ![Planned][planned] or proposed
 
 > [!NOTE]
 >
@@ -30,6 +30,7 @@ Status: ✅ done · 📋 planned or proposed
 - [Files and document handoff](#files-and-document-handoff)
 - [Search and indexing](#search-and-indexing)
 - [Themes and appearance](#themes-and-appearance)
+- [Vim mode and shortcuts](#vim-mode-and-shortcuts)
 - [Actions, reminders and status](#actions-reminders-and-status)
 
 ## Plasma Opus features to use
@@ -37,7 +38,7 @@ Status: ✅ done · 📋 planned or proposed
 The [Plasma Opus
 roadmap](https://github.com/mikepadiernos/plasma-opus/blob/main/docs/ROADMAP.md)
 and its [mail integration
-proposals](https://github.com/mikepadiernos/plasma-opus/blob/main/docs/integrations/plasma-mail.md)
+proposals](https://github.com/mikepadiernos/plasma-opus/blob/main/docs/integrations/plasma-impresario.md)
 include features that Plasma Impresario can use through standard desktop
 interfaces. Each use must also work with other file managers and without Plasma
 Opus. Plasma Opus status was checked against its roadmap on 2026-11-25.
@@ -45,19 +46,20 @@ Milestone numbers in the first column are Plasma Opus milestones; those in the
 Tracking column are Plasma Impresario milestones. All Plasma Impresario issues
 listed are in the Backlog.
 
-| Plasma Opus feature                                                                                                            | Plasma Opus status                         | Use in Plasma Impresario                                                      | Tracking                                                                                                                                                                                                                                                             |
-| ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 📂 XDG portal file chooser (M27.01)                                                                                            | 📋 Planned                                 | Its dialog opens files and attachments; the KDE dialog is the fallback        | [M06.01](../ROADMAP.md#m06-desktop-integration-and-provider-support), [#101](https://github.com/mikepadiernos/plasma-impresario/issues/101)                                                                                                                          |
-| ✉️ Compose with selected files                                                                                                 | 📋 Proposed                                | Start a draft with the files selected in the file manager                     | [M06.03](../ROADMAP.md#m06-desktop-integration-and-provider-support), [#263](https://github.com/mikepadiernos/plasma-impresario/issues/263)                                                                                                                          |
-| 📎 Drag and drop into a draft                                                                                                  | 📋 Proposed                                | Attach dropped local and remote files; only local files work today            | [M06.03](../ROADMAP.md#m06-desktop-integration-and-provider-support), [#265](https://github.com/mikepadiernos/plasma-impresario/issues/265)                                                                                                                          |
-| 🗂️ `org.freedesktop.FileManager1` service (M27.01, [plasma-opus#279](https://github.com/mikepadiernos/plasma-opus/issues/279)) | 📋 Planned                                 | Show saved attachments in the file manager                                    | [M06.03](../ROADMAP.md#m06-desktop-integration-and-provider-support), [#266](https://github.com/mikepadiernos/plasma-impresario/issues/266)                                                                                                                          |
-| ☁️ KDE Online Accounts (M27.06) and Nextcloud shares (M29)                                                                     | 📋 Planned                                 | Reuse the same Nextcloud identity and insert reviewed share links into drafts | [M12](../ROADMAP.md#m12-nextcloud-and-digital-asset-management), [#267](https://github.com/mikepadiernos/plasma-impresario/issues/267)                                                                                                                               |
-| 🧭 Workspaces (M15) and Plasma Activities (M27.01)                                                                             | ✅ Workspaces done · 📋 Activities planned | Follow the same Activities so mail and file workspaces switch together        | [M08](../ROADMAP.md#m08-settings-and-workspace-configuration) workspace settings                                                                                                                                                                                     |
-| 🎨 App-local themes and theme profiles (M17, M18)                                                                              | 📋 Planned                                 | Import its theme or follow it, and export ours for it to import               | [M09](../ROADMAP.md#m09-themes-and-branding-foundation), [#268](https://github.com/mikepadiernos/plasma-impresario/issues/268)                                                                                                                                       |
-| 🖥️ Default file manager registration (M27.01)                                                                                  | ✅ Done                                    | Folders opened through KIO use Plasma Opus when it is the default             | ✅ No change needed                                                                                                                                                                                                                                                  |
-| 🔍 Live and Baloo-indexed search (M09) and indexing status (M27.03)                                                            | ✅ Search done · 📋 Status planned         | Find saved attachments and exported mail; reuse its coverage notices          | [M05.06](../ROADMAP.md#m05-search-and-indexing), [#350](https://github.com/mikepadiernos/plasma-impresario/issues/350)                                                                                                                                               |
-| 🧮 Advanced search syntax and Search Results panel (M21) and search settings (M22)                                             | ✅ M21 done · 📋 M22 planned               | Align query syntax, the results panel and search settings                     | [M05.02](../ROADMAP.md#m05-search-and-indexing), [#334](https://github.com/mikepadiernos/plasma-impresario/issues/334), [#348](https://github.com/mikepadiernos/plasma-impresario/issues/348), [#352](https://github.com/mikepadiernos/plasma-impresario/issues/352) |
-| ✉️ Mail file (`.eml`) preview (M27.09)                                                                                         | 📋 Planned                                 | Open the previewed message in Plasma Impresario by Message-ID                 | [M05.06](../ROADMAP.md#m05-search-and-indexing), [#351](https://github.com/mikepadiernos/plasma-impresario/issues/351)                                                                                                                                               |
+| Plasma Opus feature                                                                                                         | Plasma Opus status                                        | Use in Plasma Impresario                                                       | Tracking                                                                                                                                                                                                                                                             |
+| --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| XDG portal file chooser (M27.01)                                                                                            | ![Planned][planned]                                       | Its dialog opens files and attachments; the KDE dialog is the fallback         | [M06.01](../ROADMAP.md#m06-desktop-integration-and-provider-support), [#101](https://github.com/mikepadiernos/plasma-impresario/issues/101)                                                                                                                          |
+| Compose with selected files                                                                                                 | ![Planned][planned]                                       | Start a draft with the files selected in the file manager                      | [M06.03](../ROADMAP.md#m06-desktop-integration-and-provider-support), [#263](https://github.com/mikepadiernos/plasma-impresario/issues/263)                                                                                                                          |
+| Drag and drop into a draft                                                                                                  | ![Planned][planned]                                       | Attach dropped local and remote files; only local files work today             | [M06.03](../ROADMAP.md#m06-desktop-integration-and-provider-support), [#265](https://github.com/mikepadiernos/plasma-impresario/issues/265)                                                                                                                          |
+| `org.freedesktop.FileManager1` service (M27.01, [plasma-opus#279](https://github.com/mikepadiernos/plasma-opus/issues/279)) | ![Planned][planned]                                       | Show saved attachments in the file manager                                     | [M06.03](../ROADMAP.md#m06-desktop-integration-and-provider-support), [#266](https://github.com/mikepadiernos/plasma-impresario/issues/266)                                                                                                                          |
+| KDE Online Accounts (M27.06) and Nextcloud shares (M29)                                                                     | ![Planned][planned]                                       | Reuse the same Nextcloud identity and insert reviewed share links into drafts  | [M12](../ROADMAP.md#m12-nextcloud-and-digital-asset-management), [#267](https://github.com/mikepadiernos/plasma-impresario/issues/267)                                                                                                                               |
+| Workspaces (M15) and Plasma Activities (M27.01)                                                                             | ![Done][done] Workspaces · ![Planned][planned] Activities | Follow the same Activities so mail and file workspaces switch together         | [M08](../ROADMAP.md#m08-settings-and-workspace-configuration) workspace settings                                                                                                                                                                                     |
+| App-local themes and theme profiles (M17, M18)                                                                              | ![Planned][planned]                                       | Import its theme or follow it, and export ours for it to import                | [M09](../ROADMAP.md#m09-themes-and-branding-foundation), [#268](https://github.com/mikepadiernos/plasma-impresario/issues/268)                                                                                                                                       |
+| Vim-style navigation (M25) and keyboard shortcut settings (M31)                                                             | ![Planned][planned]                                       | Offer the same optional Vim mode, import or follow its keymap, and export ours | [M08](../ROADMAP.md#m08-settings-and-workspace-configuration), [#437](https://github.com/mikepadiernos/plasma-impresario/issues/437), [#438](https://github.com/mikepadiernos/plasma-impresario/issues/438)                                                          |
+| Default file manager registration (M27.01)                                                                                  | ![Done][done]                                             | Folders opened through KIO use Plasma Opus when it is the default              | ![Done][done] No change needed                                                                                                                                                                                                                                       |
+| Live and Baloo-indexed search (M09) and indexing status (M27.03)                                                            | ![Done][done] Search · ![Planned][planned] Status         | Find saved attachments and exported mail; reuse its coverage notices           | [M05.06](../ROADMAP.md#m05-search-and-indexing), [#350](https://github.com/mikepadiernos/plasma-impresario/issues/350)                                                                                                                                               |
+| Advanced search syntax and Search Results panel (M21) and search settings (M22)                                             | ![Done][done] M21 · ![Planned][planned] M22               | Align query syntax, the results panel and search settings                      | [M05.02](../ROADMAP.md#m05-search-and-indexing), [#334](https://github.com/mikepadiernos/plasma-impresario/issues/334), [#348](https://github.com/mikepadiernos/plasma-impresario/issues/348), [#352](https://github.com/mikepadiernos/plasma-impresario/issues/352) |
+| Mail file (`.eml`) preview (M27.09)                                                                                         | ![Planned][planned]                                       | Open the previewed message in Plasma Impresario by Message-ID                  | [M05.06](../ROADMAP.md#m05-search-and-indexing), [#351](https://github.com/mikepadiernos/plasma-impresario/issues/351)                                                                                                                                               |
 
 ## Calendar and scheduling
 
@@ -178,6 +180,35 @@ provider in M06.01 and search settings in M08.
 - **Verify:** Test import, export, following changes, invalid and missing
   profiles, and use without Plasma Opus installed, with isolated configuration.
 
+## Vim mode and shortcuts
+
+Planned in [M08](../ROADMAP.md#m08-settings-and-workspace-configuration)
+([#437](https://github.com/mikepadiernos/plasma-impresario/issues/437),
+[#438](https://github.com/mikepadiernos/plasma-impresario/issues/438)).
+
+- **What:** Offer the same optional Vim mode as Plasma Opus and sync its
+  settings in both directions, so keyboard navigation behaves the same in both
+  apps.
+- **How:** Plasma Opus plans Vim-style movement in its M25 Yazi mode, and Vim
+  mode settings, a which-key style hint panel and shortcut import and export in
+  its M31. Agree on a versioned keymap profile covering Vim mode enablement, the
+  hint panel's enablement and delay, the leader key and bindings for shared
+  actions such as movement, search, selection, panes and tabs; mail-only and
+  file-only actions stay app-local. Plasma Impresario imports the Plasma Opus
+  profile once or keeps following it when it changes, and exports its own for
+  Plasma Opus to import. Exchange profiles through export and import files or a
+  documented shared location; neither app writes the other's configuration.
+  Store the choice in KConfig and reuse KDE shortcut facilities.
+- **Recommendations:** Keep Vim mode off by default and syncing opt-in, with a
+  conflict preview and a way to revert. Never intercept typing in the composer,
+  search fields or other text inputs, and keep confirmations and undo for
+  destructive actions. Validate profiles, ignore unknown actions and never
+  execute commands from imported files. Without Plasma Opus, keep the local
+  settings.
+- **Verify:** Test import, export, following changes, conflicts with existing
+  single-key shortcuts, invalid and missing profiles, text-input pass-through,
+  and use without Plasma Opus installed, with isolated configuration.
+
 ## Actions, reminders and status
 
 - **What:** Keep shared actions such as Open, Share, Save, Schedule and Add
@@ -190,3 +221,6 @@ provider in M06.01 and search settings in M08.
   reminders or sending message previews to another app without user control.
 - **Verify:** Exercise missing services, disabled notifications, duplicate
   events, account switching and action failures.
+
+[done]: https://img.shields.io/badge/Done-1a7f37
+[planned]: https://img.shields.io/badge/Planned-6e7781

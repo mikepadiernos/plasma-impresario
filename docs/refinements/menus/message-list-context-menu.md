@@ -7,7 +7,8 @@
 This proposed menu appears when the user right-clicks one or more rows in the
 message list.
 
-**Legend:** ✅ exists in the current code on `main` · 📋 planned only
+**Legend:** ![Exists][exists] in the current code on `main` ·
+![Planned][planned] not implemented yet
 
 ## Purpose
 
@@ -54,56 +55,56 @@ surface for mailbox management and batch message operations.
 
 ### Single message
 
-| Action              | Shortcut                                                     | Availability                            | Notes                                        |
-| ------------------- | ------------------------------------------------------------ | --------------------------------------- | -------------------------------------------- |
-| Open                | —                                                            | ✅ Message list                         | Select the row to show it in the reader      |
-| Open in new window  | <kbd>Ctrl</kbd>+<kbd>Return</kbd>                            | ✅ Shortcut only                        | **Open message in New Window…**              |
-| Reply               | <kbd>Ctrl</kbd>+<kbd>R</kbd>                                 | ✅ **Message** menu, navigation toolbar | **Reply by Guess**                           |
-| Reply all           | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> | ✅ **Message** menu, navigation toolbar | **Reply to All**                             |
-| Forward             | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>                | ✅ **Message** menu, navigation toolbar | Forwards as an attachment                    |
-| Mark as read        | <kbd>M</kbd>                                                 | ✅ Context menu, navigation toolbar     | **Mark as Read** is a toggle                 |
-| Mark as unread      | <kbd>M</kbd>                                                 | ✅ Context menu, navigation toolbar     | Clear the **Mark as Read** toggle            |
-| Flag                | <kbd>S</kbd>                                                 | ✅ Context menu, navigation toolbar     | **Mark as Flagged** is a toggle              |
-| Unflag              | <kbd>S</kbd>                                                 | ✅ Context menu, navigation toolbar     | Clear the **Mark as Flagged** toggle         |
-| Move to folder      | —                                                            | ✅ Drag and drop onto the folder tree   | Hold <kbd>Shift</kbd> to move without asking |
-| Copy to folder      | —                                                            | ✅ Drag and drop onto the folder tree   | Hold <kbd>Ctrl</kbd> to copy without asking  |
-| Archive             | <kbd>A</kbd>                                                 | ✅ Context menu, navigation toolbar     | Moves to the account's archive folder        |
-| Delete              | <kbd>Delete</kbd>                                            | ✅ Context menu, navigation toolbar     | **Mark as Deleted**; **Expunge** removes it  |
-| Print               | —                                                            | 📋 Planned                              |                                              |
-| Add to notes        | —                                                            | 📋 Planned                              |                                              |
-| Add contact         | —                                                            | 📋 Planned                              |                                              |
-| View source         | —                                                            | ✅ Context menu                         | **View Message Source…**                     |
-| Copy sender address | —                                                            | 📋 Planned                              | The reader's header addresses can be copied  |
-| Copy subject        | —                                                            | 📋 Planned                              |                                              |
-| Copy message ID     | —                                                            | 📋 Planned                              |                                              |
+| Action              | Shortcut                                                     | Availability                                           | Notes                                        |
+| ------------------- | ------------------------------------------------------------ | ------------------------------------------------------ | -------------------------------------------- |
+| Open                | —                                                            | ![Exists][exists] Message list                         | Select the row to show it in the reader      |
+| Open in new window  | <kbd>Ctrl</kbd>+<kbd>Return</kbd>                            | ![Exists][exists] Shortcut only                        | **Open message in New Window…**              |
+| Reply               | <kbd>Ctrl</kbd>+<kbd>R</kbd>                                 | ![Exists][exists] **Message** menu, navigation toolbar | **Reply by Guess**                           |
+| Reply all           | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> | ![Exists][exists] **Message** menu, navigation toolbar | **Reply to All**                             |
+| Forward             | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>                | ![Exists][exists] **Message** menu, navigation toolbar | Forwards as an attachment                    |
+| Mark as read        | <kbd>M</kbd>                                                 | ![Exists][exists] Context menu, navigation toolbar     | **Mark as Read** is a toggle                 |
+| Mark as unread      | <kbd>M</kbd>                                                 | ![Exists][exists] Context menu, navigation toolbar     | Clear the **Mark as Read** toggle            |
+| Flag                | <kbd>S</kbd>                                                 | ![Exists][exists] Context menu, navigation toolbar     | **Mark as Flagged** is a toggle              |
+| Unflag              | <kbd>S</kbd>                                                 | ![Exists][exists] Context menu, navigation toolbar     | Clear the **Mark as Flagged** toggle         |
+| Move to folder      | —                                                            | ![Exists][exists] Drag and drop onto the folder tree   | Hold <kbd>Shift</kbd> to move without asking |
+| Copy to folder      | —                                                            | ![Exists][exists] Drag and drop onto the folder tree   | Hold <kbd>Ctrl</kbd> to copy without asking  |
+| Archive             | <kbd>A</kbd>                                                 | ![Exists][exists] Context menu, navigation toolbar     | Moves to the account's archive folder        |
+| Delete              | <kbd>Delete</kbd>                                            | ![Exists][exists] Context menu, navigation toolbar     | **Mark as Deleted**; **Expunge** removes it  |
+| Print               | —                                                            | ![Planned][planned]                                    |                                              |
+| Add to notes        | —                                                            | ![Planned][planned]                                    |                                              |
+| Add contact         | —                                                            | ![Planned][planned]                                    |                                              |
+| View source         | —                                                            | ![Exists][exists] Context menu                         | **View Message Source…**                     |
+| Copy sender address | —                                                            | ![Planned][planned]                                    | The reader's header addresses can be copied  |
+| Copy subject        | —                                                            | ![Planned][planned]                                    |                                              |
+| Copy message ID     | —                                                            | ![Planned][planned]                                    |                                              |
 
 ### Multi-select
 
 The list uses extended selection, and the mark, archive and save actions apply
 to every selected message.
 
-| Action                   | Shortcut          | Availability                          | Notes                                           |
-| ------------------------ | ----------------- | ------------------------------------- | ----------------------------------------------- |
-| Mark selected as read    | <kbd>M</kbd>      | ✅ Context menu, navigation toolbar   |                                                 |
-| Mark selected as unread  | <kbd>M</kbd>      | ✅ Context menu, navigation toolbar   | Clear the **Mark as Read** toggle               |
-| Flag selected            | <kbd>S</kbd>      | ✅ Context menu, navigation toolbar   |                                                 |
-| Archive selected         | <kbd>A</kbd>      | ✅ Context menu, navigation toolbar   |                                                 |
-| Move selected to folder  | —                 | ✅ Drag and drop onto the folder tree |                                                 |
-| Delete selected          | <kbd>Delete</kbd> | ✅ Context menu, navigation toolbar   | No count or confirmation today                  |
-| Copy selected messages   | —                 | ✅ Drag and drop onto the folder tree |                                                 |
-| Export selected messages | —                 | ✅ Context menu                       | **Save Message…** asks for one file per message |
+| Action                   | Shortcut          | Availability                                         | Notes                                           |
+| ------------------------ | ----------------- | ---------------------------------------------------- | ----------------------------------------------- |
+| Mark selected as read    | <kbd>M</kbd>      | ![Exists][exists] Context menu, navigation toolbar   |                                                 |
+| Mark selected as unread  | <kbd>M</kbd>      | ![Exists][exists] Context menu, navigation toolbar   | Clear the **Mark as Read** toggle               |
+| Flag selected            | <kbd>S</kbd>      | ![Exists][exists] Context menu, navigation toolbar   |                                                 |
+| Archive selected         | <kbd>A</kbd>      | ![Exists][exists] Context menu, navigation toolbar   |                                                 |
+| Move selected to folder  | —                 | ![Exists][exists] Drag and drop onto the folder tree |                                                 |
+| Delete selected          | <kbd>Delete</kbd> | ![Exists][exists] Context menu, navigation toolbar   | No count or confirmation today                  |
+| Copy selected messages   | —                 | ![Exists][exists] Drag and drop onto the folder tree |                                                 |
+| Export selected messages | —                 | ![Exists][exists] Context menu                       | **Save Message…** asks for one file per message |
 
 ## Current menu
 
 `MainWindow::showContextMenuMsgListTree()` in `src/Gui/Window.cpp` shows the
 menu only on a message row:
 
-- 📬 Mark as Read, Mark as Deleted, Mark as Flagged, Mark as Junk
+- Mark as Read, Mark as Deleted, Mark as Flagged, Mark as Junk
   (<kbd>J</kbd>), Mark as Not Junk (<kbd>Shift</kbd>+<kbd>J</kbd>), Archive
-- 📁 Mark Mailbox as Read
-- 💾 Save Message…, View Message Source…, View Message Headers…
+- Mark Mailbox as Read
+- Save Message…, View Message Source…, View Message Headers…
   (<kbd>Ctrl</kbd>+<kbd>U</kbd>)
-- 🏷️ Tag with 1st tag through Tag with 9th tag (<kbd>1</kbd>–<kbd>9</kbd>), one
+- Tag with 1st tag through Tag with 9th tag (<kbd>1</kbd>–<kbd>9</kbd>), one
   entry per defined favorite tag
 
 ## Safety and quality rules
@@ -113,3 +114,6 @@ menu only on a message row:
 - Actions must reflect the current visible selection and not stale state after
   an async refresh.
 - Destructive bulk actions should include a count and confirm before applying.
+
+[exists]: https://img.shields.io/badge/Exists-1a7f37
+[planned]: https://img.shields.io/badge/Planned-6e7781

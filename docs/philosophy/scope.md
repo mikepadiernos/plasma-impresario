@@ -9,7 +9,8 @@ Trojitá, for users who need reliable account management, fast triage and
 readable conversations. Other desktop environments are outside the supported
 product scope; milestones and their order live in the [roadmap](../ROADMAP.md).
 
-Legend: ✅ done · 🧪 implemented, needs verification · 📋 planned · ⛔ blocked
+Legend: ![Done][done] · ![Needs verification][needs-verification] ·
+![Planned][planned] · ![Blocked][blocked]
 
 > [!IMPORTANT]
 >
@@ -27,18 +28,18 @@ implementation, [designs](designs.md#current-interface) describes the current
 interface, and [caveats](../CAVEATS.md) records security and platform
 limitations.
 
-| Capability                                                       | Status | Notes                                                                                                                                                                                                                                   |
-| ---------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 🧱 KDE / Qt 6 baseline (M01)                                     | ✅     | Merged into `main`; see [compatibility](compatibility.md).                                                                                                                                                                              |
-| 📬 IMAP reading with on-demand fetching and local cache          | 🧪     | Inherited from Trojitá. Live reading with a real account is pending in M04.                                                                                                                                                             |
-| ✉️ SMTP and other submission paths                               | 🧪     | Inherited from Trojitá. Live sending is pending in M04.                                                                                                                                                                                 |
-| 📬 Multiple simultaneous IMAP accounts                           | ✅     | Completed in M02 ([#222](https://github.com/mikepadiernos/plasma-impresario/issues/222)).                                                                                                                                               |
-| 🧭 Mail shell and embedded panels                                | 🧪     | Completed ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); Plasma check in [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315); see [designs](designs.md#shell-status).                         |
-| 🔐 OAuth account authentication                                  | 🧪     | Merged in M02 ([#218](https://github.com/mikepadiernos/plasma-impresario/issues/218)); live sign-in in [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317) and limitations in [caveats](../CAVEATS.md#oauth-sign-in). |
-| 🔍 Search across folders and accounts with an opt-in local index | 📋     | M05. Server search stays the default; the index covers downloaded mail only.                                                                                                                                                            |
-| 📮 POP3 retrieval with SMTP submission                           | 📋     | M06.05. POP3 stores retrieved mail locally and has no IMAP-style server folder synchronization.                                                                                                                                         |
-| 📡 JMAP accounts                                                 | 📋     | M06.05. Capabilities depend on the server.                                                                                                                                                                                              |
-| 🏢 Consumer Outlook, Exchange Online and Exchange Server         | 📋     | M13; see the [Microsoft guide](../integrations/microsoft.md). Exchange Online and on-premises Exchange Server differ in interfaces, authentication options and administrator policies.                                                  |
+| Capability                                                    | Status                                    | Notes                                                                                                                                                                                                                                   |
+| ------------------------------------------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| KDE / Qt 6 baseline (M01)                                     | ![Done][done]                             | Merged into `main`; see [compatibility](compatibility.md).                                                                                                                                                                              |
+| IMAP reading with on-demand fetching and local cache          | ![Needs verification][needs-verification] | Inherited from Trojitá. Live reading with a real account is pending in M04.                                                                                                                                                             |
+| SMTP and other submission paths                               | ![Needs verification][needs-verification] | Inherited from Trojitá. Live sending is pending in M04.                                                                                                                                                                                 |
+| Multiple simultaneous IMAP accounts                           | ![Done][done]                             | Completed in M02 ([#222](https://github.com/mikepadiernos/plasma-impresario/issues/222)).                                                                                                                                               |
+| Mail shell and embedded panels                                | ![Needs verification][needs-verification] | Completed ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); Plasma check in [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315); see [designs](designs.md#shell-status).                         |
+| OAuth account authentication                                  | ![Needs verification][needs-verification] | Merged in M02 ([#218](https://github.com/mikepadiernos/plasma-impresario/issues/218)); live sign-in in [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317) and limitations in [caveats](../CAVEATS.md#oauth-sign-in). |
+| Search across folders and accounts with an opt-in local index | ![Planned][planned]                       | M05. Server search stays the default; the index covers downloaded mail only.                                                                                                                                                            |
+| POP3 retrieval with SMTP submission                           | ![Planned][planned]                       | M06.05. POP3 stores retrieved mail locally and has no IMAP-style server folder synchronization.                                                                                                                                         |
+| JMAP accounts                                                 | ![Planned][planned]                       | M06.05. Capabilities depend on the server.                                                                                                                                                                                              |
+| Consumer Outlook, Exchange Online and Exchange Server         | ![Planned][planned]                       | M13; see the [Microsoft guide](../integrations/microsoft.md). Exchange Online and on-premises Exchange Server differ in interfaces, authentication options and administrator policies.                                                  |
 
 ## Target experience
 
@@ -66,13 +67,13 @@ limitations.
 
 ## Product principles
 
-| Principle          | Meaning                                                                                                 |
-| ------------------ | ------------------------------------------------------------------------------------------------------- |
-| 🖥️ Native          | Follow Plasma conventions and KDE facilities rather than duplicating desktop services.                  |
-| 📶 Reliable        | Surface connection, authentication and partial-operation state; never imply that failed work completed. |
-| 📖 Readable        | Keep default layouts compact but prioritize hierarchy, selection and focus visibility.                  |
-| 🔒 User-controlled | Make remote content, external services and destructive actions explicit.                                |
-| 🧩 Composable      | Separate account, mailbox, desktop and cross-app behavior so integrations remain optional.              |
+| Principle       | Meaning                                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------------------------- |
+| Native          | Follow Plasma conventions and KDE facilities rather than duplicating desktop services.                  |
+| Reliable        | Surface connection, authentication and partial-operation state; never imply that failed work completed. |
+| Readable        | Keep default layouts compact but prioritize hierarchy, selection and focus visibility.                  |
+| User-controlled | Make remote content, external services and destructive actions explicit.                                |
+| Composable      | Separate account, mailbox, desktop and cross-app behavior so integrations remain optional.              |
 
 ## Reference model
 
@@ -128,3 +129,8 @@ productivity:
 ```
 
 </details>
+
+[blocked]: https://img.shields.io/badge/Blocked-cf222e
+[done]: https://img.shields.io/badge/Done-1a7f37
+[needs-verification]: https://img.shields.io/badge/Needs_verification-0969da
+[planned]: https://img.shields.io/badge/Planned-6e7781

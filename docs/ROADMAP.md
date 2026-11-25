@@ -14,10 +14,11 @@ integration, productivity features and release-quality refinements.
 
 > [!NOTE]
 >
-> Feature completion follows the project board. An item is checked only when
-> its issue is **Completed** or **Merged** and its implementation is verified.
-> Blocked or unverifiable work is recorded in [pending tasks](TODO.md), and
-> limitations of completed features in [caveats](CAVEATS.md).
+> Feature completion follows the project board. An item is checked only when its
+> issue is $\color{#2da44e}\textbf{Completed}$ or
+> $\color{#8957e5}\textbf{Merged}$ and its implementation is verified. Blocked
+> or unverifiable work is recorded in [pending tasks](TODO.md), and limitations
+> of completed features in [caveats](CAVEATS.md).
 
 ## Contents
 
@@ -28,33 +29,29 @@ integration, productivity features and release-quality refinements.
 
 ## Milestones at a glance
 
-Legend: ✅ merged into `main` · 🚧 in development · 📋 backlog. **Done** counts
-roadmap features whose issues are **Completed** or **Merged** (🟩 = 20%).
-Board statuses as of 2026-11-25.
+Legend: ![Merged][merged] into `main` · ![Development][development] ·
+![Defined][defined] · ![Backlog][backlog]. **Done** counts roadmap features
+whose issues are $\color{#2da44e}\textbf{Completed}$ or
+$\color{#8957e5}\textbf{Merged}$; the count is green when all are done, amber
+once work starts and gray before. Board statuses as of 2026-11-25.
 
 | Milestone | Focus | Parent issue | Done | Board |
 | --- | --- | --- | --- | --- |
-| [M01](#m01-kde--qt6-compatibility-baseline) | 🧱 KDE / Qt 6 compatibility baseline | [#1](https://github.com/mikepadiernos/plasma-impresario/issues/1) | 🟩🟩🟩🟩🟩 19/19 | ✅ Merged |
-| [M02](#m02-shell-accounts-and-core-mailbox-foundation) | 🧭 Shell, accounts and core mailbox foundation | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4) | 🟩🟩🟩🟩🟩 14/14 | ✅ Merged |
-| [M03](#m03-mail-operations-sorting-and-folder-management) | 📬 Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5) | 🟩🟩🟩🟩🟩 12/12 | ✅ Merged |
-| [M04](#m04-reading-and-conversation-flow) | 📖 Reading and conversation flow | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6) | ⬜⬜⬜⬜⬜ 0/15 | 📋 Backlog |
-| [M05](#m05-search-and-indexing) | 🔍 Search and indexing | [#324](https://github.com/mikepadiernos/plasma-impresario/issues/324) | ⬜⬜⬜⬜⬜ 0/24 | 📋 Backlog |
-| [M06](#m06-desktop-integration-and-provider-support) | 🖥️ Desktop integration and provider support | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7) | ⬜⬜⬜⬜⬜ 0/27 | 📋 Backlog |
-| [M07](#m07-output-notifications-and-rules-automation) | 🔔 Output, notifications and rules automation | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8) | ⬜⬜⬜⬜⬜ 0/11 | 📋 Backlog |
-| [M08](#m08-settings-and-workspace-configuration) | ⚙️ Settings and workspace configuration | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9) | ⬜⬜⬜⬜⬜ 0/13 | 📋 Backlog |
-| [M09](#m09-themes-and-branding-foundation) | 🎨 Themes and branding foundation | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10) | ⬜⬜⬜⬜⬜ 1/32 | 🚧 Development: M09.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
-| [M10](#m10-reliability-sync-and-notification-quality) | 🔄 Reliability, sync and notification quality | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11) | ⬜⬜⬜⬜⬜ 0/12 | 📋 Backlog |
-| [M11](#m11-release-readiness-and-polish) | 🚀 Release readiness and polish | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12) | ⬜⬜⬜⬜⬜ 0/10 | 📋 Backlog |
-| [M12](#m12-nextcloud-and-digital-asset-management) | ☁️ Nextcloud and digital asset management | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31) | ⬜⬜⬜⬜⬜ 0/7 | 📋 Backlog |
-| [M13](#m13-microsoft-accounts-and-exchange) | 🏢 Microsoft accounts and Exchange | [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388) | ⬜⬜⬜⬜⬜ 0/24 | 📋 Backlog |
-| [M14](#m14-refinements) | ✨ Refinements | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15) | ⬜⬜⬜⬜⬜ 0/84 | 📋 Backlog |
-| [M15](#m15-real-plasma-session-verification) | 🖥️ Real Plasma session verification | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ⬜⬜⬜⬜⬜ 0/3 | 📋 Defined |
-
-> [!TIP]
->
-> Some board issue titles still use earlier milestone numbers; the parent issue
-> links above and each **Project** link point to the right item. See
-> [pending tasks](TODO.md#milestone-feature-issue-synchronization).
+| [M01](#m01-kde--qt6-compatibility-baseline) | KDE / Qt 6 compatibility baseline | [#1](https://github.com/mikepadiernos/plasma-impresario/issues/1) | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged] |
+| [M02](#m02-shell-accounts-and-core-mailbox-foundation) | Shell, accounts and core mailbox foundation | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4) | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged] |
+| [M03](#m03-mail-operations-sorting-and-folder-management) | Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5) | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged] |
+| [M04](#m04-reading-and-conversation-flow) | Reading and conversation flow | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6) | ![0 of 15 done](https://img.shields.io/badge/0%2F15-0%25-6e7781) | ![Backlog][backlog] |
+| [M05](#m05-search-and-indexing) | Search and indexing | [#324](https://github.com/mikepadiernos/plasma-impresario/issues/324) | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781) | ![Backlog][backlog] |
+| [M06](#m06-desktop-integration-and-provider-support) | Desktop integration and provider support | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7) | ![0 of 27 done](https://img.shields.io/badge/0%2F27-0%25-6e7781) | ![Backlog][backlog] |
+| [M07](#m07-output-notifications-and-rules-automation) | Output, notifications and rules automation | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8) | ![0 of 11 done](https://img.shields.io/badge/0%2F11-0%25-6e7781) | ![Backlog][backlog] |
+| [M08](#m08-settings-and-workspace-configuration) | Settings and workspace configuration | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9) | ![0 of 15 done](https://img.shields.io/badge/0%2F15-0%25-6e7781) | ![Backlog][backlog] |
+| [M09](#m09-themes-and-branding-foundation) | Themes and branding foundation | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10) | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700) | ![Development][development]: M09.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
+| [M10](#m10-reliability-sync-and-notification-quality) | Reliability, sync and notification quality | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11) | ![0 of 12 done](https://img.shields.io/badge/0%2F12-0%25-6e7781) | ![Backlog][backlog] |
+| [M11](#m11-release-readiness-and-polish) | Release readiness and polish | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12) | ![0 of 10 done](https://img.shields.io/badge/0%2F10-0%25-6e7781) | ![Backlog][backlog] |
+| [M12](#m12-nextcloud-and-digital-asset-management) | Nextcloud and digital asset management | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31) | ![0 of 7 done](https://img.shields.io/badge/0%2F7-0%25-6e7781) | ![Backlog][backlog] |
+| [M13](#m13-microsoft-accounts-and-exchange) | Microsoft accounts and Exchange | [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388) | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781) | ![Backlog][backlog] |
+| [M14](#m14-refinements) | Refinements | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15) | ![0 of 84 done](https://img.shields.io/badge/0%2F84-0%25-6e7781) | ![Backlog][backlog] |
+| [M15](#m15-real-plasma-session-verification) | Real Plasma session verification | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781) | ![Defined][defined] |
 
 ## Recommended priority
 
@@ -583,6 +580,20 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   search, indexed accounts, excluded folders, attachment indexing, history
   retention and reset, stored in KConfig. See [M05](#m05-search-and-indexing).
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317853651)
+- [ ] Offer an optional Vim mode, off by default, for keyboard-first mail
+  handling: Vim-style movement and multi-key actions in the folder tree,
+  message list and reader, a mode indicator in the footer, a which-key style
+  hint panel and a searchable shortcut reference. Store it in KConfig through
+  KDE shortcut facilities, never intercept typing in the composer or other
+  text inputs, and resolve conflicts with existing single-key shortcuts.
+  Adapted from Plasma Opus M25 and M31.
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318254280)
+- [ ] Sync Vim mode and shared shortcut settings with Plasma Opus in both
+  directions. Import its keymap profile once or follow later changes, and
+  export ours for Plasma Opus to import. Keep syncing opt-in, previewable and
+  reversible, keep mail-only actions app-local, and keep the local settings
+  without Plasma Opus. See [Plasma Opus integrations](integrations/plasma-opus.md#vim-mode-and-shortcuts).
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318254529)
 
 ### M09: Themes and branding foundation
 
@@ -1237,12 +1248,18 @@ checks: [M15 handoff](TODO.md#m15-real-plasma-session-verification).
 
 ## Keeping the roadmap current
 
-- 🗂️ Keep each milestone's headings, subsections and feature bullets; mark
+- Keep each milestone's headings, subsections and feature bullets; mark
   progress only with checkboxes.
-- ✅ Check an item only after its issue is **Completed** or **Merged** on the
-  [project board](https://github.com/users/mikepadiernos/projects/4); leave
-  items in **Review** or earlier unchecked.
-- ⛔ Record blocked work and handoffs in [pending tasks](TODO.md) and link them
+- Check an item only after its issue is $\color{#2da44e}\textbf{Completed}$ or
+  $\color{#8957e5}\textbf{Merged}$ on the [project
+  board](https://github.com/users/mikepadiernos/projects/4); leave items in
+  $\color{#2f81f7}\textbf{Review}$ or earlier unchecked.
+- Record blocked work and handoffs in [pending tasks](TODO.md) and link them
   briefly from the affected milestone.
-- ⚠️ Record limitations of completed features in [caveats](CAVEATS.md) and
+- Record limitations of completed features in [caveats](CAVEATS.md) and
   reference them at the end of the milestone.
+
+[backlog]: https://img.shields.io/badge/Backlog-6e7781
+[defined]: https://img.shields.io/badge/Defined-6e7781
+[development]: https://img.shields.io/badge/Development-9a6700
+[merged]: https://img.shields.io/badge/Merged-8250df

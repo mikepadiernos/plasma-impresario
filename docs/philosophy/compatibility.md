@@ -11,25 +11,25 @@ into `main`; live account, reading and desktop-session checks are deferred to
 later milestones, as recorded in
 [TODO](../TODO.md#m01-release-gate-and-integration).
 
-Legend: ✅ verified · 🧪 implemented, needs verification · 🚧 in progress · 📋
-planned · ⚠️ limitation
+Legend: ![Verified][verified] · ![Needs verification][needs-verification] ·
+![In progress][in-progress] · ![Planned][planned] · ![Limitation][limitation]
 
 ## Initial target and observed environment
 
-| Area                                     | Target                                    | Status | Evidence and limits                                                                                                                                                                       |
-| ---------------------------------------- | ----------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 🐧 Distribution and architecture         | CachyOS on x86_64 with `pacman`           | ✅     | Renderer-free and WebEngine builds, user-prefix and temporary-prefix installs, and installer checks passed. Other Arch derivatives and architectures are not verified.                    |
-| 🖥️ Desktop and session                   | KDE Plasma 6, Wayland                     | 🧪     | Plasma Workspace 6.8.3 and a KDE Wayland session were present on the observed host. Account setup and message reading in the session have not been verified.                              |
-| 🖥️ X11 session                           | None                                      | ⚠️     | Not a release target.                                                                                                                                                                     |
-| 🛠️ Compiler                              | GCC with C++20 support                    | ✅     | GCC 16.2.1. No older GCC minimum or any Clang version has been validated.                                                                                                                 |
-| 🧱 Qt                                    | Qt 6.7.0 or newer, as required by CMake   | ✅     | Qt 6.12.0. This does not validate every version from 6.7 onward.                                                                                                                          |
-| 🧱 KDE Frameworks                        | KF6 and ECM compatible with the chosen Qt | ✅     | ECM and KF6 6.32.0. The project declares no minimums for ECM, ItemModels, Config or I18n; the observed CMake package summary reported an effective 6.25.0 minimum for ItemModels and ECM. |
-| 🛠️ Build tools                           | CMake and Ninja                           | ✅     | CMake 4.5.1 and Ninja 1.13.2. CMake declares 3.16 as its minimum, which has not been tested with the required ECM and Qt toolchain.                                                       |
-| 📖 WebEngine reader                      | Qt6 WebEngineWidgets, on by default       | ✅     | Renderer-enabled build with the `qt6-webengine` 6.140.0 package passed all 35 CTest cases at M01 completion; live-session reading remains unverified.                                     |
-| 📬 Live account setup                    | Isolated test account                     | 🚧     | Deferred to M02 ([#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)); exercised only against a disposable Dovecot container so far.                                      |
-| 📖 Live reading, replies and attachments | Isolated test mail                        | 📋     | Deferred to M04 ([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)).                                                                                                    |
-| 🖥️ Plasma-session startup and recovery   | Real Plasma session                       | 📋     | Deferred to M06.01 ([#101](https://github.com/mikepadiernos/plasma-impresario/issues/101)).                                                                                               |
-| 📦 System-prefix installs                | Renderer-free and WebEngine               | 📋     | Pending; only user and temporary prefixes have been verified.                                                                                                                             |
+| Area                                  | Target                                    | Status                                    | Evidence and limits                                                                                                                                                                       |
+| ------------------------------------- | ----------------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Distribution and architecture         | CachyOS on x86_64 with `pacman`           | ![Verified][verified]                     | Renderer-free and WebEngine builds, user-prefix and temporary-prefix installs, and installer checks passed. Other Arch derivatives and architectures are not verified.                    |
+| Desktop and session                   | KDE Plasma 6, Wayland                     | ![Needs verification][needs-verification] | Plasma Workspace 6.8.3 and a KDE Wayland session were present on the observed host. Account setup and message reading in the session have not been verified.                              |
+| X11 session                           | None                                      | ![Limitation][limitation]                 | Not a release target.                                                                                                                                                                     |
+| Compiler                              | GCC with C++20 support                    | ![Verified][verified]                     | GCC 16.2.1. No older GCC minimum or any Clang version has been validated.                                                                                                                 |
+| Qt                                    | Qt 6.7.0 or newer, as required by CMake   | ![Verified][verified]                     | Qt 6.12.0. This does not validate every version from 6.7 onward.                                                                                                                          |
+| KDE Frameworks                        | KF6 and ECM compatible with the chosen Qt | ![Verified][verified]                     | ECM and KF6 6.32.0. The project declares no minimums for ECM, ItemModels, Config or I18n; the observed CMake package summary reported an effective 6.25.0 minimum for ItemModels and ECM. |
+| Build tools                           | CMake and Ninja                           | ![Verified][verified]                     | CMake 4.5.1 and Ninja 1.13.2. CMake declares 3.16 as its minimum, which has not been tested with the required ECM and Qt toolchain.                                                       |
+| WebEngine reader                      | Qt6 WebEngineWidgets, on by default       | ![Verified][verified]                     | Renderer-enabled build with the `qt6-webengine` 6.140.0 package passed all 35 CTest cases at M01 completion; live-session reading remains unverified.                                     |
+| Live account setup                    | Isolated test account                     | ![In progress][in-progress]               | Deferred to M02 ([#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)); exercised only against a disposable Dovecot container so far.                                      |
+| Live reading, replies and attachments | Isolated test mail                        | ![Planned][planned]                       | Deferred to M04 ([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)).                                                                                                    |
+| Plasma-session startup and recovery   | Real Plasma session                       | ![Planned][planned]                       | Deferred to M06.01 ([#101](https://github.com/mikepadiernos/plasma-impresario/issues/101)).                                                                                               |
+| System-prefix installs                | Renderer-free and WebEngine               | ![Planned][planned]                       | Pending; only user and temporary prefixes have been verified.                                                                                                                             |
 
 ### Installer package managers
 
@@ -38,14 +38,14 @@ than choosing an unrelated one. Package names and repository availability vary
 between releases. On unsupported distributions, install dependencies manually
 and run `./install.sh --no-deps`; see [installation](../INSTALL.md).
 
-| Distribution family    | Package manager          | Status | Notes                                             |
-| ---------------------- | ------------------------ | ------ | ------------------------------------------------- |
-| CachyOS                | `pacman`                 | ✅     | The only verified target                          |
-| Arch, CachyOS, Manjaro | `paru`, `yay` or `pamac` | 🧪     | Installer branch exists; unverified               |
-| Arch and Manjaro       | `pacman`                 | 🧪     | Same package list as CachyOS; unverified          |
-| Debian and Ubuntu      | `apt-get`                | 🧪     | Installer branch exists; package list not audited |
-| Fedora and RHEL family | `dnf`                    | 🧪     | Installer branch exists; package list not audited |
-| openSUSE and SLES      | `zypper`                 | 🧪     | Installer branch exists; package list not audited |
+| Distribution family    | Package manager          | Status                                    | Notes                                             |
+| ---------------------- | ------------------------ | ----------------------------------------- | ------------------------------------------------- |
+| CachyOS                | `pacman`                 | ![Verified][verified]                     | The only verified target                          |
+| Arch, CachyOS, Manjaro | `paru`, `yay` or `pamac` | ![Needs verification][needs-verification] | Installer branch exists; unverified               |
+| Arch and Manjaro       | `pacman`                 | ![Needs verification][needs-verification] | Same package list as CachyOS; unverified          |
+| Debian and Ubuntu      | `apt-get`                | ![Needs verification][needs-verification] | Installer branch exists; package list not audited |
+| Fedora and RHEL family | `dnf`                    | ![Needs verification][needs-verification] | Installer branch exists; package list not audited |
+| openSUSE and SLES      | `zypper`                 | ![Needs verification][needs-verification] | Installer branch exists; package list not audited |
 
 ## Dependencies and limitations
 
@@ -73,10 +73,10 @@ project-level minimum versions; Config and I18n are required by the default
 > [!NOTE]
 >
 > `6.140.0` is the version of the Arch `qt6-webengine` package, as reported by
-> pacman and the
-> [Arch package database](https://archlinux.org/packages/extra/x86_64/qt6-webengine/).
-> It is numbered separately from the Qt 6.12.0 libraries it was built against
-> and is not a typo.
+> pacman and the [Arch package
+> database](https://archlinux.org/packages/extra/x86_64/qt6-webengine/). It is
+> numbered separately from the Qt 6.12.0 libraries it was built against and is
+> not a typo.
 
 The installer also installs `pkgconf` 3.0.11, `qt6-tools` 6.12.0 and
 `qt6-declarative` 6.12.0. These are not direct components of the root CMake Qt
@@ -88,14 +88,14 @@ requirement; `qt6-declarative` belongs to the WebEngine dependency chain.
 > are observations from the tested rolling CachyOS repositories, not
 > constraints; the CMake package summary is the source for effective minimums.
 
-| Optional feature            | CMake dependency and constraint             | CachyOS package and evidence                                                   |
-| --------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------ |
-| 🧩 MIME parsing             | Mimetic (`WITH_MIMETIC`)                    | `mimetic` was not installed, so CMake disabled it.                             |
-| 🔒 OpenPGP messages         | Gpgmepp and QGpgmeQt6, each 1.24.0 or newer | `gpgme` 2.3.1, `gpgmepp` 2.2.0 and `qgpgme` 2.2.0 were installed and detected. |
-| 🔑 Secure credential plugin | Qt6Keychain                                 | `qtkeychain-qt6` 0.18.0 was installed and detected.                            |
-| ✍️ Spell checking           | KF6Sonnet 6.21.0 or newer                   | `sonnet` 6.32.0 was installed and detected.                                    |
-| 👥 Akonadi address book     | KPim6AkonadiContactCore                     | `akonadi` and `akonadi-contacts` 26.08.3 were installed and detected.          |
-| 📖 Handbook generation      | KF6DocTools 6.26.0 or newer                 | `kdoctools` 6.32.0 was installed and detected.                                 |
+| Optional feature         | CMake dependency and constraint             | CachyOS package and evidence                                                   |
+| ------------------------ | ------------------------------------------- | ------------------------------------------------------------------------------ |
+| MIME parsing             | Mimetic (`WITH_MIMETIC`)                    | `mimetic` was not installed, so CMake disabled it.                             |
+| OpenPGP messages         | Gpgmepp and QGpgmeQt6, each 1.24.0 or newer | `gpgme` 2.3.1, `gpgmepp` 2.2.0 and `qgpgme` 2.2.0 were installed and detected. |
+| Secure credential plugin | Qt6Keychain                                 | `qtkeychain-qt6` 0.18.0 was installed and detected.                            |
+| Spell checking           | KF6Sonnet 6.21.0 or newer                   | `sonnet` 6.32.0 was installed and detected.                                    |
+| Akonadi address book     | KPim6AkonadiContactCore                     | `akonadi` and `akonadi-contacts` 26.08.3 were installed and detected.          |
+| Handbook generation      | KF6DocTools 6.26.0 or newer                 | `kdoctools` 6.32.0 was installed and detected.                                 |
 
 On `pacman`, optional packages missing from the configured repositories are
 skipped with a warning. Package lists for other managers have not been audited.
@@ -105,13 +105,13 @@ skipped with a warning. Package lists for other managers have not been audited.
 > On `pacman`, installing missing packages runs `pacman -Syu`, which also
 > upgrades the system.
 
-| Area                                | Dependency or behavior                                                                                       | Current limitation                                                                                                                                                                                                      |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 🔒 IMAP and TLS                     | Qt Network supplies sockets and TLS; the observed host had the Qt OpenSSL TLS plugin.                        | ⚠️ A working TLS backend and trusted certificates are needed for encrypted connections. An account can still be configured for cleartext. Real server and certificate behavior were not verified for M01.               |
-| 💾 Local storage                    | The persistent cache uses Qt SQL's `QSQLITE` driver and the filesystem.                                      | ⚠️ The observed host had the SQLite driver. If the persistent cache cannot open, setup reports an error and falls back to memory. Cached mail is not application-encrypted.                                             |
-| 📖 Message rendering                | Qt6 WebEngineWidgets is required when `WITH_WEBENGINE=ON`.                                                   | ⚠️ The observed renderer-enabled build and tests pass, but live-session and cross-distribution verification remain. A build with WebEngine disabled cannot display messages.                                            |
-| 🔑 Credentials and desktop services | QtKeychain, DBus, Sonnet, Akonadi and KDE documentation tools are optional integrations.                     | ⚠️ Behavior depends on installed plugins and session services. Neither a secure credential provider nor desktop integration has been verified in the target session. The cleartext password plugin is built by default. |
-| 🔒 MIME and OpenPGP                 | Mimetic, GpgME++ and QGpgme are optional; encrypted-message support needs both the MIME and crypto features. | ⚠️ The observed build disabled Mimetic, and therefore encrypted-message support.                                                                                                                                        |
+| Area                             | Dependency or behavior                                                                                       | Current limitation                                                                                                                                                                                                                             |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| IMAP and TLS                     | Qt Network supplies sockets and TLS; the observed host had the Qt OpenSSL TLS plugin.                        | ![Limitation][limitation] A working TLS backend and trusted certificates are needed for encrypted connections. An account can still be configured for cleartext. Real server and certificate behavior were not verified for M01.               |
+| Local storage                    | The persistent cache uses Qt SQL's `QSQLITE` driver and the filesystem.                                      | ![Limitation][limitation] The observed host had the SQLite driver. If the persistent cache cannot open, setup reports an error and falls back to memory. Cached mail is not application-encrypted.                                             |
+| Message rendering                | Qt6 WebEngineWidgets is required when `WITH_WEBENGINE=ON`.                                                   | ![Limitation][limitation] The observed renderer-enabled build and tests pass, but live-session and cross-distribution verification remain. A build with WebEngine disabled cannot display messages.                                            |
+| Credentials and desktop services | QtKeychain, DBus, Sonnet, Akonadi and KDE documentation tools are optional integrations.                     | ![Limitation][limitation] Behavior depends on installed plugins and session services. Neither a secure credential provider nor desktop integration has been verified in the target session. The cleartext password plugin is built by default. |
+| MIME and OpenPGP                 | Mimetic, GpgME++ and QGpgme are optional; encrypted-message support needs both the MIME and crypto features. | ![Limitation][limitation] The observed build disabled Mimetic, and therefore encrypted-message support.                                                                                                                                        |
 
 See [CAVEATS](../CAVEATS.md#security-and-data-protection) for security
 recommendations.
@@ -150,3 +150,9 @@ cases, so current counts differ. Live account setup, message reading, replies,
 attachments and Plasma-session behavior remain unverified; on hosts without
 Plasma, use the dev container described in
 [building outside Plasma](../../CONTRIBUTING.md#building-outside-plasma).
+
+[in-progress]: https://img.shields.io/badge/In_progress-9a6700
+[limitation]: https://img.shields.io/badge/Limitation-bc4c00
+[needs-verification]: https://img.shields.io/badge/Needs_verification-0969da
+[planned]: https://img.shields.io/badge/Planned-6e7781
+[verified]: https://img.shields.io/badge/Verified-1a7f37

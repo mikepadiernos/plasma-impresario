@@ -8,8 +8,8 @@ Plasma Impresario targets KDE Plasma only. This guide lists the intended desktop
 integration, suggested approaches and decisions to validate; the status table
 records what the client does today.
 
-Status: ✅ done or verified · 🧪 implemented, needs verification · 📋 planned ·
-⚠️ limitation
+Status: ![Done][done] or verified · ![Needs verification][needs-verification] ·
+![Planned][planned] · ![Limitation][limitation]
 
 > [!IMPORTANT]
 >
@@ -21,21 +21,21 @@ Status: ✅ done or verified · 🧪 implemented, needs verification · 📋 pla
 Roadmap work is in
 [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support): **M06.01**
 KDE and Plasma services, **M06.02** Plasma widgets and desktop feedback, and
-**M06.03** file manager handoff. Baloo search is part of [M05](../ROADMAP.md#m05-search-and-indexing).
-Notification controls are also part of
-[M07](../ROADMAP.md#m07-output-notifications-and-rules-automation), and app
-themes are part of [M09](../ROADMAP.md#m09-themes-and-branding-foundation).
+**M06.03** file manager handoff. Baloo search is part of
+[M05](../ROADMAP.md#m05-search-and-indexing). Notification controls are also
+part of [M07](../ROADMAP.md#m07-output-notifications-and-rules-automation), and
+app themes are part of [M09](../ROADMAP.md#m09-themes-and-branding-foundation).
 
-| Area                                                                     | Status | Current behavior                                                                                                                                                              | Roadmap        |
-| ------------------------------------------------------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| 🪟 [Windows and session lifecycle](#windows-and-session-lifecycle)       | 🧪     | Shell layout, panel and density preferences are stored with KConfig; the selected folder and message with `KSharedConfig::openStateConfig()`. No Plasma session-restore hooks | M06.01         |
-| 🔔 [Notifications and status](#notifications-and-status)                 | ⚠️     | The footer shows connection status; an optional tray icon shows unread counts and network errors. KNotification is not used                                                   | M06.01, M07    |
-| 🧩 [Plasma widgets](#plasma-widgets)                                     | 📋     | None                                                                                                                                                                          | M06.02         |
-| 📎 [Files and attachments](#files-and-attachments)                       | ⚠️     | `QFileDialog` for open and save; attachments open through desktop file associations; the composer accepts dropped local files only. KIO is not used                           | M06.01, M06.03 |
-| 🔍 [Search and indexing](#search-and-indexing)                           | 📋     | Search runs on the IMAP server for the selected mailbox; Baloo, KRunner and a local index are not used                                                                        | M05, M06.01    |
-| 🔑 [Settings and credentials](#settings-and-credentials)                 | ⚠️     | Account settings use `QSettings`; passwords use the QtKeychain or cleartext plugin ([details](../CAVEATS.md#security-and-data-protection))                                    | M06.01         |
-| 🎨 [Appearance and accessibility](#appearance-and-accessibility)         | 🧪     | Theme icons and a row density selector; accessibility, high-contrast and scaling checks are not recorded                                                                      | M06.01, M09    |
-| 🚀 [Desktop actions and availability](#desktop-actions-and-availability) | 🧪     | The desktop entry registers the `mailto:` scheme handler and a Composer action                                                                                                | M06.01         |
+| Area                                                                  | Status                                    | Current behavior                                                                                                                                                              | Roadmap        |
+| --------------------------------------------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| [Windows and session lifecycle](#windows-and-session-lifecycle)       | ![Needs verification][needs-verification] | Shell layout, panel and density preferences are stored with KConfig; the selected folder and message with `KSharedConfig::openStateConfig()`. No Plasma session-restore hooks | M06.01         |
+| [Notifications and status](#notifications-and-status)                 | ![Limitation][limitation]                 | The footer shows connection status; an optional tray icon shows unread counts and network errors. KNotification is not used                                                   | M06.01, M07    |
+| [Plasma widgets](#plasma-widgets)                                     | ![Planned][planned]                       | None                                                                                                                                                                          | M06.02         |
+| [Files and attachments](#files-and-attachments)                       | ![Limitation][limitation]                 | `QFileDialog` for open and save; attachments open through desktop file associations; the composer accepts dropped local files only. KIO is not used                           | M06.01, M06.03 |
+| [Search and indexing](#search-and-indexing)                           | ![Planned][planned]                       | Search runs on the IMAP server for the selected mailbox; Baloo, KRunner and a local index are not used                                                                        | M05, M06.01    |
+| [Settings and credentials](#settings-and-credentials)                 | ![Limitation][limitation]                 | Account settings use `QSettings`; passwords use the QtKeychain or cleartext plugin ([details](../CAVEATS.md#security-and-data-protection))                                    | M06.01         |
+| [Appearance and accessibility](#appearance-and-accessibility)         | ![Needs verification][needs-verification] | Theme icons and a row density selector; accessibility, high-contrast and scaling checks are not recorded                                                                      | M06.01, M09    |
+| [Desktop actions and availability](#desktop-actions-and-availability) | ![Needs verification][needs-verification] | The desktop entry registers the `mailto:` scheme handler and a Composer action                                                                                                | M06.01         |
 
 ## Windows and session lifecycle
 
@@ -72,9 +72,9 @@ Planned in **M06.02** (Plasma widgets and desktop feedback).
 
 - **What:** Offer optional Plasma widgets for the desktop or panel, such as an
   unread-count summary, account sync status, a compose shortcut and a scrolling
-  unread-mail marquee. The marquee can draw inspiration from
-  [The Bat!'s MailTicker](https://www.ritlabs.com/en/support/tips-and-tricks/7593/),
-  which displays sender and subject information for unread messages.
+  unread-mail marquee. The marquee can draw inspiration from [The Bat!'s
+  MailTicker](https://www.ritlabs.com/en/support/tips-and-tricks/7593/), which
+  displays sender and subject information for unread messages.
 - **How:** Design Plasma widget interfaces around a verified, minimal
   application service rather than direct access to mail storage or credentials.
   Allow users to choose accounts and folders, visible fields, display timing and
@@ -173,3 +173,8 @@ indexing](plasma-opus.md#search-and-indexing)).
   unavailable.
 - **Verify:** Test menu discovery, custom-prefix discovery, `mailto:` launch and
   missing-handler errors on the supported Plasma session.
+
+[done]: https://img.shields.io/badge/Done-1a7f37
+[limitation]: https://img.shields.io/badge/Limitation-bc4c00
+[needs-verification]: https://img.shields.io/badge/Needs_verification-0969da
+[planned]: https://img.shields.io/badge/Planned-6e7781

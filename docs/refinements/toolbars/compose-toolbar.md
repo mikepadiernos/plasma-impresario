@@ -7,7 +7,8 @@
 This proposed toolbar appears in the message composer and supports drafting,
 recipients, and send actions.
 
-**Legend:** ✅ exists in the current code on `main` · 📋 planned only
+**Legend:** ![Exists][exists] in the current code on `main` ·
+![Planned][planned] not implemented yet
 
 ## Purpose
 
@@ -42,34 +43,34 @@ focused composing while keeping the send flow clear and reliable.
 The composer has no toolbar today. The Availability column names where an
 equivalent action exists.
 
-| Action                           | Shortcut | Availability                  | Notes                                                                              |
-| -------------------------------- | -------- | ----------------------------- | ---------------------------------------------------------------------------------- |
-| Save draft                       | —        | ✅ Composer close prompt      | Closing an unsent message asks **Save Draft?**; autosave runs every 30 seconds     |
-| Attach files                     | —        | ✅ **Attach…** button         |                                                                                    |
-| Add recipient                    | —        | ✅ Recipient rows             | An empty recipient row is always available                                         |
-| Insert signature                 | —        | 📋 Planned                    | The sender identity's signature is inserted automatically                          |
-| Format text                      | —        | 📋 Planned                    |                                                                                    |
-| Spellcheck                       | —        | ✅ Optional Sonnet plugin     | Highlights misspelled words as you type                                            |
-| Send now                         | —        | ✅ **Send** button            |                                                                                    |
-| Send later                       | —        | 📋 Planned                    |                                                                                    |
-| Schedule send                    | —        | 📋 Planned                    |                                                                                    |
-| Save as template                 | —        | 📋 Planned                    |                                                                                    |
-| Switch to plain text / rich text | —        | 📋 Planned                    |                                                                                    |
-| Validate recipients              | —        | ✅ Recipient fields, **Send** | Unparsable addresses are tinted red; sending reports invalid or missing recipients |
-| Check attachment safety          | —        | 📋 Planned                    |                                                                                    |
-| Compose settings                 | —        | 📋 Planned                    |                                                                                    |
+| Action                           | Shortcut | Availability                                 | Notes                                                                              |
+| -------------------------------- | -------- | -------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Save draft                       | —        | ![Exists][exists] Composer close prompt      | Closing an unsent message asks **Save Draft?**; autosave runs every 30 seconds     |
+| Attach files                     | —        | ![Exists][exists] **Attach…** button         |                                                                                    |
+| Add recipient                    | —        | ![Exists][exists] Recipient rows             | An empty recipient row is always available                                         |
+| Insert signature                 | —        | ![Planned][planned]                          | The sender identity's signature is inserted automatically                          |
+| Format text                      | —        | ![Planned][planned]                          |                                                                                    |
+| Spellcheck                       | —        | ![Exists][exists] Optional Sonnet plugin     | Highlights misspelled words as you type                                            |
+| Send now                         | —        | ![Exists][exists] **Send** button            |                                                                                    |
+| Send later                       | —        | ![Planned][planned]                          |                                                                                    |
+| Schedule send                    | —        | ![Planned][planned]                          |                                                                                    |
+| Save as template                 | —        | ![Planned][planned]                          |                                                                                    |
+| Switch to plain text / rich text | —        | ![Planned][planned]                          |                                                                                    |
+| Validate recipients              | —        | ![Exists][exists] Recipient fields, **Send** | Unparsable addresses are tinted red; sending reports invalid or missing recipients |
+| Check attachment safety          | —        | ![Planned][planned]                          |                                                                                    |
+| Compose settings                 | —        | ![Planned][planned]                          |                                                                                    |
 
 ## Current composer controls
 
 The composer (`src/Gui/ComposeWidget.cpp`) has a button row instead of a
 toolbar:
 
-- ✉️ **Send** and **Cancel**
-- 🧵 a reply-marking button that switches between **New Thread** and
+- **Send** and **Cancel**
+- a reply-marking button that switches between **New Thread** and
   **Threaded**
-- ↩️ a reply-mode button with **Hand Picked Recipients** and the reply modes
+- a reply-mode button with **Hand Picked Recipients** and the reply modes
   from the **Message** menu
-- 📎 an **Attach…** button next to the attachment list
+- an **Attach…** button next to the attachment list
 
 ## Behavioral rules
 
@@ -78,3 +79,6 @@ toolbar:
 - Draft safety and attachment safety should be easily accessible.
 - Formatting controls should remain compact, especially for keyboard and desktop
   users.
+
+[exists]: https://img.shields.io/badge/Exists-1a7f37
+[planned]: https://img.shields.io/badge/Planned-6e7781
