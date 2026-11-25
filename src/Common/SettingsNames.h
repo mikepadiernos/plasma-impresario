@@ -46,6 +46,8 @@ struct SettingsNames {
     static const QString watchedFoldersKey, watchOnlyInbox, watchSubscribed, watchAll;
     static const QString guiMsgListShowThreading;
     static const QString guiMsgListHideRead;
+    /** @short Quick filters of the message list, stored per account */
+    static const QString guiMsgListFilterUnread, guiMsgListFilterFlagged, guiMsgListFilterAttachments;
     static const QString guiMailboxListShowOnlySubscribed;
     static const QString guiPreferPlaintextRendering;
     static const QString guiMainWindowLayout, guiMainWindowLayoutCompact, guiMainWindowLayoutWide, guiMainWindowLayoutOneAtTime;

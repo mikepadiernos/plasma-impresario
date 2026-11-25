@@ -256,6 +256,14 @@ private slots:
     void slotScrollToUnseenMessage();
     void slotScrollToCurrent();
     void slotUpdateWindowTitle();
+    /** @short Update the counts and the selection size below the message list soon */
+    void scheduleMessageListStatus();
+    void updateMessageListStatus();
+    /** @short Select the whole thread of the current message */
+    void slotSelectThread();
+    void slotInvertSelection();
+    /** @short Show the sort column and order on the message list's Sort button */
+    void updateSortButton();
 
     void slotLayoutCompact();
     void slotLayoutWide();
@@ -334,6 +342,14 @@ private:
 
     void nukeModels();
     void connectModelActions();
+
+    /** @short Apply the active account's quick filters to the message list */
+    void applyMessageListFilters();
+    /** @short Remember the message list's quick filters for the active account */
+    void saveMessageListFilters();
+    /** @short Show the state of the quick filters on their actions and buttons */
+    void syncMessageListFilterUi();
+    void updateSelectionActions();
 
     void createMailboxBelow(const QModelIndex &index);
 
@@ -577,6 +593,17 @@ private:
     QAction *m_actionLayoutWide;
     QAction *m_actionLayoutOneAtTime;
     QAction *m_actionMarkMailboxAsRead;
+    QAction *m_actionFilterUnread = nullptr;
+    QAction *m_actionFilterFlagged = nullptr;
+    QAction *m_actionFilterAttachments = nullptr;
+    QAction *m_actionClearFilters = nullptr;
+    QToolButton *m_clearFiltersButton = nullptr;
+    QToolButton *m_sortButton = nullptr;
+    QAction *m_actionSelectAllMessages = nullptr;
+    QAction *m_actionSelectThread = nullptr;
+    QAction *m_actionInvertSelection = nullptr;
+    QAction *m_actionDeselectMessages = nullptr;
+    QTimer *m_listStatusTimer = nullptr;
 
     QAction *m_actionSubscribeMailbox;
     QAction *m_actionShowOnlySubscribed;

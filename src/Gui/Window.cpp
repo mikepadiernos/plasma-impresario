@@ -291,6 +291,21 @@ QIcon quickActionIcon(const QString &name)
     return QIcon::hasThemeIcon(symbolic) ? QIcon::fromTheme(symbolic) : UiUtils::loadIcon(name);
 }
 
+/** @short Add the row of @p index and the rows shown below it; selectedTree() adds the rest of collapsed threads */
+void selectShownRows(const QTreeView *view, const QModelIndex &index, QItemSelection &selection)
+{
+    QModelIndexList pending{index};
+    while (!pending.isEmpty()) {
+        const QModelIndex item = pending.takeLast();
+        const QAbstractItemModel *model = item.model();
+        selection.select(item, item.siblingAtColumn(model->columnCount(item.parent()) - 1));
+        if (!view->isExpanded(item))
+            continue;
+        for (int row = 0, rows = model->rowCount(item); row < rows; ++row)
+            pending.append(model->index(row, 0, item));
+    }
+}
+
 QString goToSpecialFolderText(Imap::Mailbox::SpecialUse kind)
 {
     using Imap::Mailbox::SpecialUse;
@@ -394,6 +409,13 @@ void MainWindow::defineActions()
     shortcutHandler->defineAction(QStringLiteral("action_previous_account"), QString(), tr("Switch to Previous Account"), QStringLiteral("Ctrl+Alt+PgUp"));
     shortcutHandler->defineAction(QStringLiteral("action_focus_quick_search"), QString(), tr("Move Focus to Quick Search"), QStringLiteral("/"));
     shortcutHandler->defineAction(QStringLiteral("action_go_to_folder"), QStringLiteral("go-jump"), i18nc("@action", "Go to &Folder..."), QStringLiteral("Ctrl+J"));
+    shortcutHandler->defineAction(QStringLiteral("action_select_all_messages"), QStringLiteral("edit-select-all"),
+                                  i18nc("@action", "Select &All"), QKeySequence(QKeySequence::SelectAll).toString());
+    shortcutHandler->defineAction(QStringLiteral("action_select_thread"), QString(), i18nc("@action", "Select &Thread"));
+    shortcutHandler->defineAction(QStringLiteral("action_invert_selection"), QStringLiteral("edit-select-invert"),
+                                  i18nc("@action", "&Invert Selection"));
+    shortcutHandler->defineAction(QStringLiteral("action_deselect_messages"), QStringLiteral("edit-select-none"),
+                                  i18nc("@action", "D&eselect"));
     shortcutHandler->defineAction(QStringLiteral("action_tag_1"), QStringLiteral("mail-tag-1"), tr("Tag with &1st tag"), QStringLiteral("1"));
     shortcutHandler->defineAction(QStringLiteral("action_tag_2"), QStringLiteral("mail-tag-2"), tr("Tag with &2nd tag"), QStringLiteral("2"));
     shortcutHandler->defineAction(QStringLiteral("action_tag_3"), QStringLiteral("mail-tag-3"), tr("Tag with &3rd tag"), QStringLiteral("3"));
@@ -773,12 +795,63 @@ void MainWindow::createActions()
     slotSortingConfirmed(-1, Qt::AscendingOrder);
 
     actionHideRead = new QAction(tr("&Hide Read Messages"), this);
+    actionHideRead->setObjectName(QStringLiteral("hideReadMessages"));
     actionHideRead->setCheckable(true);
-    if (m_settings->value(Common::SettingsNames::guiMsgListHideRead).toBool()) {
-        actionHideRead->setChecked(true);
-        prettyMsgListModel->setHideRead(true);
-    }
+    // The same as the Unread quick filter; its state comes from the account, see applyMessageListFilters()
     connect(actionHideRead, &QAction::triggered, this, &MainWindow::slotHideRead);
+
+    using Imap::Mailbox::PrettyMsgListModel;
+    auto addFilterAction = [this](const QString &objectName, const QString &icon, const QString &text, const QString &toolTip,
+                                  PrettyMsgListModel::Filter filter) {
+        auto *action = new QAction(quickActionIcon(icon), text, this);
+        action->setObjectName(objectName);
+        action->setCheckable(true);
+        action->setToolTip(toolTip);
+        connect(action, &QAction::triggered, this, [this, filter](bool checked) {
+            prettyMsgListModel->setFilterEnabled(filter, checked);
+            saveMessageListFilters();
+        });
+        msgListWidget->addToolButton(action)->setObjectName(objectName + QLatin1String("Button"));
+        return action;
+    };
+    m_actionFilterUnread = addFilterAction(QStringLiteral("messageListFilterUnread"), QStringLiteral("mail-mark-unread"),
+                                           i18nc("@action:inmenu quick filter", "&Unread"),
+                                           i18nc("@info:tooltip", "Show only unread messages"), PrettyMsgListModel::FilterUnread);
+    m_actionFilterFlagged = addFilterAction(QStringLiteral("messageListFilterFlagged"), QStringLiteral("mail-flagged"),
+                                            i18nc("@action:inmenu quick filter", "&Flagged"),
+                                            i18nc("@info:tooltip", "Show only flagged messages"), PrettyMsgListModel::FilterFlagged);
+    m_actionFilterAttachments = addFilterAction(QStringLiteral("messageListFilterAttachments"), QStringLiteral("mail-attachment"),
+                                                i18nc("@action:inmenu quick filter", "With &Attachments"),
+                                                i18nc("@info:tooltip", "Show only messages with attachments"),
+                                                PrettyMsgListModel::FilterAttachments);
+    m_actionClearFilters = new QAction(quickActionIcon(QStringLiteral("edit-clear-all")), i18nc("@action", "&Clear Filters"), this);
+    m_actionClearFilters->setObjectName(QStringLiteral("messageListClearFilters"));
+    m_actionClearFilters->setToolTip(i18nc("@info:tooltip", "Show all messages again"));
+    connect(m_actionClearFilters, &QAction::triggered, this, [this]() {
+        prettyMsgListModel->setFilters(PrettyMsgListModel::NoFilter);
+        saveMessageListFilters();
+    });
+    m_clearFiltersButton = msgListWidget->addToolButton(m_actionClearFilters);
+    m_clearFiltersButton->setObjectName(QStringLiteral("messageListClearFiltersButton"));
+    syncMessageListFilterUi();
+
+    auto addSelectionAction = [this](const QString &name) {
+        QAction *action = ShortcutHandler::instance()->createAction(name, this);
+        // Only while the message list has the focus, so that Ctrl+A keeps selecting text elsewhere
+        action->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+        msgListWidget->tree->addAction(action);
+        return action;
+    };
+    m_actionSelectAllMessages = addSelectionAction(QStringLiteral("action_select_all_messages"));
+    connect(m_actionSelectAllMessages, &QAction::triggered, msgListWidget->tree, &QAbstractItemView::selectAll);
+    m_actionSelectThread = addSelectionAction(QStringLiteral("action_select_thread"));
+    m_actionSelectThread->setEnabled(false);
+    connect(m_actionSelectThread, &QAction::triggered, this, &MainWindow::slotSelectThread);
+    m_actionInvertSelection = addSelectionAction(QStringLiteral("action_invert_selection"));
+    connect(m_actionInvertSelection, &QAction::triggered, this, &MainWindow::slotInvertSelection);
+    m_actionDeselectMessages = addSelectionAction(QStringLiteral("action_deselect_messages"));
+    connect(m_actionDeselectMessages, &QAction::triggered, msgListWidget->tree, &QAbstractItemView::clearSelection);
+    connect(actionThreadMsgList, &QAction::changed, this, &MainWindow::scheduleMessageListStatus);
 
     QActionGroup *layoutGroup = new QActionGroup(this);
     m_actionLayoutCompact = new QAction(tr("&Compact"), layoutGroup);
@@ -991,6 +1064,13 @@ void MainWindow::createMenus()
                 panelsMenu->addPanel(panel);
             viewMenu->addMenu(panelsMenu);
         }
+        QMenu *filterMenu = viewMenu->addMenu(quickActionIcon(QStringLiteral("view-filter")), i18nc("@title:menu", "&Filter"));
+        filterMenu->setObjectName(QStringLiteral("messageListFilterMenu"));
+            ADD_ACTION(filterMenu, m_actionFilterUnread);
+            ADD_ACTION(filterMenu, m_actionFilterFlagged);
+            ADD_ACTION(filterMenu, m_actionFilterAttachments);
+            filterMenu->addSeparator();
+            ADD_ACTION(filterMenu, m_actionClearFilters);
         viewMenu->addSeparator();
         ADD_ACTION(viewMenu, m_actionShowOnlySubscribed);
 
@@ -1014,6 +1094,13 @@ void MainWindow::createMenus()
             sortMenu->addSeparator();
             ADD_ACTION(sortMenu, actionThreadMsgList);
             ADD_ACTION(sortMenu, actionHideRead);
+        sortMenu->setObjectName(QStringLiteral("sortMenu"));
+        m_sortButton = msgListWidget->addToolMenuButton(sortMenu, quickActionIcon(QStringLiteral("view-sort-ascending")),
+                                                        i18nc("@action:button", "Sort"));
+        m_sortButton->setObjectName(QStringLiteral("messageListSortButton"));
+        for (QAction *action : sortMenu->actions())
+            connect(action, &QAction::toggled, this, &MainWindow::updateSortButton);
+        updateSortButton();
         mailboxMenu->addSeparator();
 #ifdef TROJITA_HAVE_WEBENGINE
         ADD_ACTION(mailboxMenu, m_previousMessage);
@@ -1055,6 +1142,13 @@ void MainWindow::createMenus()
         messageMenu->addMenu(m_copyToMenu);
         ADD_ACTION(messageMenu, m_moveToFolder);
         ADD_ACTION(messageMenu, m_copyToFolder);
+        messageMenu->addSeparator();
+        // Not added to the window, so that their shortcuts only work in the message list
+        messageMenu->addAction(m_actionSelectAllMessages);
+        messageMenu->addAction(m_actionSelectThread);
+        messageMenu->addAction(m_actionInvertSelection);
+        messageMenu->addAction(m_actionDeselectMessages);
+        connect(messageMenu, &QMenu::aboutToShow, this, &MainWindow::updateSelectionActions);
 
     QMenu *mainMenuBehindToolBar = new QMenu(this);
     m_menuFromToolBar->setMenu(mainMenuBehindToolBar);
@@ -1094,6 +1188,11 @@ void MainWindow::createWidgets()
     m_delayedStateSaving->setInterval(1000);
     m_delayedStateSaving->setSingleShot(true);
     connect(m_delayedStateSaving, &QTimer::timeout, this, &MainWindow::saveSizesAndState);
+
+    m_listStatusTimer = new QTimer(this);
+    m_listStatusTimer->setInterval(50);
+    m_listStatusTimer->setSingleShot(true);
+    connect(m_listStatusTimer, &QTimer::timeout, this, &MainWindow::updateMessageListStatus);
     connect(qApp, &QCoreApplication::aboutToQuit, this, &MainWindow::flushUiState);
 
     mboxTree = new MailBoxTreeView(nullptr, m_settings);
@@ -1245,6 +1344,14 @@ void MainWindow::setupModels(bool reconnect)
     prettyMsgListModel = new Imap::Mailbox::PrettyMsgListModel(this);
     prettyMsgListModel->setSourceModel(m_imapAccess->threadingMsgListModel());
     prettyMsgListModel->setObjectName(QStringLiteral("prettyMsgListModel"));
+    applyMessageListFilters();
+    connect(prettyMsgListModel, &Imap::Mailbox::PrettyMsgListModel::filtersChanged, this, &MainWindow::syncMessageListFilterUi);
+    connect(prettyMsgListModel, &QAbstractItemModel::rowsInserted, this, &MainWindow::scheduleMessageListStatus);
+    connect(prettyMsgListModel, &QAbstractItemModel::rowsRemoved, this, &MainWindow::scheduleMessageListStatus);
+    connect(prettyMsgListModel, &QAbstractItemModel::modelReset, this, &MainWindow::scheduleMessageListStatus);
+    connect(prettyMsgListModel, &QAbstractItemModel::layoutChanged, this, &MainWindow::scheduleMessageListStatus);
+    connect(imapModel(), &Imap::Mailbox::Model::messageCountPossiblyChanged, this, &MainWindow::scheduleMessageListStatus);
+    connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, this, &MainWindow::scheduleMessageListStatus);
 
     connect(mboxTree, &MailBoxTreeView::clicked,
             realMsgListModel,
@@ -1363,6 +1470,16 @@ void MainWindow::setupModels(bool reconnect)
     });
     mboxTree->restoreMailbox(accountSelection.readEntry("Mailbox", QString()));
     connect(msgListWidget->tree->selectionModel(), &QItemSelectionModel::selectionChanged, this, &MainWindow::updateMessageFlags);
+    connect(msgListWidget->tree->selectionModel(), &QItemSelectionModel::selectionChanged, this, &MainWindow::scheduleMessageListStatus);
+    connect(msgListWidget->tree->selectionModel(), &QItemSelectionModel::currentChanged, prettyMsgListModel,
+            [this, model = prettyMsgListModel]() {
+        // Later, because the current message also changes while the models are busy removing rows
+        QMetaObject::invokeMethod(model, [this, model]() {
+            model->setKeptVisibleIndex(msgListWidget->tree->currentIndex());
+        }, Qt::QueuedConnection);
+        scheduleMessageListStatus();
+    });
+    scheduleMessageListStatus();
 
     allTree->setModel(imapModel());
     taskTree->setModel(imapModel()->taskModel());
@@ -1745,6 +1862,21 @@ void MainWindow::showContextMenuMsgListTree(const QPoint &position)
         appendTagIfExists(7, tag7);
         appendTagIfExists(8, tag8);
         appendTagIfExists(9, tag9);
+    }
+    QAction selectionSeparator;
+    selectionSeparator.setSeparator(true);
+    QAction filterSeparator;
+    filterSeparator.setSeparator(true);
+    updateSelectionActions();
+    if (index.isValid()) {
+        actionList << &selectionSeparator;
+        if (m_actionSelectThread->isEnabled())
+            actionList << m_actionSelectThread;
+        actionList << m_actionSelectAllMessages;
+    } else {
+        // Below the messages: actions on the whole list
+        actionList << m_actionSelectAllMessages << &selectionSeparator << m_actionFilterUnread << m_actionFilterFlagged
+                   << m_actionFilterAttachments << m_actionClearFilters << &filterSeparator << m_actionMarkMailboxAsRead;
     }
     if (! actionList.isEmpty())
         QMenu::exec(actionList, msgListWidget->tree->mapToGlobal(position), nullptr, this);
@@ -2510,6 +2642,11 @@ void MainWindow::handleMarkAsRead(bool value)
         if (translatedIndexes.contains(m_messageWidget->messageView->currentMessage())) {
             m_messageWidget->messageView->stopAutoMarkAsRead();
         }
+        // The change of a single message is visible in the list
+        if (const int count = translatedIndexes.size(); count > 1) {
+            m_notificationBar->showInfo(value ? i18ncp("@info", "Marked %1 message as read", "Marked %1 messages as read", count)
+                                              : i18ncp("@info", "Marked %1 message as unread", "Marked %1 messages as unread", count));
+        }
     }
 #endif
 }
@@ -2590,6 +2727,11 @@ void MainWindow::handleMarkAsFlagged(const bool value)
         qDebug() << "Model::handleMarkAsFlagged: no valid messages";
     } else {
         imapModel()->setMessageFlags(translatedIndexes, Imap::Mailbox::FlagNames::flagged, value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE);
+        if (const int count = translatedIndexes.size(); count > 1) {
+            m_notificationBar->showInfo(value ? i18ncp("@info", "Flagged %1 message", "Flagged %1 messages", count)
+                                              : i18ncp("@info", "Removed the flag from %1 message",
+                                                       "Removed the flag from %1 messages", count));
+        }
     }
 }
 
@@ -3815,9 +3957,148 @@ void MainWindow::slotSearchRequested(const QStringList &searchConditions)
 
 void MainWindow::slotHideRead()
 {
-    const bool hideRead = actionHideRead->isChecked();
-    prettyMsgListModel->setHideRead(hideRead);
-    m_settings->setValue(Common::SettingsNames::guiMsgListHideRead, QVariant(hideRead));
+    prettyMsgListModel->setHideRead(actionHideRead->isChecked());
+    saveMessageListFilters();
+}
+
+void MainWindow::applyMessageListFilters()
+{
+    using Common::SettingsNames;
+    using Imap::Mailbox::PrettyMsgListModel;
+    const QSettings *account = accountSettings();
+    // Before the filters were kept per account, hiding read messages was a global setting
+    const QVariant hideRead = m_settings->value(SettingsNames::guiMsgListHideRead, false);
+    PrettyMsgListModel::Filters filters;
+    filters.setFlag(PrettyMsgListModel::FilterUnread, account->value(SettingsNames::guiMsgListFilterUnread, hideRead).toBool());
+    filters.setFlag(PrettyMsgListModel::FilterFlagged, account->value(SettingsNames::guiMsgListFilterFlagged, false).toBool());
+    filters.setFlag(PrettyMsgListModel::FilterAttachments,
+                    account->value(SettingsNames::guiMsgListFilterAttachments, false).toBool());
+    prettyMsgListModel->setFilters(filters);
+    syncMessageListFilterUi();
+}
+
+void MainWindow::saveMessageListFilters()
+{
+    using Common::SettingsNames;
+    using Imap::Mailbox::PrettyMsgListModel;
+    const PrettyMsgListModel::Filters filters = prettyMsgListModel->filters();
+    QSettings *account = accountSettings();
+    account->setValue(SettingsNames::guiMsgListFilterUnread, filters.testFlag(PrettyMsgListModel::FilterUnread));
+    account->setValue(SettingsNames::guiMsgListFilterFlagged, filters.testFlag(PrettyMsgListModel::FilterFlagged));
+    account->setValue(SettingsNames::guiMsgListFilterAttachments, filters.testFlag(PrettyMsgListModel::FilterAttachments));
+}
+
+void MainWindow::syncMessageListFilterUi()
+{
+    // The actions do not exist yet when the models are set up for the first time
+    if (!m_actionFilterUnread || !prettyMsgListModel)
+        return;
+    using Imap::Mailbox::PrettyMsgListModel;
+    const PrettyMsgListModel::Filters filters = prettyMsgListModel->filters();
+    actionHideRead->setChecked(filters.testFlag(PrettyMsgListModel::FilterUnread));
+    m_actionFilterUnread->setChecked(filters.testFlag(PrettyMsgListModel::FilterUnread));
+    m_actionFilterFlagged->setChecked(filters.testFlag(PrettyMsgListModel::FilterFlagged));
+    m_actionFilterAttachments->setChecked(filters.testFlag(PrettyMsgListModel::FilterAttachments));
+    const bool active = filters != PrettyMsgListModel::NoFilter;
+    m_actionClearFilters->setEnabled(active);
+    m_clearFiltersButton->setVisible(active);
+    scheduleMessageListStatus();
+}
+
+void MainWindow::scheduleMessageListStatus()
+{
+    if (m_listStatusTimer)
+        m_listStatusTimer->start();
+}
+
+void MainWindow::updateMessageListStatus()
+{
+    if (!prettyMsgListModel)
+        return;
+    using namespace Imap::Mailbox;
+    QStringList parts;
+    const auto *msgList = qobject_cast<MsgListModel *>(m_imapAccess->msgListModel());
+    const QModelIndex mailbox = msgList ? msgList->currentMailbox() : QModelIndex();
+    if (mailbox.isValid()) {
+        const QVariant total = mailbox.data(RoleTotalMessageCount);
+        const QVariant unread = mailbox.data(RoleUnreadMessageCount);
+        if (total.isValid()) {
+            QString counts = i18ncp("@info:status", "%1 message", "%1 messages", total.toInt());
+            if (unread.isValid()) {
+                counts = i18nc("@info:status message count, unread count", "%1, %2", counts,
+                               i18ncp("@info:status", "%1 unread", "%1 unread", unread.toInt()));
+            }
+            parts << counts;
+        }
+        if (prettyMsgListModel->filters() != PrettyMsgListModel::NoFilter) {
+            const int shown = prettyMsgListModel->visibleMessageCount();
+            parts << (total.isValid() ? i18nc("@info:status filters hide some messages", "showing %1 of %2", shown, total.toInt())
+                                      : i18ncp("@info:status", "showing %1 message", "showing %1 messages", shown));
+        }
+    }
+    const int selected = msgListWidget->tree->selectedTree().size();
+    if (selected > 1)
+        parts << i18ncp("@info:status", "%1 selected", "%1 selected", selected);
+    msgListWidget->setListStatus(parts.join(QStringLiteral(" \u00B7 ")));
+    updateSelectionActions();
+}
+
+void MainWindow::updateSelectionActions()
+{
+    if (!m_actionSelectThread)
+        return;
+    const bool threaded = actionThreadMsgList->isEnabled() && actionThreadMsgList->isChecked();
+    m_actionSelectThread->setEnabled(threaded && msgListWidget->tree->currentIndex().isValid());
+}
+
+void MainWindow::slotSelectThread()
+{
+    QModelIndex root = msgListWidget->tree->currentIndex();
+    if (!root.isValid())
+        return;
+    while (root.parent().isValid())
+        root = root.parent();
+    QItemSelection selection;
+    selectShownRows(msgListWidget->tree, root.siblingAtColumn(0), selection);
+    msgListWidget->tree->selectionModel()->select(selection, QItemSelectionModel::ClearAndSelect);
+}
+
+void MainWindow::slotInvertSelection()
+{
+    const QAbstractItemModel *model = msgListWidget->tree->model();
+    if (!model)
+        return;
+    QItemSelection shown;
+    for (int row = 0, rows = model->rowCount(); row < rows; ++row)
+        selectShownRows(msgListWidget->tree, model->index(row, 0), shown);
+    // Not a Toggle: QItemSelectionModel::isRowSelected() ignores the parent of a pending toggle,
+    // which confuses rows of different threads
+    QItemSelectionModel *selectionModel = msgListWidget->tree->selectionModel();
+    QItemSelection inverted;
+    for (const QItemSelectionRange &range : std::as_const(shown)) {
+        if (!selectionModel->isSelected(range.topLeft()))
+            inverted.append(range);
+    }
+    selectionModel->select(inverted, QItemSelectionModel::ClearAndSelect);
+}
+
+void MainWindow::updateSortButton()
+{
+    if (!m_sortButton)
+        return;
+    const QAction *column = m_actionSortNone->actionGroup()->checkedAction();
+    const bool descending = m_actionSortDescending->isChecked();
+    m_sortButton->setIcon(quickActionIcon(descending ? QStringLiteral("view-sort-descending") : QStringLiteral("view-sort-ascending")));
+    QString text;
+    if (!column || column == m_actionSortNone) {
+        text = i18nc("@info:tooltip", "Sorting: not sorted");
+    } else {
+        const QString criterion = KLocalizedString::removeAcceleratorMarker(column->text());
+        text = descending ? i18nc("@info:tooltip %1 is a sort criterion", "Sorting: %1, descending", criterion)
+                          : i18nc("@info:tooltip %1 is a sort criterion", "Sorting: %1, ascending", criterion);
+    }
+    m_sortButton->setToolTip(text);
+    m_sortButton->setAccessibleDescription(text);
 }
 
 void MainWindow::slotCapabilitiesUpdated(const QStringList &capabilities)

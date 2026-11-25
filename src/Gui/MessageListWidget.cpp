@@ -28,10 +28,13 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QFrame>
+#include <QHBoxLayout>
 #include <QInputDialog>
+#include <QLabel>
 #include <QMenu>
 #include <QMessageBox>
 #include <QStringView>
+#include <QStyle>
 #include <QTimer>
 #include <QToolButton>
 #include <QUuid>
@@ -131,11 +134,26 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
         optionsMenu->popup(m_quickSearchText->mapToGlobal(QPoint(0, m_quickSearchText->height())), nullptr);
     });
 
+    m_toolRow = new QHBoxLayout();
+    m_toolRow->setSpacing(0);
+    m_toolRow->setContentsMargins(0, 0, 0, 0);
+    m_toolRow->addWidget(m_quickSearchText, 1);
+
+    m_listStatus = new QLabel(this);
+    m_listStatus->setObjectName(QStringLiteral("messageListStatus"));
+    m_listStatus->setAccessibleName(i18nc("@label", "Message list status"));
+    // Long texts must not make the list wider
+    m_listStatus->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    const int margin = style()->pixelMetric(QStyle::PM_LayoutLeftMargin) / 2;
+    m_listStatus->setContentsMargins(margin, margin / 2, margin, margin / 2);
+    m_listStatus->hide();
+
     QVBoxLayout *layout = new QVBoxLayout(this);
     layout->setSpacing(0);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(m_quickSearchText);
+    layout->addLayout(m_toolRow);
     layout->addWidget(tree);
+    layout->addWidget(m_listStatus);
 
     m_searchResetTimer = new QTimer(this);
     m_searchResetTimer->setSingleShot(true);
@@ -198,6 +216,37 @@ void MessageListWidget::rebuildSavedSearchMenu()
 void MessageListWidget::setAccountId(const QString &accountId)
 {
     m_accountId = accountId;
+}
+
+QToolButton *MessageListWidget::addToolButton(QAction *action)
+{
+    auto *button = new QToolButton(this);
+    button->setDefaultAction(action);
+    button->setAutoRaise(true);
+    button->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    button->setAccessibleName(KLocalizedString::removeAcceleratorMarker(action->text()));
+    button->setAccessibleDescription(action->toolTip());
+    m_toolRow->addWidget(button);
+    return button;
+}
+
+QToolButton *MessageListWidget::addToolMenuButton(QMenu *menu, const QIcon &icon, const QString &text)
+{
+    auto *button = new QToolButton(this);
+    button->setMenu(menu);
+    button->setPopupMode(QToolButton::InstantPopup);
+    button->setAutoRaise(true);
+    button->setIcon(icon);
+    button->setToolTip(text);
+    button->setAccessibleName(text);
+    m_toolRow->addWidget(button);
+    return button;
+}
+
+void MessageListWidget::setListStatus(const QString &text)
+{
+    m_listStatus->setText(text);
+    m_listStatus->setVisible(!text.isEmpty());
 }
 
 KConfigGroup MessageListWidget::savedSearchGroup() const

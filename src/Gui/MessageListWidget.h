@@ -28,6 +28,9 @@
 
 class LineEdit;
 class KConfigGroup;
+class QHBoxLayout;
+class QIcon;
+class QLabel;
 class QMenu;
 class QTimer;
 class QToolButton;
@@ -50,6 +53,13 @@ public:
 
     /** Key saved searches to another account, for example after switching accounts. */
     void setAccountId(const QString &accountId);
+
+    /** @short Add a compact button for @p action next to the quick search field */
+    QToolButton *addToolButton(QAction *action);
+    /** @short Add a button which opens @p menu next to the quick search field */
+    QToolButton *addToolMenuButton(QMenu *menu, const QIcon &icon, const QString &text);
+    /** @short Show @p text below the list, for example message counts; an empty text hides it */
+    void setListStatus(const QString &text);
 
     // FIXME: consider making this private and moving the logic from Window with it
     MsgListView *tree;
@@ -89,6 +99,9 @@ private:
     void deleteSavedSearch(const QString &id);
 
     LineEdit *m_quickSearchText;
+    /** The quick search field and the buttons next to it */
+    QHBoxLayout *m_toolRow;
+    QLabel *m_listStatus;
     QAction *m_searchOptions;
     QAction *m_searchInSubject;
     QAction *m_searchInBody;
