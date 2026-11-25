@@ -69,19 +69,23 @@ offscreen tests only · ⚠️ known limitation · 📋 not yet validated
 
 ### OAuth sign-in
 
-| Scenario                                                 | Coverage                                                                                        |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Consent denied, cancelled or timed out in the browser    | 🧪 `test_OAuth`                                                                                 |
-| No browser available to open the sign-in page            | 🧪 `test_OAuth`                                                                                 |
-| A refresh token rotated or rejected by the provider      | 🧪 `test_OAuth`                                                                                 |
-| No secure credential store                               | 🧪 `test_OAuth`                                                                                 |
-| Two OAuth accounts at the same provider                  | 🧪 `test_OAuth`                                                                                 |
-| SMTP rejects the first access token                      | 🧪 `test_OAuth`                                                                                 |
-| A server that does not offer the OAuth mechanism to SMTP | 🧪 `test_OAuth`                                                                                 |
-| Signing out or removing the account                      | 🧪 `test_OAuth`; ⚠️ the grant is not revoked at the provider ([#362](CAVEATS.md#oauth-sign-in)) |
-| Cancelling Account Settings after signing in             | ⚠️ Leaves an unused grant ([#362](CAVEATS.md#oauth-sign-in))                                    |
-| A grant revoked at the provider while the app is open    | 📋                                                                                              |
-| Signing in against a real Google or Microsoft account    | 📋                                                                                              |
+| Scenario                                                       | Coverage                                                                                                           |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Consent denied, cancelled or timed out in the browser          | 🧪 `test_OAuth`                                                                                                    |
+| No browser available to open the sign-in page                  | 🧪 `test_OAuth`                                                                                                    |
+| A refresh token rotated or rejected by the provider            | 🧪 `test_OAuth`                                                                                                    |
+| No secure credential store                                     | 🧪 `test_OAuth`                                                                                                    |
+| Two OAuth accounts at the same provider                        | 🧪 `test_OAuth`                                                                                                    |
+| SMTP rejects the first access token                            | 🧪 `test_OAuth`                                                                                                    |
+| A server that does not offer the OAuth mechanism to SMTP       | 🧪 `test_OAuth`                                                                                                    |
+| Signing out or removing the account                            | 🧪 `test_OAuth` revokes at the provider, reports an unreachable endpoint and always deletes the local grant        |
+| A provider without a revocation endpoint (Microsoft)           | 🧪 `test_OAuth`; ⚠️ points to the provider's access page ([#362](CAVEATS.md#oauth-sign-in))                        |
+| Removing an account that shares its grant with another account | ⚠️ Removal keeps the grant, but signing out in Account Settings revokes it ([#362](CAVEATS.md#oauth-sign-in))      |
+| A client secret saved in the settings by an earlier build      | 🧪 `test_OAuth` moves it into the grant; 🧪 `test_AccountSettingsDialog` keeps new secrets out of the settings     |
+| Signing in again after the grant is missing or revoked         | 🧪 `test_MainWindowAccounts` offers Sign In in the status bar and the account menu                                 |
+| Cancelling Account Settings after signing in                   | ⚠️ The new grant is revoked, but not covered by tests; a replaced grant is lost ([#362](CAVEATS.md#oauth-sign-in)) |
+| A grant revoked at the provider while the app is open          | 📋                                                                                                                 |
+| Signing in against a real Google or Microsoft account          | 📋                                                                                                                 |
 
 ### Microsoft accounts and Exchange
 

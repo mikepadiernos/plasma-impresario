@@ -30,19 +30,19 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned · ✅ resolved
 
 ## Current limitations
 
-| Area                 | Current constraint                                                                                                                                                                                                        |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ⚠️ Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                |
-| ✅ Accounts          | One window holds several IMAP accounts, grouped by account in the folder sidebar; the limitations recorded for them are resolved ([details](#multiple-accounts))                                                          |
-| ⚠️ Embedded panels   | Related messages search only loaded messages in the current folder, message details show MIME-level security only, and pane sizes reset once after upgrading ([details](#related-messages-and-message-details-panels))    |
-| ⚠️ OAuth sign-in     | Signing in again is possible only from Account Settings, Microsoft uses the `common` tenant only, grants are not revoked at the provider, and an optional client secret is stored unencrypted ([details](#oauth-sign-in)) |
-| ⚠️ Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                    |
-| 🔒 Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings`                                                            |
-| 🔒 Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used                                                                                                                                   |
-| 🔒 Local data        | Persistent SQL cache stores message metadata and fetched parts; the application does not encrypt cache contents                                                                                                           |
-| 📋 Integrations      | Plasma new-mail notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                                                           |
-| ⚠️ Compatibility     | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                              |
-| ⚠️ Quality evidence  | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded                                                                                                           |
+| Area                 | Current constraint                                                                                                                                                                                                     |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ⚠️ Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete             |
+| ✅ Accounts          | One window holds several IMAP accounts, grouped by account in the folder sidebar; the limitations recorded for them are resolved ([details](#multiple-accounts))                                                       |
+| ⚠️ Embedded panels   | Related messages search only loaded messages in the current folder, message details show MIME-level security only, and pane sizes reset once after upgrading ([details](#related-messages-and-message-details-panels)) |
+| ⚠️ OAuth sign-in     | Microsoft uses the `common` tenant only and cannot revoke grants from the app, IMAP and SMTP refresh tokens independently, and switching provider replaces a grant without revoking it ([details](#oauth-sign-in))     |
+| ⚠️ Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                 |
+| 🔒 Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings`                                                         |
+| 🔒 Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used                                                                                                                                |
+| 🔒 Local data        | Persistent SQL cache stores message metadata and fetched parts; the application does not encrypt cache contents                                                                                                        |
+| 📋 Integrations      | Plasma new-mail notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                                                        |
+| ⚠️ Compatibility     | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                           |
+| ⚠️ Quality evidence  | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded                                                                                                        |
 
 ### Multiple accounts
 
@@ -118,59 +118,73 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
 
 ### OAuth sign-in
 
-| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                                                  |
-| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| [#362](https://github.com/mikepadiernos/plasma-impresario/issues/362) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/362#issuecomment-7165448590) | Accounts set to OAuth in **Account Settings › IMAP** (#218) |
+| Caveat issue                                                          | Board  | Recommendation                                                                                         | Applies to                                                  |
+| --------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| [#362](https://github.com/mikepadiernos/plasma-impresario/issues/362) | Review | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/362#issuecomment-7165448590) | Accounts set to OAuth in **Account Settings › IMAP** (#218) |
 
 **Current behavior:**
 
-- ⚠️ Signing in is available only from **Account Settings › IMAP**. When the
-  stored grant is missing or revoked, the account goes offline with a message;
-  the browser is not reopened automatically.
+- ✅ When an OAuth account needs to sign in, the status bar shows a **Sign In…**
+  button, the account's sidebar menu has **Sign In…**, and the error
+  notification offers **Sign In**. Each opens the browser for that account and
+  reconnects it after a successful sign-in, without opening Account Settings.
+- ✅ The optional client secret is stored with the grant in the password
+  plugin, not in the settings file. A secret saved by an earlier build moves
+  there the next time the account connects. The field in Account Settings
+  starts empty, and saving is blocked while a typed secret has not been used to
+  sign in.
+- ✅ Signing out and removing an account revoke the grant at Google before
+  deleting it locally. Removal keeps the grant when another account uses the
+  same provider, client and user name.
+- ✅ A grant made in Account Settings is revoked when the dialog is cancelled,
+  or saved with a different provider or client.
 - 🔒 OAuth needs a secure credential store and is refused with the cleartext
   password backend.
-- ⚠️ Microsoft accounts use the `common` tenant only.
 - 🔒 No client ID is built in unless one is set at build time with
   `IMPRESARIO_OAUTH_GOOGLE_CLIENT_ID` or `IMPRESARIO_OAUTH_MICROSOFT_CLIENT_ID`.
-  The optional client secret is stored unencrypted in the account's settings
-  file.
-- 🔒 Signing out or removing the account deletes the local grant but does not
-  revoke it at the provider.
+- ⚠️ Microsoft has no revocation endpoint for these clients. Signing out and
+  removing the account delete the local grant and point to Microsoft's access
+  page.
+- ⚠️ Signing out in Account Settings revokes the grant at Google even when
+  another account shares the same user and client, which then needs to sign in
+  again.
+- ⚠️ Each account stores one grant. Signing in with another provider or client
+  replaces the previous grant without revoking it, and cancelling the dialog
+  afterwards leaves the account without a grant until it signs in again.
+- ⚠️ Microsoft accounts use the `common` tenant only.
 - ⚠️ SMTP requests a new access token for every message, and IMAP and SMTP
   refresh independently. A provider that rotates refresh tokens can make one of
   them fail until the next sign-in.
 - ⚠️ The provider fields are on the IMAP page only; SMTP reuses them.
-- ⚠️ Cancelling Account Settings after signing in leaves a grant for a client ID
-  that was not saved.
 - ⚠️ A server that advertises `LOGINDISABLED` still needs STARTTLS before OAuth,
   as with passwords.
+- ⚠️ Revoking a grant from a cancelled dialog is not covered by automated
+  tests, because a sign-in needs the real provider endpoints.
 
 **Workarounds:**
 
-- Sign in again from **Account Settings › IMAP** when an OAuth account goes
-  offline with a sign-in message.
 - Use QtKeychain, the default for new profiles, before choosing OAuth.
+- After signing out of or removing a Microsoft account, remove the app's access
+  at [account.live.com/consent/Manage](https://account.live.com/consent/Manage).
+- Sign out before switching an account to another provider or client, so the
+  old grant is revoked.
 - For single-tenant Microsoft accounts, use an app registration that allows the
   `common` endpoint, or keep password sign-in where the server allows it.
-- Prefer a public client without a secret; otherwise keep the settings
-  directory private.
-- After removing an account or signing out, revoke the app's access on the
-  provider's account security page.
+- Prefer a public client without a secret.
 
 **Proposed improvements:**
 
-- 📋 Offer **Sign In** from the offline message and the account's sidebar
-  header.
 - 📋 Add a tenant choice for Microsoft accounts (M13.01,
   [#397](https://github.com/mikepadiernos/plasma-impresario/issues/397)).
-- 📋 Store the client secret through the password plugin with the grant.
-- 📋 Revoke the grant at the provider when signing out or removing the account.
 - 📋 Share one token session between IMAP and SMTP per account, and reuse the
   access token until it expires (M13.01,
   [#398](https://github.com/mikepadiernos/plasma-impresario/issues/398), for
   Microsoft accounts).
-- 📋 Revoke a grant made in a dialog that is then cancelled.
-- 📋 Verify sign-in with a real provider account
+- 📋 Keep the previous grant until a dialog that signed in with another
+  provider or client is saved, then revoke it.
+- 📋 Skip revocation when signing out in Account Settings if another account
+  shares the grant.
+- 📋 Verify sign-in and revocation with a real provider account
   ([#317](https://github.com/mikepadiernos/plasma-impresario/issues/317), M15).
 
 ## Before reporting results
