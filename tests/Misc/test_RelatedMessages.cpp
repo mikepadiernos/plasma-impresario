@@ -2,7 +2,9 @@
    SPDX-License-Identifier: GPL-2.0-or-later
 */
 
+#include <QSortFilterProxyModel>
 #include <QStandardItemModel>
+#include <QTimeZone>
 #include <QtTest>
 #include "test_RelatedMessages.h"
 #include "Imap/Model/ItemRoles.h"
@@ -127,6 +129,122 @@ void RelatedMessagesTest::honoursLimits()
     related = UiUtils::collectRelatedMessages(&model, current->index(), 25, 3);
     QCOMPARE(related.conversation.size(), 2);
     QVERIFY(related.truncated);
+}
+
+void RelatedMessagesTest::followsTheWholeConversation()
+{
+    QStandardItemModel model;
+    QStandardItem *plans = addRow(model, {QStringLiteral("Plans"), QStringLiteral("ann"), "<plans@example.org>", {}});
+    QStandardItem *reply = addRow(model, {QStringLiteral("Re: Plans"), QStringLiteral("bob"), "<reply@example.org>", {}});
+    // Linked to the first message only, with a subject of its own, and a reply to it with yet another subject
+    QStandardItem *budget = addRow(model, {QStringLiteral("Budget"), QStringLiteral("carol"), "<budget@example.org>",
+                                           {"<plans@example.org>"}});
+    QStandardItem *numbers = addRow(model, {QStringLiteral("Numbers"), QStringLiteral("ann"), {}, {"<budget@example.org>"}});
+    addRow(model, {QStringLiteral("Unrelated"), QStringLiteral("ann"), "<other@example.org>", {"<missing@example.org>"}});
+    addRow(model, {QStringLiteral("Budget"), QStringLiteral("dave"), {}, {}, false});
+
+    // The related messages panel only sees direct links, so the reply does not reach the budget
+    QCOMPARE(subjects(UiUtils::collectRelatedMessages(&model, reply->index()).conversation), QStringList{QStringLiteral("Plans")});
+    for (QStandardItem *from : {plans, reply, budget, numbers}) {
+        QStringList found = subjects(UiUtils::collectConversation(&model, from->index()));
+        found << from->text();
+        found.sort();
+        QCOMPARE(found, QStringList({QStringLiteral("Budget"), QStringLiteral("Numbers"), QStringLiteral("Plans"),
+                                     QStringLiteral("Re: Plans")}));
+    }
+    QCOMPARE(UiUtils::collectConversation(&model, reply->index(), 2).size(), 2);
+    QVERIFY(UiUtils::collectConversation(nullptr, reply->index()).isEmpty());
+}
+
+namespace {
+
+QStandardItem *message(const QString &subject, uint uid, const QDateTime &date = QDateTime())
+{
+    auto *item = new QStandardItem(subject);
+    item->setData(subject, Imap::Mailbox::RoleMessageSubject);
+    item->setData(uid, Imap::Mailbox::RoleMessageUid);
+    item->setData(date, Imap::Mailbox::RoleMessageDate);
+    return item;
+}
+
+QString subjectOf(const QModelIndex &index)
+{
+    return index.isValid() ? index.data(Imap::Mailbox::RoleMessageSubject).toString() : QStringLiteral("(none)");
+}
+
+}
+
+void RelatedMessagesTest::stepsThroughThreads()
+{
+    const QDateTime day(QDate(2026, 11, 2), QTime(9, 0), QTimeZone::UTC);
+    QStandardItemModel model;
+    // A thread whose first message is missing, and a thread of one message. The nested reply is the newest, so it
+    // comes last although it is shown above the second reply.
+    QStandardItem *missing = message(QStringLiteral("missing"), 0);
+    QStandardItem *first = message(QStringLiteral("first"), 1, day);
+    QStandardItem *nested = message(QStringLiteral("nested"), 2, day.addDays(2));
+    QStandardItem *second = message(QStringLiteral("second"), 3, day.addDays(1));
+    first->appendRow(nested);
+    missing->appendRow(first);
+    missing->appendRow(second);
+    model.appendRow(missing);
+    QStandardItem *alone = message(QStringLiteral("alone"), 4);
+    model.appendRow(alone);
+    // A group header is not part of the thread below it
+    auto *header = new QStandardItem(QStringLiteral("Today"));
+    header->setData(true, Imap::Mailbox::RoleIsGroupHeader);
+    QStandardItem *grouped = message(QStringLiteral("grouped"), 5);
+    QStandardItem *groupedReply = message(QStringLiteral("grouped reply"), 6);
+    grouped->appendRow(groupedReply);
+    header->appendRow(grouped);
+    model.appendRow(header);
+
+    const auto step = [&model](QStandardItem *from, bool forward) {
+        return subjectOf(UiUtils::adjacentInConversation(&model, from->index(), forward, true, {}));
+    };
+    QCOMPARE(step(first, true), QStringLiteral("second"));
+    QCOMPARE(step(second, true), QStringLiteral("nested"));
+    QCOMPARE(step(nested, true), QStringLiteral("(none)"));
+    QCOMPARE(step(nested, false), QStringLiteral("second"));
+    // The missing parent is not a message to open
+    QCOMPARE(step(first, false), QStringLiteral("(none)"));
+    QCOMPARE(step(alone, true), QStringLiteral("(none)"));
+    QCOMPARE(step(alone, false), QStringLiteral("(none)"));
+    QCOMPARE(step(groupedReply, false), QStringLiteral("grouped"));
+    QCOMPARE(step(grouped, false), QStringLiteral("(none)"));
+    QCOMPARE(step(header, true), QStringLiteral("(none)"));
+    QVERIFY(!UiUtils::adjacentInConversation(nullptr, first->index(), true, true, {}).isValid());
+    QVERIFY(!UiUtils::adjacentInConversation(&model, QModelIndex(), true, true, {}).isValid());
+}
+
+void RelatedMessagesTest::stepsThroughConversationsByDate()
+{
+    const QDateTime day(QDate(2026, 11, 2), QTime(9, 0), QTimeZone::UTC);
+    QStandardItemModel model;
+    QStandardItem *reply = message(QStringLiteral("Re: Plans"), 1, day.addDays(2));
+    QStandardItem *other = message(QStringLiteral("Other"), 2, day.addDays(1));
+    QStandardItem *plans = message(QStringLiteral("Plans"), 3, day);
+    QStandardItem *followUp = message(QStringLiteral("Re: Re: Plans"), 4, day.addDays(3));
+    for (QStandardItem *item : {reply, other, plans, followUp})
+        model.appendRow(item);
+    // The list shows the messages through a proxy; the conversation comes from the source
+    QSortFilterProxyModel view;
+    view.setSourceModel(&model);
+    view.sort(0, Qt::DescendingOrder);
+    const QList<QPersistentModelIndex> conversation{reply->index(), followUp->index()};
+
+    const auto step = [&](QStandardItem *from, bool forward) {
+        return subjectOf(UiUtils::adjacentInConversation(&view, view.mapFromSource(from->index()), forward, false, conversation));
+    };
+    QCOMPARE(step(plans, true), QStringLiteral("Re: Plans"));
+    QCOMPARE(step(reply, true), QStringLiteral("Re: Re: Plans"));
+    QCOMPARE(step(followUp, true), QStringLiteral("(none)"));
+    QCOMPARE(step(followUp, false), QStringLiteral("Re: Plans"));
+    QCOMPARE(step(plans, false), QStringLiteral("(none)"));
+    // A message outside the conversation has nowhere to go
+    QCOMPARE(UiUtils::adjacentInConversation(&view, view.mapFromSource(other->index()), true, false, {}), QModelIndex());
+    // An index of another model is not a row of the list
+    QCOMPARE(UiUtils::adjacentInConversation(&view, plans->index(), true, false, conversation), QModelIndex());
 }
 
 QTEST_GUILESS_MAIN(RelatedMessagesTest)

@@ -563,6 +563,59 @@ private slots:
                                   QStringLiteral("Lunch on Friday"), 10000);
         QCOMPARE(messages->currentIndex().data(Imap::Mailbox::RoleMessageSubject).toString(), QStringLiteral("Lunch on Friday"));
 
+        // Alt+Down and Alt+Up step through the conversation from the oldest message to the newest, threaded or not.
+        // "Budget numbers" replies to "Quarterly plan" under another subject, and is newer than "Re: Quarterly plan".
+        QAction *groupedBefore = nullptr;
+        for (QAction *groupBy : window.findChildren<QAction *>()) {
+            if (groupBy->objectName().startsWith(QLatin1String("messageListGroupBy")) && groupBy->isCheckable() && groupBy->isChecked())
+                groupedBefore = groupBy;
+        }
+        QVERIFY(groupedBefore);
+        const QStringList conversationOrder{QStringLiteral("Quarterly plan"), QStringLiteral("Re: Quarterly plan"),
+                                            QStringLiteral("Budget numbers")};
+        const auto stepThrough = [&](const char *grouping) {
+            action(window, QLatin1String("messageListGroupBy") + QLatin1String(grouping))->trigger();
+            QTRY_VERIFY_WITH_TIMEOUT(findMessage(messages, conversationOrder.constFirst()).isValid(), 10000);
+            // The server sends the threads after the list is shown
+            const bool threaded = qstrcmp(grouping, "Conversation") == 0;
+            QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(findMessage(messages, conversationOrder.constFirst())),
+                                      threaded ? 2 : 0, 10000);
+            open(conversationOrder.constFirst());
+            const auto shown = [&]() { return details->message().data(Imap::Mailbox::RoleMessageSubject).toString(); };
+            for (int i = 1; i < conversationOrder.size(); ++i) {
+                action(window, QStringLiteral("action_go_to_next_in_conversation"))->trigger();
+                QTRY_COMPARE_WITH_TIMEOUT(shown(), conversationOrder.at(i), 10000);
+                QCOMPARE(messages->currentIndex().data(Imap::Mailbox::RoleMessageSubject).toString(), conversationOrder.at(i));
+            }
+            // No wrap-around at either end
+            action(window, QStringLiteral("action_go_to_next_in_conversation"))->trigger();
+            QTest::qWait(200);
+            QCOMPARE(shown(), conversationOrder.constLast());
+            for (int i = conversationOrder.size() - 2; i >= 0; --i) {
+                action(window, QStringLiteral("action_go_to_previous_in_conversation"))->trigger();
+                QTRY_COMPARE_WITH_TIMEOUT(shown(), conversationOrder.at(i), 10000);
+            }
+            action(window, QStringLiteral("action_go_to_previous_in_conversation"))->trigger();
+            QTest::qWait(200);
+            QCOMPARE(shown(), conversationOrder.constFirst());
+        };
+        stepThrough("Conversation");
+        QVERIFY(action(window, QStringLiteral("action_collapse_all_conversations"))->isEnabled());
+        // Collapsed threads open again on the way to the next message
+        const QModelIndex planThread = findMessage(messages, conversationOrder.constFirst());
+        QVERIFY(planThread.isValid() && messages->model()->hasChildren(planThread));
+        action(window, QStringLiteral("action_collapse_all_conversations"))->trigger();
+        QVERIFY(!messages->isExpanded(planThread));
+        action(window, QStringLiteral("action_go_to_next_in_conversation"))->trigger();
+        QTRY_COMPARE_WITH_TIMEOUT(details->message().data(Imap::Mailbox::RoleMessageSubject).toString(), conversationOrder.at(1), 10000);
+        QVERIFY(messages->isExpanded(planThread));
+        action(window, QStringLiteral("action_collapse_all_conversations"))->trigger();
+        action(window, QStringLiteral("action_expand_all_conversations"))->trigger();
+        QVERIFY(messages->isExpanded(planThread));
+        stepThrough("None");
+        QVERIFY(!action(window, QStringLiteral("action_collapse_all_conversations"))->isEnabled());
+        groupedBefore->trigger();
+
         QCOMPARE(passwordPrompts, 0);
         QVERIFY2(imapErrors.isEmpty(), qPrintable(imapErrors.isEmpty() ? QString() : imapErrors.first().first().toString()));
     }

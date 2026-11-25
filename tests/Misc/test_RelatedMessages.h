@@ -20,6 +20,9 @@ private slots:
     void linksThroughMessageIds();
     void skipsUnfetchedRows();
     void honoursLimits();
+    void followsTheWholeConversation();
+    void stepsThroughThreads();
+    void stepsThroughConversationsByDate();
 };
 
 #endif
