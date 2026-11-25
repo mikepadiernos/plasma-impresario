@@ -296,6 +296,7 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/PasswordWatcher.cpp
     ${path_UiUtils}/PlainTextFormatter.cpp
     ${path_UiUtils}/QaimDfsIterator.cpp
+    ${path_UiUtils}/QuickFilters.cpp
     ${path_UiUtils}/RecentFolders.cpp
     ${path_UiUtils}/RelatedMessages.cpp
     ${path_UiUtils}/SelectionAfterRemoval.cpp
