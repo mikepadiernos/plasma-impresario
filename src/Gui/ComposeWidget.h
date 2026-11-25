@@ -58,6 +58,10 @@ class SenderIdentitiesModel;
 class Submission;
 }
 
+namespace Imap {
+class ImapAccess;
+}
+
 namespace MSA {
 class MSAFactory;
 }
@@ -204,8 +208,10 @@ private:
 
     MainWindow *m_mainWindow;
     QSettings *m_settings;
-    /** Settings of the account that was active when this composer opened; they configured its submission */
+    /** Settings of the account that was active when this composer opened; the message is sent with them */
     QPointer<QSettings> m_accountSettings;
+    /** Connection of the account that was active when this composer opened */
+    QPointer<Imap::ImapAccess> m_imapAccess;
     /** Identities of the account that was active when this composer opened */
     Composer::SenderIdentitiesModel *m_senderIdentities;
 
