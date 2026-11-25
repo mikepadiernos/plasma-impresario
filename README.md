@@ -252,9 +252,11 @@ The [roadmap](docs/ROADMAP.md) puts reliable mail and account boundaries first,
 then mail operations, reading, search and indexing, desktop and provider
 integration,
 automation, settings, themes and release quality. Grouped account navigation,
-rules, provider OAuth, theme profiles and workspace features are planned.
+rules, provider OAuth, theme profiles, an optional Vim mode and workspace
+features are planned.
 [Plasma Opus](docs/integrations/plasma-opus.md) is the companion file manager;
-the two apps are planned to share file dialogs, themes and workspace context.
+the two apps are planned to share file dialogs, themes, Vim mode settings and
+workspace context.
 
 ## Documentation
 

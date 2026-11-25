@@ -58,7 +58,7 @@ consistent companion-app experience.
 
 - The five-region layout, configurable panels and toolbar placement, adapted to
   mail navigation, message lists and reading
-- Theme profiles and query syntax that Impresario can share
+- Theme profiles, query syntax and Vim mode settings that Impresario can share
 - A target design, not an assumed companion-app interface; Plasma Impresario
   stays useful without it
 
