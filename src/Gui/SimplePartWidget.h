@@ -67,6 +67,10 @@ public:
     void zoomOut() override;
     void zoomOriginal() override;
     void buildContextMenu(const QPoint &point, QMenu &menu);
+    /** @short Whether the part's data could not be loaded, or the part is gone */
+    bool isUnavailable() const;
+    /** @short Ask for the part's data again and show it when it arrives */
+    void retryLoading();
 private slots:
     void slotFileNameRequested(QString *fileName);
     void slotMarkupPlainText(bool success);

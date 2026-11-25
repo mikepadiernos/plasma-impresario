@@ -161,6 +161,8 @@ WebEngineMessageProfile::WebEngineMessageProfile(const QModelIndex &message, QOb
     settings()->setAttribute(QWebEngineSettings::LocalContentCanAccessRemoteUrls, false);
     settings()->setAttribute(QWebEngineSettings::HyperlinkAuditingEnabled, false);
     settings()->setAttribute(QWebEngineSettings::DnsPrefetchEnabled, false);
+    // A part which cannot be loaded is reported by the message view, not by a Chromium error page
+    settings()->setAttribute(QWebEngineSettings::ErrorPageEnabled, false);
     settings()->setUnknownUrlSchemePolicy(QWebEngineSettings::DisallowUnknownUrlSchemes);
 }
 

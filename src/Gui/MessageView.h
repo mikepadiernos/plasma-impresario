@@ -36,6 +36,7 @@
 class QBoxLayout;
 class QLabel;
 class QLayout;
+class QPushButton;
 class QSettings;
 class QStackedLayout;
 class QTimer;
@@ -69,6 +70,8 @@ class EmbeddedWebView;
 class EnvelopeView;
 class MainWindow;
 class ExternalElementsWidget;
+class InlineNotificationBar;
+class SimplePartWidget;
 class Spinner;
 class TagListWidget;
 class WebEngineMessageProfile;
@@ -101,6 +104,8 @@ public:
     An empty string turns this off. The message which is shown already is left alone. */
     void setHighlightTerm(const QString &term);
     QString highlightTerm() const;
+    /** @short Ask again for the current message, or for its parts which could not be loaded */
+    void retryLoading();
 public slots:
     void setMessage(const QModelIndex &index);
     void setEmpty();
@@ -122,7 +127,8 @@ private slots:
     void partLinkHovered(const QString &link, const QString &title, const QString &textContent);
     void triggerSearchDialogBy(Gui::EmbeddedWebView *w);
     void onWebViewLoadStarted();
-    void onWebViewLoadFinished();
+    void onWebViewLoadFinished(bool ok);
+    void onNetworkPolicyChanged();
 signals:
     void messageChanged();
     void messageModelChanged(QAbstractItemModel *model);
@@ -139,9 +145,22 @@ private:
     void unsetPreviousMessage();
     void clearWaitingConns();
     void findHighlightTerm(EmbeddedWebView *view, int retries);
+    void showMessageUnavailable();
+    void updateFailedParts();
+
+    bool isOffline() const;
 
     QStackedLayout *m_stack;
     QWidget *m_homePage;
+    /** Shown instead of the message when its structure cannot be loaded */
+    QWidget *m_unavailablePage;
+    QLabel *m_unavailableIcon;
+    QLabel *m_unavailableTitle;
+    QLabel *m_unavailableText;
+    QPushButton *m_retryMessage;
+    /** Reports parts of the shown message which could not be loaded */
+    InlineNotificationBar *m_partErrors;
+    QList<QPointer<SimplePartWidget>> m_failedParts;
 
     QWidget *m_messageWidget;
     QBoxLayout *m_msgLayout;
