@@ -681,6 +681,106 @@ private slots:
         QVERIFY(!page.setMessageHtml(html, QUrl(QStringLiteral("trojita-imap://msg/0?query"))));
         QVERIFY(page.loadMessagePart(QUrl(QStringLiteral("trojita-imap://msg/0"))));
     }
+
+    void adaptsColorsToThePalette_data()
+    {
+        QTest::addColumn<QString>("mimeType");
+        QTest::addColumn<QByteArray>("body");
+        QTest::addColumn<bool>("generated");
+        QTest::addColumn<bool>("dark");
+        QTest::addColumn<bool>("forced");
+        QTest::addColumn<QString>("kind");
+        QTest::addColumn<QString>("background");
+        QTest::addColumn<QString>("probeColor");
+
+        const QString darkBase = QStringLiteral("rgb(35, 38, 41)");
+        const QString darkText = QStringLiteral("rgb(239, 240, 241)");
+        const QString white = QStringLiteral("rgb(255, 255, 255)");
+        const QByteArray script = QByteArrayLiteral("<script>document.title = 'script ran';</script>");
+
+        QTest::newRow("plain text, dark") << QStringLiteral("text/plain") << QByteArrayLiteral("Hello <b>there</b>") << false
+                                          << true << false << QStringLiteral("plain") << darkBase << darkText;
+        QTest::newRow("generated plain text, dark")
+            << QStringLiteral("text/html") << QByteArray() << true << true << false << QStringLiteral("plain") << darkBase
+            << darkText;
+        QTest::newRow("html without background, dark")
+            << QStringLiteral("text/html")
+            << QByteArray("<html><body><p id=\"probe\" style=\"color:#333333\">Newsletter</p>" + script + "</body></html>")
+            << false << true << false << QStringLiteral("page") << white << QStringLiteral("rgb(51, 51, 51)");
+        QTest::newRow("html without any colors, dark")
+            << QStringLiteral("text/html") << QByteArray("<html><body><p id=\"probe\">Plain HTML</p>" + script + "</body></html>")
+            << false << true << false << QStringLiteral("page") << white << QStringLiteral("rgb(0, 0, 0)");
+        QTest::newRow("html with its own background, dark")
+            << QStringLiteral("text/html")
+            << QByteArray("<html><body style=\"background:#123456;color:#abcdef\"><p id=\"probe\">Own</p>" + script
+                          + "</body></html>")
+            << false << true << false << QStringLiteral("own") << QStringLiteral("rgb(18, 52, 86)")
+            << QStringLiteral("rgb(171, 205, 239)");
+        QTest::newRow("html with a bgcolor attribute, dark")
+            << QStringLiteral("text/html")
+            << QByteArray("<html><body bgcolor=\"#ffeedd\"><p id=\"probe\">Old</p></body></html>") << false << true
+            << false << QStringLiteral("own") << QStringLiteral("rgb(255, 238, 221)") << QStringLiteral("rgb(0, 0, 0)");
+        QTest::newRow("html without background, light")
+            << QStringLiteral("text/html") << QByteArray("<html><body><p id=\"probe\">Light</p></body></html>") << false
+            << false << false << QStringLiteral("page") << QStringLiteral("rgb(252, 252, 252)")
+            << QStringLiteral("rgb(35, 38, 41)");
+        QTest::newRow("forced black on white")
+            << QStringLiteral("text/html")
+            << QByteArray("<html><body style=\"background:#123456;color:#abcdef\"><p id=\"probe\">Own</p></body></html>")
+            << false << true << true << QStringLiteral("forced") << white << QStringLiteral("rgb(0, 0, 0)");
+    }
+
+    void adaptsColorsToThePalette()
+    {
+        QFETCH(QString, mimeType);
+        QFETCH(QByteArray, body);
+        QFETCH(bool, generated);
+        QFETCH(bool, dark);
+        QFETCH(bool, forced);
+        QFETCH(QString, kind);
+        QFETCH(QString, background);
+        QFETCH(QString, probeColor);
+
+        MessageModel message;
+        message.body->setData(mimeType, Imap::Mailbox::RolePartMimeType);
+        message.bodyData = body.isEmpty() ? QByteArrayLiteral("<html><body>raw</body></html>") : body;
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        Gui::WebEngineMessagePage page(&profile);
+        QSignalSpy applied(&page, &Gui::WebEngineMessagePage::colorsApplied);
+
+        Gui::WebEngineMessagePage::Colors colors;
+        colors.background = dark ? QColor(0x23, 0x26, 0x29) : QColor(0xfc, 0xfc, 0xfc);
+        colors.text = dark ? QColor(0xef, 0xf0, 0xf1) : QColor(0x23, 0x26, 0x29);
+        colors.link = QColor(0x1d, 0x99, 0xf3);
+        colors.visitedLink = QColor(0x9b, 0x59, 0xb6);
+        colors.forced = forced;
+        page.setColors(colors);
+
+        const QUrl url(QStringLiteral("trojita-imap://msg/0"));
+        QVERIFY(page.loadMessagePart(url));
+        QTRY_VERIFY_WITH_TIMEOUT(applied.size() >= 2 && !applied.last().at(0).toString().isEmpty(), 15000);
+        if (generated) {
+            applied.clear();
+            QVERIFY(page.setMessageHtml(QStringLiteral("<html><body><pre class=\"plain-text\">Formatted</pre></body></html>"), url));
+            QTRY_VERIFY_WITH_TIMEOUT(!applied.isEmpty() && !applied.last().at(0).toString().isEmpty(), 15000);
+        }
+        QCOMPARE(applied.last().at(0).toString(), kind);
+
+        auto result = std::make_shared<QString>();
+        page.runJavaScript(QStringLiteral(R"JS((() => {
+            const bg = e => getComputedStyle(e).backgroundColor;
+            const html = bg(document.documentElement);
+            const page = html === "rgba(0, 0, 0, 0)" ? bg(document.body) : html;
+            const probe = document.getElementById("probe") || document.body;
+            return [page, getComputedStyle(probe).color, document.title].join("|");
+        })())JS"),
+                           QWebEngineScript::ApplicationWorld, [result](const QVariant &value) { *result = value.toString(); });
+        QTRY_VERIFY_WITH_TIMEOUT(!result->isEmpty(), 10000);
+        const QStringList parts = result->split(QLatin1Char('|'));
+        QCOMPARE(parts.value(0), background);
+        QCOMPARE(parts.value(1), probeColor);
+        QVERIFY2(parts.value(2).isEmpty(), "a message script ran");
+    }
 };
 
 int main(int argc, char **argv)
