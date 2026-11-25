@@ -76,6 +76,7 @@ QHash<int, QByteArray> MailboxModel::roleNames() const
         roleNames[RoleUnreadMessageCount] = "unreadMessageCount";
         roleNames[RoleRecentMessageCount] = "recentMessageCount";
         roleNames[RoleMailboxItemsAreLoading] = "mailboxItemsAreLoading";
+        roleNames[RoleMailboxSpecialUse] = "mailboxSpecialUse";
     }
     return roleNames;
 }

@@ -78,6 +78,7 @@ void ExpungeMessagesTask::perform()
 
     if (!model->accessParser(parser).capabilities.contains(QStringLiteral("UIDPLUS"))) {
         _failed(tr("The IMAP server doesn't support the UIDPLUS extension"));
+        return;
     }
 
     tag = parser->uidExpunge(seq);
@@ -92,7 +93,7 @@ bool ExpungeMessagesTask::handleStateHelper(const Imap::Responses::State *const 
         if (resp->kind == Responses::OK) {
             _completed();
         } else {
-            _failed(tr("UID EXPUNGE failed"));
+            _failed(tr("UID EXPUNGE failed: %1").arg(resp->message));
         }
         return true;
     } else {

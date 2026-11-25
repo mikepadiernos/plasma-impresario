@@ -40,6 +40,20 @@ private slots:
     void testMoveRfcMove();
 
     void testUpdateAllFlags();
+
+    void testCopyUidFromMove();
+    void testCopyUidFromCopy();
+    void testMoveByUid();
+    void testMoveByUidChecksUidValidity();
+    void testDeletePermanentlyUidPlus();
+    void testDeletePermanentlyWithoutUidPlus();
+    void testEmptyMailbox();
+    void testEmptyMailboxFailure();
+    void testMarkReadReportsCompletion();
+    void testMarkReadReportsFailure();
+
+private:
+    void helperSyncThreeMessages();
 };
 
 #endif

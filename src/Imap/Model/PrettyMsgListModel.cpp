@@ -25,6 +25,7 @@
 #include "ThreadingMsgListModel.h"
 #include "UiUtils/Formatting.h"
 #include "UiUtils/IconLoader.h"
+#include "UiUtils/Relevance.h"
 
 
 namespace Imap
@@ -34,9 +35,11 @@ namespace Mailbox
 {
 
 PrettyMsgListModel::PrettyMsgListModel(QObject *parent):
-    QSortFilterProxyModel(parent), m_hideRead(false)
+    QSortFilterProxyModel(parent), m_filters(NoFilter)
 {
     setDynamicSortFilter(true);
+    // Another mailbox reuses the UIDs
+    connect(this, &QAbstractItemModel::modelAboutToBeReset, this, [this]() { m_relevanceCache.clear(); });
 }
 
 QVariant PrettyMsgListModel::data(const QModelIndex &index, int role) const
@@ -50,20 +53,25 @@ QVariant PrettyMsgListModel::data(const QModelIndex &index, int role) const
     if (index.row() < 0 || index.row() >= rowCount(index.parent()))
         return QVariant();
 
-    QModelIndex translated = mapToSource(index);
+    if (const auto pretty = presentationData(mapToSource(index), index.column(), role))
+        return *pretty;
+    return QSortFilterProxyModel::data(index, role);
+}
 
+std::optional<QVariant> PrettyMsgListModel::presentationData(const QModelIndex &translated, const int column, const int role)
+{
     switch (role) {
 
     case Qt::DisplayRole:
     case Qt::ToolTipRole:
-        switch (index.column()) {
+        switch (column) {
         case MsgListModel::TO:
         case MsgListModel::FROM:
         case MsgListModel::CC:
         case MsgListModel::BCC:
         {
             int backendRole = 0;
-            switch (index.column()) {
+            switch (column) {
             case MsgListModel::FROM:
                 backendRole = RoleMessageFrom;
                 break;
@@ -115,9 +123,25 @@ QVariant PrettyMsgListModel::data(const QModelIndex &index, int role) const
         }
         break;
 
+    case Qt::AccessibleTextRole:
+        // The indicator columns show only icons, so give screen readers their meaning
+        switch (column) {
+        case MsgListModel::SEEN:
+            if (!translated.data(RoleIsFetched).toBool())
+                return QVariant();
+            return translated.data(RoleMessageIsMarkedRead).toBool() ? tr("Read") : tr("Unread");
+        case MsgListModel::FLAGGED:
+            if (!translated.data(RoleIsFetched).toBool())
+                return QVariant();
+            return translated.data(RoleMessageIsMarkedFlagged).toBool() ? tr("Flagged") : tr("Not flagged");
+        case MsgListModel::ATTACHMENT:
+            return translated.data(RoleMessageHasAttachments).toBool() ? tr("Has attachments") : QVariant();
+        }
+        break;
+
 
     case Qt::TextAlignmentRole:
-        switch (index.column()) {
+        switch (column) {
         case MsgListModel::DATE:
         case MsgListModel::RECEIVED_DATE:
         case MsgListModel::SIZE:
@@ -130,7 +154,7 @@ QVariant PrettyMsgListModel::data(const QModelIndex &index, int role) const
         // We will need the data, but asking for Flags or IsMarkedXYZ doesn't cause a fetch
         translated.data(RoleMessageSubject);
 
-        switch (index.column()) {
+        switch (column) {
         case MsgListModel::SUBJECT:
         {
             if (! translated.data(RoleIsFetched).toBool())
@@ -174,33 +198,143 @@ QVariant PrettyMsgListModel::data(const QModelIndex &index, int role) const
 
     }
 
-    return QSortFilterProxyModel::data(index, role);
+    return std::nullopt;
 }
 
 void PrettyMsgListModel::setHideRead(bool value)
 {
+    setFilterEnabled(FilterUnread, value);
+}
+
+bool PrettyMsgListModel::hideRead() const
+{
+    return m_filters.testFlag(FilterUnread);
+}
+
+PrettyMsgListModel::Filters PrettyMsgListModel::filters() const
+{
+    return m_filters;
+}
+
+void PrettyMsgListModel::setFilters(Filters filters)
+{
+    if (filters == m_filters)
+        return;
+    refilter(filters);
+    emit filtersChanged(m_filters);
+}
+
+void PrettyMsgListModel::setFilterEnabled(Filter filter, bool enabled)
+{
+    setFilters(enabled ? m_filters | filter : m_filters & ~Filters(filter));
+}
+
+void PrettyMsgListModel::refilter(Filters filters)
+{
 #if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
     beginFilterChange();
-    m_hideRead = value;
+    m_filters = filters;
     endFilterChange(QSortFilterProxyModel::Direction::Rows);
 #else
-    m_hideRead = value;
+    m_filters = filters;
     invalidateFilter();
 #endif
 }
 
+void PrettyMsgListModel::setKeptVisibleIndex(const QModelIndex &index)
+{
+    QModelIndex source = index.model() == this ? mapToSource(index) : index;
+    if (source.isValid() && source.model() != sourceModel())
+        source = QModelIndex();
+    if (source.isValid())
+        source = source.sibling(source.row(), 0);
+    if (m_keptVisible == source)
+        return;
+
+    const QModelIndex previous = m_keptVisible;
+    m_keptVisible = source;
+    if (m_filters == NoFilter || !previous.isValid())
+        return;
+
+    // The previous message might have been the only reason for showing its thread
+    QModelIndex top = previous;
+    while (top.parent().isValid())
+        top = top.parent();
+    if (!subtreeMatches(top))
+        refilter(m_filters);
+}
+
+QModelIndex PrettyMsgListModel::keptVisibleIndex() const
+{
+    return m_keptVisible;
+}
+
+bool PrettyMsgListModel::messageMatches(const QModelIndex &sourceIndex) const
+{
+    return matchesFilters(sourceIndex, m_filters);
+}
+
+bool PrettyMsgListModel::matchesFilters(const QModelIndex &sourceIndex, const Filters filters)
+{
+    const QVariant fetched = sourceIndex.data(RoleIsFetched);
+    if (!fetched.isValid()) {
+        // A placeholder for a message which is missing from a thread
+        return false;
+    }
+    // Neither of these roles fetches anything, and messages with unknown flags count as unread and not flagged
+    if (filters.testFlag(FilterUnread) && !sourceIndex.data(RoleMessageWasUnread).toBool()
+            && sourceIndex.data(RoleMessageIsMarkedRead).toBool())
+        return false;
+    if (filters.testFlag(FilterFlagged) && !sourceIndex.data(RoleMessageIsMarkedFlagged).toBool())
+        return false;
+    // Asking about attachments would fetch the message, and before that it says "no attachments"
+    if (filters.testFlag(FilterAttachments) && fetched.toBool() && !sourceIndex.data(RoleMessageHasAttachments).toBool())
+        return false;
+    return true;
+}
+
+bool PrettyMsgListModel::subtreeMatches(const QModelIndex &sourceIndex) const
+{
+    QModelIndexList pending{sourceIndex};
+    while (!pending.isEmpty()) {
+        const QModelIndex item = pending.takeLast();
+        if (m_keptVisible == item || messageMatches(item))
+            return true;
+        for (int row = 0, rows = sourceModel()->rowCount(item); row < rows; ++row)
+            pending.append(sourceModel()->index(row, 0, item));
+    }
+    return false;
+}
+
+int PrettyMsgListModel::visibleMessageCount() const
+{
+    if (!sourceModel())
+        return 0;
+    int count = 0;
+    QModelIndexList pending;
+    for (int row = 0, rows = rowCount(); row < rows; ++row)
+        pending.append(mapToSource(index(row, 0)));
+    // Within a shown thread, all messages are shown
+    while (!pending.isEmpty()) {
+        const QModelIndex item = pending.takeLast();
+        if (item.data(RoleIsFetched).isValid())
+            ++count;
+        for (int row = 0, rows = sourceModel()->rowCount(item); row < rows; ++row)
+            pending.append(sourceModel()->index(row, 0, item));
+    }
+    return count;
+}
+
 bool PrettyMsgListModel::filterAcceptsRow(int source_row, const QModelIndex &source_parent) const
 {
-    if (!m_hideRead)
+    if (m_filters == NoFilter)
         return true;
 
-    QModelIndex source_index = sourceModel()->index(source_row, 0, source_parent);
+    // A thread is shown as a whole once its root has been accepted
+    if (source_parent.isValid())
+        return true;
 
-    for (QModelIndex test = source_index; test.isValid(); test = test.parent())
-        if (test.data(RoleThreadRootWithUnreadMessages).toBool() || test.data(RoleMessageWasUnread).toBool())
-            return true;
-
-    return false;
+    return subtreeMatches(sourceModel()->index(source_row, 0, source_parent));
 }
 
 
@@ -250,6 +384,58 @@ void PrettyMsgListModel::sort(int column, Qt::SortOrder order)
         emit sortingPreferenceChanged(column, order);
     else
         emit sortingPreferenceChanged(-1, order);
+}
+
+void PrettyMsgListModel::setRelevanceTerms(const QStringList &terms, Qt::SortOrder order)
+{
+    m_relevanceTerms = terms;
+    m_relevanceCache.clear();
+    // Sorting again by the same column in the same order would be a no-op, so start from the source's order
+    QSortFilterProxyModel::sort(-1, order);
+    if (!terms.isEmpty())
+        QSortFilterProxyModel::sort(0, order);
+}
+
+QStringList PrettyMsgListModel::relevanceTerms() const
+{
+    return m_relevanceTerms;
+}
+
+bool PrettyMsgListModel::isSortingByRelevance() const
+{
+    return !m_relevanceTerms.isEmpty();
+}
+
+int PrettyMsgListModel::relevance(const QModelIndex &sourceIndex) const
+{
+    const uint uid = sourceIndex.data(RoleMessageUid).toUInt();
+    if (uid) {
+        const auto it = m_relevanceCache.constFind(uid);
+        if (it != m_relevanceCache.cend())
+            return *it;
+    }
+    const int score = UiUtils::relevanceScore(sourceIndex, m_relevanceTerms);
+    // A message which is not loaded yet gets its score once it is
+    if (uid && score >= 0)
+        m_relevanceCache.insert(uid, score);
+    return score;
+}
+
+bool PrettyMsgListModel::lessThan(const QModelIndex &left, const QModelIndex &right) const
+{
+    if (m_relevanceTerms.isEmpty())
+        return QSortFilterProxyModel::lessThan(left, right);
+    const int leftScore = relevance(left);
+    const int rightScore = relevance(right);
+    if (leftScore != rightScore)
+        return leftScore > rightScore;
+    if (leftScore >= 0) {
+        const QDateTime leftDate = left.data(RoleMessageDate).toDateTime();
+        const QDateTime rightDate = right.data(RoleMessageDate).toDateTime();
+        if (leftDate != rightDate)
+            return leftDate > rightDate;
+    }
+    return left.row() < right.row();
 }
 
 }

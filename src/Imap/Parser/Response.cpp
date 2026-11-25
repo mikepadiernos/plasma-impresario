@@ -516,27 +516,26 @@ State::State(const QByteArray &tag, const Kind kind, const QByteArray &line, int
         }
         case Responses::COPYUID:
         {
-            // FIXME: don't return anything, this is broken with multiple messages, unfortunately
-            break;
             if (originalList.size() != 4)
                 throw InvalidResponseCode("Malformed COPYUID: wrong number of arguments", line, start);
             bool ok;
             uint uidValidity = originalList[1].toUInt(&ok);
             if (!ok)
                 throw InvalidResponseCode("Malformed COPYUID: cannot extract UIDVALIDITY", line, start);
+            // LowLevelParser::getSequence() expects the usual trailing CRLF of a response line
             int pos = 0;
-            QByteArray s1 = originalList[2].toByteArray();
+            QByteArray s1 = originalList[2].toByteArray() + "\r\n";
             Sequence seq1 = Sequence::fromVector(LowLevelParser::getSequence(s1, pos));
             if (!seq1.isValid())
                 throw InvalidResponseCode("Malformed COPYUID: cannot extract the first sequence", line, start);
-            if (pos != s1.size())
+            if (pos != s1.size() - 2)
                 throw InvalidResponseCode("Malformed COPYUID: garbage found after the first sequence", line, start);
             pos = 0;
-            QByteArray s2 = originalList[3].toByteArray();
+            QByteArray s2 = originalList[3].toByteArray() + "\r\n";
             Sequence seq2 = Sequence::fromVector(LowLevelParser::getSequence(s2, pos));
             if (!seq2.isValid())
                 throw InvalidResponseCode("Malformed COPYUID: cannot extract the second sequence", line, start);
-            if (pos != s2.size())
+            if (pos != s2.size() - 2)
                 throw InvalidResponseCode("Malformed COPYUID: garbage found after the second sequence", line, start);
             respCodeData = QSharedPointer<AbstractData>(new RespData<QPair<uint,QPair<Sequence, Sequence> > >(
                                                             qMakePair(uidValidity, qMakePair(seq1, seq2))));

@@ -28,6 +28,7 @@
 #include "Imap/Tasks/CopyMoveMessagesTask.h"
 #include "Imap/Tasks/CreateMailboxTask.h"
 #include "Imap/Tasks/DeleteMailboxTask.h"
+#include "Imap/Tasks/RenameMailboxTask.h"
 #include "Imap/Tasks/EnableTask.h"
 #include "Imap/Tasks/ExpungeMailboxTask.h"
 #include "Imap/Tasks/FetchMsgMetadataTask.h"
@@ -89,6 +90,11 @@ ListChildMailboxesTask *TaskFactory::createListChildMailboxesTask(Model *model, 
 DeleteMailboxTask *TaskFactory::createDeleteMailboxTask(Model *model, const QString &mailbox)
 {
     return new DeleteMailboxTask(model, mailbox);
+}
+
+RenameMailboxTask *TaskFactory::createRenameMailboxTask(Model *model, const QString &oldName, const QString &newName)
+{
+    return new RenameMailboxTask(model, oldName, newName);
 }
 
 ExpungeMailboxTask *TaskFactory::createExpungeMailboxTask(Model *model, const QModelIndex &mailbox)

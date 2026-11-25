@@ -26,6 +26,7 @@ Legend: ![Done][done] or verified · ![Needs verification][needs-verification] �
   - [M02 shell and account foundation](#m02-shell-and-account-foundation)
   - [M15 real Plasma session
     verification](#m15-real-plasma-session-verification)
+  - [M03 mail operations](#m03-mail-operations)
   - [M01 release gate and integration](#m01-release-gate-and-integration)
   - [Milestone feature-issue
     synchronization](#milestone-feature-issue-synchronization)
@@ -46,24 +47,10 @@ Legend: ![Done][done] or verified · ![Needs verification][needs-verification] �
 
 - ![Done][done] **M02 shell, accounts and mailbox foundation**
   ([#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)): merged
-  into `main`. M03 still needs to merge it; see
-  [merging M02 into M03](#merging-m02-into-m03).
-- ![In progress][in-progress] **M03 mail operations, sorting and folder
-  management**
-  ([#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)): in
-  Development on `feature/m03-mail-operations`, which is based on this branch
-  and holds the detailed M03 handoff. Folder navigation
-  ([#37](https://github.com/mikepadiernos/plasma-impresario/issues/37)), sorting
-  and triage
-  ([#38](https://github.com/mikepadiernos/plasma-impresario/issues/38)), quick
-  actions ([#83](https://github.com/mikepadiernos/plasma-impresario/issues/83))
-  and destructive-operation recovery
-  ([#89](https://github.com/mikepadiernos/plasma-impresario/issues/89)) are
-  Completed; batch selection and feedback
-  ([#88](https://github.com/mikepadiernos/plasma-impresario/issues/88)) is in
-  Review and power-user workflows
-  ([#84](https://github.com/mikepadiernos/plasma-impresario/issues/84)) in
-  Development. The other six features are Defined.
+  into `main` and into `feature/m03-mail-operations`.
+- ![Done][done] **M03 mail operations, sorting and folder management**
+  ([#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)): merged
+  into `main`. See [M03 mail operations](#m03-mail-operations).
 - ![In progress][in-progress] **M09 themes and branding foundation**
   ([#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)): in
   Development because M09.01 Branding and visual language
@@ -88,8 +75,7 @@ and verified with offscreen QtTest and the synthetic Dovecot server in
 `tools/dev-container/`. The checks that need a real Plasma session, KWallet or
 a real provider account moved to
 [M15](#m15-real-plasma-session-verification) on 2026-11-25. What remains here
-is [merging M02 into M03](#merging-m02-into-m03) and the
-[open follow-ups](#open-follow-ups).
+are the [open follow-ups](#open-follow-ups).
 
 #### Issue status
 
@@ -327,40 +313,6 @@ These decisions close the account-model questions in #36, #78, #80 and #215.
 | Unavailable actions | Actions an account's protocol does not support are hidden, not disabled, through `CapabilityActionGate` (#215). New server-dependent actions must be registered with it.                                                                   | ![Done][done] Decided |
 | Mailbox lifecycle   | Accounts are created at startup and kept across switches; folders load on demand, and the selected mailbox and message are restored per account. Removal also deletes OAuth grants.                                                        | ![Done][done] Decided |
 
-#### Merging M02 into M03
-
-M03 is in development in `.worktrees/m03` on `feature/m03-mail-operations` with
-uncommitted work (`ViewStateStore`). M03's owner merges `main` (now including
-M02) into M03 once that work is committed:
-
-1. Delete the stale `merge/m02-into-m03` branch; it predates the M02 commits
-   for #80, #74, #215 and #218.
-2. In the M03 worktree, run `git merge origin/main`. A dry run against M03 at
-   `50f6f2d0` conflicts only in additive places; keep both sides:
-   - `CMakeLists.txt`, `src/Common/SettingsNames.h` and
-     `src/Common/SettingsNames.cpp` (M03's trash and recent-folder keys beside
-     M02's OAuth keys and `composerUseSharedIdentitiesKey`);
-   - `src/Imap/Model/ImapAccess.cpp` (M03's archive folder name beside M02's
-     OAuth session);
-   - `tests/Gui/test_MainWindowAccounts.cpp`;
-   - `docs/CAVEATS.md`, `docs/EDGE.md`, `docs/ROADMAP.md` and
-     `docs/philosophy/designs.md`: take M02's sectioned tables and add M03's
-     entries as _Mail operations_ sections. In the roadmap, keep M02's version
-     and re-check M03's Completed items (#37, #38, #83, #84, #88 and #89). Move
-     search references from M04 to M05 and shift M05–M12 to M06–M13.
-     `src/Gui/Window.cpp` and `Window.h` merge without conflicts.
-3. Register M03's new server-dependent actions (rename, copy and move to
-   folder, delete-to-trash and similar) with `m_capabilityGate` in
-   `MainWindow::refreshAccountSwitcher()`.
-4. Wherever M03 places or reparents the folder tree, use `m_accountSidebar`
-   instead of `mboxTree`; tests that check the tree's parent should check the
-   sidebar's, as `test_MainWindowDensity` and `test_SessionRestart` do.
-5. Build, run the full suite and `test_LiveImapAccounts`, then delete this
-   section.
-
-In a container build of a worktree, also mount the main repository's `.git` at
-its host path, or the version header step fails.
-
 ### M15 real Plasma session verification
 
 These checks need a real KDE Plasma session, KWallet or a real provider
@@ -385,6 +337,25 @@ parent issue. M15 is blocked by M02 but does not block later milestones.
    and record the Plasma, Qt and KDE Frameworks versions.
 3. Complete #317 with a provider account you control; #218 is implemented.
 4. Advance each issue through the board workflow, then close #319.
+
+### M03 mail operations
+
+- **Merged:** M03 #5 is feature-complete: all 12 roadmap items are checked
+  and `feature/m03-mail-operations` is merged into `main`. The parent and its
+  features #37, #38, #89, #83, #88, #84, #85, #90, #87, #82, #223 and #86 are
+  Merged. M03's server-dependent actions are registered with M02's capability
+  gate. In a container build of a git worktree, also mount the main
+  repository's `.git` at its host path, or the version header step fails.
+- **Handoff to M04:** replies, forwards and resends from the Unified Inbox
+  already open with the message's account. M04's "Preserve the originating
+  account and sending identity" item still covers drafts, the reader and the
+  sending identity across views.
+- **Pending verification:** Delete to Trash, Undo, Delete Permanently, Empty
+  Trash/Junk and Rename Folder are covered by model and unit tests but have not
+  been exercised in a window against a live server. Extend
+  `tools/dev-container/live-imap-accounts.sh` or check them by hand with an
+  isolated account. Limitations are tracked in
+  [#312](https://github.com/mikepadiernos/plasma-impresario/issues/312).
 
 ### M01 release gate and integration
 
@@ -459,14 +430,9 @@ component audit and reproduction steps.
   tasks backed by merged work and recorded evidence. Each one leaves its
   live-reading, system-prefix or other-distribution tasks unchecked, with a
   note pointing to the [M01 handoff](#m01-release-gate-and-integration).
-- ![Planned][planned] **Pending wording, #87:** M03 issue
-  [#87](https://github.com/mikepadiernos/plasma-impresario/issues/87) is
-  titled "Provide an Aqua Mail-inspired message list", while its roadmap item
-  still reads "Provide readable compact message rows…". The
-  [message list design](philosophy/designs.md#message-list-presentation)
-  merged in [#259](https://github.com/mikepadiernos/plasma-impresario/pull/259)
-  without rewording the item, because the M03 branch edits the adjacent roadmap
-  lines. Reword it on `feature/m03-mail-operations` and link the design.
+- ![Done][done] **Wording, #87:** the M03 roadmap item now matches its issue title,
+  "Provide an Aqua Mail-inspired message list", and links the
+  [message list design](philosophy/designs.md#message-list-presentation).
 - Keep roadmap links, issue parents, milestone assignments and project status
   synchronized when roadmap scope changes.
 

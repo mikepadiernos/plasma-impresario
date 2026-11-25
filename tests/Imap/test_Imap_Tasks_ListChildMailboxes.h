@@ -46,6 +46,9 @@ private slots:
     void testFailingList();
 
     void testAutoExpanding();
+
+    void testSpecialUseRole();
+    void testSpecialUseReturnOption();
 };
 
 #endif

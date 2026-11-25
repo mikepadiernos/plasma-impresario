@@ -164,11 +164,10 @@ void ImapParserParseTest::testParseTagged_data()
                                                               new RespData<QPair<uint,Imap::Sequence> >(
                                                                   qMakePair(38505u, Imap::Sequence::fromVector(Imap::Uids() << 3955 << 3956 << 3957)))
                                                               )));
-    /*
 
     QTest::newRow("copyuid-simple")
             << QByteArray("A004 OK [COPYUID 38505 304 3956] Done\r\n")
-            << QSharedPointer<AbstractResponse>(new State("A004", OK, "Done", COPYUID,
+            << QSharedPointer<AbstractResponse>(new State("A004", OK, QStringLiteral("Done"), COPYUID,
                                                           QSharedPointer<AbstractData>(
                                                               new RespData<QPair<uint,QPair<Imap::Sequence, Imap::Sequence> > >(
                                                                   qMakePair(38505u,
@@ -179,12 +178,14 @@ void ImapParserParseTest::testParseTagged_data()
 
     QTest::newRow("copyuid-sequence")
             << QByteArray("A004 OK [COPYUID 38505 304,319:320 3956:3958] Done\r\n")
-            << QSharedPointer<AbstractResponse>(new State("A003", OK, "Done", APPENDUID,
+            << QSharedPointer<AbstractResponse>(new State("A004", OK, QStringLiteral("Done"), COPYUID,
                                                           QSharedPointer<AbstractData>(
-                                                              new RespData<QPair<uint,Imap::Sequence> >(
-                                                                  qMakePair(38505u, Imap::Sequence(3955)))
+                                                              new RespData<QPair<uint,QPair<Imap::Sequence, Imap::Sequence> > >(
+                                                                  qMakePair(38505u,
+                                                                            qMakePair(Imap::Sequence::fromVector(Imap::Uids() << 304 << 319 << 320),
+                                                                                      Imap::Sequence::fromVector(Imap::Uids() << 3956 << 3957 << 3958))
+                                                                            ))
                                                               )));
-    */
 }
 
 /** @short Test untagged response parsing */
@@ -233,6 +234,12 @@ void ImapParserParseTest::testParseUntagged_data()
         << QByteArray("* OK [UIDVALIDITY 17] UIDs valid\r\n")
         << QSharedPointer<AbstractResponse>( new State(QByteArray(), OK, QStringLiteral("UIDs valid"), UIDVALIDITY,
                     QSharedPointer<AbstractData>( new RespData<uint>( 17 ) )));
+    QTest::newRow("untagged-ok-copyuid")
+        << QByteArray("* OK [COPYUID 1 7:8 20:21] Moved\r\n")
+        << QSharedPointer<AbstractResponse>( new State(QByteArray(), OK, QStringLiteral("Moved"), COPYUID,
+                    QSharedPointer<AbstractData>( new RespData<QPair<uint,QPair<Imap::Sequence, Imap::Sequence> > >(
+                        qMakePair(1u, qMakePair(Imap::Sequence::fromVector(Imap::Uids() << 7 << 8),
+                                                Imap::Sequence::fromVector(Imap::Uids() << 20 << 21)))))));
     QTest::newRow("untagged-bye")
         << QByteArray("* BYE go away\r\n")
         << QSharedPointer<AbstractResponse>( new State(QByteArray(), BYE, QStringLiteral("go away"), NONE, voidData ) );

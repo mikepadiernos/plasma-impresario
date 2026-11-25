@@ -23,6 +23,7 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned · ✅ resolved
   - [Multiple accounts](#multiple-accounts)
   - [Related messages and message details panels](#related-messages-and-message-details-panels)
   - [OAuth sign-in](#oauth-sign-in)
+  - [Mail operations](#mail-operations)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -35,6 +36,7 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned · ✅ resolved
 | ⚠️ Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete         |
 | ✅ Accounts          | One window holds several IMAP accounts, grouped by account in the folder sidebar; the limitations recorded for them are resolved ([details](#multiple-accounts))                                                   |
 | ⚠️ Embedded panels   | Related messages search only loaded messages in the current folder, and message details show MIME-level security only ([details](#related-messages-and-message-details-panels))                                    |
+| ⚠️ Mail operations   | Special folders need server attributes or English names, Go to Folder and related searches use loaded data only, and Undo after a move needs server COPYUID support ([details](#mail-operations))                  |
 | ⚠️ OAuth sign-in     | Microsoft uses the `common` tenant only and cannot revoke grants from the app, IMAP and SMTP refresh tokens independently, and switching provider replaces a grant without revoking it ([details](#oauth-sign-in)) |
 | ⚠️ Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                             |
 | 🔒 Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings`                                                     |
@@ -193,6 +195,123 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
   [#429](https://github.com/mikepadiernos/plasma-impresario/issues/429)).
 - 📋 Verify sign-in and revocation with a real provider account
   ([#317](https://github.com/mikepadiernos/plasma-impresario/issues/317), M15).
+
+### Mail operations
+
+| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                                                      |
+| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| [#312](https://github.com/mikepadiernos/plasma-impresario/issues/312) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/312#issuecomment-7148901982) | Folder actions, message list filters and sorting, Unified Inbox |
+
+**Current behavior:**
+
+- ⚠️ Special folders (Sent, Drafts, Trash, Junk, Archive) are recognized from
+  server SPECIAL-USE attributes or English folder names, not localized names.
+  Only the first name match of each kind is used. The configured archive
+  folder wins over the server's `\Archive`, and a changed name applies after
+  reconnecting.
+- ⚠️ Go to Folder lists only folders already loaded in the folder tree.
+- ⚠️ Undo after moving to Trash or Archive appears only when the server returns
+  `COPYUID` (UIDPLUS); otherwise the notification offers to open the folder.
+  Copies cannot be undone. Undo and Empty Trash/Junk may briefly select another
+  folder.
+- ⚠️ Counts in confirmations may be incomplete before the folder is
+  synchronized; the Expunge count covers loaded messages only.
+- ⚠️ Renaming re-lists only the renamed folder and does not update the archive
+  or Sent folder settings.
+- ⚠️ Move To and Copy To share one list of recent folders. A folder is added
+  when the operation starts, so a failed operation still adds it, and deleted
+  folders stay in the list. The menus show full IMAP names, such as
+  `INBOX.Lists.KDE`, rather than a path.
+- ⚠️ Message list filters are kept per account, not per folder; the old global
+  hide-read setting only seeds them. A thread is shown whole when any of its
+  messages matches. When messages stop matching, only the current message stays
+  visible, not the rest of a multiple selection.
+- ⚠️ The Flagged and Unread filters hide messages until their flags load, so
+  large folders fill in gradually. In "Showing X of Y", X also reflects the
+  quick search, and Y is the server's total.
+- ⚠️ Bulk actions report their result when the command is sent, not when the
+  server confirms it.
+- ⚠️ After messages are removed, the next selection is chosen heuristically
+  when the server expunges only some of them, and rows hidden by filters or
+  collapsed threads are not considered. The reader keeps the old message when
+  the list becomes empty. Failures to mark a message as read from the reader
+  are not reported.
+- ⚠️ The `?` shortcut depends on the keyboard layout, and the shortcut overview
+  may list stale shortcuts for windows not yet opened.
+- ⚠️ Select Similar and Show Related use loaded envelopes only. Mailing-list
+  matches use `List-Post`, because the message model exposes no `List-Id`.
+- ⚠️ While the dense layout is on, its compact density and hidden panels are
+  written to the normal preferences, so they persist after a restart.
+- ⚠️ The default sort and threading for new folders come from the message
+  list header's state; `guiMsgListShowThreading` is no longer written. Group By
+  is not tested against the fake server. A folder's saved position is restored
+  only after its message UIDs have loaded.
+- ⚠️ Two-line message rows show no preview text, because message bodies are
+  not fetched for the list, and no contact photos, only the sender's initials.
+  In the Unified Inbox, Two Lines names each message's account; Columns show it
+  only in the row's tooltip. All rows share one height, so date group headings
+  are as tall as a two-line row.
+  The column header, with its column chooser and sorting by clicking, is
+  hidden in Two Lines.
+- ⚠️ Check for New Mail asks each online account for the counts it already
+  knew and resynchronizes the open folder; it does not list new folders or
+  download messages of closed folders. Accounts are otherwise refreshed every
+  five minutes, or immediately in the open folder when the server supports
+  IDLE.
+- ⚠️ Account headers show only the INBOX unread count, not a total across
+  folders. Go to Next Unread Folder covers the active account and folders
+  already listed in the tree; folders whose count has not arrived are skipped,
+  so the first use after connecting may skip some.
+- ⚠️ The Unified Inbox
+  ([#223](https://github.com/mikepadiernos/plasma-impresario/issues/223)) lists
+  the INBOX of each included account only. It has no threads, Group By, drag
+  and drop, quick search or Show Related, and sorts on the client rather than
+  on the server. Moving or copying messages of several accounts at once is
+  refused. Notifications about different accounts replace each other. An
+  account added while the Unified Inbox is shown appears after turning it off
+  and on again. Offline accounts still list their cached messages, and the
+  status line names them.
+- ⚠️ These paths are unit-tested but not yet exercised in a window against a
+  live server.
+
+**Workarounds:**
+
+- Enable SPECIAL-USE on the server, or set the archive folder in the account
+  settings and reconnect.
+- Expand the folder tree before using Go to Folder.
+- Without Undo, open the destination from the notification and move the
+  messages back.
+- Update the account settings after renaming the archive or Sent folder.
+- Open the folder to confirm the result of a bulk action.
+- Turn off the dense layout before changing the density or panels you want to
+  keep.
+- In Two Lines, sort from View > Sorting, or switch View > Message Rows to
+  Columns to choose and resize columns.
+- Use Reload All Folders to pick up new folders, and expand a branch so that
+  Go to Next Unread Folder can visit it.
+- In the Unified Inbox, move or copy the messages of one account at a time,
+  and open an account's INBOX to thread, group or search its messages.
+
+**Proposed improvements:**
+
+- 📋 Recognize localized names and allow assigning special folders per
+  account.
+- 📋 Query the server from Go to Folder and from related searches.
+- 📋 Locate moved messages by `Message-ID` when COPYUID is missing.
+- 📋 Run Empty and Undo on a dedicated connection.
+- 📋 Follow renamed archive and Sent folders.
+- 📋 Record recent folders after the operation succeeds, prune deleted ones,
+  and show folder paths.
+- 📋 Report bulk results after the server confirms them.
+- 📋 Keep the dense layout's preferences separate from the normal ones.
+- 📋 Offer an opt-in preview line from already downloaded text, contact photos
+  from the address book only, and shorter date group headings.
+- 📋 Let Check for New Mail re-list folders, add per-account and per-folder
+  check intervals, and offer an account-wide or all-accounts unread total and
+  next-unread search.
+- 📋 Extend the Unified Inbox to other special folders, threads and quick
+  search across accounts, and moves between accounts.
+- 📋 Add live window-level tests.
 
 ## Before reporting results
 

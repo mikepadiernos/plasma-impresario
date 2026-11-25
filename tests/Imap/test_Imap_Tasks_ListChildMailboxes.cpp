@@ -29,7 +29,9 @@
 #include "Imap/Model/MailboxModel.h"
 #include "Imap/Model/MemoryCache.h"
 #include "Imap/Model/Model.h"
+#include "Imap/Model/PrettyMailboxModel.h"
 #include "Imap/Tasks/Fake_ListChildMailboxesTask.h"
+#include "Utils/FakeCapabilitiesInjector.h"
 
 void ImapModelListChildMailboxesTest::init()
 {
@@ -291,6 +293,127 @@ void ImapModelListChildMailboxesTest::testAutoExpanding()
             + t.last("OK listed\r\n"));
     QCOMPARE(mm.rowCount(idx_a), 1);
     QCOMPARE(mm.rowCount(idx_a_A), 1);
+    cEmpty();
+}
+
+namespace {
+
+QModelIndex findTopLevel(QAbstractItemModel *model, const QString &name)
+{
+    for (int row = 0; row < model->rowCount(QModelIndex()); ++row) {
+        const QModelIndex index = model->index(row, 0, QModelIndex());
+        if (index.data(Imap::Mailbox::RoleMailboxName).toString() == name)
+            return index;
+    }
+    return QModelIndex();
+}
+
+Imap::Mailbox::SpecialUse specialUseOf(QAbstractItemModel *model, const QString &name)
+{
+    const QModelIndex index = findTopLevel(model, name);
+    Q_ASSERT(index.isValid());
+    return static_cast<Imap::Mailbox::SpecialUse>(index.data(Imap::Mailbox::RoleMailboxSpecialUse).toInt());
+}
+
+QStringList topLevelNames(QAbstractItemModel *model)
+{
+    QStringList res;
+    for (int row = 0; row < model->rowCount(QModelIndex()); ++row)
+        res << model->index(row, 0, QModelIndex()).data(Imap::Mailbox::RoleMailboxName).toString();
+    return res;
+}
+
+}
+
+/** @short Special folders are exposed through RoleMailboxSpecialUse, follow the archive setting and sort first */
+void ImapModelListChildMailboxesTest::testSpecialUseRole()
+{
+    using namespace Imap::Mailbox;
+    model->setArchiveFolderName(QStringLiteral("Old Mail"));
+    QSignalSpy targetsSpy(model, &Model::specialFoldersChanged);
+    MailboxModel mailboxes(nullptr, model);
+    PrettyMailboxModel pretty(nullptr, &mailboxes);
+
+    QCOMPARE(model->rowCount(QModelIndex()), 1);
+    cClient(t.mk("LIST \"\" \"%\"\r\n"));
+    cServer("* LIST (\\HasNoChildren) \".\" INBOX\r\n"
+            "* LIST (\\HasNoChildren \\Sent) \".\" Gesendet\r\n"
+            "* LIST (\\HasNoChildren) \".\" Sent\r\n"
+            "* LIST (\\HasNoChildren) \".\" Trash\r\n"
+            "* LIST (\\HasNoChildren) \".\" \"Old Mail\"\r\n"
+            "* LIST (\\HasNoChildren) \".\" Archive\r\n"
+            "* LIST (\\HasNoChildren) \".\" work\r\n"
+            + t.last("OK List done.\r\n"));
+    QCOMPARE(model->rowCount(QModelIndex()), 8);
+
+    QCOMPARE(specialUseOf(model, QStringLiteral("INBOX")), SpecialUse::Inbox);
+    // An attribute beats a common name, so "Sent" is an ordinary folder here
+    QCOMPARE(specialUseOf(model, QStringLiteral("Gesendet")), SpecialUse::Sent);
+    QCOMPARE(specialUseOf(model, QStringLiteral("Sent")), SpecialUse::None);
+    QCOMPARE(specialUseOf(model, QStringLiteral("Trash")), SpecialUse::Trash);
+    // The configured archive folder wins over a folder merely called "Archive"
+    QCOMPARE(specialUseOf(model, QStringLiteral("Old Mail")), SpecialUse::Archive);
+    QCOMPARE(specialUseOf(model, QStringLiteral("Archive")), SpecialUse::None);
+    QCOMPARE(specialUseOf(model, QStringLiteral("work")), SpecialUse::None);
+    QCOMPARE(specialUseOf(&mailboxes, QStringLiteral("Gesendet")), SpecialUse::Sent);
+    QCOMPARE(mailboxes.roleNames().value(RoleMailboxSpecialUse), QByteArray("mailboxSpecialUse"));
+
+    QCOMPARE(model->specialFolderMailbox(SpecialUse::Inbox), QStringLiteral("INBOX"));
+    QCOMPARE(model->specialFolderMailbox(SpecialUse::Sent), QStringLiteral("Gesendet"));
+    QCOMPARE(model->specialFolderMailbox(SpecialUse::Archive), QStringLiteral("Old Mail"));
+    QCOMPARE(model->specialFolderMailbox(SpecialUse::Trash), QStringLiteral("Trash"));
+    QCOMPARE(model->specialFolderMailbox(SpecialUse::Drafts), QString());
+    QTRY_COMPARE(targetsSpy.count(), 1);
+
+    // Special folders first in the canonical order, then the rest in the original order
+    QCOMPARE(topLevelNames(&pretty), QStringList({QStringLiteral("INBOX"), QStringLiteral("Gesendet"),
+                                                  QStringLiteral("Old Mail"), QStringLiteral("Trash"),
+                                                  QStringLiteral("Archive"), QStringLiteral("Sent"),
+                                                  QStringLiteral("work")}));
+
+    // Changing the archive folder reclassifies existing mailboxes and tells the views about it
+    QSignalSpy dataChangedSpy(model, &QAbstractItemModel::dataChanged);
+    model->setArchiveFolderName(QStringLiteral("Archive"));
+    QTRY_COMPARE(targetsSpy.count(), 2);
+    QCOMPARE(specialUseOf(model, QStringLiteral("Archive")), SpecialUse::Archive);
+    QCOMPARE(specialUseOf(model, QStringLiteral("Old Mail")), SpecialUse::None);
+    QCOMPARE(model->specialFolderMailbox(SpecialUse::Archive), QStringLiteral("Archive"));
+    QStringList changed;
+    for (const auto &args : std::as_const(dataChangedSpy))
+        changed << args[0].toModelIndex().data(RoleMailboxName).toString();
+    changed.sort();
+    QCOMPARE(changed, QStringList({QStringLiteral("Archive"), QStringLiteral("Old Mail")}));
+    QCOMPARE(topLevelNames(&pretty), QStringList({QStringLiteral("INBOX"), QStringLiteral("Gesendet"),
+                                                  QStringLiteral("Archive"), QStringLiteral("Trash"),
+                                                  QStringLiteral("Old Mail"), QStringLiteral("Sent"),
+                                                  QStringLiteral("work")}));
+    cEmpty();
+}
+
+/** @short Servers advertising SPECIAL-USE are asked for the attributes explicitly */
+void ImapModelListChildMailboxesTest::testSpecialUseReturnOption()
+{
+    using namespace Imap::Mailbox;
+    // Without the capabilities, a plain LIST is used; this also creates the parser we inject capabilities into.
+    QCOMPARE(model->rowCount(QModelIndex()), 1);
+    cClient(t.mk("LIST \"\" \"%\"\r\n"));
+    cServer("* LIST (\\HasNoChildren) \".\" INBOX\r\n" + t.last("OK listed\r\n"));
+    QCOMPARE(model->rowCount(QModelIndex()), 2);
+    cEmpty();
+
+    FakeCapabilitiesInjector injector(model);
+    injector.injectCapability(QStringLiteral("LIST-EXTENDED"));
+    injector.injectCapability(QStringLiteral("SPECIAL-USE"));
+    model->reloadMailboxList();
+    cClient(t.mk("LIST \"\" \"%\" RETURN (SUBSCRIBED CHILDREN SPECIAL-USE)\r\n"));
+    cServer("* LIST (\\HasNoChildren \\Subscribed) \".\" INBOX\r\n"
+            "* LIST (\\HasNoChildren \\Subscribed \\Drafts) \".\" Entwuerfe\r\n"
+            "* LIST (\\HasNoChildren \\Junk) \".\" Werbung\r\n"
+            + t.last("OK listed\r\n"));
+    QCOMPARE(model->rowCount(QModelIndex()), 4);
+    QCOMPARE(model->specialFolderMailbox(SpecialUse::Drafts), QStringLiteral("Entwuerfe"));
+    QCOMPARE(model->specialFolderMailbox(SpecialUse::Junk), QStringLiteral("Werbung"));
+    QCOMPARE(specialUseOf(model, QStringLiteral("Werbung")), SpecialUse::Junk);
     cEmpty();
 }
 

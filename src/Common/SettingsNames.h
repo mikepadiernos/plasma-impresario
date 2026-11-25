@@ -40,7 +40,8 @@ struct SettingsNames {
            imapPortKey, imapStartTlsKey, imapUserKey, imapProcessKey, imapStartMode, netOffline, netExpensive, netOnline,
            obsImapStartOffline, obsImapSslPemCertificate, imapSslPemPubKey,
            imapBlacklistedCapabilities, imapUseSystemProxy, imapNeedsNetwork, imapNumberRefreshInterval,
-           imapAccountIcon, imapArchiveFolderName, imapDefaultArchiveFolderName;
+           imapAccountIcon, imapArchiveFolderName, imapDefaultArchiveFolderName, imapDeleteMovesToTrash,
+           imapRecentDestinationFolders;
     /** @short Per-account authentication method for IMAP and SMTP, and the account's OAuth 2.0 configuration */
     static const QString imapAuthMethodKey, smtpAuthMethodKey, authMethodPassword, authMethodOAuth,
            oauthProviderKey, oauthClientIdKey, oauthClientSecretKey;
@@ -52,6 +53,9 @@ struct SettingsNames {
     static const QString watchedFoldersKey, watchOnlyInbox, watchSubscribed, watchAll;
     static const QString guiMsgListShowThreading;
     static const QString guiMsgListHideRead;
+    /** @short Quick filters of the message list, stored per account */
+    static const QString guiMsgListFilterUnread, guiMsgListFilterFlagged, guiMsgListFilterAttachments;
+    static const QString guiMsgListGroupBy;
     static const QString guiMailboxListShowOnlySubscribed;
     static const QString guiPreferPlaintextRendering;
     static const QString guiMainWindowLayout, guiMainWindowLayoutCompact, guiMainWindowLayoutWide, guiMainWindowLayoutOneAtTime;

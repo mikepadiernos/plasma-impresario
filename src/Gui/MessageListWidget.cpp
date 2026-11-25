@@ -28,10 +28,13 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QFrame>
+#include <QHBoxLayout>
 #include <QInputDialog>
+#include <QLabel>
 #include <QMenu>
 #include <QMessageBox>
 #include <QStringView>
+#include <QStyle>
 #include <QTimer>
 #include <QToolButton>
 #include <QUuid>
@@ -42,6 +45,7 @@
 #include "ReplaceCharValidator.h"
 #include "Util.h"
 #include "UiUtils/IconLoader.h"
+#include "UiUtils/QuickFilters.h"
 
 namespace Gui {
 
@@ -67,7 +71,15 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     connect(m_quickSearchText, &QLineEdit::returnPressed, this, &MessageListWidget::slotApplySearch);
     connect(m_quickSearchText, &QLineEdit::textChanged, this, &MessageListWidget::slotConditionalSearchReset);
     connect(m_quickSearchText, &QLineEdit::cursorPositionChanged, this, &MessageListWidget::slotUpdateSearchCursor);
-    connect(m_quickSearchText, &LineEdit::escapePressed, tree, static_cast<void (QWidget::*)()>(&QWidget::setFocus));
+    connect(m_quickSearchText, &LineEdit::escapePressed, this, [this]() {
+        // A field filter, as set by Show Related, goes away at once
+        if (UiUtils::parseFieldFilter(m_quickSearchText->text()).field != UiUtils::FieldFilter::None) {
+            m_quickSearchText->clear();
+            m_searchResetTimer->stop();
+            slotApplySearch();
+        }
+        tree->setFocus();
+    });
 
     m_searchOptions = new QAction(UiUtils::loadIcon(QStringLiteral("imap-search-details")), QStringLiteral("*"), this);
     m_searchOptions->setToolTip(tr("Options for the IMAP search..."));
@@ -131,11 +143,44 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
         optionsMenu->popup(m_quickSearchText->mapToGlobal(QPoint(0, m_quickSearchText->height())), nullptr);
     });
 
+    m_toolRow = new QHBoxLayout();
+    m_toolRow->setSpacing(0);
+    m_toolRow->setContentsMargins(0, 0, 0, 0);
+    m_toolRow->addWidget(m_quickSearchText, 1);
+
+    m_listStatus = new QLabel(this);
+    m_listStatus->setObjectName(QStringLiteral("messageListStatus"));
+    m_listStatus->setAccessibleName(i18nc("@label", "Message list status"));
+    // Long texts must not make the list wider
+    m_listStatus->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    const int margin = style()->pixelMetric(QStyle::PM_LayoutLeftMargin) / 2;
+    m_listStatus->setContentsMargins(margin, margin / 2, margin, margin / 2);
+    m_listStatus->hide();
+
+    m_statusRow = new QWidget(this);
+    m_scope = new QLabel(m_statusRow);
+    m_scope->setObjectName(QStringLiteral("messageListScope"));
+    m_scope->setTextFormat(Qt::PlainText);
+    // Shrinks rather than widening the list when the names are long
+    m_scope->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Preferred);
+    m_scope->setMinimumWidth(1);
+    m_scope->setForegroundRole(QPalette::PlaceholderText);
+    m_scope->setContentsMargins(margin, margin / 2, 0, margin / 2);
+    m_scope->hide();
+    m_listStatus->setParent(m_statusRow);
+    auto *statusLayout = new QHBoxLayout(m_statusRow);
+    statusLayout->setSpacing(0);
+    statusLayout->setContentsMargins(0, 0, 0, 0);
+    statusLayout->addWidget(m_scope);
+    statusLayout->addWidget(m_listStatus, 1);
+    m_statusRow->hide();
+
     QVBoxLayout *layout = new QVBoxLayout(this);
     layout->setSpacing(0);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(m_quickSearchText);
+    layout->addLayout(m_toolRow);
     layout->addWidget(tree);
+    layout->addWidget(m_statusRow);
 
     m_searchResetTimer = new QTimer(this);
     m_searchResetTimer->setSingleShot(true);
@@ -198,6 +243,77 @@ void MessageListWidget::rebuildSavedSearchMenu()
 void MessageListWidget::setAccountId(const QString &accountId)
 {
     m_accountId = accountId;
+}
+
+QToolButton *MessageListWidget::addToolButton(QAction *action)
+{
+    auto *button = new QToolButton(this);
+    button->setDefaultAction(action);
+    button->setAutoRaise(true);
+    button->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    button->setAccessibleName(KLocalizedString::removeAcceleratorMarker(action->text()));
+    button->setAccessibleDescription(action->toolTip());
+    m_toolRow->addWidget(button);
+    return button;
+}
+
+QToolButton *MessageListWidget::addToolMenuButton(QMenu *menu, const QIcon &icon, const QString &text)
+{
+    auto *button = new QToolButton(this);
+    button->setMenu(menu);
+    button->setPopupMode(QToolButton::InstantPopup);
+    button->setAutoRaise(true);
+    button->setIcon(icon);
+    button->setToolTip(text);
+    button->setAccessibleName(text);
+    m_toolRow->addWidget(button);
+    return button;
+}
+
+void MessageListWidget::setListStatus(const QString &text)
+{
+    m_listStatus->setText(text);
+    m_listStatus->setVisible(!text.isEmpty());
+    m_statusRow->setVisible(!m_scope->isHidden() || !m_listStatus->isHidden());
+}
+
+void MessageListWidget::setScope(const QString &account, const QString &folder, const QString &fullFolderName)
+{
+    if (folder.isEmpty()) {
+        m_scope->clear();
+        m_scope->setToolTip(QString());
+        m_scope->setAccessibleName(QString());
+        m_scope->hide();
+    } else {
+        m_scope->setText(i18nc("@info:status account and folder shown in the message list", "%1 \u203A %2", account, folder));
+        m_scope->setToolTip(i18nc("@info:tooltip", "Account: %1\nFolder: %2", account, fullFolderName));
+        m_scope->setAccessibleName(i18nc("@info:accessible", "Showing folder %1 of account %2", folder, account));
+        m_scope->show();
+    }
+    m_statusRow->setVisible(!m_scope->isHidden() || !m_listStatus->isHidden());
+}
+
+void MessageListWidget::setCustomScope(const QString &text, const QString &toolTip)
+{
+    m_scope->setText(text);
+    m_scope->setToolTip(toolTip);
+    m_scope->setAccessibleName(text);
+    m_scope->setVisible(!text.isEmpty());
+    m_statusRow->setVisible(!m_scope->isHidden() || !m_listStatus->isHidden());
+}
+
+void MessageListWidget::setSearchAvailable(bool available)
+{
+    if (m_searchAvailable == available)
+        return;
+    m_searchAvailable = available;
+    // A search which still filters a single folder would look like it applies to the shown list
+    if (!available && !m_quickSearchText->text().isEmpty()) {
+        m_quickSearchText->clear();
+        m_searchResetTimer->stop();
+        slotApplySearch();
+    }
+    slotAutoEnableDisableSearch();
 }
 
 KConfigGroup MessageListWidget::savedSearchGroup() const
@@ -274,6 +390,14 @@ void MessageListWidget::focusRawSearch()
     m_quickSearchText->setCursorPosition(m_quickSearchText->text().length());
 }
 
+void MessageListWidget::showFieldFilter(const QString &text)
+{
+    m_quickSearchText->setText(text);
+    m_searchResetTimer->stop();
+    slotAutoEnableDisableSearch();
+    slotApplySearch();
+}
+
 void MessageListWidget::slotApplySearch()
 {
     emit requestingSearch(searchConditions());
@@ -282,7 +406,9 @@ void MessageListWidget::slotApplySearch()
 void MessageListWidget::slotAutoEnableDisableSearch()
 {
     bool isEnabled;
-    if (!m_quickSearchText->text().isEmpty()) {
+    if (!m_searchAvailable) {
+        isEnabled = false;
+    } else if (!m_quickSearchText->text().isEmpty()) {
         // Some search criteria are in effect and suddenly all matching messages
         // disappear. We have to make sure that the search bar remains enabled.
         isEnabled = true;
@@ -383,6 +509,11 @@ QStringList MessageListWidget::searchConditions() const
         // It's a "raw" IMAP search, let's simply pass it through
         return QStringList() << m_quickSearchText->text().mid(rawPrefix.size());
     }
+
+    // "from:", "to:", "subject:" and "list:" search that field only, whatever the options say
+    const UiUtils::ParsedFieldFilter fieldFilter = UiUtils::parseFieldFilter(m_quickSearchText->text());
+    if (fieldFilter.field != UiUtils::FieldFilter::None)
+        return UiUtils::fieldFilterConditions(fieldFilter);
 
     QStringList keys;
     if (m_searchInSubject->isChecked())

@@ -20,6 +20,8 @@ DensityMenu::DensityMenu(QTreeView *mailboxes, QTreeView *messages, KSharedConfi
     auto *group = new QActionGroup(this);
     auto *compact = addAction(i18nc("@option:radio", "Compact"));
     auto *comfortable = addAction(i18nc("@option:radio", "Comfortable"));
+    m_compact = compact;
+    m_comfortable = comfortable;
     for (auto *action : {compact, comfortable}) {
         action->setCheckable(true);
         group->addAction(action);
@@ -41,6 +43,17 @@ DensityMenu::DensityMenu(QTreeView *mailboxes, QTreeView *messages, KSharedConfi
         if (!m_config->sync())
             qWarning() << "Unable to save row density preference";
     });
+}
+
+bool DensityMenu::isComfortable() const
+{
+    return m_comfortable->isChecked();
+}
+
+void DensityMenu::setComfortable(bool comfortable)
+{
+    if (comfortable != isComfortable())
+        (comfortable ? m_comfortable : m_compact)->trigger();
 }
 
 void DensityMenu::applyDensity(bool comfortable)

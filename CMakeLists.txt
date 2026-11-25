@@ -313,7 +313,14 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/PasswordWatcher.cpp
     ${path_UiUtils}/PlainTextFormatter.cpp
     ${path_UiUtils}/QaimDfsIterator.cpp
+    ${path_UiUtils}/QuickFilters.cpp
+    ${path_UiUtils}/RecentFolders.cpp
     ${path_UiUtils}/RelatedMessages.cpp
+    ${path_UiUtils}/Relevance.cpp
+    ${path_UiUtils}/SelectionAfterRemoval.cpp
+    ${path_UiUtils}/ShortcutOverview.cpp
+    ${path_UiUtils}/UnreadFolders.cpp
+    ${path_UiUtils}/ViewStateStore.cpp
 )
 
 if(WITH_WEBENGINE)
@@ -323,6 +330,13 @@ if(WITH_WEBENGINE)
         ${path_UiUtils}/PartVisitor.h
         ${path_UiUtils}/PartWalker.h
         ${path_UiUtils}/PartWalker_impl.h
+    )
+endif()
+
+if(WITH_DESKTOP)
+    set(libUiUtils_SOURCES
+        ${libUiUtils_SOURCES}
+        ${path_UiUtils}/DestructiveActions.cpp
     )
 endif()
 
@@ -416,11 +430,14 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/ExternalElementsWidget.cpp
     ${path_DesktopGui}/FlowLayout.cpp
     ${path_DesktopGui}/FromAddressProxyModel.cpp
+    ${path_DesktopGui}/InlineNotificationBar.cpp
     ${path_DesktopGui}/LineEdit.cpp
     ${path_DesktopGui}/MailBoxTreeView.cpp
+    ${path_DesktopGui}/MailboxPickerDialog.cpp
     ${path_DesktopGui}/MessageActionHandler.cpp
     ${path_DesktopGui}/MessageDetailsPanel.cpp
     ${path_DesktopGui}/MessageListWidget.cpp
+    ${path_DesktopGui}/MessageRowsMenu.cpp
     ${path_DesktopGui}/MessageSelectionRestorer.cpp
     ${path_DesktopGui}/MsgItemDelegate.cpp
     ${path_DesktopGui}/MsgListView.cpp
@@ -434,6 +451,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/SettingsDialog.cpp
     ${path_DesktopGui}/SettingsOAuthControls.cpp
     ${path_DesktopGui}/ShellHeader.cpp
+    ${path_DesktopGui}/ShortcutOverviewDialog.cpp
     ${path_DesktopGui}/Spinner.cpp
     ${path_DesktopGui}/TagAddDialog.cpp
     ${path_DesktopGui}/TagHandler.cpp
@@ -520,8 +538,10 @@ set(libImap_SOURCES
     ${path_Imap}/Model/NetworkWatcher.cpp
     ${path_Imap}/Model/OneMessageModel.cpp
     ${path_Imap}/Model/FavoriteTagsModel.cpp
+    ${path_Imap}/Model/GroupingMsgListModel.cpp
     ${path_Imap}/Model/ParserState.cpp
     ${path_Imap}/Model/PrettyMailboxModel.cpp
+    ${path_Imap}/Model/SpecialFolder.cpp
     ${path_Imap}/Model/PrettyMsgListModel.cpp
     ${path_Imap}/Model/SpecialFlagNames.cpp
     ${path_Imap}/Model/SQLCache.cpp
@@ -530,6 +550,7 @@ set(libImap_SOURCES
     ${path_Imap}/Model/TaskFactory.cpp
     ${path_Imap}/Model/TaskPresentationModel.cpp
     ${path_Imap}/Model/ThreadingMsgListModel.cpp
+    ${path_Imap}/Model/UnifiedMsgListModel.cpp
     ${path_Imap}/Model/Utils.cpp
     ${path_Imap}/Model/VisibleTasksModel.cpp
 
@@ -559,6 +580,7 @@ set(libImap_SOURCES
     ${path_Imap}/Tasks/ObtainSynchronizedMailboxTask.cpp
     ${path_Imap}/Tasks/OfflineConnectionTask.cpp
     ${path_Imap}/Tasks/OpenConnectionTask.cpp
+    ${path_Imap}/Tasks/RenameMailboxTask.cpp
     ${path_Imap}/Tasks/SortTask.cpp
     ${path_Imap}/Tasks/SubscribeUnsubscribeTask.cpp
     ${path_Imap}/Tasks/ThreadTask.cpp
@@ -674,6 +696,9 @@ target_link_libraries(UiUtils
         Imap
         Plugins
 )
+if(WITH_DESKTOP)
+    target_link_libraries(UiUtils PRIVATE KF6::ConfigCore)
+endif()
 
 add_library(Streams STATIC ${libStreams_SOURCES})
 set_property(TARGET Streams APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
@@ -1071,6 +1096,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_MainWindowDensity PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_MailBoxTreeView tests/Gui/test_MailBoxTreeView.cpp)
         target_link_libraries(test_MailBoxTreeView PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_MailboxNavigation tests/Gui/test_MailboxNavigation.cpp)
+        target_link_libraries(test_MailboxNavigation PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_MainWindowAccounts tests/Gui/test_MainWindowAccounts.cpp)
         target_link_libraries(test_MainWindowAccounts PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_MainWindowShell tests/Gui/test_MainWindowShell.cpp)
@@ -1087,8 +1114,14 @@ if(BUILD_TESTING)
         target_link_libraries(test_LiveImapAccounts PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_LiveImapPanels tests/Gui/test_LiveImapPanels.cpp)
         target_link_libraries(test_LiveImapPanels PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_InlineNotificationBar tests/Gui/test_InlineNotificationBar.cpp)
+        target_link_libraries(test_InlineNotificationBar PRIVATE DesktopGui Qt6::Test KF6::I18n)
         add_executable(test_MessageSelectionRestorer tests/Gui/test_MessageSelectionRestorer.cpp)
         target_link_libraries(test_MessageSelectionRestorer PRIVATE DesktopGui Qt6::Test)
+        add_executable(test_MessageRows tests/Gui/test_MessageRows.cpp)
+        target_link_libraries(test_MessageRows PRIVATE DesktopGui Qt6::Test KF6::ConfigCore KF6::I18n)
+        add_executable(test_MsgListViewSelection tests/Gui/test_MsgListViewSelection.cpp)
+        target_link_libraries(test_MsgListViewSelection PRIVATE DesktopGui Qt6::Test KF6::I18n)
         add_executable(test_SessionRestart tests/Gui/test_SessionRestart.cpp)
         target_link_libraries(test_SessionRestart PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_AccountSettingsDialog tests/Gui/test_AccountSettingsDialog.cpp)
@@ -1104,17 +1137,28 @@ if(BUILD_TESTING)
             set_tests_properties(test_MsgListViewTeardown PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MailBoxTreeView COMMAND test_MailBoxTreeView)
             set_tests_properties(test_MailBoxTreeView PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_MailboxNavigation COMMAND test_MailboxNavigation)
+            set_tests_properties(test_MailboxNavigation PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_SavedSearch COMMAND test_SavedSearch)
             set_tests_properties(test_SavedSearch PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_ClearTextPassword COMMAND test_ClearTextPassword)
             add_test(NAME test_PasswordBackend COMMAND test_PasswordBackend)
             set_tests_properties(test_PasswordBackend PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_InlineNotificationBar COMMAND test_InlineNotificationBar)
+            set_tests_properties(test_InlineNotificationBar PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MessageSelectionRestorer COMMAND test_MessageSelectionRestorer)
             set_tests_properties(test_MessageSelectionRestorer PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_MessageRows COMMAND test_MessageRows)
+            set_tests_properties(test_MessageRows PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_MsgListViewSelection COMMAND test_MsgListViewSelection)
+            set_tests_properties(test_MsgListViewSelection PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MainWindowDensity COMMAND test_MainWindowDensity)
             foreach(account_case migratesSingleProfileIntoFirstAccount switchingKeepsAccountsIndependent backgroundAccountStatusIsShown
                     removingAccountDeletesItsSettingsAndPasswords accountsSwitchFromTheKeyboard
                     savedSearchesAndFolderExpansionFollowTheAccount focusCyclesThroughShellRegions
+                    goToFolderActionsWithoutFolders checkMailAndNextUnreadFolder destructiveActionsOffline quickActionsOffline
+                    messageListFiltersOffline shortcutOverviewAndSelectionOffline powerUserProcessingOffline
+                    groupingAndRelevanceOffline folderViewStateOffline unifiedInboxOffline unifiedInboxIsRestored
                     identitiesFollowTheAccount composerSendsWithItsOwnAccount newAccountsStartWithoutIdentities
                     oauthAccountsOfferSignIn)
                 add_test(NAME test_MainWindowAccounts_${account_case} COMMAND test_MainWindowAccounts ${account_case})
@@ -1200,10 +1244,12 @@ if(BUILD_TESTING)
     trojita_test(Imap Imap_SelectedMailboxUpdates)
     trojita_test(Imap Imap_Tasks_CreateMailbox)
     trojita_test(Imap Imap_Tasks_DeleteMailbox)
+    trojita_test(Imap Imap_Tasks_RenameMailbox)
     trojita_test(Imap Imap_Tasks_ListChildMailboxes)
     trojita_test(Imap Imap_Tasks_ObtainSynchronizedMailbox)
     trojita_test(Imap Imap_Tasks_OpenConnection)
     trojita_test(Imap Imap_Threading)
+    trojita_test(Imap Imap_ViewStatePreservation)
     trojita_test(Imap Imap_BodyParts)
     trojita_test(Imap Imap_Offline)
     trojita_test(Imap Imap_CopyAndFlagOperations)
@@ -1259,6 +1305,30 @@ if(BUILD_TESTING)
     target_link_libraries(test_AttachmentCollector PRIVATE UiUtils)
     trojita_test(Misc RelatedMessages)
     target_link_libraries(test_RelatedMessages PRIVATE UiUtils)
+    trojita_test(Misc QuickFilters)
+    target_link_libraries(test_QuickFilters PRIVATE UiUtils)
+    trojita_test(Misc RecentFolders)
+    target_link_libraries(test_RecentFolders PRIVATE UiUtils)
+    trojita_test(Misc SelectionAfterRemoval)
+    target_link_libraries(test_SelectionAfterRemoval PRIVATE UiUtils)
+    trojita_test(Misc UnreadFolders)
+    target_link_libraries(test_UnreadFolders PRIVATE UiUtils)
+    trojita_test(Misc ShortcutOverview)
+    target_link_libraries(test_ShortcutOverview PRIVATE UiUtils)
+    trojita_test(Misc ViewStateStore)
+    target_link_libraries(test_ViewStateStore PRIVATE UiUtils)
+    trojita_test(Misc SpecialFolder)
+    trojita_test(Misc PrettyMsgListFilters)
+    trojita_test(Misc GroupingMsgListModel)
+    target_link_libraries(test_GroupingMsgListModel PRIVATE UiUtils)
+    trojita_test(Misc UnifiedMsgListModel)
+    target_link_libraries(test_UnifiedMsgListModel PRIVATE UiUtils)
+    trojita_test(Misc Relevance)
+    target_link_libraries(test_Relevance PRIVATE UiUtils)
+    if(WITH_DESKTOP)
+        trojita_test(Misc DestructiveActions)
+        target_link_libraries(test_DestructiveActions PRIVATE UiUtils KF6::ConfigCore)
+    endif()
 
 endif()
 

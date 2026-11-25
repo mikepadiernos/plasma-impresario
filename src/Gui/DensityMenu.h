@@ -17,11 +17,17 @@ public:
     /** Create a density selector for the mailbox and message views. */
     DensityMenu(QTreeView *mailboxes, QTreeView *messages, KSharedConfigPtr config, QWidget *parent = nullptr);
 
+    bool isComfortable() const;
+    /** Switch the density as if chosen from the menu, so that the choice is saved */
+    void setComfortable(bool comfortable);
+
 private:
     void applyDensity(bool comfortable);
     QTreeView *m_mailboxes;
     QTreeView *m_messages;
     KSharedConfigPtr m_config;
+    QAction *m_compact;
+    QAction *m_comfortable;
 };
 
 }

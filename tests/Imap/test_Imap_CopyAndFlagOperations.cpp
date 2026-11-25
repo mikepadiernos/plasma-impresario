@@ -27,6 +27,7 @@
 #include "Imap/Model/MailboxTree.h"
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/ThreadingMsgListModel.h"
+#include "Imap/Tasks/CopyMoveMessagesTask.h"
 #include "Imap/Tasks/ObtainSynchronizedMailboxTask.h"
 
 using namespace Imap::Mailbox;
@@ -162,6 +163,236 @@ void CopyAndFlagTest::testUpdateAllFlags()
         QVERIFY(model->cache()->msgFlags(mailbox, uidMapA[i]).contains(seen));
     }
 
+    cEmpty();
+    justKeepTask();
+}
+
+void CopyAndFlagTest::helperSyncThreeMessages()
+{
+    existsA = 3;
+    uidNextA = 5;
+    uidValidityA = 666;
+    for (uint i = 1; i <= existsA; ++i)
+        uidMapA << i;
+    helperSyncAWithMessagesEmptyState();
+    helperCheckCache();
+    helperVerifyUidMapA();
+}
+
+void CopyAndFlagTest::testCopyUidFromMove()
+{
+    FakeCapabilitiesInjector injector(model);
+    injector.injectCapability(QStringLiteral("MOVE"));
+    injector.injectCapability(QStringLiteral("UIDPLUS"));
+    helperSyncThreeMessages();
+
+    QModelIndexList messages;
+    messages << msgListA.model()->index(1, 0, msgListA) << msgListA.model()->index(2, 0, msgListA);
+    auto *task = qobject_cast<CopyMoveMessagesTask *>(model->copyMoveMessages(QStringLiteral("b"), messages, MOVE));
+    QVERIFY(task);
+    QSignalSpy copyUidSpy(task, &CopyMoveMessagesTask::copyUidReceived);
+    QSignalSpy completedSpy(task, &ImapTask::completed);
+
+    cClient(t.mk("UID MOVE 2:3 b\r\n"));
+    // A COPYUID for UIDs which were not part of this command must be left alone
+    cServer("* OK [COPYUID 77 1 9] someone else's\r\n"
+            "* OK [COPYUID 77 2:3 10:11] moving\r\n"
+            "* 2 EXPUNGE\r\n"
+            "* 2 EXPUNGE\r\n"
+            + t.last("OK moved\r\n"));
+    QCOMPARE(completedSpy.size(), 1);
+    QCOMPARE(copyUidSpy.size(), 1);
+    QCOMPARE(copyUidSpy.at(0).at(0).toUInt(), 77u);
+    QCOMPARE(task->copyUidValidity(), 77u);
+    QCOMPARE(task->copyUidSourceUids(), Imap::Uids() << 2 << 3);
+    QCOMPARE(task->copyUidDestinationUids(), Imap::Uids() << 10 << 11);
+    QCOMPARE(task->targetMailboxName(), QStringLiteral("b"));
+    existsA = 1;
+    uidMapA = Imap::Uids() << 1;
+    helperCheckCache();
+    helperVerifyUidMapA();
+    cEmpty();
+    justKeepTask();
+}
+
+void CopyAndFlagTest::testCopyUidFromCopy()
+{
+    FakeCapabilitiesInjector injector(model);
+    injector.injectCapability(QStringLiteral("UIDPLUS"));
+    helperSyncThreeMessages();
+
+    QModelIndexList messages;
+    messages << msgListA.model()->index(1, 0, msgListA);
+    auto *task = qobject_cast<CopyMoveMessagesTask *>(model->copyMoveMessages(QStringLiteral("b"), messages, MOVE));
+    QVERIFY(task);
+    QSignalSpy copyUidSpy(task, &CopyMoveMessagesTask::copyUidReceived);
+
+    cClient(t.mk("UID COPY 2 b\r\n"));
+    cServer(t.last("OK [COPYUID 77 2 5] copied\r\n"));
+    QCOMPARE(copyUidSpy.size(), 1);
+    QCOMPARE(task->copyUidSourceUids(), Imap::Uids() << 2);
+    QCOMPARE(task->copyUidDestinationUids(), Imap::Uids() << 5);
+    cClient(t.mk("UID STORE 2 +FLAGS.SILENT \\Deleted\r\n"));
+    cServer(t.last("OK stored\r\n"));
+    cClient(t.mk("UID EXPUNGE 2\r\n"));
+    cServer("* 2 EXPUNGE\r\n" + t.last("OK expunged\r\n"));
+    cEmpty();
+    justKeepTask();
+}
+
+void CopyAndFlagTest::testMoveByUid()
+{
+    FakeCapabilitiesInjector injector(model);
+    injector.injectCapability(QStringLiteral("MOVE"));
+    helperSyncThreeMessages();
+    // This is how the GUI finds the folder to undo a move from
+    QCOMPARE(model->mailboxIndexByName(QStringLiteral("a")), QModelIndex(idxA));
+    QVERIFY(!model->mailboxIndexByName(QStringLiteral("nonexistent")).isValid());
+    QVERIFY(!model->mailboxIndexByName(QString()).isValid());
+
+    auto *task = qobject_cast<CopyMoveMessagesTask *>(
+                model->copyMoveMessagesByUid(idxA, Imap::Uids() << 3 << 1 << 3, QStringLiteral("b"), MOVE, 666));
+    QVERIFY(task);
+    QSignalSpy completedSpy(task, &ImapTask::completed);
+    cClient(t.mk("UID MOVE 1,3 b\r\n"));
+    cServer("* 3 EXPUNGE\r\n* 1 EXPUNGE\r\n" + t.last("OK moved\r\n"));
+    QCOMPARE(completedSpy.size(), 1);
+    // No COPYUID from this server
+    QVERIFY(task->copyUidDestinationUids().isEmpty());
+    existsA = 1;
+    uidMapA = Imap::Uids() << 2;
+    helperCheckCache();
+    helperVerifyUidMapA();
+    cEmpty();
+    justKeepTask();
+}
+
+void CopyAndFlagTest::testMoveByUidChecksUidValidity()
+{
+    FakeCapabilitiesInjector injector(model);
+    injector.injectCapability(QStringLiteral("MOVE"));
+    helperSyncThreeMessages();
+
+    auto *task = model->copyMoveMessagesByUid(idxA, Imap::Uids() << 1, QStringLiteral("b"), MOVE, 999);
+    QVERIFY(task);
+    QSignalSpy failedSpy(task, &ImapTask::failed);
+    QCoreApplication::processEvents();
+    QCoreApplication::processEvents();
+    QCOMPARE(failedSpy.size(), 1);
+    cEmpty();
+    justKeepTask();
+}
+
+void CopyAndFlagTest::testDeletePermanentlyUidPlus()
+{
+    FakeCapabilitiesInjector injector(model);
+    injector.injectCapability(QStringLiteral("UIDPLUS"));
+    helperSyncThreeMessages();
+
+    bool expungeScheduled = false;
+    QVERIFY(model->deleteMessagesPermanently(QModelIndexList() << msgListA.model()->index(1, 0, msgListA), &expungeScheduled));
+    QVERIFY(expungeScheduled);
+    cClient(t.mk("UID STORE 2 +FLAGS (\\Deleted)\r\n"));
+    cServer("* 2 FETCH (FLAGS (\\Deleted))\r\n" + t.last("OK stored\r\n"));
+    // Only the selected message is removed, not other messages which happen to be marked as deleted
+    cClient(t.mk("UID EXPUNGE 2\r\n"));
+    cServer("* 2 EXPUNGE\r\n" + t.last("OK expunged\r\n"));
+    existsA = 2;
+    uidMapA = Imap::Uids() << 1 << 3;
+    helperCheckCache();
+    helperVerifyUidMapA();
+    cEmpty();
+    justKeepTask();
+}
+
+void CopyAndFlagTest::testDeletePermanentlyWithoutUidPlus()
+{
+    helperSyncThreeMessages();
+
+    bool expungeScheduled = true;
+    QVERIFY(model->deleteMessagesPermanently(QModelIndexList() << msgListA.model()->index(1, 0, msgListA), &expungeScheduled));
+    QVERIFY(!expungeScheduled);
+    cClient(t.mk("UID STORE 2 +FLAGS (\\Deleted)\r\n"));
+    cServer("* 2 FETCH (FLAGS (\\Deleted))\r\n" + t.last("OK stored\r\n"));
+    QVERIFY(model->cache()->msgFlags(QStringLiteral("a"), 2).contains(QStringLiteral("\\Deleted")));
+    cEmpty();
+    justKeepTask();
+}
+
+void CopyAndFlagTest::testEmptyMailbox()
+{
+    helperSyncThreeMessages();
+    QSignalSpy emptiedSpy(model, &Model::mailboxEmptied);
+    QSignalSpy emptyFailedSpy(model, &Model::mailboxEmptyFailed);
+
+    model->emptyMailbox(idxA);
+    cClient(t.mk("STORE 1:* +FLAGS.SILENT \\Deleted\r\n"));
+    cServer(t.last("OK stored\r\n"));
+    cClient(t.mk("EXPUNGE\r\n"));
+    cServer("* 1 EXPUNGE\r\n* 1 EXPUNGE\r\n* 1 EXPUNGE\r\n" + t.last("OK expunged\r\n"));
+    QCOMPARE(emptiedSpy.size(), 1);
+    QCOMPARE(emptiedSpy.at(0).at(0).toString(), QStringLiteral("a"));
+    QVERIFY(emptyFailedSpy.isEmpty());
+    existsA = 0;
+    uidMapA.clear();
+    helperCheckCache();
+    helperVerifyUidMapA();
+    cEmpty();
+    justKeepTask();
+}
+
+void CopyAndFlagTest::testEmptyMailboxFailure()
+{
+    helperSyncThreeMessages();
+    QSignalSpy emptiedSpy(model, &Model::mailboxEmptied);
+    QSignalSpy emptyFailedSpy(model, &Model::mailboxEmptyFailed);
+
+    model->emptyMailbox(idxA);
+    cClient(t.mk("STORE 1:* +FLAGS.SILENT \\Deleted\r\n"));
+    cServer(t.last("NO read-only\r\n"));
+    // Nothing gets expunged when the messages could not be marked
+    cEmpty();
+    QCOMPARE(emptyFailedSpy.size(), 1);
+    QCOMPARE(emptyFailedSpy.at(0).at(0).toString(), QStringLiteral("a"));
+    // The server's explanation reaches the user
+    QVERIFY(emptyFailedSpy.at(0).at(1).toString().contains(QLatin1String("read-only")));
+    QVERIFY(emptiedSpy.isEmpty());
+    justKeepTask();
+}
+
+/** @short The task behind marking messages as read tells when the server has confirmed the change */
+void CopyAndFlagTest::testMarkReadReportsCompletion()
+{
+    helperSyncThreeMessages();
+
+    const QModelIndexList messages{msgListA.model()->index(1, 0, msgListA), msgListA.model()->index(2, 0, msgListA)};
+    ImapTask *task = model->markMessagesRead(messages, FLAG_ADD);
+    QVERIFY(task);
+    QSignalSpy completedSpy(task, &ImapTask::completed);
+    QSignalSpy failedSpy(task, &ImapTask::failed);
+    cClient(t.mk("UID STORE 2:3 +FLAGS (\\Seen)\r\n"));
+    QVERIFY(completedSpy.isEmpty());
+    cServer("* 2 FETCH (FLAGS (\\Seen))\r\n* 3 FETCH (FLAGS (\\Seen))\r\n" + t.last("OK stored\r\n"));
+    QCOMPARE(completedSpy.size(), 1);
+    QVERIFY(failedSpy.isEmpty());
+    cEmpty();
+    justKeepTask();
+}
+
+/** @short A refusal carries the server's explanation, so that it can be shown */
+void CopyAndFlagTest::testMarkReadReportsFailure()
+{
+    helperSyncThreeMessages();
+
+    ImapTask *task = model->markMessagesDeleted(QModelIndexList() << msgListA.model()->index(0, 0, msgListA), FLAG_ADD);
+    QVERIFY(task);
+    QSignalSpy completedSpy(task, &ImapTask::completed);
+    QSignalSpy failedSpy(task, &ImapTask::failed);
+    cClient(t.mk("UID STORE 1 +FLAGS (\\Deleted)\r\n"));
+    cServer(t.last("NO [NOPERM] read-only folder\r\n"));
+    QCOMPARE(failedSpy.size(), 1);
+    QVERIFY(failedSpy.at(0).at(0).toString().contains(QLatin1String("read-only folder")));
+    QVERIFY(completedSpy.isEmpty());
     cEmpty();
     justKeepTask();
 }

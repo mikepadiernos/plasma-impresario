@@ -24,18 +24,31 @@
 #define TROJITA_WINDOW_H
 
 #include <QHash>
+#include <QIcon>
+#include <QMap>
 #include <QMainWindow>
 #include <QModelIndex>
 #include <QPointer>
 #include <QSet>
 #include <QSystemTrayIcon>
+#include <functional>
 
 #include "configure.cmake.h"
 #include "Composer/Recipients.h"
 #include "Imap/ConnectionState.h"
 #include "Imap/Model/Cache.h"
+#include "Imap/Model/CopyMoveOperation.h"
+#include "Imap/Model/GroupingMsgListModel.h"
+#include "Imap/Model/SpecialFolder.h"
+#include "Imap/Parser/Uids.h"
+#include "UiUtils/DestructiveActions.h"
+#include "UiUtils/QuickFilters.h"
+#include "UiUtils/RecentFolders.h"
+#include "UiUtils/ShortcutOverview.h"
+#include "UiUtils/ViewStateStore.h"
 #include "MessageActionHandler.h"
 
+class QActionGroup;
 class QAuthenticator;
 class QComboBox;
 class QCloseEvent;
@@ -72,10 +85,13 @@ class ImapAccess;
 namespace Mailbox
 {
 
+class ImapTask;
 class Model;
 class PrettyMailboxModel;
 class ThreadingMsgListModel;
 class PrettyMsgListModel;
+class PrettyUnifiedMsgListModel;
+class UnifiedMsgListModel;
 class FavoriteTagsModel;
 
 }
@@ -103,9 +119,15 @@ class MessageDetailsPanel;
 class RelatedMessagesPanel;
 class CompleteMessageWidget;
 class ComposeWidget;
+class DensityMenu;
+class MessageRowsMenu;
+class EmbeddedPanelsMenu;
+class InlineNotificationBar;
 class MailBoxTreeView;
 class MessageListWidget;
+class MessageSelectionRestorer;
 class ProtocolLoggerWidget;
+class ShortcutOverviewDialog;
 class TaskProgressIndicator;
 
 class MainWindow: public QMainWindow
@@ -116,6 +138,7 @@ class MainWindow: public QMainWindow
     typedef enum { LAYOUT_COMPACT, LAYOUT_WIDE, LAYOUT_ONE_AT_TIME } LayoutMode;
 public:
     MainWindow(QSettings *settings);
+    ~MainWindow() override;
     void showMainWindow();
     QSize sizeHint() const override;
 
@@ -143,6 +166,12 @@ public:
     static QWidget *messageSourceWidget(const QModelIndex &message);
 
     void registerComposeWindow(ComposeWidget* widget);
+
+    /** @short Answer the confirmation of a permanent operation; receives the kind, the title and the question */
+    using ConfirmationPrompt = std::function<UiUtils::DestructiveActions::ConfirmationAnswer(
+        UiUtils::DestructiveActions::Confirmation, const QString &, const QString &)>;
+    /** @short Replace the confirmation dialog, for example in tests; an empty function restores the dialog */
+    void setConfirmationPrompt(const ConfirmationPrompt &prompt);
 
 public slots:
     void slotComposeMailUrl(const QUrl &url);
@@ -194,21 +223,36 @@ private slots:
     void slotUpdateMessageActions();
     void handleTag(const bool checked, const int index);
     void handleMarkAsRead(bool);
+    void handleMarkAsUnread();
     void handleMarkAsDeleted(bool);
     void handleMarkAsFlagged(const bool);
     void handleMarkAsJunk(const bool);
     void handleMarkAsNotJunk(const bool);
-    void slotMoveToArchiveFailed(const QString &error);
+    void slotMoveToArchiveFailed(const QString &error, int count = 0);
     void handleMoveToArchive();
+    void slotMoveToFolder();
+    void slotCopyToFolder();
+    /** @short Put @p mailbox first among the active account's recent Move To and Copy To destinations */
+    void rememberRecentFolder(const QString &mailbox);
+    void handleDeletePermanently();
     void slotNextUnread();
     void slotPreviousUnread();
+    /** @short Mark the selected messages as read, then show the next unread one */
+    void slotMarkReadAndNextUnread();
+    /** @short Show the next or previous message in the list, read or not */
+    void slotNextMessage();
+    void slotPreviousMessage();
     void msgListClicked(const QModelIndex &);
     void saveMessageSelection(const QModelIndex &);
+    /** @short Show the message which became current because the previous one left the list */
+    void slotMessageReplacedAfterRemoval(const QModelIndex &index);
+    void slotShowShortcutOverview();
     void openCompleteMessageWidget();
     void slotCreateMailboxBelowCurrent();
     void slotMarkCurrentMailboxRead();
     void slotCreateTopMailbox();
     void slotDeleteCurrentMailbox();
+    void slotRenameCurrentMailbox();
     void handleTrayIconChange();
     void slotSubscribeCurrentMailbox();
     void slotShowOnlySubscribed();
@@ -229,10 +273,20 @@ private slots:
     void slotSortingConfirmed(int column, Qt::SortOrder order);
     void slotSearchRequested(const QStringList &searchConditions);
     void slotCapabilitiesUpdated(const QStringList &capabilities);
+    void slotGoToFolder();
+    /** Open the next folder of the active account which has unread messages */
+    void slotGoToNextUnreadFolder();
+    /** Ask every online account for new mail, and resynchronize the open folder */
+    void slotCheckMail();
+    void updateGoToFolderActions();
 
     void slotMailboxDeleteFailed(const QString &mailbox, const QString &msg);
     void slotMailboxCreateFailed(const QString &mailbox, const QString &msg);
     void slotMailboxSyncFailed(const QString &mailbox, const QString &msg);
+    void slotMailboxRenameSucceeded(const QString &oldName, const QString &newName);
+    void slotMailboxRenameFailed(const QString &oldName, const QString &newName, const QString &msg);
+    void slotMailboxEmptied(const QString &mailbox);
+    void slotMailboxEmptyFailed(const QString &mailbox, const QString &msg);
     void slotMailboxChanged(const QModelIndex &mailbox);
 
     void slotDownloadTransferError(const QString &errorString);
@@ -240,6 +294,18 @@ private slots:
     void slotScrollToUnseenMessage();
     void slotScrollToCurrent();
     void slotUpdateWindowTitle();
+    /** @short Update the counts and the selection size below the message list soon */
+    void scheduleMessageListStatus();
+    void updateMessageListStatus();
+    /** @short Select the whole thread of the current message */
+    void slotSelectThread();
+    void slotInvertSelection();
+    /** @short Enable the Show Related and Select Similar actions which the current message supports */
+    void updateRelatedActions();
+    /** @short Switch to (or back from) compact rows without the panels which triage does not need */
+    void setDenseProcessingLayout(bool enabled);
+    /** @short Show the sort column and order on the message list's Sort button */
+    void updateSortButton();
 
     void slotLayoutCompact();
     void slotLayoutWide();
@@ -270,6 +336,9 @@ protected:
 
 private:
     void reply(const Composer::ReplyMode mode);
+    /** @short Select and open a mailbox of the active account, showing the message list */
+    void goToMailbox(const QString &mailbox);
+    void goToSpecialFolder(Imap::Mailbox::SpecialUse kind);
 
     void defineActions();
     void createMenus();
@@ -302,6 +371,10 @@ private:
     /** Connect accounts other than the active one so they keep running in the background. */
     void connectBackgroundAccounts();
 
+    /** Update the unread INBOX counts in the account sidebar soon, coalescing repeated requests. */
+    void scheduleAccountUnreadRefresh();
+    void refreshAccountUnread();
+
     /** Supply the stored password to an account that is not shown, or mark it as needing one. */
     void requestStoredPassword(const QString &accountId);
     /** Ask whether to trust the TLS connection of @p accountId and answer its access, not the active one */
@@ -329,6 +402,19 @@ private:
 
     void nukeModels();
     void connectModelActions();
+
+    /** @short Apply the active account's quick filters to the message list */
+    void applyMessageListFilters();
+    /** @short Remember the message list's quick filters for the active account */
+    void saveMessageListFilters();
+    /** @short Show the state of the quick filters on their actions and buttons */
+    void syncMessageListFilterUi();
+    void updateSelectionActions();
+    /** @short Limit the quick search to messages sharing @p field with the current message */
+    void showRelatedMessages(UiUtils::FieldFilter field);
+    /** @short Select the loaded messages of the list which match @p criterion */
+    void selectSimilarMessages(UiUtils::SimilarMessages criterion);
+    void goToAdjacentMessage(bool forward);
 
     void createMailboxBelow(const QModelIndex &index);
 
@@ -377,7 +463,127 @@ private:
     void createSysTray();
     void removeSysTray();
 
-    QModelIndexList translatedSelection() const;
+    /** @short The selected messages as indexes of the MsgListModel, without the headers of groups */
+    Q_INVOKABLE QModelIndexList translatedSelection() const;
+
+    /** @short Show the message list flat, in conversations or in groups; @p remember stores the choice for the account */
+    void setMessageListGrouping(Imap::Mailbox::GroupingMsgListModel::Grouping grouping, bool remember = true);
+    /** @short Arrange the message list as remembered for the current folder, or as the account's default */
+    void applyMessageListView();
+    /** @short Sort the message list as the arrangement of the current folder says, unless it is sorted by relevance */
+    void applyMessageListSort();
+    /** @short The threading or grouping which the message list shows */
+    Imap::Mailbox::GroupingMsgListModel::Grouping shownGrouping() const;
+    /** @short Remember the shown threading and grouping as the arrangement of the current folder */
+    void rememberMessageListView();
+    /** @short Remember a sorting picked by the user as the arrangement of the current folder */
+    void rememberMessageListSort(int column, Qt::SortOrder order);
+    /** @short Store m_view for the current folder, or as the account's default when no folder is open */
+    void storeMessageListView();
+    void saveMessageListViews();
+    /** @short Make the current folder's arrangement the account's default for all folders, after asking */
+    void applyMessageListViewToAllFolders();
+    /** @short Let the current folder follow the account's default arrangement again */
+    void resetMessageListViewForFolder();
+    void updateMessageListViewActions();
+    /** @short Forget the arrangements and positions of folders which are gone */
+    void pruneFolderStates();
+    /** @short The remembered positions in the message lists of the active account's folders */
+    UiUtils::FolderPositionStore &folderPositions();
+    /** @short Note where the message list of the open folder is, so that coming back can restore it */
+    void captureFolderPosition(bool anchorOnly = false);
+    /** @short Remember the noted position of the folder which the message list showed */
+    void commitFolderPosition();
+    /** @short Go back to the remembered position in the message list of the open folder */
+    void restoreFolderPosition();
+    void saveFolderPositions();
+    /** @short Show the account and the folder of the message list */
+    void updateMessageListScope();
+    void syncGroupByActions();
+    /** @short Show @p model in the message list, keeping the current and the selected messages */
+    void swapMessageListModel(QAbstractItemModel *model);
+    void connectMessageListSelection();
+    /** @short Expand the groups except those which the user has collapsed */
+    void applyGroupExpansion();
+    /** @short Sort by relevance while @p searchConditions look for text, otherwise go back to the previous sorting */
+    void updateRelevanceSorting(const QStringList &searchConditions);
+    /** @short Map an index of the message list view to the PrettyMsgListModel, an invalid index for a group's header */
+    QModelIndex toPrettyIndex(const QModelIndex &viewIndex) const;
+    QModelIndex fromPrettyIndex(const QModelIndex &prettyIndex) const;
+
+    /** @short Where a move which can be undone went */
+    enum class MoveKind {
+        Trash,
+        Archive,
+        Folder,
+    };
+    /** @short Name of the mailbox shown in the message list */
+    QString currentMailboxName() const;
+    /** @short Ask before a permanent operation unless the user opted out; true means go ahead */
+    bool confirmPermanentAction(UiUtils::DestructiveActions::Confirmation kind, const QString &title, const QString &text,
+                                const QString &acceptText);
+    /** @short The active account's "Move Deleted Messages to Trash" setting */
+    bool deleteMovesToTrash() const;
+    /** @short The Trash folder which Delete moves the selected messages to, or an empty string to mark them */
+    QString deleteTrashTarget() const;
+    /** @short Make the Delete action either move to Trash or toggle the \\Deleted mark */
+    void updateDeleteActionMode();
+    /** @short Report the result of moving @p count messages from @p source to @p target, offering Undo if possible */
+    void trackMove(Imap::Mailbox::ImapTask *task, const QString &source, const QString &target, int count, MoveKind kind);
+    /** @short Report the result of copying @p count messages to @p target */
+    void trackCopy(Imap::Mailbox::ImapTask *task, const QString &target, int count);
+    /** @short Show @p busyText while @p task runs for longer than a moment, until its result replaces it */
+    void showBusyWhileRunning(Imap::Mailbox::ImapTask *task, const QString &busyText);
+    /** @short Report the result of changing flags of @p count messages
+
+    @p doneText is shown on success unless it is empty; @p failedText builds the error from the server's message.
+    */
+    void trackFlagChange(Imap::Mailbox::ImapTask *task, const QString &busyText, const QString &doneText,
+                         const std::function<QString(const QString &)> &failedText);
+    /** @short The actions defined in ShortcutHandler, each with the menu or the part of the window it belongs to */
+    QList<UiUtils::ShortcutOverview::Entry> shortcutOverviewEntries() const;
+    /** @short The folder which Archive moves messages to */
+    QString archiveTarget() const;
+    /** @short Copy or move the messages to @p mailbox, remembering it as a recent destination */
+    void copyOrMoveToFolder(const QModelIndexList &messages, const QString &mailbox, Imap::Mailbox::CopyMoveOperation op);
+    /** @short Let the user choose the folder to copy or move the selected messages to */
+    void pickFolder(Imap::Mailbox::CopyMoveOperation op);
+    /** @short Fill a Move To or Copy To menu with the recent destinations of the active account */
+    void populateRecentFoldersMenu(QMenu *menu, Imap::Mailbox::CopyMoveOperation op);
+    /** @short Move messages which an earlier move put into @p target back to @p source */
+    void undoMove(const QString &source, const QString &target, uint uidValidity, const Imap::Uids &uids);
+    /** @short Open the message list's mailbox again after an operation had to select @p usedMailbox */
+    void reopenCurrentMailbox(const QString &usedMailbox);
+    bool canRenameMailbox(const QModelIndex &index) const;
+    void emptySpecialFolder(Imap::Mailbox::SpecialUse kind);
+
+    /** @short The account which actions work on: the shown one, or the one of the messages handled right now */
+    Imap::ImapAccess *currentAccess() const;
+    QString currentAccountId() const;
+    /** @short Whether the message list shows messages of @p model, so that feedback about them makes sense */
+    bool showsModel(const Imap::Mailbox::Model *model) const;
+    /** @short The ID of the account which @p model belongs to, or an empty string */
+    QString accountOfModel(const Imap::Mailbox::Model *model) const;
+    /** @short Run @p fn while actions work on @p accountId and its messages in @p selection */
+    void actAs(const QString &accountId, const QModelIndexList &selection, const std::function<void()> &fn);
+    /** @short Run @p fn while actions work on the account of @p model; false when that account is gone */
+    bool actOnModel(const Imap::Mailbox::Model *model, const std::function<void()> &fn);
+    /** @short Run @p fn once for each account of the selected messages in the Unified Inbox
+
+    Returns false, doing nothing, when the messages all belong to the shown account or no unified list is shown. With
+    @p singleAccount, messages of several accounts are refused with an error. An empty @p selection means the selected
+    messages.
+    */
+    bool routeToMessageAccounts(const std::function<void()> &fn, bool singleAccount = false,
+                                const QModelIndexList &selection = QModelIndexList());
+    /** @short @p text, prefixed with the account of @p model while the Unified Inbox shows several accounts */
+    QString forAccountOf(const Imap::Mailbox::Model *model, const QString &text) const;
+    /** @short Show the INBOX of all accounts in one list, or go back to the folder which was shown before */
+    void setUnifiedInbox(bool enabled, bool returnToFolder = true);
+    void syncUnifiedSources();
+    void updateUnifiedStates();
+    QStringList unifiedAccountIds() const;
+    void populateUnifiedAccountsMenu();
 
     Common::AccountRegistry *m_accounts = nullptr;
     Common::AccountStatusTracker *m_accountStatus = nullptr;
@@ -387,6 +593,26 @@ private:
 
     Imap::Mailbox::PrettyMailboxModel *prettyMboxModel;
     Imap::Mailbox::PrettyMsgListModel *prettyMsgListModel;
+    /** Shown on top of prettyMsgListModel while the messages are grouped by something else than conversations */
+    Imap::Mailbox::GroupingMsgListModel *m_groupingMsgListModel = nullptr;
+    Imap::Mailbox::GroupingMsgListModel::Grouping m_groupBy = Imap::Mailbox::GroupingMsgListModel::Grouping::None;
+    /** Arrangements of the message list of the active account's folders */
+    UiUtils::ViewStateStore m_viewStore;
+    /** Arrangement which the message list should have for m_viewMailbox */
+    UiUtils::MessageListView m_view;
+    QString m_viewMailbox;
+    /** Nonzero while the message list is arranged from m_view rather than by the user */
+    int m_applyingView = 0;
+    /** Sorting from the saved header state, the default of all accounts */
+    std::optional<std::pair<int, Qt::SortOrder>> m_globalSort;
+    /** Positions in the message lists, per account ID */
+    QHash<QString, UiUtils::FolderPositionStore> m_folderPositions;
+    /** Folder which the message list shows, and where in it the list is */
+    QString m_positionMailbox;
+    UiUtils::FolderPosition m_livePosition;
+    QPointer<MessageSelectionRestorer> m_messageRestorer;
+    /** Keys of the groups which the user has collapsed during this session */
+    QSet<QString> m_collapsedGroups;
     Composer::SenderIdentitiesModel *m_senderIdentities;
     QHash<QString, Composer::SenderIdentitiesModel *> m_accountIdentities;
     /** Always empty; used by accounts that send without an identity */
@@ -497,6 +723,9 @@ private:
     QAction *createChildMailbox;
     QAction *createTopMailbox;
     QAction *deleteCurrentMailbox;
+    QAction *m_renameMailbox = nullptr;
+    QAction *m_emptyTrash = nullptr;
+    QAction *m_emptyJunk = nullptr;
     QAction *aboutTrojita;
 
     QAction *tag1;
@@ -514,6 +743,17 @@ private:
     QAction *markAsJunk;
     QAction *markAsNotJunk;
     QAction *moveToArchive;
+    QAction *m_markAsUnread = nullptr;
+    QAction *m_moveToFolder = nullptr;
+    QAction *m_copyToFolder = nullptr;
+    QMenu *m_moveToMenu = nullptr;
+    QMenu *m_copyToMenu = nullptr;
+    QToolButton *m_moveButton = nullptr;
+    QAction *m_deletePermanently = nullptr;
+    QAction *m_deleteMovesToTrash = nullptr;
+    /** @short Text and icon of the Delete action while it toggles the \\Deleted mark */
+    QString m_markAsDeletedText;
+    QIcon m_markAsDeletedIcon;
     QAction *saveWholeMessage;
     QAction *viewMsgSource;
     QAction *viewMsgHeaders;
@@ -533,13 +773,57 @@ private:
     QAction *m_actionSortNone;
     QAction *m_actionSortAscending;
     QAction *m_actionSortDescending;
+    QAction *m_actionSortByRelevance = nullptr;
+    QActionGroup *m_groupByActions = nullptr;
+    QMenu *m_groupByMenu = nullptr;
+    QAction *m_actionExpandAllGroups = nullptr;
+    QAction *m_actionViewForAllFolders = nullptr;
+    QAction *m_actionResetFolderView = nullptr;
+    QAction *m_actionCollapseAllGroups = nullptr;
     QAction *m_actionLayoutCompact;
     QAction *m_actionLayoutWide;
     QAction *m_actionLayoutOneAtTime;
     QAction *m_actionMarkMailboxAsRead;
+    QAction *m_actionFilterUnread = nullptr;
+    QAction *m_actionFilterFlagged = nullptr;
+    QAction *m_actionFilterAttachments = nullptr;
+    QAction *m_actionClearFilters = nullptr;
+    QToolButton *m_clearFiltersButton = nullptr;
+    QToolButton *m_sortButton = nullptr;
+    QAction *m_actionSelectAllMessages = nullptr;
+    QAction *m_actionSelectThread = nullptr;
+    QAction *m_actionInvertSelection = nullptr;
+    QAction *m_actionDeselectMessages = nullptr;
+    QMenu *m_showRelatedMenu = nullptr;
+    QAction *m_actionRelatedSender = nullptr;
+    QAction *m_actionRelatedRecipient = nullptr;
+    QAction *m_actionRelatedSubject = nullptr;
+    QAction *m_actionRelatedList = nullptr;
+    QMenu *m_selectSimilarMenu = nullptr;
+    QAction *m_actionSelectSameSender = nullptr;
+    QAction *m_actionSelectSameSubject = nullptr;
+    QAction *m_actionSelectUnread = nullptr;
+    QAction *m_actionSelectFlagged = nullptr;
+    QAction *m_markReadNextUnread = nullptr;
+    QAction *m_nextAnyMessage = nullptr;
+    QAction *m_previousAnyMessage = nullptr;
+    QAction *m_actionDenseProcessing = nullptr;
+    DensityMenu *m_densityMenu = nullptr;
+    MessageRowsMenu *m_messageRowsMenu = nullptr;
+    EmbeddedPanelsMenu *m_embeddedPanelsMenu = nullptr;
+    QTimer *m_listStatusTimer = nullptr;
+    QAction *m_actionShortcutOverview = nullptr;
+    QPointer<ShortcutOverviewDialog> m_shortcutOverview;
 
     QAction *m_actionSubscribeMailbox;
     QAction *m_actionShowOnlySubscribed;
+
+    QAction *m_goToFolder;
+    QAction *m_goToNextUnreadFolder = nullptr;
+    QAction *m_checkMail = nullptr;
+    QTimer *m_accountUnreadTimer = nullptr;
+    QMenu *m_goToFolderMenu;
+    QMap<Imap::Mailbox::SpecialUse, QAction *> m_goToSpecialFolderActions;
 
     QAction *m_actionContactEditor;
 
@@ -560,6 +844,27 @@ private:
     MessageActionHandler m_msgActionHandler;
 
     QMessageBox *m_networkErrorMessageBox;
+
+    /** @short Feedback about operations on messages and folders, above the message list */
+    InlineNotificationBar *m_notificationBar = nullptr;
+    ConfirmationPrompt m_confirmationPrompt;
+    /** @short For each folder being renamed, the new name of the open mailbox which the rename affects */
+    QHash<QString, QString> m_renamedCurrentMailbox;
+
+    Imap::Mailbox::UnifiedMsgListModel *m_unifiedModel = nullptr;
+    Imap::Mailbox::PrettyUnifiedMsgListModel *m_prettyUnifiedModel = nullptr;
+    bool m_unifiedInbox = false;
+    QAction *m_actionUnifiedInbox = nullptr;
+    QMenu *m_unifiedAccountsMenu = nullptr;
+    /** The folder to go back to when the Unified Inbox is left */
+    QString m_unifiedReturnMailbox;
+    /** Whether threading could be chosen before the Unified Inbox disabled it */
+    bool m_unifiedThreadingEnabled = true;
+    /** While an action works on messages of another account than the shown one */
+    Imap::ImapAccess *m_actingAccess = nullptr;
+    QString m_actingAccountId;
+    QModelIndexList m_actingSelection;
+    bool m_acting = false;
 
     MainWindow(const MainWindow &); // don't implement
     MainWindow &operator=(const MainWindow &); // don't implement

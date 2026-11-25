@@ -72,6 +72,10 @@ void ListChildMailboxesTask::perform()
     if (model->accessParser(parser).capabilitiesFresh) {
         if (model->accessParser(parser).capabilities.contains(QStringLiteral("LIST-EXTENDED"))) {
             returnOptions << QStringLiteral("SUBSCRIBED") << QStringLiteral("CHILDREN");
+            // RFC 6154 allows servers to omit the special-use attributes unless they are asked for
+            if (model->accessParser(parser).capabilities.contains(QStringLiteral("SPECIAL-USE"))) {
+                returnOptions << QStringLiteral("SPECIAL-USE");
+            }
         }
         if (model->accessParser(parser).capabilities.contains(QStringLiteral("LIST-STATUS"))) {
             returnOptions << QStringLiteral("STATUS (%1)").arg(NumberOfMessagesTask::requestedStatusOptions().join(QStringLiteral(" ")));

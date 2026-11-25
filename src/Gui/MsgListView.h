@@ -24,6 +24,9 @@
 
 #include <QHeaderView>
 #include <QTreeView>
+#include <QPersistentModelIndex>
+#include <functional>
+#include <optional>
 #include "Imap/Model/FavoriteTagsModel.h"
 
 class QSignalMapper;
@@ -41,6 +44,8 @@ namespace Gui {
 The optimizations (or rather modifications) include:
 - automatically expanding a whole subtree when root item is expanded
 - setting up reasonable size hints for all columns
+- when the current message leaves the list, the next remaining one becomes current and the only selected message
+- when messages arrive, leave or are sorted again, the current message stays where it was on the screen
 */
 class MsgListView : public QTreeView
 {
@@ -53,11 +58,32 @@ public:
     void updateActionsAfterRestoredState();
     int sizeHintForColumn(int column) const override;
     QHeaderView::ResizeMode resizeModeForColumn(const int column) const;
+    void keyboardSearch(const QString &search) override;
+    QModelIndex indexAt(const QPoint &point) const override;
+    QRect visualRect(const QModelIndex &index) const override;
+
+    /** @short Show each message as two lines, sender and date above the subject, instead of columns
+
+    The columns and their saved layout stay; only the header is hidden, and sorting stays available from the menus.
+    */
+    void setMultiLineRows(bool enabled);
+    bool multiLineRows() const { return m_multiLineRows; }
+    /** @short Show the initials of the sender in multi-line rows */
+    void setSenderInitials(bool shown);
+signals:
+    /** @short Messages left the list, and @arg index became current and the only selected message
+
+    Emitted when the current message was removed, or when the removal emptied the selection.
+    */
+    void currentReplacedAfterRemoval(const QModelIndex &index);
 protected:
     void keyPressEvent(QKeyEvent *ke) override;
     void keyReleaseEvent(QKeyEvent *ke) override;
     void startDrag(Qt::DropActions supportedActions) override;
     bool event(QEvent *event) override;
+    void rowsAboutToBeRemoved(const QModelIndex &parent, int start, int end) override;
+    QModelIndex moveCursor(CursorAction cursorAction, Qt::KeyboardModifiers modifiers) override;
+    void drawRow(QPainter *painter, const QStyleOptionViewItem &options, const QModelIndex &index) const override;
     /** @short Returns a list of all selected and related (collapsed) message indexes for column 0 */
     QModelIndexList selectedTree() const;
 private slots:
@@ -68,24 +94,51 @@ private slots:
     void slotUpdateHeaderActions();
     /** @short Show/hide a corresponding column */
     void slotHeaderSectionVisibilityToggled(int section);
-    /** @short Get ThreadingMsgListModel index and call the next handler */
+    /** @short Get the PrettyMsgListModel indexes of messages which are about to go away */
     void slotMsgListModelRowsAboutToBeRemoved(const QModelIndex &parent, int start, int end);
-    /** @short Keep the cursor in place for better keyboard usability */
-    void slotThreadingMsgListModelRowAboutToBeRemoved(const QModelIndex &index);
     /** @short Pick up the change of the sort critera */
     void slotHandleSortCriteriaChanged(int column, Qt::SortOrder order);
     /** @short conditionally emits activated(currentIndex()) for keyboard events */
     void slotCurrentActivated();
     void slotHandleNewColumns(int oldCount, int newCount);
 private:
-    /** @short Try to move the cursor to next message */
-    void setCurrentIndexToNextValid(const QModelIndex &current);
+    /** @short Move the cursor away from the rows which @arg isRemoved reports, before they go */
+    void prepareForRemoval(const std::function<bool(const QModelIndex &)> &isRemoved);
+    /** @short Select the new current message once the rows are gone */
+    void finishRemoval();
     static Imap::Mailbox::PrettyMsgListModel *findPrettyMsgListModel(QAbstractItemModel *model);
+    /** @short Index in the first shown column of the row at @arg y, ignoring how wide the columns are */
+    QModelIndex rowAt(int y) const;
+    /** @short Where the multi-line row of @arg index is painted, after the indentation of threads */
+    QRect multiLineRowRect(const QModelIndex &index, const QRect &row) const;
+    /** @short Style option of the multi-line row of @arg index painted in @arg rect */
+    QStyleOptionViewItem multiLineOption(const QModelIndex &index, const QRect &rect) const;
+    /** @short Map an index of the PrettyMsgListModel to the model of the view, through proxies such as the groups */
+    QModelIndex mapFromPrettyModel(const QModelIndex &prettyIndex) const;
+    /** @short Remember where the current message, or else the top row, is on the screen before the rows change */
+    void captureScrollAnchor(bool insertion);
+    /** @short Scroll so that the remembered row is where it was */
+    void restoreScrollAnchor();
+
+    struct ScrollAnchor {
+        QPersistentModelIndex index;
+        int y = 0;
+        /** At the top of the list before rows were inserted; stay there while the current message remains visible */
+        bool keepTop = false;
+    };
+    std::optional<ScrollAnchor> m_scrollAnchor;
+    int m_scrollAnchorDepth = 0;
+    QList<QMetaObject::Connection> m_scrollAnchorConnections;
 
     QSignalMapper *headerFieldsMapper;
     QTimer *m_naviActivationTimer;
     bool m_autoActivateAfterKeyNavigation;
     bool m_autoResizeSections;
+    bool m_currentReplacedByRemoval = false;
+    bool m_selectionTouchedByRemoval = false;
+    bool m_focusedBeforeRemoval = false;
+    bool m_removalFinishQueued = false;
+    bool m_multiLineRows = false;
 
     friend class MainWindow; // needs access to slotHandleNewColumns
 };

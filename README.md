@@ -79,12 +79,12 @@ $\color{#2da44e}\textbf{Completed}$ or $\color{#8957e5}\textbf{Merged}$ on the
 [project board](https://github.com/users/mikepadiernos/projects/4), as of
 2026-11-25.
 
-| Milestone                                  | Branch                        | Done                                                                 | State                                                                                                                                                                                |
-| ------------------------------------------ | ----------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| M01 KDE / Qt 6 baseline                    | `main`                        | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]                                                                                                                                                                    |
-| M02 Shell, accounts and mailbox foundation | `main`                        | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]; checks in a real Plasma session moved to M15                                                                                                                      |
-| M03 Mail operations, sorting and folders   | `feature/m03-mail-operations` | ![4 of 12 done](https://img.shields.io/badge/4%2F12-33%25-9a6700)    | ![Development][development] Folder navigation, sorting and triage, quick actions, and folder actions with recoverable deletion are Completed                                         |
-| M04–M15                                    | —                             | —                                                                    | ![Planned][planned] Including search and indexing in M05, Microsoft accounts and Exchange in M13 and real Plasma session checks in M15; M09 branding started with the product rename |
+| Milestone                                  | Branch | Done                                                                 | State                                                                                                                                                                                |
+| ------------------------------------------ | ------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| M01 KDE / Qt 6 baseline                    | `main` | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]                                                                                                                                                                    |
+| M02 Shell, accounts and mailbox foundation | `main` | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]; checks in a real Plasma session moved to M15                                                                                                                      |
+| M03 Mail operations, sorting and folders   | `main` | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]                                                                                                                                                                    |
+| M04–M15                                    | —      | —                                                                    | ![Planned][planned] Including search and indexing in M05, Microsoft accounts and Exchange in M13 and real Plasma session checks in M15; M09 branding started with the product rename |
 
 The [roadmap overview](docs/ROADMAP.md#milestones-at-a-glance) tracks every
 milestone, and [pending tasks](docs/TODO.md#in-progress) record what each one
@@ -92,8 +92,7 @@ is waiting on.
 
 ## Implemented today
 
-This section covers M01 and M02. M03 features are summarized in
-[project status](#project-status) until their branch is merged.
+This section covers M01 to M03.
 
 Legend: ![Verified][verified] against a disposable IMAP server ·
 ![Needs verification][needs-verification]
@@ -137,6 +136,26 @@ has been done yet. The mail shell and embedded panels are Completed
 [design guide](docs/philosophy/designs.md#current-interface) describes them in
 detail, and [pending tasks](docs/TODO.md#m02-shell-and-account-foundation)
 record the verification.
+
+### Added in M03
+
+| Area                | What works                                                                                                                 | Status                                    |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| Folder navigation   | Special folders first with theme icons, **Go to Folder** (Ctrl+J), **Go to Next Unread Folder** and **Check for New Mail** | ![Needs verification][needs-verification] |
+| Unified Inbox       | The INBOX of every chosen account in one list, acting on each message's own account                                        | ![Needs verification][needs-verification] |
+| Quick actions       | Archive, Move and Copy to recent folders, mark read, unread and flagged, from the menu, toolbar and keyboard               | ![Needs verification][needs-verification] |
+| Deleting            | Move to Trash with **Undo**, Delete Permanently, Empty Trash and Junk, and Rename Folder, with confirmations               | ![Needs verification][needs-verification] |
+| Filters and sorting | Unread, Flagged and With Attachments filters, **Group By**, relevance sorting and a view remembered per folder             | ![Needs verification][needs-verification] |
+| Selection           | Select All, Thread, Similar and Invert, keyboard selection, batch progress and errors in a notification bar                | ![Needs verification][needs-verification] |
+| Triage              | **Show Related**, fast next and previous keys, a dense processing layout and a searchable shortcut list                    | ![Needs verification][needs-verification] |
+| Message rows        | Two-line rows with sender initials and unread, flag and attachment indicators                                              | ![Needs verification][needs-verification] |
+
+M03's features are covered by model, unit and main-window tests. Destructive
+operations and Undo still need a check against a live server; see
+[pending tasks](docs/TODO.md#m03-mail-operations) and
+[caveats](docs/CAVEATS.md#mail-operations). The
+[design guide](docs/philosophy/designs.md#current-interface) describes each
+one.
 
 ### Accounts
 

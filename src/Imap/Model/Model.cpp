@@ -21,6 +21,7 @@
 */
 
 #include <algorithm>
+#include <functional>
 #include <QAbstractProxyModel>
 #include <QAuthenticator>
 #include <QCoreApplication>
@@ -37,6 +38,10 @@
 #include "Imap/Model/Utils.h"
 #include "Imap/Tasks/AppendTask.h"
 #include "Imap/Tasks/CreateMailboxTask.h"
+#include "Imap/Tasks/ExpungeMailboxTask.h"
+#include "Imap/Tasks/ExpungeMessagesTask.h"
+#include "Imap/Tasks/RenameMailboxTask.h"
+#include "Imap/Tasks/UpdateFlagsOfAllMessagesTask.h"
 #include "Imap/Tasks/GetAnyConnectionTask.h"
 #include "Imap/Tasks/KeepMailboxOpenTask.h"
 #include "Imap/Tasks/OpenConnectionTask.h"
@@ -137,6 +142,17 @@ Model::Model(QObject *parent, std::shared_ptr<AbstractCache> cache, SocketFactor
     // polling every five minutes
     m_periodicMailboxNumbersRefresh->setInterval(5 * 60 * 1000);
     connect(m_periodicMailboxNumbersRefresh, &QTimer::timeout, this, &Model::invalidateAllMessageCounts);
+
+    // Special folders depend on the whole mailbox tree. They are classified lazily, and a deferred pass tells
+    // views about mailboxes whose classification changed because some other part of the tree did.
+    m_specialFoldersTimer = new QTimer(this);
+    m_specialFoldersTimer->setSingleShot(true);
+    m_specialFoldersTimer->setInterval(0);
+    connect(m_specialFoldersTimer, &QTimer::timeout, this, &Model::announceSpecialFolders);
+    connect(this, &QAbstractItemModel::rowsInserted, this, &Model::handleMailboxRowsChanged);
+    connect(this, &QAbstractItemModel::rowsRemoved, this, &Model::handleMailboxRowsChanged);
+    connect(this, &QAbstractItemModel::modelReset, this, &Model::invalidateSpecialFolders);
+    connect(this, &QAbstractItemModel::layoutChanged, this, &Model::invalidateSpecialFolders);
 }
 
 Model::~Model()
@@ -1240,9 +1256,9 @@ ImapTask *Model::setMessageFlags(const QModelIndexList &messages, const QString 
     return m_taskFactory->createUpdateFlagsTask(this, messages, marked, QLatin1Char('(') + flag + QLatin1Char(')'));
 }
 
-void Model::markMessagesDeleted(const QModelIndexList &messages, const FlagsOperation marked)
+ImapTask *Model::markMessagesDeleted(const QModelIndexList &messages, const FlagsOperation marked)
 {
-    this->setMessageFlags(messages, QStringLiteral("\\Deleted"), marked);
+    return this->setMessageFlags(messages, QStringLiteral("\\Deleted"), marked);
 }
 
 void Model::markMailboxAsRead(const QModelIndex &mailbox)
@@ -1258,9 +1274,9 @@ void Model::markMailboxAsRead(const QModelIndex &mailbox)
     m_taskFactory->createUpdateFlagsOfAllMessagesTask(this, index, Imap::Mailbox::FLAG_ADD_SILENT, QStringLiteral("\\Seen"));
 }
 
-void Model::markMessagesRead(const QModelIndexList &messages, const FlagsOperation marked)
+ImapTask *Model::markMessagesRead(const QModelIndexList &messages, const FlagsOperation marked)
 {
-    this->setMessageFlags(messages, QStringLiteral("\\Seen"), marked);
+    return this->setMessageFlags(messages, QStringLiteral("\\Seen"), marked);
 }
 
 ImapTask *Model::copyMoveMessages(const QString &destMailboxName, const QModelIndexList &messages, const CopyMoveOperation op)
@@ -1286,6 +1302,76 @@ void Model::copyMoveMessages(TreeItemMailbox *sourceMbox, const QString &destMai
         seq.add(m->uid());
     }
     m_taskFactory->createCopyMoveMessagesTask(this, messages, destMailboxName, op);
+}
+
+ImapTask *Model::copyMoveMessagesByUid(const QModelIndex &sourceMailbox, const Imap::Uids &uids, const QString &destMboxName,
+                                       const CopyMoveOperation op, const uint expectedUidValidity)
+{
+    if (m_netPolicy == NETWORK_OFFLINE || uids.isEmpty() || !sourceMailbox.isValid())
+        return nullptr;
+
+    QModelIndex index;
+    realTreeItem(sourceMailbox, nullptr, &index);
+    if (!index.isValid() || !dynamic_cast<TreeItemMailbox *>(static_cast<TreeItem *>(index.internalPointer())))
+        return nullptr;
+    return new CopyMoveMessagesTask(this, index, uids, destMboxName, op, expectedUidValidity);
+}
+
+ImapTask *Model::deleteMessagesPermanently(const QModelIndexList &messages, bool *expungeScheduled)
+{
+    if (expungeScheduled)
+        *expungeScheduled = false;
+    if (messages.isEmpty() || m_netPolicy == NETWORK_OFFLINE)
+        return nullptr;
+
+    ImapTask *flagTask = setMessageFlags(messages, QStringLiteral("\\Deleted"), FLAG_ADD);
+    // ExpungeMessagesTask needs UIDPLUS; without it, a plain EXPUNGE would also remove unrelated \Deleted messages
+    if (!capabilities().contains(QStringLiteral("UIDPLUS")))
+        return flagTask;
+
+    QList<QPersistentModelIndex> persistent;
+    for (const QModelIndex &message : messages)
+        persistent << message;
+    if (expungeScheduled)
+        *expungeScheduled = true;
+    return new ExpungeMessagesTask(this, flagTask, persistent);
+}
+
+void Model::emptyMailbox(const QModelIndex &mailbox)
+{
+    if (!mailbox.isValid())
+        return;
+
+    QModelIndex index;
+    realTreeItem(mailbox, nullptr, &index);
+    auto *mailboxPtr = index.isValid() ? dynamic_cast<TreeItemMailbox *>(static_cast<TreeItem *>(index.internalPointer())) : nullptr;
+    if (!mailboxPtr)
+        return;
+    const QString name = mailboxPtr->mailbox();
+    if (m_netPolicy == NETWORK_OFFLINE) {
+        EMIT_LATER(this, mailboxEmptyFailed, Q_ARG(QString, name), Q_ARG(QString, tr("The account is offline")));
+        return;
+    }
+
+    const QPersistentModelIndex persistentMailbox(index);
+    ImapTask *flagTask = m_taskFactory->createUpdateFlagsOfAllMessagesTask(this, index, FLAG_ADD_SILENT, QStringLiteral("\\Deleted"));
+    connect(flagTask, &ImapTask::failed, this, [this, name](const QString &message) {
+        emit mailboxEmptyFailed(name, message);
+    });
+    // Expunge only after the STORE has been confirmed, so that nothing is removed when marking fails
+    connect(flagTask, &ImapTask::completed, this, [this, name, persistentMailbox]() {
+        if (!persistentMailbox.isValid() || m_netPolicy == NETWORK_OFFLINE) {
+            emit mailboxEmptyFailed(name, tr("The mailbox is no longer available"));
+            return;
+        }
+        ImapTask *expungeTask = m_taskFactory->createExpungeMailboxTask(this, persistentMailbox);
+        connect(expungeTask, &ImapTask::failed, this, [this, name](const QString &message) {
+            emit mailboxEmptyFailed(name, message);
+        });
+        connect(expungeTask, &ImapTask::completed, this, [this, name]() {
+            emit mailboxEmptied(name);
+        });
+    });
 }
 
 /** @short Convert a list of UIDs to a list of pointers to the relevant message nodes */
@@ -1325,6 +1411,92 @@ TreeItemChildrenList::iterator Model::findMessageOrNextOneByUid(TreeItemMsgList 
 TreeItemMailbox *Model::findMailboxByName(const QString &name) const
 {
     return findMailboxByName(name, m_mailboxes);
+}
+
+void Model::setArchiveFolderName(const QString &name)
+{
+    if (m_archiveFolderName == name)
+        return;
+    m_archiveFolderName = name;
+    invalidateSpecialFolders();
+}
+
+QString Model::archiveFolderName() const
+{
+    return m_archiveFolderName;
+}
+
+SpecialUse Model::mailboxSpecialUse(const QString &mailbox) const
+{
+    ensureSpecialFoldersResolved();
+    return m_specialFolders.kindOf(mailbox);
+}
+
+QString Model::specialFolderMailbox(SpecialUse kind) const
+{
+    ensureSpecialFoldersResolved();
+    return m_specialFolders.mailboxFor(kind);
+}
+
+void Model::handleMailboxRowsChanged(const QModelIndex &parent)
+{
+    // Message lists and message parts live in the same model; only the mailbox tree matters here
+    if (!parent.isValid() || dynamic_cast<TreeItemMailbox *>(translatePtr(parent)))
+        invalidateSpecialFolders();
+}
+
+void Model::invalidateSpecialFolders()
+{
+    m_specialFoldersDirty = true;
+    m_specialFoldersTimer->start();
+}
+
+void Model::ensureSpecialFoldersResolved() const
+{
+    if (!m_specialFoldersDirty)
+        return;
+    m_specialFoldersDirty = false;
+
+    // Walk only what has been listed already; asking for more would make the model talk to the server
+    QList<SpecialFolder::Candidate> candidates;
+    std::function<void(const TreeItemMailbox *)> collect = [&](const TreeItemMailbox *parent) {
+        for (int i = 1; i < parent->m_children.size(); ++i) {
+            const auto *mailbox = static_cast<const TreeItemMailbox *>(parent->m_children[i]);
+            candidates.append({mailbox->mailbox(), mailbox->separator(), mailbox->mailboxMetadata().flags,
+                               mailbox->isSelectable()});
+            collect(mailbox);
+        }
+    };
+    collect(m_mailboxes);
+    m_specialFolders = SpecialFolder::resolve(candidates, m_archiveFolderName);
+}
+
+void Model::announceSpecialFolders()
+{
+    ensureSpecialFoldersResolved();
+    if (m_specialFolders == m_announcedSpecialFolders)
+        return;
+
+    QStringList changed;
+    for (auto it = m_specialFolders.byMailbox.constBegin(); it != m_specialFolders.byMailbox.constEnd(); ++it) {
+        if (m_announcedSpecialFolders.kindOf(it.key()) != it.value())
+            changed << it.key();
+    }
+    for (auto it = m_announcedSpecialFolders.byMailbox.constBegin(); it != m_announcedSpecialFolders.byMailbox.constEnd(); ++it) {
+        if (!m_specialFolders.byMailbox.contains(it.key()))
+            changed << it.key();
+    }
+    const bool targetsChanged = m_specialFolders.primary != m_announcedSpecialFolders.primary;
+    m_announcedSpecialFolders = m_specialFolders;
+
+    for (const QString &name : std::as_const(changed)) {
+        if (TreeItemMailbox *mailbox = findMailboxByName(name)) {
+            const QModelIndex index = mailbox->toIndex(this);
+            emit dataChanged(index, index);
+        }
+    }
+    if (targetsChanged)
+        emit specialFoldersChanged();
 }
 
 TreeItemMailbox *Model::findMailboxByName(const QString &name, const TreeItemMailbox *const root) const
@@ -1401,6 +1573,27 @@ void Model::deleteMailbox(const QString &name)
     }
 
     m_taskFactory->createDeleteMailboxTask(this, name);
+}
+
+void Model::renameMailbox(const QString &oldName, const QString &newName)
+{
+    if (m_netPolicy == NETWORK_OFFLINE) {
+        EMIT_LATER(this, mailboxRenameFailed, Q_ARG(QString, oldName), Q_ARG(QString, newName),
+                   Q_ARG(QString, tr("The account is offline")));
+        return;
+    }
+
+    bool wasSubscribed = false;
+    if (TreeItemMailbox *mailbox = findMailboxByName(oldName)) {
+        wasSubscribed = mailbox->data(this, RoleMailboxIsSubscribed).toBool();
+    }
+
+    auto task = m_taskFactory->createRenameMailboxTask(this, oldName, newName);
+    if (wasSubscribed) {
+        // RFC 3501 leaves subscriptions alone on RENAME, so carry the subscription over explicitly
+        m_taskFactory->createSubscribeUnsubscribeTask(this, task, newName, SUBSCRIBE);
+        m_taskFactory->createSubscribeUnsubscribeTask(this, task, oldName, UNSUBSCRIBE);
+    }
 }
 
 void Model::subscribeMailbox(const QString &name)
@@ -1937,6 +2130,12 @@ QModelIndex Model::messageIndexByUid(const QString &mailboxName, const uint uid)
         Q_ASSERT(messages.size() == 1);
         return messages.front()->toIndex(this);
     }
+}
+
+QModelIndex Model::mailboxIndexByName(const QString &mailboxName)
+{
+    TreeItemMailbox *mailbox = mailboxName.isEmpty() ? nullptr : findMailboxByName(mailboxName);
+    return mailbox ? mailbox->toIndex(this) : QModelIndex();
 }
 
 /** @short Forget any cached data about number of messages in all mailboxes */

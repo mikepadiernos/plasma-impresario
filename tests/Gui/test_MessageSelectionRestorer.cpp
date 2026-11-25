@@ -4,6 +4,7 @@
 #include "Gui/MessageSelectionRestorer.h"
 #include "Imap/Model/ItemRoles.h"
 
+#include <algorithm>
 #include <QApplication>
 #include <QSignalSpy>
 #include <QStandardItemModel>
@@ -114,6 +115,86 @@ private slots:
         restorer.restore(QStringLiteral("INBOX"), 0, 42);
         QCoreApplication::processEvents();
         QCOMPARE(restored.size(), 1);
+    }
+
+    void restoresPositionWithSelection()
+    {
+        QStandardItemModel model;
+        QTreeView view;
+        view.setModel(&model);
+        view.setSelectionMode(QAbstractItemView::ExtendedSelection);
+        view.resize(300, 120);
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        Gui::MessageSelectionRestorer restorer(&view, &view);
+        QSignalSpy restored(&restorer, &Gui::MessageSelectionRestorer::messageRestored);
+        QSignalSpy failed(&restorer, &Gui::MessageSelectionRestorer::restoreFailed);
+        restorer.restorePosition(QStringLiteral("INBOX"), 123, 30, 25, {28, 30, 99});
+        QVERIFY(restorer.isPending());
+        for (uint uid = 1; uid <= 40; ++uid)
+            model.appendRow(message(uid, 123));
+        QTRY_COMPARE(restored.size(), 1);
+        QVERIFY(!restorer.isPending());
+        QCOMPARE(failed.size(), 0);
+        QCOMPARE(view.currentIndex().data(Imap::Mailbox::RoleMessageUid).toUInt(), 30u);
+        QList<uint> selected;
+        const auto rows = view.selectionModel()->selectedRows();
+        for (const QModelIndex &row : rows)
+            selected << row.data(Imap::Mailbox::RoleMessageUid).toUInt();
+        std::sort(selected.begin(), selected.end());
+        QCOMPARE(selected, (QList<uint>{28, 30}));
+        QVERIFY(view.viewport()->rect().intersects(view.visualRect(view.currentIndex())));
+    }
+
+    void positionReportsMissingMessage()
+    {
+        QStandardItemModel model;
+        model.appendRow(message(5, 123));
+        QTreeView view;
+        view.setModel(&model);
+        Gui::MessageSelectionRestorer restorer(&view, &view);
+        QSignalSpy restored(&restorer, &Gui::MessageSelectionRestorer::messageRestored);
+        QSignalSpy failed(&restorer, &Gui::MessageSelectionRestorer::restoreFailed);
+        restorer.restorePosition(QStringLiteral("INBOX"), 123, 42, 0);
+        QTRY_COMPARE(failed.size(), 1);
+        QCOMPARE(restored.size(), 0);
+        QVERIFY(!restorer.isPending());
+        QVERIFY(!view.currentIndex().isValid());
+    }
+
+    void positionWaitsForUnknownUids()
+    {
+        QStandardItemModel model;
+        model.appendRow(message(5, 123));
+        auto *syncing = message(0, 123);
+        model.appendRow(syncing);
+        QTreeView view;
+        view.setModel(&model);
+        Gui::MessageSelectionRestorer restorer(&view, &view);
+        QSignalSpy restored(&restorer, &Gui::MessageSelectionRestorer::messageRestored);
+        QSignalSpy failed(&restorer, &Gui::MessageSelectionRestorer::restoreFailed);
+        restorer.restorePosition(QStringLiteral("INBOX"), 123, 42, 0);
+        QCoreApplication::processEvents();
+        QVERIFY(restorer.isPending());
+        QCOMPARE(failed.size(), 0);
+        syncing->setData(42u, Imap::Mailbox::RoleMessageUid);
+        QTRY_COMPARE(restored.size(), 1);
+        QCOMPARE(view.currentIndex(), syncing->index());
+    }
+
+    void positionReportsChangedUidValidity()
+    {
+        QStandardItemModel model;
+        QTreeView view;
+        view.setModel(&model);
+        Gui::MessageSelectionRestorer restorer(&view, &view);
+        QSignalSpy restored(&restorer, &Gui::MessageSelectionRestorer::messageRestored);
+        QSignalSpy failed(&restorer, &Gui::MessageSelectionRestorer::restoreFailed);
+        restorer.restorePosition(QStringLiteral("INBOX"), 123, 42, 40);
+        model.appendRow(message(42, 124));
+        QTRY_COMPARE(failed.size(), 1);
+        QCOMPARE(restored.size(), 0);
+        QVERIFY(!restorer.isPending());
     }
 
     void cancellationStopsPendingRestore()

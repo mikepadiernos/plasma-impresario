@@ -370,6 +370,9 @@ void ImapAccess::doConnect()
     m_imapModel->setProperty("trojita-imap-id-no-versions", !m_appSettings->value(Common::SettingsNames::interopRevealVersions, true).toBool());
     m_imapModel->setProperty("trojita-imap-idle-renewal", m_appSettings->value(Common::SettingsNames::imapIdleRenewal).toUInt() * 60 * 1000);
     m_imapModel->setNumberRefreshInterval(numberRefreshInterval());
+    const auto archiveFolderName = m_settings->value(Common::SettingsNames::imapArchiveFolderName).toString();
+    m_imapModel->setArchiveFolderName(archiveFolderName.isEmpty() ? Common::SettingsNames::imapDefaultArchiveFolderName
+                                                                  : archiveFolderName);
     if (OAuth::isEnabled(*m_settings, OAuth::Service::Imap)) {
         // The connections find this token source through the model and authenticate with it instead of a password
         QPointer<Plugins::PluginManager> pluginManager = m_pluginManager;

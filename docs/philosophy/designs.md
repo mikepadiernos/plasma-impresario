@@ -19,6 +19,7 @@ Legend: ![Done][done] · ![Needs verification][needs-verification] ·
   - [Shell status](#shell-status)
   - [Layouts and regions](#layouts-and-regions)
   - [Current embedded panels](#current-embedded-panels)
+  - [Mail operations](#mail-operations)
   - [Status bar](#status-bar)
 - [Proposed Plasma Impresario shell](#proposed-plasma-impresario-shell)
   - [Panes and placement](#panes-and-placement)
@@ -143,7 +144,9 @@ alone. Each header shows the account's name and flags an account that needs
 attention. Clicking another account's header switches to that account, like the
 toolbar's account selector; clicking the active account's header collapses or
 expands its folders. The headers take keyboard focus and announce whether the
-folders are shown.
+folders are shown. Once an account's INBOX count is known, its header shows the
+unread count in bold, for example _Work (3)_, and screen readers announce
+_Work, 3 unread_; background accounts are included.
 
 **View › Show Header** adds a header region above the columns with the active
 account, the current folder and the account's status when it needs attention.
@@ -210,6 +213,258 @@ The Attachments panel lists files differently from the message-list paperclip:
 > loaded, so the panel never makes the client download envelopes. Message
 > Details reports MIME-level security only, not verified signatures. See
 > [CAVEATS](../CAVEATS.md#related-messages-and-message-details-panels).
+
+### Mail operations
+
+The mailbox tree recognizes **special folders**: Inbox, Drafts, Sent, Archive,
+Junk and Trash (plus All Mail and Flagged on servers that announce them). The
+server's RFC 6154 SPECIAL-USE attributes decide first, including the legacy
+XLIST names; the client asks for them when the server supports LIST-EXTENDED
+and SPECIAL-USE. The account's configured archive folder also counts as
+Archive. Without attributes, top-level folders and direct children of INBOX
+with a common English name (for example _Sent Items_, _Deleted Items_ or
+_Junk E-mail_) are used, at most one per kind. Special folders get Plasma
+theme icons and are listed first among their siblings in that order; other
+folders keep the server's order. **Mailbox › Go to Folder** opens the active
+account's Inbox, Drafts, Sent, Archive, Junk or Trash; an entry is disabled
+while the account has no such folder. **Mailbox › Go to Folder…** (Ctrl+J)
+opens a searchable list of the folders already loaded in the tree: typing
+filters it, the arrow keys move through matches and Enter opens the folder.
+Both select the folder in the tree and move focus to the message list, also
+in one-panel-at-a-time navigation. **Mailbox › Go to Next Unread Folder**
+(Ctrl+Alt+N) opens the next folder of the active account, in tree order and
+wrapping around, that has unread messages. **Mailbox › Check for New Mail**
+(F5) asks every online account for new counts, including background accounts,
+and resynchronizes the open folder.
+
+**View › Unified Inbox** (Ctrl+Shift+I) lists the INBOX of every account in one
+message list, sorted on the client, with the scope shown as _Unified Inbox_
+and each account's state in its tooltip. **View › Unified Inbox Accounts**
+leaves accounts out; at least one stays included. Two-line rows name each
+message's account, and the status line names accounts that are offline or
+unavailable while their cached messages stay listed. Reading, flagging,
+moving, deleting, replying, forwarding and notifications use the account of
+each message, so a selection spanning accounts is split per account; moving
+or copying such a selection is refused because folders belong to one account.
+Threads, Group By, quick search and Show Related stay with single folders and
+are disabled meanwhile. Choosing a folder or another account leaves the
+Unified Inbox, and its state is restored at startup
+([#223](https://github.com/mikepadiernos/plasma-impresario/issues/223),
+[caveats](../CAVEATS.md#mail-operations)).
+
+**Deleting messages** depends on the account's Trash folder. While the active
+account has one and the open folder is not that Trash, Delete (the **Move to
+Trash** action) moves the selected messages there with IMAP MOVE. In Trash,
+without a Trash folder, or with **Message › Move Deleted Messages to Trash**
+turned off, Delete toggles the `\Deleted` mark as before: the messages stay
+recoverable until the folder is expunged. The option is stored per account as
+`imap.deleteMovesToTrash` and is **on by default**. **Delete Permanently…**
+(Shift+Delete, in the Message menu and the message list's context menu) marks
+the selected messages `\Deleted` and removes only them with UID EXPUNGE. A
+server without UIDPLUS cannot do that, so the messages stay marked and the
+notification offers **Expunge** for the whole folder. **Expunge** (Ctrl+E)
+removes every marked message in the open folder and says how many of the
+loaded messages are marked.
+
+The folder tree's context menu and the Mailbox menu offer **Rename Folder…**,
+which asks for the new last name component and sends IMAP RENAME, keeping the
+folder's subscription. Renaming is unavailable offline, for INBOX and for
+containers that cannot be selected. A name containing the hierarchy separator
+is refused. When the open folder or one of its parents is renamed, the window
+reopens it under the new name. **Empty Trash…** and **Empty Junk…** are
+available in the Mailbox menu while the account has those folders, and in the
+context menu of the Trash or Junk folder itself. They mark every message in the
+folder `\Deleted` and expunge it; an empty folder is only reported as empty.
+
+**Quick actions** for the selected messages are in the Message menu, the
+message list's context menu and the main toolbar, and are disabled offline or
+without a selection:
+
+- **Archive** (A) moves the messages to the account's archive folder: the
+  folder set in the account settings, otherwise the Archive special folder the
+  tree recognizes (such as the server's `\Archive` folder), otherwise
+  `Archive`.
+- **Move to Folder…** (V) and **Copy to Folder…** (Shift+V) open the folder
+  picker without the open folder and without folders that cannot hold
+  messages. The **Move To** and **Copy To** submenus list the account's five
+  most recent destinations, newest first, followed by **Other Folder…**.
+  Destinations are remembered per account as `imap.recentDestinationFolders`
+  when an operation starts. Folders the loaded tree shows as deleted or not
+  selectable are dropped when a menu opens; folders below a branch that has not
+  been loaded are kept. On the toolbar, Move to Folder… has the recent
+  destinations behind its arrow.
+- **Mark as Read** (M) and **Mark as Flagged** (S) are toggles that show the
+  state of the selection. **Mark as Unread** (Shift+M) always marks the
+  selection unread.
+
+Toolbar-sized icons use the theme's `-symbolic` variants when available.
+Per-message hover actions in the list are planned separately.
+
+Delete Permanently, Expunge and the Empty actions ask first, naming the number
+of messages when it is known. The question has a **Do not ask again** check
+box, which takes effect only when the operation is accepted. The answers are
+stored in `plasma-impresariorc`, group `Confirmations`, as `ConfirmExpunge`,
+`ConfirmDeletePermanently` and `ConfirmEmptyFolder` (`false` skips the
+question). Moving to Trash, archiving and moving or copying to other folders
+are not confirmed because they can be undone or are harmless.
+
+Results appear in a **notification bar** between the quick search field and
+the message list instead of a dialog. For example, it reports _Moved 3
+messages to Trash_, _Archived 2 messages_, _Permanently deleted 1 message_,
+renames, emptied folders and failures, including the server's message.
+Information hides itself after eight seconds; errors stay until closed. After
+a move to Trash, Archive or another folder, **Undo** moves the messages back to
+the source folder when the server reported their new UIDs (RFC 4315 COPYUID).
+Otherwise the bar offers **Open Trash**, **Open Archive** or **Open Folder**.
+Copies report _Copied 2 messages to …_ with **Open Folder** and cannot be
+undone. Marking more than one message reports _Marked 5 messages as read_,
+_Marked 5 messages as unread_, _Flagged 5 messages_, tag and junk changes once
+the server has confirmed them; a single message is not reported. When an
+operation runs longer than 400 ms, the bar shows what is happening with an
+indeterminate progress indicator, such as _Moving 250 messages to Archive…_,
+until the result replaces it. Quick operations show no progress. Every failed
+move, copy, delete, read, flag, tag or junk change is reported with the number
+of messages and the server's message, such as _Could not flag 3 messages: …_.
+The bar is cleared when the account changes.
+
+The **message list toolbar** shares a row with the quick search field. It
+holds checkable **quick filters**, **Unread**, **Flagged** and **With
+Attachments**, as icon buttons with tooltips and accessible names, followed
+by **Clear Filters** (shown only while a filter is on) and a **Sort** button
+that opens the Mailbox › Sorting menu and shows the sort column and direction
+in its icon and tooltip. The same filters are in **View › Filter** and in the
+context menu of the empty area below the messages. Active filters must all
+match, and they combine with the quick search. **Hide Read Messages** is the
+Unread filter under its old name. Filters are stored per account as
+`gui/msgList.filterUnread`, `filterFlagged` and `filterAttachments`, so they
+apply to every folder of that account. An account without its own filters
+starts with the former global Hide Read Messages preference. A thread is
+shown when any of its messages matches, and then all of its messages are
+shown. A message whose flags are not loaded yet is hidden by Unread and
+Flagged until they arrive. A message whose structure is not loaded yet is
+shown by With Attachments, so that rows do not disappear while scrolling. The
+current message stays listed while it is current, even after it stops
+matching (for example, when reading marks it read under Unread). It is hidden
+once another message becomes current.
+
+**View › Group By** and the Sort button's menu offer **None**,
+**Conversation**, **Date**, **Sender**, **Subject**, **Tag**, **Read State**
+and **Mailing List**. None and Conversation are the flat and threaded lists
+from before. The other
+choices turn threading off and add a bold, collapsible header for each group
+with its message and unread counts, such as _Today (5, 2 unread)_. Date groups
+are Today, Yesterday, Earlier This Week, Last Week, Earlier This Month and then
+one group per month. Sender groups by address, Subject by the subject without
+reply prefixes and list tags, and Mailing List by the List-Post address, with
+_Not from a list_ last. Tag puts a message with several tags under its first
+favourite tag, or else under its alphabetically first tag, with _No Tag_ last.
+Read State shows Unread before Read, so reading a message moves it to Read.
+Messages whose envelope has not arrived wait in a _Loading…_ group while it
+is requested. Date groups follow the sort direction, newest first when
+descending; the other groups are alphabetical, and the sorting applies inside
+each group. **Expand All Groups** and **Collapse All
+Groups** are in the Group By menu and, while grouping, in the context menu.
+Collapsed groups stay collapsed until the grouping or the account changes.
+Headers cannot be selected; message actions, Select All, drag and drop, the
+reader and the related-messages panel skip them. Up and Down step over the
+headers of expanded groups, and Left and Right collapse and expand a group
+from its header.
+
+Each folder remembers its own **view**: sort column and direction, threading
+and grouping. Choosing a sorting, threading or grouping changes only the open
+folder. A folder without its own view uses the account's default view, and an
+account without one uses the sorting saved with the list's columns and the
+former threading preference. **Use This View for All Folders** (after a
+confirmation) makes the open folder's view the account default and removes the
+views of the other folders. **Reset View for This Folder** lets the folder
+follow the account default again; it is disabled while the folder has no view
+of its own. Both are in View, after Group By, and in the Sort button's menu.
+Views are stored per account as JSON in `gui/msgList.folderViews` (at most 200
+folders, the least recently used dropped first) and `gui/msgList.defaultView`.
+`gui/msgList.groupBy` keeps the grouping of the account default for older
+versions. Views follow a renamed folder and are dropped once a folder is gone.
+Quick filters stay per account, and Relevance is never remembered.
+
+Each folder also remembers its **position**: the current and selected
+messages and the message at the top of the view. Coming back to the folder
+through the folder tree, Go to Folder or an account switch selects them again
+and scrolls to them. If the current message is gone or the folder's
+UIDVALIDITY changed, nothing is selected and the list shows its newest
+messages, at the top when sorted descending and at the bottom otherwise.
+Positions are kept in the state configuration (`MessageListPositions`, one
+JSON entry per account, at most 200 folders) and survive restarts. While the
+folder is open, new mail, flag changes, messages removed by other clients and
+the server sorting or threading again keep the same messages selected and
+current, and the current message stays where it was on the screen. A list
+scrolled to its top stays at its top when new mail arrives there. When a
+resynchronization replaces all messages of the folder, the same messages are
+selected again by UID.
+
+**Relevance** in the Sorting menu is available only while a quick search or
+Show Related filter is on; otherwise it is disabled and its tooltip says why.
+It ranks the loaded messages locally: a search word in the subject counts
+most, then in the sender, then in the recipients, and the newer message wins a
+tie. Messages which have not loaded yet come last. When the search is cleared,
+the list returns to the sorting from before.
+
+Below the list, a **status line** starts with the **scope**, the account and
+folder of the list (_Work › INBOX_), with the full folder name in its tooltip
+and an accessible name such as _Showing folder INBOX of account Work_. It is
+hidden while no folder is open. The status line then shows the folder's
+message and unread counts as reported by the server (_120 messages, 7 unread_). It adds _showing
+7 of 120_ while filters are on and _3 selected_ when more than one message is
+selected. **Select All** (Ctrl+A), **Select Thread**, **Invert Selection** and
+**Deselect** are in the Message menu. Their shortcuts apply only while the
+message list has the focus, so Ctrl+A still selects text in the reader or the
+search field. Select Thread selects the current message's whole thread and is
+available only while threading is on. Invert Selection treats a collapsed
+thread as one row. Only Select All has a default shortcut; the others can be
+assigned one in the shortcut settings. The message context menu offers Select
+Thread and Select All; the empty area offers Select All, the filters and **Mark
+Mailbox as Read**. All message actions, including read, flag, tags, archive,
+delete and move or copy, apply to the whole selection.
+
+In the message list, Shift with Up, Down, Page Up, Page Down, Home or End
+extends the selection from the message where it started. Ctrl with the same
+keys moves the cursor without changing the selection, and Ctrl+Space adds or
+removes the message at the cursor. Single-key shortcuts such as M, S, A and V
+act on the whole selection; while several messages are selected, other letters
+do not jump to a matching message, so the selection is not lost. When the
+current message leaves the list because it was moved, archived, deleted or
+expunged, the next remaining message becomes current and the only selected
+one, or the previous message at the end of the list. Other selected messages
+are skipped, and the keyboard focus stays in the list. The reader shows the new
+current message under the usual mark-as-read settings. Nothing is selected when
+the list becomes empty.
+
+For working through a busy folder, a few commands borrow The Bat!'s quick
+filter and fast triage. **Message › Show Related** and the message context menu
+limit the current folder to **Messages from This Sender**, **to This
+Recipient**, **with This Subject** or, for a message with a `mailto:`
+List-Post header, **from This Mailing List**. The subject ignores reply and
+forward prefixes (Re:, Fwd:, AW:, SV: and similar) and list tags such as
+`[dev]`. They run as a server search through the quick search field, which
+shows the condition as `from:`, `to:`, `subject:` or `list:` followed by the
+value. Typing the same form searches that field only, and Escape or the clear
+button returns to the whole folder. The current message stays current when it
+matches. **Select Similar** in the same places selects **All from This
+Sender**, **All with This Subject**, **Unread** or **Flagged** messages among
+those the list has loaded. Sender and subject only consider messages whose
+envelope is already loaded, and threads with a match are expanded so that
+the usual actions apply to exactly the selected rows. **Mark as Read and Go to
+Next Unread** (Shift+N) marks the selection read and shows the next unread
+message. **Next Message** (F) and **Previous Message** (B) step through the
+list without skipping read messages. N and P still go to the next and previous
+unread message. **View › Dense Processing Layout** switches to compact rows,
+turns off the Message Details, Contacts and Related Messages panels and
+focuses the message list. The attachments panel stays, since it often decides
+what happens to a message. Turning the layout off restores the density and
+the panels it changed; its state is kept across restarts.
+
+**Help › Keyboard Shortcuts** (?) opens a searchable list of every action and
+its current shortcut, grouped by menu, then Message List, Message Reader,
+General and Other Windows. It is read-only; its **Configure Shortcuts…** button
+opens the shortcut settings, and the list shows the changes afterwards.
 
 ### Status bar
 
@@ -386,10 +641,16 @@ to mail.
 
 > [!NOTE]
 >
-> Planned for M03
-> ([#87](https://github.com/mikepadiernos/plasma-impresario/issues/87)). Today
-> the message list uses single-line rows with
-> [compact or comfortable density](#row-density-and-restored-selection).
+> Built in M03
+> ([#87](https://github.com/mikepadiernos/plasma-impresario/issues/87)) without
+> preview text or contact images. View > Message Rows chooses Two Lines, the
+> default, or the single-line Columns, and Two Lines can show the sender's
+> initials. Both follow the
+> [compact or comfortable density](#row-density-and-restored-selection), and
+> the dense processing layout switches to Columns. In the Unified Inbox
+> ([#223](https://github.com/mikepadiernos/plasma-impresario/issues/223)),
+> Two Lines names each message's account, and Columns show it in the row's
+> tooltip; see the [caveats](../CAVEATS.md#mail-operations).
 
 An Aqua Mail-inspired, multi-line message list is the target presentation,
 adapted to a keyboard- and mouse-driven Plasma desktop. Each row emphasizes the
@@ -524,20 +785,20 @@ desktop and panel widget proposals. They adapt ideas from the
 [inspirations](inspirations.md) and are design candidates unless marked
 otherwise.
 
-| Widget                         | Design                                                                                                | Inspired by             | Status                                                                                                                                                                                                                             |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Search                         | Search the current folder or selected accounts, with visible scope, filters and saved searches.       | Vivaldi Mail, Aqua Mail | ![Done][done] per-account saved searches ([#76](https://github.com/mikepadiernos/plasma-impresario/issues/76)); ![Planned][planned] cross-account scope, index and virtual folders in [M05](../ROADMAP.md#m05-search-and-indexing) |
-| Account and folder navigation  | Account groups, folder hierarchy and unread counts with clear account context.                        | Trojitá, Aqua Mail      | ![Done][done] account selector and counts; ![In progress][in-progress] account groups ([#80](https://github.com/mikepadiernos/plasma-impresario/issues/80))                                                                        |
-| Unified inbox                  | Combine selected accounts while identifying each message's source and keeping actions account-aware.  | Vivaldi Mail            | ![Planned][planned] M03                                                                                                                                                                                                            |
-| Message list and quick actions | Sender, subject, date and unread state with accessible archive, move, flag and delete actions.        | Aqua Mail, The Bat!     | ![Planned][planned] M03                                                                                                                                                                                                            |
-| Filters and sorting            | Active filters, sort order and threading, without obscuring the current folder or selection.          | Vivaldi Mail, The Bat!  | ![Planned][planned] M03                                                                                                                                                                                                            |
-| Conversation reader            | Message content, metadata, quoted text and reply actions in a focused reading pane.                   | Trojitá, Aqua Mail      | ![Planned][planned] M04                                                                                                                                                                                                            |
-| Compose and recipients         | Identity selection, recipient entry, drafts and sending feedback.                                     | Trojitá, Kontact        | ![Planned][planned] M04                                                                                                                                                                                                            |
-| Attachments                    | File names, sizes, loading progress and safe open or save actions.                                    | Aqua Mail, The Bat!     | ![Needs verification][needs-verification] [Attachments panel](#current-embedded-panels)                                                                                                                                            |
-| My Day / Agenda                | Today's events, due tasks and flagged or follow-up mail in an embedded panel.                         | ePim, Kontact           | ![Planned][planned] M06.04 ([#304](https://github.com/mikepadiernos/plasma-impresario/issues/304))                                                                                                                                 |
-| Connection and task status     | Account state, sync progress, errors and actionable recovery without interrupting reading.            | KDE, Kontact            | ![Done][done] connection status; ![Planned][planned] sync and task progress                                                                                                                                                        |
-| Rules and bulk actions         | Inspect rule conditions and apply operations to selected messages with progress and failure feedback. | The Bat!                | ![Planned][planned] M07                                                                                                                                                                                                            |
-| Workspace and productivity     | Optional account/workspace, contact and scheduling entry points when integrations are available.      | ePim, Kontact           | ![Planned][planned] M08                                                                                                                                                                                                            |
+| Widget                         | Design                                                                                                | Inspired by             | Status                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Search                         | Search the current folder or selected accounts, with visible scope, filters and saved searches.       | Vivaldi Mail, Aqua Mail | ![Done][done] per-account saved searches ([#76](https://github.com/mikepadiernos/plasma-impresario/issues/76)); ![Planned][planned] cross-account scope, index and virtual folders in [M05](../ROADMAP.md#m05-search-and-indexing)                                                                                                                       |
+| Account and folder navigation  | Account groups, folder hierarchy and unread counts with clear account context.                        | Trojitá, Aqua Mail      | ![Done][done] account selector, counts, special folders and folder picker ([#37](https://github.com/mikepadiernos/plasma-impresario/issues/37)) and account groups ([#80](https://github.com/mikepadiernos/plasma-impresario/issues/80))                                                                                                                 |
+| Unified inbox                  | Combine selected accounts while identifying each message's source and keeping actions account-aware.  | Vivaldi Mail            | ![Done][done] INBOX of selected accounts with account labels and account-aware actions ([#223](https://github.com/mikepadiernos/plasma-impresario/issues/223)); ![Planned][planned] other folders and threads                                                                                                                                            |
+| Message list and quick actions | Sender, subject, date and unread state with accessible archive, move, flag and delete actions.        | Aqua Mail, The Bat!     | ![Done][done] [quick actions](#mail-operations), recent destinations ([#83](https://github.com/mikepadiernos/plasma-impresario/issues/83)) and [compact rows](#message-list-presentation) ([#87](https://github.com/mikepadiernos/plasma-impresario/issues/87)); ![Planned][planned] hover actions                                                       |
+| Filters and sorting            | Active filters, sort order and threading, without obscuring the current folder or selection.          | Vivaldi Mail, The Bat!  | ![Done][done] [quick filters, grouping, relevance sort and per-folder views](#mail-operations) ([#38](https://github.com/mikepadiernos/plasma-impresario/issues/38), [#85](https://github.com/mikepadiernos/plasma-impresario/issues/85), [#90](https://github.com/mikepadiernos/plasma-impresario/issues/90)); ![Planned][planned] tag and date filters |
+| Conversation reader            | Message content, metadata, quoted text and reply actions in a focused reading pane.                   | Trojitá, Aqua Mail      | ![Planned][planned] M04                                                                                                                                                                                                                                                                                                                                  |
+| Compose and recipients         | Identity selection, recipient entry, drafts and sending feedback.                                     | Trojitá, Kontact        | ![Planned][planned] M04                                                                                                                                                                                                                                                                                                                                  |
+| Attachments                    | File names, sizes, loading progress and safe open or save actions.                                    | Aqua Mail, The Bat!     | ![Needs verification][needs-verification] [Attachments panel](#current-embedded-panels)                                                                                                                                                                                                                                                                  |
+| My Day / Agenda                | Today's events, due tasks and flagged or follow-up mail in an embedded panel.                         | ePim, Kontact           | ![Planned][planned] M06.04 ([#304](https://github.com/mikepadiernos/plasma-impresario/issues/304))                                                                                                                                                                                                                                                       |
+| Connection and task status     | Account state, sync progress, errors and actionable recovery without interrupting reading.            | KDE, Kontact            | ![Done][done] connection status; ![Planned][planned] sync and task progress                                                                                                                                                                                                                                                                              |
+| Rules and bulk actions         | Inspect rule conditions and apply operations to selected messages with progress and failure feedback. | The Bat!                | ![Done][done] [batch feedback, Select Similar and dense layout](#mail-operations) ([#84](https://github.com/mikepadiernos/plasma-impresario/issues/84), [#88](https://github.com/mikepadiernos/plasma-impresario/issues/88)); ![Planned][planned] rules in M07                                                                                           |
+| Workspace and productivity     | Optional account/workspace, contact and scheduling entry points when integrations are available.      | ePim, Kontact           | ![Planned][planned] M08                                                                                                                                                                                                                                                                                                                                  |
 
 ## Interaction and accessibility
 

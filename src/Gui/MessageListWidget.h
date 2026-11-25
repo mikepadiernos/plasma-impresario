@@ -28,6 +28,9 @@
 
 class LineEdit;
 class KConfigGroup;
+class QHBoxLayout;
+class QIcon;
+class QLabel;
 class QMenu;
 class QTimer;
 class QToolButton;
@@ -51,11 +54,26 @@ public:
     /** Key saved searches to another account, for example after switching accounts. */
     void setAccountId(const QString &accountId);
 
+    /** @short Add a compact button for @p action next to the quick search field */
+    QToolButton *addToolButton(QAction *action);
+    /** @short Add a button which opens @p menu next to the quick search field */
+    QToolButton *addToolMenuButton(QMenu *menu, const QIcon &icon, const QString &text);
+    /** @short Show @p text below the list, for example message counts; an empty text hides it */
+    void setListStatus(const QString &text);
+    /** @short Show which account and folder the list belongs to next to the status; an empty folder hides it */
+    void setScope(const QString &account, const QString &folder, const QString &fullFolderName);
+    /** @short Show @p text as the scope instead of an account and a folder, with @p toolTip describing it */
+    void setCustomScope(const QString &text, const QString &toolTip);
+    /** @short Offer the quick search, or clear and disable it for a list which it cannot search */
+    void setSearchAvailable(bool available);
+
     // FIXME: consider making this private and moving the logic from Window with it
     MsgListView *tree;
 
 public slots:
     void focusSearch();
+    /** @short Put a field filter such as "from:ann@example.org" into the quick search and apply it */
+    void showFieldFilter(const QString &text);
     void focusRawSearch();
 
 signals:
@@ -89,6 +107,12 @@ private:
     void deleteSavedSearch(const QString &id);
 
     LineEdit *m_quickSearchText;
+    /** The quick search field and the buttons next to it */
+    QHBoxLayout *m_toolRow;
+    QLabel *m_listStatus;
+    /** Account and folder of the list, in the row of the status */
+    QLabel *m_scope;
+    QWidget *m_statusRow;
     QAction *m_searchOptions;
     QAction *m_searchInSubject;
     QAction *m_searchInBody;
@@ -99,6 +123,7 @@ private:
     QMenu *m_savedSearches;
     QString m_accountId;
     bool m_supportsFuzzySearch;
+    bool m_searchAvailable = true;
     QTimer *m_searchResetTimer;
     QString m_queryPlaceholder;
 
