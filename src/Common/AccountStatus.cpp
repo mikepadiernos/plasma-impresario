@@ -22,11 +22,18 @@ void AccountStatusTracker::setStatus(const QString &accountId, AccountStatusKind
     if (current.kind == kind && current.detail == detail)
         return;
     m_statuses.insert(accountId, {kind, detail});
+    if (kind == AccountStatusKind::Connected)
+        m_raised.remove(accountId);
     emit statusChanged(accountId);
+    if (needsAttention(kind) && !m_raised.contains(accountId)) {
+        m_raised.insert(accountId);
+        emit attentionRaised(accountId);
+    }
 }
 
 void AccountStatusTracker::forget(const QString &accountId)
 {
+    m_raised.remove(accountId);
     if (m_statuses.remove(accountId))
         emit statusChanged(accountId);
 }

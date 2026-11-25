@@ -165,8 +165,10 @@ QString Formatting::sslErrorsToHtml(const QList<QSslError> &sslErrors)
 }
 
 void Formatting::formatSslState(const QList<QSslCertificate> &sslChain, const QByteArray &oldPubKey,
-                                      const QList<QSslError> &sslErrors, QString *title, QString *message, IconType *icon)
+                                      const QList<QSslError> &sslErrors, QString *title, QString *message, IconType *icon,
+                                      ServerKind server)
 {
+    const bool smtp = server == ServerKind::Smtp;
     bool pubKeyHasChanged = !oldPubKey.isEmpty() && (sslChain.isEmpty() || sslChain[0].publicKey().toPem() != oldPubKey);
 
     if (pubKeyHasChanged) {
@@ -181,9 +183,13 @@ void Formatting::formatSslState(const QList<QSslCertificate> &sslChain, const QB
         } else {
             // changed certificate which is not trusted per systemwide policy
             *title = tr("SSL certificate looks fishy");
-            *message = tr("<p>The public key of the SSL certificate of the IMAP server has changed since the last time "
-                          "and your system doesn't believe that the new certificate is genuine.</p>\n%1\n%2\n"
-                          "<p>Would you like to connect anyway and remember the new certificate?</p>").
+            *message = (smtp ?
+                            tr("<p>The public key of the SSL certificate of the SMTP server has changed since the last time "
+                               "and your system doesn't believe that the new certificate is genuine.</p>\n%1\n%2\n"
+                               "<p>Would you like to connect anyway and remember the new certificate?</p>") :
+                            tr("<p>The public key of the SSL certificate of the IMAP server has changed since the last time "
+                               "and your system doesn't believe that the new certificate is genuine.</p>\n%1\n%2\n"
+                               "<p>Would you like to connect anyway and remember the new certificate?</p>")).
                     arg(sslChainToHtml(sslChain), sslErrorsToHtml(sslErrors));
             *icon = IconType::Critical;
         }
@@ -191,16 +197,24 @@ void Formatting::formatSslState(const QList<QSslCertificate> &sslChain, const QB
         if (sslErrors.isEmpty()) {
             // this is the first time and the certificate looks valid -> accept
             *title = tr("Accept SSL connection?");
-            *message = tr("<p>This is the first time you're connecting to this IMAP server; the certificate is trusted "
-                          "by this system.</p>\n%1\n%2\n"
-                          "<p>Would you like to connect and remember this certificate's public key for the next time?</p>")
+            *message = (smtp ?
+                            tr("<p>This is the first time you're connecting to this SMTP server; the certificate is trusted "
+                               "by this system.</p>\n%1\n%2\n"
+                               "<p>Would you like to connect and remember this certificate's public key for the next time?</p>") :
+                            tr("<p>This is the first time you're connecting to this IMAP server; the certificate is trusted "
+                               "by this system.</p>\n%1\n%2\n"
+                               "<p>Would you like to connect and remember this certificate's public key for the next time?</p>"))
                     .arg(sslChainToHtml(sslChain), sslErrorsToHtml(sslErrors));
             *icon = IconType::Information;
         } else {
             *title = tr("Accept SSL connection?");
-            *message = tr("<p>This is the first time you're connecting to this IMAP server and the server certificate failed "
-                          "validation test.</p>\n%1\n\n%2\n"
-                          "<p>Would you like to connect and remember this certificate's public key for the next time?</p>")
+            *message = (smtp ?
+                            tr("<p>This is the first time you're connecting to this SMTP server and the server certificate failed "
+                               "validation test.</p>\n%1\n\n%2\n"
+                               "<p>Would you like to connect and remember this certificate's public key for the next time?</p>") :
+                            tr("<p>This is the first time you're connecting to this IMAP server and the server certificate failed "
+                               "validation test.</p>\n%1\n\n%2\n"
+                               "<p>Would you like to connect and remember this certificate's public key for the next time?</p>"))
                     .arg(sslChainToHtml(sslChain), sslErrorsToHtml(sslErrors));
             *icon = IconType::Question;
         }

@@ -3,6 +3,7 @@
 */
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
+#include "Gui/AccountSidebar.h"
 #include "Gui/DensityMenu.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/OnePanelAtTimeWidget.h"
@@ -130,7 +131,9 @@ int runChild(QApplication &app, const QString &phase)
     QCoreApplication::processEvents();
     auto *mailboxes = window.findChild<Gui::MailBoxTreeView *>();
     auto *menu = window.findChild<Gui::DensityMenu *>();
-    if (!mailboxes || !menu)
+    // The folder tree is placed in the shell inside the account sidebar
+    auto *sidebar = window.findChild<Gui::AccountSidebar *>();
+    if (!mailboxes || !menu || !sidebar || !sidebar->isAncestorOf(mailboxes))
         return 1;
     if (phase != QLatin1String("read")) {
         const char *layoutSlot = layout == QLatin1String("wide") ? "slotLayoutWide" :
@@ -157,7 +160,7 @@ int runChild(QApplication &app, const QString &phase)
         if (layout != QLatin1String("one")) {
             auto *row = window.findChild<QSplitter *>(QStringLiteral("shellRow"));
             auto *mainColumn = window.findChild<QSplitter *>(QStringLiteral("shellMainColumn"));
-            if (!row || !mainColumn || mailboxes->parentWidget() != window.findChild<QSplitter *>(QStringLiteral("shellRightColumn")))
+            if (!row || !mainColumn || sidebar->parentWidget() != window.findChild<QSplitter *>(QStringLiteral("shellRightColumn")))
                 return 4;
             row->setSizes({0, 700, 200});
             row->splitterMoved(700, 2);
@@ -184,13 +187,13 @@ int runChild(QApplication &app, const QString &phase)
     if (!menu->actions().at(1)->isChecked())
         return 6;
     if (layout == QLatin1String("one")) {
-        if (!window.findChild<Gui::OnePanelAtTimeWidget *>() || !qobject_cast<Gui::OnePanelAtTimeWidget *>(mailboxes->parentWidget()))
+        if (!window.findChild<Gui::OnePanelAtTimeWidget *>() || !qobject_cast<Gui::OnePanelAtTimeWidget *>(sidebar->parentWidget()))
             return 6;
     } else {
         auto *row = window.findChild<QSplitter *>(QStringLiteral("shellRow"));
         auto *mainColumn = window.findChild<QSplitter *>(QStringLiteral("shellMainColumn"));
         auto *rightColumn = window.findChild<QSplitter *>(QStringLiteral("shellRightColumn"));
-        if (!row || !mainColumn || !rightColumn || mailboxes->parentWidget() != rightColumn)
+        if (!row || !mainColumn || !rightColumn || sidebar->parentWidget() != rightColumn)
             return 6;
         if (mainColumn->orientation() != (layout == QLatin1String("wide") ? Qt::Horizontal : Qt::Vertical))
             return 7;

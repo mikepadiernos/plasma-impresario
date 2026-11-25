@@ -107,6 +107,9 @@ class MSAFactory;
 namespace Gui
 {
 
+class AccountSidebar;
+class CapabilityActionGate;
+class ShellHeader;
 class AttachmentPanel;
 class ContactPanel;
 class EmbeddedPanel;
@@ -137,7 +140,12 @@ public:
 
     Imap::Mailbox::Model *imapModel() const;
 
-    Composer::SenderIdentitiesModel *senderIdentitiesModel() { return m_senderIdentities; }
+    /** Return the sender identities the active account sends from: its own, the shared ones, or none. */
+    Composer::SenderIdentitiesModel *senderIdentitiesModel();
+    /** Return the identities shared by accounts that do not use their own. */
+    Composer::SenderIdentitiesModel *sharedIdentitiesModel() { return m_senderIdentities; }
+    /** Return the active account's own identities, whether or not it currently uses them. */
+    Composer::SenderIdentitiesModel *accountIdentitiesModel();
     Imap::Mailbox::FavoriteTagsModel *favoriteTagsModel() { return m_favoriteTags; }
     Plugins::PluginManager *pluginManager() { return m_pluginManager; }
     QSettings *settings() const { return m_settings; }
@@ -178,6 +186,7 @@ private slots:
     void networkPolicyExpensive();
     void networkPolicyOnline();
     void slotShowSettings();
+    void slotShowAccountSettings();
     void slotAddAccount();
     void slotRemoveAccount();
     void slotNextAccount();
@@ -186,7 +195,11 @@ private slots:
     void slotFocusNextRegion();
     void slotFocusPreviousRegion();
     void removeAccountNow(const QString &accountId);
+    /** Authorize an OAuth account in the browser again, then reconnect it */
+    void signInAccount(const QString &accountId);
     void slotRenameAccount();
+    /** Show the menu of an account's sidebar header, with its settings, renaming and removal */
+    void showAccountMenu(const QString &accountId, const QPoint &globalPos);
     void slotShowImapInfo();
     void slotExpunge();
     void imapError(const QString &message);
@@ -333,6 +346,14 @@ private:
     /** Make another account the one shown in the window; models of other accounts stay alive. */
     void switchAccount(const QString &accountId);
 
+    /** Ask for a new name of an account. */
+    void renameAccount(const QString &accountId);
+
+    /** Ask whether to remove an account, and remove it. */
+    void confirmRemoveAccount(const QString &accountId);
+    /** Whether another account signs in with the same provider, client and user, so a revocation would reach it */
+    bool sharesOAuthGrant(const QString &accountId) const;
+
     /** Disconnect the window from the models of the active account. */
     void detachAccountModels();
 
@@ -356,6 +377,12 @@ private:
 
     /** Rebuild the account selector from the account list. */
     void refreshAccountSwitcher();
+
+    /** Show the other accounts that need attention in the footer. */
+    void updateBackgroundAlerts();
+
+    /** Tell the user that an account other than the shown one needs attention. */
+    void notifyBackgroundAccount(const QString &accountId);
 
     /** @param reconnect connect the account to its server; false when its models already exist */
     void setupModels(bool reconnect = true);
@@ -384,7 +411,7 @@ private:
     /** Place the mailbox sidebar on the requested side of the current layout. */
     void setMailboxSidebarRight(bool right);
 
-    /** Create the shell: left column, main column and right column above a footer. */
+    /** Create the shell: the header above the left, main and right columns, and a footer below them. */
     void createShell();
     /** Put the mailbox tree into the column chosen for it. */
     void placeMailboxSidebar();
@@ -418,6 +445,7 @@ private:
     QString layoutToString(const LayoutMode layout) const;
     void convertSizesAndStateSettings();
     void convertSizesAndStateSetting(const LayoutMode layout);
+    QList<int> migrateLegacyPaneSizes();
     QString settingsKeyForLayout(const LayoutMode layout);
 
     void createSysTray();
@@ -546,6 +574,9 @@ private:
     /** Keys of the groups which the user has collapsed during this session */
     QSet<QString> m_collapsedGroups;
     Composer::SenderIdentitiesModel *m_senderIdentities;
+    QHash<QString, Composer::SenderIdentitiesModel *> m_accountIdentities;
+    /** Always empty; used by accounts that send without an identity */
+    Composer::SenderIdentitiesModel *m_noIdentities = nullptr;
     Imap::Mailbox::FavoriteTagsModel *m_favoriteTags;
 
     MailBoxTreeView *mboxTree;
@@ -594,12 +625,22 @@ private:
     QHash<EmbeddedPanel *, int> m_panelExtents;
     /** Panel regions which still have to be fitted once they are laid out */
     QSet<QSplitter *> m_panelRegionsPending;
+    /** The folder tree grouped by account, in the column chosen for the mailbox sidebar */
+    AccountSidebar *m_accountSidebar = nullptr;
+    /** The header region above the columns, off by default */
+    ShellHeader *m_shellHeader = nullptr;
+    /** Hides the actions which the active account's protocol does not support */
+    CapabilityActionGate *m_capabilityGate = nullptr;
 
     ProtocolLoggerWidget *protocolLogger;
     QDockWidget *protocolLoggerDock;
 
     QPointer<QStackedWidget> m_mainStack;
     QLabel *m_connectionStatus;
+    /** Footer button listing the other accounts that need attention */
+    QToolButton *m_backgroundAlerts = nullptr;
+    /** Footer button which signs the shown OAuth account in again after its sign-in failed */
+    QToolButton *m_oauthSignIn = nullptr;
     bool m_connectionError = false;
 
     LayoutMode m_layoutMode;
@@ -625,6 +666,7 @@ private:
     QAction *showToolBar;
     QAction *configSettings;
     QAction *m_actionAddAccount;
+    QAction *m_actionAccountSettings;
     QAction *m_actionRenameAccount;
     QAction *m_actionRemoveAccount;
     QAction *m_oneAtTimeGoBack;

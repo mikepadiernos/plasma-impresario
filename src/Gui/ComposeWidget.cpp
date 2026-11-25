@@ -34,12 +34,14 @@
 #include <QRegularExpression>
 #include <QSettings>
 #include <QScreen>
+#include <QSslKey>
 #include <QTimer>
 #include <QToolButton>
 #include <QUrlQuery>
 
 #include "configure.cmake.h"
 #include "ui_ComposeWidget.h"
+#include "Composer/AccountIdentities.h"
 #include "Composer/ExistingMessageComposer.h"
 #include "Composer/MessageComposer.h"
 #include "Composer/ReplaceSignature.h"
@@ -49,6 +51,7 @@
 #include "Common/InvokeMethod.h"
 #include "Common/Paths.h"
 #include "Common/SettingsNames.h"
+#include "Common/TrustedCertificates.h"
 #include "Gui/CompleteMessageWidget.h"
 #include "Gui/ComposeWidget.h"
 #include "Gui/FromAddressProxyModel.h"
@@ -67,6 +70,7 @@
 #include "Plugins/PluginManager.h"
 #include "ShortcutHandler/ShortcutHandler.h"
 #include "UiUtils/Color.h"
+#include "UiUtils/Formatting.h"
 #include "UiUtils/IconLoader.h"
 
 namespace
@@ -160,6 +164,9 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
     , m_genUrlAuthReceived(false)
     , m_mainWindow(mainWindow)
     , m_settings(mainWindow->settings())
+    , m_accountSettings(mainWindow->accountSettings())
+    , m_imapAccess(mainWindow->imapAccess())
+    , m_senderIdentities(mainWindow->senderIdentitiesModel())
     , m_composer(messageComposer)
     , m_submission(nullptr)
     , m_completionPopup(nullptr)
@@ -183,6 +190,8 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
     });
     connect(m_submission, &Composer::Submission::logged, this, &ComposeWidget::logged);
     connect(m_submission, &Composer::Submission::passwordRequested, this, &ComposeWidget::passwordRequested, Qt::QueuedConnection);
+    connect(m_submission, &Composer::Submission::certificateCheckRequested, this,
+            &ComposeWidget::certificateCheckRequested, Qt::QueuedConnection);
     ui->setupUi(this);
 
     if (interactiveComposer()) {
@@ -308,7 +317,7 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
     updateWindowTitle();
 
     FromAddressProxyModel *proxy = new FromAddressProxyModel(this);
-    proxy->setSourceModel(m_mainWindow->senderIdentitiesModel());
+    proxy->setSourceModel(m_senderIdentities);
     ui->sender->setModel(proxy);
 
     connect(ui->sender, static_cast<void (QComboBox::*)(const int)>(&QComboBox::currentIndexChanged), this, &ComposeWidget::slotUpdateSignature);
@@ -638,8 +647,12 @@ void ComposeWidget::markReplyModeHandpicked()
 
 void ComposeWidget::passwordRequested(const QString &user, const QString &host)
 {
-    if (m_mainWindow->accountSettings()->value(Common::SettingsNames::smtpAuthReuseImapCredsKey, false).toBool()) {
-        auto password = qobject_cast<const Imap::Mailbox::Model*>(m_mainWindow->imapAccess()->imapModel())->imapPassword();
+    if (!m_accountSettings || !m_imapAccess) {
+        m_submission->cancelPassword();
+        return;
+    }
+    if (m_accountSettings->value(Common::SettingsNames::smtpAuthReuseImapCredsKey, false).toBool()) {
+        auto password = qobject_cast<const Imap::Mailbox::Model*>(m_imapAccess->imapModel())->imapPassword();
         if (password.isNull()) {
             // This can happen for example when we've always been offline since the last profile change,
             // and the IMAP password is therefore not already cached in the IMAP model.
@@ -681,6 +694,36 @@ void ComposeWidget::passwordError()
     const QString &user = job->property("user").toString();
     const QString &host = job->property("host").toString();
     askPassword(user, host);
+}
+
+void ComposeWidget::certificateCheckRequested(const QList<QSslCertificate> &chain, const QList<QSslError> &errors)
+{
+    const QString host = m_accountSettings ? m_accountSettings->value(Common::SettingsNames::smtpHostKey).toString()
+                                           : QString();
+    QSettings *profile = m_mainWindow ? m_mainWindow->settings() : nullptr;
+    if (profile && !chain.isEmpty() && Common::TrustedCertificates::isTrusted(*profile, host, chain.first())) {
+        // Another account, or this host's IMAP service, already got the user's approval for this key
+        if (m_accountSettings)
+            m_accountSettings->setValue(Common::SettingsNames::smtpSslPemPubKey, chain.first().publicKey().toPem());
+        m_submission->setCertificateAccepted(true);
+        return;
+    }
+    const QByteArray oldPubKey = m_accountSettings ?
+                m_accountSettings->value(Common::SettingsNames::smtpSslPemPubKey).toByteArray() : QByteArray();
+    QString title, message;
+    UiUtils::Formatting::IconType icon;
+    UiUtils::Formatting::formatSslState(chain, oldPubKey, errors, &title, &message, &icon,
+                                        UiUtils::Formatting::ServerKind::Smtp);
+    QPointer<ComposeWidget> guard(this);
+    const bool accepted = QMessageBox(static_cast<QMessageBox::Icon>(icon), title, message,
+                                      QMessageBox::Yes | QMessageBox::No, this).exec() == QMessageBox::Yes;
+    if (!guard)
+        return;
+    if (accepted && m_accountSettings && !chain.isEmpty())
+        m_accountSettings->setValue(Common::SettingsNames::smtpSslPemPubKey, chain.first().publicKey().toPem());
+    if (accepted && profile && !chain.isEmpty())
+        Common::TrustedCertificates::trust(*profile, host, chain.first());
+    m_submission->setCertificateAccepted(accepted);
 }
 
 void ComposeWidget::askPassword(const QString &user, const QString &host)
@@ -842,20 +885,28 @@ void ComposeWidget::send()
         saveDraft(m_autoSavePath);
     }
 
+    if (!m_accountSettings || !m_imapAccess) {
+        gotError(tr("The account this message was written from has been removed, so it cannot be sent. "
+                    "Copy its contents into a new message from another account."));
+        return;
+    }
+
     if (!buildMessageData()) {
         return;
     }
 
-    const bool reuseImapCreds = m_mainWindow->accountSettings()->value(Common::SettingsNames::smtpAuthReuseImapCredsKey, false).toBool();
-    m_submission->setImapOptions(m_mainWindow->accountSettings()->value(Common::SettingsNames::composerSaveToImapKey, true).toBool(),
-                                 m_mainWindow->accountSettings()->value(Common::SettingsNames::composerImapSentKey, QStringLiteral("Sent")).toString(),
-                                 m_mainWindow->accountSettings()->value(Common::SettingsNames::imapHostKey).toString(),
-                                 m_mainWindow->accountSettings()->value(Common::SettingsNames::imapUserKey).toString(),
-                                 m_mainWindow->accountSettings()->value(Common::SettingsNames::msaMethodKey).toString() == Common::SettingsNames::methodImapSendmail);
-    m_submission->setSmtpOptions(m_mainWindow->accountSettings()->value(Common::SettingsNames::smtpUseBurlKey, false).toBool(),
+    // Send with the account this composer was opened from, even if another account is active now.
+    QSettings &account = *m_accountSettings;
+    const bool reuseImapCreds = account.value(Common::SettingsNames::smtpAuthReuseImapCredsKey, false).toBool();
+    m_submission->setImapOptions(account.value(Common::SettingsNames::composerSaveToImapKey, true).toBool(),
+                                 account.value(Common::SettingsNames::composerImapSentKey, QStringLiteral("Sent")).toString(),
+                                 account.value(Common::SettingsNames::imapHostKey).toString(),
+                                 account.value(Common::SettingsNames::imapUserKey).toString(),
+                                 account.value(Common::SettingsNames::msaMethodKey).toString() == Common::SettingsNames::methodImapSendmail);
+    m_submission->setSmtpOptions(account.value(Common::SettingsNames::smtpUseBurlKey, false).toBool(),
                                  reuseImapCreds ?
-                                     m_mainWindow->imapAccess()->username() :
-                                     m_mainWindow->accountSettings()->value(Common::SettingsNames::smtpUserKey).toString());
+                                     m_imapAccess->username() :
+                                     account.value(Common::SettingsNames::smtpUserKey).toString());
 
     ProgressPopUp *progress = new ProgressPopUp();
     OverlayWidget *overlay = new OverlayWidget(progress, this);
@@ -925,16 +976,17 @@ void ComposeWidget::setResponseData(const QList<QPair<Composer::RecipientKind, Q
         // Enable only those Reply Modes that are applicable to the message to be replied
         Composer::RecipientList dummy;
         m_actionReplyModePrivate->setEnabled(Composer::Util::replyRecipientList(Composer::REPLY_PRIVATE,
-                                                                                m_mainWindow->senderIdentitiesModel(),
+                                                                                m_senderIdentities,
                                                                                 m_replyingToMessage, dummy));
         m_actionReplyModeAllButMe->setEnabled(Composer::Util::replyRecipientList(Composer::REPLY_ALL_BUT_ME,
-                                                                                 m_mainWindow->senderIdentitiesModel(),
-                                                                                 m_replyingToMessage, dummy));
+                                                                                 m_senderIdentities,
+                                                                                 m_replyingToMessage, dummy,
+                                                                                 ownLoginAddresses()));
         m_actionReplyModeAll->setEnabled(Composer::Util::replyRecipientList(Composer::REPLY_ALL,
-                                                                            m_mainWindow->senderIdentitiesModel(),
+                                                                            m_senderIdentities,
                                                                             m_replyingToMessage, dummy));
         m_actionReplyModeList->setEnabled(Composer::Util::replyRecipientList(Composer::REPLY_LIST,
-                                                                             m_mainWindow->senderIdentitiesModel(),
+                                                                             m_senderIdentities,
                                                                              m_replyingToMessage, dummy));
     } else {
         m_markButton->hide();
@@ -944,9 +996,9 @@ void ComposeWidget::setResponseData(const QList<QPair<Composer::RecipientKind, Q
     }
 
     int row = -1;
-    bool ok = Composer::Util::chooseSenderIdentityForReply(m_mainWindow->senderIdentitiesModel(), replyingToMessage, row);
+    bool ok = Composer::Util::chooseSenderIdentityForReply(m_senderIdentities, replyingToMessage, row);
     if (ok) {
-        Q_ASSERT(row >= 0 && row < m_mainWindow->senderIdentitiesModel()->rowCount());
+        Q_ASSERT(row >= 0 && row < m_senderIdentities->rowCount());
         ui->sender->setCurrentIndex(row);
     }
 
@@ -1651,6 +1703,13 @@ void ComposeWidget::slotUpdateSignature()
 
 In case of an error, the original list of recipients is left as is.
 */
+/** @short The login address of the account this composer was opened for, which replies treat as the user's own */
+QList<Imap::Message::MailAddress> ComposeWidget::ownLoginAddresses() const
+{
+    return m_accountSettings ? Composer::AccountIdentities::loginAddresses(*m_accountSettings)
+                             : QList<Imap::Message::MailAddress>();
+}
+
 bool ComposeWidget::setReplyMode(const Composer::ReplyMode mode)
 {
     if (!m_replyingToMessage.isValid())
@@ -1658,8 +1717,8 @@ bool ComposeWidget::setReplyMode(const Composer::ReplyMode mode)
 
     // Determine the new list of recipients
     Composer::RecipientList list;
-    if (!Composer::Util::replyRecipientList(mode, m_mainWindow->senderIdentitiesModel(),
-                                            m_replyingToMessage, list)) {
+    if (!Composer::Util::replyRecipientList(mode, m_senderIdentities,
+                                            m_replyingToMessage, list, ownLoginAddresses())) {
         return false;
     }
 

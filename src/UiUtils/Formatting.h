@@ -47,6 +47,12 @@ public:
         Question = 4
     };
 
+    /** @short The kind of server whose certificate is described */
+    enum class ServerKind {
+        Imap,
+        Smtp,
+    };
+
     Q_INVOKABLE static QString prettySize(quint64 bytes);
     Q_INVOKABLE static QString prettyDate(const QDateTime &dateTime);
     Q_INVOKABLE static QString htmlizedTextPart(const QModelIndex &partIndex, const QFont &font,
@@ -57,7 +63,8 @@ public:
     static QString sslErrorsToHtml(const QList<QSslError> &sslErrors);
 
     static void formatSslState(const QList<QSslCertificate> &sslChain, const QByteArray &oldPubKey,
-                               const QList<QSslError> &sslErrors, QString *title, QString *message, IconType *icon);
+                               const QList<QSslError> &sslErrors, QString *title, QString *message, IconType *icon,
+                               ServerKind server = ServerKind::Imap);
 
     static QString htmlHexifyByteArray(const QByteArray &rawInput);
 

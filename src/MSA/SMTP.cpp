@@ -21,6 +21,9 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "SMTP.h"
+#include <QMetaMethod>
+#include <QSslKey>
+#include "OAuth/Session.h"
 #include "UiUtils/Formatting.h"
 
 namespace MSA
@@ -32,8 +35,12 @@ SMTP::SMTP(QObject *parent, const QString &host, quint16 port, bool encryptedCon
     encryptedConnect(encryptedConnect), startTls(startTls), auth(auth),
     user(user), failed(false), isWaitingForPassword(false), sendingMode(MODE_SMTP_INVALID)
 {
+    createClient();
+}
+
+void SMTP::createClient()
+{
     qwwSmtp = new QwwSmtpClient(this);
-    // FIXME: handle SSL errors in the same way as we handle IMAP TLS errors, with key pinning, etc.
     connect(qwwSmtp, &QwwSmtpClient::sslErrors, this, &SMTP::handleSslErrors);
     connect(qwwSmtp, &QwwSmtpClient::connected, this, &AbstractMSA::sending);
     connect(qwwSmtp, &QwwSmtpClient::done, this, &SMTP::handleDone);
@@ -44,10 +51,89 @@ SMTP::SMTP(QObject *parent, const QString &host, quint16 port, bool encryptedCon
     connect(qwwSmtp, &QwwSmtpClient::logSent, this, [this](const QByteArray& data) {
         emit logged(Common::LogKind::LOG_IO_WRITTEN, QStringLiteral("SMTP"), QString::fromUtf8(data));
     });
+    connect(qwwSmtp, &QwwSmtpClient::saslAuthenticationFailed, this,
+            [this](const QByteArray &mechanism, const QByteArray &challenge) {
+        saslFailed = true;
+        saslMechanism = mechanism;
+        saslChallenge = challenge;
+    });
+}
+
+void SMTP::setTokenSource(OAuth::TokenSource *source)
+{
+    if (tokenSource)
+        tokenSource->disconnect(this);
+    tokenSource = source;
+    if (tokenSource) {
+        connect(tokenSource.data(), &OAuth::TokenSource::accessTokenAvailable, this, &SMTP::oauthTokenAvailable);
+        connect(tokenSource.data(), &OAuth::TokenSource::failed, this, &SMTP::oauthTokenFailed);
+    }
+}
+
+void SMTP::setPinnedPublicKey(const QByteArray &pemPublicKey)
+{
+    pinnedPubKey = pemPublicKey;
+}
+
+void SMTP::requestOAuthToken()
+{
+    isWaitingForToken = true;
+    tokenSource->requestAccessToken();
+}
+
+void SMTP::oauthTokenAvailable(const QString &accessToken)
+{
+    if (!isWaitingForToken || failed)
+        return;
+    isWaitingForToken = false;
+    oauthToken = accessToken;
+    sendContinueGotPassword();
+}
+
+void SMTP::oauthTokenFailed(const QString &message)
+{
+    if (!isWaitingForToken || failed)
+        return;
+    isWaitingForToken = false;
+    failed = true;
+    emit error(message);
+}
+
+bool SMTP::handleSaslFailure()
+{
+    saslFailed = false;
+    if (!tokenSource || saslMechanism.isEmpty()) {
+        failed = true;
+        emit error(OAuth::errorMessage(OAuth::Error::MechanismUnavailable));
+        return true;
+    }
+    if (!oauthRetried) {
+        // The token might have been revoked or have expired early; start over once with a fresh one
+        oauthRetried = true;
+        qwwSmtp->disconnect(this);
+        qwwSmtp->deleteLater();
+        createClient();
+        tokenSource->rejectAccessToken(oauthToken);
+        oauthToken.clear();
+        requestOAuthToken();
+        return true;
+    }
+    QString detail = qwwSmtp->errorString();
+    const QString challenge = OAuth::Sasl::describeChallenge(saslChallenge);
+    if (!challenge.isEmpty())
+        detail = tr("%1 (%2)").arg(detail, challenge);
+    failed = true;
+    emit error(OAuth::errorMessage(OAuth::Error::Rejected, detail));
+    return true;
 }
 
 void SMTP::cancel()
 {
+    isWaitingForToken = false;
+    if (isWaitingForCertificate) {
+        isWaitingForCertificate = false;
+        qwwSmtp->resumeAfterSslErrors(false);
+    }
     qwwSmtp->disconnectFromHost();
     if (!failed) {
         failed = true;
@@ -61,6 +147,8 @@ void SMTP::handleDone(bool ok)
         // This is a duplicate notification. The QwwSmtpClient is known to send contradicting results, see e.g. bug 321272.
         return;
     }
+    if (!ok && saslFailed && handleSaslFailure())
+        return;
     if (ok) {
         emit sent();
     } else {
@@ -75,14 +163,62 @@ void SMTP::handleDone(bool ok)
 void SMTP::handleError(QAbstractSocket::SocketError err, const QString &msg)
 {
     Q_UNUSED(err);
+    // A TLS failure is reported through handleSslErrors() first
+    if (failed)
+        return;
     failed = true;
     emit error(msg);
 }
 
 void SMTP::handleSslErrors(const QList<QSslError>& errors)
 {
-    auto msg = UiUtils::Formatting::sslErrorsToHtml(errors);
-    emit error(tr("<p>Cannot send message due to an SSL/TLS error</p>\n%1").arg(msg));
+    if (failed)
+        return;
+    sslErrors = errors;
+    const QList<QSslCertificate> chain = qwwSmtp->peerCertificateChain();
+    offeredPubKey = chain.isEmpty() ? QByteArray() : chain.first().publicKey().toPem();
+    if (!pinnedPubKey.isEmpty() && offeredPubKey == pinnedPubKey) {
+        // The user has already accepted this server's key
+        qwwSmtp->ignoreSslErrors();
+        return;
+    }
+    if (!isSignalConnected(QMetaMethod::fromSignal(&AbstractMSA::certificateCheckRequested))) {
+        // Nobody can answer, so do not leave the paused handshake waiting forever
+        failWithSslErrors();
+        qwwSmtp->resumeAfterSslErrors(false);
+        return;
+    }
+    // The handshake stays paused until the user decides
+    isWaitingForCertificate = true;
+    emit certificateCheckRequested(chain, errors);
+}
+
+void SMTP::setCertificateAccepted(bool accepted)
+{
+    // The socket pauses only once the sslErrors() slots return, so never resume from within them
+    QMetaObject::invokeMethod(this, [this, accepted]() { finishCertificateCheck(accepted); }, Qt::QueuedConnection);
+}
+
+void SMTP::finishCertificateCheck(bool accepted)
+{
+    if (!isWaitingForCertificate)
+        return;
+    isWaitingForCertificate = false;
+    if (accepted && !offeredPubKey.isEmpty()) {
+        // An OAuth retry reconnects; do not ask about the same server again
+        pinnedPubKey = offeredPubKey;
+    }
+    if (!accepted)
+        failWithSslErrors();
+    // A rejected handshake fails with a socket error, which handleError() ignores after the report above
+    qwwSmtp->resumeAfterSslErrors(accepted);
+}
+
+void SMTP::failWithSslErrors()
+{
+    failed = true;
+    emit error(tr("<p>Cannot send message due to an SSL/TLS error</p>\n%1")
+                   .arg(UiUtils::Formatting::sslErrorsToHtml(sslErrors)));
 }
 
 void SMTP::setPassword(const QString &password)
@@ -98,10 +234,16 @@ void SMTP::sendMail(const QByteArray &from, const QList<QByteArray> &to, const Q
     this->to = to;
     this->data = data;
     this->sendingMode = MODE_SMTP_DATA;
+    this->dataEscaped = false;
     this->isWaitingForPassword = true;
     emit progressMax(data.size());
     emit progress(0);
     emit connecting();
+    if (auth && tokenSource) {
+        isWaitingForPassword = false;
+        requestOAuthToken();
+        return;
+    }
     if (!auth || !pass.isEmpty()) {
         sendContinueGotPassword();
         return;
@@ -118,16 +260,31 @@ void SMTP::sendContinueGotPassword()
         qwwSmtp->connectToHost(host, port);
     if (startTls)
         qwwSmtp->startTls();
-    if (auth)
+    if (auth && tokenSource) {
+        QList<QwwSmtpClient::SaslCandidate> candidates;
+        const auto mechanisms = tokenSource->mechanisms();
+        for (const OAuth::Mechanism mechanism : mechanisms) {
+            candidates.append({OAuth::mechanismName(mechanism),
+                               OAuth::Sasl::initialResponse(mechanism, user, oauthToken, tokenSource->host(),
+                                                            tokenSource->port()),
+                               OAuth::Sasl::cancelResponse(mechanism)});
+        }
+        qwwSmtp->authenticateSasl(candidates);
+    } else if (auth) {
         qwwSmtp->authenticate(user, pass, QwwSmtpClient::AuthAny);
+    }
     emit sending(); // FIXME: later
     switch (sendingMode) {
     case MODE_SMTP_DATA:
         {
             //RFC5321 specifies to prepend a period to lines starting with a period in section 4.5.2
-            if (data.startsWith('.'))
-                data.prepend('.');
-            data.replace("\n.", "\n..");
+            // A retried submission must not escape the data twice
+            if (!dataEscaped) {
+                if (data.startsWith('.'))
+                    data.prepend('.');
+                data.replace("\n.", "\n..");
+                dataEscaped = true;
+            }
             qwwSmtp->sendMail(from, to, data);
         }
         break;
@@ -157,6 +314,11 @@ void SMTP::sendBurl(const QByteArray &from, const QList<QByteArray> &to, const Q
     emit progressMax(1);
     emit progress(0);
     emit connecting();
+    if (auth && tokenSource) {
+        isWaitingForPassword = false;
+        requestOAuthToken();
+        return;
+    }
     if (!auth || !pass.isEmpty()) {
         sendContinueGotPassword();
         return;
@@ -177,7 +339,26 @@ SMTPFactory::~SMTPFactory()
 
 AbstractMSA *SMTPFactory::create(QObject *parent) const
 {
-    return new SMTP(parent, m_host, m_port, m_encryptedConnect, m_startTls, m_auth, m_user);
+    auto smtp = new SMTP(parent, m_host, m_port, m_encryptedConnect, m_startTls, m_auth, m_user);
+    if (m_oauth && m_auth) {
+        auto session = new OAuth::Session(m_oauthConfig, m_passwordPlugin, smtp);
+        session->setServer(m_host, m_port);
+        smtp->setTokenSource(session);
+    }
+    smtp->setPinnedPublicKey(m_pinnedPubKey);
+    return smtp;
+}
+
+void SMTPFactory::setPinnedPublicKey(const QByteArray &pemPublicKey)
+{
+    m_pinnedPubKey = pemPublicKey;
+}
+
+void SMTPFactory::setOAuth(const OAuth::AccountConfig &config, const OAuth::TokenStore::PluginGetter &passwordPlugin)
+{
+    m_oauth = true;
+    m_oauthConfig = config;
+    m_passwordPlugin = passwordPlugin;
 }
 
 }

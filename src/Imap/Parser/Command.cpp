@@ -91,6 +91,10 @@ QTextStream &operator<<(QTextStream &stream, const PartOfCommand &part)
         break;
     case ATOM_NO_SPACE_AROUND:
         stream << part.text;
+        break;
+    case SASL_RESPONSE:
+        stream << Qt::endl << "[SASL response]";
+        break;
     }
     return stream;
 }

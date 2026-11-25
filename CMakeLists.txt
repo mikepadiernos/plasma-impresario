@@ -98,6 +98,7 @@ trojita_plugin_option(WITH_ABOOKADDRESSBOOK_PLUGIN "Build AbookAddressbook plugi
 trojita_plugin_option(WITH_CLEARTEXT_PLUGIN "Build Cleartext password plugin" STATIC)
 trojita_plugin_option(WITH_QTKEYCHAIN_PLUGIN "Build Qtkeychain password plugin" "${QTKEYCHAIN_DEPENDS}")
 trojita_plugin_option(WITH_SONNET_PLUGIN "Build a plugin for spellchecking via KDE's Sonnet" "WITH_DESKTOP")
+trojita_option(WITH_KNOTIFICATIONS "Report background account errors as desktop notifications" AUTO "WITH_DESKTOP")
 
 trojita_find_package(Git "" "" "" "")
 
@@ -131,6 +132,7 @@ endif()
 
 trojita_find_package(Qt6Keychain QUIET "https://github.com/frankosterfeld/qtkeychain" "QtKeychain library (Qt6 version)" "Needed for QtKeychain password plugin" WITH_QTKEYCHAIN_PLUGIN)
 trojita_find_package(KF6Sonnet ${SONNET_LIB_VERSION} "https://projects.kde.org/projects/frameworks/sonnet" "Qt6 Spell Checking Library from KDE" "Spell checking support" WITH_SONNET_PLUGIN)
+trojita_find_package(KF6Notifications "" "https://invent.kde.org/frameworks/knotifications" "KDE desktop notifications" "Report background account errors as desktop notifications" WITH_KNOTIFICATIONS)
 if(Qt6Keychain_FOUND OR QtKeychain_FOUND)
     message(STATUS "Found QtKeychain library (includes at ${QTKEYCHAIN_INCLUDE_DIRS}, lib at ${QTKEYCHAIN_LIBRARIES})")
 else()
@@ -250,6 +252,12 @@ else()
     message(STATUS "Disabling COMPRESS=DEFLATE, zlib is not available")
 endif()
 
+if(WITH_KNOTIFICATIONS)
+    set(TROJITA_HAVE_KNOTIFICATIONS True)
+else()
+    set(TROJITA_HAVE_KNOTIFICATIONS False)
+endif()
+
 if (WITH_WEBENGINE)
     set(TROJITA_HAVE_WEBENGINE True)
     message(STATUS "Support for viewing mails via Qt WebEngine is enabled")
@@ -269,6 +277,7 @@ set(path_Common ${CMAKE_CURRENT_SOURCE_DIR}/src/Common)
 set(libCommon_SOURCES
     ${path_Common}/AccountRegistry.cpp
     ${path_Common}/AccountStatus.cpp
+    ${path_Common}/TrustedCertificates.cpp
     ${path_Common}/Application.cpp
     ${path_Common}/ConnectionId.cpp
     ${path_Common}/FileLogger.cpp
@@ -285,6 +294,14 @@ set(libPlugins_SOURCES
     ${path_Plugins}/PluginJob.cpp
     ${path_Plugins}/PluginManager.cpp
     ${path_Plugins}/SpellcheckerPlugin.cpp
+)
+
+set(path_OAuth ${CMAKE_CURRENT_SOURCE_DIR}/src/OAuth)
+set(libOAuth_SOURCES
+    ${path_OAuth}/OAuth.cpp
+    ${path_OAuth}/Session.cpp
+    ${path_OAuth}/TokenSource.cpp
+    ${path_OAuth}/TokenStore.cpp
 )
 
 set(path_UiUtils ${CMAKE_CURRENT_SOURCE_DIR}/src/UiUtils)
@@ -338,6 +355,7 @@ endif()
 set(path_Composer ${CMAKE_CURRENT_SOURCE_DIR}/src/Composer)
 set(libComposer_SOURCES
     ${path_Composer}/AbstractComposer.cpp
+    ${path_Composer}/AccountIdentities.cpp
     ${path_Composer}/ComposerAttachments.cpp
     ${path_Composer}/ExistingMessageComposer.cpp
     ${path_Composer}/Mailto.cpp
@@ -396,7 +414,9 @@ endif()
 
 set(path_DesktopGui ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui)
 set(libDesktopGui_SOURCES
+    ${path_DesktopGui}/AccountSidebar.cpp
     ${path_DesktopGui}/AttachmentPanel.cpp
+    ${path_DesktopGui}/CapabilityActionGate.cpp
     ${path_DesktopGui}/ContactPanel.cpp
     ${path_DesktopGui}/ColoredItemDelegate.cpp
     ${path_DesktopGui}/ComposeWidget.cpp
@@ -427,6 +447,8 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/RelatedMessagesPanel.cpp
     ${path_DesktopGui}/ReplaceCharValidator.cpp
     ${path_DesktopGui}/SettingsDialog.cpp
+    ${path_DesktopGui}/SettingsOAuthControls.cpp
+    ${path_DesktopGui}/ShellHeader.cpp
     ${path_DesktopGui}/ShortcutOverviewDialog.cpp
     ${path_DesktopGui}/Spinner.cpp
     ${path_DesktopGui}/TagAddDialog.cpp
@@ -643,6 +665,25 @@ target_link_libraries(Plugins
         Common
 )
 
+# Optional build-time OAuth client IDs; accounts can override them. Never configure a client secret here.
+set(IMPRESARIO_OAUTH_GOOGLE_CLIENT_ID "" CACHE STRING "Default OAuth client ID for Google accounts")
+set(IMPRESARIO_OAUTH_MICROSOFT_CLIENT_ID "" CACHE STRING "Default OAuth client ID for Microsoft accounts")
+add_library(OAuth STATIC ${libOAuth_SOURCES})
+set_property(TARGET OAuth APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+target_compile_definitions(OAuth PRIVATE
+    IMPRESARIO_OAUTH_GOOGLE_CLIENT_ID="${IMPRESARIO_OAUTH_GOOGLE_CLIENT_ID}"
+    IMPRESARIO_OAUTH_MICROSOFT_CLIENT_ID="${IMPRESARIO_OAUTH_MICROSOFT_CLIENT_ID}"
+)
+target_link_libraries(OAuth
+    PUBLIC
+        Qt::Core
+        Qt::Network
+        Common
+        Plugins
+    PRIVATE
+        Qt::Gui
+)
+
 add_library(UiUtils STATIC ${libUiUtils_SOURCES})
 set_property(TARGET UiUtils APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
 target_link_libraries(UiUtils
@@ -701,6 +742,7 @@ target_link_libraries(MSA
         Qt::Core
         Common
         Imap
+        OAuth
         qwwsmtpclient
     PRIVATE
         UiUtils
@@ -731,6 +773,7 @@ target_link_libraries(Imap
     PRIVATE
         Qt::Gui
         KF6::ItemModels
+        OAuth
         Streams
 )
 
@@ -892,8 +935,14 @@ if(WITH_DESKTOP)
             Cryptography
             IPC
             MSA
+            OAuth
             UiUtils
     )
+
+    if(WITH_KNOTIFICATIONS)
+        target_link_libraries(DesktopGui PRIVATE KF6::Notifications)
+        install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/plasma-impresario.notifyrc DESTINATION ${KDE_INSTALL_KNOTIFYRCDIR})
+    endif()
 
     if(WITH_WEBENGINE)
         target_link_libraries(DesktopGui
@@ -1046,6 +1095,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_MailboxNavigation PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_MainWindowAccounts tests/Gui/test_MainWindowAccounts.cpp)
         target_link_libraries(test_MainWindowAccounts PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_MainWindowShell tests/Gui/test_MainWindowShell.cpp)
+        target_link_libraries(test_MainWindowShell PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_SavedSearch tests/Gui/test_SavedSearch.cpp)
         target_link_libraries(test_SavedSearch PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_ClearTextPassword tests/Gui/test_ClearTextPassword.cpp)
@@ -1066,6 +1117,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_MsgListViewSelection PRIVATE DesktopGui Qt6::Test KF6::I18n)
         add_executable(test_SessionRestart tests/Gui/test_SessionRestart.cpp)
         target_link_libraries(test_SessionRestart PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_AccountSettingsDialog tests/Gui/test_AccountSettingsDialog.cpp)
+        target_link_libraries(test_AccountSettingsDialog PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         if(NOT CMAKE_CROSSCOMPILING)
             add_test(NAME test_DensityMenu COMMAND test_DensityMenu)
             set_tests_properties(test_DensityMenu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
@@ -1094,14 +1147,34 @@ if(BUILD_TESTING)
                     savedSearchesAndFolderExpansionFollowTheAccount focusCyclesThroughShellRegions
                     goToFolderActionsWithoutFolders destructiveActionsOffline quickActionsOffline
                     messageListFiltersOffline shortcutOverviewAndSelectionOffline powerUserProcessingOffline
-                    groupingAndRelevanceOffline folderViewStateOffline)
+                    groupingAndRelevanceOffline folderViewStateOffline
+                    identitiesFollowTheAccount composerSendsWithItsOwnAccount newAccountsStartWithoutIdentities
+                    oauthAccountsOfferSignIn)
                 add_test(NAME test_MainWindowAccounts_${account_case} COMMAND test_MainWindowAccounts ${account_case})
                 set_tests_properties(test_MainWindowAccounts_${account_case} PROPERTIES
                     TIMEOUT 60
                     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
             endforeach()
+            foreach(shell_case capabilityGateHidesOnlyUnsupportedActions unsupportedActionsFollowTheActiveAccount
+                    sidebarShowsHeadersOnlyForSeveralAccounts sidebarGroupsAccountsInTheWindow sidebarHeaderMenuActsOnItsAccount
+                    headerRegionIsOptional headerShowsFolderAndStatus legacyCompactPaneSizesCarryOver
+                    legacyWidePaneSizesCarryOver)
+                add_test(NAME test_MainWindowShell_${shell_case} COMMAND test_MainWindowShell ${shell_case})
+                set_tests_properties(test_MainWindowShell_${shell_case} PROPERTIES
+                    TIMEOUT 60
+                    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
+            endforeach()
             add_test(NAME test_SessionRestart COMMAND test_SessionRestart)
             set_tests_properties(test_SessionRestart PROPERTIES TIMEOUT 120 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            # One main window per process: the shortcut handler is a singleton.
+            foreach(settings_case accountsKeepTheirOwnCaches applicationSettingsLeaveTheAccountAlone
+                    accountSettingsEditOnlyTheActiveAccount cancellingAccountSettingsKeepsTheAccount
+                    addingAnAccountOpensItsAccountSettings clientSecretStaysOutOfTheSettings)
+                add_test(NAME test_AccountSettingsDialog_${settings_case} COMMAND test_AccountSettingsDialog ${settings_case})
+                set_tests_properties(test_AccountSettingsDialog_${settings_case} PROPERTIES
+                    TIMEOUT 60
+                    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
+            endforeach()
             set_tests_properties(test_MainWindowDensity PROPERTIES
                 TIMEOUT 30
                 ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
@@ -1209,9 +1282,14 @@ if(BUILD_TESTING)
     trojita_test(Misc Formatting)
     trojita_test(Misc QaimDfsIterator)
     trojita_test(Misc FavoriteTagsModel)
+    trojita_test(Misc AccountCache)
+    trojita_test(Misc TrustedCertificates)
     trojita_test(Misc AccountCapabilities)
     trojita_test(Misc AccountRegistry)
+    trojita_test(Misc AccountIdentities)
     trojita_test(Misc AccountStatus)
+    trojita_test(Misc OAuth)
+    trojita_test(Misc SmtpClient)
     trojita_test(Misc AttachmentCollector)
     target_link_libraries(test_AttachmentCollector PRIVATE UiUtils)
     trojita_test(Misc RelatedMessages)

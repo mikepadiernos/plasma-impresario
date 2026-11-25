@@ -29,6 +29,8 @@
 #include <QPersistentModelIndex>
 #include <QUrl>
 #include <QPointer>
+#include <QSslCertificate>
+#include <QSslError>
 #include <QWidget>
 
 #include "Common/Logging.h"
@@ -52,7 +54,12 @@ class QSettings;
 class QToolButton;
 
 namespace Composer {
+class SenderIdentitiesModel;
 class Submission;
+}
+
+namespace Imap {
+class ImapAccess;
 }
 
 namespace MSA {
@@ -129,6 +136,7 @@ private slots:
 
     void passwordRequested(const QString &user, const QString &host);
     void passwordError();
+    void certificateCheckRequested(const QList<QSslCertificate> &chain, const QList<QSslError> &errors);
     void toggleReplyMarking();
     void updateReplyMarkingAction();
     void updateReplyMode();
@@ -143,6 +151,7 @@ private:
                          const QString &body, const QList<QByteArray> &inReplyTo, const QList<QByteArray> &references,
                          const QModelIndex &replyingToMessage);
     bool setReplyMode(const Composer::ReplyMode mode);
+    QList<Imap::Message::MailAddress> ownLoginAddresses() const;
 
     static QByteArray extractMailAddress(const QString &text, bool &ok);
     static Composer::RecipientKind recipientKindForNextRow(const Composer::RecipientKind kind);
@@ -199,6 +208,12 @@ private:
 
     MainWindow *m_mainWindow;
     QSettings *m_settings;
+    /** Settings of the account that was active when this composer opened; the message is sent with them */
+    QPointer<QSettings> m_accountSettings;
+    /** Connection of the account that was active when this composer opened */
+    QPointer<Imap::ImapAccess> m_imapAccess;
+    /** Identities of the account that was active when this composer opened */
+    Composer::SenderIdentitiesModel *m_senderIdentities;
 
     std::shared_ptr<Composer::AbstractComposer> m_composer;
     Composer::Submission *m_submission;

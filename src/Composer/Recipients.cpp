@@ -268,7 +268,8 @@ RecipientList extractListOfRecipients(const QModelIndex &message)
 bool replyRecipientList(const ReplyMode mode, const SenderIdentitiesModel *senderIdetitiesModel,
                         const RecipientList &originalRecipients,
                         const QList<QUrl> &headerListPost, const bool headerListPostNo,
-                        RecipientList &output)
+                        RecipientList &output,
+                        const QList<Imap::Message::MailAddress> &otherOwnAddresses)
 {
     switch (mode) {
     case REPLY_ALL:
@@ -279,7 +280,8 @@ bool replyRecipientList(const ReplyMode mode, const SenderIdentitiesModel *sende
         bool ok = prepareReplyAll(originalRecipients, res);
         if (!ok)
             return false;
-        Q_FOREACH(const Imap::Message::MailAddress &addr, extractEmailAddresses(senderIdetitiesModel)) {
+        const QList<Imap::Message::MailAddress> ownAddresses = extractEmailAddresses(senderIdetitiesModel) + otherOwnAddresses;
+        for (const Imap::Message::MailAddress &addr : ownAddresses) {
             RecipientList::iterator it = res.begin();
             while (it != res.end()) {
                 if (Imap::Message::MailAddressesEqualByMail(it->second, addr)) {
@@ -311,7 +313,8 @@ bool replyRecipientList(const ReplyMode mode, const SenderIdentitiesModel *sende
 
 /** @short Convenience wrapper */
 bool replyRecipientList(const ReplyMode mode, const SenderIdentitiesModel *senderIdetitiesModel,
-                        const QModelIndex &message, RecipientList &output)
+                        const QModelIndex &message, RecipientList &output,
+                        const QList<Imap::Message::MailAddress> &otherOwnAddresses)
 {
     if (!message.isValid())
         return false;
@@ -325,7 +328,8 @@ bool replyRecipientList(const ReplyMode mode, const SenderIdentitiesModel *sende
         headerListPost << item.toUrl();
 
     return replyRecipientList(mode, senderIdetitiesModel, originalRecipients, headerListPost,
-                              message.data(Imap::Mailbox::RoleMessageHeaderListPostNo).toBool(), output);
+                              message.data(Imap::Mailbox::RoleMessageHeaderListPostNo).toBool(), output,
+                              otherOwnAddresses);
 }
 
 QList<Imap::Message::MailAddress> extractEmailAddresses(const SenderIdentitiesModel *senderIdetitiesModel)

@@ -101,10 +101,17 @@ public slots:
     /** @short STARTTLS, RFC3051 section 6.2.1 */
     Imap::CommandHandle startTls();
 
-#if 0
-    /** @short AUTHENTICATE, RFC3501 section 6.2.2 */
-    CommandHandle authenticate(/* FIXME: parameter */);
-#endif
+    /** @short AUTHENTICATE, RFC3501 section 6.2.2, for mechanisms with a single client response
+
+    The initial response is sent with the command when the server supports SASL-IR (RFC 4959), otherwise after the
+    server's first continuation request. Any further challenge reports an error and is answered with the
+    cancelResponse, after which the server completes the command with NO; see lastSaslChallenge().
+    */
+    Imap::CommandHandle authenticate(const QByteArray &mechanism, const QByteArray &initialResponse,
+                                     const QByteArray &cancelResponse, bool saslIr);
+
+    /** @short The last error challenge received during AUTHENTICATE, still base64-encoded */
+    QByteArray lastSaslChallenge() const;
 
     /** @short LOGIN, RFC3501 section 6.2.3 */
     Imap::CommandHandle login(const QString &user, const QString &pass);
@@ -399,6 +406,12 @@ private:
     QByteArray startTlsReply;
     QByteArray compressDeflateCommand;
     QByteArray literalCommandTag;
+    /** @short Tag of the AUTHENTICATE command whose SASL exchange is in progress */
+    QByteArray m_saslTag;
+    /** @short The whole AUTHENTICATE command was sent, so nothing else may be sent until it completes */
+    bool m_saslAwaitingResult = false;
+    QByteArray m_saslCancelResponse;
+    QByteArray m_lastSaslChallenge;
 
     /** @short Unique-id for debugging purposes */
     uint m_parserId;

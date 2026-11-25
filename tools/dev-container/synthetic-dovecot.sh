@@ -12,8 +12,13 @@
 # All users, messages and passwords are synthetic. Call synthetic_dovecot_stop
 # (for example from an EXIT trap) to stop the server and delete its data.
 #
+# The generated configuration uses Dovecot 2.4 syntax, so init fails on any
+# other series. It prints the exact Dovecot version so that each run records
+# the server it was verified against.
+#
 # Variables set by synthetic_dovecot_init: work (temporary directory), port
-# (PLASMA_TEST_IMAPS_PORT or 10993) and password (shared by every user).
+# (PLASMA_TEST_IMAPS_PORT or 10993), password (shared by every user) and
+# dovecot_version.
 
 synthetic_dovecot_init() {
     port=${PLASMA_TEST_IMAPS_PORT:-10993}
@@ -21,6 +26,16 @@ synthetic_dovecot_init() {
     if ! command -v dovecot >/dev/null 2>&1 || ! command -v openssl >/dev/null 2>&1; then
         dnf -y -q install --setopt=install_weak_deps=False dovecot openssl >/dev/null
     fi
+    dovecot_version=$(dovecot --version 2>/dev/null | cut -d' ' -f1)
+    case "$dovecot_version" in
+        2.4.*)
+            echo "Synthetic Dovecot $dovecot_version on 127.0.0.1:$port" >&2
+            ;;
+        *)
+            echo "Dovecot 2.4 is required; found ${dovecot_version:-none}" >&2
+            return 1
+            ;;
+    esac
     id pimail >/dev/null 2>&1 || useradd -r -M -u 2525 -s /sbin/nologin pimail
     work=$(mktemp -d /tmp/pi-dovecot.XXXXXX)
     chmod 755 "$work"

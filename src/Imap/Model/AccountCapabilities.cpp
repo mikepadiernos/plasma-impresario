@@ -3,6 +3,7 @@
 */
 
 #include <QObject>
+#include <QSettings>
 #include "AccountCapabilities.h"
 
 namespace Imap {
@@ -64,6 +65,40 @@ AccountProtocol AccountCapabilities::protocolFromName(const QString &name, bool 
         return AccountProtocol::Jmap;
     *ok = false;
     return AccountProtocol::Imap;
+}
+
+QString AccountCapabilities::protocolName(AccountProtocol protocol)
+{
+    switch (protocol) {
+    case AccountProtocol::Imap:
+        return QStringLiteral("imap");
+    case AccountProtocol::Pop3:
+        return QStringLiteral("pop3");
+    case AccountProtocol::Jmap:
+        return QStringLiteral("jmap");
+    }
+    Q_UNREACHABLE();
+}
+
+QString AccountCapabilities::protocolSettingsKey()
+{
+    return QStringLiteral("account.protocol");
+}
+
+AccountCapabilities AccountCapabilities::forAccount(const QSettings &account, bool *recognized)
+{
+    bool ok = true;
+    AccountProtocol protocol = AccountProtocol::Imap;
+    if (account.contains(protocolSettingsKey()))
+        protocol = protocolFromName(account.value(protocolSettingsKey()).toString(), &ok);
+    if (recognized)
+        *recognized = ok;
+    return AccountCapabilities(protocol);
+}
+
+void AccountCapabilities::setProtocol(QSettings &account, AccountProtocol protocol)
+{
+    account.setValue(protocolSettingsKey(), protocolName(protocol));
 }
 
 }

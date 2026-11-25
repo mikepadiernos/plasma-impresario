@@ -31,6 +31,7 @@ class TestFormatting : public QObject
 private Q_SLOTS:
     void testAddressEliding();
     void testAddressEliding_data();
+    void testSslStateNamesTheServer();
 };
 
 #endif

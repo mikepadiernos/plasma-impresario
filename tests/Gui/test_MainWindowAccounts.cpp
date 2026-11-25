@@ -5,6 +5,9 @@
 #include "Common/MetaTypes.h"
 #include "Common/Paths.h"
 #include "Common/SettingsNames.h"
+#include "Composer/AccountIdentities.h"
+#include "Composer/SenderIdentitiesModel.h"
+#include "Gui/ComposeWidget.h"
 #include "Gui/DensityMenu.h"
 #include "Gui/InlineNotificationBar.h"
 #include "Gui/MailBoxTreeView.h"
@@ -20,6 +23,7 @@
 #include "Imap/Model/Model.h"
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/PrettyMsgListModel.h"
+#include "OAuth/Session.h"
 #include "Plugins/PasswordPlugin.h"
 #include "Plugins/PluginManager.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
@@ -46,6 +50,7 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QPointer>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QStandardItemModel>
@@ -55,6 +60,7 @@
 #include <QTimer>
 #include <QToolButton>
 #include <QTreeWidget>
+#include <QUrlQuery>
 
 namespace {
 
@@ -109,6 +115,44 @@ bool seedFirstAccountCache()
             cache.setMsgFlags(mailbox, uid, QStringList());
     }
     return true;
+}
+
+/** @short Make the account send through a script that saves the message to @arg output, and not file it in Sent */
+void sendThroughScript(const QTemporaryDir &directory, const QString &accountFile, const QString &output)
+{
+    const QString script = directory.filePath(output + QStringLiteral(".sh"));
+    QFile file(script);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    file.write("cat > '" + directory.filePath(output).toUtf8() + "'\n");
+    file.close();
+    QSettings account(directory.filePath(accountFile), QSettings::IniFormat);
+    account.setValue(Common::SettingsNames::msaMethodKey, Common::SettingsNames::methodSENDMAIL);
+    account.setValue(Common::SettingsNames::sendmailKey, QString(QStringLiteral("/bin/sh ") + script));
+    account.setValue(Common::SettingsNames::composerSaveToImapKey, false);
+    account.sync();
+}
+
+Gui::ComposeWidget *openComposer(Gui::MainWindow &window)
+{
+    auto *composer = Gui::ComposeWidget::createFromUrl(
+        &window, QUrl(QStringLiteral("mailto:bob@example.test?subject=Synthetic&body=Synthetic%20body")));
+    if (composer) {
+        if (auto *sender = composer->findChild<QComboBox *>(QStringLiteral("sender")))
+            sender->setEditText(QStringLiteral("pat@example.test"));
+    }
+    return composer;
+}
+
+QMenu *openAccountMenu(Gui::MainWindow &window, const QString &accountId)
+{
+    for (QMenu *old : window.findChildren<QMenu *>(QStringLiteral("accountMenu")))
+        old->close();
+    QMetaObject::invokeMethod(&window, "showAccountMenu", Q_ARG(QString, accountId), Q_ARG(QPoint, QPoint(10, 10)));
+    for (QMenu *menu : window.findChildren<QMenu *>(QStringLiteral("accountMenu"))) {
+        if (menu->isVisible())
+            return menu;
+    }
+    return nullptr;
 }
 
 QComboBox *accountSwitcher(Gui::MainWindow &window)
@@ -193,15 +237,32 @@ private slots:
         QVERIFY(window.imapModel() != workModel);
         QVERIFY(switcher->itemData(0, Qt::ToolTipRole).toString().isEmpty());
 
+        auto *alerts = window.findChild<QToolButton *>(QStringLiteral("backgroundAccountAlerts"));
+        QVERIFY(alerts);
+        QVERIFY(alerts->isHidden());
+
         emit workModel->networkError(QStringLiteral("Host lookup failed"));
         QVERIFY(switcher->itemData(0, Qt::ToolTipRole).toString().contains(QStringLiteral("Host lookup failed")));
         QCOMPARE(switcher->itemText(0), QStringLiteral("Work (%1)").arg(Common::AccountStatusTracker::label(Common::AccountStatusKind::NetworkError)));
         QVERIFY(switcher->itemData(1, Qt::ToolTipRole).toString().isEmpty());
+        // The footer names the background account and its error
+        QVERIFY(!alerts->isHidden());
+        QVERIFY(alerts->text().contains(QStringLiteral("Work")));
+        QVERIFY(alerts->toolTip().contains(QStringLiteral("Host lookup failed")));
 
         emit workModel->connectionStateChanged(1u, Imap::CONN_STATE_AUTHENTICATED);
         QVERIFY(switcher->itemData(0, Qt::ToolTipRole).toString().isEmpty());
         QCOMPARE(switcher->itemText(0), QStringLiteral("Work"));
         QCOMPARE(switcher->currentText(), QStringLiteral("Home"));
+        QVERIFY(alerts->isHidden());
+
+        // Clicking the footer switches to the flagged account, which then reports its error itself
+        emit workModel->authAttemptFailed(QStringLiteral("Rejected password"));
+        QVERIFY(!alerts->isHidden());
+        alerts->click();
+        QCOMPARE(switcher->currentText(), QStringLiteral("Work (%1)").arg(Common::AccountStatusTracker::label(Common::AccountStatusKind::AuthFailed)));
+        QCOMPARE(window.imapModel(), workModel);
+        QVERIFY(alerts->isHidden());
     }
 
     void removingAccountDeletesItsSettingsAndPasswords()
@@ -221,8 +282,19 @@ private slots:
         store->start();
         QVERIFY(stored.wait(1000));
         QVERIFY(settings.contains(QStringLiteral("accountPasswords/account-2/imap")));
+        // The migrated account caches directly in the cache root, and the other one in its own directory.
+        const QString cacheRoot = Common::writablePath(Common::LOCATION_CACHE);
+        const QStringList cachedFiles{QStringLiteral("imap.cache.sqlite"), QStringLiteral("account-2/imap.cache.sqlite"),
+                                      QStringLiteral("account-2/SU5CT1g=/3_1.cache")};
+        for (const QString &name : cachedFiles) {
+            QVERIFY(QDir().mkpath(QFileInfo(cacheRoot + name).absolutePath()));
+            QFile file(cacheRoot + name);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
 
         QVERIFY(QMetaObject::invokeMethod(&window, "removeAccountNow", Q_ARG(QString, QStringLiteral("account-2"))));
+        QVERIFY(!QFileInfo::exists(cacheRoot + QStringLiteral("account-2")));
+        QVERIFY(QFile::exists(cacheRoot + QStringLiteral("imap.cache.sqlite")));
         QTRY_VERIFY(!settings.contains(QStringLiteral("accountPasswords/account-2/imap")));
         QVERIFY(!QFile::exists(directory.filePath(QStringLiteral("main-account-2.conf"))));
         QCOMPARE(settings.value(QStringLiteral("accounts/ids")).toStringList(), QStringList{QStringLiteral("account-1")});
@@ -233,6 +305,8 @@ private slots:
 
         QVERIFY(QMetaObject::invokeMethod(&window, "removeAccountNow", Q_ARG(QString, QStringLiteral("account-1"))));
         QCOMPARE(switcher->count(), 1);
+        // The last account cannot be removed, so its cache stays.
+        QVERIFY(QFile::exists(cacheRoot + QStringLiteral("imap.cache.sqlite")));
     }
 
     void accountsSwitchFromTheKeyboard()
@@ -1406,6 +1480,231 @@ private slots:
         QVERIFY(inboxPosition);
         QCOMPARE(inboxPosition->uidValidity, 7u);
         QCOMPARE(inboxPosition->uid, 3u);
+    }
+
+    void identitiesFollowTheAccount()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        {
+            Composer::SenderIdentitiesModel legacy;
+            legacy.appendIdentity(Composer::ItemSenderIdentity(QStringLiteral("Pat"), QStringLiteral("pat@example.test"),
+                                                               QString(), QString()));
+            legacy.saveToSettings(settings);
+        }
+
+        Gui::MainWindow window(&settings);
+        auto *shared = window.sharedIdentitiesModel();
+        auto *work = window.senderIdentitiesModel();
+        QVERIFY(work != shared);
+        QCOMPARE(work, window.accountIdentitiesModel());
+        // Existing accounts start with a copy of the identities they used before.
+        QCOMPARE(work->rowCount(), 1);
+        QCOMPARE(work->index(0, Composer::SenderIdentitiesModel::COLUMN_EMAIL).data().toString(),
+                 QStringLiteral("pat@example.test"));
+        QVERIFY(!Composer::AccountIdentities::usesSharedIdentities(*window.accountSettings()));
+
+        work->appendIdentity(Composer::ItemSenderIdentity(QStringLiteral("Pat"), QStringLiteral("pat@work.test"),
+                                                          QString(), QString()));
+        window.findChild<QAction *>(QStringLiteral("action_next_account"))->trigger();
+        QCOMPARE(window.imapAccess()->credentialAccountId(), QStringLiteral("account-2"));
+        auto *home = window.senderIdentitiesModel();
+        QVERIFY(home != work);
+        QVERIFY(home != shared);
+        QCOMPARE(home->rowCount(), 1);
+        QCOMPARE(shared->rowCount(), 1);
+
+        Composer::AccountIdentities::setUsesSharedIdentities(*window.accountSettings(), true);
+        QCOMPARE(window.senderIdentitiesModel(), shared);
+        QCOMPARE(window.accountIdentitiesModel(), home);
+
+        window.findChild<QAction *>(QStringLiteral("action_previous_account"))->trigger();
+        QCOMPARE(window.senderIdentitiesModel(), work);
+        QCOMPARE(work->rowCount(), 2);
+
+        // An account without an identity offers none to the composer but keeps its own for later.
+        Composer::AccountIdentities::setSource(*window.accountSettings(), Composer::AccountIdentities::Source::None);
+        auto *none = window.senderIdentitiesModel();
+        QVERIFY(none != work);
+        QVERIFY(none != shared);
+        QCOMPARE(none->rowCount(), 0);
+        QCOMPARE(window.accountIdentitiesModel(), work);
+        QCOMPARE(work->rowCount(), 2);
+        Composer::AccountIdentities::setSource(*window.accountSettings(), Composer::AccountIdentities::Source::Own);
+        QCOMPARE(window.senderIdentitiesModel(), work);
+    }
+
+    void composerSendsWithItsOwnAccount()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        sendThroughScript(directory, QStringLiteral("main-account-1.conf"), QStringLiteral("work.eml"));
+        {
+            // The other account would file the message in Sent on its offline server, so sending would not finish.
+            QSettings home(directory.filePath(QStringLiteral("main-account-2.conf")), QSettings::IniFormat);
+            home.setValue(Common::SettingsNames::msaMethodKey, Common::SettingsNames::methodSENDMAIL);
+            home.setValue(Common::SettingsNames::sendmailKey, QStringLiteral("/bin/false"));
+            home.setValue(Common::SettingsNames::composerSaveToImapKey, true);
+            home.setValue(Common::SettingsNames::composerImapSentKey, QStringLiteral("Home Sent"));
+        }
+
+        Gui::MainWindow window(&settings);
+        QPointer<Gui::ComposeWidget> composer = openComposer(window);
+        QVERIFY(composer);
+        window.findChild<QAction *>(QStringLiteral("action_next_account"))->trigger();
+        QCOMPARE(window.imapAccess()->credentialAccountId(), QStringLiteral("account-2"));
+
+        QStringList errors;
+        QTimer dialogs;
+        connect(&dialogs, &QTimer::timeout, this, [&errors] {
+            if (auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+                errors << box->text();
+                box->reject();
+            }
+        });
+        dialogs.start(20);
+        QVERIFY(QMetaObject::invokeMethod(composer, "send"));
+        QTRY_VERIFY2_WITH_TIMEOUT(QFile::exists(directory.filePath(QStringLiteral("work.eml"))),
+                                  qPrintable(errors.join(QLatin1Char('\n'))), 10000);
+        QTRY_VERIFY2_WITH_TIMEOUT(!composer, qPrintable(errors.join(QLatin1Char('\n'))), 10000);
+        QVERIFY2(errors.isEmpty(), qPrintable(errors.join(QLatin1Char('\n'))));
+        QFile sent(directory.filePath(QStringLiteral("work.eml")));
+        QVERIFY(sent.open(QIODevice::ReadOnly));
+        QVERIFY(sent.readAll().contains("Subject: Synthetic"));
+
+        // A composer whose account was removed refuses to send instead of using another account.
+        composer = openComposer(window);
+        QVERIFY(composer);
+        QVERIFY(QMetaObject::invokeMethod(&window, "removeAccountNow", Q_ARG(QString, QStringLiteral("account-2"))));
+        QCOMPARE(settings.value(QStringLiteral("accounts/active")).toString(), QStringLiteral("account-1"));
+        QFile::remove(directory.filePath(QStringLiteral("work.eml")));
+        QVERIFY(QMetaObject::invokeMethod(composer, "send"));
+        QTRY_COMPARE_WITH_TIMEOUT(errors.size(), 1, 5000);
+        QVERIFY2(errors.first().contains(QLatin1String("removed")), qPrintable(errors.first()));
+        QVERIFY(composer);
+        QTest::qWait(200);
+        QVERIFY(!QFile::exists(directory.filePath(QStringLiteral("work.eml"))));
+        delete composer;
+    }
+
+    void oauthAccountsOfferSignIn()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        {
+            QSettings work(directory.filePath(QStringLiteral("main-account-1.conf")), QSettings::IniFormat);
+            work.setValue(Common::SettingsNames::imapAuthMethodKey, Common::SettingsNames::authMethodOAuth);
+            work.setValue(Common::SettingsNames::oauthProviderKey, QStringLiteral("microsoft"));
+            work.setValue(Common::SettingsNames::oauthClientIdKey, QStringLiteral("work-client"));
+            work.setValue(Common::SettingsNames::imapUserKey, QStringLiteral("pat@example.test"));
+        }
+        // Never open a real browser
+        QList<QUrl> opened;
+        OAuth::Session::setDefaultBrowserLauncher([&](const QUrl &url) {
+            opened << url;
+            return false;
+        });
+
+        Gui::MainWindow window(&settings);
+        auto *switcher = accountSwitcher(window);
+        auto *signIn = window.findChild<QToolButton *>(QStringLiteral("oauthSignInButton"));
+        QVERIFY(switcher && signIn);
+        QVERIFY(signIn->isHidden());
+
+        // Only OAuth accounts offer to sign in from their menu
+        QMenu *menu = openAccountMenu(window, QStringLiteral("account-2"));
+        QVERIFY(menu);
+        QVERIFY(!menu->findChild<QAction *>(QStringLiteral("action_account_menu_sign_in")));
+        menu = openAccountMenu(window, QStringLiteral("account-1"));
+        QVERIFY(menu);
+        QAction *menuSignIn = menu->findChild<QAction *>(QStringLiteral("action_account_menu_sign_in"));
+        QVERIFY(menuSignIn);
+
+        // A failed OAuth sign-in offers to sign in again from the footer
+        emit window.imapModel()->authAttemptFailed(OAuth::errorMessage(OAuth::Error::Revoked));
+        QVERIFY(!signIn->isHidden());
+
+        // Signing in again reports its failure on the account, without a dialog: the fake browser cannot open, or
+        // without an encrypted credential store, the sign-in fails before it would
+        QTRY_VERIFY(window.pluginManager()->password() != nullptr);
+        const bool encrypted =
+            window.pluginManager()->password()->features() & Plugins::PasswordPlugin::FeatureEncryptedStorage;
+        const QString failure =
+            OAuth::errorMessage(encrypted ? OAuth::Error::BrowserUnavailable : OAuth::Error::StorageUnavailable);
+        signIn->click();
+        QTRY_VERIFY(switcher->itemData(0, Qt::ToolTipRole).toString().contains(failure));
+        QCOMPARE(opened.size(), encrypted ? 1 : 0);
+        if (encrypted) {
+            const QUrlQuery query(opened.first());
+            QCOMPARE(opened.first().host(), QStringLiteral("login.microsoftonline.com"));
+            QCOMPARE(query.queryItemValue(QStringLiteral("client_id")), QStringLiteral("work-client"));
+            QCOMPARE(query.queryItemValue(QStringLiteral("login_hint"), QUrl::FullyDecoded), QStringLiteral("pat@example.test"));
+        }
+        QVERIFY(!signIn->isHidden());
+        for (auto *widget : QApplication::topLevelWidgets()) {
+            auto *box = qobject_cast<QMessageBox *>(widget);
+            QVERIFY2(!box || !box->isVisible(), qPrintable(box ? box->text() : QString()));
+        }
+        // The menu starts the same sign-in
+        emit window.imapModel()->authAttemptFailed(OAuth::errorMessage(OAuth::Error::Revoked));
+        QVERIFY(!switcher->itemData(0, Qt::ToolTipRole).toString().contains(failure));
+        menu = openAccountMenu(window, QStringLiteral("account-1"));
+        QVERIFY(menu);
+        menuSignIn = menu->findChild<QAction *>(QStringLiteral("action_account_menu_sign_in"));
+        QVERIFY(menuSignIn);
+        menuSignIn->trigger();
+        QTRY_VERIFY(switcher->itemData(0, Qt::ToolTipRole).toString().contains(failure));
+        QCOMPARE(opened.size(), encrypted ? 2 : 0);
+
+        // Removing an account at a provider without revocation tells where to remove its access
+        menu = openAccountMenu(window, QStringLiteral("account-1"));
+        QVERIFY(menu);
+        QString question;
+        QTimer poll;
+        connect(&poll, &QTimer::timeout, [&]() {
+            if (auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+                question = box->text();
+                box->button(QMessageBox::No)->click();
+            }
+        });
+        poll.start(20);
+        menu->findChild<QAction *>(QStringLiteral("action_account_menu_remove"))->trigger();
+        QTRY_VERIFY(!question.isEmpty());
+        QVERIFY(question.contains(OAuth::provider(QStringLiteral("microsoft")).accessManagementPage.toString()));
+        QCOMPARE(settings.value(QStringLiteral("accounts/ids")).toStringList().size(), 2);
+
+        // A password account which failed does not offer it
+        switcher->setCurrentIndex(1);
+        emit switcher->activated(1);
+        emit window.imapModel()->authAttemptFailed(QStringLiteral("Rejected password"));
+        QVERIFY(signIn->isHidden());
+        OAuth::Session::setDefaultBrowserLauncher(nullptr);
+    }
+
+    void newAccountsStartWithoutIdentities()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings shared(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        QSettings account(directory.filePath(QStringLiteral("main-account-3.conf")), QSettings::IniFormat);
+        Composer::SenderIdentitiesModel legacy;
+        legacy.appendIdentity(Composer::ItemSenderIdentity(QStringLiteral("Pat"), QStringLiteral("pat@example.test"),
+                                                           QString(), QString()));
+        legacy.saveToSettings(shared);
+
+        Composer::AccountIdentities::initializeNewAccount(account);
+        // A recorded choice stops the start-up migration from copying the shared identities.
+        QVERIFY(!Composer::AccountIdentities::migrateAccount(shared, account));
+        Composer::SenderIdentitiesModel identities;
+        identities.loadFromSettings(account);
+        QCOMPARE(identities.rowCount(), 0);
+        QVERIFY(!Composer::AccountIdentities::usesSharedIdentities(account));
     }
 };
 

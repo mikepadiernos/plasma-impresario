@@ -250,6 +250,10 @@ This method should be called by the UI when the user wishes to save current sett
 */
 void Account::saveSettings()
 {
+    // A certificate the user accepted belongs to the previous server
+    if (m_settings->value(Common::SettingsNames::smtpHostKey).toString() != m_server)
+        m_settings->remove(Common::SettingsNames::smtpSslPemPubKey);
+
     switch (m_msaSubmissionMethod) {
     case Method::SMTP:
     case Method::SMTP_STARTTLS:

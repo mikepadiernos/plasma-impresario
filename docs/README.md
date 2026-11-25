@@ -4,61 +4,100 @@
 **[Pending tasks](TODO.md)** · **[Bugs](BUGS.md)** · **[Caveats](CAVEATS.md)** ·
 **[Contributing](../CONTRIBUTING.md)**
 
-Find installation help, product direction, implementation references and project
-tracking.
+Find installation help, product direction, design and integration references,
+and project tracking. Each topic has one source of truth; other documents link
+to it instead of repeating it.
 
 ## Contents
 
 - [Start here](#start-here)
 - [Plan and track](#plan-and-track)
-- [Product and integration guides](#product-and-integration-guides)
+- [Design and product](#design-and-product)
+- [Integrations](#integrations)
+- [Specifications and references](#specifications-and-references)
+- [Screenshots](#screenshots)
 - [Historical archive](#historical-archive)
 
 ## Start here
 
-| Guide                                                 | What it covers                                                         |
-| ----------------------------------------------------- | ---------------------------------------------------------------------- |
-| [Project README](../README.md)                        | Quick start, current features and product direction                    |
-| [Installation](INSTALL.md)                            | Installer options, custom prefixes and troubleshooting                 |
-| [Compatibility baseline](philosophy/compatibility.md) | M01 target environment, dependencies and verification limits           |
-| [Scope and objective](philosophy/scope.md)            | Target workflows and product boundaries                                |
-| [Design direction](philosophy/designs.md)             | Shell structure, proposed interface widgets and interaction principles |
-| [Inspirations](philosophy/inspirations.md)            | Mail-client and Plasma influences                                      |
-| [Project instructions](../CLAUDE.md)                  | Development conventions and project workflow                           |
-| [Contributing](../CONTRIBUTING.md)                    | Development workflow and the headless build container                  |
+| Guide                                            | What it covers                                                   |
+| ------------------------------------------------ | ---------------------------------------------------------------- |
+| 🏠 [Project README](../README.md)                | What works today, screenshots, quick start and product direction |
+| 🚦 [Project status](../README.md#project-status) | Milestone progress and the branch each milestone lives on        |
+| 📦 [Installation](INSTALL.md)                    | Installer options, distribution packages and troubleshooting     |
+| 🛠️ [Contributing](../CONTRIBUTING.md)            | Development workflow, board statuses and the headless container  |
+| 📐 [Project instructions](../CLAUDE.md)          | Conventions for code, roadmap, board and branches                |
 
 ## Plan and track
 
-| Document                           | What it tracks                                            |
-| ---------------------------------- | --------------------------------------------------------- |
-| [Roadmap](ROADMAP.md)              | Milestones, architecture and delivery order               |
-| [Pending tasks](TODO.md)           | Blockers, handoffs and resumable work                     |
-| [Reported bugs](BUGS.md)           | User-visible issues and resolution status                 |
-| [Caveats and security](CAVEATS.md) | Current limitations, security posture and recommendations |
-| [Edge cases](EDGE.md)              | Boundary scenarios that need validation                   |
+| Document                              | Source of truth for                                       |
+| ------------------------------------- | --------------------------------------------------------- |
+| 🗺️ [Roadmap](ROADMAP.md)              | Milestones, scope, architecture and delivery order        |
+| 📝 [Pending tasks](TODO.md)           | Blockers, verification records and resumable handoffs     |
+| 🐞 [Reported bugs](BUGS.md)           | User-visible bugs and their resolution status             |
+| ⚠️ [Caveats and security](CAVEATS.md) | Current limitations, security posture and recommendations |
+| 🧪 [Edge cases](EDGE.md)              | Boundary scenarios that still need tests                  |
 
 > [!IMPORTANT]
 >
 > The roadmap defines intended scope. Pending tasks are handoffs, caveats
-> describe limitations, edge cases are test candidates, and bugs are confirmed
-> regressions—not implementation claims.
+> describe limitations, edge cases are test candidates and bugs are confirmed
+> defects. None of them is a completion marker: an item is done only when its
+> issue is **Completed** or **Merged** on the
+> [project board](https://github.com/users/mikepadiernos/projects/4).
 
-## Product and integration guides
+## Design and product
 
-| Guide                                                    | What it covers                                       |
-| -------------------------------------------------------- | ---------------------------------------------------- |
-| [Refinement plans](refinements/README.md)                | Release-quality review areas and acceptance criteria |
-| [Menu specifications](refinements/menus/README.md)       | Application and context-menu behavior                |
-| [Toolbar specifications](refinements/toolbars/README.md) | Main, list, reader and compose toolbars              |
-| [KDE Plasma integration](integrations/kde-plasma.md)     | Desktop services and KDE conventions                 |
-| [Plasma Opus integration](integrations/plasma-opus.md)   | Cross-app and workspace-aware workflows              |
-| [Backend parity](parity/backend.md)                      | Current backend baseline and reference patterns      |
-| [UI parity](parity/ui.md)                                | Current layout and target interface patterns         |
+| Guide                                                    | What it covers                                                     |
+| -------------------------------------------------------- | ------------------------------------------------------------------ |
+| 🎨 [Interface design](philosophy/designs.md)             | The current shell and panels, and the planned Plasma Impresario UI |
+| 🎯 [Scope and objective](philosophy/scope.md)            | Target workflows and product boundaries                            |
+| 🧱 [Compatibility baseline](philosophy/compatibility.md) | Target environment, dependencies and verification limits           |
+| 💡 [Inspirations](philosophy/inspirations.md)            | Mail-client and Plasma influences                                  |
+
+## Integrations
+
+| Guide                                                           | What it covers                                          |
+| --------------------------------------------------------------- | ------------------------------------------------------- |
+| 🔌 [Integrations overview](integrations/README.md)              | Which roadmap milestones each integration guide feeds   |
+| 🖥️ [KDE Plasma integration](integrations/kde-plasma.md)         | Desktop services, Plasma widgets and KDE conventions    |
+| 🌀 [Plasma Opus integration](integrations/plasma-opus.md)       | File dialogs, attachments, workspaces and shared themes |
+| 🏢 [Microsoft accounts and Exchange](integrations/microsoft.md) | Outlook.com, Microsoft 365 and Exchange Server planning |
+
+## Specifications and references
+
+| Guide                                                       | What it covers                                                 |
+| ----------------------------------------------------------- | -------------------------------------------------------------- |
+| ✨ [Refinement plans](refinements/README.md)                | Release-quality review areas and acceptance criteria           |
+| 📋 [Menu specifications](refinements/menus/README.md)       | Application and context-menu behavior                          |
+| 🧰 [Toolbar specifications](refinements/toolbars/README.md) | Main, list, reader, attachment and compose toolbars            |
+| ⚙️ [Backend parity](parity/backend.md)                      | Current IMAP, sync and account behavior against parity targets |
+| 🪟 [UI parity](parity/ui.md)                                | Current mail interface against parity targets                  |
+
+> [!NOTE]
+>
+> Trojitá is the primary parity reference and Kontact the secondary one. Rows
+> marked 📋 are targets, not current behavior; the
+> [interface design](philosophy/designs.md#current-interface) guide and the
+> [project README](../README.md#implemented-today) describe what works today.
+
+## Screenshots
+
+[`screenshots/`](screenshots/) holds layout screenshots captured by
+`test_LiveImapPanels` against a synthetic mailbox in the headless dev container.
+See
+[live mail, screenshots and a VNC view](../CONTRIBUTING.md#live-mail-screenshots-and-a-vnc-view)
+to regenerate them.
+
+| Screenshot                                                                  | Shows                                                                         |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [Compact layout](screenshots/mail-shell-compact.png)                        | List stacked above the reader, Attachments panel below the reader             |
+| [Wide layout with side panels](screenshots/mail-shell-wide-side-panels.png) | Message Details, Contacts and Related Messages in the right column            |
+| [Panels around the reader](screenshots/mail-shell-panels-around-reader.png) | Details on the left, contacts on the right, attachments and related in footer |
 
 ## Historical archive
 
-[Archived Trojitá documents](old/README.md) preserve earlier product
-specifications, protocol notes, research and user guidance. Treat those
-documents as historical context; current source, build configuration,
-[backend and UI parity guides](#product-and-integration-guides) and
-[caveats](CAVEATS.md) define present behavior.
+[Archived Trojitá documents](old/README.md) preserve earlier specifications,
+protocol notes, research and user guidance. Treat them as historical context;
+the current source, build configuration and the documents above define present
+behavior.

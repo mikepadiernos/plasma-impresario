@@ -20,6 +20,7 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <QSslError>
 #include <QTest>
 #include "test_Formatting.h"
 
@@ -70,6 +71,29 @@ void TestFormatting::testAddressEliding_data()
         << QStringLiteral("012345678901234567890123456789\u2026012345678901234567890123456789")
         << true;
 
+}
+
+/** @short The certificate prompt names the kind of server it is about */
+void TestFormatting::testSslStateNamesTheServer()
+{
+    using UiUtils::Formatting;
+    const QList<QSslError> errors{QSslError(QSslError::SelfSignedCertificate)};
+    QString title, message;
+    Formatting::IconType icon;
+
+    Formatting::formatSslState({}, QByteArray(), errors, &title, &message, &icon);
+    QVERIFY(message.contains(QLatin1String("IMAP server")));
+
+    Formatting::formatSslState({}, QByteArray(), errors, &title, &message, &icon, Formatting::ServerKind::Smtp);
+    QVERIFY(message.contains(QLatin1String("SMTP server")));
+    QVERIFY(!message.contains(QLatin1String("IMAP")));
+    QCOMPARE(icon, Formatting::IconType::Question);
+
+    // A key that differs from the remembered one is the alarming case
+    Formatting::formatSslState({}, QByteArrayLiteral("old key"), errors, &title, &message, &icon,
+                               Formatting::ServerKind::Smtp);
+    QVERIFY(message.contains(QLatin1String("SMTP server")));
+    QCOMPARE(icon, Formatting::IconType::Critical);
 }
 
 QTEST_GUILESS_MAIN(TestFormatting)

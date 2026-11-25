@@ -32,7 +32,7 @@ namespace Composer {
 typedef enum {
     REPLY_PRIVATE, /**< @short Reply to "sender(s)" only */
     REPLY_ALL, /**< @short Reply to all recipients */
-    REPLY_ALL_BUT_ME, /**< @short Reply to all recipients excluding any of my own identities */
+    REPLY_ALL_BUT_ME, /**< @short Reply to all recipients excluding any of my own identities and other own addresses */
     REPLY_LIST /**< @short Reply to the mailing list */
 } ReplyMode;
 
@@ -64,10 +64,12 @@ namespace Util {
 bool replyRecipientList(const ReplyMode mode, const SenderIdentitiesModel *senderIdetitiesModel,
                         const RecipientList &originalRecipients,
                         const QList<QUrl> &headerListPost, const bool headerListPostNo,
-                        RecipientList &output);
+                        RecipientList &output,
+                        const QList<Imap::Message::MailAddress> &otherOwnAddresses = {});
 
 bool replyRecipientList(const ReplyMode mode, const SenderIdentitiesModel *senderIdetitiesModel,
-                        const QModelIndex &message, RecipientList &output);
+                        const QModelIndex &message, RecipientList &output,
+                        const QList<Imap::Message::MailAddress> &otherOwnAddresses = {});
 
 bool chooseSenderIdentity(const SenderIdentitiesModel *senderIdetitiesModel,
         const QList<Imap::Message::MailAddress> &addresses, int &row);

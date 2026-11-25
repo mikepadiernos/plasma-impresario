@@ -27,6 +27,7 @@
 #include <QGuiApplication>
 #include <QLocale>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QSettings>
 #include <QSslCertificate>
 #include <QSslKey>
@@ -421,6 +422,52 @@ QModelIndex deproxifiedIndex(const QModelIndex& index)
         res = proxy->mapToSource(res);
     }
     return res;
+}
+
+namespace {
+
+/** @short Whether @arg dir holds only cached message parts, which DiskPartCache stores as *.cache files */
+bool holdsOnlyMessageParts(const QDir &dir)
+{
+    const QFileInfoList entries = dir.entryInfoList(QDir::NoDotAndDotDot | QDir::System | QDir::Hidden | QDir::AllDirs | QDir::Files);
+    for (const QFileInfo &entry : entries) {
+        if (entry.isSymLink())
+            return false;
+        if (entry.isDir() ? !holdsOnlyMessageParts(QDir(entry.absoluteFilePath()))
+                          : !entry.fileName().endsWith(QLatin1String(".cache")))
+            return false;
+    }
+    return true;
+}
+
+}
+
+bool removeAccountCache(const QString &cacheDir, const QString &cacheRoot)
+{
+    if (cacheDir.isEmpty() || cacheRoot.isEmpty())
+        return false;
+    const QString dirPath = QDir(cacheDir).absolutePath();
+    const QString rootPath = QDir(cacheRoot).absolutePath();
+    if (dirPath != rootPath)
+        return dirPath.startsWith(rootPath + QLatin1Char('/')) && removeRecursively(dirPath);
+
+    QDir root(rootPath);
+    bool result = true;
+    const QStringList databases = root.entryList({QStringLiteral("imap.cache.sqlite*")}, QDir::Files | QDir::Hidden);
+    for (const QString &file : databases)
+        result = root.remove(file) && result;
+    // DiskPartCache names each mailbox's directory with the Base64 form of its name, which never contains a hyphen,
+    // unlike the account-N directories.
+    static const QRegularExpression partDirectory(QStringLiteral("^[A-Za-z0-9+=]+$"));
+    const QStringList directories = root.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden);
+    for (const QString &name : directories) {
+        if (name == QLatin1String("Drafts") || !partDirectory.match(name).hasMatch())
+            continue;
+        const QString path = root.filePath(name);
+        if (holdsOnlyMessageParts(QDir(path)))
+            result = removeRecursively(path) && result;
+    }
+    return result;
 }
 
 /** @short Recursively removes a directory and all its contents

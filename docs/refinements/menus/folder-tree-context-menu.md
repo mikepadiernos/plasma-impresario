@@ -1,6 +1,21 @@
 # Folder tree context menu
 
-This menu appears when the user right-clicks a mailbox or folder in the folder tree.
+**[Refinements](../README.md)** · **[Menus](README.md)** ·
+**[Interface design](../../philosophy/designs.md)** ·
+**[M14 in roadmap](../../ROADMAP.md#m14-refinements)**
+
+This proposed menu appears when the user right-clicks a mailbox or folder in the
+folder tree.
+
+**Legend:** ✅ exists in the current code on `main` · 📋 planned only
+
+## Purpose
+
+This menu is for mailbox administration and status. It should remain focused on
+the folder itself and not expose read or compose actions unless they are
+relevant to the selected folder header.
+
+## Menu tree
 
 ```text
 └─ Folder context menu
@@ -22,11 +37,47 @@ This menu appears when the user right-clicks a mailbox or folder in the folder t
    └─ Show folder statistics
 ```
 
+## Actions
+
+| Action                 | Shortcut | Availability                | Notes                                                    |
+| ---------------------- | -------- | --------------------------- | -------------------------------------------------------- |
+| Open folder            | —        | ✅ Folder tree              | Select the folder                                        |
+| Refresh folder         | —        | ✅ Folder tree context menu | **Check for New Messages**                               |
+| New subfolder          | —        | ✅ Folder tree context menu | **Create Child Mailbox…**                                |
+| Rename folder          | —        | 📋 Planned                  |                                                          |
+| Delete folder          | —        | ✅ Folder tree context menu | **Remove Mailbox** asks for confirmation                 |
+| Empty folder           | —        | 📋 Planned                  |                                                          |
+| Empty trash            | —        | 📋 Planned                  | **Mailbox › Expunge** removes messages marked as deleted |
+| Move folder            | —        | 📋 Planned                  |                                                          |
+| Copy folder            | —        | 📋 Planned                  |                                                          |
+| Mark all as read       | —        | ✅ Folder tree context menu | **Mark Mailbox as Read**                                 |
+| Subscribe              | —        | ✅ Folder tree context menu | **Subscribed** checkbox                                  |
+| Unsubscribe            | —        | ✅ Folder tree context menu | Clear the **Subscribed** checkbox                        |
+| Folder properties      | —        | 📋 Planned                  |                                                          |
+| Set as favorite        | —        | 📋 Planned                  |                                                          |
+| Set as default folder  | —        | 📋 Planned                  |                                                          |
+| Show folder statistics | —        | 📋 Planned                  |                                                          |
+
+## Current menu
+
+`MainWindow::showContextMenuMboxTree()` in `src/Gui/Window.cpp` builds the menu
+from the clicked position:
+
+| Where             | Entries                                                                                                                         |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 📁 On a folder    | Create Child Mailbox…, Remove Mailbox, Mark Mailbox as Read, Check for New Messages, Update List of Child Mailboxes, Subscribed |
+| 📁 On empty space | Create New Mailbox…                                                                                                             |
+| 📁 Always         | Reload Everything, Show Only Subscribed Folders                                                                                 |
+
+Messages dragged from the message list onto a folder are moved or copied. A menu
+asks which unless a default is set; hold <kbd>Shift</kbd> to move or
+<kbd>Ctrl</kbd> to copy.
+
 ## Safety and quality rules
-- Empty folder and delete folder operations should be explicit and reversible through confirmation or undo windows.
-- Folder operations should preserve account scope and not leak into another account or remote mailbox.
-- Favorite or special-folder status must not alter the actual folder data model in unexpected ways.
 
-## Purpose
-
-This menu is for mailbox administration and status. It should remain focused on the folder itself and not expose read or compose actions unless they are relevant to the selected folder header.
+- Empty folder and delete folder operations should be explicit and reversible
+  through confirmation or undo windows.
+- Folder operations should preserve account scope and not leak into another
+  account or remote mailbox.
+- Favorite or special-folder status must not alter the actual folder data model
+  in unexpected ways.

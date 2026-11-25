@@ -23,12 +23,14 @@
 #include "ImapAccess.h"
 #include <QDir>
 #include <QFileInfo>
+#include <QPointer>
 #include <QSslKey>
 #include <QSettings>
 #include "Common/MetaTypes.h"
 #include "Common/Paths.h"
 #include "Common/PortNumbers.h"
 #include "Common/SettingsNames.h"
+#include "Common/TrustedCertificates.h"
 #include "Imap/Model/CombinedCache.h"
 #include "Imap/Model/DummyNetworkWatcher.h"
 #include "Imap/Model/MailboxModel.h"
@@ -43,6 +45,8 @@
 #include "Imap/Model/Utils.h"
 #include "Imap/Model/VisibleTasksModel.h"
 #include "Imap/Network/MsgPartNetAccessManager.h"
+#include "OAuth/Session.h"
+#include "Plugins/PluginManager.h"
 #include "Streams/SocketFactory.h"
 #include "UiUtils/PasswordWatcher.h"
 
@@ -339,7 +343,9 @@ void ImapAccess::doConnect()
     if (!shouldUsePersistentCache) {
         cache.reset(new Imap::Mailbox::MemoryCache());
     } else {
-        cache.reset(new Imap::Mailbox::CombinedCache(QStringLiteral("trojita-imap-cache"), m_cacheDir));
+        // Each account needs its own SQLite connection name; a shared name replaces the other accounts' connections.
+        cache.reset(new Imap::Mailbox::CombinedCache(QStringLiteral("trojita-imap-cache-%1").arg(credentialAccountId()),
+                                                     m_cacheDir));
         cache->setErrorHandler([this](const QString &e) { this->onCacheError(e); });
         if (! static_cast<Imap::Mailbox::CombinedCache *>(cache.get())->open()) {
             // Error message was already shown by the cacheError() slot
@@ -367,6 +373,24 @@ void ImapAccess::doConnect()
     const auto archiveFolderName = m_settings->value(Common::SettingsNames::imapArchiveFolderName).toString();
     m_imapModel->setArchiveFolderName(archiveFolderName.isEmpty() ? Common::SettingsNames::imapDefaultArchiveFolderName
                                                                   : archiveFolderName);
+    if (OAuth::isEnabled(*m_settings, OAuth::Service::Imap)) {
+        // The connections find this token source through the model and authenticate with it instead of a password
+        QPointer<Plugins::PluginManager> pluginManager = m_pluginManager;
+        auto oauth = new OAuth::Session(OAuth::AccountConfig::fromSettings(*m_settings, credentialAccountId()),
+                                        [pluginManager]() -> Plugins::PasswordPlugin * {
+                                            return pluginManager ? pluginManager->password() : nullptr;
+                                        },
+                                        m_imapModel);
+        oauth->setServer(m_server, m_port);
+        if (m_settings->contains(Common::SettingsNames::oauthClientSecretKey)) {
+            // Older versions kept the client secret in the settings file; keep it with the grant instead
+            QPointer<QSettings> settings = m_settings;
+            oauth->migrateClientSecret([settings]() {
+                if (settings)
+                    settings->remove(Common::SettingsNames::oauthClientSecretKey);
+            });
+        }
+    }
     connect(m_imapModel, &Mailbox::Model::alertReceived, this, &ImapAccess::alertReceived);
     connect(m_imapModel, &Mailbox::Model::imapError, this, &ImapAccess::imapError);
     connect(m_imapModel, &Mailbox::Model::networkError, this, &ImapAccess::networkError);
@@ -487,6 +511,9 @@ void ImapAccess::slotSslErrors(const QList<QSslCertificate> &sslCertificateChain
     if (!m_sslChain.isEmpty() && !lastKnownPubKey.isEmpty() && lastKnownPubKey == m_sslChain[0].publicKey().toPem()) {
         // This certificate chain contains the same public keys as the last time; we should accept that
         m_imapModel->setSslPolicy(m_sslChain, m_sslErrors, true);
+    } else if (!m_sslChain.isEmpty() && Common::TrustedCertificates::isTrusted(*m_appSettings, m_server, m_sslChain[0])) {
+        // Another account, or this host's SMTP service, already got the user's approval for this key
+        setSslPolicy(true);
     } else {
         UiUtils::Formatting::formatSslState(
                     m_sslChain, lastKnownPubKey, m_sslErrors, &m_sslInfoTitle, &m_sslInfoMessage, &m_sslInfoIcon);
@@ -527,6 +554,7 @@ void ImapAccess::setSslPolicy(bool accept)
 {
     if (accept && !m_sslChain.isEmpty()) {
         m_settings->setValue(Common::SettingsNames::imapSslPemPubKey, m_sslChain[0].publicKey().toPem());
+        Common::TrustedCertificates::trust(*m_appSettings, m_server, m_sslChain[0]);
     }
     m_imapModel->setSslPolicy(m_sslChain, m_sslErrors, accept);
 }
@@ -569,6 +597,11 @@ connecting to a completely different server since the last time.
 void ImapAccess::nukeCache()
 {
     Imap::removeRecursively(m_cacheDir);
+}
+
+QString ImapAccess::cacheDirectory() const
+{
+    return m_cacheDir;
 }
 
 QModelIndex ImapAccess::deproxifiedIndex(const QModelIndex index)

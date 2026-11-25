@@ -1,74 +1,98 @@
 # IMAP sync and account operations
 
-This page records the current backend baseline and the parity target for Plasma
+**[Documentation](../README.md)** · **[UI parity](ui.md)** ·
+**[Roadmap](../ROADMAP.md)** · **[Caveats](../CAVEATS.md)**
+
+This page compares the current backend with the parity targets for Plasma
 Impresario. Trojitá is the primary reference for protocol behavior; Kontact is a
 secondary reference for desktop integration and account ergonomics.
 
+Status: ✅ done or verified · 🧪 implemented, needs verification · 📋 planned ·
+⚠️ limitation
+
 > [!NOTE]
 >
-> The code in this checkout is itself a Trojitá-based IMAP client. **Current
-> baseline** describes implemented behavior; **Parity expectations** are
-> targets, not claims that the reworked product already provides them.
+> The code in this checkout is a Trojitá-based IMAP client. **Current baseline**
+> describes implemented behavior; **parity expectations** are targets, not
+> claims that the reworked product already provides them.
+
+## Contents
+
+- [Current baseline](#current-baseline)
+- [Reference hierarchy](#reference-hierarchy)
+- [Core implementation standards](#core-implementation-standards)
+- [Account and connection behavior](#account-and-connection-behavior)
+- [Sync and retrieval expectations](#sync-and-retrieval-expectations)
+- [Search, metadata, and performance](#search-metadata-and-performance)
+- [Parity checklist](#parity-checklist)
 
 ## Current baseline
 
-- IMAP parsing, connection tasks, mailbox/message models and Qt views are
-  separated under `src/Imap/` and `src/Gui/`.
-- The server remains the canonical mailbox. Synchronization is incremental;
-  message metadata and MIME structure are distinct from lazily fetched parts.
-- Memory and SQL-backed caches can retain metadata and fetched parts, with
-  configurable offline cache behavior.
-- IDLE, threading, server-side search, offline mode, reconnect handling and
-  mailbox operations have implementation and/or QtTest coverage.
-- One window can hold several IMAP accounts. `AccountRegistry` gives each
-  account its own settings, and each account has its own `ImapAccess`, models
-  and connection-status tracking. `--profile` still selects a separate
-  configuration, each with its own accounts.
-- `AccountCapabilities` describes which operations IMAP, POP3 and JMAP
-  accounts support; nothing in the interface consults it yet.
-- Outgoing mail uses configured SMTP, IMAP submission or sendmail paths.
-- A process-backed connection mode can wrap a user-configured transport.
+The IMAP parser, tasks and models live in `src/Imap/` (`Parser/`, `Tasks/`,
+`Model/`), separate from the widgets in `src/Gui/`. The server remains the
+canonical mailbox.
 
-See the source in [`src/Imap/`](../../src/Imap/) and tests in
-[`tests/Imap/`](../../tests/Imap/). Transport, credential and cache limitations
-are documented in
-[caveats and security](../CAVEATS.md#security-and-data-protection).
+| Area                    | Status | Current behavior                                                                                                                                                                                                                      | Source                                                                               |
+| ----------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| 🔄 Synchronization      | ✅     | Incremental; message metadata and MIME structure are separate from lazily fetched parts                                                                                                                                               | `src/Imap/Tasks/`, `src/Imap/Model/`                                                 |
+| 💾 Caching              | ✅     | Memory, SQL and on-disk part caches retain metadata and fetched parts, with configurable offline cache behavior                                                                                                                       | `MemoryCache`, `SQLCache`, `DiskPartCache`                                           |
+| 📡 IMAP features        | ✅     | IDLE, threading, server-side search, offline mode, reconnect handling and mailbox operations have implementation and/or QtTest coverage                                                                                               | [`tests/Imap/`](../../tests/Imap/)                                                   |
+| 📬 Multiple accounts    | ✅     | `AccountRegistry` gives each account its own settings; each account has its own `ImapAccess`, models and connection-status tracking                                                                                                   | `src/Common/AccountRegistry.cpp`, `src/Common/AccountStatus.cpp`                     |
+| 👤 Profiles             | ✅     | `--profile` selects a separate configuration, each with its own accounts                                                                                                                                                              | `src/Gui/main.cpp`                                                                   |
+| 🧩 Account capabilities | ✅     | `AccountCapabilities` describes which operations IMAP, POP3 and JMAP accounts support; `CapabilityActionGate` hides actions the active account cannot perform ([#215](https://github.com/mikepadiernos/plasma-impresario/issues/215)) | `src/Imap/Model/AccountCapabilities.cpp`                                             |
+| 📤 Outgoing mail        | ✅     | SMTP, IMAP submission or sendmail                                                                                                                                                                                                     | `src/MSA/`                                                                           |
+| 🔌 Connection methods   | ✅     | Cleartext, STARTTLS, TLS, or a process-backed connection that wraps a user-configured transport                                                                                                                                       | `src/Common/ConnectionMethod.h`                                                      |
+| 🔑 Credentials          | ⚠️     | Password plugins: QtKeychain (default for new profiles, optional at build time) or cleartext in `QSettings`                                                                                                                           | `src/Plugins/QtKeyChain/`, `src/Plugins/ClearTextPassword/`                          |
+| 🔐 OAuth sign-in        | 🧪     | XOAUTH2 and OAUTHBEARER for IMAP and SMTP with Google and Microsoft ([#218](https://github.com/mikepadiernos/plasma-impresario/issues/218)); see [OAuth caveats](../CAVEATS.md#oauth-sign-in)                                         | `src/OAuth/`                                                                         |
+| 🧪 Live IMAP tests      | ✅     | Opt-in GUI tests run against a synthetic Dovecot for accounts and panels                                                                                                                                                              | `tests/Gui/test_LiveImap*.cpp`, [`tools/dev-container/`](../../tools/dev-container/) |
+
+Not yet implemented:
+
+| Area                                   | Status | Tracking                                                                                                          |
+| -------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------- |
+| 📮 POP3, JMAP and Gmail                | 📋     | M06.05 in [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support)                                       |
+| 🏢 Outlook, Microsoft 365 and Exchange | 📋     | [M13](../ROADMAP.md#m13-microsoft-accounts-and-exchange); see the [Microsoft guide](../integrations/microsoft.md) |
+| 🛡️ Virus and spam scanning hooks       | 📋     | M06.06 in [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support)                                       |
+| ⚙️ Rules engine                        | 📋     | [M07](../ROADMAP.md#m07-output-notifications-and-rules-automation)                                                |
+
+Transport, credential and cache limitations are documented in
+[caveats and security](../CAVEATS.md#security-and-data-protection); account
+limitations are in [multiple accounts](../CAVEATS.md#multiple-accounts).
 
 ## Reference hierarchy
 
 ### Primary: Trojitá
 
 Trojitá is the authoritative baseline for IMAP correctness and the desktop-mail
-data model because it is built around protocol fidelity, local mail operations,
+data model because it is built around protocol fidelity, local mail operations
 and efficient communication with remote mail stores.
 
 Parity expectations:
 
-- IMAP account handling should be explicit, reliable, and easy to reason about.
-- Folder discovery and mailbox enumeration should be robust across common server
+- IMAP account handling is explicit, reliable and easy to reason about.
+- Folder discovery and mailbox enumeration work across common server
   implementations.
-- Sync behavior should favor correctness and incremental updates over aggressive
+- Sync favors correctness and incremental updates over aggressive
   re-downloading.
-- Message retrieval and state updates should preserve server semantics such as
-  flags, threading context, and folder state.
-- Mail operations should remain stable under large account sizes and imperfect
-  network conditions.
+- Message retrieval and state updates preserve server semantics such as flags,
+  threading context and folder state.
+- Mail operations stay stable with large accounts and imperfect network
+  conditions.
 
 ### Secondary: Kontact suite
 
-The Kontact suite provides a KDE desktop reference for account ecosystem
-integration and user-visible mail behavior around the client core.
+The Kontact suite is the KDE desktop reference for account integration and
+user-visible mail behavior around the client core.
 
 Parity expectations:
 
-- Account setup and state should feel native to a KDE desktop environment.
-- The backend should support desktop-style account management and system-level
+- Account setup and state feel native to a KDE desktop.
+- The backend supports desktop-style account management and system-level
   integration without compromising IMAP reliability.
-- Error states and recovery paths should be understandable to users working
-  inside a broader KDE workflow.
-- Mail operations should align with expectations for a mature personal
-  information manager, even when the backend logic remains intentionally
-  focused.
+- Error states and recovery paths are understandable to users working in a
+  broader KDE workflow.
+- Mail operations meet the expectations of a mature personal information
+  manager, even though the backend stays intentionally focused.
 
 ## Core implementation standards
 
@@ -76,12 +100,12 @@ Parity expectations:
   behavior.
 - Design sync as incremental and resumable, with clear handling for reconnects
   and transient failures.
-- Track message metadata and folder status in a way that remains stable across
-  partial updates.
-- Treat search, indexing, and folder scans as performance-sensitive features
-  that must not degrade normal mail flow.
-- Keep failure states actionable: connection errors, auth failures, and retry
-  windows should be visible and explainable.
+- Track message metadata and folder status so it stays stable across partial
+  updates.
+- Treat search, indexing and folder scans as performance-sensitive features that
+  must not slow normal mail flow.
+- Keep failure states actionable: connection errors, authentication failures and
+  retry windows are visible and explainable.
 
 ## Account and connection behavior
 
@@ -91,37 +115,35 @@ Parity expectations:
 - Preserve mailbox structure and synchronization state across reconnects.
 - Separate temporary transport issues from permanent account configuration
   problems.
-- Provide sensible retry and backoff behavior without creating duplicate or
-  conflicting mail operations.
+- Retry with sensible backoff without creating duplicate or conflicting mail
+  operations.
 
 ## Sync and retrieval expectations
 
-- Synchronization should update folders incrementally rather than re-fetching
-  the entire mailbox needlessly.
-- Message fetches should be efficient and avoid unnecessary full-body downloads
-  for summary views.
-- Flag changes, folder movement, and deletion state should be reconciled
-  carefully with server state.
-- Large mail stores should remain usable through bounded fetches, selective
-  updates, and graceful degradation.
+- Update folders incrementally rather than re-fetching the entire mailbox.
+- Fetch efficiently and avoid full-body downloads for summary views.
+- Reconcile flag changes, folder moves and deletion state carefully with server
+  state.
+- Keep large mail stores usable through bounded fetches, selective updates and
+  graceful degradation.
 
 ## Search, metadata, and performance
 
-- Folder metadata should remain trustworthy even under partial sync or reconnect
-  scenarios.
-- Search indexing should support fast local discovery without sacrificing
+- Keep folder metadata trustworthy during partial sync and reconnects.
+- Support fast local discovery through search indexing without sacrificing
   correctness.
-- Large-folder operations should avoid pathological behavior and maintain
-  responsive UI feedback.
-- Network and mailbox operations should degrade gracefully under latency, server
-  lag, or throttling.
+- Avoid pathological behavior in large-folder operations and keep UI feedback
+  responsive.
+- Degrade gracefully under latency, server lag or throttling.
 
 ## Parity checklist
 
-- Confirm supported authentication paths
-- Document account setup flow
-- Capture connection and retry failure states
-- Define mailbox synchronization expectations
-- Assess folder discovery and metadata consistency
-- Review large-folder performance behavior
-- Ensure KDE-native account integration patterns are respected
+| Item                                           | Status | Current state                                                                                                                                                                                                                                                                           |
+| ---------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🔐 Confirm supported authentication paths      | 🧪     | Password and OAuth sign-in work in tests ([#218](https://github.com/mikepadiernos/plasma-impresario/issues/218)); live provider sign-in is pending in [M15](../ROADMAP.md#m15-real-plasma-session-verification) ([#317](https://github.com/mikepadiernos/plasma-impresario/issues/317)) |
+| 📝 Document the account setup flow             | 🧪     | Exercised against a disposable Dovecot; setup work continues in M02 [#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)                                                                                                                                                 |
+| 📶 Capture connection and retry failure states | ✅     | The footer and account selector report connection, offline and authentication states ([#79](https://github.com/mikepadiernos/plasma-impresario/issues/79))                                                                                                                              |
+| 🔄 Define mailbox synchronization expectations | 📋     | Planned with reliability work in [M10](../ROADMAP.md#m10-reliability-sync-and-notification-quality)                                                                                                                                                                                     |
+| 🗂️ Assess folder discovery and metadata        | 📋     | Not yet assessed across servers                                                                                                                                                                                                                                                         |
+| 📈 Review large-folder performance             | 📋     | No large-mailbox benchmarks are recorded                                                                                                                                                                                                                                                |
+| 🖥️ Respect KDE-native account integration      | 📋     | Account settings use `QSettings`; see the [KDE Plasma integration guide](../integrations/kde-plasma.md)                                                                                                                                                                                 |

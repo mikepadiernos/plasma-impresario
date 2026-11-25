@@ -1,7 +1,25 @@
 # Shell and interaction refinement
 
-This section covers refinement of navigation, panes, layouts, keyboard flow, and
-general interaction quality.
+**[Refinements](README.md)** ·
+**[M14 in roadmap](../ROADMAP.md#m14-refinements)** ·
+**[Previous: Cross-product quality](00-cross-product-quality.md)** ·
+**[Next: Accounts, sync and storage](02-accounts-sync-and-storage.md)**
+
+Refines navigation, panes, layouts, keyboard flow and general interaction
+quality.
+
+**Roadmap subsection:**
+[M14.02: Shell and interaction](../ROADMAP.md#m14-refinements) · **Issue:**
+[#21](https://github.com/mikepadiernos/plasma-impresario/issues/21) · **Specs:**
+[menus](menus/README.md), [toolbars](toolbars/README.md)
+
+> [!NOTE]
+>
+> The mail shell, compact, wide and one-panel layouts, embedded panels and
+> <kbd>F6</kbd>/<kbd>Shift</kbd>+<kbd>F6</kbd> focus cycling were built in M02.
+> Offscreen tests and live IMAP tests against a synthetic Dovecot cover them; a
+> real Plasma session has not been verified. See
+> [Current interface](../philosophy/designs.md#current-interface).
 
 ## Focus
 

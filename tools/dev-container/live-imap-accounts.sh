@@ -26,11 +26,14 @@ synthetic_maildir "$work/home/home/Maildir/.Projects"
 synthetic_dovecot_start
 
 status=0
-QT_QPA_PLATFORM=offscreen \
-    QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu \
-    QTWEBENGINE_DISABLE_SANDBOX=1 \
-    PLASMA_TEST_IMAPS_PORT=$port \
-    "$build/test_LiveImapAccounts" || status=$?
+# One main window per process: the shortcut handler is a singleton.
+for case in accountsConnectAndSwitchIndependently newProfilesKeepPasswordsOutOfSettings; do
+    QT_QPA_PLATFORM=offscreen \
+        QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu \
+        QTWEBENGINE_DISABLE_SANDBOX=1 \
+        PLASMA_TEST_IMAPS_PORT=$port \
+        "$build/test_LiveImapAccounts" "$case" || status=$?
+done
 if [ "$status" != 0 ]; then
     echo "Dovecot log:" >&2
     synthetic_dovecot_log

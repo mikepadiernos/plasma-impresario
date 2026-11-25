@@ -1,0 +1,9 @@
+[Global]
+IconName=io.github.mikepadiernos.plasma_impresario
+DesktopEntry=io.github.mikepadiernos.plasma_impresario
+Comment=Plasma Impresario
+
+[Event/accountNeedsAttention]
+Name=Account needs attention
+Comment=An account other than the one shown cannot connect or sign in
+Action=Popup

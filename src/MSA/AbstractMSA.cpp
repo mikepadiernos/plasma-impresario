@@ -74,6 +74,11 @@ void AbstractMSA::setPassword(const QString &password)
     emit error(tr("Setting password is not supported by %1").arg(QString::fromUtf8(metaObject()->className())));
 }
 
+void AbstractMSA::setCertificateAccepted(bool accepted)
+{
+    Q_UNUSED(accepted);
+}
+
 MSAFactory::~MSAFactory()
 {
 }

@@ -30,9 +30,11 @@ namespace Common
 
 struct SettingsNames {
     static const QString identitiesKey, realNameKey, addressKey, organisationKey, signatureKey, obsRealNameKey, obsAddressKey;
+    /** @short Per-account flag: the account sends without an identity */
+    static const QString composerNoIdentityKey;
     static const QString favoriteTagsKey, tagNameKey, tagColorKey;
     static const QString msaMethodKey, methodSMTP, methodSSMTP, methodSENDMAIL, methodImapSendmail, smtpHostKey,
-           smtpPortKey, smtpAuthKey, smtpStartTlsKey, smtpUserKey, smtpAuthReuseImapCredsKey,
+           smtpPortKey, smtpAuthKey, smtpStartTlsKey, smtpUserKey, smtpAuthReuseImapCredsKey, smtpSslPemPubKey,
            sendmailKey, sendmailDefaultCmd;
     static const QString imapMethodKey, methodTCP, methodSSL, methodProcess, imapHostKey,
            imapPortKey, imapStartTlsKey, imapUserKey, imapProcessKey, imapStartMode, netOffline, netExpensive, netOnline,
@@ -40,7 +42,12 @@ struct SettingsNames {
            imapBlacklistedCapabilities, imapUseSystemProxy, imapNeedsNetwork, imapNumberRefreshInterval,
            imapAccountIcon, imapArchiveFolderName, imapDefaultArchiveFolderName, imapDeleteMovesToTrash,
            imapRecentDestinationFolders;
-    static const QString composerSaveToImapKey, composerImapSentKey, smtpUseBurlKey;
+    /** @short Per-account authentication method for IMAP and SMTP, and the account's OAuth 2.0 configuration */
+    static const QString imapAuthMethodKey, smtpAuthMethodKey, authMethodPassword, authMethodOAuth,
+           oauthProviderKey, oauthClientIdKey, oauthClientSecretKey;
+    /** @short Profile-wide list of accepted server keys, as "host sha256-of-public-key" */
+    static const QString sslTrustedPublicKeys;
+    static const QString composerSaveToImapKey, composerImapSentKey, smtpUseBurlKey, composerUseSharedIdentitiesKey;
     static const QString cacheMetadataKey, cacheMetadataMemory,
            cacheOfflineKey, cacheOfflineNone, cacheOfflineXDays, cacheOfflineAll, cacheOfflineNumberDaysKey;
     static const QString watchedFoldersKey, watchOnlyInbox, watchSubscribed, watchAll;
