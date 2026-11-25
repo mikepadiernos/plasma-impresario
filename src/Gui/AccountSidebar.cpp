@@ -5,6 +5,7 @@
 #include "AccountSidebar.h"
 
 #include <QEvent>
+#include <QFont>
 #include <QIcon>
 #include <QKeyEvent>
 #include <QToolButton>
@@ -18,6 +19,8 @@
 namespace {
 const char accountIdProperty[] = "accountId";
 const char attentionProperty[] = "accountNeedsAttention";
+const char nameProperty[] = "accountName";
+const char statusTipProperty[] = "accountStatusTip";
 
 QString headerAccount(const QToolButton *header) {
   return header->property(accountIdProperty).toString();
@@ -90,8 +93,7 @@ void AccountSidebar::refresh(const Common::AccountRegistry &accounts,
     const bool attention =
         Common::AccountStatusTracker::needsAttention(accountStatus.kind);
     const QString name = accounts.displayName(id);
-    header->setText(name);
-    header->setAccessibleName(name);
+    header->setProperty(nameProperty, name);
     header->setProperty(attentionProperty, attention);
     QString tip = name;
     if (attention) {
@@ -100,11 +102,14 @@ void AccountSidebar::refresh(const Common::AccountRegistry &accounts,
       if (!accountStatus.detail.isEmpty())
         tip += QLatin1String(": ") + accountStatus.detail;
     }
-    header->setToolTip(tip);
+    header->setProperty(statusTipProperty, tip);
+    updateHeaderText(header);
     headers.append(header);
   }
-  for (QToolButton *header : std::as_const(unused))
+  for (QToolButton *header : std::as_const(unused)) {
+    m_unread.remove(headerAccount(header));
     header->deleteLater();
+  }
   m_headers = headers;
 
   while (QLayoutItem *item = m_layout->takeAt(0))
@@ -126,6 +131,40 @@ void AccountSidebar::refresh(const Common::AccountRegistry &accounts,
   // Keeps the headers together at the top while the folders are collapsed
   m_layout->addStretch(0);
   setFoldersExpanded(grouped ? m_expanded : true);
+}
+
+void AccountSidebar::setUnreadCount(const QString &accountId, int count) {
+  if (count < 0)
+    m_unread.remove(accountId);
+  else
+    m_unread.insert(accountId, count);
+  for (QToolButton *header : std::as_const(m_headers)) {
+    if (headerAccount(header) == accountId)
+      updateHeaderText(header);
+  }
+}
+
+void AccountSidebar::updateHeaderText(QToolButton *header) {
+  const QString name = header->property(nameProperty).toString();
+  const int unread = m_unread.value(headerAccount(header), 0);
+  QString tip = header->property(statusTipProperty).toString();
+  QFont font = header->font();
+  font.setBold(unread > 0);
+  header->setFont(font);
+  if (unread > 0) {
+    header->setText(i18nc("@action:button account name and its unread count",
+                          "%1 (%2)", name, unread));
+    header->setAccessibleName(
+        i18ncp("@info:accessibility account name and its unread count",
+               "%2, %1 unread", "%2, %1 unread", unread, name));
+    tip += QLatin1Char('\n') +
+           i18ncp("@info:tooltip", "%1 unread message in Inbox",
+                  "%1 unread messages in Inbox", unread);
+  } else {
+    header->setText(name);
+    header->setAccessibleName(name);
+  }
+  header->setToolTip(tip);
 }
 
 void AccountSidebar::activateHeader(QToolButton *header) {
