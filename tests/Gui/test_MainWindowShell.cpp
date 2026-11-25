@@ -33,8 +33,14 @@
 #include <QStackedWidget>
 #include <QStandardPaths>
 #include <QTemporaryDir>
+#include <QDialog>
+#include <QInputDialog>
+#include <QMessageBox>
+#include <QPushButton>
 #include <QTest>
+#include <QTimer>
 #include <QToolButton>
+#include <functional>
 #include <QTreeView>
 #include <QVBoxLayout>
 
@@ -90,6 +96,30 @@ QAction *actionByText(Gui::MainWindow &window, const QString &text) {
       return candidate;
   }
   return nullptr;
+}
+
+/** @short Answer the next modal dialog with @arg answer once it is shown */
+void answerNextDialog(std::function<void(QWidget *)> answer) {
+  auto *poll = new QTimer;
+  QObject::connect(poll, &QTimer::timeout, poll, [poll, answer]() {
+    if (QWidget *dialog = QApplication::activeModalWidget()) {
+      poll->deleteLater();
+      poll->stop();
+      answer(dialog);
+    }
+  });
+  poll->start(20);
+}
+
+QMenu *openAccountMenu(Gui::MainWindow &window, QToolButton *header) {
+  emit header->customContextMenuRequested(QPoint(1, 1));
+  QMenu *menu = nullptr;
+  for (QMenu *candidate : window.findChildren<QMenu *>(
+           QStringLiteral("accountMenu"))) {
+    if (candidate->isVisible())
+      menu = candidate;
+  }
+  return menu;
 }
 
 std::unique_ptr<Common::AccountRegistry>
@@ -326,6 +356,87 @@ private slots:
     sidebar->headers().at(0)->setFocus();
     next->trigger();
     QCOMPARE(window.focusWidget(), messages);
+  }
+
+  void sidebarHeaderMenuActsOnItsAccount() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                       QSettings::IniFormat);
+    seedTwoAccounts(directory, settings);
+    auto active = [&settings]() {
+      return settings.value(QStringLiteral("accounts/active")).toString();
+    };
+
+    Gui::MainWindow window(&settings);
+    window.resize(1000, 700);
+    window.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&window));
+    auto *sidebar = window.findChild<Gui::AccountSidebar *>();
+    QVERIFY(sidebar);
+    QCOMPARE(sidebar->headers().size(), 2);
+    for (QToolButton *header : sidebar->headers())
+      QCOMPARE(header->contextMenuPolicy(), Qt::CustomContextMenu);
+
+    // Renaming another account leaves the active one alone
+    QMenu *menu = openAccountMenu(window, sidebar->headers().at(1));
+    QVERIFY(menu);
+    auto *rename = menu->findChild<QAction *>(
+        QStringLiteral("action_account_menu_rename"));
+    auto *remove = menu->findChild<QAction *>(
+        QStringLiteral("action_account_menu_remove"));
+    QVERIFY(rename && remove);
+    QVERIFY(remove->isEnabled());
+    answerNextDialog([](QWidget *dialog) {
+      auto *input = qobject_cast<QInputDialog *>(dialog);
+      QVERIFY(input);
+      input->setTextValue(QStringLiteral("Family"));
+      input->accept();
+    });
+    rename->trigger();
+    menu->close();
+    QTRY_COMPARE(
+        settings.value(QStringLiteral("accounts/names/account-2")).toString(),
+        QStringLiteral("Family"));
+    QCOMPARE(active(), QStringLiteral("account-1"));
+    QCOMPARE(sidebar->headers().at(1)->text(), QStringLiteral("Family"));
+
+    // The settings dialog edits the shown account, so it switches first
+    menu = openAccountMenu(window, sidebar->headers().at(1));
+    QVERIFY(menu);
+    auto *accountSettings = menu->findChild<QAction *>(
+        QStringLiteral("action_account_menu_settings"));
+    QVERIFY(accountSettings);
+    QString dialogTitle;
+    answerNextDialog([&dialogTitle](QWidget *dialog) {
+      dialogTitle = dialog->windowTitle();
+      qobject_cast<QDialog *>(dialog)->reject();
+    });
+    accountSettings->trigger();
+    menu->close();
+    QTRY_VERIFY(dialogTitle.contains(QStringLiteral("Family")));
+    QCOMPARE(active(), QStringLiteral("account-2"));
+
+    // Removing the account that is not shown keeps the shown one
+    menu = openAccountMenu(window, sidebar->headers().at(0));
+    QVERIFY(menu);
+    remove = menu->findChild<QAction *>(
+        QStringLiteral("action_account_menu_remove"));
+    QVERIFY(remove);
+    QString question;
+    answerNextDialog([&question](QWidget *dialog) {
+      auto *box = qobject_cast<QMessageBox *>(dialog);
+      QVERIFY(box);
+      question = box->text();
+      box->button(QMessageBox::Yes)->click();
+    });
+    remove->trigger();
+    menu->close();
+    QTRY_COMPARE(settings.value(QStringLiteral("accounts/ids")).toStringList(),
+                 QStringList{QStringLiteral("account-2")});
+    QVERIFY(question.contains(QStringLiteral("Work")));
+    QCOMPARE(active(), QStringLiteral("account-2"));
+    QVERIFY(sidebar->headers().isEmpty());
   }
 
   void headerRegionIsOptional() {
