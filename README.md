@@ -78,12 +78,12 @@ Features done are roadmap items whose issues are **Completed** or **Merged** on
 the [project board](https://github.com/users/mikepadiernos/projects/4), as of
 2026-11-25.
 
-| Milestone                                     | Branch                        | Done             | State                                                                                                                                                                     |
-| --------------------------------------------- | ----------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 🧱 M01 KDE / Qt 6 baseline                    | `main`                        | 🟩🟩🟩🟩🟩 19/19 | ✅ Merged                                                                                                                                                                 |
-| 🧭 M02 Shell, accounts and mailbox foundation | `main`                        | 🟩🟩🟩🟩🟩 14/14 | ✅ Merged; checks in a real Plasma session moved to M15                                                                                                                   |
-| 📬 M03 Mail operations, sorting and folders   | `feature/m03-mail-operations` | 🟩🟩⬜⬜⬜ 4/12  | 🚧 Folder navigation, sorting and triage, quick actions, and folder actions with recoverable deletion are Completed                                                       |
-| 📋 M04–M15                                    | —                             | —                | Planned, including search and indexing in M05, Microsoft accounts and Exchange in M13 and real Plasma session checks in M15; M09 branding started with the product rename |
+| Milestone                                     | Branch | Done             | State                                                                                                                                                                     |
+| --------------------------------------------- | ------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🧱 M01 KDE / Qt 6 baseline                    | `main` | 🟩🟩🟩🟩🟩 19/19 | ✅ Merged                                                                                                                                                                 |
+| 🧭 M02 Shell, accounts and mailbox foundation | `main` | 🟩🟩🟩🟩🟩 14/14 | ✅ Merged; checks in a real Plasma session moved to M15                                                                                                                   |
+| 📬 M03 Mail operations, sorting and folders   | `main` | 🟩🟩🟩🟩🟩 12/12 | ✅ Merged                                                                                                                                                                 |
+| 📋 M04–M15                                    | —      | —                | Planned, including search and indexing in M05, Microsoft accounts and Exchange in M13 and real Plasma session checks in M15; M09 branding started with the product rename |
 
 The [roadmap overview](docs/ROADMAP.md#milestones-at-a-glance) tracks every
 milestone, and [pending tasks](docs/TODO.md#in-progress) record what each one
@@ -91,8 +91,7 @@ is waiting on.
 
 ## Implemented today
 
-This section covers M01 and M02. M03 features are summarized in
-[project status](#project-status) until their branch is merged.
+This section covers M01 to M03.
 
 Legend: ✅ verified against a disposable IMAP server · 🧪 implemented, needs
 verification
@@ -136,6 +135,26 @@ has been done yet. The mail shell and embedded panels are Completed
 [design guide](docs/philosophy/designs.md#current-interface) describes them in
 detail, and [pending tasks](docs/TODO.md#m02-shell-and-account-foundation)
 record the verification.
+
+### Added in M03
+
+| Area                   | What works                                                                                                                 | Status |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 🗂️ Folder navigation   | Special folders first with theme icons, **Go to Folder** (Ctrl+J), **Go to Next Unread Folder** and **Check for New Mail** | 🧪     |
+| 📥 Unified Inbox       | The INBOX of every chosen account in one list, acting on each message's own account                                        | 🧪     |
+| ⚡ Quick actions       | Archive, Move and Copy to recent folders, mark read, unread and flagged, from the menu, toolbar and keyboard               | 🧪     |
+| 🗑️ Deleting            | Move to Trash with **Undo**, Delete Permanently, Empty Trash and Junk, and Rename Folder, with confirmations               | 🧪     |
+| 🔎 Filters and sorting | Unread, Flagged and With Attachments filters, **Group By**, relevance sorting and a view remembered per folder             | 🧪     |
+| ☑️ Selection           | Select All, Thread, Similar and Invert, keyboard selection, batch progress and errors in a notification bar                | 🧪     |
+| 🎯 Triage              | **Show Related**, fast next and previous keys, a dense processing layout and a searchable shortcut list                    | 🧪     |
+| 📨 Message rows        | Two-line rows with sender initials and unread, flag and attachment indicators                                              | 🧪     |
+
+M03's features are covered by model, unit and main-window tests. Destructive
+operations and Undo still need a check against a live server; see
+[pending tasks](docs/TODO.md#m03-mail-operations) and
+[caveats](docs/CAVEATS.md#mail-operations). The
+[design guide](docs/philosophy/designs.md#current-interface) describes each
+one.
 
 ### Accounts
 
