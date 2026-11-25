@@ -205,7 +205,7 @@ Caveats: [multiple accounts](CAVEATS.md#multiple-accounts)
 [Folders and views](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540205) ·
 [Sorting and triage](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540321)
 
-- [ ] Implement folder navigation for inbox, sent, drafts, trash, and custom folders [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540205)
+- [x] Implement folder navigation for inbox, sent, drafts, trash, and custom folders [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540205)
 - [ ] Provide an Aqua Mail-inspired unified inbox that combines selected accounts while retaining the source account and folder of each message [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314607669)
 - [ ] Add sorting, filtering, selection, unread state, and bulk actions for message lists [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540321)
 - [ ] Support folder sync, account grouping, and desktop-heavy triage behavior [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569116)
@@ -217,6 +217,11 @@ Caveats: [multiple accounts](CAVEATS.md#multiple-accounts)
 - [ ] Add predictable multi-selection, keyboard shortcuts, and progress or error feedback for batch operations [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569349)
 - [ ] Define folder actions and confirmation or recovery behavior for destructive message operations [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569359)
 - [ ] Support account and folder scoped views and preserve selection and sort state during message updates [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569367)
+
+Pending: [M03 handoff](TODO.md#m03-mail-operations).
+
+Caveats: [folder navigation and destructive operations](CAVEATS.md#folder-navigation-and-destructive-operations)
+([#312](https://github.com/mikepadiernos/plasma-impresario/issues/312)).
 
 ### M04: Reading, search, and conversation flow
 
