@@ -25,6 +25,7 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned · ✅ resolved
   - [Message security](#message-security)
   - [Reading privacy](#reading-privacy)
   - [Loading on demand](#loading-on-demand)
+  - [Reader actions](#reader-actions)
   - [OAuth sign-in](#oauth-sign-in)
   - [Mail operations](#mail-operations)
 - [Before reporting results](#before-reporting-results)
@@ -43,6 +44,7 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned · ✅ resolved
 | ⚠️ OAuth sign-in     | Microsoft uses the `common` tenant only and cannot revoke grants from the app, IMAP and SMTP refresh tokens independently, and switching provider replaces a grant without revoking it ([details](#oauth-sign-in)) |
 | ⚠️ Reading privacy   | Link warnings are heuristic and remote content consent applies to the open message only ([details](#reading-privacy))                                                                                              |
 | ⚠️ Loading on demand | Parts that failed after a server error load again only on Try Again; the unavailable-message page is not verified live ([details](#loading-on-demand))                                                             |
+| ⚠️ Reader actions    | The action bar is in the main window only, zoom is not saved, and Archive and Trash from the bar are not verified live ([details](#reader-actions))                                                                |
 | ⚠️ Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                             |
 | 🔒 Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings`                                                     |
 | 🔒 Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used                                                                                                                            |
@@ -221,6 +223,37 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
 - 📋 Report failed attachment downloads in the attachments panel.
 - 📋 Cover the unavailable page and online refusals with a synthetic server
   that refuses FETCH.
+
+### Reader actions
+
+| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                  |
+| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | --------------------------- |
+| [#445](https://github.com/mikepadiernos/plasma-impresario/issues/445) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/445#issuecomment-7176256153) | The reader action bar (#39) |
+
+**Current behavior:**
+
+- ✅ The bar above the reader acts on the open message, not the list
+  selection, and Undo returns a moved message to its own folder (#39).
+- ⚠️ Messages opened in their own window have no action bar.
+- ⚠️ Zoom applies to the open message and resets when another message opens.
+- ⚠️ **Prefer Plain Text** is the global reader setting, not a per-message
+  choice.
+- ⚠️ Offline, Archive, Trash, Read and Flag are disabled.
+- ⚠️ Archive and Move to Trash from the bar are covered by offscreen tests only;
+  the live test covers the flag, read, attachment, zoom and plain-text buttons.
+
+**Workarounds:**
+
+- In a standalone message window, use the main window's message actions.
+- After opening another message, zoom again with the bar or the Zoom In and
+  Zoom Out shortcuts.
+
+**Proposed improvements:**
+
+- 📋 Add the bar to standalone message windows.
+- 📋 Remember the zoom level.
+- 📋 Cover Archive and Trash from the bar, with Undo for a message opened from
+  Related Messages, in the live test.
 
 ### OAuth sign-in
 

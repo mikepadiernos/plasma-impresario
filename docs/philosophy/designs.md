@@ -24,6 +24,7 @@ Legend: ![Done][done] · ![Needs verification][needs-verification] ·
   - [Search highlighting](#search-highlighting)
   - [Remote content and links](#remote-content-and-links)
   - [Loading and unavailable content](#loading-and-unavailable-content)
+  - [Reader actions](#reader-actions)
   - [Status bar](#status-bar)
 - [Proposed Plasma Impresario shell](#proposed-plasma-impresario-shell)
   - [Panes and placement](#panes-and-placement)
@@ -571,6 +572,28 @@ blank:
 On an expensive connection, large parts still wait behind a **Load** button
 with their type and size. See
 [caveats](../CAVEATS.md#loading-on-demand).
+
+### Reader actions
+
+A bar above the message in the main window acts on the open message, whatever
+is selected in the list ([#39](https://github.com/mikepadiernos/plasma-impresario/issues/39)):
+
+- **Reply**, with the reply menu, and **Forward**.
+- **Archive** and **Move to Trash**. Without a Trash folder, or with moving to
+  Trash turned off, the button becomes **Delete** or **Undelete**. Undo returns
+  the message to its own folder, also when it was opened from Related Messages.
+- **Read** and **Flag** toggles, which show the message's marks as the server
+  reports them. Offline, these and the move buttons are disabled.
+- An attachment chip, such as **2 attachments**, shown only when the message
+  has attachments. It shows the Attachments panel, also when the panel was
+  turned off, and moves the focus to it.
+- **Zoom Out**, **Reset Zoom** and **Zoom In** for the open message, and
+  **Prefer Plain Text**, which changes the reader setting and reloads the
+  message.
+
+Buttons use the theme's symbolic icons and have accessible names; the bar
+collapses into an overflow menu when narrow. See
+[caveats](../CAVEATS.md#reader-actions).
 
 ### Status bar
 
