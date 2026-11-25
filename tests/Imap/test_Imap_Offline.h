@@ -34,6 +34,7 @@ class OfflineTest : public LibMailboxSync
 private slots:
     void init() override;
     void testStatusVsExistsCached();
+    void testFinishedFetchDoesNotLeaveLogout();
 };
 
 #endif

@@ -82,6 +82,11 @@ find_package(KF6 REQUIRED
         ItemModels
 )
 
+if(WITH_DESKTOP)
+    find_package(KF6 REQUIRED COMPONENTS Config I18n)
+    ki18n_install(po)
+endif()
+
 if(WITH_WEBENGINE)
     find_package(Qt6 ${QT_REQUIRED_VERSION} REQUIRED COMPONENTS WebEngineWidgets)
 endif()
@@ -262,6 +267,8 @@ feature_summary(FATAL_ON_MISSING_REQUIRED_PACKAGES INCLUDE_QUIET_PACKAGES DESCRI
 
 set(path_Common ${CMAKE_CURRENT_SOURCE_DIR}/src/Common)
 set(libCommon_SOURCES
+    ${path_Common}/AccountRegistry.cpp
+    ${path_Common}/AccountStatus.cpp
     ${path_Common}/Application.cpp
     ${path_Common}/ConnectionId.cpp
     ${path_Common}/FileLogger.cpp
@@ -282,12 +289,14 @@ set(libPlugins_SOURCES
 
 set(path_UiUtils ${CMAKE_CURRENT_SOURCE_DIR}/src/UiUtils)
 set(libUiUtils_SOURCES
+    ${path_UiUtils}/AttachmentCollector.cpp
     ${path_UiUtils}/Color.cpp
     ${path_UiUtils}/Formatting.cpp
     ${path_UiUtils}/IconLoader.cpp
     ${path_UiUtils}/PasswordWatcher.cpp
     ${path_UiUtils}/PlainTextFormatter.cpp
     ${path_UiUtils}/QaimDfsIterator.cpp
+    ${path_UiUtils}/RelatedMessages.cpp
 )
 
 if(WITH_WEBENGINE)
@@ -316,6 +325,7 @@ endif()
 set(path_Composer ${CMAKE_CURRENT_SOURCE_DIR}/src/Composer)
 set(libComposer_SOURCES
     ${path_Composer}/AbstractComposer.cpp
+    ${path_Composer}/AccountIdentities.cpp
     ${path_Composer}/ComposerAttachments.cpp
     ${path_Composer}/ExistingMessageComposer.cpp
     ${path_Composer}/Mailto.cpp
@@ -374,17 +384,25 @@ endif()
 
 set(path_DesktopGui ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui)
 set(libDesktopGui_SOURCES
+    ${path_DesktopGui}/AttachmentPanel.cpp
+    ${path_DesktopGui}/ContactPanel.cpp
     ${path_DesktopGui}/ColoredItemDelegate.cpp
     ${path_DesktopGui}/ComposeWidget.cpp
     ${path_DesktopGui}/ComposerAttachmentsList.cpp
     ${path_DesktopGui}/ComposerTextEdit.cpp
+    ${path_DesktopGui}/DensityDelegate.cpp
+    ${path_DesktopGui}/DensityMenu.cpp
+    ${path_DesktopGui}/EmbeddedPanel.cpp
+    ${path_DesktopGui}/EmbeddedPanelsMenu.cpp
     ${path_DesktopGui}/ExternalElementsWidget.cpp
     ${path_DesktopGui}/FlowLayout.cpp
     ${path_DesktopGui}/FromAddressProxyModel.cpp
     ${path_DesktopGui}/LineEdit.cpp
     ${path_DesktopGui}/MailBoxTreeView.cpp
     ${path_DesktopGui}/MessageActionHandler.cpp
+    ${path_DesktopGui}/MessageDetailsPanel.cpp
     ${path_DesktopGui}/MessageListWidget.cpp
+    ${path_DesktopGui}/MessageSelectionRestorer.cpp
     ${path_DesktopGui}/MsgItemDelegate.cpp
     ${path_DesktopGui}/MsgListView.cpp
     ${path_DesktopGui}/OnePanelAtTimeWidget.cpp
@@ -392,6 +410,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/PasswordDialog.cpp
     ${path_DesktopGui}/ProgressPopUp.cpp
     ${path_DesktopGui}/ProtocolLoggerWidget.cpp
+    ${path_DesktopGui}/RelatedMessagesPanel.cpp
     ${path_DesktopGui}/ReplaceCharValidator.cpp
     ${path_DesktopGui}/SettingsDialog.cpp
     ${path_DesktopGui}/Spinner.cpp
@@ -468,6 +487,7 @@ set(libImap_SOURCES
     ${path_Imap}/Model/FindInterestingPart.cpp
     ${path_Imap}/Model/FlagsOperation.cpp
     ${path_Imap}/Model/FullMessageCombiner.cpp
+    ${path_Imap}/Model/AccountCapabilities.cpp
     ${path_Imap}/Model/ImapAccess.cpp
     ${path_Imap}/Model/MailboxFinder.cpp
     ${path_Imap}/Model/MailboxMetadata.cpp
@@ -846,6 +866,8 @@ if(WITH_DESKTOP)
             Imap
         PRIVATE
             Qt::Network
+            KF6::ConfigCore
+            KF6::I18n
             Cryptography
             IPC
             MSA
@@ -880,6 +902,7 @@ if(WITH_DESKTOP)
             DesktopGui
             IPC
             UiUtils
+            KF6::I18n
             ${STATIC_PLUGINS}
     )
 
@@ -983,6 +1006,87 @@ if(BUILD_TESTING)
     set(UBSAN_ENV_SUPPRESSIONS "UBSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/tests/ubsan.supp")
 
     enable_testing()
+    if(WITH_DESKTOP)
+        add_executable(test_DensityMenu tests/Gui/test_DensityMenu.cpp
+            src/Gui/ColoredItemDelegate.cpp src/Gui/ColoredItemDelegate.h
+            src/Gui/DensityDelegate.cpp src/Gui/DensityDelegate.h
+            src/Gui/DensityMenu.cpp src/Gui/DensityMenu.h)
+        target_compile_definitions(test_DensityMenu PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+        target_link_libraries(test_DensityMenu PRIVATE Qt6::Widgets Qt6::Test KF6::ConfigCore KF6::I18n)
+        add_executable(test_AttachmentPanel tests/Gui/test_AttachmentPanel.cpp)
+        target_link_libraries(test_AttachmentPanel PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_EmbeddedPanels tests/Gui/test_EmbeddedPanels.cpp)
+        target_link_libraries(test_EmbeddedPanels PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_MainWindowDensity tests/Gui/test_MainWindowDensity.cpp)
+        target_link_libraries(test_MainWindowDensity PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_MailBoxTreeView tests/Gui/test_MailBoxTreeView.cpp)
+        target_link_libraries(test_MailBoxTreeView PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_MainWindowAccounts tests/Gui/test_MainWindowAccounts.cpp)
+        target_link_libraries(test_MainWindowAccounts PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_SavedSearch tests/Gui/test_SavedSearch.cpp)
+        target_link_libraries(test_SavedSearch PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_ClearTextPassword tests/Gui/test_ClearTextPassword.cpp)
+        target_link_libraries(test_ClearTextPassword PRIVATE Plugins Qt6::Test ${STATIC_PLUGINS})
+        add_executable(test_PasswordBackend tests/Gui/test_PasswordBackend.cpp)
+        target_link_libraries(test_PasswordBackend PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_LiveImap tests/Gui/test_LiveImap.cpp)
+        target_link_libraries(test_LiveImap PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_LiveImapAccounts tests/Gui/test_LiveImapAccounts.cpp)
+        target_link_libraries(test_LiveImapAccounts PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_LiveImapPanels tests/Gui/test_LiveImapPanels.cpp)
+        target_link_libraries(test_LiveImapPanels PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_MessageSelectionRestorer tests/Gui/test_MessageSelectionRestorer.cpp)
+        target_link_libraries(test_MessageSelectionRestorer PRIVATE DesktopGui Qt6::Test)
+        add_executable(test_SessionRestart tests/Gui/test_SessionRestart.cpp)
+        target_link_libraries(test_SessionRestart PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_AccountSettingsDialog tests/Gui/test_AccountSettingsDialog.cpp)
+        target_link_libraries(test_AccountSettingsDialog PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        if(NOT CMAKE_CROSSCOMPILING)
+            add_test(NAME test_DensityMenu COMMAND test_DensityMenu)
+            set_tests_properties(test_DensityMenu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_AttachmentPanel COMMAND test_AttachmentPanel)
+            set_tests_properties(test_AttachmentPanel PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_EmbeddedPanels COMMAND test_EmbeddedPanels)
+            set_tests_properties(test_EmbeddedPanels PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_MailBoxTreeView COMMAND test_MailBoxTreeView)
+            set_tests_properties(test_MailBoxTreeView PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_SavedSearch COMMAND test_SavedSearch)
+            set_tests_properties(test_SavedSearch PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_ClearTextPassword COMMAND test_ClearTextPassword)
+            add_test(NAME test_PasswordBackend COMMAND test_PasswordBackend)
+            set_tests_properties(test_PasswordBackend PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_MessageSelectionRestorer COMMAND test_MessageSelectionRestorer)
+            set_tests_properties(test_MessageSelectionRestorer PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_MainWindowDensity COMMAND test_MainWindowDensity)
+            foreach(account_case migratesSingleProfileIntoFirstAccount switchingKeepsAccountsIndependent backgroundAccountStatusIsShown
+                    removingAccountDeletesItsSettingsAndPasswords accountsSwitchFromTheKeyboard
+                    savedSearchesAndFolderExpansionFollowTheAccount focusCyclesThroughShellRegions
+                    identitiesFollowTheAccount newAccountsStartWithoutIdentities)
+                add_test(NAME test_MainWindowAccounts_${account_case} COMMAND test_MainWindowAccounts ${account_case})
+                set_tests_properties(test_MainWindowAccounts_${account_case} PROPERTIES
+                    TIMEOUT 60
+                    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
+            endforeach()
+            add_test(NAME test_SessionRestart COMMAND test_SessionRestart)
+            set_tests_properties(test_SessionRestart PROPERTIES TIMEOUT 120 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            # One main window per process: the shortcut handler is a singleton.
+            foreach(settings_case accountsKeepTheirOwnCaches applicationSettingsLeaveTheAccountAlone
+                    accountSettingsEditOnlyTheActiveAccount cancellingAccountSettingsKeepsTheAccount
+                    addingAnAccountOpensItsAccountSettings)
+                add_test(NAME test_AccountSettingsDialog_${settings_case} COMMAND test_AccountSettingsDialog ${settings_case})
+                set_tests_properties(test_AccountSettingsDialog_${settings_case} PROPERTIES
+                    TIMEOUT 60
+                    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
+            endforeach()
+            set_tests_properties(test_MainWindowDensity PROPERTIES
+                TIMEOUT 30
+                ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
+            add_test(NAME test_MainWindowDensityNamedProfile COMMAND test_MainWindowDensity)
+            set_tests_properties(test_MainWindowDensityNamedProfile PROPERTIES
+                TIMEOUT 30
+                ENVIRONMENT "PLASMA_TEST_PROFILE=named;QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
+        endif()
+    endif()
     if(WITH_DESKTOP AND UNIX AND NOT APPLE)
         find_package(Python3 QUIET COMPONENTS Interpreter)
         find_program(GTK_UPDATE_ICON_CACHE_TEST_EXECUTABLE NAMES gtk-update-icon-cache)
@@ -1079,6 +1183,14 @@ if(BUILD_TESTING)
     trojita_test(Misc Formatting)
     trojita_test(Misc QaimDfsIterator)
     trojita_test(Misc FavoriteTagsModel)
+    trojita_test(Misc AccountCapabilities)
+    trojita_test(Misc AccountRegistry)
+    trojita_test(Misc AccountIdentities)
+    trojita_test(Misc AccountStatus)
+    trojita_test(Misc AttachmentCollector)
+    target_link_libraries(test_AttachmentCollector PRIVATE UiUtils)
+    trojita_test(Misc RelatedMessages)
+    target_link_libraries(test_RelatedMessages PRIVATE UiUtils)
 
 endif()
 

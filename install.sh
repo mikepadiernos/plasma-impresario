@@ -231,7 +231,7 @@ install_dependencies() {
       done
       install_missing_packages \
         base-devel cmake ninja pkgconf extra-cmake-modules qt6-base \
-        qt6-declarative qt6-svg qt6-tools qt6-5compat kitemmodels \
+        qt6-declarative qt6-svg qt6-tools qt6-5compat kitemmodels kconfig ki18n \
         "${webengine_packages[@]}" "${available_optional[@]}"
       return 0
       ;;
@@ -248,6 +248,8 @@ install_dependencies() {
         qt6-tools \
         qt6-5compat \
         kitemmodels \
+        kconfig \
+        ki18n \
         "${webengine_packages[@]}" \
         mimetic \
         gpgme \
@@ -278,6 +280,8 @@ install_dependencies() {
         libqt6sql6-dev \
         libqt6dbus6-dev \
         libkf6itemmodels-dev \
+        libkf6config-dev \
+        libkf6i18n-dev \
         libkf6sonnet-dev \
         libkf6akonadicore-dev \
         libkf6akonadimime-dev
@@ -298,6 +302,8 @@ install_dependencies() {
         qt6-qttools-devel \
         qt6-qt5compat-devel \
         kf6-kitemmodels-devel \
+        kf6-kconfig-devel \
+        kf6-ki18n-devel \
         kf6-sonnet-devel \
         kf6-akonadi-devel
       return 0
@@ -316,6 +322,8 @@ install_dependencies() {
         qt6-tools-devel \
         libqt6-qt5compat-devel \
         kitemmodels-devel \
+        kf6-kconfig-devel \
+        kf6-ki18n-devel \
         sonnet-devel \
         akonadi-devel
       return 0

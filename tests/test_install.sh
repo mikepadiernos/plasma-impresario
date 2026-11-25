@@ -82,6 +82,16 @@ if grep -Eq '(^pacman -Syu |^-S |^--build |^--install |^sudo )' "${INSTALL_TEST_
   exit 1
 fi
 
+for dependency in kconfig ki18n; do
+  : > "${INSTALL_TEST_CALLS}"
+  if MISSING_REQUIRED="${dependency}" "${root}/install.sh" --check-deps \
+    --build-dir "${tmp}/build" --prefix "${tmp}/install" > "${tmp}/output" 2>&1; then
+    echo "Dependency check unexpectedly succeeded without ${dependency}" >&2
+    exit 1
+  fi
+  grep -Fq "${dependency}" "${tmp}/output"
+done
+
 : > "${INSTALL_TEST_CALLS}"
 if "${root}/install.sh" --no-deps --check-deps > "${tmp}/output" 2>&1; then
   echo "Conflicting dependency options unexpectedly succeeded" >&2

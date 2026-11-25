@@ -30,6 +30,8 @@ namespace Common
 
 struct SettingsNames {
     static const QString identitiesKey, realNameKey, addressKey, organisationKey, signatureKey, obsRealNameKey, obsAddressKey;
+    /** @short Per-account flag: the account sends without an identity */
+    static const QString composerNoIdentityKey;
     static const QString favoriteTagsKey, tagNameKey, tagColorKey;
     static const QString msaMethodKey, methodSMTP, methodSSMTP, methodSENDMAIL, methodImapSendmail, smtpHostKey,
            smtpPortKey, smtpAuthKey, smtpStartTlsKey, smtpUserKey, smtpAuthReuseImapCredsKey,
@@ -39,7 +41,7 @@ struct SettingsNames {
            obsImapStartOffline, obsImapSslPemCertificate, imapSslPemPubKey,
            imapBlacklistedCapabilities, imapUseSystemProxy, imapNeedsNetwork, imapNumberRefreshInterval,
            imapAccountIcon, imapArchiveFolderName, imapDefaultArchiveFolderName;
-    static const QString composerSaveToImapKey, composerImapSentKey, smtpUseBurlKey;
+    static const QString composerSaveToImapKey, composerImapSentKey, smtpUseBurlKey, composerUseSharedIdentitiesKey;
     static const QString cacheMetadataKey, cacheMetadataMemory,
            cacheOfflineKey, cacheOfflineNone, cacheOfflineXDays, cacheOfflineAll, cacheOfflineNumberDaysKey;
     static const QString watchedFoldersKey, watchOnlyInbox, watchSubscribed, watchAll;

@@ -24,6 +24,7 @@
 #define SETTINGSDIALOG_H
 
 #include <QDialog>
+#include <QHash>
 #include <QPointer>
 #include <QSettings>
 #include "ui_EditIdentity.h"
@@ -31,8 +32,10 @@
 #include "ui_SettingsCachePage.h"
 #include "ui_SettingsFavoriteTagsPage.h"
 #include "ui_SettingsGeneralPage.h"
+#include "ui_SettingsIdentitiesPage.h"
 #include "ui_SettingsImapPage.h"
 #include "ui_SettingsOutgoingPage.h"
+#include "Composer/AccountIdentities.h"
 #include "Composer/SenderIdentitiesModel.h"
 #include "Imap/Model/FavoriteTagsModel.h"
 #include "Plugins/PasswordPlugin.h"
@@ -115,7 +118,7 @@ class GeneralPage : public QScrollArea, Ui_GeneralPage, public ConfigurationWidg
 {
     Q_OBJECT
 public:
-    GeneralPage(SettingsDialog *parent, QSettings &s, Composer::SenderIdentitiesModel *identitiesModel);
+    GeneralPage(SettingsDialog *parent, QSettings &s);
     void save(QSettings &s) override;
     QWidget *asWidget() override;
     bool checkValidity() const override;
@@ -123,15 +126,9 @@ public:
 
 private slots:
     void updateWidgets();
-    void moveIdentityUp();
-    void moveIdentityDown();
-    void addButtonClicked();
-    void editButtonClicked();
-    void deleteButtonClicked();
     void passwordPluginChanged();
 
 private:
-    Composer::SenderIdentitiesModel *m_identitiesModel;
     SettingsDialog *m_parent;
 
     GeneralPage(const GeneralPage &); // don't implement
@@ -140,6 +137,48 @@ private:
 signals:
     void saved();
     void reloadPasswords();
+    void widgetsUpdated();
+};
+
+/** @short Sender identities of one account: its own by default, the identities shared by all accounts, or none */
+class IdentitiesPage : public QScrollArea, Ui_IdentitiesPage, public ConfigurationWidgetInterface
+{
+    Q_OBJECT
+public:
+    /**
+     * @param account settings of the account being configured
+     * @param shared application-wide settings that store the shared identities
+     */
+    IdentitiesPage(SettingsDialog *parent, QSettings &account, QSettings &shared,
+                   Composer::SenderIdentitiesModel *accountIdentities, Composer::SenderIdentitiesModel *sharedIdentities);
+    void save(QSettings &s) override;
+    QWidget *asWidget() override;
+    bool checkValidity() const override;
+    bool passwordFailures(QString &message) const override;
+
+private slots:
+    void updateWidgets();
+    void showIdentitiesInUse();
+    void moveIdentityUp();
+    void moveIdentityDown();
+    void addButtonClicked();
+    void editButtonClicked();
+    void deleteButtonClicked();
+
+private:
+    Composer::AccountIdentities::Source selectedSource() const;
+
+    Composer::SenderIdentitiesModel *m_accountIdentities;
+    Composer::SenderIdentitiesModel *m_sharedIdentities;
+    /** The list shown, depending on the identity source; read-only when the account uses no identity */
+    Composer::SenderIdentitiesModel *m_identitiesModel;
+    QSettings &m_shared;
+
+    IdentitiesPage(const IdentitiesPage &) = delete;
+    IdentitiesPage &operator=(const IdentitiesPage &) = delete;
+
+signals:
+    void saved();
     void widgetsUpdated();
 };
 
@@ -291,12 +330,23 @@ signals:
 };
 
 
+/** @short Settings of the application, or of the active account, each in its own dialog */
 class SettingsDialog : public QDialog
 {
     Q_OBJECT
 public:
-    SettingsDialog(MainWindow *parent, Composer::SenderIdentitiesModel *identitiesModel,
-        Imap::Mailbox::FavoriteTagsModel *favoriteTagsModel, QSettings *settings);
+    enum class Scope {
+        /** General and Favorite tags pages, stored in the application settings */
+        Application,
+        /** Identities, IMAP, Offline and SMTP pages of the active account */
+        Account,
+    };
+
+    SettingsDialog(MainWindow *parent, Scope scope, Composer::SenderIdentitiesModel *sharedIdentities,
+        Composer::SenderIdentitiesModel *accountIdentities, Imap::Mailbox::FavoriteTagsModel *favoriteTagsModel,
+        QSettings *settings);
+
+    Scope scope() const;
 
     Plugins::PluginManager *pluginManager();
     Imap::ImapAccess* imapAccess();
@@ -316,10 +366,14 @@ private slots:
     void slotAccept();
 private:
     MainWindow *mainWindow;
+    Scope m_scope;
     QDialogButtonBox *buttons;
     QTabWidget *stack;
     QVector<ConfigurationWidgetInterface*> pages;
+    QHash<ConfigurationWidgetInterface *, QSettings *> m_pageSettings;
+    QSettings *m_accountSettings;
     Composer::SenderIdentitiesModel *m_senderIdentities;
+    Composer::SenderIdentitiesModel *m_accountIdentities;
     Imap::Mailbox::FavoriteTagsModel *m_favoriteTags;
     QSettings *m_settings;
     int m_saveSignalCount;
@@ -330,7 +384,8 @@ private:
     SettingsDialog(const SettingsDialog &); // don't implement
     SettingsDialog &operator=(const SettingsDialog &); // don't implement
 
-    void addPage(ConfigurationWidgetInterface *page, const QString &title);
+    /** Add a page whose values are loaded from and saved to the given settings. */
+    void addPage(ConfigurationWidgetInterface *page, const QString &title, QSettings *pageSettings);
 };
 
 }

@@ -23,8 +23,10 @@
 
 #include <QDragMoveEvent>
 #include <QDropEvent>
+#include <QKeyEvent>
 #include <QMenu>
 #include <QMimeData>
+#include <QMouseEvent>
 #include "Common/SettingsNames.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/Util.h"
@@ -65,6 +67,13 @@ MailBoxTreeView::MailBoxTreeView(QWidget *parent, QSettings *settings)
     });
 }
 
+void MailBoxTreeView::restoreMailbox(const QString &mailboxName)
+{
+    m_pendingMailbox = mailboxName;
+    if (m_mailboxFinder && !m_pendingMailbox.isEmpty())
+        m_mailboxFinder->addMailbox(m_pendingMailbox);
+}
+
 /** \reimp
 
 The MailboxFinder has to be kept up-to-speed about these changes.
@@ -77,8 +86,15 @@ void MailBoxTreeView::setModel(QAbstractItemModel *model)
     if (model) {
         m_mailboxFinder = new Imap::Mailbox::MailboxFinder(this, model);
         connect(m_mailboxFinder, &Imap::Mailbox::MailboxFinder::mailboxFound,
-                this, [this](const QString &, const QModelIndex &index) {
-            expand(index);
+                this, [this](const QString &name, const QModelIndex &index) {
+            if (m_desiredExpansionState.contains(name))
+                expand(index);
+            if (name == m_pendingMailbox && index.data(Imap::Mailbox::RoleMailboxIsSelectable).toBool()) {
+                m_pendingMailbox.clear();
+                setCurrentIndex(index);
+                scrollTo(index);
+                emit mailboxRestored(index);
+            }
         });
         connect(model, &QAbstractItemModel::layoutChanged, this, &MailBoxTreeView::resetWatchedMailboxes);
         connect(model, &QAbstractItemModel::rowsRemoved, this, &MailBoxTreeView::resetWatchedMailboxes);
@@ -86,6 +102,8 @@ void MailBoxTreeView::setModel(QAbstractItemModel *model)
     }
     QTreeView::setModel(model);
     resetWatchedMailboxes();
+    if (m_mailboxFinder && !m_pendingMailbox.isEmpty())
+        m_mailboxFinder->addMailbox(m_pendingMailbox);
 }
 /** @short Returns the user's default action from Qt::DropAction or Qt::IgnoreAction if not set */
 Qt::DropAction MailBoxTreeView::defaultDropAction()
@@ -98,6 +116,19 @@ Qt::DropAction MailBoxTreeView::defaultDropAction()
     } else {
         return Qt::IgnoreAction;
     }
+}
+
+void MailBoxTreeView::keyPressEvent(QKeyEvent *event)
+{
+    m_pendingMailbox.clear();
+    QTreeView::keyPressEvent(event);
+}
+
+void MailBoxTreeView::mousePressEvent(QMouseEvent *event)
+{
+    if (indexAt(event->position().toPoint()).isValid())
+        m_pendingMailbox.clear();
+    QTreeView::mousePressEvent(event);
 }
 
 /** @short Reimplemented for more consistent handling of modifiers
@@ -176,6 +207,13 @@ void MailBoxTreeView::setDesiredExpansion(const QStringList &mailboxNames)
 {
     m_desiredExpansionState = QSet<QString>(mailboxNames.begin(), mailboxNames.end());
     resetWatchedMailboxes();
+}
+
+QStringList MailBoxTreeView::desiredExpansion() const
+{
+    QStringList names = m_desiredExpansionState.values();
+    names.sort();
+    return names;
 }
 
 /** @short Ensure that we watch stuff that we need to watch */

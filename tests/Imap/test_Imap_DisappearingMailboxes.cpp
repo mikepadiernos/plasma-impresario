@@ -22,6 +22,7 @@
 
 #include <QtTest>
 #include "test_Imap_DisappearingMailboxes.h"
+#include "data.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/TaskPresentationModel.h"
 #include "Streams/FakeSocket.h"
@@ -268,6 +269,34 @@ void ImapModelDisappearingMailboxTest::testTrafficAfterSyncedMailboxGoesAway()
     cServer(t.last("OK selected\r\n"));
 
     cEmpty();
+}
+
+void ImapModelDisappearingMailboxTest::testPartFetchAfterMailboxDisappears()
+{
+    model->setProperty("trojita-imap-delayed-fetch-part", 0);
+    helperSyncBNoMessages();
+    cServer("* 1 EXISTS\r\n");
+    cClient(t.mk("UID FETCH 1:* (FLAGS)\r\n"));
+    cServer("* 1 FETCH (UID 333 FLAGS ())\r\n" + t.last("OK fetched\r\n"));
+    const QModelIndex message = model->index(0, 0, msgListB);
+    QCOMPARE(model->rowCount(message), 0);
+    cClient(t.mk("UID FETCH 333 (" FETCH_METADATA_ITEMS ")\r\n"));
+    cServer("* 1 FETCH (UID 333 BODYSTRUCTURE (" + bsPlaintext + "))\r\n" + t.last("OK fetched\r\n"));
+    const QModelIndex part = model->index(0, 0, message);
+    QVERIFY(part.isValid());
+    part.data(Imap::Mailbox::RolePartData);
+    cClient(t.mk("UID FETCH 333 (BODY.PEEK[1])\r\n"));
+    const QByteArray fetchResponse = QByteArray("* 1 FETCH (UID 333 BODY[1] \"synthetic\")\r\n") + t.last("OK fetched\r\n");
+    taskFactoryUnsafe->fakeListChildMailboxes = false;
+    FakeCapabilitiesInjector injector(model);
+    injector.injectCapability(QStringLiteral("UNSELECT"));
+    model->reloadMailboxList();
+    cClient(t.mk("LIST \"\" \"%\"\r\n"));
+    cServer(QByteArray("* LIST (\\HasNoChildren) \".\" \"b\"\r\n"
+                       "* LIST (\\HasNoChildren) \".\" \"a\"\r\n") + t.last("OK listed\r\n"));
+    QVERIFY(!idxB.isValid());
+    cServer(fetchResponse);
+    QVERIFY(errorSpy->isEmpty());
 }
 
 /** @short Connection going offline shall not be reused for further requests for message structure

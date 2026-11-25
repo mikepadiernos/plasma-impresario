@@ -77,7 +77,15 @@ class ImapAccess : public QObject
     Q_ENUMS(Imap::ImapAccess::ConnectionMethod)
 
 public:
-    ImapAccess(QObject *parent, QSettings *settings, Plugins::PluginManager *pluginManager, const QString &accountName);
+    /**
+     * @param settings account configuration
+     * @param pluginManager password and other plugins
+     * @param accountName name used for the cache folder and credential storage
+     * @param appSettings application-wide settings read for options shared by all accounts;
+     *        defaults to \p settings when null
+     */
+    ImapAccess(QObject *parent, QSettings *settings, Plugins::PluginManager *pluginManager, const QString &accountName,
+               QSettings *appSettings = nullptr);
 
     bool isConfigured() const;
     QAbstractItemModel *imapModel() const;
@@ -104,6 +112,9 @@ public:
     void setNumberRefreshInterval(const int interval);
 
     QString accountName() const;
+
+    /** Return the account identifier used for credential storage. */
+    QString credentialAccountId() const;
 
     QString accountIconName() const;
     void setAccountIconName(const QString &iconName);
@@ -155,6 +166,7 @@ private slots:
 
 private:
     QSettings *m_settings;
+    QSettings *m_appSettings;
     Imap::Mailbox::Model *m_imapModel;
     Imap::Mailbox::MailboxModel *m_mailboxModel;
     Imap::Mailbox::SubtreeModelOfMailboxModel *m_mailboxSubtreeModel;
