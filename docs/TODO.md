@@ -45,11 +45,9 @@ progress · 📋 planned · ⛔ blocked
 - ✅ **M02 shell, accounts and mailbox foundation**
   ([#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)): merged
   into `main` and into `feature/m03-mail-operations`.
-- 🚧 **M03 mail operations, sorting and folder management**
-  ([#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)): in
-  Development on `feature/m03-mail-operations`, which now includes M02. Eight
-  features are Completed, #87 is in Review and three are Defined; see [M03 mail
-  operations](#m03-mail-operations).
+- ✅ **M03 mail operations, sorting and folder management**
+  ([#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)): merged
+  into `main`. See [M03 mail operations](#m03-mail-operations).
 - 🚧 **M09 themes and branding foundation**
   ([#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)): in
   Development because M09.01 Branding and visual language
@@ -338,18 +336,16 @@ parent issue. M15 is blocked by M02 but does not block later milestones.
 
 ### M03 mail operations
 
-- **Branch:** `feature/m03-mail-operations` merged `main`, including M02, on
-  2026-11-25; M03's server-dependent actions are registered with M02's
-  capability gate. It merges into `main` once every M03 roadmap item is
-  checked. Work continues in the `.worktrees/m03` git worktree because the
-  main checkout is in use. In a container build of a worktree, also mount the
-  main repository's `.git` at its host path, or the version header step fails.
-- **Current state:** M03 #5 is in Development. Folder navigation #37,
-  destructive operations #89, quick actions #83, sorting, filtering and
-  selection #38, multi-selection and batch feedback #88, power-user workflows
-  #84, grouping and relevance sorting #85, folder-scoped views #90 and message
-  rows #87 are Completed; folder sync, account grouping and triage #82 is in
-  Review. The other feature issues follow in this order: #223 and #86.
+- **Merged:** M03 #5 is feature-complete: all 12 roadmap items are checked
+  and `feature/m03-mail-operations` is merged into `main`. The parent and its
+  features #37, #38, #89, #83, #88, #84, #85, #90, #87, #82, #223 and #86 are
+  Merged. M03's server-dependent actions are registered with M02's capability
+  gate. In a container build of a git worktree, also mount the main
+  repository's `.git` at its host path, or the version header step fails.
+- **Handoff to M04:** replies, forwards and resends from the Unified Inbox
+  already open with the message's account. M04's "Preserve the originating
+  account and sending identity" item still covers drafts, the reader and the
+  sending identity across views.
 - **Pending verification:** Delete to Trash, Undo, Delete Permanently, Empty
   Trash/Junk and Rename Folder are covered by model and unit tests but have not
   been exercised in a window against a live server. Extend
@@ -435,14 +431,9 @@ component audit and reproduction steps.
   tasks backed by merged work and recorded evidence. Each one leaves its
   live-reading, system-prefix or other-distribution tasks unchecked, with a
   note pointing to the [M01 handoff](#m01-release-gate-and-integration).
-- 📋 **Pending wording, #87:** M03 issue
-  [#87](https://github.com/mikepadiernos/plasma-impresario/issues/87) is
-  titled "Provide an Aqua Mail-inspired message list", while its roadmap item
-  still reads "Provide readable compact message rows…". The
-  [message list design](philosophy/designs.md#message-list-presentation)
-  merged in [#259](https://github.com/mikepadiernos/plasma-impresario/pull/259)
-  without rewording the item, because the M03 branch edits the adjacent roadmap
-  lines. Reword it on `feature/m03-mail-operations` and link the design.
+- ✅ **Wording, #87:** the M03 roadmap item now matches its issue title,
+  "Provide an Aqua Mail-inspired message list", and links the
+  [message list design](philosophy/designs.md#message-list-presentation).
 - Keep roadmap links, issue parents, milestone assignments and project status
   synchronized when roadmap scope changes.
 
