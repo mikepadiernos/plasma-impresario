@@ -83,6 +83,37 @@ int fieldScore(const QString &field, const QString &term,
 
 } // namespace
 
+QString searchHighlightTerm(const QStringList &conditions) {
+  const QStringList tokens =
+      conditions.size() == 1 ? tokenize(conditions.constFirst()) : conditions;
+  static const QStringList bodyKeys{
+      QStringLiteral("SUBJECT"),
+      QStringLiteral("BODY"),
+      QStringLiteral("TEXT"),
+  };
+  static const QStringList headerKeys{
+      QStringLiteral("FROM"),
+      QStringLiteral("TO"),
+      QStringLiteral("CC"),
+      QStringLiteral("BCC"),
+  };
+  for (int i = 0; i < tokens.size(); ++i) {
+    const QString key = tokens.at(i).toUpper();
+    if (bodyKeys.contains(key)) {
+      if (i + 1 < tokens.size()) {
+        const QString term = tokens.at(++i).simplified();
+        if (!term.isEmpty())
+          return term;
+      }
+    } else if (headerKeys.contains(key)) {
+      ++i;
+    } else if (key == QLatin1String("HEADER")) {
+      i += 2;
+    }
+  }
+  return QString();
+}
+
 QStringList relevanceTerms(const QStringList &conditions) {
   const QStringList tokens =
       conditions.size() == 1 ? tokenize(conditions.constFirst()) : conditions;
