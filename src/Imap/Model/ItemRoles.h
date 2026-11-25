@@ -173,6 +173,12 @@ enum {
 
     /** @short Fetch a part from the cache if it's available, but do not request it from the server */
     RolePartForceFetchFromCache,
+    /** @short Ask again for a message or part which could not be loaded
+
+    Reading this role resets an unavailable message or part and fetches it again under the current network policy.
+    It returns true unless the item is still unavailable, for example because the network is offline.
+    */
+    RoleRetryIfUnavailable,
     /** @short Pointer to the internal buffer */
     RolePartBufferPtr,
 

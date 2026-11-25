@@ -1208,6 +1208,12 @@ QVariant TreeItemMessage::data(Model *const model, int role)
         return fetched();
     case RoleIsUnavailable:
         return isUnavailable();
+    case RoleRetryIfUnavailable:
+        if (isUnavailable()) {
+            setFetchStatus(NONE);
+            fetch(model);
+        }
+        return !isUnavailable();
     case RoleMessageFlags:
         // The flags are already sorted by Model::normalizeFlags()
         return m_flags;
@@ -1657,6 +1663,12 @@ QVariant TreeItemPart::data(Model *const model, int role)
         return fetched();
     case RoleIsUnavailable:
         return isUnavailable();
+    case RoleRetryIfUnavailable:
+        if (isUnavailable()) {
+            setFetchStatus(NONE);
+            fetch(model);
+        }
+        return !isUnavailable();
     case RolePartMimeType:
         return m_mimeType;
     case RolePartCharset:
