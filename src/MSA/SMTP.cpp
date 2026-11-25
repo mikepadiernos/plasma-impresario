@@ -21,6 +21,8 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "SMTP.h"
+#include <QMetaMethod>
+#include <QSslKey>
 #include "OAuth/Session.h"
 #include "UiUtils/Formatting.h"
 
@@ -39,7 +41,6 @@ SMTP::SMTP(QObject *parent, const QString &host, quint16 port, bool encryptedCon
 void SMTP::createClient()
 {
     qwwSmtp = new QwwSmtpClient(this);
-    // FIXME: handle SSL errors in the same way as we handle IMAP TLS errors, with key pinning, etc.
     connect(qwwSmtp, &QwwSmtpClient::sslErrors, this, &SMTP::handleSslErrors);
     connect(qwwSmtp, &QwwSmtpClient::connected, this, &AbstractMSA::sending);
     connect(qwwSmtp, &QwwSmtpClient::done, this, &SMTP::handleDone);
@@ -67,6 +68,11 @@ void SMTP::setTokenSource(OAuth::TokenSource *source)
         connect(tokenSource.data(), &OAuth::TokenSource::accessTokenAvailable, this, &SMTP::oauthTokenAvailable);
         connect(tokenSource.data(), &OAuth::TokenSource::failed, this, &SMTP::oauthTokenFailed);
     }
+}
+
+void SMTP::setPinnedPublicKey(const QByteArray &pemPublicKey)
+{
+    pinnedPubKey = pemPublicKey;
 }
 
 void SMTP::requestOAuthToken()
@@ -124,6 +130,10 @@ bool SMTP::handleSaslFailure()
 void SMTP::cancel()
 {
     isWaitingForToken = false;
+    if (isWaitingForCertificate) {
+        isWaitingForCertificate = false;
+        qwwSmtp->resumeAfterSslErrors(false);
+    }
     qwwSmtp->disconnectFromHost();
     if (!failed) {
         failed = true;
@@ -162,9 +172,53 @@ void SMTP::handleError(QAbstractSocket::SocketError err, const QString &msg)
 
 void SMTP::handleSslErrors(const QList<QSslError>& errors)
 {
-    auto msg = UiUtils::Formatting::sslErrorsToHtml(errors);
+    if (failed)
+        return;
+    sslErrors = errors;
+    const QList<QSslCertificate> chain = qwwSmtp->peerCertificateChain();
+    offeredPubKey = chain.isEmpty() ? QByteArray() : chain.first().publicKey().toPem();
+    if (!pinnedPubKey.isEmpty() && offeredPubKey == pinnedPubKey) {
+        // The user has already accepted this server's key
+        qwwSmtp->ignoreSslErrors();
+        return;
+    }
+    if (!isSignalConnected(QMetaMethod::fromSignal(&AbstractMSA::certificateCheckRequested))) {
+        // Nobody can answer, so do not leave the paused handshake waiting forever
+        failWithSslErrors();
+        qwwSmtp->resumeAfterSslErrors(false);
+        return;
+    }
+    // The handshake stays paused until the user decides
+    isWaitingForCertificate = true;
+    emit certificateCheckRequested(chain, errors);
+}
+
+void SMTP::setCertificateAccepted(bool accepted)
+{
+    // The socket pauses only once the sslErrors() slots return, so never resume from within them
+    QMetaObject::invokeMethod(this, [this, accepted]() { finishCertificateCheck(accepted); }, Qt::QueuedConnection);
+}
+
+void SMTP::finishCertificateCheck(bool accepted)
+{
+    if (!isWaitingForCertificate)
+        return;
+    isWaitingForCertificate = false;
+    if (accepted && !offeredPubKey.isEmpty()) {
+        // An OAuth retry reconnects; do not ask about the same server again
+        pinnedPubKey = offeredPubKey;
+    }
+    if (!accepted)
+        failWithSslErrors();
+    // A rejected handshake fails with a socket error, which handleError() ignores after the report above
+    qwwSmtp->resumeAfterSslErrors(accepted);
+}
+
+void SMTP::failWithSslErrors()
+{
     failed = true;
-    emit error(tr("<p>Cannot send message due to an SSL/TLS error</p>\n%1").arg(msg));
+    emit error(tr("<p>Cannot send message due to an SSL/TLS error</p>\n%1")
+                   .arg(UiUtils::Formatting::sslErrorsToHtml(sslErrors)));
 }
 
 void SMTP::setPassword(const QString &password)
@@ -291,7 +345,13 @@ AbstractMSA *SMTPFactory::create(QObject *parent) const
         session->setServer(m_host, m_port);
         smtp->setTokenSource(session);
     }
+    smtp->setPinnedPublicKey(m_pinnedPubKey);
     return smtp;
+}
+
+void SMTPFactory::setPinnedPublicKey(const QByteArray &pemPublicKey)
+{
+    m_pinnedPubKey = pemPublicKey;
 }
 
 void SMTPFactory::setOAuth(const OAuth::AccountConfig &config, const OAuth::TokenStore::PluginGetter &passwordPlugin)

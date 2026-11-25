@@ -51,9 +51,13 @@ public:
     Only used when authentication is enabled. The source is not owned unless it is a child of this object.
     */
     void setTokenSource(OAuth::TokenSource *source);
+
+    /** @short Accept an untrusted certificate with this PEM public key without asking */
+    void setPinnedPublicKey(const QByteArray &pemPublicKey);
 public slots:
     void cancel() override;
     void setPassword(const QString &password) override;
+    void setCertificateAccepted(bool accepted) override;
     void handleDone(bool ok);
     void handleError(QAbstractSocket::SocketError err, const QString &msg);
     void handleSslErrors(const QList<QSslError>& errors);
@@ -72,6 +76,10 @@ private:
     QByteArray data;
     bool isWaitingForPassword;
     enum { MODE_SMTP_INVALID, MODE_SMTP_DATA, MODE_SMTP_BURL } sendingMode;
+    QByteArray pinnedPubKey;
+    QList<QSslError> sslErrors;
+    QByteArray offeredPubKey;
+    bool isWaitingForCertificate = false;
     bool dataEscaped = false;
 
     QPointer<OAuth::TokenSource> tokenSource;
@@ -88,6 +96,8 @@ private:
     void oauthTokenAvailable(const QString &accessToken);
     void oauthTokenFailed(const QString &message);
     bool handleSaslFailure();
+    void finishCertificateCheck(bool accepted);
+    void failWithSslErrors();
 
     SMTP(const SMTP &); // don't implement
     SMTP &operator=(const SMTP &); // don't implement
@@ -102,6 +112,8 @@ public:
     AbstractMSA *create(QObject *parent) const override;
     /** @short Authenticate the created submissions with this account's OAuth sign-in instead of a password */
     void setOAuth(const OAuth::AccountConfig &config, const OAuth::TokenStore::PluginGetter &passwordPlugin);
+    /** @short Accept an untrusted certificate with this PEM public key, as previously confirmed by the user */
+    void setPinnedPublicKey(const QByteArray &pemPublicKey);
 private:
     QString m_host;
     quint16 m_port;
@@ -112,6 +124,7 @@ private:
     bool m_oauth = false;
     OAuth::AccountConfig m_oauthConfig;
     OAuth::TokenStore::PluginGetter m_passwordPlugin;
+    QByteArray m_pinnedPubKey;
 };
 
 }

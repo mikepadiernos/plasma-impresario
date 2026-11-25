@@ -34,6 +34,7 @@
 #include <QRegularExpression>
 #include <QSettings>
 #include <QScreen>
+#include <QSslKey>
 #include <QTimer>
 #include <QToolButton>
 #include <QUrlQuery>
@@ -67,6 +68,7 @@
 #include "Plugins/PluginManager.h"
 #include "ShortcutHandler/ShortcutHandler.h"
 #include "UiUtils/Color.h"
+#include "UiUtils/Formatting.h"
 #include "UiUtils/IconLoader.h"
 
 namespace
@@ -160,6 +162,7 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
     , m_genUrlAuthReceived(false)
     , m_mainWindow(mainWindow)
     , m_settings(mainWindow->settings())
+    , m_accountSettings(mainWindow->accountSettings())
     , m_senderIdentities(mainWindow->senderIdentitiesModel())
     , m_composer(messageComposer)
     , m_submission(nullptr)
@@ -184,6 +187,8 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
     });
     connect(m_submission, &Composer::Submission::logged, this, &ComposeWidget::logged);
     connect(m_submission, &Composer::Submission::passwordRequested, this, &ComposeWidget::passwordRequested, Qt::QueuedConnection);
+    connect(m_submission, &Composer::Submission::certificateCheckRequested, this,
+            &ComposeWidget::certificateCheckRequested, Qt::QueuedConnection);
     ui->setupUi(this);
 
     if (interactiveComposer()) {
@@ -682,6 +687,24 @@ void ComposeWidget::passwordError()
     const QString &user = job->property("user").toString();
     const QString &host = job->property("host").toString();
     askPassword(user, host);
+}
+
+void ComposeWidget::certificateCheckRequested(const QList<QSslCertificate> &chain, const QList<QSslError> &errors)
+{
+    const QByteArray oldPubKey = m_accountSettings ?
+                m_accountSettings->value(Common::SettingsNames::smtpSslPemPubKey).toByteArray() : QByteArray();
+    QString title, message;
+    UiUtils::Formatting::IconType icon;
+    UiUtils::Formatting::formatSslState(chain, oldPubKey, errors, &title, &message, &icon,
+                                        UiUtils::Formatting::ServerKind::Smtp);
+    QPointer<ComposeWidget> guard(this);
+    const bool accepted = QMessageBox(static_cast<QMessageBox::Icon>(icon), title, message,
+                                      QMessageBox::Yes | QMessageBox::No, this).exec() == QMessageBox::Yes;
+    if (!guard)
+        return;
+    if (accepted && m_accountSettings && !chain.isEmpty())
+        m_accountSettings->setValue(Common::SettingsNames::smtpSslPemPubKey, chain.first().publicKey().toPem());
+    m_submission->setCertificateAccepted(accepted);
 }
 
 void ComposeWidget::askPassword(const QString &user, const QString &host)

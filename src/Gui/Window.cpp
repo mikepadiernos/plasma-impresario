@@ -2681,6 +2681,7 @@ MSA::MSAFactory *MainWindow::msaFactory()
                                             accountSettings()->value(SettingsNames::smtpAuthReuseImapCredsKey, false).toBool() ?
                                                 accountSettings()->value(SettingsNames::imapUserKey).toString() :
                                                 accountSettings()->value(SettingsNames::smtpUserKey).toString());
+        smtpFactory->setPinnedPublicKey(accountSettings()->value(SettingsNames::smtpSslPemPubKey).toByteArray());
         if (OAuth::isEnabled(*accountSettings(), OAuth::Service::Smtp)) {
             QPointer<Plugins::PluginManager> plugins = pluginManager();
             smtpFactory->setOAuth(OAuth::AccountConfig::fromSettings(*accountSettings(), imapAccess()->credentialAccountId()),

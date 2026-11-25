@@ -16,6 +16,7 @@
 #include <QHostAddress>
 #include <QString>
 #include <QStringList>
+#include <QSslCertificate>
 #include <QSslError>
 
 class QwwSmtpClientPrivate;
@@ -85,10 +86,17 @@ public:
     AuthModes supportedAuthModes() const;
     Options options() const;
     QString errorString() const;
+    /*! The certificate chain the server presented during the TLS handshake */
+    QList<QSslCertificate> peerCertificateChain() const;
 public slots:
     int disconnectFromHost();
     int startTls();
+    /*! Accept the errors reported by sslErrors(); only effective when called from a slot connected to it */
     void ignoreSslErrors();
+    /*! Finish a TLS handshake that sslErrors() paused because its slots did not accept the errors
+
+        The handshake continues when \a ignore is true, otherwise it fails with a socket error. */
+    void resumeAfterSslErrors(bool ignore);
 
 signals:
     void done(bool);

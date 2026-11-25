@@ -278,6 +278,8 @@ void Submission::slotInvokeMsaNow()
     connect(msa, &MSA::AbstractMSA::passwordRequested, this, &Submission::passwordRequested);
     connect(msa, &MSA::AbstractMSA::logged, this, &Submission::logged);
     connect(this, &Submission::gotPassword, msa, &MSA::AbstractMSA::setPassword);
+    connect(msa, &MSA::AbstractMSA::certificateCheckRequested, this, &Submission::certificateCheckRequested);
+    connect(this, &Submission::gotCertificateDecision, msa, &MSA::AbstractMSA::setCertificateAccepted);
     connect(this, &Submission::canceled, msa, &MSA::AbstractMSA::cancel);
 
     if (m_useImapSubmit && msa->supportsImapSending() && m_appendUidReceived) {
@@ -302,6 +304,11 @@ void Submission::setPassword(const QString &password)
 void Submission::cancelPassword()
 {
     emit canceled();
+}
+
+void Submission::setCertificateAccepted(bool accepted)
+{
+    emit gotCertificateDecision(accepted);
 }
 
 void Submission::gotError(const QString &error)
