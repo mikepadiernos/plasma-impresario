@@ -271,6 +271,10 @@ private slots:
     void slotSearchRequested(const QStringList &searchConditions);
     void slotCapabilitiesUpdated(const QStringList &capabilities);
     void slotGoToFolder();
+    /** Open the next folder of the active account which has unread messages */
+    void slotGoToNextUnreadFolder();
+    /** Ask every online account for new mail, and resynchronize the open folder */
+    void slotCheckMail();
     void updateGoToFolderActions();
 
     void slotMailboxDeleteFailed(const QString &mailbox, const QString &msg);
@@ -363,6 +367,10 @@ private:
 
     /** Connect accounts other than the active one so they keep running in the background. */
     void connectBackgroundAccounts();
+
+    /** Update the unread INBOX counts in the account sidebar soon, coalescing repeated requests. */
+    void scheduleAccountUnreadRefresh();
+    void refreshAccountUnread();
 
     /** Supply the stored password to an account that is not shown, or mark it as needing one. */
     void requestStoredPassword(const QString &accountId);
@@ -780,6 +788,9 @@ private:
     QAction *m_actionShowOnlySubscribed;
 
     QAction *m_goToFolder;
+    QAction *m_goToNextUnreadFolder = nullptr;
+    QAction *m_checkMail = nullptr;
+    QTimer *m_accountUnreadTimer = nullptr;
     QMenu *m_goToFolderMenu;
     QMap<Imap::Mailbox::SpecialUse, QAction *> m_goToSpecialFolderActions;
 

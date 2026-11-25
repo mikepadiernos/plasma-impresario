@@ -151,6 +151,7 @@
 #include "UiUtils/IconLoader.h"
 #include "UiUtils/QaimDfsIterator.h"
 #include "UiUtils/Relevance.h"
+#include "UiUtils/UnreadFolders.h"
 
 #include <QVBoxLayout>
 #include "Imap/Model/AccountCapabilities.h"
@@ -479,6 +480,10 @@ void MainWindow::defineActions()
     shortcutHandler->defineAction(QStringLiteral("action_previous_account"), QString(), tr("Switch to Previous Account"), QStringLiteral("Ctrl+Alt+PgUp"));
     shortcutHandler->defineAction(QStringLiteral("action_focus_quick_search"), QString(), tr("Move Focus to Quick Search"), QStringLiteral("/"));
     shortcutHandler->defineAction(QStringLiteral("action_go_to_folder"), QStringLiteral("go-jump"), i18nc("@action", "Go to &Folder..."), QStringLiteral("Ctrl+J"));
+    shortcutHandler->defineAction(QStringLiteral("action_go_to_next_unread_folder"), QStringLiteral("go-next"),
+                                  i18nc("@action", "Go to Next &Unread Folder"), QStringLiteral("Ctrl+Alt+N"));
+    shortcutHandler->defineAction(QStringLiteral("action_check_mail"), QStringLiteral("mail-receive"),
+                                  i18nc("@action", "Check for &New Mail"), QStringLiteral("F5"));
     shortcutHandler->defineAction(QStringLiteral("action_select_all_messages"), QStringLiteral("edit-select-all"),
                                   i18nc("@action", "Select &All"), QKeySequence(QKeySequence::SelectAll).toString());
     shortcutHandler->defineAction(QStringLiteral("action_select_thread"), QString(), i18nc("@action", "Select &Thread"));
@@ -653,6 +658,10 @@ void MainWindow::createActions()
 
     m_goToFolder = ShortcutHandler::instance()->createAction(QStringLiteral("action_go_to_folder"), this,
             SLOT(slotGoToFolder()), this);
+    m_goToNextUnreadFolder = ShortcutHandler::instance()->createAction(QStringLiteral("action_go_to_next_unread_folder"),
+            this, SLOT(slotGoToNextUnreadFolder()), this);
+    m_checkMail = ShortcutHandler::instance()->createAction(QStringLiteral("action_check_mail"), this,
+            SLOT(slotCheckMail()), this);
     m_goToFolderMenu = new QMenu(i18nc("@title:menu", "&Go to Folder"), this);
     m_goToFolderMenu->setObjectName(QStringLiteral("goToFolderMenu"));
     m_goToFolderMenu->setIcon(UiUtils::loadIcon(QStringLiteral("go-jump")));
@@ -1327,6 +1336,8 @@ void MainWindow::createMenus()
     QMenu *mailboxMenu = menuBar()->addMenu(tr("Mail&box"));
         mailboxMenu->addMenu(m_goToFolderMenu);
         ADD_ACTION(mailboxMenu, m_goToFolder);
+        ADD_ACTION(mailboxMenu, m_goToNextUnreadFolder);
+        ADD_ACTION(mailboxMenu, m_checkMail);
         mailboxMenu->addSeparator();
         QMenu *sortMenu = mailboxMenu->addMenu(tr("S&orting"));
             ADD_ACTION(sortMenu, m_actionSortNone);
@@ -2443,6 +2454,40 @@ void MainWindow::slotGoToFolder()
     dialog->open();
 }
 
+void MainWindow::slotGoToNextUnreadFolder()
+{
+    if (!prettyMboxModel)
+        return;
+    const QModelIndex next = UiUtils::nextUnreadMailbox(prettyMboxModel, currentMailboxName());
+    if (!next.isValid()) {
+        showStatusMessage(i18nc("@info:status", "No other folder has unread messages"));
+        return;
+    }
+    goToMailbox(next.data(Imap::Mailbox::RoleMailboxName).toString());
+}
+
+void MainWindow::slotCheckMail()
+{
+    int checked = 0;
+    for (const QString &accountId : m_accounts->accountIds()) {
+        Imap::ImapAccess *access = m_accountAccess.value(accountId);
+        auto *model = access ? qobject_cast<Imap::Mailbox::Model *>(access->imapModel()) : nullptr;
+        if (!model || !model->isNetworkAvailable())
+            continue;
+        // Counts which were known are asked for again as soon as a view or the account sidebar reads them
+        model->invalidateAllMessageCounts();
+        ++checked;
+    }
+    auto *msgList = qobject_cast<Imap::Mailbox::MsgListModel *>(m_imapAccess->msgListModel());
+    const QModelIndex current = msgList ? msgList->currentMailbox() : QModelIndex();
+    if (current.isValid() && imapModel() && imapModel()->isNetworkAvailable())
+        imapModel()->resyncMailbox(current);
+    scheduleAccountUnreadRefresh();
+    showStatusMessage(checked ? i18ncp("@info:status", "Checking %1 account for new mail",
+                                       "Checking %1 accounts for new mail", checked)
+                              : i18nc("@info:status", "No account is online"));
+}
+
 void MainWindow::slotMoveToFolder()
 {
     pickFolder(Imap::Mailbox::MOVE);
@@ -2740,6 +2785,7 @@ void MainWindow::refreshAccountSwitcher()
     }
     m_capabilityGate->apply(Imap::AccountCapabilities::forAccount(*accountSettings()));
     m_accountSidebar->refresh(*m_accounts, *m_accountStatus);
+    refreshAccountUnread();
     m_shellHeader->setAccount(*m_accounts, *m_accountStatus);
     updateBackgroundAlerts();
     if (m_oauthSignIn) {
@@ -2874,6 +2920,42 @@ void MainWindow::monitorAccount(const QString &accountId)
         else
             requestStoredPassword(accountId);
     }, Qt::QueuedConnection);
+    // The sidebar shows the unread INBOX count, which is known once the folders are listed and the count arrives
+    connect(model, &Imap::Mailbox::Model::messageCountPossiblyChanged, access, [this]() { scheduleAccountUnreadRefresh(); });
+    connect(model, &QAbstractItemModel::rowsInserted, access, [this](const QModelIndex &parent) {
+        if (!parent.isValid())
+            scheduleAccountUnreadRefresh();
+    });
+    scheduleAccountUnreadRefresh();
+}
+
+void MainWindow::scheduleAccountUnreadRefresh()
+{
+    if (!m_accountUnreadTimer) {
+        m_accountUnreadTimer = new QTimer(this);
+        m_accountUnreadTimer->setInterval(100);
+        m_accountUnreadTimer->setSingleShot(true);
+        connect(m_accountUnreadTimer, &QTimer::timeout, this, &MainWindow::refreshAccountUnread);
+    }
+    m_accountUnreadTimer->start();
+}
+
+void MainWindow::refreshAccountUnread()
+{
+    if (!m_accountSidebar)
+        return;
+    for (const QString &accountId : m_accounts->accountIds()) {
+        Imap::ImapAccess *access = m_accountAccess.value(accountId);
+        auto *model = access ? qobject_cast<Imap::Mailbox::Model *>(access->imapModel()) : nullptr;
+        int count = -1;
+        if (model) {
+            // Reading the count asks the server for it when it is not known yet
+            const QVariant unread = model->mailboxIndexByName(QStringLiteral("INBOX")).data(Imap::Mailbox::RoleUnreadMessageCount);
+            if (unread.isValid())
+                count = unread.toInt();
+        }
+        m_accountSidebar->setUnreadCount(accountId, count);
+    }
 }
 
 void MainWindow::requestStoredPassword(const QString &accountId)
