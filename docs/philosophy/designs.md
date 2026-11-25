@@ -26,6 +26,7 @@ planned · ⚠️ limitation
   - [Optional tabs](#optional-tabs)
   - [Toolbars and customization](#toolbars-and-customization)
   - [Themes and appearance](#themes-and-appearance)
+  - [Message list presentation](#message-list-presentation)
 - [Proposed interface widgets](#proposed-interface-widgets)
 - [Interaction and accessibility](#interaction-and-accessibility)
 - [Layout recommendations](#layout-recommendations)
@@ -373,6 +374,41 @@ to mail.
 | ✨ Effects               | Blur uses KWin through KWindowEffects and is reported as unavailable without compositing. Text, icons, selection and message content stay fully opaque.                                                                                                                |
 | ♿ Accessibility         | Unread, account and thread state are never conveyed through color alone. Every custom color is contrast-checked; effects can be suspended with high-contrast schemes; one step resets to Plasma defaults.                                                              |
 | 🔗 Sharing               | Theme profiles are versioned and validated, never execute code, and can be exchanged with Plasma Opus; see [Plasma Opus integrations](../integrations/plasma-opus.md#themes-and-appearance).                                                                           |
+
+### Message list presentation
+
+> [!NOTE]
+>
+> Planned for M03
+> ([#87](https://github.com/mikepadiernos/plasma-impresario/issues/87)). Today
+> the message list uses single-line rows with
+> [compact or comfortable density](#row-density-and-restored-selection).
+
+An Aqua Mail-inspired, multi-line message list is the target presentation,
+adapted to a keyboard- and mouse-driven Plasma desktop. Each row emphasizes the
+sender and subject, with the date or time, unread state, flag and attachment
+indicators easy to scan. An optional short message preview appears when
+available, and combined views identify the source account and folder.
+
+```text
+Sender name                                  10:42  flag  attachment
+Subject
+Optional message preview...
+```
+
+- Compact and comfortable spacing, optional contact images and preview text,
+  and date grouping when supported.
+- Selection stays distinct from unread state, with clear focus, keyboard
+  navigation and accessible names for indicators and actions. Quick actions are
+  also available without a pointer.
+- Rows follow the active Plasma theme and handle narrow panes, long text and
+  text scaling without hiding essential state.
+- Rows never fetch remote contact images or message bodies merely to populate
+  the list without the user's privacy choice.
+
+See Aqua Mail's
+[customization reference](https://www.aqua-mail.com/android/features/customizations).
+These are proposed Impresario behaviors, not claims about the current client.
 
 ## Proposed interface widgets
 

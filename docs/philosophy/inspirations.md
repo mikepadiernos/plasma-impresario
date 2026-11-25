@@ -49,17 +49,20 @@ Qt-based IMAP client built in the KDE ecosystem.
 
 ## Aqua Mail
 
-**Project:** <https://www.aqua-mail.com/>
+**Project:** <https://www.aqua-mail.com/> ·
+**Reference:**
+[Customization](https://www.aqua-mail.com/android/features/customizations)
 
 Aqua Mail is a reference for clear, mobile-first mail workflows.
 
-- Simple, readable message-list density
+- Simple, readable message-list density and multi-line message summaries
 - Quick actions and conversation flow
 - Account grouping and low-friction navigation
 - Fast, readable filters and search
 
 See [Adoptable Aqua Mail features](#adoptable-aqua-mail-features) for the
-patterns to adopt.
+patterns to adopt and the
+[message list design](designs.md#message-list-presentation).
 
 ## Vivaldi Mail
 
