@@ -6,6 +6,7 @@
 #include "Common/SettingsNames.h"
 #include "Composer/AccountIdentities.h"
 #include "Composer/SenderIdentitiesModel.h"
+#include "Imap/Parser/MailAddress.h"
 #include <QSettings>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -145,6 +146,38 @@ void AccountIdentitiesTest::migrationLeavesSharedIdentitiesUnchanged()
     AccountIdentities::migrateAccount(f.shared, f.account);
     store(f.account, { home });
     QCOMPARE(addresses(f.shared), QStringList { QStringLiteral("work@example.test") });
+}
+
+void AccountIdentitiesTest::loginAddressIsAPlainEmailAddress()
+{
+    QFETCH(QVariant, user);
+    QFETCH(QString, expected);
+    Fixture f;
+    if (user.isValid())
+        f.account.setValue(Common::SettingsNames::imapUserKey, user);
+    const QList<Imap::Message::MailAddress> result = AccountIdentities::loginAddresses(f.account);
+    if (expected.isEmpty()) {
+        QVERIFY(result.isEmpty());
+    } else {
+        QCOMPARE(result.size(), 1);
+        QCOMPARE(result.first().mailbox + QLatin1Char('@') + result.first().host, expected);
+        QVERIFY(result.first().name.isEmpty());
+    }
+}
+
+void AccountIdentitiesTest::loginAddressIsAPlainEmailAddress_data()
+{
+    QTest::addColumn<QVariant>("user");
+    QTest::addColumn<QString>("expected");
+    QTest::newRow("unset") << QVariant() << QString();
+    QTest::newRow("empty") << QVariant(QString()) << QString();
+    QTest::newRow("email") << QVariant(QStringLiteral("alice@example.test")) << QStringLiteral("alice@example.test");
+    QTest::newRow("padded") << QVariant(QStringLiteral(" alice@example.test ")) << QStringLiteral("alice@example.test");
+    QTest::newRow("local name") << QVariant(QStringLiteral("alice")) << QString();
+    QTest::newRow("no local part") << QVariant(QStringLiteral("@example.test")) << QString();
+    QTest::newRow("no domain") << QVariant(QStringLiteral("alice@")) << QString();
+    QTest::newRow("two at signs") << QVariant(QStringLiteral("alice@corp@example.test")) << QString();
+    QTest::newRow("space") << QVariant(QStringLiteral("alice smith@example.test")) << QString();
 }
 
 QTEST_GUILESS_MAIN(AccountIdentitiesTest)

@@ -147,6 +147,7 @@ private:
                          const QString &body, const QList<QByteArray> &inReplyTo, const QList<QByteArray> &references,
                          const QModelIndex &replyingToMessage);
     bool setReplyMode(const Composer::ReplyMode mode);
+    QList<Imap::Message::MailAddress> ownLoginAddresses() const;
 
     static QByteArray extractMailAddress(const QString &text, bool &ok);
     static Composer::RecipientKind recipientKindForNextRow(const Composer::RecipientKind kind);

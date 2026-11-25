@@ -2527,7 +2527,8 @@ void MainWindow::slotUpdateMessageActions()
     m_replyPrivate->setEnabled(Composer::Util::replyRecipientList(Composer::REPLY_PRIVATE, senderIdentitiesModel(),
                                                                   m_messageWidget->messageView->currentMessage(), dummy));
     m_replyAllButMe->setEnabled(Composer::Util::replyRecipientList(Composer::REPLY_ALL_BUT_ME, senderIdentitiesModel(),
-                                                                   m_messageWidget->messageView->currentMessage(), dummy));
+                                                                   m_messageWidget->messageView->currentMessage(), dummy,
+                                                                   Composer::AccountIdentities::loginAddresses(*accountSettings())));
     m_replyAll->setEnabled(Composer::Util::replyRecipientList(Composer::REPLY_ALL, senderIdentitiesModel(),
                                                               m_messageWidget->messageView->currentMessage(), dummy));
     m_replyList->setEnabled(Composer::Util::replyRecipientList(Composer::REPLY_LIST, senderIdentitiesModel(),

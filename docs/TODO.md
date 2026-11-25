@@ -280,10 +280,6 @@ need a real session.
 
 #### Open follow-ups
 
-- 📋 **Reply to all but me with No identity:** an account set to **No
-  identity** has no addresses to exclude, so *Reply to All but Me* keeps the
-  user's own address, like *Reply to All*. Consider falling back to the
-  account's IMAP user name when it is an email address.
 - 📋 **OAuth:** the improvements listed in
   [caveat #362](CAVEATS.md#oauth-sign-in), and live sign-in (#317, M14).
 - 🧪 **Saved selection per account, #81 and #222:** not recorded as verified.

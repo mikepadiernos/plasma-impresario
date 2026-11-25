@@ -5,7 +5,15 @@
 #ifndef COMPOSER_ACCOUNTIDENTITIES_H
 #define COMPOSER_ACCOUNTIDENTITIES_H
 
+#include <QList>
+
 class QSettings;
+
+namespace Imap {
+namespace Message {
+class MailAddress;
+}
+}
 
 namespace Composer {
 
@@ -42,6 +50,16 @@ bool usesSharedIdentities(const QSettings &account);
 
 /** Record whether the account uses the shared identities or its own. */
 void setUsesSharedIdentities(QSettings &account, bool shared);
+
+/**
+ * Return the account's own addresses that come from its login rather than from
+ * its identities.
+ *
+ * This is the IMAP user name when it is a plain email address. Replies treat it
+ * as the user's own address, so *Reply to All but Me* still excludes the user
+ * when the account sends without an identity.
+ */
+QList<Imap::Message::MailAddress> loginAddresses(const QSettings &account);
 
 /** Prepare a new account to use its own identities; it starts with none. */
 void initializeNewAccount(QSettings &account);
