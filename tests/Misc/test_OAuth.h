@@ -26,6 +26,7 @@ private slots:
     void tokenResponses_data();
     void tokenResponses();
     void accountSettings();
+    void revocationRequest();
     void grantRoundTrip();
 
     void authorizationSucceeds();
@@ -39,6 +40,10 @@ private slots:
     void credentialStorageUnavailable();
     void accountsAreIsolated();
     void signOutRemovesTheCredentials();
+    void signOutRevocation_data();
+    void signOutRevocation();
+    void clientSecretIsStoredWithTheGrant();
+    void clientSecretMigratesFromTheSettings();
 
     void smtpRetriesOnceWithAFreshToken();
     void smtpGivesUpAfterTheRetry();

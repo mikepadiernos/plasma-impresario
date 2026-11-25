@@ -82,6 +82,8 @@ const QList<Provider> &providers()
         google.redirectHost = QStringLiteral("127.0.0.1");
         google.mechanisms = {Mechanism::XOAuth2, Mechanism::OAuthBearer};
         google.defaultClientId = QString::fromUtf8(IMPRESARIO_OAUTH_GOOGLE_CLIENT_ID);
+        google.revocationEndpoint = QUrl(QStringLiteral("https://oauth2.googleapis.com/revoke"));
+        google.accessManagementPage = QUrl(QStringLiteral("https://myaccount.google.com/connections"));
 
         Provider microsoft;
         microsoft.id = QStringLiteral("microsoft");
@@ -95,6 +97,8 @@ const QList<Provider> &providers()
         microsoft.redirectHost = QStringLiteral("localhost");
         microsoft.mechanisms = {Mechanism::XOAuth2};
         microsoft.defaultClientId = QString::fromUtf8(IMPRESARIO_OAUTH_MICROSOFT_CLIENT_ID);
+        // The Microsoft identity platform has no endpoint which revokes a single refresh token
+        microsoft.accessManagementPage = QUrl(QStringLiteral("https://account.live.com/consent/Manage"));
 
         return QList<Provider>{google, microsoft};
     }();
@@ -121,15 +125,16 @@ QString errorMessage(Error error, const QString &detail)
                               "provider and enter the OAuth client ID.");
         break;
     case Error::NotSignedIn:
-        message = Strings::tr("This account is not signed in. Open the account settings and choose Sign In.");
+        message = Strings::tr("This account is not signed in. Choose Sign In in the status bar or in the account "
+                              "settings.");
         break;
     case Error::Expired:
-        message = Strings::tr("The sign-in for this account has expired. Open the account settings and choose Sign In "
-                              "again.");
+        message = Strings::tr("The sign-in for this account has expired. Choose Sign In in the status bar or in the "
+                              "account settings.");
         break;
     case Error::Revoked:
-        message = Strings::tr("The sign-in for this account was revoked or is no longer valid. Open the account "
-                              "settings and choose Sign In again.");
+        message = Strings::tr("The sign-in for this account was revoked or is no longer valid. Choose Sign In in the "
+                              "status bar or in the account settings.");
         break;
     case Error::ConsentDenied:
         message = Strings::tr("Access to the mailbox was not granted in the browser. Choose Sign In again and allow "
@@ -167,8 +172,8 @@ QString errorMessage(Error error, const QString &detail)
                               "password authentication in the account settings.");
         break;
     case Error::Rejected:
-        message = Strings::tr("The server rejected the OAuth sign-in. Open the account settings and choose Sign In "
-                              "again.");
+        message = Strings::tr("The server rejected the OAuth sign-in. Choose Sign In in the status bar or in the "
+                              "account settings.");
         break;
     }
     if (!detail.isEmpty())
@@ -287,6 +292,16 @@ QByteArray refreshRequestBody(const AccountConfig &config, const QString &refres
     return formEncode(items);
 }
 
+QByteArray revocationRequestBody(const AccountConfig &config, const QString &refreshToken)
+{
+    QList<QPair<QString, QString>> items = {
+        {QStringLiteral("token"), refreshToken},
+        {QStringLiteral("token_type_hint"), QStringLiteral("refresh_token")},
+    };
+    appendClient(items, config);
+    return formEncode(items);
+}
+
 TokenResponse parseTokenResponse(const QByteArray &body, int httpStatus)
 {
     TokenResponse response;
@@ -331,6 +346,8 @@ QString Grant::toJson() const
     json.insert(QLatin1String("provider"), provider);
     json.insert(QLatin1String("clientId"), clientId);
     json.insert(QLatin1String("refreshToken"), refreshToken);
+    if (!clientSecret.isEmpty())
+        json.insert(QLatin1String("clientSecret"), clientSecret);
     return QString::fromUtf8(QJsonDocument(json).toJson(QJsonDocument::Compact));
 }
 
@@ -341,6 +358,7 @@ Grant Grant::fromJson(const QString &json)
     grant.provider = object.value(QLatin1String("provider")).toString();
     grant.clientId = object.value(QLatin1String("clientId")).toString();
     grant.refreshToken = object.value(QLatin1String("refreshToken")).toString();
+    grant.clientSecret = object.value(QLatin1String("clientSecret")).toString();
     return grant;
 }
 

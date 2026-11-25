@@ -150,6 +150,7 @@ public:
 
     QList<Reply> replies;
     QList<QUrlQuery> requests;
+    QList<QByteArray> paths;
 
 private:
     void accept()
@@ -171,6 +172,7 @@ private:
                 if (buffer->size() < headerEnd + 4 + length)
                     return;
                 requests << QUrlQuery(QString::fromLatin1(buffer->mid(headerEnd + 4, length)));
+                paths << lines.value(0).split(' ').value(1);
                 const Reply reply = replies.isEmpty() ? Reply{500, QByteArray()} : replies.takeFirst();
                 socket->write("HTTP/1.1 " + QByteArray::number(reply.status) + " Fake\r\n"
                               "Content-Type: application/json\r\n"
@@ -253,6 +255,12 @@ OAuth::AccountConfig testConfig(const QString &accountId, const QUrl &tokenEndpo
     config.provider = OAuth::provider(providerId);
     config.provider.authorizationEndpoint = QUrl(QStringLiteral("https://accounts.example.test/authorize"));
     config.provider.tokenEndpoint = tokenEndpoint;
+    if (config.provider.revocationEndpoint.isValid()) {
+        // Never reach the real provider; an invalid endpoint makes revocation fail instead
+        QUrl revocation = tokenEndpoint;
+        revocation.setPath(QStringLiteral("/revoke"));
+        config.provider.revocationEndpoint = revocation;
+    }
     config.provider.redirectHost = QStringLiteral("127.0.0.1");
     config.clientId = QStringLiteral("test-client");
     config.loginHint = user;
@@ -287,10 +295,13 @@ struct Fixture {
     }
 
     std::unique_ptr<OAuth::Session> session(const QString &accountId,
-                                            const QString &providerId = QStringLiteral("google"))
+                                            const QString &providerId = QStringLiteral("google"),
+                                            const QString &clientSecret = QString())
     {
         FakePasswordPlugin *store = &plugin;
-        auto session = std::make_unique<OAuth::Session>(testConfig(accountId, endpoint.url(), providerId),
+        OAuth::AccountConfig config = testConfig(accountId, endpoint.url(), providerId);
+        config.clientSecret = clientSecret;
+        auto session = std::make_unique<OAuth::Session>(config,
                                                         [store]() -> Plugins::PasswordPlugin * { return store; });
         session->setNetworkAccessManager(&network);
         session->setBrowserLauncher(browser.launcher());
@@ -515,9 +526,14 @@ void OAuthTest::providerTable()
     QCOMPARE(microsoft.mechanisms, QList<OAuth::Mechanism>{OAuth::Mechanism::XOAuth2});
     QCOMPARE(microsoft.redirectHost, QStringLiteral("localhost"));
 
+    // Google revokes refresh tokens, RFC 7009; Microsoft only lets the user remove the consent on a web page
+    QCOMPARE(google.revocationEndpoint, QUrl(QStringLiteral("https://oauth2.googleapis.com/revoke")));
+    QVERIFY(microsoft.revocationEndpoint.isEmpty());
+
     for (const OAuth::Provider &provider : OAuth::providers()) {
         QCOMPARE(provider.authorizationEndpoint.scheme(), QStringLiteral("https"));
         QCOMPARE(provider.tokenEndpoint.scheme(), QStringLiteral("https"));
+        QCOMPARE(provider.accessManagementPage.scheme(), QStringLiteral("https"));
         QVERIFY(!provider.displayName.isEmpty());
         QVERIFY(!provider.mechanisms.isEmpty());
     }
@@ -643,6 +659,20 @@ void OAuthTest::accountSettings()
     QVERIFY(OAuth::isEnabled(settings, OAuth::Service::Smtp));
 }
 
+void OAuthTest::revocationRequest()
+{
+    OAuth::AccountConfig config = testConfig(QStringLiteral("account-1"), QUrl());
+    QUrlQuery body(QString::fromLatin1(OAuth::revocationRequestBody(config, QStringLiteral("refresh-1"))));
+    QCOMPARE(body.queryItemValue(QStringLiteral("token")), QStringLiteral("refresh-1"));
+    QCOMPARE(body.queryItemValue(QStringLiteral("token_type_hint")), QStringLiteral("refresh_token"));
+    QCOMPARE(body.queryItemValue(QStringLiteral("client_id")), QStringLiteral("test-client"));
+    QVERIFY(!body.hasQueryItem(QStringLiteral("client_secret")));
+
+    config.clientSecret = QStringLiteral("s3cret");
+    body = QUrlQuery(QString::fromLatin1(OAuth::revocationRequestBody(config, QStringLiteral("refresh-1"))));
+    QCOMPARE(body.queryItemValue(QStringLiteral("client_secret")), QStringLiteral("s3cret"));
+}
+
 void OAuthTest::grantRoundTrip()
 {
     const OAuth::Grant grant = OAuth::Grant::fromJson(storedGrant(QStringLiteral("refresh-1")));
@@ -657,6 +687,12 @@ void OAuthTest::grantRoundTrip()
     otherProvider.provider = OAuth::provider(QStringLiteral("microsoft"));
     QVERIFY(!grant.matches(otherProvider));
     QVERIFY(!OAuth::Grant::fromJson(QStringLiteral("a plain password")).isValid());
+
+    // The client secret is only written when there is one
+    QVERIFY(!grant.toJson().contains(QLatin1String("clientSecret")));
+    OAuth::Grant withSecret = grant;
+    withSecret.clientSecret = QStringLiteral("s3cret");
+    QCOMPARE(OAuth::Grant::fromJson(withSecret.toJson()).clientSecret, QStringLiteral("s3cret"));
 }
 
 void OAuthTest::authorizationSucceeds()
@@ -1016,9 +1052,15 @@ void OAuthTest::signOutRemovesTheCredentials()
     QCOMPARE(fixture.plugin.entries.size(), 1);
 
     QSignalSpy signedOut(session.get(), &OAuth::Session::signedOut);
+    fixture.endpoint.reply(200, QByteArray());
     session->signOut();
-    QVERIFY(signedOut.wait(1000));
+    QVERIFY(signedOut.wait(5000));
     QVERIFY(fixture.plugin.entries.isEmpty());
+    // The provider revoked the refresh token first
+    QCOMPARE(signedOut.first().first().value<OAuth::Session::Revocation>(), OAuth::Session::Revocation::Revoked);
+    QCOMPARE(fixture.endpoint.requests.size(), 2);
+    QCOMPARE(fixture.endpoint.paths.last(), QByteArray("/revoke"));
+    QCOMPARE(fixture.endpoint.requests.last().queryItemValue(QStringLiteral("token")), QStringLiteral("refresh-1"));
 
     // Neither the cached access token nor the grant are used afterwards
     QSignalSpy tokens(session.get(), &OAuth::TokenSource::accessTokenAvailable);
@@ -1028,12 +1070,133 @@ void OAuthTest::signOutRemovesTheCredentials()
     QVERIFY(tokens.isEmpty());
     QCOMPARE(session->lastError(), OAuth::Error::NotSignedIn);
     QVERIFY(failed.first().first().toString().startsWith(OAuth::errorMessage(OAuth::Error::NotSignedIn)));
-    QCOMPARE(fixture.endpoint.requests.size(), 1);
+    QCOMPARE(fixture.endpoint.requests.size(), 2);
 
-    // Signing out without a stored grant succeeds
+    // Signing out without a stored grant succeeds without asking the provider
     session->signOut();
     QVERIFY(signedOut.wait(1000));
     QCOMPARE(signedOut.size(), 2);
+    QCOMPARE(signedOut.last().first().value<OAuth::Session::Revocation>(), OAuth::Session::Revocation::NotNeeded);
+    QCOMPARE(fixture.endpoint.requests.size(), 2);
+}
+
+void OAuthTest::signOutRevocation_data()
+{
+    QTest::addColumn<QString>("provider");
+    QTest::addColumn<int>("status");
+    QTest::addColumn<QByteArray>("body");
+    QTest::addColumn<OAuth::Session::Revocation>("expected");
+
+    QTest::newRow("revoked") << QStringLiteral("google") << 200 << QByteArray() << OAuth::Session::Revocation::Revoked;
+    // RFC 7009 section 2.2: a token which is already invalid needs no revocation
+    QTest::newRow("already invalid") << QStringLiteral("google") << 400
+                                     << QByteArray(R"({"error":"invalid_token"})")
+                                     << OAuth::Session::Revocation::Revoked;
+    QTest::newRow("provider error") << QStringLiteral("google") << 503 << QByteArray()
+                                    << OAuth::Session::Revocation::Failed;
+    QTest::newRow("rejected request") << QStringLiteral("google") << 400
+                                      << QByteArray(R"({"error":"invalid_request"})")
+                                      << OAuth::Session::Revocation::Failed;
+    QTest::newRow("no endpoint") << QStringLiteral("microsoft") << 0 << QByteArray()
+                                 << OAuth::Session::Revocation::Unsupported;
+}
+
+void OAuthTest::signOutRevocation()
+{
+    QFETCH(QString, provider);
+    QFETCH(int, status);
+    QFETCH(QByteArray, body);
+    QFETCH(OAuth::Session::Revocation, expected);
+
+    Fixture fixture;
+    auto session = fixture.session(QStringLiteral("account-1"), provider);
+    QVERIFY(authorize(fixture, *session));
+    if (status)
+        fixture.endpoint.reply(status, body);
+    QSignalSpy signedOut(session.get(), &OAuth::Session::signedOut);
+    QSignalSpy signOutFailed(session.get(), &OAuth::Session::signOutFailed);
+    session->signOut();
+    QVERIFY(signedOut.wait(5000));
+    QCOMPARE(signedOut.first().first().value<OAuth::Session::Revocation>(), expected);
+    QVERIFY(signOutFailed.isEmpty());
+    // The local grant is gone whatever the provider answered
+    QVERIFY(fixture.plugin.entries.isEmpty());
+    QCOMPARE(fixture.endpoint.requests.size(), status ? 2 : 1);
+}
+
+void OAuthTest::clientSecretIsStoredWithTheGrant()
+{
+    Fixture fixture;
+    const QString key = FakePasswordPlugin::key(QStringLiteral("account-1"));
+    auto entered = fixture.session(QStringLiteral("account-1"), QStringLiteral("google"), QStringLiteral("s3cret"));
+    QVERIFY(authorize(fixture, *entered));
+    QCOMPARE(fixture.endpoint.requests.last().queryItemValue(QStringLiteral("client_secret")), QStringLiteral("s3cret"));
+    QCOMPARE(OAuth::Grant::fromJson(fixture.plugin.entries.value(key)).clientSecret, QStringLiteral("s3cret"));
+    QCOMPARE(entered->storedClientSecret(), QStringLiteral("s3cret"));
+
+    // Without a configured secret, the renewal uses the stored one and a rotated grant keeps it
+    auto session = fixture.session(QStringLiteral("account-1"));
+    QSignalSpy state(session.get(), &OAuth::Session::signInStateKnown);
+    session->checkSignedIn();
+    QVERIFY(state.wait(1000));
+    QCOMPARE(session->storedClientSecret(), QStringLiteral("s3cret"));
+    fixture.endpoint.reply(200, tokenReply(QStringLiteral("access-2"), 3600, QStringLiteral("refresh-2")));
+    QSignalSpy tokens(session.get(), &OAuth::TokenSource::accessTokenAvailable);
+    session->requestAccessToken();
+    QVERIFY(tokens.wait(5000));
+    QCOMPARE(fixture.endpoint.requests.last().queryItemValue(QStringLiteral("client_secret")), QStringLiteral("s3cret"));
+    QTRY_COMPARE(OAuth::Grant::fromJson(fixture.plugin.entries.value(key)).refreshToken, QStringLiteral("refresh-2"));
+    QCOMPARE(OAuth::Grant::fromJson(fixture.plugin.entries.value(key)).clientSecret, QStringLiteral("s3cret"));
+
+    // Signing in again without entering the secret keeps the stored one
+    QVERIFY(authorize(fixture, *session));
+    QCOMPARE(fixture.endpoint.requests.last().queryItemValue(QStringLiteral("grant_type")),
+             QStringLiteral("authorization_code"));
+    QCOMPARE(fixture.endpoint.requests.last().queryItemValue(QStringLiteral("client_secret")), QStringLiteral("s3cret"));
+    QCOMPARE(OAuth::Grant::fromJson(fixture.plugin.entries.value(key)).clientSecret, QStringLiteral("s3cret"));
+
+    // Revocation authenticates the client with the stored secret too
+    fixture.endpoint.reply(200, QByteArray());
+    QSignalSpy signedOut(session.get(), &OAuth::Session::signedOut);
+    session->signOut();
+    QVERIFY(signedOut.wait(5000));
+    QCOMPARE(fixture.endpoint.paths.last(), QByteArray("/revoke"));
+    QCOMPARE(fixture.endpoint.requests.last().queryItemValue(QStringLiteral("client_secret")), QStringLiteral("s3cret"));
+    QVERIFY(session->storedClientSecret().isEmpty());
+}
+
+void OAuthTest::clientSecretMigratesFromTheSettings()
+{
+    Fixture fixture;
+    const QString key = FakePasswordPlugin::key(QStringLiteral("account-1"));
+    bool moved = false;
+
+    // Without a grant, the secret stays in the settings
+    auto legacy = fixture.session(QStringLiteral("account-1"), QStringLiteral("google"), QStringLiteral("legacy"));
+    legacy->migrateClientSecret([&moved]() { moved = true; });
+    QTest::qWait(100);
+    QVERIFY(!moved);
+
+    // A grant from before the migration gets the secret
+    fixture.plugin.entries.insert(key, storedGrant(QStringLiteral("refresh-old")));
+    legacy->migrateClientSecret([&moved]() { moved = true; });
+    QTRY_VERIFY(moved);
+    QCOMPARE(OAuth::Grant::fromJson(fixture.plugin.entries.value(key)).clientSecret, QStringLiteral("legacy"));
+    QCOMPARE(OAuth::Grant::fromJson(fixture.plugin.entries.value(key)).refreshToken, QStringLiteral("refresh-old"));
+    QCOMPARE(legacy->storedClientSecret(), QStringLiteral("legacy"));
+
+    // Migrating again only confirms it
+    moved = false;
+    legacy->migrateClientSecret([&moved]() { moved = true; });
+    QTRY_VERIFY(moved);
+
+    // A different stored secret is not overwritten
+    moved = false;
+    auto other = fixture.session(QStringLiteral("account-1"), QStringLiteral("google"), QStringLiteral("other"));
+    other->migrateClientSecret([&moved]() { moved = true; });
+    QTest::qWait(100);
+    QVERIFY(!moved);
+    QCOMPARE(OAuth::Grant::fromJson(fixture.plugin.entries.value(key)).clientSecret, QStringLiteral("legacy"));
 }
 
 void OAuthTest::smtpRetriesOnceWithAFreshToken()
