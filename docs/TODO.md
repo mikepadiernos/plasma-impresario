@@ -46,9 +46,10 @@ progress · 📋 planned · ⛔ blocked
   ([#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)): merged
   into `main` and into `feature/m03-mail-operations`.
 - 🚧 **M03 mail operations, sorting and folder management**
-  ([#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)): in Development on `feature/m03-mail-operations`, which now
-  includes M02. Seven features are Completed, #90 is in Review and four are
-  Defined; see [M03 mail operations](#m03-mail-operations).
+  ([#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)): in
+  Development on `feature/m03-mail-operations`, which now includes M02. Eight
+  features are Completed, #87 is in Review and three are Defined; see [M03 mail
+  operations](#m03-mail-operations).
 - 🚧 **M09 themes and branding foundation**
   ([#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)): in
   Development because M09.01 Branding and visual language
@@ -346,9 +347,9 @@ parent issue. M15 is blocked by M02 but does not block later milestones.
 - **Current state:** M03 #5 is in Development. Folder navigation #37,
   destructive operations #89, quick actions #83, sorting, filtering and
   selection #38, multi-selection and batch feedback #88, power-user workflows
-  #84 and grouping and relevance sorting #85 are Completed; folder-scoped
-  views #90 is in Review. The other feature issues follow in this order: #87,
-  #82, #223 and #86.
+  #84, grouping and relevance sorting #85 and folder-scoped views #90 are
+  Completed; message rows #87 is in Review. The other feature issues follow in
+  this order: #82, #223 and #86.
 - **Pending verification:** Delete to Trash, Undo, Delete Permanently, Empty
   Trash/Junk and Rename Folder are covered by model and unit tests but have not
   been exercised in a window against a live server. Extend

@@ -250,7 +250,7 @@ Caveats: [related messages and message details panels](CAVEATS.md#related-messag
 - [ ] Provide readable compact message rows with clear sender, subject, date, unread, flag, and attachment indicators [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569342)
 - [x] Add predictable multi-selection, keyboard shortcuts, and progress or error feedback for batch operations [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569349)
 - [x] Define folder actions and confirmation or recovery behavior for destructive message operations [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569359)
-- [ ] Support account and folder scoped views and preserve selection and sort state during message updates [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569367)
+- [x] Support account and folder scoped views and preserve selection and sort state during message updates [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569367)
 
 Pending: [M03 handoff](TODO.md#m03-mail-operations).
 
