@@ -34,7 +34,7 @@ namespace Mailbox
 {
 
 PrettyMsgListModel::PrettyMsgListModel(QObject *parent):
-    QSortFilterProxyModel(parent), m_hideRead(false)
+    QSortFilterProxyModel(parent), m_filters(NoFilter)
 {
     setDynamicSortFilter(true);
 }
@@ -179,28 +179,133 @@ QVariant PrettyMsgListModel::data(const QModelIndex &index, int role) const
 
 void PrettyMsgListModel::setHideRead(bool value)
 {
+    setFilterEnabled(FilterUnread, value);
+}
+
+bool PrettyMsgListModel::hideRead() const
+{
+    return m_filters.testFlag(FilterUnread);
+}
+
+PrettyMsgListModel::Filters PrettyMsgListModel::filters() const
+{
+    return m_filters;
+}
+
+void PrettyMsgListModel::setFilters(Filters filters)
+{
+    if (filters == m_filters)
+        return;
+    refilter(filters);
+    emit filtersChanged(m_filters);
+}
+
+void PrettyMsgListModel::setFilterEnabled(Filter filter, bool enabled)
+{
+    setFilters(enabled ? m_filters | filter : m_filters & ~Filters(filter));
+}
+
+void PrettyMsgListModel::refilter(Filters filters)
+{
 #if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
     beginFilterChange();
-    m_hideRead = value;
+    m_filters = filters;
     endFilterChange(QSortFilterProxyModel::Direction::Rows);
 #else
-    m_hideRead = value;
+    m_filters = filters;
     invalidateFilter();
 #endif
 }
 
+void PrettyMsgListModel::setKeptVisibleIndex(const QModelIndex &index)
+{
+    QModelIndex source = index.model() == this ? mapToSource(index) : index;
+    if (source.isValid() && source.model() != sourceModel())
+        source = QModelIndex();
+    if (source.isValid())
+        source = source.sibling(source.row(), 0);
+    if (m_keptVisible == source)
+        return;
+
+    const QModelIndex previous = m_keptVisible;
+    m_keptVisible = source;
+    if (m_filters == NoFilter || !previous.isValid())
+        return;
+
+    // The previous message might have been the only reason for showing its thread
+    QModelIndex top = previous;
+    while (top.parent().isValid())
+        top = top.parent();
+    if (!subtreeMatches(top))
+        refilter(m_filters);
+}
+
+QModelIndex PrettyMsgListModel::keptVisibleIndex() const
+{
+    return m_keptVisible;
+}
+
+bool PrettyMsgListModel::messageMatches(const QModelIndex &sourceIndex) const
+{
+    const QVariant fetched = sourceIndex.data(RoleIsFetched);
+    if (!fetched.isValid()) {
+        // A placeholder for a message which is missing from a thread
+        return false;
+    }
+    // Neither of these roles fetches anything, and messages with unknown flags count as unread and not flagged
+    if (m_filters.testFlag(FilterUnread) && !sourceIndex.data(RoleMessageWasUnread).toBool()
+            && sourceIndex.data(RoleMessageIsMarkedRead).toBool())
+        return false;
+    if (m_filters.testFlag(FilterFlagged) && !sourceIndex.data(RoleMessageIsMarkedFlagged).toBool())
+        return false;
+    // Asking about attachments would fetch the message, and before that it says "no attachments"
+    if (m_filters.testFlag(FilterAttachments) && fetched.toBool() && !sourceIndex.data(RoleMessageHasAttachments).toBool())
+        return false;
+    return true;
+}
+
+bool PrettyMsgListModel::subtreeMatches(const QModelIndex &sourceIndex) const
+{
+    QModelIndexList pending{sourceIndex};
+    while (!pending.isEmpty()) {
+        const QModelIndex item = pending.takeLast();
+        if (m_keptVisible == item || messageMatches(item))
+            return true;
+        for (int row = 0, rows = sourceModel()->rowCount(item); row < rows; ++row)
+            pending.append(sourceModel()->index(row, 0, item));
+    }
+    return false;
+}
+
+int PrettyMsgListModel::visibleMessageCount() const
+{
+    if (!sourceModel())
+        return 0;
+    int count = 0;
+    QModelIndexList pending;
+    for (int row = 0, rows = rowCount(); row < rows; ++row)
+        pending.append(mapToSource(index(row, 0)));
+    // Within a shown thread, all messages are shown
+    while (!pending.isEmpty()) {
+        const QModelIndex item = pending.takeLast();
+        if (item.data(RoleIsFetched).isValid())
+            ++count;
+        for (int row = 0, rows = sourceModel()->rowCount(item); row < rows; ++row)
+            pending.append(sourceModel()->index(row, 0, item));
+    }
+    return count;
+}
+
 bool PrettyMsgListModel::filterAcceptsRow(int source_row, const QModelIndex &source_parent) const
 {
-    if (!m_hideRead)
+    if (m_filters == NoFilter)
         return true;
 
-    QModelIndex source_index = sourceModel()->index(source_row, 0, source_parent);
+    // A thread is shown as a whole once its root has been accepted
+    if (source_parent.isValid())
+        return true;
 
-    for (QModelIndex test = source_index; test.isValid(); test = test.parent())
-        if (test.data(RoleThreadRootWithUnreadMessages).toBool() || test.data(RoleMessageWasUnread).toBool())
-            return true;
-
-    return false;
+    return subtreeMatches(sourceModel()->index(source_row, 0, source_parent));
 }
 
 
