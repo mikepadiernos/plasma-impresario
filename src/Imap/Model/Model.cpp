@@ -1256,9 +1256,9 @@ ImapTask *Model::setMessageFlags(const QModelIndexList &messages, const QString 
     return m_taskFactory->createUpdateFlagsTask(this, messages, marked, QLatin1Char('(') + flag + QLatin1Char(')'));
 }
 
-void Model::markMessagesDeleted(const QModelIndexList &messages, const FlagsOperation marked)
+ImapTask *Model::markMessagesDeleted(const QModelIndexList &messages, const FlagsOperation marked)
 {
-    this->setMessageFlags(messages, QStringLiteral("\\Deleted"), marked);
+    return this->setMessageFlags(messages, QStringLiteral("\\Deleted"), marked);
 }
 
 void Model::markMailboxAsRead(const QModelIndex &mailbox)
@@ -1274,9 +1274,9 @@ void Model::markMailboxAsRead(const QModelIndex &mailbox)
     m_taskFactory->createUpdateFlagsOfAllMessagesTask(this, index, Imap::Mailbox::FLAG_ADD_SILENT, QStringLiteral("\\Seen"));
 }
 
-void Model::markMessagesRead(const QModelIndexList &messages, const FlagsOperation marked)
+ImapTask *Model::markMessagesRead(const QModelIndexList &messages, const FlagsOperation marked)
 {
-    this->setMessageFlags(messages, QStringLiteral("\\Seen"), marked);
+    return this->setMessageFlags(messages, QStringLiteral("\\Seen"), marked);
 }
 
 ImapTask *Model::copyMoveMessages(const QString &destMailboxName, const QModelIndexList &messages, const CopyMoveOperation op)

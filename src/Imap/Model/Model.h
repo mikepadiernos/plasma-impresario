@@ -174,9 +174,9 @@ public:
     /** @short Add/Remove a flag for the indicated message */
     ImapTask *setMessageFlags(const QModelIndexList &messages, const QString flag, const FlagsOperation marked);
     /** @short Ask the server to set/unset the \\Deleted flag for the indicated messages */
-    void markMessagesDeleted(const QModelIndexList &messages, const FlagsOperation marked);
+    ImapTask *markMessagesDeleted(const QModelIndexList &messages, const FlagsOperation marked);
     /** @short Ask the server to set/unset the \\Seen flag for the indicated messages */
-    void markMessagesRead(const QModelIndexList &messages, const FlagsOperation marked);
+    ImapTask *markMessagesRead(const QModelIndexList &messages, const FlagsOperation marked);
 
     /** @short Run the EXPUNGE command in the specified mailbox */
     void expungeMailbox(const QModelIndex &mailbox);
