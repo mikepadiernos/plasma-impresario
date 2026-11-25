@@ -66,6 +66,48 @@ filters it, the arrow keys move through matches and Enter opens the folder.
 Both select the folder in the tree and move focus to the message list, also
 in one-panel-at-a-time navigation.
 
+**Deleting messages** depends on the account's Trash folder. While the active
+account has one and the open folder is not that Trash, Delete (the **Move to
+Trash** action) moves the selected messages there with IMAP MOVE. In Trash,
+without a Trash folder, or with **Message › Move Deleted Messages to Trash**
+turned off, Delete toggles the `\Deleted` mark as before: the messages stay
+recoverable until the folder is expunged. The option is stored per account as
+`imap.deleteMovesToTrash` and is **on by default**. **Delete Permanently…**
+(Shift+Delete, in the Message menu and the message list's context menu) marks
+the selected messages `\Deleted` and removes only them with UID EXPUNGE. A
+server without UIDPLUS cannot do that, so the messages stay marked and the
+notification offers **Expunge** for the whole folder. **Expunge** (Ctrl+E)
+removes every marked message in the open folder and says how many of the
+loaded messages are marked.
+
+The folder tree's context menu and the Mailbox menu offer **Rename Folder…**,
+which asks for the new last name component and sends IMAP RENAME, keeping the
+folder's subscription. Renaming is unavailable offline, for INBOX and for
+containers that cannot be selected. A name containing the hierarchy separator
+is refused. When the open folder or one of its parents is renamed, the window
+reopens it under the new name. **Empty Trash…** and **Empty Junk…** are
+available in the Mailbox menu while the account has those folders, and in the
+context menu of the Trash or Junk folder itself. They mark every message in the
+folder `\Deleted` and expunge it; an empty folder is only reported as empty.
+
+Delete Permanently, Expunge and the Empty actions ask first, naming the number
+of messages when it is known. The question has a **Do not ask again** check
+box, which takes effect only when the operation is accepted. The answers are
+stored in `plasma-impresariorc`, group `Confirmations`, as `ConfirmExpunge`,
+`ConfirmDeletePermanently` and `ConfirmEmptyFolder` (`false` skips the
+question). Moving to Trash and archiving are not confirmed because they can
+be undone.
+
+Results appear in a **notification bar** between the quick search field and
+the message list instead of a dialog. For example, it reports _Moved 3
+messages to Trash_, _Archived 2 messages_, _Permanently deleted 1 message_,
+renames, emptied folders and failures, including the server's message.
+Information hides itself after eight seconds; errors stay until closed. After
+a move to Trash or Archive, **Undo** moves the messages back to the source
+folder when the server reported their new UIDs (RFC 4315 COPYUID). Otherwise
+the bar offers **Open Trash** or **Open Archive**. The bar is cleared when the
+account changes.
+
 An embedded **attachments panel** sits below the reader in every layout, in a
 resizable reader column whose split is saved with the layout. It lists the
 current message's attachments with their type icons, names and sizes, and
