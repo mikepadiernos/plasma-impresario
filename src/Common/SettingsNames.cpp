@@ -32,6 +32,7 @@ const QString SettingsNames::organisationKey = QStringLiteral("organisation");
 const QString SettingsNames::signatureKey = QStringLiteral("signature");
 const QString SettingsNames::obsRealNameKey = QStringLiteral("identity.realName");
 const QString SettingsNames::obsAddressKey = QStringLiteral("identity.address");
+const QString SettingsNames::composerNoIdentityKey = QStringLiteral("composer/noIdentity");
 const QString SettingsNames::favoriteTagsKey = QStringLiteral("favorite_tags");
 const QString SettingsNames::tagNameKey = QStringLiteral("name");
 const QString SettingsNames::tagColorKey = QStringLiteral("color");

@@ -3,6 +3,8 @@
 */
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
+#include "Composer/AccountIdentities.h"
+#include "Composer/SenderIdentitiesModel.h"
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
@@ -15,6 +17,7 @@
 #include <KLocalizedString>
 #include <QAction>
 #include <QApplication>
+#include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QInputDialog>
@@ -165,6 +168,12 @@ private slots:
                 auto *smtpHost = dialog->findChild<QLineEdit *>(QStringLiteral("smtpHost"));
                 QVERIFY(smtpHost);
                 smtpHost->setText(QStringLiteral("smtp.home.example.test"));
+                auto *identitySource = dialog->findChild<QComboBox *>(QStringLiteral("identitySourceCombo"));
+                QVERIFY(identitySource);
+                QCOMPARE(identitySource->currentData().toInt(),
+                    static_cast<int>(Composer::AccountIdentities::Source::Own));
+                identitySource->setCurrentIndex(
+                    identitySource->findData(static_cast<int>(Composer::AccountIdentities::Source::None)));
                 save(dialog);
             }));
         QCOMPARE(titles,
@@ -178,6 +187,10 @@ private slots:
         QSettings work(directory.filePath(QStringLiteral("main-account-1.conf")), QSettings::IniFormat);
         QCOMPARE(work.value(Common::SettingsNames::imapHostKey).toString(), QStringLiteral("work.example.test"));
         QVERIFY(!settings.contains(Common::SettingsNames::imapHostKey));
+        // Only the edited account stops using an identity.
+        QCOMPARE(Composer::AccountIdentities::source(home), Composer::AccountIdentities::Source::None);
+        QCOMPARE(Composer::AccountIdentities::source(work), Composer::AccountIdentities::Source::Own);
+        QCOMPARE(window.senderIdentitiesModel()->rowCount(), 0);
     }
 
     void cancellingAccountSettingsKeepsTheAccount()

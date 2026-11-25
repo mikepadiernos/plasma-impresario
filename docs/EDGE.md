@@ -39,17 +39,18 @@ offscreen tests only · ⚠️ known limitation · 📋 not yet validated
 
 ### Multiple accounts
 
-| Scenario                                         | Coverage                                                                           |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| Two accounts on the same server and user         | 📋                                                                                 |
-| Removing the active account                      | 📋 Offscreen tests remove an inactive account                                      |
-| A background account with a rejected password    | ✅ `test_LiveImapAccounts`                                                         |
-| Switching accounts during synchronization        | 📋                                                                                 |
-| Saved searches and folder counts after switching | ✅ `test_LiveImapAccounts`                                                         |
-| Folder expansion after switching                 | 🧪 `test_MainWindowAccounts`                                                       |
-| Sender identities after switching                | 🧪 `test_MainWindowAccounts`                                                       |
-| An account without identities opens a composer   | 📋                                                                                 |
-| Switching accounts with a composer open          | ⚠️ Sends with the active account's settings ([#262](CAVEATS.md#multiple-accounts)) |
+| Scenario                                               | Coverage                                                                           |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| Two accounts on the same server and user               | 📋                                                                                 |
+| Removing the active account                            | 📋 Offscreen tests remove an inactive account                                      |
+| A background account with a rejected password          | ✅ `test_LiveImapAccounts`                                                         |
+| Switching accounts during synchronization              | 📋                                                                                 |
+| Saved searches and folder counts after switching       | ✅ `test_LiveImapAccounts`                                                         |
+| Folder expansion after switching                       | 🧪 `test_MainWindowAccounts`                                                       |
+| Sender identities after switching                      | 🧪 `test_MainWindowAccounts`                                                       |
+| An account without identities opens a composer         | 📋                                                                                 |
+| An account set to **No identity** replies to a message | 📋 No identity is preselected; **Reply to all but me** keeps the account's address |
+| Switching accounts with a composer open                | ⚠️ Sends with the active account's settings ([#262](CAVEATS.md#multiple-accounts)) |
 
 ### Interface and embedded panels
 

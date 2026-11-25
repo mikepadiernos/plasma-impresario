@@ -466,8 +466,13 @@ IdentitiesPage::IdentitiesPage(SettingsDialog *parent, QSettings &account, QSett
     Ui_IdentitiesPage::setupUi(this);
     Q_ASSERT(m_accountIdentities);
     Q_ASSERT(m_sharedIdentities);
-    sharedIdentitiesCheckbox->setText(i18nc("@option:check",
-                                            "Use the identities shared by all accounts instead of this account's own"));
+    identitySourceLabel->setText(i18nc("@label:listbox", "Send from:"));
+    identitySourceCombo->addItem(i18nc("@item:inlistbox identity source", "This account's own identities"),
+                                 static_cast<int>(Composer::AccountIdentities::Source::Own));
+    identitySourceCombo->addItem(i18nc("@item:inlistbox identity source", "Identities shared by all accounts"),
+                                 static_cast<int>(Composer::AccountIdentities::Source::Shared));
+    identitySourceCombo->addItem(i18nc("@item:inlistbox identity source", "No identity"),
+                                 static_cast<int>(Composer::AccountIdentities::Source::None));
     addButton->setText(i18nc("@action:button", "Add"));
     editButton->setText(i18nc("@action:button", "Edit"));
     deleteButton->setText(i18nc("@action:button", "Delete"));
@@ -480,7 +485,8 @@ IdentitiesPage::IdentitiesPage(SettingsDialog *parent, QSettings &account, QSett
     identityTabelView->setGridStyle(Qt::NoPen);
     identityTabelView->horizontalHeader()->setStretchLastSection(true);
 
-    sharedIdentitiesCheckbox->setChecked(Composer::AccountIdentities::usesSharedIdentities(account));
+    identitySourceCombo->setCurrentIndex(identitySourceCombo->findData(
+            static_cast<int>(Composer::AccountIdentities::source(account))));
 
     for (auto *model : {m_accountIdentities, m_sharedIdentities}) {
         connect(model, &QAbstractItemModel::modelReset, this, &IdentitiesPage::updateWidgets);
@@ -489,7 +495,7 @@ IdentitiesPage::IdentitiesPage(SettingsDialog *parent, QSettings &account, QSett
         connect(model, &QAbstractItemModel::rowsRemoved, this, &IdentitiesPage::updateWidgets);
         connect(model, &QAbstractItemModel::dataChanged, this, &IdentitiesPage::updateWidgets);
     }
-    connect(sharedIdentitiesCheckbox, &QAbstractButton::toggled, this, &IdentitiesPage::showIdentitiesInUse);
+    connect(identitySourceCombo, &QComboBox::currentIndexChanged, this, &IdentitiesPage::showIdentitiesInUse);
     connect(identityTabelView, &QAbstractItemView::clicked, this, &IdentitiesPage::updateWidgets);
     connect(identityTabelView, &QAbstractItemView::doubleClicked, this, &IdentitiesPage::editButtonClicked);
     connect(moveUpButton, &QAbstractButton::clicked, this, &IdentitiesPage::moveIdentityUp);
@@ -501,28 +507,48 @@ IdentitiesPage::IdentitiesPage(SettingsDialog *parent, QSettings &account, QSett
     showIdentitiesInUse();
 }
 
+Composer::AccountIdentities::Source IdentitiesPage::selectedSource() const
+{
+    return static_cast<Composer::AccountIdentities::Source>(identitySourceCombo->currentData().toInt());
+}
+
 void IdentitiesPage::showIdentitiesInUse()
 {
-    const bool shared = sharedIdentitiesCheckbox->isChecked();
-    m_identitiesModel = shared ? m_sharedIdentities : m_accountIdentities;
+    using Composer::AccountIdentities::Source;
+    const Source source = selectedSource();
+    // With no identity, the account's own list stays visible but read-only, so it can be reviewed before switching back.
+    m_identitiesModel = source == Source::Shared ? m_sharedIdentities : m_accountIdentities;
     identityTabelView->setModel(m_identitiesModel);
     identityTabelView->hideColumn(Composer::SenderIdentitiesModel::COLUMN_ORGANIZATION);
     identityTabelView->hideColumn(Composer::SenderIdentitiesModel::COLUMN_SIGNATURE);
     identityTabelView->resizeRowsToContents();
-    scopeLabel->setText(shared
-            ? i18nc("@info", "This account sends from the shared identities. "
-                             "Changes here apply to every account that uses them.")
-            : i18nc("@info", "This account sends from its own identities. Other accounts are not affected."));
+    identityTabelView->setEnabled(source != Source::None);
+    addButton->setEnabled(source != Source::None);
+    switch (source) {
+    case Source::Shared:
+        scopeLabel->setText(i18nc("@info", "This account sends from the shared identities. "
+                                           "Changes here apply to every account that uses them."));
+        break;
+    case Source::None:
+        scopeLabel->setText(i18nc("@info", "This account does not use an identity. New messages start with an empty "
+                                           "From address and no signature. This account's own identities are kept "
+                                           "for when you switch back."));
+        break;
+    case Source::Own:
+        scopeLabel->setText(
+                i18nc("@info", "This account sends from its own identities. Other accounts are not affected."));
+        break;
+    }
     updateWidgets();
 }
 
 void IdentitiesPage::updateWidgets()
 {
-    bool enabled = identityTabelView->currentIndex().isValid();
+    bool enabled = identityTabelView->isEnabled() && identityTabelView->currentIndex().isValid();
     deleteButton->setEnabled(enabled);
     editButton->setEnabled(enabled);
-    bool upEnabled = m_identitiesModel->rowCount() > 0 && identityTabelView->currentIndex().row() > 0;
-    bool downEnabled = m_identitiesModel->rowCount() > 0 && identityTabelView->currentIndex().isValid() &&
+    bool upEnabled = enabled && m_identitiesModel->rowCount() > 0 && identityTabelView->currentIndex().row() > 0;
+    bool downEnabled = enabled && m_identitiesModel->rowCount() > 0 &&
             identityTabelView->currentIndex().row() < m_identitiesModel->rowCount() - 1;
     moveUpButton->setEnabled(upEnabled);
     moveDownButton->setEnabled(downEnabled);
@@ -587,8 +613,8 @@ void IdentitiesPage::deleteButtonClicked()
 
 void IdentitiesPage::save(QSettings &s)
 {
-    // Both lists are saved: an account that switches to the shared identities keeps its own for later.
-    Composer::AccountIdentities::setUsesSharedIdentities(s, sharedIdentitiesCheckbox->isChecked());
+    // Both lists are saved: an account that switches away from its own identities keeps them for later.
+    Composer::AccountIdentities::setSource(s, selectedSource());
     m_accountIdentities->saveToSettings(s);
     m_sharedIdentities->saveToSettings(m_shared);
     emit saved();

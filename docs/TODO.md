@@ -96,7 +96,7 @@ block M02.
 | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)   | Mail shell                                                  | Completed   | ✅ Verified headless; Plasma-session check moved to #315                                     |
 | [#74](https://github.com/mikepadiernos/plasma-impresario/issues/74)   | App skeleton in the design-spec layout                      | Development | ⏸️ Held while M03 is active; needs a layout decision ([held work](#m02-work-held-for-m03))   |
 | [#36](https://github.com/mikepadiernos/plasma-impresario/issues/36)   | Account setup and mailbox state                             | Development | 🚧 Decisions recorded in [account model](#account-model-decisions)                           |
-| [#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)   | Account setup, editing, removal, identities and credentials | Development | 🚧 Editing, removal and credential default verified; KWallet in #316                         |
+| [#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)   | Account setup, editing, removal, identities and credentials | Review      | 👀 Setup, editing, removal, identities and credential default verified; KWallet in #316      |
 | [#80](https://github.com/mikepadiernos/plasma-impresario/issues/80)   | Account grouping, folder navigation and keyboard focus      | Development | ⏸️ Held while M03 is active; needs a grouping decision ([held work](#m02-work-held-for-m03)) |
 | [#215](https://github.com/mikepadiernos/plasma-impresario/issues/215) | Protocol-aware account and capability model                 | Development | 🚧 Protocol stored per account; interface use held ([held work](#m02-work-held-for-m03))     |
 | [#218](https://github.com/mikepadiernos/plasma-impresario/issues/218) | OAuth account authentication                                | Defined     | 📋 Not started; live provider check moved to #317 (see below)                                |
@@ -171,12 +171,18 @@ need a real session.
 - 🧪 **Sender identities, #78:** each account has its own identities by
   default, edited on the Identities tab of the Account Settings dialog. An account can
   instead use the identities shared by all accounts; it keeps its own list for
-  later. On first start, existing accounts receive a copy of the previously
-  shared identities, which remain the shared list. New accounts start with no
-  identities, and the composer then accepts a typed From address. A composer
-  keeps the identities of the account it was opened from. `test_AccountIdentities`
-  and `test_MainWindowAccounts` cover the defaults, the shared option, migration
-  and switching; the settings tab still needs a check by hand.
+  later. An account can also send with **No identity**: the composer then
+  starts with an empty From address, which is typed by hand, and adds no
+  signature or organization; the account's own list is kept, read-only, for
+  when it switches back. The **Send from** list on the Identities tab offers
+  the three choices. On first start, existing accounts receive a copy of the
+  previously shared identities, which remain the shared list. New accounts
+  start with no identities, and the composer then accepts a typed From
+  address. A composer keeps the identities of the account it was opened from.
+  `test_AccountIdentities` and `test_MainWindowAccounts` cover the defaults,
+  the shared and no-identity options, migration and switching;
+  `test_AccountSettingsDialog` chooses **No identity** on the Identities tab
+  and checks that only the edited account changes.
 - ✅ **Session selection, #81:** the app saves a message's account, mailbox,
   UIDVALIDITY and UID, restores it after asynchronous mailbox loading, and
   cancels pending restoration on navigation. Live checks passed restoration,
@@ -275,17 +281,17 @@ need a real session.
 
 These decisions close the open account-model questions in #36, #78 and #215.
 
-| Area                | Decision                                                                                                                                                                                                                       | State      |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
-| Account registry    | `Common::AccountRegistry` keeps the account IDs (`account-N`, never reused), display names and the active account in the application settings. The migrated single profile becomes the first account.                          | ✅ Decided |
-| Account settings    | Each account has its own settings file for IMAP, offline cache, SMTP and identities. Application settings keep only application-wide options. Each settings file is editable only in its own dialog.                           | ✅ Decided |
-| Connection state    | Each account has its own `ImapAccess`, model, offline cache and status. Background accounts connect at startup; switching does not reconnect.                                                                                  | ✅ Decided |
-| Protocol            | The account's own settings store its protocol under `account.protocol` (`imap`, `pop3` or `jmap`). Accounts without it are IMAP; an unknown value is reported and treated as IMAP. `AccountCapabilities::forAccount` reads it. | ✅ Decided |
-| Identities          | Each account has its own identities by default and can use the shared identities instead.                                                                                                                                      | ✅ Decided |
-| Credentials         | Passwords are stored per account ID and per service (`imap`, `smtp`). New profiles use QtKeychain; profiles with legacy cleartext passwords keep the cleartext store.                                                          | ✅ Decided |
-| Removal             | Removal deletes the account's settings file, registry entry and stored passwords. The offline cache is kept for now ([caveat #262](CAVEATS.md#multiple-accounts)).                                                             | ✅ Decided |
-| Folder structure    | Each account has its own folder tree, shown for the active account only. Showing all accounts in one tree is #80 and needs your decision.                                                                                      | ❓ Ask     |
-| Unavailable actions | Actions an account's protocol does not support should be hidden, not disabled. Wiring this into the interface waits until M03's actions settle; until POP3 or JMAP exist (M06.05), every account is IMAP.                      | ❓ Confirm |
+| Area                | Decision                                                                                                                                                                                                                                   | State      |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| Account registry    | `Common::AccountRegistry` keeps the account IDs (`account-N`, never reused), display names and the active account in the application settings. The migrated single profile becomes the first account.                                      | ✅ Decided |
+| Account settings    | Each account has its own settings file for IMAP, offline cache, SMTP and identities. Application settings keep only application-wide options. Each settings file is editable only in its own dialog.                                       | ✅ Decided |
+| Connection state    | Each account has its own `ImapAccess`, model, offline cache and status. Background accounts connect at startup; switching does not reconnect.                                                                                              | ✅ Decided |
+| Protocol            | The account's own settings store its protocol under `account.protocol` (`imap`, `pop3` or `jmap`). Accounts without it are IMAP; an unknown value is reported and treated as IMAP. `AccountCapabilities::forAccount` reads it.             | ✅ Decided |
+| Identities          | Each account has its own identities by default. It can instead use the shared identities, or no identity, in which case the composer starts with an empty From address and no signature. The account's own identities are kept either way. | ✅ Decided |
+| Credentials         | Passwords are stored per account ID and per service (`imap`, `smtp`). New profiles use QtKeychain; profiles with legacy cleartext passwords keep the cleartext store.                                                                      | ✅ Decided |
+| Removal             | Removal deletes the account's settings file, registry entry and stored passwords. The offline cache is kept for now ([caveat #262](CAVEATS.md#multiple-accounts)).                                                                         | ✅ Decided |
+| Folder structure    | Each account has its own folder tree, shown for the active account only. Showing all accounts in one tree is #80 and needs your decision.                                                                                                  | ❓ Ask     |
+| Unavailable actions | Actions an account's protocol does not support should be hidden, not disabled. Wiring this into the interface waits until M03's actions settle; until POP3 or JMAP exist (M06.05), every account is IMAP.                                  | ❓ Confirm |
 
 #### M02 work held for M03
 

@@ -118,7 +118,7 @@ public:
 
     Imap::Mailbox::Model *imapModel() const;
 
-    /** Return the sender identities the active account sends from: its own, or the shared ones if it opts out. */
+    /** Return the sender identities the active account sends from: its own, the shared ones, or none. */
     Composer::SenderIdentitiesModel *senderIdentitiesModel();
     /** Return the identities shared by accounts that do not use their own. */
     Composer::SenderIdentitiesModel *sharedIdentitiesModel() { return m_senderIdentities; }
@@ -367,6 +367,8 @@ private:
     Imap::Mailbox::PrettyMsgListModel *prettyMsgListModel;
     Composer::SenderIdentitiesModel *m_senderIdentities;
     QHash<QString, Composer::SenderIdentitiesModel *> m_accountIdentities;
+    /** Always empty; used by accounts that send without an identity */
+    Composer::SenderIdentitiesModel *m_noIdentities = nullptr;
     Imap::Mailbox::FavoriteTagsModel *m_favoriteTags;
 
     MailBoxTreeView *mboxTree;
