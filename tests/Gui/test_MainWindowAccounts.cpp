@@ -3,6 +3,7 @@
 */
 #include "Common/AccountStatus.h"
 #include "Common/MetaTypes.h"
+#include "Common/Paths.h"
 #include "Common/SettingsNames.h"
 #include "Composer/AccountIdentities.h"
 #include "Composer/SenderIdentitiesModel.h"
@@ -27,6 +28,7 @@
 #include <KSharedConfig>
 #include <QApplication>
 #include <QComboBox>
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QLineEdit>
@@ -202,8 +204,19 @@ private slots:
         store->start();
         QVERIFY(stored.wait(1000));
         QVERIFY(settings.contains(QStringLiteral("accountPasswords/account-2/imap")));
+        // The migrated account caches directly in the cache root, and the other one in its own directory.
+        const QString cacheRoot = Common::writablePath(Common::LOCATION_CACHE);
+        const QStringList cachedFiles{QStringLiteral("imap.cache.sqlite"), QStringLiteral("account-2/imap.cache.sqlite"),
+                                      QStringLiteral("account-2/SU5CT1g=/3_1.cache")};
+        for (const QString &name : cachedFiles) {
+            QVERIFY(QDir().mkpath(QFileInfo(cacheRoot + name).absolutePath()));
+            QFile file(cacheRoot + name);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
 
         QVERIFY(QMetaObject::invokeMethod(&window, "removeAccountNow", Q_ARG(QString, QStringLiteral("account-2"))));
+        QVERIFY(!QFileInfo::exists(cacheRoot + QStringLiteral("account-2")));
+        QVERIFY(QFile::exists(cacheRoot + QStringLiteral("imap.cache.sqlite")));
         QTRY_VERIFY(!settings.contains(QStringLiteral("accountPasswords/account-2/imap")));
         QVERIFY(!QFile::exists(directory.filePath(QStringLiteral("main-account-2.conf"))));
         QCOMPARE(settings.value(QStringLiteral("accounts/ids")).toStringList(), QStringList{QStringLiteral("account-1")});
@@ -214,6 +227,8 @@ private slots:
 
         QVERIFY(QMetaObject::invokeMethod(&window, "removeAccountNow", Q_ARG(QString, QStringLiteral("account-1"))));
         QCOMPARE(switcher->count(), 1);
+        // The last account cannot be removed, so its cache stays.
+        QVERIFY(QFile::exists(cacheRoot + QStringLiteral("imap.cache.sqlite")));
     }
 
     void accountsSwitchFromTheKeyboard()
