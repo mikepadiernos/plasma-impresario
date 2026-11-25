@@ -36,6 +36,8 @@
 #include <QMessageBox>
 #include <QWebEngineScript>
 #include <QPushButton>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QStandardPaths>
@@ -481,6 +483,23 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(findMessage(messages, QStringLiteral("Quarterly plan")).isValid(), 20000);
         QTRY_COMPARE_WITH_TIMEOUT(tree->currentIndex().data(Imap::Mailbox::RoleMailboxName).toString(), QStringLiteral("INBOX"), 10000);
         open(QStringLiteral("Budget numbers"));
+
+        // Space in the list pages through the open message, and at its end opens the next unread one.
+        open(QStringLiteral("Lunch on Friday"));
+        QTRY_VERIFY_WITH_TIMEOUT(barButton("readerRead")->isEnabled() && barButton("readerRead")->isChecked(), 10000);
+        barButton("readerRead")->click();
+        const QModelIndex unreadLunch = findMessage(messages, QStringLiteral("Lunch on Friday"));
+        QTRY_VERIFY_WITH_TIMEOUT(!unreadLunch.data(Imap::Mailbox::RoleMessageIsMarkedRead).toBool(), 10000);
+        messages->expandAll();
+        const QString previousSubject = messages->indexAbove(unreadLunch).data(Imap::Mailbox::RoleMessageSubject).toString();
+        QVERIFY(!previousSubject.isEmpty());
+        open(previousSubject);
+        messages->setFocus();
+        reader->area->verticalScrollBar()->setValue(reader->area->verticalScrollBar()->maximum());
+        QTest::keyClick(messages, Qt::Key_Space);
+        QTRY_COMPARE_WITH_TIMEOUT(details->message().data(Imap::Mailbox::RoleMessageSubject).toString(),
+                                  QStringLiteral("Lunch on Friday"), 10000);
+        QCOMPARE(messages->currentIndex().data(Imap::Mailbox::RoleMessageSubject).toString(), QStringLiteral("Lunch on Friday"));
 
         QCOMPARE(passwordPrompts, 0);
         QVERIFY2(imapErrors.isEmpty(), qPrintable(imapErrors.isEmpty() ? QString() : imapErrors.first().first().toString()));

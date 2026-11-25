@@ -651,6 +651,39 @@ private slots:
         QCOMPARE(quoted, expected);
     }
 
+    void limitsPlainTextToReadableWidth()
+    {
+        MessageModel message;
+        message.body->setData(QString(QStringLiteral("word ")).repeated(400), Imap::Mailbox::RolePartUnicodeText);
+        Gui::WebEngineMessageProfile profile(message.message->index());
+        Gui::WebEngineMessagePage page(&profile);
+        QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
+        const QString html = UiUtils::htmlizedTextPart(message.body->index(), QFontInfo(QFont()),
+                                                       Qt::white, Qt::black, Qt::blue, Qt::blue);
+        QVERIFY(page.setMessageHtml(html, QUrl(QStringLiteral("trojita-imap://msg/0"))));
+        QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+        QVERIFY(finished.last().at(0).toBool());
+
+        // The paragraph is wrapped at about 90 characters of its own font, not at the page's width
+        auto result = std::make_shared<QString>();
+        page.runJavaScript(QStringLiteral(R"JS((() => {
+            const text = document.querySelector(".plain-text");
+            const probe = document.createElement("span");
+            probe.style.whiteSpace = "pre";
+            probe.textContent = "0".repeat(90);
+            text.appendChild(probe);
+            const measure = probe.getBoundingClientRect().width;
+            probe.remove();
+            return [getComputedStyle(text).maxWidth, measure].join("|");
+        })())JS"),
+                           QWebEngineScript::ApplicationWorld, [result](const QVariant &value) { *result = value.toString(); });
+        QTRY_VERIFY_WITH_TIMEOUT(!result->isEmpty(), 10000);
+        const QStringList parts = result->split(QLatin1Char('|'));
+        QVERIFY2(parts.value(0).endsWith(QLatin1String("px")), qPrintable(*result));
+        const double maxWidth = parts.value(0).chopped(2).toDouble();
+        QVERIFY2(qAbs(maxWidth - parts.value(1).toDouble()) < 2, qPrintable(*result));
+    }
+
     void displaysGeneratedMarkupWithMessageBaseUrl()
     {
         MessageModel message;
