@@ -319,6 +319,7 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/Relevance.cpp
     ${path_UiUtils}/SelectionAfterRemoval.cpp
     ${path_UiUtils}/ShortcutOverview.cpp
+    ${path_UiUtils}/UnreadFolders.cpp
     ${path_UiUtils}/ViewStateStore.cpp
 )
 
