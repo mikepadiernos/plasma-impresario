@@ -288,7 +288,7 @@ Caveats: [mail operations](CAVEATS.md#mail-operations)
   Re:, AW: and Re[2]: and leading list tags, and merge conversations that a new
   message links together. See [E-Mail](philosophy/inspirations.md#e-mail).
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318073350)
-- [ ] In dark color schemes, show plain-text mail in the app's colors and HTML
+- [x] In dark color schemes, show plain-text mail in the app's colors and HTML
   mail that sets no background of its own on a light page, without loading
   remote content or running scripts. See
   [E-Mail](philosophy/inspirations.md#e-mail).
