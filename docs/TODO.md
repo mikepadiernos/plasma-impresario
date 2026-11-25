@@ -24,6 +24,7 @@ progress · 📋 planned · ⛔ blocked
   - [M02 shell and account foundation](#m02-shell-and-account-foundation)
   - [M01 release gate and integration](#m01-release-gate-and-integration)
   - [Milestone feature-issue synchronization](#milestone-feature-issue-synchronization)
+  - [M05 search milestone insertion](#m05-search-milestone-insertion)
 
 ## Backlog
 
@@ -57,13 +58,13 @@ progress · 📋 planned · ⛔ blocked
   Review and power-user workflows
   ([#84](https://github.com/mikepadiernos/plasma-impresario/issues/84)) in
   Development. The other six features are Defined.
-- 🚧 **M08 themes and branding foundation**
+- 🚧 **M09 themes and branding foundation**
   ([#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)): in
-  Development because M08.01 Branding and visual language
+  Development because M09.01 Branding and visual language
   ([#269](https://github.com/mikepadiernos/plasma-impresario/issues/269))
   started with the product rename
   ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), which
-  is Merged. The other M08.01 features and M08.02–M08.10 are in the Backlog.
+  is Merged. The other M09.01 features and M09.02–M09.10 are in the Backlog.
 - 🚧 **Documentation:** keep the roadmap and these documents synchronized with
   project-board decisions. See
   [issue synchronization](#milestone-feature-issue-synchronization).
@@ -248,11 +249,11 @@ need a real session.
     [#304](https://github.com/mikepadiernos/plasma-impresario/issues/304) and
     address-book contacts
     [#305](https://github.com/mikepadiernos/plasma-impresario/issues/305)
-    (M05.04); the designed header
+    (M06.04); the designed header
     [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306) and
     sliding, floating or rearrangeable panels
     [#307](https://github.com/mikepadiernos/plasma-impresario/issues/307)
-    (M12.02).
+    (M13.02).
 
 #### Blockers and open decisions
 
@@ -286,7 +287,7 @@ These decisions close the open account-model questions in #36, #78 and #215.
 | Credentials         | Passwords are stored per account ID and per service (`imap`, `smtp`). New profiles use QtKeychain; profiles with legacy cleartext passwords keep the cleartext store.                                                          | ✅ Decided |
 | Removal             | Removal deletes the account's settings file, registry entry and stored passwords. The offline cache is kept for now ([caveat #262](CAVEATS.md#multiple-accounts)).                                                             | ✅ Decided |
 | Folder structure    | Each account has its own folder tree, shown for the active account only. Showing all accounts in one tree is #80 and needs your decision.                                                                                      | ❓ Ask     |
-| Unavailable actions | Actions an account's protocol does not support should be hidden, not disabled. Wiring this into the interface waits until M03's actions settle; until POP3 or JMAP exist (M05.05), every account is IMAP.                      | ❓ Confirm |
+| Unavailable actions | Actions an account's protocol does not support should be hidden, not disabled. Wiring this into the interface waits until M03's actions settle; until POP3 or JMAP exist (M06.05), every account is IMAP.                      | ❓ Confirm |
 
 #### M02 work held for M03
 
@@ -340,7 +341,8 @@ avoid conflicting changes, these M02 items are held:
    [#252](https://github.com/mikepadiernos/plasma-impresario/pull/252) (feature
    priority,
    [#251](https://github.com/mikepadiernos/plasma-impresario/issues/251)). Both
-   issues are in Review.
+   issues are in Review, and both predate the
+   [M05 insertion](#m05-search-milestone-insertion).
 7. Merge `feature/m02-shell-next` into `main` only when all M02 roadmap items
    and acceptance checks are complete.
 
@@ -358,7 +360,7 @@ and privacy evidence, without an isolated account or a live Plasma session.
 | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------ |
 | Live account setup                                                                                    | M02 [#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)      | Development | 🚧 Accepted against disposable Dovecot; see [M02](#m02-shell-and-account-foundation) |
 | Live message reading, replies and attachments                                                         | M04 [#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)      | Backlog     | 📋                                                                                   |
-| Plasma desktop-session startup and recovery                                                           | M05.01 [#101](https://github.com/mikepadiernos/plasma-impresario/issues/101) | Backlog     | 📋                                                                                   |
+| Plasma desktop-session startup and recovery                                                           | M06.01 [#101](https://github.com/mikepadiernos/plasma-impresario/issues/101) | Backlog     | 📋                                                                                   |
 | Renderer-enabled and renderer-free installs at protected system prefixes                              | Not assigned                                                                 | —           | 📋 Pending                                                                           |
 | Package lists, package-manager branches and real installs on distribution families other than CachyOS | Not assigned                                                                 | —           | 📋 Pending; do not claim support until verified                                      |
 
@@ -387,18 +389,18 @@ component audit and reproduction steps.
 
 ### Milestone feature-issue synchronization
 
-- ✅ **M01–M12:** each roadmap item has its own linked project card and issue.
+- ✅ **M01–M13:** each roadmap item has its own linked project card and issue.
   Items belong to their subsection issue where applicable, or otherwise to their
   milestone issue; subsection issues belong to the milestone issue. Issue
   milestone assignments and parent links were verified. Existing project
   statuses were preserved when the cards were created.
 - 🚧 **Milestone numbers:** several board issue titles still use earlier
-  milestone numbers. For example, roadmap M05 is
+  milestone numbers. For example, roadmap M06 is
   [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7) "M07:
-  Desktop integration and provider support", M09 is
+  Desktop integration and provider support", M10 is
   [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11) "M05:
   Reliability, sync, and notification quality", and #304 and #305 are titled
-  "M07:" but belong to roadmap M05.04. The milestone reorder
+  "M07:" but belong to roadmap M06.04. The milestone reorder
   [#249](https://github.com/mikepadiernos/plasma-impresario/issues/249) is in
   Review in pull request
   [#250](https://github.com/mikepadiernos/plasma-impresario/pull/250). Treat the
@@ -409,7 +411,7 @@ component audit and reproduction steps.
   in from issue, pull request and commit dates for the M01 features, bugs
   #228 and #241, documentation issues #239, #249, #251, #255 and #258, and #36.
   [#49](https://github.com/mikepadiernos/plasma-impresario/issues/49) now lists
-  only its own M08.01 feature and links #123 and #124.
+  only its own M09.01 feature and links #123 and #124.
 - ✅ **Parent checklists, 2026-11-24:** linked feature checkboxes in issue
   bodies match their issues' board statuses, and
   [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4) now lists
@@ -429,3 +431,41 @@ component audit and reproduction steps.
   closed.
 - Keep roadmap links, issue parents, milestone assignments and project status
   synchronized when roadmap scope changes.
+
+### M05 search milestone insertion
+
+- ✅ **Inserted, 2026-11-25**
+  ([#322](https://github.com/mikepadiernos/plasma-impresario/issues/322)):
+  search moved out of M04 into the new M05 Search and indexing
+  ([#324](https://github.com/mikepadiernos/plasma-impresario/issues/324)), and
+  roadmap M05–M12 became M06–M13. The GitHub milestone "M05: Search and
+  indexing", subsections #325–#330, features #331–#352 and recommendations
+  #353–#357 were created in the Backlog.
+- ✅ **Moved:**
+  [#95](https://github.com/mikepadiernos/plasma-impresario/issues/95) and
+  [#302](https://github.com/mikepadiernos/plasma-impresario/issues/302) moved
+  from M04 to M05.01 with their board cards.
+  [#40](https://github.com/mikepadiernos/plasma-impresario/issues/40) became
+  "Provide conversation navigation", its saved filters became M05.03 saved
+  searches, and #6 and the GitHub M04 milestone were renamed "M04: Reading and
+  conversation flow". Roadmap-numbered subsection bodies were shifted: M05.0x to
+  M06.0x and M08.xx to M09.xx.
+- ✅ **Recommendations:**
+  [#353](https://github.com/mikepadiernos/plasma-impresario/issues/353) (M04,
+  under #39),
+  [#354](https://github.com/mikepadiernos/plasma-impresario/issues/354) (M06.01,
+  #42), [#355](https://github.com/mikepadiernos/plasma-impresario/issues/355)
+  (M07, #46),
+  [#356](https://github.com/mikepadiernos/plasma-impresario/issues/356) (M08,
+  #47) and [#357](https://github.com/mikepadiernos/plasma-impresario/issues/357)
+  (M10, #52) follow their GitHub milestones' title prefixes.
+- 🚧 **Title clash:** the new M05 issues share the "M05:" prefix with the
+  reliability milestone (roadmap M10,
+  [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11), its
+  features and #357). Resolve this in the milestone reorder
+  [#249](https://github.com/mikepadiernos/plasma-impresario/issues/249).
+- 📋 **Resume:** rebase pull requests
+  [#250](https://github.com/mikepadiernos/plasma-impresario/pull/250) and
+  [#252](https://github.com/mikepadiernos/plasma-impresario/pull/252) onto this
+  insertion before merging them, then retitle board issues to roadmap numbers
+  and remove this section and the roadmap tip.
