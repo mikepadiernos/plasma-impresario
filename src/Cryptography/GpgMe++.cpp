@@ -226,6 +226,8 @@ void GpgMePart::internalUpdateState(const SignatureDataBundle &d)
     m_statusIcon = d.statusIcon;
     m_signatureIdentityName = d.signatureUid;
     m_signDate = d.signatureDate;
+    m_signatureKeyMissing = d.keyMissing;
+    m_signatureBad = d.isBad;
     m_crypto.get();
     emitDataChanged();
 }
@@ -235,6 +237,7 @@ void GpgMePart::forwardFailure(const QString &statusTLDR, const QString &statusL
     disconnect(m_dataChanged);
     m_waitingForData = false;
     m_wasSigned = false;
+    m_cryptoFailed = true;
     m_statusTLDR = statusTLDR;
     m_statusLong = statusLong;
     m_statusIcon = statusIcon;
@@ -286,6 +289,12 @@ QVariant GpgMePart::data(int role) const
         return m_signatureIdentityName;
     case RolePartSignatureSignDate:
         return m_signDate;
+    case RolePartSignatureKeyMissing:
+        return m_wasSigned ? QVariant(m_signatureKeyMissing) : QVariant();
+    case RolePartSignatureBad:
+        return m_wasSigned ? QVariant(m_signatureBad) : QVariant();
+    case RolePartCryptoDecryptionFailed:
+        return m_isAllegedlyEncrypted && m_cryptoFailed;
     default:
         return LocalMessagePart::data(role);
     }
@@ -296,7 +305,8 @@ QVariant GpgMePart::data(int role) const
 void GpgMePart::extractSignatureStatus(std::shared_ptr<GpgME::Context> ctx, const GpgME::Signature &sig,
                                        const std::vector<std::string> messageUids, const bool wasSigned, const bool wasEncrypted,
                                        bool &sigOkDisregardingTrust, bool &sigValidVerified,
-                                       bool &uidMatched, QString &tldr, QString &longStatus, QString &icon, QString &signer, QDateTime &signDate)
+                                       bool &uidMatched, QString &tldr, QString &longStatus, QString &icon, QString &signer, QDateTime &signDate,
+                                       bool &keyMissing, bool &isBad)
 {
     Q_UNUSED(wasSigned);
 
@@ -308,6 +318,7 @@ void GpgMePart::extractSignatureStatus(std::shared_ptr<GpgME::Context> ctx, cons
     if (sig.summary() & GpgME::Signature::KeyMissing) {
         // that's right, there won't be any Green or Red labeling from GpgME; is we don't have the key, we cannot
         // do anything, period.
+        keyMissing = true;
         tldr = wasEncrypted ? tr("Encrypted; some signature: missing key") : tr("Some signature: missing key");
         longStatus = tr("Key %1 is not available in the keyring.\n"
                         "Cannot verify signature validity or do anything else. "
@@ -383,6 +394,7 @@ void GpgMePart::extractSignatureStatus(std::shared_ptr<GpgME::Context> ctx, cons
             icon = QStringLiteral("emblem-warning");
         }
     } else if (sig.summary() & GpgME::Signature::Red) {
+        isBad = true;
         if (uidMatched) {
             if (sig.status().code() == GPG_ERR_BAD_SIGNATURE) {
                 tldr = wasEncrypted ? tr("Encrypted, bad signature") : tr("Bad signature");
@@ -605,6 +617,7 @@ GpgMeSigned::GpgMeSigned(const Protocol protocol, GpgMeReplacer *replacer, Messa
             Q_ASSERT(m_signaturePart.isValid());
             m_dataChanged = connect(sourceItemIndex.model(), &QAbstractItemModel::dataChanged, this, &GpgMeSigned::handleDataChanged);
             Q_ASSERT(m_dataChanged);
+            m_waitingForData = true;
             // Trigger lazy loading of the required message parts
             m_plaintextPart.data(RolePartData);
             m_plaintextMimePart.data(RolePartData);
@@ -693,6 +706,8 @@ void GpgMeSigned::handleDataChanged(const QModelIndex &topLeft, const QModelInde
         QString icon;
         QString signer;
         QDateTime signDate;
+        bool keyMissing = false;
+        bool isBad = false;
 
         if (verificationResult.numSignatures() == 0) {
             tldr = tr("No signatures in the signed message");
@@ -702,12 +717,14 @@ void GpgMeSigned::handleDataChanged(const QModelIndex &topLeft, const QModelInde
         for (const auto &sig: verificationResult.signatures()) {
             wasSigned = true;
             extractSignatureStatus(ctx, sig, messageUids, wasSigned, wasEncrypted,
-                                   sigOkDisregardingTrust, sigValidVerified, uidMatched, tldr, longStatus, icon, signer, signDate);
+                                   sigOkDisregardingTrust, sigValidVerified, uidMatched, tldr, longStatus, icon, signer, signDate,
+                                   keyMissing, isBad);
 
             // FIXME: add support for multiple signatures at once. How do we want to handle them in the UI?
             break;
         }
-        submitVerifyResult(p, {wasSigned, sigOkDisregardingTrust, sigValidVerified, tldr, longStatus, icon, signer, signDate});
+        submitVerifyResult(p, {wasSigned, sigOkDisregardingTrust, sigValidVerified, tldr, longStatus, icon, signer, signDate,
+                              keyMissing, isBad});
     });
     emitDataChanged();
 }
@@ -717,7 +734,6 @@ GpgMeEncrypted::GpgMeEncrypted(const Protocol protocol, GpgMeReplacer *replacer,
                                const QModelIndex &sourceItemIndex, const QModelIndex &proxyParentIndex)
     : GpgMePart(protocol, replacer, model, parentPart, sourceItemIndex, proxyParentIndex)
     , m_decryptionSupported(false)
-    , m_decryptionFailed(false)
 {
     m_isAllegedlyEncrypted = true;
     if (m_ctx) {
@@ -730,6 +746,7 @@ GpgMeEncrypted::GpgMeEncrypted(const Protocol protocol, GpgMeReplacer *replacer,
             if (rowCount == 2) {
                 m_dataChanged = connect(sourceItemIndex.model(), &QAbstractItemModel::dataChanged, this, &GpgMeEncrypted::handleDataChanged);
                 Q_ASSERT(m_dataChanged);
+                m_waitingForData = true;
                 // Trigger lazy loading of the required message parts
                 m_versionPart.data(RolePartData);
                 m_encPart.data(RolePartData);
@@ -749,6 +766,7 @@ GpgMeEncrypted::GpgMeEncrypted(const Protocol protocol, GpgMeReplacer *replacer,
             m_versionPart = m_encPart = sourceItemIndex;
             m_dataChanged = connect(sourceItemIndex.model(), &QAbstractItemModel::dataChanged, this, &GpgMeEncrypted::handleDataChanged);
             Q_ASSERT(m_dataChanged);
+            m_waitingForData = true;
             // Trigger lazy loading of the required message parts
             m_versionPart.data(RolePartData);
             m_encPart.data(RolePartData);
@@ -841,12 +859,15 @@ void GpgMeEncrypted::handleDataChanged(const QModelIndex &topLeft, const QModelI
         QString icon;
         QString signer;
         QDateTime signDate;
+        bool keyMissing = false;
+        bool isBad = false;
 
         if (combinedResult.second.numSignatures() != 0) {
             for (const auto &sig: combinedResult.second.signatures()) {
                 wasSigned = true;
                 extractSignatureStatus(ctx, sig, messageUids, wasSigned, wasEncrypted,
-                                       sigOkDisregardingTrust, sigValidVerified, uidMatched, tldr, longStatus, icon, signer, signDate);
+                                       sigOkDisregardingTrust, sigValidVerified, uidMatched, tldr, longStatus, icon, signer, signDate,
+                                   keyMissing, isBad);
 
                 // FIXME: add support for multiple signatures at once. How do we want to handle them in the UI?
                 break;
@@ -909,7 +930,8 @@ void GpgMeEncrypted::handleDataChanged(const QModelIndex &topLeft, const QModelI
         } else {
             qDebug() << "[async crypto: GpgMeEncrypted is gone, not sending cleartext data]";
         }
-        submitVerifyResult(p, {wasSigned, sigOkDisregardingTrust, sigValidVerified, tldr, longStatus, icon, signer, signDate});
+        submitVerifyResult(p, {wasSigned, sigOkDisregardingTrust, sigValidVerified, tldr, longStatus, icon, signer, signDate,
+                              keyMissing, isBad});
     });
 
     emitDataChanged();
@@ -922,6 +944,7 @@ void GpgMeEncrypted::processDecryptedData(const bool ok, const QByteArray &data)
     } else {
         auto idx = m_proxyParentIndex.model()->index(m_row, 0, m_proxyParentIndex);
         Q_ASSERT(idx.isValid());
+        m_cryptoFailed = !ok;
         if (ok) {
             mimetic::MimeEntity me(data.begin(), data.end());
             m_model->insertSubtree(idx, MimeticUtils::mimeEntityToPart(me, nullptr, 0));

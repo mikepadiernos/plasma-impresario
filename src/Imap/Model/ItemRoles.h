@@ -231,6 +231,10 @@ enum {
     RolePartSignatureSignerName,
     /** @short When was the signature made */
     RolePartSignatureSignDate,
+    /** @short Could the signature not be checked because the signer's key is not available? */
+    RolePartSignatureKeyMissing,
+    /** @short Did the cryptography backend find the signature bad, for example because the signed data changed? */
+    RolePartSignatureBad,
 
 
     /** @short True if the item in the tasks list is actually a ParserState

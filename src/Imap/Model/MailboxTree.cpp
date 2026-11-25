@@ -1700,6 +1700,21 @@ QVariant TreeItemPart::data(Model *const model, int role)
         return QVariant::fromValue(dataPtr());
     case RolePartBodyFldParam:
         return QVariant::fromValue(m_bodyFldParam);
+    case RolePartSignatureVerifySupported:
+    case RolePartDecryptionSupported:
+    case RolePartCryptoNotFinishedYet:
+    case RolePartCryptoDecryptionFailed:
+    case RolePartCryptoTLDR:
+    case RolePartCryptoDetailedMessage:
+    case RolePartCryptoStatusIconName:
+    case RolePartSignatureValidTrusted:
+    case RolePartSignatureValidDisregardingTrust:
+    case RolePartSignatureSignerName:
+    case RolePartSignatureSignDate:
+    case RolePartSignatureKeyMissing:
+    case RolePartSignatureBad:
+        // Only the cryptography layer provides these; asking for them must not download the part.
+        return QVariant();
     case RoleIMAPRelativeUrl:
         if (message() && message()->uid()) {
             return QByteArray("/" + QUrl::toPercentEncoding(data(model, RoleMailboxName).toString())

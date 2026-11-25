@@ -46,6 +46,8 @@ struct SignatureDataBundle {
     QString statusIcon;
     QString signatureUid;
     QDateTime signatureDate;
+    bool keyMissing;
+    bool isBad;
 };
 
 /** @short What sort of crypto messages is this? */
@@ -85,7 +87,8 @@ protected:
     void emitDataChanged();
     static void extractSignatureStatus(std::shared_ptr<GpgME::Context> ctx, const GpgME::Signature &sig,
                                        const std::vector<std::string> messageUids, const bool wasSigned, const bool wasEncrypted,
-                                       bool &sigOkDisregardingTrust, bool &sigValidVerified, bool &uidMatched, QString &tldr, QString &longStatus, QString &icon, QString &signer, QDateTime &signDate);
+                                       bool &sigOkDisregardingTrust, bool &sigValidVerified, bool &uidMatched, QString &tldr, QString &longStatus, QString &icon, QString &signer, QDateTime &signDate,
+                                       bool &keyMissing, bool &isBad);
     static void submitVerifyResult(QPointer<QObject> p, const SignatureDataBundle &data);
     std::vector<std::string> extractMessageUids();
 
@@ -101,6 +104,10 @@ protected:
     bool m_isAllegedlyEncrypted;
     bool m_signatureOkDisregardingTrust;
     bool m_signatureValidVerifiedTrusted;
+    bool m_signatureKeyMissing = false;
+    bool m_signatureBad = false;
+    /** @short Did a crypto operation fail, or could it not be started at all? */
+    bool m_cryptoFailed = false;
     QString m_statusTLDR, m_statusLong, m_statusIcon;
     QString m_signatureIdentityName;
     QDateTime m_signDate;
@@ -137,7 +144,6 @@ private slots:
 private:
     QPersistentModelIndex m_versionPart, m_encPart;
     bool m_decryptionSupported;
-    bool m_decryptionFailed;
 };
 }
 
