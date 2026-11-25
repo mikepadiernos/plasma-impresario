@@ -25,7 +25,7 @@ planned · ⚠️ limitation
 | 🧱 Qt                                    | Qt 6.7.0 or newer, as required by CMake   | ✅     | Qt 6.12.0. This does not validate every version from 6.7 onward.                                                                                                                          |
 | 🧱 KDE Frameworks                        | KF6 and ECM compatible with the chosen Qt | ✅     | ECM and KF6 6.32.0. The project declares no minimums for ECM, ItemModels, Config or I18n; the observed CMake package summary reported an effective 6.25.0 minimum for ItemModels and ECM. |
 | 🛠️ Build tools                           | CMake and Ninja                           | ✅     | CMake 4.5.1 and Ninja 1.13.2. CMake declares 3.16 as its minimum, which has not been tested with the required ECM and Qt toolchain.                                                       |
-| 📖 WebEngine reader                      | Qt6 WebEngineWidgets, on by default       | ✅     | Renderer-enabled build with Qt WebEngine 6.140.0 passed all 35 CTest cases at M01 completion; live-session reading remains unverified.                                                    |
+| 📖 WebEngine reader                      | Qt6 WebEngineWidgets, on by default       | ✅     | Renderer-enabled build with the `qt6-webengine` 6.140.0 package passed all 35 CTest cases at M01 completion; live-session reading remains unverified.                                     |
 | 📬 Live account setup                    | Isolated test account                     | 🚧     | Deferred to M02 ([#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)); exercised only against a disposable Dovecot container so far.                                      |
 | 📖 Live reading, replies and attachments | Isolated test mail                        | 📋     | Deferred to M04 ([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)).                                                                                                    |
 | 🖥️ Plasma-session startup and recovery   | Real Plasma session                       | 📋     | Deferred to M05.01 ([#101](https://github.com/mikepadiernos/plasma-impresario/issues/101)).                                                                                               |
@@ -69,6 +69,14 @@ project-level minimum versions; Config and I18n are required by the default
 | Qt WebEngineWidgets, Qt 6.7.0 or newer (`WITH_WEBENGINE=ON`)     | `qt6-webengine`       | 6.140.0          |
 | KF6 ItemModels                                                   | `kitemmodels`         | 6.32.0           |
 | KF6 Config and I18n                                              | `kconfig`, `ki18n`    | 6.32.0           |
+
+> [!NOTE]
+>
+> `6.140.0` is the version of the Arch `qt6-webengine` package, as reported by
+> pacman and the
+> [Arch package database](https://archlinux.org/packages/extra/x86_64/qt6-webengine/).
+> It is numbered separately from the Qt 6.12.0 libraries it was built against
+> and is not a typo.
 
 The installer also installs `pkgconf` 3.0.11, `qt6-tools` 6.12.0 and
 `qt6-declarative` 6.12.0. These are not direct components of the root CMake Qt

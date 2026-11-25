@@ -42,6 +42,16 @@ progress · 📋 planned · ⛔ blocked
   ([#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)): work
   continues on `feature/m02-shell-next`, which is not merged into `main`. See
   the [M02 handoff](#m02-shell-and-account-foundation).
+- 🚧 **M03 mail operations, sorting and folder management**
+  ([#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)): in
+  Development on `feature/m03-mail-operations`.
+- 🚧 **M08 themes and branding foundation**
+  ([#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)): in
+  Development because M08.01 Branding and visual language
+  ([#269](https://github.com/mikepadiernos/plasma-impresario/issues/269))
+  started with the product rename
+  ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), which
+  is Merged. The other M08.01 features and M08.02–M08.10 are in the Backlog.
 - 🚧 **Documentation:** keep the roadmap and these documents synchronized with
   project-board decisions. See
   [issue synchronization](#milestone-feature-issue-synchronization).
@@ -66,7 +76,7 @@ session.
 | [#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)   | Account setup, editing, removal, identities and credentials | Development | 🚧 Live setup accepted; open decisions below                                     |
 | [#80](https://github.com/mikepadiernos/plasma-impresario/issues/80)   | Account grouping, folder navigation and keyboard focus      | Development | 🚧 Needs account grouping in the folder tree                                     |
 | [#215](https://github.com/mikepadiernos/plasma-impresario/issues/215) | Protocol-aware account and capability model                 | Development | 🚧 Model exists; the interface does not use it                                   |
-| [#218](https://github.com/mikepadiernos/plasma-impresario/issues/218) | OAuth account authentication                                | Defined     | ⛔ No OAuth SASL mechanism or token source                                       |
+| [#218](https://github.com/mikepadiernos/plasma-impresario/issues/218) | OAuth account authentication                                | Defined     | 📋 Not started; live verification needs a real provider account (see below)      |
 | [#75](https://github.com/mikepadiernos/plasma-impresario/issues/75)   | Density modes                                               | Completed   | ✅ Row-density selector                                                          |
 | [#76](https://github.com/mikepadiernos/plasma-impresario/issues/76)   | Folder counts and saved searches                            | Completed   | ✅ Verified against disposable IMAP                                              |
 | [#77](https://github.com/mikepadiernos/plasma-impresario/issues/77)   | Milestone gate for later mailbox work                       | Completed   | ✅                                                                               |
@@ -85,15 +95,18 @@ Completed issues move to Merged when `feature/m02-shell-next` is merged into
 > synthetic users and the synthetic password `synthetic-test-only`. Never point
 > them at a real account or service.
 
-| Check                   | How to run                                                                                     | Server                                                                          | Verifies                         |
-| ----------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------- |
-| `test_LiveImap`         | Set `PLASMA_TEST_IMAPS_PORT` to a loopback-only Dovecot IMAPS listener                         | Disposable Dovecot 2.4.4 container with temporary configuration                 | #78, #81, #76                    |
-| `test_LiveImapAccounts` | `tools/dev-container/run.sh sh tools/dev-container/live-imap-accounts.sh` in the dev container | Loopback-only Dovecot 2.4.5 with synthetic users                                | #222, #79, per-account #76       |
-| `test_LiveImapPanels`   | `tools/dev-container/run.sh sh tools/dev-container/live-imap-panels.sh`                        | Synthetic Dovecot mailbox with a conversation, attachments and a signed message | #35 embedded panels, screenshots |
-| VNC view                | `tools/dev-container/vnc.sh`                                                                   | The same seeded mailbox, shown in a VNC session                                 | #35 by hand                      |
+| Check                   | How to run                                                                                     | Server                                                                                | Verifies                         |
+| ----------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------- |
+| `test_LiveImap`         | Set `PLASMA_TEST_IMAPS_PORT` to a loopback-only Dovecot IMAPS listener                         | Dovecot 2.4.4 in a disposable container with temporary configuration (recorded run)   | #78, #81, #76                    |
+| `test_LiveImapAccounts` | `tools/dev-container/run.sh sh tools/dev-container/live-imap-accounts.sh` in the dev container | Loopback-only Dovecot 2.4 with synthetic users; 2.4.5 at the recorded run             | #222, #79, per-account #76       |
+| `test_LiveImapPanels`   | `tools/dev-container/run.sh sh tools/dev-container/live-imap-panels.sh`                        | Same Dovecot 2.4 helper, seeded with a conversation, attachments and a signed message | #35 embedded panels, screenshots |
+| VNC view                | `tools/dev-container/vnc.sh`                                                                   | The same seeded mailbox, shown in a VNC session                                       | #35 by hand                      |
 
-The dev container has no Plasma session, so D-Bus services, KWallet,
-notifications and the Plasma look still need a real session.
+The dev container pins Fedora 44, and `synthetic-dovecot.sh` refuses any Dovecot
+outside the 2.4 series, which its configuration requires. It prints the exact
+version on each run; record it with new results. The dev container has no Plasma
+session, so D-Bus services, KWallet, notifications and the Plasma look still
+need a real session.
 
 | Variable                                                                                 | Used by               | Purpose                                                                                                                                                        |
 | ---------------------------------------------------------------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -189,10 +202,12 @@ notifications and the Plasma look still need a real session.
 
 #### Blockers and open decisions
 
-- ⛔ **OAuth, #218:** the IMAP layer has no XOAUTH2 or OAUTHBEARER
-  authentication, and there is no token source. KAccounts and signond are
-  installed, but token retrieval and renewal cannot be verified without a real
-  Google or Microsoft account.
+- ⛔ **OAuth verification, #218:** the work is not started, so the issue stays
+  in Defined. The IMAP layer has no XOAUTH2 or OAUTHBEARER authentication and
+  there is no token source; both can be implemented and covered by parser tests
+  now. KAccounts and signond are installed, but token retrieval and renewal
+  cannot be verified without a real Google or Microsoft account, which needs
+  your input.
 - 🚧 **Account model, #78, #36 and #215:** `AccountCapabilities` exists, but
   nothing in the interface consults it yet; POP3 and JMAP belong to M05.05.
   Account editing uses the settings dialog, and per-account identities are not
@@ -210,9 +225,14 @@ notifications and the Plasma look still need a real session.
 4. For #218, add SASL support with parser tests, add a token interface backed by
    KAccounts, then verify with an account you control.
 5. Advance each issue through Completed before checking its roadmap item.
-6. Reconcile the pending roadmap changes in
-   [#250](https://github.com/mikepadiernos/plasma-impresario/issues/250) and
-   [#252](https://github.com/mikepadiernos/plasma-impresario/issues/252).
+6. Reconcile the pending roadmap changes in the open pull requests
+   [#250](https://github.com/mikepadiernos/plasma-impresario/pull/250)
+   (milestone reorder,
+   [#249](https://github.com/mikepadiernos/plasma-impresario/issues/249)) and
+   [#252](https://github.com/mikepadiernos/plasma-impresario/pull/252) (feature
+   priority,
+   [#251](https://github.com/mikepadiernos/plasma-impresario/issues/251)). Both
+   issues are in Review.
 7. Merge `feature/m02-shell-next` into `main` only when all M02 roadmap items
    and acceptance checks are complete.
 
@@ -242,9 +262,9 @@ and privacy evidence, without an isolated account or a live Plasma session.
   executable's `--help`, handbook, man page, desktop entry and translations were
   present. A clean renderer-free Debug rebuild passed all available CTest cases
   with `WITH_WEBENGINE=OFF`.
-- ✅ **Renderer-enabled:** a Debug build with Qt 6.12.0 and Qt WebEngine 6.140.0
-  passed all 35 CTest cases. Installation to a temporary prefix, executable
-  startup and installer checks also passed.
+- ✅ **Renderer-enabled:** a Debug build with Qt 6.12.0 and the `qt6-webengine`
+  6.140.0 package passed all 35 CTest cases. Installation to a temporary prefix,
+  executable startup and installer checks also passed.
 - ✅ **Installer:** package-manager selection follows the distribution identity
   and fails for unsupported or missing managers instead of selecting an
   unrelated one. `install.sh` supports dependency-only checks (`--check-deps`),
@@ -272,6 +292,8 @@ component audit and reproduction steps.
   Reliability, sync, and notification quality", and #304 and #305 are titled
   "M07:" but belong to roadmap M05.04. The milestone reorder
   [#249](https://github.com/mikepadiernos/plasma-impresario/issues/249) is in
-  Review. Treat the roadmap numbering as current until the titles are updated.
+  Review in pull request
+  [#250](https://github.com/mikepadiernos/plasma-impresario/pull/250). Treat the
+  roadmap numbering as current until the titles are updated.
 - Keep roadmap links, issue parents, milestone assignments and project status
   synchronized when roadmap scope changes.

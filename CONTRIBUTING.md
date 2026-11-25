@@ -124,6 +124,10 @@ and messages (all at `example.test`, with the shared password
 ends. Build first; each script takes the build directory as an optional first
 argument (default `build`).
 
+The container pins Fedora 44, and the scripts require the Dovecot 2.4 series
+that their configuration is written for. Each run prints the exact version, such
+as `Synthetic Dovecot 2.4.5 on 127.0.0.1:10993`; record it with your results.
+
 ```sh
 tools/dev-container/run.sh sh tools/dev-container/live-imap-accounts.sh
 tools/dev-container/run.sh sh tools/dev-container/live-imap-panels.sh
