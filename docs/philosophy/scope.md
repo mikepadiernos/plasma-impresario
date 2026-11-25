@@ -1,11 +1,15 @@
 # Plasma Impresario scope and objective
 
 **[Documentation](../README.md)** · **[Roadmap](../ROADMAP.md)** ·
-**[Designs](designs.md)** · **[Inspirations](inspirations.md)**
+**[Designs](designs.md)** · **[Inspirations](inspirations.md)** ·
+**[Compatibility](compatibility.md)**
 
-Plasma Impresario is a KDE Plasma-only desktop mail client for users who need
-reliable account management, fast triage and readable conversations. Other
-desktop environments are outside the supported product scope.
+Plasma Impresario is a KDE Plasma-only IMAP desktop mail client, forked from
+Trojitá, for users who need reliable account management, fast triage and
+readable conversations. Other desktop environments are outside the supported
+product scope; milestones and their order live in the [roadmap](../ROADMAP.md).
+
+Legend: ✅ done · 🧪 implemented, needs verification · 📋 planned · ⛔ blocked
 
 > [!IMPORTANT]
 >
@@ -15,73 +19,82 @@ desktop environments are outside the supported product scope.
 
 ## Current baseline
 
-This checkout currently contains a Trojitá-based, IMAP-first client, not the
-proposed multi-provider Plasma Impresario product. IMAP mailboxes remain
-server-side; the application synchronizes metadata and fetches message parts on
-demand, with an optional local cache. SMTP and other submission paths handle
-outgoing mail. The [backend parity guide](../parity/backend.md) describes the
-current implementation; [caveats](../CAVEATS.md) records its security and
-platform limitations.
+The client is built with C++20, Qt 6 and KDE Frameworks 6. IMAP mailboxes stay
+on the server; the application synchronizes metadata and fetches message parts
+on demand, with an optional local cache. The
+[backend parity guide](../parity/backend.md) describes the inherited
+implementation, [designs](designs.md#current-interface) describes the current
+interface, and [caveats](../CAVEATS.md) records security and platform
+limitations.
 
-POP3 retrieval with SMTP submission and JMAP accounts are planned, not
-implemented. POP3 stores retrieved mail locally and does not provide IMAP-style
-server folder synchronization; JMAP capabilities depend on the server. OAuth
-account authentication and consumer Outlook and Exchange account support are
-also planned. Exchange Online and on-premises Exchange Server have different
-interfaces, authentication options and administrator policies.
+| Capability                                                       | Status | Notes                                                                                                                                                                                                           |
+| ---------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🧱 KDE / Qt 6 baseline (M01)                                     | ✅     | Merged into `main`; see [compatibility](compatibility.md).                                                                                                                                                      |
+| 📬 IMAP reading with on-demand fetching and local cache          | 🧪     | Inherited from Trojitá. Live reading with a real account is pending in M04.                                                                                                                                     |
+| ✉️ SMTP and other submission paths                               | 🧪     | Inherited from Trojitá. Live sending is pending in M04.                                                                                                                                                         |
+| 📬 Multiple simultaneous IMAP accounts                           | ✅     | Completed on `feature/m02-shell-next`, not yet in `main` ([#222](https://github.com/mikepadiernos/plasma-impresario/issues/222)).                                                                               |
+| 🧭 Mail shell and embedded panels                                | 🧪     | Completed ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); Plasma check in [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315); see [designs](designs.md#shell-status). |
+| 🔐 OAuth account authentication                                  | ⛔     | Needs SASL support in the IMAP layer and a token source; see [TODO](../TODO.md#m02-shell-and-account-foundation).                                                                                               |
+| 🔍 Search across folders and accounts with an opt-in local index | 📋     | M05. Server search stays the default; the index covers downloaded mail only.                                                                                                                                    |
+| 📮 POP3 retrieval with SMTP submission                           | 📋     | M06.05. POP3 stores retrieved mail locally and has no IMAP-style server folder synchronization.                                                                                                                 |
+| 📡 JMAP accounts                                                 | 📋     | M06.05. Capabilities depend on the server.                                                                                                                                                                      |
+| 🏢 Consumer Outlook, Exchange Online and Exchange Server         | 📋     | M06.05. Exchange Online and on-premises Exchange Server differ in interfaces, authentication options and administrator policies.                                                                                |
 
 ## Target experience
 
-- configure and manage multiple simultaneous accounts and mail identities;
-- triage selected accounts together in a unified inbox with visible message
-  origins and account-aware actions;
-- synchronize folders and preserve unread and offline state;
-- read, search and organize threaded conversations;
-- compose and recover drafts without losing account context;
-- perform bulk actions with clear progress and failure recovery;
-- use Plasma-native notifications, credentials, files and settings.
+- Configure and manage multiple simultaneous accounts and mail identities.
+- Triage selected accounts together in a unified inbox with visible message
+  origins and account-aware actions.
+- Synchronize folders and preserve unread and offline state.
+- Read and organize threaded conversations.
+- Search mail across folders and accounts, saving searches as virtual
+  folders and optionally indexing downloaded mail for offline search.
+- Compose and recover drafts without losing account context.
+- Perform bulk actions with clear progress and failure recovery.
+- Use Plasma-native notifications, credentials, files and settings.
 
 ## Scope boundaries
 
-| In scope                                               | Requires explicit validation                                                |
-| ------------------------------------------------------ | --------------------------------------------------------------------------- |
-| KDE Plasma desktop with Qt/QWidget and KDE Frameworks  | Initial supported distributions, Plasma versions, sessions and dependencies |
-| IMAP and SMTP workflows; planned POP3 and JMAP support | Protocol and provider authentication, capabilities and storage differences  |
-| Planned OAuth, consumer Outlook and Exchange accounts  | Provider consent, supported interfaces and administrator policies           |
-| Local cache and optional Maildir organization          | Cache retention, storage limits and migration behavior                      |
-| Plasma and KDE desktop services                        | Session, notification and service availability                              |
-| Accessibility, localization and keyboard workflows     | Screen-reader and scaled-display coverage                                   |
+| In scope                                               | Requires explicit validation                                               |
+| ------------------------------------------------------ | -------------------------------------------------------------------------- |
+| KDE Plasma desktop with Qt Widgets and KDE Frameworks  | Supported distributions, Plasma versions, sessions and dependencies        |
+| IMAP and SMTP workflows; planned POP3 and JMAP support | Protocol and provider authentication, capabilities and storage differences |
+| Planned OAuth, consumer Outlook and Exchange accounts  | Provider consent, supported interfaces and administrator policies          |
+| Local cache and optional Maildir organization          | Cache retention, storage limits and migration behavior                     |
+| Plasma and KDE desktop services                        | Session, notification and service availability                             |
+| Accessibility, localization and keyboard workflows     | Screen-reader and scaled-display coverage                                  |
 
 ## Product principles
 
-- **Native:** Follow Plasma conventions and KDE facilities rather than
-  duplicating desktop services.
-- **Reliable:** Surface connection, authentication and partial-operation state;
-  never imply that failed work completed.
-- **Readable:** Keep default layouts compact but prioritize hierarchy, selection
-  and focus visibility.
-- **User-controlled:** Make remote content, external services and destructive
-  actions explicit.
-- **Composable:** Separate account, mailbox, desktop and cross-app behavior so
-  integrations remain optional.
+| Principle          | Meaning                                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------- |
+| 🖥️ Native          | Follow Plasma conventions and KDE facilities rather than duplicating desktop services.                  |
+| 📶 Reliable        | Surface connection, authentication and partial-operation state; never imply that failed work completed. |
+| 📖 Readable        | Keep default layouts compact but prioritize hierarchy, selection and focus visibility.                  |
+| 🔒 User-controlled | Make remote content, external services and destructive actions explicit.                                |
+| 🧩 Composable      | Separate account, mailbox, desktop and cross-app behavior so integrations remain optional.              |
 
 ## Reference model
 
-The project combines the strengths of:
-
-- Trojitá for IMAP correctness and a lightweight KDE-native baseline;
-- Aqua Mail for quick, readable triage and low-friction navigation;
-- Vivaldi Mail for cross-account organization and searchable views;
-- The Bat! for dense desktop operations and keyboard-first workflows;
-- Kontact for personal-information management and Plasma integration.
+Trojitá provides the IMAP-first, KDE-native baseline. Aqua Mail, Vivaldi Mail,
+Thunderbird, The Bat!, Kontact and ePim inform triage, cross-account views,
+optional tabs, dense power-user workflows and Plasma integration. The
+[inspirations](inspirations.md#design-synthesis) document lists what each
+contributes.
 
 ## Configuration model
 
 > [!NOTE]
 >
-> The following YAML is an illustrative product concept, not a supported
-> configuration file or the application's current settings format. The existing
-> client stores preferences through `QSettings`.
+> The YAML below is an illustrative product concept, not a supported
+> configuration file. Today the client stores profile settings through
+> `QSettings`, appearance and embedded-panel preferences in the `Appearance`
+> group of `plasma-impresariorc` (see
+> [designs](designs.md#current-embedded-panels)), and session selection in
+> KConfig state.
+
+<details>
+<summary>Illustrative configuration concept</summary>
 
 ```yaml
 appearance:
@@ -112,3 +125,5 @@ productivity:
   keyboard_nav: true
   bulk_actions: true
 ```
+
+</details>

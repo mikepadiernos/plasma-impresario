@@ -10,34 +10,128 @@ security and privacy behavior. The [backend](parity/backend.md) and
 [UI](parity/ui.md) references describe the implemented baseline alongside
 recommended parity goals.
 
+Legend: ⚠️ limitation · 🔒 security · 📋 planned
+
 > [!NOTE]
 >
 > The app can be built with different optional features. Confirm the active
 > branch and build configuration before applying a workaround.
 
+## Contents
+
+- [Current limitations](#current-limitations)
+  - [Multiple accounts](#multiple-accounts)
+  - [Related messages and message details panels](#related-messages-and-message-details-panels)
+- [Before reporting results](#before-reporting-results)
+- [Security and data protection](#security-and-data-protection)
+  - [Recommendations](#recommendations)
+  - [Safe operating guidance](#safe-operating-guidance)
+
 ## Current limitations
 
-| Area              | Current constraint                                                                                                                                                           |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Product identity  | The application remains based on Trojitá; the Plasma Impresario product redesign is not complete                                                                             |
-| Accounts          | The application instance has one IMAP account model; profiles are separate configurations, not simultaneous account management                                               |
-| Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                       |
-| Credentials       | QtKeychain is optional; the cleartext password plugin stores secrets in `QSettings`                                                                                          |
-| Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used                                                                                      |
-| Local data        | Persistent SQL cache stores message metadata and fetched parts; the application does not encrypt cache contents                                                              |
-| Integrations      | Plasma notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                       |
-| Compatibility     | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified |
-| Quality evidence  | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded                                                              |
+| Area                 | Current constraint                                                                                                                                                                                                                                                                                        |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ⚠️ Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                |
+| ⚠️ Accounts          | One window holds several IMAP accounts behind a toolbar selector, not grouped in the folder tree; background account errors appear only in the selector, removing an account keeps its offline cache, and each account confirms the same untrusted certificate separately ([details](#multiple-accounts)) |
+| ⚠️ Embedded panels   | Related messages search only loaded messages in the current folder, message details show MIME-level security only, and pane sizes reset once after upgrading ([details](#related-messages-and-message-details-panels))                                                                                    |
+| ⚠️ Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                    |
+| 🔒 Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings`                                                                                                                                            |
+| 🔒 Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used                                                                                                                                                                                                                   |
+| 🔒 Local data        | Persistent SQL cache stores message metadata and fetched parts; the application does not encrypt cache contents                                                                                                                                                                                           |
+| 📋 Integrations      | Plasma notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                                                                                                                                                    |
+| ⚠️ Compatibility     | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                                                                                                              |
+| ⚠️ Quality evidence  | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded                                                                                                                                                                                           |
+
+### Multiple accounts
+
+| Caveat issue                                                          | Board   | Recommendation                                                                                         | Verified with                                             |
+| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| [#262](https://github.com/mikepadiernos/plasma-impresario/issues/262) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/262#issuecomment-7142887185) | Disposable Dovecot and the opt-in `test_LiveImapAccounts` |
+
+**Current behavior:**
+
+- ⚠️ Errors from background accounts appear only as a label and tooltip in the
+  account selector, not in the footer or as a desktop notification.
+- ⚠️ Removing an account deletes its settings and stored passwords but keeps its
+  offline message cache, the `account-N` directory in the application cache
+  location.
+- ⚠️ Each account asks separately about an untrusted TLS certificate, even on a
+  shared server. Prompts for background accounts appear at startup and name the
+  account.
+- ⚠️ A composer offers the sender identities of the account that was active
+  when it opened. When sending, though, it reads the Sent folder and SMTP
+  options of the account that is active then. Switching accounts while a
+  composer is open can therefore send or file the message with the other
+  account's settings.
+- ⚠️ **Account Settings…** edits only the active account. There is no way yet to
+  open the settings of another account without switching to it.
+
+**Workarounds:**
+
+- Hover over a flagged account to read its error, then switch to it to recover.
+- After removing an account, delete its cache directory manually.
+- Prefer servers with trusted certificates.
+- Switch back to the composer's account before sending, or finish the message
+  before switching.
+- Switch to an account before opening **Account Settings…**.
+
+**Proposed improvements:**
+
+- 📋 Report background errors in the footer and through KNotification.
+- 📋 Delete the cache directory when an account is removed (needed before
+  release).
+- 📋 Share certificate decisions per host and fingerprint across accounts.
+- 📋 Bind each composer to the account it was opened from, including its
+  sending settings; this is planned with keeping the originating account in
+  composition.
+- 📋 Offer **Account Settings…** for any account from the account's context
+  menu, once accounts are grouped in the folder tree (#80).
+
+### Related messages and message details panels
+
+| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                                                     |
+| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| [#264](https://github.com/mikepadiernos/plasma-impresario/issues/264) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/264#issuecomment-7143646817) | Panels off by default; enable them from View › Embedded Panels |
+
+**Current behavior:**
+
+- ⚠️ The related messages panel only searches messages already loaded in the
+  current folder's message list, not the server or other folders. It lists at
+  most 25 messages per group (conversation and same sender) and scans at most
+  the 20,000 most recent rows.
+- ⚠️ The message details panel derives its Security field from the top-level
+  MIME type (`multipart/signed`, `multipart/encrypted` or S/MIME). It does not
+  detect inline PGP or show whether a signature is valid; the reader still
+  verifies and decrypts.
+- ⚠️ The shell saves pane sizes under new keys, so saved pane sizes reset once
+  after upgrading from an earlier build.
+
+**Workarounds:**
+
+- Use the search bar or open the other folder to find related mail that is not
+  loaded.
+- Rely on the reader's security status for signature and decryption results.
+- Resize the panes once after upgrading; the new sizes are saved.
+
+**Proposed improvements:**
+
+- 📋 Add an opt-in server-side search on `Message-ID`, `References` and sender,
+  optionally across folders (M04,
+  [#302](https://github.com/mikepadiernos/plasma-impresario/issues/302)).
+- 📋 Feed the details panel from the reader's verification result, including
+  inline PGP (M04,
+  [#303](https://github.com/mikepadiernos/plasma-impresario/issues/303)).
+- 📋 Migrating the old splitter sizes is optional before release.
 
 ## Before reporting results
 
-- confirm the desktop environment and display server;
-- record the selected account transport and password plugin;
-- identify the provider, server capabilities and whether WebEngine or OpenPGP
-  support is enabled;
-- isolate test credentials and mail data;
-- record Qt, KF6, compiler, distribution and build options;
-- retain a reproducible mailbox size and sample message set.
+- [ ] Confirm the desktop environment and display server.
+- [ ] Record the selected account transport and password plugin.
+- [ ] Identify the provider, server capabilities and whether WebEngine or
+      OpenPGP support is enabled.
+- [ ] Isolate test credentials and mail data.
+- [ ] Record Qt, KF6, compiler, distribution and build options.
+- [ ] Retain a reproducible mailbox size and sample message set.
 
 ## Security and data protection
 
@@ -46,16 +140,22 @@ recommended parity goals.
 > This is a source-based status summary, not a security audit. Behavior varies
 > with account settings and optional build features.
 
-| Area              | Existing behavior                                                                                                                                                                                                                                                                                                                                  | Limitation                                                                                                                                                     |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| IMAP transport    | Supports cleartext, STARTTLS, dedicated TLS and process-backed connections. Qt certificate errors prompt the user; a previously accepted matching public key can be remembered.                                                                                                                                                                    | Cleartext is selectable; the active connection method determines whether traffic is encrypted. Certificate decisions and policy need focused regression tests. |
-| Credentials       | The password-plugin interface supports retrieval and storage. QtKeychain can provide encrypted storage when built and selected.                                                                                                                                                                                                                    | QtKeychain is optional. The cleartext plugin stores IMAP/SMTP secrets in `QSettings`.                                                                          |
-| Message rendering | The reader uses a private profile per message, disables scripts, plugins and persistent storage, blocks local-file and remote requests by default, and delegates permitted external links. Remote images require explicit per-message consent. Switching messages destroys the profile, discarding loaded content and cancelling pending requests. | Renderer behavior has not been smoke-tested in a live Plasma session or across the documented distribution matrix.                                             |
-| Cached data       | Persistent SQL cache can hold message metadata and fetched parts; cache directory permissions are restricted on supported Unix systems.                                                                                                                                                                                                            | Application-level cache encryption is not present. Directory permissions do not protect mail from a compromised account or unencrypted disk.                   |
-| OpenPGP           | Optional GpgME++/Mimetic MIME handling and decryption tests are present.                                                                                                                                                                                                                                                                           | Availability depends on build options; complete signature-status UX and verification policy are not established.                                               |
-| Diagnostics       | Persistent protocol logging is opt-in at startup; an in-app protocol log is available.                                                                                                                                                                                                                                                             | Treat protocol logs as sensitive and review them before sharing.                                                                                               |
+| Area                 | Existing behavior                                                                                                                                                                                                                                                                                                                                  | Limitation                                                                                                                                                                                  |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🔒 IMAP transport    | Supports cleartext, STARTTLS, dedicated TLS and process-backed connections. Qt certificate errors prompt the user; a previously accepted matching public key can be remembered.                                                                                                                                                                    | Cleartext is selectable; the active connection method determines whether traffic is encrypted. Certificate decisions and policy need focused regression tests.                              |
+| 🔒 Credentials       | The password-plugin interface supports retrieval, storage and deletion. QtKeychain can provide encrypted storage when built and selected, and is the default for new profiles. Each account keeps its own stored passwords, which are deleted when the account is removed.                                                                         | QtKeychain is optional. Profiles that already have saved cleartext passwords keep the cleartext plugin, which stores IMAP/SMTP secrets in `QSettings`.                                      |
+| 🔒 Message rendering | The reader uses a private profile per message, disables scripts, plugins and persistent storage, blocks local-file and remote requests by default, and delegates permitted external links. Remote images require explicit per-message consent. Switching messages destroys the profile, discarding loaded content and cancelling pending requests. | Renderer behavior has not been smoke-tested in a live Plasma session or across the documented distribution matrix.                                                                          |
+| 🔒 Cached data       | Persistent SQL cache can hold message metadata and fetched parts; cache directory permissions are restricted on supported Unix systems.                                                                                                                                                                                                            | Application-level cache encryption is not present. Directory permissions do not protect mail from a compromised account or unencrypted disk. Removing an account does not delete its cache. |
+| 🔒 OpenPGP           | Optional GpgME++/Mimetic MIME handling and decryption tests are present.                                                                                                                                                                                                                                                                           | Availability depends on build options; complete signature-status UX and verification policy are not established.                                                                            |
+| 🔒 Diagnostics       | Persistent protocol logging is opt-in at startup; an in-app protocol log is available.                                                                                                                                                                                                                                                             | Treat protocol logs as sensitive and review them before sharing.                                                                                                                            |
 
 ### Recommendations
+
+| Priority | Focus                                                                                                                                  |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **P0**   | [Secure account defaults](#p0--secure-account-defaults); [protect local data and diagnostics](#p0--protect-local-data-and-diagnostics) |
+| **P1**   | [Reduce message-content risk](#p1--reduce-message-content-risk); [clarify cryptographic results](#p1--clarify-cryptographic-results)   |
+| **P2**   | [Define release security checks](#p2--define-release-security-checks)                                                                  |
 
 #### P0 — secure account defaults
 
@@ -106,6 +206,11 @@ recommended parity goals.
   prove the client is secure.
 
 ### Safe operating guidance
+
+> [!TIP]
+>
+> These settings reduce risk with the current build; they do not replace the
+> recommendations above.
 
 - Use implicit TLS or required STARTTLS with valid certificates; reject
   certificate warnings unless independently verified with the provider.
