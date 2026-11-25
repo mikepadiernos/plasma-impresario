@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <QAuthenticator>
 #include <QActionGroup>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QFileInfo>
 #include <QInputDialog>
@@ -36,11 +37,13 @@
 #include <QItemSelectionModel>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPainter>
 #include <QPainterPath>
 #include <QProgressBar>
+#include <QPushButton>
 #include <QRegularExpression>
 #include <QScopedPointer>
 #include <QScreen>
@@ -55,6 +58,7 @@
 #include <QToolButton>
 #include <QToolTip>
 #include <QUrl>
+#include <QVBoxLayout>
 #include <QWheelEvent>
 
 #include <KConfigGroup>
@@ -86,6 +90,7 @@
 #include "Imap/Model/ThreadingMsgListModel.h"
 #include "Imap/Model/FavoriteTagsModel.h"
 #include "Imap/Model/Utils.h"
+#include "Imap/Tasks/CopyMoveMessagesTask.h"
 #include "Imap/Tasks/ImapTask.h"
 #include "Imap/Network/FileDownloadManager.h"
 #include "MSA/ImapSubmit.h"
@@ -103,6 +108,7 @@
 #include "ContactPanel.h"
 #include "DensityMenu.h"
 #include "EmbeddedPanelsMenu.h"
+#include "InlineNotificationBar.h"
 #include "MailBoxTreeView.h"
 #include "MailboxPickerDialog.h"
 #include "MessageDetailsPanel.h"
@@ -340,6 +346,8 @@ void MainWindow::defineActions()
     shortcutHandler->defineAction(QStringLiteral("action_go_to_next_unread"), QStringLiteral("arrow-right"), tr("&Next Unread Message"), QStringLiteral("N"));
     shortcutHandler->defineAction(QStringLiteral("action_go_to_previous_unread"), QStringLiteral("arrow-left"), tr("&Previous Unread Message"), QStringLiteral("P"));
     shortcutHandler->defineAction(QStringLiteral("action_mark_as_deleted"), QStringLiteral("list-remove"), tr("Mark as &Deleted"), QKeySequence(Qt::Key_Delete).toString());
+    shortcutHandler->defineAction(QStringLiteral("action_delete_permanently"), QStringLiteral("edit-delete"),
+                                  i18nc("@action", "Delete &Permanently…"), QKeySequence(Qt::SHIFT | Qt::Key_Delete).toString());
     shortcutHandler->defineAction(QStringLiteral("action_mark_as_flagged"), QStringLiteral("mail-flagged"), tr("Mark as &Flagged"), QStringLiteral("S"));
     shortcutHandler->defineAction(QStringLiteral("action_mark_as_junk"), QStringLiteral("mail-mark-junk"), tr("Mark as &Junk"), QStringLiteral("J"));
     shortcutHandler->defineAction(QStringLiteral("action_mark_as_notjunk"), QStringLiteral("mail-mark-notjunk"), tr("Mark as Not &junk"), QStringLiteral("Shift+J"));
@@ -559,6 +567,22 @@ void MainWindow::createActions()
     markAsDeleted->setCheckable(true);
     msgListWidget->tree->addAction(markAsDeleted);
     connect(markAsDeleted, &QAction::triggered, this, &MainWindow::handleMarkAsDeleted);
+    m_markAsDeletedText = markAsDeleted->text();
+    m_markAsDeletedIcon = markAsDeleted->icon();
+
+    m_deletePermanently = ShortcutHandler::instance()->createAction(QStringLiteral("action_delete_permanently"), this);
+    m_deletePermanently->setEnabled(false);
+    msgListWidget->tree->addAction(m_deletePermanently);
+    connect(m_deletePermanently, &QAction::triggered, this, &MainWindow::handleDeletePermanently);
+
+    m_deleteMovesToTrash = new QAction(i18nc("@option:check", "Move Deleted Messages to Trash"), this);
+    m_deleteMovesToTrash->setObjectName(QStringLiteral("deleteMovesToTrash"));
+    m_deleteMovesToTrash->setCheckable(true);
+    m_deleteMovesToTrash->setChecked(deleteMovesToTrash());
+    connect(m_deleteMovesToTrash, &QAction::toggled, this, [this](const bool enabled) {
+        accountSettings()->setValue(Common::SettingsNames::imapDeleteMovesToTrash, enabled);
+        updateDeleteActionMode();
+    });
 
     markAsFlagged = ShortcutHandler::instance()->createAction(QStringLiteral("action_mark_as_flagged"), this);
     markAsFlagged->setCheckable(true);
@@ -624,6 +648,21 @@ void MainWindow::createActions()
     //: "mailbox" as a "folder of messages", not as a "mail account"
     deleteCurrentMailbox = new QAction(tr("&Remove Mailbox"), this);
     connect(deleteCurrentMailbox, &QAction::triggered, this, &MainWindow::slotDeleteCurrentMailbox);
+
+    m_renameMailbox = new QAction(UiUtils::loadIcon(QStringLiteral("edit-rename")), i18nc("@action", "Re&name Folder…"), this);
+    m_renameMailbox->setObjectName(QStringLiteral("renameMailbox"));
+    m_renameMailbox->setEnabled(false);
+    connect(m_renameMailbox, &QAction::triggered, this, &MainWindow::slotRenameCurrentMailbox);
+
+    m_emptyTrash = new QAction(UiUtils::loadIcon(QStringLiteral("trash-empty")), i18nc("@action", "Empty &Trash…"), this);
+    m_emptyTrash->setObjectName(QStringLiteral("emptyTrash"));
+    connect(m_emptyTrash, &QAction::triggered, this, [this]() { emptySpecialFolder(Imap::Mailbox::SpecialUse::Trash); });
+
+    m_emptyJunk = new QAction(UiUtils::loadIcon(QStringLiteral("trash-empty")), i18nc("@action", "Empty &Junk…"), this);
+    m_emptyJunk->setObjectName(QStringLiteral("emptyJunk"));
+    connect(m_emptyJunk, &QAction::triggered, this, [this]() { emptySpecialFolder(Imap::Mailbox::SpecialUse::Junk); });
+    // The models were set up before the actions existed
+    updateGoToFolderActions();
 
     m_replyPrivate = ShortcutHandler::instance()->createAction(QStringLiteral("action_reply_private"), this, SLOT(slotReplyTo()), this);
     m_replyPrivate->setEnabled(false);
@@ -926,6 +965,13 @@ void MainWindow::createMenus()
         mailboxMenu->addSeparator();
 #endif
         ADD_ACTION(mailboxMenu, expunge);
+        mailboxMenu->addSeparator();
+        ADD_ACTION(mailboxMenu, m_renameMailbox);
+        ADD_ACTION(mailboxMenu, m_emptyTrash);
+        ADD_ACTION(mailboxMenu, m_emptyJunk);
+        connect(mailboxMenu, &QMenu::aboutToShow, this, [this]() {
+            m_renameMailbox->setEnabled(canRenameMailbox(mboxTree->currentIndex()));
+        });
 
     QMenu *messageMenu = menuBar()->addMenu(tr("&Message"));
         ADD_ACTION(messageMenu, composeMail);
@@ -939,6 +985,10 @@ void MainWindow::createMenus()
         messageMenu->addSeparator();
         ADD_ACTION(messageMenu, m_forwardAsAttachment);
         ADD_ACTION(messageMenu, m_resend);
+        messageMenu->addSeparator();
+        ADD_ACTION(messageMenu, markAsDeleted);
+        ADD_ACTION(messageMenu, m_deletePermanently);
+        ADD_ACTION(messageMenu, m_deleteMovesToTrash);
 
     QMenu *mainMenuBehindToolBar = new QMenu(this);
     m_menuFromToolBar->setMenu(mainMenuBehindToolBar);
@@ -989,6 +1039,11 @@ void MainWindow::createWidgets()
     });
 
     msgListWidget = new MessageListWidget(nullptr, m_favoriteTags, m_imapAccess->credentialAccountId());
+    m_notificationBar = new InlineNotificationBar(msgListWidget);
+    m_notificationBar->setObjectName(QStringLiteral("messageNotificationBar"));
+    // Between the quick search field and the list, so that it does not cover any message
+    if (auto *listLayout = qobject_cast<QVBoxLayout *>(msgListWidget->layout()))
+        listLayout->insertWidget(1, m_notificationBar);
     msgListWidget->tree->setContextMenuPolicy(Qt::CustomContextMenu);
     msgListWidget->tree->setAlternatingRowColors(true);
     msgListWidget->setRawSearchEnabled(m_settings->value(Common::SettingsNames::guiAllowRawSearch).toBool());
@@ -1179,6 +1234,20 @@ void MainWindow::setupModels(bool reconnect)
     connect(imapModel(), &Imap::Mailbox::Model::mailboxDeletionFailed, this, &MainWindow::slotMailboxDeleteFailed);
     connect(imapModel(), &Imap::Mailbox::Model::mailboxCreationFailed, this, &MainWindow::slotMailboxCreateFailed);
     connect(imapModel(), &Imap::Mailbox::Model::mailboxSyncFailed, this, &MainWindow::slotMailboxSyncFailed);
+    connect(imapModel(), &Imap::Mailbox::Model::mailboxRenameSucceeded, this, &MainWindow::slotMailboxRenameSucceeded,
+            Qt::UniqueConnection);
+    connect(imapModel(), &Imap::Mailbox::Model::mailboxRenameFailed, this, &MainWindow::slotMailboxRenameFailed,
+            Qt::UniqueConnection);
+    connect(imapModel(), &Imap::Mailbox::Model::mailboxEmptied, this, &MainWindow::slotMailboxEmptied, Qt::UniqueConnection);
+    connect(imapModel(), &Imap::Mailbox::Model::mailboxEmptyFailed, this, &MainWindow::slotMailboxEmptyFailed,
+            Qt::UniqueConnection);
+    // Feedback and pending renames belong to the account which was shown before
+    m_renamedCurrentMailbox.clear();
+    m_notificationBar->dismiss();
+    if (m_deleteMovesToTrash) {
+        QSignalBlocker blocker(m_deleteMovesToTrash);
+        m_deleteMovesToTrash->setChecked(deleteMovesToTrash());
+    }
 
     connect(imapModel(), &Imap::Mailbox::Model::logged, protocolLogger, &ProtocolLoggerWidget::log);
     connect(imapModel(), &Imap::Mailbox::Model::connectionStateChanged, protocolLogger, &ProtocolLoggerWidget::onConnectionClosed);
@@ -1552,9 +1621,17 @@ void MainWindow::openCompleteMessageWidget()
 void MainWindow::showContextMenuMboxTree(const QPoint &position)
 {
     QList<QAction *> actionList;
-    if (mboxTree->indexAt(position).isValid()) {
+    const QModelIndex clicked = mboxTree->indexAt(position);
+    if (clicked.isValid()) {
         actionList.append(createChildMailbox);
+        m_renameMailbox->setEnabled(canRenameMailbox(clicked));
+        actionList.append(m_renameMailbox);
         actionList.append(deleteCurrentMailbox);
+        const auto specialUse = static_cast<Imap::Mailbox::SpecialUse>(clicked.data(Imap::Mailbox::RoleMailboxSpecialUse).toInt());
+        if (specialUse == Imap::Mailbox::SpecialUse::Trash)
+            actionList.append(m_emptyTrash);
+        else if (specialUse == Imap::Mailbox::SpecialUse::Junk)
+            actionList.append(m_emptyJunk);
         actionList.append(m_actionMarkMailboxAsRead);
         actionList.append(resyncMbox);
         actionList.append(reloadMboxList);
@@ -1577,6 +1654,7 @@ void MainWindow::showContextMenuMsgListTree(const QPoint &position)
         updateMessageFlagsOf(index);
         actionList.append(markAsRead);
         actionList.append(markAsDeleted);
+        actionList.append(m_deletePermanently);
         actionList.append(markAsFlagged);
         actionList.append(markAsJunk);
         actionList.append(markAsNotJunk);
@@ -1732,6 +1810,12 @@ void MainWindow::updateGoToFolderActions()
         it.value()->setEnabled(!mailbox.isEmpty());
         it.value()->setToolTip(mailbox);
     }
+    const bool online = model && model->isNetworkAvailable();
+    if (m_emptyTrash)
+        m_emptyTrash->setEnabled(online && !model->specialFolderMailbox(Imap::Mailbox::SpecialUse::Trash).isEmpty());
+    if (m_emptyJunk)
+        m_emptyJunk->setEnabled(online && !model->specialFolderMailbox(Imap::Mailbox::SpecialUse::Junk).isEmpty());
+    updateDeleteActionMode();
 }
 
 void MainWindow::goToSpecialFolder(Imap::Mailbox::SpecialUse kind)
@@ -2312,7 +2396,13 @@ void MainWindow::handleMarkAsDeleted(bool value)
     const QModelIndexList translatedIndexes = translatedSelection();
     if (translatedIndexes.isEmpty()) {
         qDebug() << "Model::handleMarkAsDeleted: no valid messages";
+    } else if (const QString trash = deleteTrashTarget(); !trash.isEmpty()) {
+        auto task = imapModel()->copyMoveMessages(trash, translatedIndexes, Imap::Mailbox::CopyMoveOperation::MOVE);
+        trackMove(task, currentMailboxName(), trash, translatedIndexes.size(), MoveKind::Trash);
     } else {
+        // A shortcut can fire while the action still says "Move to Trash", which is not a toggle
+        if (!markAsDeleted->isCheckable())
+            value = true;
         imapModel()->markMessagesDeleted(translatedIndexes, value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE);
     }
 }
@@ -2355,8 +2445,7 @@ void MainWindow::handleMarkAsNotJunk(const bool value)
 
 void MainWindow::slotMoveToArchiveFailed(const QString &error)
 {
-    // XXX disable busy cursor
-    QMessageBox::critical(this, tr("Failed to archive"), error);
+    m_notificationBar->showError(i18nc("@info", "Failed to archive: %1", error));
 }
 
 void MainWindow::handleMoveToArchive()
@@ -2366,17 +2455,245 @@ void MainWindow::handleMoveToArchive()
         qDebug() << "Model::handleMoveToArchive: no valid messages";
     } else {
         auto archiveFolderName = accountSettings()->value(Common::SettingsNames::imapArchiveFolderName).toString();
-        auto copyMoveMessagesTask = imapModel()->copyMoveMessages(
-            archiveFolderName.isEmpty() ? Common::SettingsNames::imapDefaultArchiveFolderName : archiveFolderName,
-            translatedIndexes, Imap::Mailbox::CopyMoveOperation::MOVE);
-        connect(copyMoveMessagesTask, &Imap::Mailbox::ImapTask::failed, this, &MainWindow::slotMoveToArchiveFailed);
+        if (archiveFolderName.isEmpty())
+            archiveFolderName = Common::SettingsNames::imapDefaultArchiveFolderName;
+        auto copyMoveMessagesTask = imapModel()->copyMoveMessages(archiveFolderName, translatedIndexes,
+                                                                  Imap::Mailbox::CopyMoveOperation::MOVE);
+        trackMove(copyMoveMessagesTask, currentMailboxName(), archiveFolderName, translatedIndexes.size(), MoveKind::Archive);
     }
 }
 
+void MainWindow::handleDeletePermanently()
+{
+    using UiUtils::DestructiveActions::Confirmation;
+    const QModelIndexList translatedIndexes = translatedSelection();
+    if (translatedIndexes.isEmpty() || !imapModel()->isNetworkAvailable())
+        return;
+
+    // The model can change while the question is shown
+    const QList<QPersistentModelIndex> selected(translatedIndexes.cbegin(), translatedIndexes.cend());
+    const int count = selected.size();
+    if (!confirmPermanentAction(Confirmation::DeletePermanently, i18nc("@title:window", "Delete Permanently"),
+                                i18ncp("@info", "Permanently delete %1 message? It cannot be recovered.",
+                                       "Permanently delete %1 messages? They cannot be recovered.", count),
+                                i18nc("@action:button", "&Delete Permanently"))) {
+        return;
+    }
+
+    QModelIndexList messages;
+    for (const QPersistentModelIndex &message : selected) {
+        if (message.isValid())
+            messages << message;
+    }
+    if (messages.isEmpty())
+        return;
+
+    bool expungeScheduled = false;
+    Imap::Mailbox::ImapTask *task = imapModel()->deleteMessagesPermanently(messages, &expungeScheduled);
+    if (!task) {
+        m_notificationBar->showError(i18nc("@info", "Could not delete the messages because the account is offline."));
+        return;
+    }
+    QPointer<Imap::Mailbox::Model> model = imapModel();
+    const int deleted = messages.size();
+    connect(task, &Imap::Mailbox::ImapTask::completed, this, [this, model, deleted, expungeScheduled]() {
+        if (!model || model != imapModel())
+            return;
+        if (expungeScheduled) {
+            m_notificationBar->showInfo(i18ncp("@info", "Permanently deleted %1 message", "Permanently deleted %1 messages", deleted));
+            return;
+        }
+        // Without UIDPLUS, only an EXPUNGE of the whole folder can remove them
+        InlineNotificationBar::Action expungeNow{i18nc("@action:button", "Expunge"), QStringLiteral("trash-empty"),
+                                                 QStringLiteral("expungeMailbox"), [this, model]() {
+            if (model && model == imapModel())
+                slotExpunge();
+        }};
+        m_notificationBar->showInfo(i18ncp("@info",
+                                           "Marked %1 message as deleted. The server cannot remove single messages; "
+                                           "Expunge removes all messages marked as deleted in this folder.",
+                                           "Marked %1 messages as deleted. The server cannot remove single messages; "
+                                           "Expunge removes all messages marked as deleted in this folder.", deleted),
+                                    {expungeNow});
+    });
+    connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, model](const QString &message) {
+        if (model && model == imapModel())
+            m_notificationBar->showError(i18nc("@info", "Could not delete the messages permanently: %1", message));
+    });
+}
+
+void MainWindow::setConfirmationPrompt(const ConfirmationPrompt &prompt)
+{
+    m_confirmationPrompt = prompt;
+}
+
+bool MainWindow::confirmPermanentAction(const UiUtils::DestructiveActions::Confirmation kind, const QString &title,
+                                        const QString &text, const QString &acceptText)
+{
+    using namespace UiUtils::DestructiveActions;
+    KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), configGroupName());
+    return confirm(group, kind, [this, kind, &title, &text, &acceptText]() -> ConfirmationAnswer {
+        if (m_confirmationPrompt)
+            return m_confirmationPrompt(kind, title, text);
+        QMessageBox box(QMessageBox::Warning, title, text, QMessageBox::NoButton, this);
+        box.setObjectName(QStringLiteral("confirmPermanentAction"));
+        QPushButton *accept = box.addButton(acceptText, QMessageBox::DestructiveRole);
+        QPushButton *cancel = box.addButton(QMessageBox::Cancel);
+        box.setDefaultButton(cancel);
+        box.setEscapeButton(cancel);
+        auto *dontAsk = new QCheckBox(i18nc("@option:check", "Do not ask again"), &box);
+        dontAsk->setObjectName(QStringLiteral("dontAskAgain"));
+        box.setCheckBox(dontAsk);
+        box.exec();
+        ConfirmationAnswer answer;
+        answer.accepted = box.clickedButton() == accept;
+        answer.dontAskAgain = dontAsk->isChecked();
+        return answer;
+    });
+}
+
+QString MainWindow::currentMailboxName() const
+{
+    auto *model = qobject_cast<Imap::Mailbox::MsgListModel *>(m_imapAccess->msgListModel());
+    return model ? model->currentMailbox().data(Imap::Mailbox::RoleMailboxName).toString() : QString();
+}
+
+bool MainWindow::deleteMovesToTrash() const
+{
+    return accountSettings()->value(Common::SettingsNames::imapDeleteMovesToTrash, true).toBool();
+}
+
+QString MainWindow::deleteTrashTarget() const
+{
+    using namespace UiUtils::DestructiveActions;
+    const Imap::Mailbox::Model *model = imapModel();
+    if (!model)
+        return QString();
+    const QString trash = model->specialFolderMailbox(Imap::Mailbox::SpecialUse::Trash);
+    return chooseDeleteAction(deleteMovesToTrash(), trash, currentMailboxName()) == DeleteAction::MoveToTrash ? trash : QString();
+}
+
+void MainWindow::updateDeleteActionMode()
+{
+    // The models are set up before the actions exist
+    if (!m_deleteMovesToTrash)
+        return;
+    const QString trash = deleteTrashTarget();
+    markAsDeleted->setCheckable(trash.isEmpty());
+    if (trash.isEmpty()) {
+        markAsDeleted->setText(m_markAsDeletedText);
+        markAsDeleted->setIcon(m_markAsDeletedIcon);
+        markAsDeleted->setToolTip(QString());
+    } else {
+        markAsDeleted->setText(i18nc("@action", "Move to &Trash"));
+        markAsDeleted->setIcon(UiUtils::loadIcon(QStringLiteral("user-trash")));
+        markAsDeleted->setToolTip(i18nc("@info:tooltip", "Move the selected messages to %1", trash));
+    }
+}
+
+void MainWindow::trackMove(Imap::Mailbox::ImapTask *task, const QString &source, const QString &target, const int count,
+                           const MoveKind kind)
+{
+    if (!task)
+        return;
+    QPointer<Imap::Mailbox::Model> model = imapModel();
+    connect(task, &Imap::Mailbox::ImapTask::completed, this,
+            [this, model, source, target, count, kind](Imap::Mailbox::ImapTask *finished) {
+        if (!model || model != imapModel())
+            return;
+        const QString text = kind == MoveKind::Trash
+                ? i18ncp("@info", "Moved %1 message to Trash", "Moved %1 messages to Trash", count)
+                : i18ncp("@info", "Archived %1 message", "Archived %1 messages", count);
+        InlineNotificationBar::Action action;
+        auto *copyMove = qobject_cast<Imap::Mailbox::CopyMoveMessagesTask *>(finished);
+        if (copyMove && copyMove->copyUidValidity() && !copyMove->copyUidDestinationUids().isEmpty() && !source.isEmpty()) {
+            const uint uidValidity = copyMove->copyUidValidity();
+            const Imap::Uids uids = copyMove->copyUidDestinationUids();
+            action = {i18nc("@action:button", "Undo"), QStringLiteral("edit-undo"), QStringLiteral("undoMove"),
+                      [this, model, source, target, uidValidity, uids]() {
+                if (model && model == imapModel())
+                    undoMove(source, target, uidValidity, uids);
+            }};
+        } else {
+            // Without COPYUID (RFC 4315) there is no telling which messages in the target are the moved ones
+            action = {kind == MoveKind::Trash ? i18nc("@action:button", "Open Trash") : i18nc("@action:button", "Open Archive"),
+                      QStringLiteral("go-jump"), QStringLiteral("openMoveTarget"), [this, model, target]() {
+                if (model && model == imapModel())
+                    goToMailbox(target);
+            }};
+        }
+        m_notificationBar->showInfo(text, {action});
+    });
+    connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, model, target, kind](const QString &message) {
+        if (!model || model != imapModel())
+            return;
+        if (kind == MoveKind::Archive)
+            slotMoveToArchiveFailed(message);
+        else
+            m_notificationBar->showError(i18nc("@info", "Could not move the messages to %1: %2", target, message));
+    });
+}
+
+void MainWindow::undoMove(const QString &source, const QString &target, const uint uidValidity, const Imap::Uids &uids)
+{
+    Imap::Mailbox::Model *model = imapModel();
+    const QModelIndex targetMailbox = model->mailboxIndexByName(target);
+    Imap::Mailbox::ImapTask *task = targetMailbox.isValid()
+            ? model->copyMoveMessagesByUid(targetMailbox, uids, source, Imap::Mailbox::CopyMoveOperation::MOVE, uidValidity)
+            : nullptr;
+    if (!task) {
+        m_notificationBar->showError(i18nc("@info", "Could not move the messages back to %1.", source));
+        return;
+    }
+    QPointer<Imap::Mailbox::Model> guard = model;
+    const int count = uids.size();
+    connect(task, &Imap::Mailbox::ImapTask::completed, this, [this, guard, source, target, count]() {
+        if (!guard || guard != imapModel())
+            return;
+        m_notificationBar->showInfo(i18ncp("@info", "Moved %1 message back to %2", "Moved %1 messages back to %2", count, source));
+        reopenCurrentMailbox(target);
+    });
+    connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, guard, source, target](const QString &message) {
+        if (!guard || guard != imapModel())
+            return;
+        m_notificationBar->showError(i18nc("@info", "Could not move the messages back to %1: %2", source, message));
+        reopenCurrentMailbox(target);
+    });
+}
+
+void MainWindow::reopenCurrentMailbox(const QString &usedMailbox)
+{
+    // Only one mailbox is selected per connection; selecting another one leaves the message list stale
+    auto *msgList = qobject_cast<Imap::Mailbox::MsgListModel *>(m_imapAccess->msgListModel());
+    const QModelIndex current = msgList ? msgList->currentMailbox() : QModelIndex();
+    if (current.isValid() && current.data(Imap::Mailbox::RoleMailboxName).toString() != usedMailbox)
+        imapModel()->switchToMailbox(current);
+}
 
 void MainWindow::slotExpunge()
 {
-    imapModel()->expungeMailbox(qobject_cast<Imap::Mailbox::MsgListModel *>(m_imapAccess->msgListModel())->currentMailbox());
+    auto *msgList = qobject_cast<Imap::Mailbox::MsgListModel *>(m_imapAccess->msgListModel());
+    const QModelIndex mailbox = msgList->currentMailbox();
+    if (!mailbox.isValid())
+        return;
+    const QString name = mailbox.data(Imap::Mailbox::RoleMailboxName).toString();
+    int marked = 0;
+    for (int row = 0; row < msgList->rowCount(); ++row) {
+        if (msgList->index(row, 0).data(Imap::Mailbox::RoleMessageIsMarkedDeleted).toBool())
+            ++marked;
+    }
+    // Flags of messages which have not been loaded yet are unknown, so zero means "maybe none"
+    const QString text = marked > 0
+            ? i18ncp("@info", "Permanently remove %1 message marked as deleted from %2? It cannot be recovered.",
+                     "Permanently remove %1 messages marked as deleted from %2? They cannot be recovered.", marked, name)
+            : i18nc("@info", "Permanently remove all messages marked as deleted from %1? They cannot be recovered.", name);
+    if (!confirmPermanentAction(UiUtils::DestructiveActions::Confirmation::Expunge, i18nc("@title:window", "Expunge"), text,
+                                i18nc("@action:button", "&Expunge"))) {
+        return;
+    }
+    const QModelIndex current = msgList->currentMailbox();
+    if (current.isValid() && current.data(Imap::Mailbox::RoleMailboxName).toString() == name)
+        imapModel()->expungeMailbox(current);
 }
 
 void MainWindow::slotMarkCurrentMailboxRead()
@@ -2441,6 +2758,87 @@ void MainWindow::slotDeleteCurrentMailbox()
     }
 }
 
+bool MainWindow::canRenameMailbox(const QModelIndex &index) const
+{
+    using namespace Imap::Mailbox;
+    return index.isValid() && imapModel() && imapModel()->isNetworkAvailable()
+            && !index.data(RoleMailboxName).toString().isEmpty()
+            && !index.data(RoleMailboxIsINBOX).toBool()
+            && index.data(RoleMailboxIsSelectable).toBool();
+}
+
+void MainWindow::slotRenameCurrentMailbox()
+{
+    using namespace Imap::Mailbox;
+    const QModelIndex index = mboxTree->currentIndex();
+    if (!canRenameMailbox(index))
+        return;
+
+    const QString oldName = index.data(RoleMailboxName).toString();
+    const QString separator = index.data(RoleMailboxSeparator).toString();
+    const int split = separator.isEmpty() ? -1 : oldName.lastIndexOf(separator);
+    const QString prefix = split >= 0 ? oldName.left(split + separator.size()) : QString();
+    const QString leaf = oldName.mid(prefix.size());
+
+    bool ok = false;
+    const QString newLeaf = QInputDialog::getText(this, i18nc("@title:window", "Rename Folder"),
+                                                  i18nc("@label:textbox", "New name for %1:", oldName),
+                                                  QLineEdit::Normal, leaf, &ok).trimmed();
+    if (!ok || newLeaf.isEmpty() || newLeaf == leaf)
+        return;
+    if (!separator.isEmpty() && newLeaf.contains(separator)) {
+        m_notificationBar->showError(i18nc("@info", "A folder name cannot contain \"%1\".", separator));
+        return;
+    }
+
+    const QString newName = prefix + newLeaf;
+    // The server closes the open mailbox when it, or a folder above it, is renamed
+    const QString current = currentMailboxName();
+    if (current == oldName || (!separator.isEmpty() && current.startsWith(oldName + separator)))
+        m_renamedCurrentMailbox.insert(oldName, newName + current.mid(oldName.size()));
+    imapModel()->renameMailbox(oldName, newName);
+}
+
+void MainWindow::emptySpecialFolder(const Imap::Mailbox::SpecialUse kind)
+{
+    using namespace Imap::Mailbox;
+    using UiUtils::DestructiveActions::Confirmation;
+    Model *model = imapModel();
+    if (!model || !model->isNetworkAvailable())
+        return;
+
+    // A folder picked in the tree wins over the account's main Trash or Junk folder
+    QString name;
+    const QModelIndex treeIndex = mboxTree->currentIndex();
+    if (treeIndex.isValid() && static_cast<SpecialUse>(treeIndex.data(RoleMailboxSpecialUse).toInt()) == kind)
+        name = treeIndex.data(RoleMailboxName).toString();
+    if (name.isEmpty())
+        name = model->specialFolderMailbox(kind);
+    const QModelIndex mailbox = model->mailboxIndexByName(name);
+    if (!mailbox.isValid())
+        return;
+
+    // Unknown until the folder has been opened or its status fetched
+    const QVariant total = mailbox.data(RoleTotalMessageCount);
+    if (total.isValid() && total.toInt() == 0) {
+        m_notificationBar->showInfo(i18nc("@info", "%1 is already empty", name));
+        return;
+    }
+    const bool trash = kind == SpecialUse::Trash;
+    const QString text = total.isValid()
+            ? i18ncp("@info", "Permanently delete %1 message in %2? It cannot be recovered.",
+                     "Permanently delete all %1 messages in %2? They cannot be recovered.", total.toInt(), name)
+            : i18nc("@info", "Permanently delete all messages in %1? They cannot be recovered.", name);
+    if (!confirmPermanentAction(Confirmation::EmptyFolder,
+                                trash ? i18nc("@title:window", "Empty Trash") : i18nc("@title:window", "Empty Junk"), text,
+                                trash ? i18nc("@action:button", "&Empty Trash") : i18nc("@action:button", "&Empty Junk"))) {
+        return;
+    }
+    const QModelIndex confirmed = imapModel()->mailboxIndexByName(name);
+    if (confirmed.isValid())
+        imapModel()->emptyMailbox(confirmed);
+}
+
 void MainWindow::updateMessageFlags()
 {
     updateMessageFlagsOf(QModelIndex());
@@ -2456,6 +2854,8 @@ void MainWindow::updateMessageFlagsOf(const QModelIndex &index)
 
     markAsRead->setEnabled(okToModify);
     markAsDeleted->setEnabled(okToModify);
+    if (m_deletePermanently)
+        m_deletePermanently->setEnabled(okToModify);
     markAsFlagged->setEnabled(okToModify);
     markAsJunk->setEnabled(okToModify);
     markAsNotJunk->setEnabled(okToModify);
@@ -2523,6 +2923,7 @@ void MainWindow::updateMessageFlagsOf(const QModelIndex &index)
         updateTag(i, hasTag9, 8);
     }
     markAsRead->setChecked(isRead);
+    updateDeleteActionMode();
     markAsDeleted->setChecked(isDeleted);
     markAsFlagged->setChecked(isFlagged);
     markAsJunk->setChecked(isJunk && !isNotJunk);
@@ -2547,6 +2948,9 @@ void MainWindow::updateActionsOnlineOffline(bool online)
     createChildMailbox->setEnabled(online);
     createTopMailbox->setEnabled(online);
     deleteCurrentMailbox->setEnabled(online);
+    if (m_renameMailbox)
+        m_renameMailbox->setEnabled(online && canRenameMailbox(mboxTree->currentIndex()));
+    updateGoToFolderActions();
     m_actionMarkMailboxAsRead->setEnabled(online);
     updateMessageFlags();
     showImapCapabilities->setEnabled(online);
@@ -2756,6 +3160,32 @@ void MainWindow::slotMailboxSyncFailed(const QString &mailbox, const QString &ms
 {
     Gui::Util::messageBoxWarning(this, tr("Can't open mailbox"),
                                  tr("Opening mailbox \"%1\" failed with the following message:\n%2").arg(mailbox, msg));
+}
+
+void MainWindow::slotMailboxRenameSucceeded(const QString &oldName, const QString &newName)
+{
+    m_notificationBar->showInfo(i18nc("@info", "Renamed %1 to %2", oldName, newName));
+    const QString reopen = m_renamedCurrentMailbox.take(oldName);
+    if (!reopen.isEmpty())
+        goToMailbox(reopen);
+}
+
+void MainWindow::slotMailboxRenameFailed(const QString &oldName, const QString &newName, const QString &msg)
+{
+    m_renamedCurrentMailbox.remove(oldName);
+    m_notificationBar->showError(i18nc("@info", "Could not rename %1 to %2: %3", oldName, newName, msg));
+}
+
+void MainWindow::slotMailboxEmptied(const QString &mailbox)
+{
+    m_notificationBar->showInfo(i18nc("@info", "Emptied %1", mailbox));
+    reopenCurrentMailbox(mailbox);
+}
+
+void MainWindow::slotMailboxEmptyFailed(const QString &mailbox, const QString &msg)
+{
+    m_notificationBar->showError(i18nc("@info", "Could not empty %1: %2", mailbox, msg));
+    reopenCurrentMailbox(mailbox);
 }
 
 void MainWindow::slotMailboxChanged(const QModelIndex &mailbox)

@@ -24,18 +24,22 @@
 #define TROJITA_WINDOW_H
 
 #include <QHash>
+#include <QIcon>
 #include <QMap>
 #include <QMainWindow>
 #include <QModelIndex>
 #include <QPointer>
 #include <QSet>
 #include <QSystemTrayIcon>
+#include <functional>
 
 #include "configure.cmake.h"
 #include "Composer/Recipients.h"
 #include "Imap/ConnectionState.h"
 #include "Imap/Model/Cache.h"
 #include "Imap/Model/SpecialFolder.h"
+#include "Imap/Parser/Uids.h"
+#include "UiUtils/DestructiveActions.h"
 #include "MessageActionHandler.h"
 
 class QAuthenticator;
@@ -74,6 +78,7 @@ class ImapAccess;
 namespace Mailbox
 {
 
+class ImapTask;
 class Model;
 class PrettyMailboxModel;
 class ThreadingMsgListModel;
@@ -102,6 +107,7 @@ class MessageDetailsPanel;
 class RelatedMessagesPanel;
 class CompleteMessageWidget;
 class ComposeWidget;
+class InlineNotificationBar;
 class MailBoxTreeView;
 class MessageListWidget;
 class ProtocolLoggerWidget;
@@ -137,6 +143,12 @@ public:
     static QWidget *messageSourceWidget(const QModelIndex &message);
 
     void registerComposeWindow(ComposeWidget* widget);
+
+    /** @short Answer the confirmation of a permanent operation; receives the kind, the title and the question */
+    using ConfirmationPrompt = std::function<UiUtils::DestructiveActions::ConfirmationAnswer(
+        UiUtils::DestructiveActions::Confirmation, const QString &, const QString &)>;
+    /** @short Replace the confirmation dialog, for example in tests; an empty function restores the dialog */
+    void setConfirmationPrompt(const ConfirmationPrompt &prompt);
 
 public slots:
     void slotComposeMailUrl(const QUrl &url);
@@ -189,6 +201,7 @@ private slots:
     void handleMarkAsNotJunk(const bool);
     void slotMoveToArchiveFailed(const QString &error);
     void handleMoveToArchive();
+    void handleDeletePermanently();
     void slotNextUnread();
     void slotPreviousUnread();
     void msgListClicked(const QModelIndex &);
@@ -198,6 +211,7 @@ private slots:
     void slotMarkCurrentMailboxRead();
     void slotCreateTopMailbox();
     void slotDeleteCurrentMailbox();
+    void slotRenameCurrentMailbox();
     void handleTrayIconChange();
     void slotSubscribeCurrentMailbox();
     void slotShowOnlySubscribed();
@@ -224,6 +238,10 @@ private slots:
     void slotMailboxDeleteFailed(const QString &mailbox, const QString &msg);
     void slotMailboxCreateFailed(const QString &mailbox, const QString &msg);
     void slotMailboxSyncFailed(const QString &mailbox, const QString &msg);
+    void slotMailboxRenameSucceeded(const QString &oldName, const QString &newName);
+    void slotMailboxRenameFailed(const QString &oldName, const QString &newName, const QString &msg);
+    void slotMailboxEmptied(const QString &mailbox);
+    void slotMailboxEmptyFailed(const QString &mailbox, const QString &msg);
     void slotMailboxChanged(const QModelIndex &mailbox);
 
     void slotDownloadTransferError(const QString &errorString);
@@ -358,6 +376,31 @@ private:
 
     QModelIndexList translatedSelection() const;
 
+    /** @short Where a move which can be undone went */
+    enum class MoveKind {
+        Trash,
+        Archive,
+    };
+    /** @short Name of the mailbox shown in the message list */
+    QString currentMailboxName() const;
+    /** @short Ask before a permanent operation unless the user opted out; true means go ahead */
+    bool confirmPermanentAction(UiUtils::DestructiveActions::Confirmation kind, const QString &title, const QString &text,
+                                const QString &acceptText);
+    /** @short The active account's "Move Deleted Messages to Trash" setting */
+    bool deleteMovesToTrash() const;
+    /** @short The Trash folder which Delete moves the selected messages to, or an empty string to mark them */
+    QString deleteTrashTarget() const;
+    /** @short Make the Delete action either move to Trash or toggle the \\Deleted mark */
+    void updateDeleteActionMode();
+    /** @short Report the result of moving @p count messages from @p source to @p target, offering Undo if possible */
+    void trackMove(Imap::Mailbox::ImapTask *task, const QString &source, const QString &target, int count, MoveKind kind);
+    /** @short Move messages which an earlier move put into @p target back to @p source */
+    void undoMove(const QString &source, const QString &target, uint uidValidity, const Imap::Uids &uids);
+    /** @short Open the message list's mailbox again after an operation had to select @p usedMailbox */
+    void reopenCurrentMailbox(const QString &usedMailbox);
+    bool canRenameMailbox(const QModelIndex &index) const;
+    void emptySpecialFolder(Imap::Mailbox::SpecialUse kind);
+
     Common::AccountRegistry *m_accounts = nullptr;
     Common::AccountStatusTracker *m_accountStatus = nullptr;
     QHash<QString, Imap::ImapAccess *> m_accountAccess;
@@ -462,6 +505,9 @@ private:
     QAction *createChildMailbox;
     QAction *createTopMailbox;
     QAction *deleteCurrentMailbox;
+    QAction *m_renameMailbox = nullptr;
+    QAction *m_emptyTrash = nullptr;
+    QAction *m_emptyJunk = nullptr;
     QAction *aboutTrojita;
 
     QAction *tag1;
@@ -479,6 +525,11 @@ private:
     QAction *markAsJunk;
     QAction *markAsNotJunk;
     QAction *moveToArchive;
+    QAction *m_deletePermanently = nullptr;
+    QAction *m_deleteMovesToTrash = nullptr;
+    /** @short Text and icon of the Delete action while it toggles the \\Deleted mark */
+    QString m_markAsDeletedText;
+    QIcon m_markAsDeletedIcon;
     QAction *saveWholeMessage;
     QAction *viewMsgSource;
     QAction *viewMsgHeaders;
@@ -529,6 +580,12 @@ private:
     MessageActionHandler m_msgActionHandler;
 
     QMessageBox *m_networkErrorMessageBox;
+
+    /** @short Feedback about operations on messages and folders, above the message list */
+    InlineNotificationBar *m_notificationBar = nullptr;
+    ConfirmationPrompt m_confirmationPrompt;
+    /** @short For each folder being renamed, the new name of the open mailbox which the rename affects */
+    QHash<QString, QString> m_renamedCurrentMailbox;
 
     MainWindow(const MainWindow &); // don't implement
     MainWindow &operator=(const MainWindow &); // don't implement
