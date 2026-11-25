@@ -417,6 +417,10 @@ private:
     /** @short Select the loaded messages of the list which match @p criterion */
     void selectSimilarMessages(UiUtils::SimilarMessages criterion);
     void goToAdjacentMessage(bool forward);
+    /** @short Open the next or previous message of the current message's conversation */
+    void goToMessageInConversation(bool forward);
+    /** @short Whether the message list shows threads, rather than a flat list or groups */
+    bool showsThreads() const;
 
     void createMailboxBelow(const QModelIndex &index);
 
@@ -819,6 +823,10 @@ private:
     QAction *m_markReadNextUnread = nullptr;
     QAction *m_nextAnyMessage = nullptr;
     QAction *m_previousAnyMessage = nullptr;
+    QAction *m_nextInConversation = nullptr;
+    QAction *m_previousInConversation = nullptr;
+    QAction *m_expandAllConversations = nullptr;
+    QAction *m_collapseAllConversations = nullptr;
     QAction *m_actionDenseProcessing = nullptr;
     DensityMenu *m_densityMenu = nullptr;
     MessageRowsMenu *m_messageRowsMenu = nullptr;

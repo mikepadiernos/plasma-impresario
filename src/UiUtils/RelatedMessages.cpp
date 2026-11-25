@@ -3,8 +3,12 @@
 */
 #include "RelatedMessages.h"
 
+#include <algorithm>
 #include <QAbstractItemModel>
+#include <QDateTime>
+#include <QHash>
 #include <QRegularExpression>
+#include <QSet>
 #include <QStringList>
 #include <QVariant>
 
@@ -39,6 +43,21 @@ namespace {
 QList<QByteArray> inReplyTo(const QModelIndex &index)
 {
     return index.data(Imap::Mailbox::RoleMessageInReplyTo).value<QList<QByteArray>>();
+}
+
+bool isGroupHeader(const QModelIndex &index)
+{
+    return index.data(Imap::Mailbox::RoleIsGroupHeader).toBool();
+}
+
+/** Appends the rows below @arg parent in display order, as if every row were expanded */
+void appendDescendants(const QAbstractItemModel *model, const QModelIndex &parent, QList<QModelIndex> &rows)
+{
+    for (int row = 0, count = model->rowCount(parent); row < count; ++row) {
+        const QModelIndex index = model->index(row, 0, parent);
+        rows.append(index);
+        appendDescendants(model, index, rows);
+    }
 }
 
 }
@@ -93,6 +112,115 @@ RelatedMessages collectRelatedMessages(const QAbstractItemModel *messages, const
         }
     }
     return result;
+}
+
+QList<QPersistentModelIndex> collectConversation(const QAbstractItemModel *messages, const QModelIndex &current, int maximum,
+                                                 int maximumScannedRows)
+{
+    QList<QPersistentModelIndex> result;
+    if (!messages || !current.isValid() || !current.data(Imap::Mailbox::RoleIsFetched).toBool())
+        return result;
+
+    struct Message {
+        QModelIndex index;
+        QString subject;
+        QByteArray id;
+        QList<QByteArray> parents;
+    };
+    const auto describe = [](const QModelIndex &index) {
+        return Message{index, normalizedSubject(index.data(Imap::Mailbox::RoleMessageSubject).toString()),
+                       index.data(Imap::Mailbox::RoleMessageMessageId).toByteArray(), inReplyTo(index)};
+    };
+
+    // Index the loaded rows once, then walk the links from the current message
+    QList<Message> rows;
+    QMultiHash<QString, qsizetype> bySubject;
+    QMultiHash<QByteArray, qsizetype> byId;
+    QMultiHash<QByteArray, qsizetype> byParent;
+    const QModelIndex currentMessage = Imap::deproxifiedIndex(current);
+    const int count = messages->rowCount();
+    for (int row = count - 1, last = qMax(0, count - maximumScannedRows); row >= last; --row) {
+        const QModelIndex index = messages->index(row, 0);
+        if (!index.data(Imap::Mailbox::RoleIsFetched).toBool() || Imap::deproxifiedIndex(index) == currentMessage)
+            continue;
+        const Message message = describe(index);
+        const qsizetype at = rows.size();
+        if (!message.subject.isEmpty())
+            bySubject.insert(message.subject, at);
+        if (!message.id.isEmpty())
+            byId.insert(message.id, at);
+        for (const QByteArray &parent : message.parents)
+            byParent.insert(parent, at);
+        rows.append(message);
+    }
+
+    QList<bool> taken(rows.size(), false);
+    QSet<QString> seenSubjects;
+    QSet<QByteArray> seenIds;
+    QList<Message> pending{describe(current)};
+    while (!pending.isEmpty() && result.size() < maximum) {
+        const Message message = pending.takeFirst();
+        QList<qsizetype> linked;
+        if (!message.subject.isEmpty() && !seenSubjects.contains(message.subject)) {
+            seenSubjects.insert(message.subject);
+            linked += bySubject.values(message.subject);
+        }
+        if (!message.id.isEmpty() && !seenIds.contains(message.id)) {
+            seenIds.insert(message.id);
+            linked += byParent.values(message.id);
+        }
+        for (const QByteArray &parent : message.parents)
+            linked += byId.values(parent);
+        std::sort(linked.begin(), linked.end());
+        for (const qsizetype at : std::as_const(linked)) {
+            if (taken.at(at) || result.size() >= maximum)
+                continue;
+            taken[at] = true;
+            result.append(rows.at(at).index);
+            pending.append(rows.at(at));
+        }
+    }
+    return result;
+}
+
+QModelIndex adjacentInConversation(const QAbstractItemModel *view, const QModelIndex &current, bool forward, bool threaded,
+                                   const QList<QPersistentModelIndex> &related)
+{
+    if (!view || !current.isValid() || current.model() != view || isGroupHeader(current))
+        return QModelIndex();
+    const QModelIndex here = current.siblingAtColumn(0);
+
+    QList<QModelIndex> members;
+    if (threaded) {
+        QModelIndex root = here;
+        while (root.parent().isValid() && !isGroupHeader(root.parent()))
+            root = root.parent();
+        members.append(root);
+        appendDescendants(view, root, members);
+    } else {
+        QSet<QPersistentModelIndex> wanted;
+        for (const QPersistentModelIndex &message : related)
+            wanted.insert(QPersistentModelIndex(Imap::deproxifiedIndex(message)));
+        wanted.insert(QPersistentModelIndex(Imap::deproxifiedIndex(here)));
+        QList<QModelIndex> rows;
+        appendDescendants(view, QModelIndex(), rows);
+        for (const QModelIndex &row : std::as_const(rows)) {
+            if (!isGroupHeader(row) && wanted.contains(QPersistentModelIndex(Imap::deproxifiedIndex(row))))
+                members.append(row);
+        }
+    }
+    std::stable_sort(members.begin(), members.end(), [](const QModelIndex &a, const QModelIndex &b) {
+        return a.data(Imap::Mailbox::RoleMessageDate).toDateTime() < b.data(Imap::Mailbox::RoleMessageDate).toDateTime();
+    });
+    members.removeIf([&here](const QModelIndex &index) {
+        return index != here && (isGroupHeader(index) || index.data(Imap::Mailbox::RoleMessageUid).toUInt() == 0);
+    });
+
+    const qsizetype at = members.indexOf(here);
+    if (at < 0)
+        return QModelIndex();
+    const qsizetype next = at + (forward ? 1 : -1);
+    return next >= 0 && next < members.size() ? members.at(next) : QModelIndex();
 }
 
 }

@@ -153,6 +153,7 @@
 #include "Imap/Model/ModelTest/modeltest.h"
 #include "UiUtils/IconLoader.h"
 #include "UiUtils/QaimDfsIterator.h"
+#include "UiUtils/RelatedMessages.h"
 #include "UiUtils/Relevance.h"
 #include "UiUtils/UnreadFolders.h"
 
@@ -472,6 +473,14 @@ void MainWindow::defineActions()
                                   i18nc("@action", "Ne&xt Message"), QStringLiteral("F"));
     shortcutHandler->defineAction(QStringLiteral("action_go_to_previous_message"), QStringLiteral("go-up"),
                                   i18nc("@action", "Pre&vious Message"), QStringLiteral("B"));
+    shortcutHandler->defineAction(QStringLiteral("action_go_to_next_in_conversation"), QStringLiteral("go-down"),
+                                  i18nc("@action", "Next Message in &Conversation"), QStringLiteral("Alt+Down"));
+    shortcutHandler->defineAction(QStringLiteral("action_go_to_previous_in_conversation"), QStringLiteral("go-up"),
+                                  i18nc("@action", "Previous Message in C&onversation"), QStringLiteral("Alt+Up"));
+    shortcutHandler->defineAction(QStringLiteral("action_expand_all_conversations"), QStringLiteral("expand-all"),
+                                  i18nc("@action", "E&xpand All Conversations"), QStringLiteral("Ctrl+."));
+    shortcutHandler->defineAction(QStringLiteral("action_collapse_all_conversations"), QStringLiteral("collapse-all"),
+                                  i18nc("@action", "Co&llapse All Conversations"), QStringLiteral("Ctrl+,"));
     shortcutHandler->defineAction(QStringLiteral("action_unified_inbox"), QStringLiteral("mail-folder-inbox"),
                                   i18nc("@action", "&Unified Inbox"), QStringLiteral("Ctrl+Shift+I"));
     shortcutHandler->defineAction(QStringLiteral("action_dense_processing_layout"), QStringLiteral("view-list-details"),
@@ -746,6 +755,28 @@ void MainWindow::createActions()
         msgListWidget->tree->addAction(action);
         m_messageWidget->messageView->addAction(action);
     }
+#endif
+    m_nextInConversation = ShortcutHandler::instance()->createAction(QStringLiteral("action_go_to_next_in_conversation"), this);
+    connect(m_nextInConversation, &QAction::triggered, this, [this]() { goToMessageInConversation(true); });
+    m_previousInConversation = ShortcutHandler::instance()->createAction(QStringLiteral("action_go_to_previous_in_conversation"), this);
+    connect(m_previousInConversation, &QAction::triggered, this, [this]() { goToMessageInConversation(false); });
+    m_expandAllConversations = ShortcutHandler::instance()->createAction(QStringLiteral("action_expand_all_conversations"), this);
+    m_expandAllConversations->setEnabled(false);
+    connect(m_expandAllConversations, &QAction::triggered, this, [this]() {
+        if (showsThreads())
+            msgListWidget->tree->expandAll();
+    });
+    m_collapseAllConversations = ShortcutHandler::instance()->createAction(QStringLiteral("action_collapse_all_conversations"), this);
+    m_collapseAllConversations->setEnabled(false);
+    connect(m_collapseAllConversations, &QAction::triggered, this, [this]() {
+        if (showsThreads())
+            msgListWidget->tree->collapseAll();
+    });
+    for (QAction *action : {m_nextInConversation, m_previousInConversation, m_expandAllConversations, m_collapseAllConversations})
+        msgListWidget->tree->addAction(action);
+#ifdef TROJITA_HAVE_WEBENGINE
+    m_messageWidget->messageView->addAction(m_nextInConversation);
+    m_messageWidget->messageView->addAction(m_previousInConversation);
 #endif
 
     markAsDeleted = ShortcutHandler::instance()->createAction(QStringLiteral("action_mark_as_deleted"), this);
@@ -1450,6 +1481,8 @@ void MainWindow::createMenus()
             m_groupByMenu->addSeparator();
             ADD_ACTION(m_groupByMenu, m_actionExpandAllGroups);
             ADD_ACTION(m_groupByMenu, m_actionCollapseAllGroups);
+            ADD_ACTION(m_groupByMenu, m_expandAllConversations);
+            ADD_ACTION(m_groupByMenu, m_collapseAllConversations);
         viewMenu->addAction(m_actionViewForAllFolders);
         viewMenu->addAction(m_actionResetFolderView);
         viewMenu->addSeparator();
@@ -1495,8 +1528,10 @@ void MainWindow::createMenus()
         ADD_ACTION(mailboxMenu, m_nextMessage);
         ADD_ACTION(mailboxMenu, m_previousAnyMessage);
         ADD_ACTION(mailboxMenu, m_nextAnyMessage);
-        mailboxMenu->addSeparator();
 #endif
+        ADD_ACTION(mailboxMenu, m_previousInConversation);
+        ADD_ACTION(mailboxMenu, m_nextInConversation);
+        mailboxMenu->addSeparator();
         ADD_ACTION(mailboxMenu, expunge);
         mailboxMenu->addSeparator();
         ADD_ACTION(mailboxMenu, m_renameMailbox);
@@ -2436,6 +2471,8 @@ void MainWindow::showContextMenuMsgListTree(const QPoint &position)
                    << m_actionFilterAttachments << m_actionClearFilters << &filterSeparator << m_actionMarkMailboxAsRead;
         if (msgListWidget->tree->model() == m_groupingMsgListModel)
             actionList << &relatedSeparator << m_actionExpandAllGroups << m_actionCollapseAllGroups;
+        else if (showsThreads())
+            actionList << &relatedSeparator << m_expandAllConversations << m_collapseAllConversations;
     }
     if (! actionList.isEmpty())
         QMenu::exec(actionList, msgListWidget->tree->mapToGlobal(position), nullptr, this);
@@ -3729,6 +3766,27 @@ void MainWindow::goToAdjacentMessage(bool forward)
                                                         [tree](const QModelIndex &idx) { return tree->isExpanded(idx); });
     if (!target.isValid())
         return;
+#ifdef TROJITA_HAVE_WEBENGINE
+    m_messageWidget->messageView->setMessage(target);
+#endif
+    tree->setCurrentIndex(target);
+}
+
+void MainWindow::goToMessageInConversation(bool forward)
+{
+    QTreeView *tree = msgListWidget->tree;
+    const QModelIndex current = tree->currentIndex();
+    if (!current.isValid())
+        return;
+    // A thread is the conversation; a flat or grouped list follows the subject and Message-ID links of the loaded rows
+    const bool threaded = showsThreads();
+    const QList<QPersistentModelIndex> related =
+        threaded ? QList<QPersistentModelIndex>() : UiUtils::collectConversation(m_imapAccess->msgListModel(), current);
+    const QModelIndex target = UiUtils::adjacentInConversation(tree->model(), current, forward, threaded, related);
+    if (!target.isValid())
+        return;
+    // Expands a collapsed thread or group on the way
+    tree->scrollTo(target);
 #ifdef TROJITA_HAVE_WEBENGINE
     m_messageWidget->messageView->setMessage(target);
 #endif
@@ -5851,6 +5909,14 @@ void MainWindow::syncGroupByActions()
     }
     m_actionExpandAllGroups->setEnabled(grouped);
     m_actionCollapseAllGroups->setEnabled(grouped);
+    m_expandAllConversations->setEnabled(showsThreads());
+    m_collapseAllConversations->setEnabled(showsThreads());
+}
+
+bool MainWindow::showsThreads() const
+{
+    return !m_unifiedInbox && !Imap::Mailbox::GroupingMsgListModel::isRealGrouping(m_groupBy) && actionThreadMsgList
+        && actionThreadMsgList->isEnabled() && actionThreadMsgList->isChecked();
 }
 
 void MainWindow::applyGroupExpansion()
