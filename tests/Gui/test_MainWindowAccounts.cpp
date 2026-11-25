@@ -4,6 +4,7 @@
 #include "Common/AccountStatus.h"
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
+#include "Gui/InlineNotificationBar.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MessageListWidget.h"
 #include "Gui/MsgListView.h"
@@ -364,6 +365,76 @@ private slots:
         QVERIFY(dialog->isModal());
         dialog->reject();
         QTRY_VERIFY(!window.findChild<QDialog *>(QStringLiteral("goToFolderDialog")));
+    }
+
+    void destructiveActionsOffline()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        Gui::MainWindow window(&settings);
+        int prompts = 0;
+        window.setConfirmationPrompt([&prompts](UiUtils::DestructiveActions::Confirmation, const QString &, const QString &) {
+            ++prompts;
+            return UiUtils::DestructiveActions::ConfirmationAnswer{};
+        });
+
+        auto *markAsDeleted = window.findChild<QAction *>(QStringLiteral("action_mark_as_deleted"));
+        auto *deletePermanently = window.findChild<QAction *>(QStringLiteral("action_delete_permanently"));
+        auto *movesToTrash = window.findChild<QAction *>(QStringLiteral("deleteMovesToTrash"));
+        QVERIFY(markAsDeleted);
+        QVERIFY(deletePermanently);
+        QVERIFY(movesToTrash);
+        QCOMPARE(markAsDeleted->shortcut(), QKeySequence(Qt::Key_Delete));
+        QCOMPARE(deletePermanently->shortcut(), QKeySequence(Qt::SHIFT | Qt::Key_Delete));
+        int shiftDelete = 0;
+        for (QAction *action : window.findChildren<QAction *>()) {
+            if (action->shortcuts().contains(QKeySequence(Qt::SHIFT | Qt::Key_Delete)))
+                ++shiftDelete;
+        }
+        QCOMPARE(shiftDelete, 1);
+        QVERIFY(!deletePermanently->isEnabled());
+        // Without a known Trash folder Delete keeps toggling the \Deleted mark
+        QVERIFY(markAsDeleted->isCheckable());
+        QCOMPARE(markAsDeleted->text(), Gui::MainWindow::tr("Mark as &Deleted"));
+
+        // The setting is per account and defaults to on
+        QVERIFY(movesToTrash->isCheckable());
+        QVERIFY(movesToTrash->isChecked());
+        movesToTrash->setChecked(false);
+        QCOMPARE(window.accountSettings()->value(Common::SettingsNames::imapDeleteMovesToTrash, true).toBool(), false);
+        QVERIFY(!settings.contains(Common::SettingsNames::imapDeleteMovesToTrash));
+        const QString firstAccount = window.imapAccess()->credentialAccountId();
+        auto *nextAccount = window.findChild<QAction *>(QStringLiteral("action_next_account"));
+        nextAccount->trigger();
+        QCOMPARE(window.imapAccess()->credentialAccountId(), QStringLiteral("account-2"));
+        QVERIFY(movesToTrash->isChecked());
+        nextAccount->trigger();
+        QCOMPARE(window.imapAccess()->credentialAccountId(), firstAccount);
+        QVERIFY(!movesToTrash->isChecked());
+
+        // Folder operations need the server
+        for (const QString &name : {QStringLiteral("renameMailbox"), QStringLiteral("emptyTrash"), QStringLiteral("emptyJunk")}) {
+            auto *action = window.findChild<QAction *>(name);
+            QVERIFY2(action, qPrintable(name));
+            QVERIFY2(!action->isEnabled(), qPrintable(name));
+        }
+
+        // Nothing to expunge without an open folder, so nothing is asked
+        QVERIFY(QMetaObject::invokeMethod(&window, "slotExpunge"));
+        QCOMPARE(prompts, 0);
+
+        auto *bar = window.findChild<Gui::InlineNotificationBar *>(QStringLiteral("messageNotificationBar"));
+        QVERIFY(bar);
+        QVERIFY(bar->isHidden());
+        QVERIFY(QMetaObject::invokeMethod(&window, "slotMoveToArchiveFailed", Q_ARG(QString, QStringLiteral("NO [TRYCREATE] gone"))));
+        QVERIFY(!bar->isHidden());
+        QCOMPARE(bar->kind(), Gui::InlineNotificationBar::Kind::Error);
+        QVERIFY(bar->text().contains(QStringLiteral("NO [TRYCREATE] gone")));
+        // A notification about one account must not linger after switching to another
+        nextAccount->trigger();
+        QVERIFY(bar->isHidden());
     }
 };
 

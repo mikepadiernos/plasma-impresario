@@ -1050,6 +1050,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_LiveImapAccounts PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_LiveImapPanels tests/Gui/test_LiveImapPanels.cpp)
         target_link_libraries(test_LiveImapPanels PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_InlineNotificationBar tests/Gui/test_InlineNotificationBar.cpp)
+        target_link_libraries(test_InlineNotificationBar PRIVATE DesktopGui Qt6::Test KF6::I18n)
         add_executable(test_MessageSelectionRestorer tests/Gui/test_MessageSelectionRestorer.cpp)
         target_link_libraries(test_MessageSelectionRestorer PRIVATE DesktopGui Qt6::Test)
         add_executable(test_SessionRestart tests/Gui/test_SessionRestart.cpp)
@@ -1070,13 +1072,15 @@ if(BUILD_TESTING)
             add_test(NAME test_ClearTextPassword COMMAND test_ClearTextPassword)
             add_test(NAME test_PasswordBackend COMMAND test_PasswordBackend)
             set_tests_properties(test_PasswordBackend PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_InlineNotificationBar COMMAND test_InlineNotificationBar)
+            set_tests_properties(test_InlineNotificationBar PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MessageSelectionRestorer COMMAND test_MessageSelectionRestorer)
             set_tests_properties(test_MessageSelectionRestorer PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MainWindowDensity COMMAND test_MainWindowDensity)
             foreach(account_case migratesSingleProfileIntoFirstAccount switchingKeepsAccountsIndependent backgroundAccountStatusIsShown
                     removingAccountDeletesItsSettingsAndPasswords accountsSwitchFromTheKeyboard
                     savedSearchesAndFolderExpansionFollowTheAccount focusCyclesThroughShellRegions
-                    goToFolderActionsWithoutFolders)
+                    goToFolderActionsWithoutFolders destructiveActionsOffline)
                 add_test(NAME test_MainWindowAccounts_${account_case} COMMAND test_MainWindowAccounts ${account_case})
                 set_tests_properties(test_MainWindowAccounts_${account_case} PROPERTIES
                     TIMEOUT 60
