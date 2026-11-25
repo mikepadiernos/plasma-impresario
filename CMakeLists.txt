@@ -302,6 +302,7 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/Relevance.cpp
     ${path_UiUtils}/SelectionAfterRemoval.cpp
     ${path_UiUtils}/ShortcutOverview.cpp
+    ${path_UiUtils}/ViewStateStore.cpp
 )
 
 if(WITH_WEBENGINE)
@@ -1222,6 +1223,8 @@ if(BUILD_TESTING)
     target_link_libraries(test_SelectionAfterRemoval PRIVATE UiUtils)
     trojita_test(Misc ShortcutOverview)
     target_link_libraries(test_ShortcutOverview PRIVATE UiUtils)
+    trojita_test(Misc ViewStateStore)
+    target_link_libraries(test_ViewStateStore PRIVATE UiUtils)
     trojita_test(Misc SpecialFolder)
     trojita_test(Misc PrettyMsgListFilters)
     trojita_test(Misc GroupingMsgListModel)
