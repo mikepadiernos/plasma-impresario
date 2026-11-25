@@ -91,6 +91,7 @@
 #include "Imap/Model/SpecialFlagNames.h"
 #include "Imap/Model/ThreadingMsgListModel.h"
 #include "Imap/Model/FavoriteTagsModel.h"
+#include "Imap/Model/GroupingMsgListModel.h"
 #include "Imap/Model/Utils.h"
 #include "Imap/Tasks/CopyMoveMessagesTask.h"
 #include "Imap/Tasks/ImapTask.h"
@@ -142,6 +143,7 @@
 #include "Imap/Model/ModelTest/modeltest.h"
 #include "UiUtils/IconLoader.h"
 #include "UiUtils/QaimDfsIterator.h"
+#include "UiUtils/Relevance.h"
 
 /** @short All user-facing widgets and related classes */
 namespace Gui
@@ -215,6 +217,7 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     connectBackgroundAccounts();
     createActions();
     createMenus();
+    applyMessageListGrouping();
     slotToggleSysTray();
     slotPluginsChanged();
 
@@ -301,7 +304,9 @@ void selectShownRows(const QTreeView *view, const QModelIndex &index, QItemSelec
     while (!pending.isEmpty()) {
         const QModelIndex item = pending.takeLast();
         const QAbstractItemModel *model = item.model();
-        selection.select(item, item.siblingAtColumn(model->columnCount(item.parent()) - 1));
+        // The header of a group is not a message, but its messages are shown below it
+        if (model->flags(item) & Qt::ItemIsSelectable)
+            selection.select(item, item.siblingAtColumn(model->columnCount(item.parent()) - 1));
         if (!view->isExpanded(item))
             continue;
         for (int row = 0, rows = model->rowCount(item); row < rows; ++row)
@@ -800,7 +805,17 @@ void MainWindow::createActions()
         actionThreadMsgList->setChecked(true);
         // The actual threading will be performed only when model updates its capabilities
     }
-    connect(actionThreadMsgList, &QAction::triggered, this, &MainWindow::slotThreadMsgList);
+    connect(actionThreadMsgList, &QAction::triggered, this, [this](bool checked) {
+        using Imap::Mailbox::GroupingMsgListModel;
+        // Threads are the Conversation grouping, which replaces the other groupings
+        if (GroupingMsgListModel::isRealGrouping(m_groupBy)) {
+            setMessageListGrouping(checked ? GroupingMsgListModel::Grouping::Conversation : GroupingMsgListModel::Grouping::None);
+            return;
+        }
+        slotThreadMsgList();
+        m_groupBy = checked ? GroupingMsgListModel::Grouping::Conversation : GroupingMsgListModel::Grouping::None;
+        syncGroupByActions();
+    });
 
     QActionGroup *sortOrderGroup = new QActionGroup(this);
     m_actionSortAscending = new QAction(tr("&Ascending"), sortOrderGroup);
@@ -832,6 +847,13 @@ void MainWindow::createActions()
     m_actionSortBySubject->setCheckable(true);
     m_actionSortByTo = new QAction(tr("T&o Address"), sortColumnGroup);
     m_actionSortByTo->setCheckable(true);
+    m_actionSortByRelevance = new QAction(i18nc("@action:inmenu sort criterion", "R&elevance"), sortColumnGroup);
+    m_actionSortByRelevance->setObjectName(QStringLiteral("messageListSortByRelevance"));
+    m_actionSortByRelevance->setCheckable(true);
+    // Only a search tells what is relevant, see updateRelevanceSorting()
+    m_actionSortByRelevance->setEnabled(false);
+    m_actionSortByRelevance->setToolTip(
+        i18nc("@info:tooltip", "Relevance sorting needs an active quick search or Show Related filter"));
     connect(sortColumnGroup, &QActionGroup::triggered, this, &MainWindow::slotSortingPreferenceChanged);
     slotSortingConfirmed(-1, Qt::AscendingOrder);
 
@@ -840,6 +862,61 @@ void MainWindow::createActions()
     actionHideRead->setCheckable(true);
     // The same as the Unread quick filter; its state comes from the account, see applyMessageListFilters()
     connect(actionHideRead, &QAction::triggered, this, &MainWindow::slotHideRead);
+
+    {
+        using Imap::Mailbox::GroupingMsgListModel;
+        m_groupByActions = new QActionGroup(this);
+        m_groupByActions->setExclusive(true);
+        auto addGroupBy = [this](GroupingMsgListModel::Grouping grouping, const QString &name, const QString &text) {
+            auto *action = new QAction(text, m_groupByActions);
+            action->setObjectName(QLatin1String("messageListGroupBy") + name);
+            action->setCheckable(true);
+            action->setData(static_cast<int>(grouping));
+            connect(action, &QAction::triggered, this, [this, grouping]() { setMessageListGrouping(grouping); });
+        };
+        addGroupBy(GroupingMsgListModel::Grouping::None, QStringLiteral("None"), i18nc("@action:inmenu group by", "&None"));
+        addGroupBy(GroupingMsgListModel::Grouping::Conversation, QStringLiteral("Conversation"),
+                   i18nc("@action:inmenu group by", "&Conversation"));
+        addGroupBy(GroupingMsgListModel::Grouping::Date, QStringLiteral("Date"), i18nc("@action:inmenu group by", "&Date"));
+        addGroupBy(GroupingMsgListModel::Grouping::Sender, QStringLiteral("Sender"), i18nc("@action:inmenu group by", "&Sender"));
+        addGroupBy(GroupingMsgListModel::Grouping::Subject, QStringLiteral("Subject"), i18nc("@action:inmenu group by", "S&ubject"));
+        addGroupBy(GroupingMsgListModel::Grouping::Tag, QStringLiteral("Tag"), i18nc("@action:inmenu group by", "&Tag"));
+        addGroupBy(GroupingMsgListModel::Grouping::ReadState, QStringLiteral("ReadState"),
+                   i18nc("@action:inmenu group by", "&Read State"));
+        addGroupBy(GroupingMsgListModel::Grouping::MailingList, QStringLiteral("MailingList"),
+                   i18nc("@action:inmenu group by", "&Mailing List"));
+        // The Conversation grouping needs threading support on the server
+        connect(actionThreadMsgList, &QAction::changed, this, &MainWindow::syncGroupByActions);
+
+        m_actionExpandAllGroups = new QAction(quickActionIcon(QStringLiteral("expand-all")),
+                                              i18nc("@action:inmenu", "&Expand All Groups"), this);
+        m_actionExpandAllGroups->setObjectName(QStringLiteral("messageListExpandAllGroups"));
+        m_actionExpandAllGroups->setEnabled(false);
+        connect(m_actionExpandAllGroups, &QAction::triggered, this, [this]() {
+            m_collapsedGroups.clear();
+            msgListWidget->tree->expandAll();
+        });
+        m_actionCollapseAllGroups = new QAction(quickActionIcon(QStringLiteral("collapse-all")),
+                                                i18nc("@action:inmenu", "C&ollapse All Groups"), this);
+        m_actionCollapseAllGroups->setObjectName(QStringLiteral("messageListCollapseAllGroups"));
+        m_actionCollapseAllGroups->setEnabled(false);
+        connect(m_actionCollapseAllGroups, &QAction::triggered, this, [this]() {
+            if (!m_groupingMsgListModel || msgListWidget->tree->model() != m_groupingMsgListModel)
+                return;
+            for (int row = 0, rows = m_groupingMsgListModel->rowCount(); row < rows; ++row)
+                m_collapsedGroups.insert(m_groupingMsgListModel->groupKey(m_groupingMsgListModel->index(row, 0)));
+            msgListWidget->tree->collapseAll();
+        });
+        // Remember the groups which the user collapses while the list changes
+        connect(msgListWidget->tree, &QTreeView::expanded, this, [this](const QModelIndex &index) {
+            if (m_groupingMsgListModel && index.model() == m_groupingMsgListModel && m_groupingMsgListModel->isGroupHeader(index))
+                m_collapsedGroups.remove(m_groupingMsgListModel->groupKey(index));
+        });
+        connect(msgListWidget->tree, &QTreeView::collapsed, this, [this](const QModelIndex &index) {
+            if (m_groupingMsgListModel && index.model() == m_groupingMsgListModel && m_groupingMsgListModel->isGroupHeader(index))
+                m_collapsedGroups.insert(m_groupingMsgListModel->groupKey(index));
+        });
+    }
 
     using Imap::Mailbox::PrettyMsgListModel;
     auto addFilterAction = [this](const QString &objectName, const QString &icon, const QString &text, const QString &toolTip,
@@ -1160,6 +1237,14 @@ void MainWindow::createMenus()
             ADD_ACTION(filterMenu, m_actionFilterAttachments);
             filterMenu->addSeparator();
             ADD_ACTION(filterMenu, m_actionClearFilters);
+        m_groupByMenu = viewMenu->addMenu(quickActionIcon(QStringLiteral("view-group")), i18nc("@title:menu", "&Group By"));
+        m_groupByMenu->setObjectName(QStringLiteral("messageListGroupByMenu"));
+            for (QAction *action : m_groupByActions->actions()) {
+                ADD_ACTION(m_groupByMenu, action);
+            }
+            m_groupByMenu->addSeparator();
+            ADD_ACTION(m_groupByMenu, m_actionExpandAllGroups);
+            ADD_ACTION(m_groupByMenu, m_actionCollapseAllGroups);
         viewMenu->addSeparator();
         ADD_ACTION(viewMenu, m_actionShowOnlySubscribed);
 
@@ -1177,11 +1262,13 @@ void MainWindow::createMenus()
             ADD_ACTION(sortMenu, m_actionSortBySize);
             ADD_ACTION(sortMenu, m_actionSortBySubject);
             ADD_ACTION(sortMenu, m_actionSortByTo);
+            ADD_ACTION(sortMenu, m_actionSortByRelevance);
             sortMenu->addSeparator();
             ADD_ACTION(sortMenu, m_actionSortAscending);
             ADD_ACTION(sortMenu, m_actionSortDescending);
             sortMenu->addSeparator();
             ADD_ACTION(sortMenu, actionThreadMsgList);
+            sortMenu->addMenu(m_groupByMenu);
             ADD_ACTION(sortMenu, actionHideRead);
         sortMenu->setObjectName(QStringLiteral("sortMenu"));
         m_sortButton = msgListWidget->addToolMenuButton(sortMenu, quickActionIcon(QStringLiteral("view-sort-ascending")),
@@ -1452,6 +1539,19 @@ void MainWindow::setupModels(bool reconnect)
     connect(prettyMsgListModel, &QAbstractItemModel::rowsRemoved, this, &MainWindow::scheduleMessageListStatus);
     connect(prettyMsgListModel, &QAbstractItemModel::modelReset, this, &MainWindow::scheduleMessageListStatus);
     connect(prettyMsgListModel, &QAbstractItemModel::layoutChanged, this, &MainWindow::scheduleMessageListStatus);
+    m_groupingMsgListModel = new Imap::Mailbox::GroupingMsgListModel(this);
+    m_groupingMsgListModel->setObjectName(QStringLiteral("groupingMsgListModel"));
+    m_groupingMsgListModel->setFavoriteTags(m_favoriteTags);
+    // New groups start collapsed in the view
+    connect(m_groupingMsgListModel, &QAbstractItemModel::rowsInserted, this, [this](const QModelIndex &parent) {
+        if (!parent.isValid())
+            QMetaObject::invokeMethod(this, &MainWindow::applyGroupExpansion, Qt::QueuedConnection);
+    });
+    connect(m_groupingMsgListModel, &QAbstractItemModel::layoutChanged, this, &MainWindow::applyGroupExpansion,
+            Qt::QueuedConnection);
+    connect(m_groupingMsgListModel, &QAbstractItemModel::modelReset, this, &MainWindow::applyGroupExpansion,
+            Qt::QueuedConnection);
+    m_collapsedGroups.clear();
     connect(imapModel(), &Imap::Mailbox::Model::messageCountPossiblyChanged, this, &MainWindow::scheduleMessageListStatus);
     connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, this, &MainWindow::scheduleMessageListStatus);
 
@@ -1571,16 +1671,10 @@ void MainWindow::setupModels(bool reconnect)
         }
     });
     mboxTree->restoreMailbox(accountSelection.readEntry("Mailbox", QString()));
-    connect(msgListWidget->tree->selectionModel(), &QItemSelectionModel::selectionChanged, this, &MainWindow::updateMessageFlags);
-    connect(msgListWidget->tree->selectionModel(), &QItemSelectionModel::selectionChanged, this, &MainWindow::scheduleMessageListStatus);
-    connect(msgListWidget->tree->selectionModel(), &QItemSelectionModel::currentChanged, prettyMsgListModel,
-            [this, model = prettyMsgListModel]() {
-        // Later, because the current message also changes while the models are busy removing rows
-        QMetaObject::invokeMethod(model, [this, model]() {
-            model->setKeptVisibleIndex(msgListWidget->tree->currentIndex());
-        }, Qt::QueuedConnection);
-        scheduleMessageListStatus();
-    });
+    connectMessageListSelection();
+    applyMessageListGrouping();
+    if (m_actionSortByRelevance)
+        updateRelevanceSorting(realThreadingModel->currentSearchCondition());
     scheduleMessageListStatus();
 
     allTree->setModel(imapModel());
@@ -1860,6 +1954,10 @@ void MainWindow::msgListClicked(const QModelIndex &index)
 {
     Q_ASSERT(index.isValid());
 
+    // The header of a group is not a message
+    if (index.data(Imap::Mailbox::RoleIsGroupHeader).toBool())
+        return;
+
     if (qApp->keyboardModifiers() & Qt::ShiftModifier || qApp->keyboardModifiers() & Qt::ControlModifier)
         return;
 
@@ -1964,6 +2062,9 @@ void MainWindow::showContextMenuMsgListTree(const QPoint &position)
 {
     QList<QAction *> actionList;
     QModelIndex index = msgListWidget->tree->indexAt(position);
+    // The header of a group gets the actions on the whole list
+    if (index.data(Imap::Mailbox::RoleIsGroupHeader).toBool())
+        index = QModelIndex();
     if (index.isValid()) {
         updateMessageFlagsOf(index);
         actionList.append(markAsRead);
@@ -2011,6 +2112,8 @@ void MainWindow::showContextMenuMsgListTree(const QPoint &position)
         // Below the messages: actions on the whole list
         actionList << m_actionSelectAllMessages << &selectionSeparator << m_actionFilterUnread << m_actionFilterFlagged
                    << m_actionFilterAttachments << m_actionClearFilters << &filterSeparator << m_actionMarkMailboxAsRead;
+        if (msgListWidget->tree->model() == m_groupingMsgListModel)
+            actionList << &relatedSeparator << m_actionExpandAllGroups << m_actionCollapseAllGroups;
     }
     if (! actionList.isEmpty())
         QMenu::exec(actionList, msgListWidget->tree->mapToGlobal(position), nullptr, this);
@@ -2723,6 +2826,8 @@ void MainWindow::nukeModels()
     msgListWidget->tree->setModel(nullptr);
     allTree->setModel(nullptr);
     taskTree->setModel(nullptr);
+    delete m_groupingMsgListModel;
+    m_groupingMsgListModel = nullptr;
     delete prettyMsgListModel;
     prettyMsgListModel = nullptr;
     delete prettyMboxModel;
@@ -2760,7 +2865,10 @@ QModelIndexList MainWindow::translatedSelection() const
 {
     QModelIndexList translatedIndexes;
     Q_FOREACH(const QModelIndex &index, msgListWidget->tree->selectedTree()) {
-        translatedIndexes << Imap::deproxifiedIndex(index);
+        // The headers of groups have no message behind them
+        const QModelIndex translated = Imap::deproxifiedIndex(index);
+        if (translated.isValid())
+            translatedIndexes << translated;
     }
     return translatedIndexes;
 }
@@ -2804,7 +2912,9 @@ void MainWindow::slotNextUnread()
     QModelIndex current = msgListWidget->tree->currentIndex();
 
     UiUtils::gotoNext(msgListWidget->tree->model(), current,
-    [](const QModelIndex &idx) { return !idx.data(Imap::Mailbox::RoleMessageIsMarkedRead).toBool(); },
+    [](const QModelIndex &idx) {
+        return !idx.data(Imap::Mailbox::RoleMessageIsMarkedRead).toBool() && !idx.data(Imap::Mailbox::RoleIsGroupHeader).toBool();
+    },
     [this](const QModelIndex &idx) {
         Q_ASSERT(!idx.data(Imap::Mailbox::RoleMessageIsMarkedRead).toBool());
         m_messageWidget->messageView->setMessage(idx);
@@ -2824,7 +2934,8 @@ void MainWindow::slotMarkReadAndNextUnread()
     QPersistentModelIndex next;
     UiUtils::gotoNext(msgListWidget->tree->model(), msgListWidget->tree->currentIndex(),
     [&marked](const QModelIndex &idx) {
-        return !idx.data(Imap::Mailbox::RoleMessageIsMarkedRead).toBool() && !marked.contains(Imap::deproxifiedIndex(idx));
+        return !idx.data(Imap::Mailbox::RoleMessageIsMarkedRead).toBool() && !idx.data(Imap::Mailbox::RoleIsGroupHeader).toBool()
+            && !marked.contains(Imap::deproxifiedIndex(idx));
     },
     [&next](const QModelIndex &idx) { next = idx; },
     []() {
@@ -2868,7 +2979,9 @@ void MainWindow::slotPreviousUnread()
     QModelIndex current = msgListWidget->tree->currentIndex();
 
     UiUtils::gotoPrevious(msgListWidget->tree->model(), current,
-    [](const QModelIndex &idx) { return !idx.data(Imap::Mailbox::RoleMessageIsMarkedRead).toBool(); },
+    [](const QModelIndex &idx) {
+        return !idx.data(Imap::Mailbox::RoleMessageIsMarkedRead).toBool() && !idx.data(Imap::Mailbox::RoleIsGroupHeader).toBool();
+    },
     [this](const QModelIndex &idx) {
         Q_ASSERT(!idx.data(Imap::Mailbox::RoleMessageIsMarkedRead).toBool());
         m_messageWidget->messageView->setMessage(idx);
@@ -3818,6 +3931,8 @@ void MainWindow::slotForwardAsAttachment()
 
 void MainWindow::slotResend()
 {
+    if (msgListWidget->tree->currentIndex().data(Imap::Mailbox::RoleIsGroupHeader).toBool())
+        return;
     QModelIndex index;
     Imap::Mailbox::Model::realTreeItem(msgListWidget->tree->currentIndex(), nullptr, &index);
     if (!index.isValid())
@@ -4232,6 +4347,10 @@ void MainWindow::slotScrollToCurrent()
 
 void MainWindow::slotThreadMsgList()
 {
+    // The groups show a flat list; choosing the Conversation grouping brings the threads back
+    if (Imap::Mailbox::GroupingMsgListModel::isRealGrouping(m_groupBy))
+        return;
+
     // We want to save user's preferences and not override them with "threading disabled" when the server
     // doesn't report them, like in initial greetings. That's why we have to check for isEnabled() here.
     const bool useThreading = actionThreadMsgList->isChecked();
@@ -4276,6 +4395,21 @@ void MainWindow::slotSortingPreferenceChanged()
     Qt::SortOrder order = m_actionSortDescending->isChecked() ? Qt::DescendingOrder : Qt::AscendingOrder;
 
     using namespace Imap::Mailbox;
+
+    // Sorted here rather than by the server, so the header keeps showing the previous sorting to go back to
+    if (m_actionSortByRelevance && m_actionSortByRelevance->isChecked()) {
+        const QStringList terms = UiUtils::relevanceTerms(
+            qobject_cast<ThreadingMsgListModel *>(m_imapAccess->threadingMsgListModel())->currentSearchCondition());
+        if (!terms.isEmpty()) {
+            prettyMsgListModel->setRelevanceTerms(terms, order);
+        } else {
+            slotSortingConfirmed(msgListWidget->tree->header()->sortIndicatorSection(),
+                                 msgListWidget->tree->header()->sortIndicatorOrder());
+        }
+        return;
+    }
+    if (prettyMsgListModel && prettyMsgListModel->isSortingByRelevance())
+        prettyMsgListModel->setRelevanceTerms(QStringList(), order);
 
     int column = -1;
     if (m_actionSortByArrival->isChecked()) {
@@ -4346,6 +4480,9 @@ void MainWindow::slotSortingConfirmed(int column, Qt::SortOrder order)
     }
 
     action->setChecked(true);
+    // The server sorts again, which ends sorting by relevance
+    if (prettyMsgListModel && prettyMsgListModel->isSortingByRelevance())
+        prettyMsgListModel->setRelevanceTerms(QStringList(), order);
     if (order == Qt::DescendingOrder)
         m_actionSortDescending->setChecked(true);
     else
@@ -4358,6 +4495,232 @@ void MainWindow::slotSearchRequested(const QStringList &searchConditions)
             qobject_cast<Imap::Mailbox::ThreadingMsgListModel *>(m_imapAccess->threadingMsgListModel());
     threadingMsgListModel->setUserSearchingSortingPreference(searchConditions, threadingMsgListModel->currentSortCriterium(),
                                                              threadingMsgListModel->currentSortOrder());
+    updateRelevanceSorting(searchConditions);
+}
+
+void MainWindow::updateRelevanceSorting(const QStringList &searchConditions)
+{
+    if (!m_actionSortByRelevance || !prettyMsgListModel)
+        return;
+    const QStringList terms = UiUtils::relevanceTerms(searchConditions);
+    m_actionSortByRelevance->setEnabled(!terms.isEmpty());
+    m_actionSortByRelevance->setToolTip(
+        terms.isEmpty() ? i18nc("@info:tooltip", "Relevance sorting needs an active quick search or Show Related filter")
+                        : i18nc("@info:tooltip", "Show the messages which match the search best first"));
+    const Qt::SortOrder order = m_actionSortDescending->isChecked() ? Qt::DescendingOrder : Qt::AscendingOrder;
+    if (m_actionSortByRelevance->isChecked()) {
+        if (!terms.isEmpty()) {
+            if (prettyMsgListModel->relevanceTerms() != terms)
+                prettyMsgListModel->setRelevanceTerms(terms, order);
+        } else {
+            // Back to the sorting from before, which the header still shows
+            prettyMsgListModel->setRelevanceTerms(QStringList(), order);
+            slotSortingConfirmed(msgListWidget->tree->header()->sortIndicatorSection(),
+                                 msgListWidget->tree->header()->sortIndicatorOrder());
+        }
+    } else if (prettyMsgListModel->isSortingByRelevance()) {
+        prettyMsgListModel->setRelevanceTerms(QStringList(), order);
+    }
+}
+
+QModelIndex MainWindow::toPrettyIndex(const QModelIndex &viewIndex) const
+{
+    if (viewIndex.isValid() && m_groupingMsgListModel && viewIndex.model() == m_groupingMsgListModel)
+        return m_groupingMsgListModel->mapToSource(viewIndex);
+    return viewIndex;
+}
+
+QModelIndex MainWindow::fromPrettyIndex(const QModelIndex &prettyIndex) const
+{
+    if (prettyIndex.isValid() && m_groupingMsgListModel && msgListWidget->tree->model() == m_groupingMsgListModel)
+        return m_groupingMsgListModel->mapFromSource(prettyIndex);
+    return prettyIndex;
+}
+
+void MainWindow::connectMessageListSelection()
+{
+    QItemSelectionModel *selection = msgListWidget->tree->selectionModel();
+    if (!selection || !prettyMsgListModel)
+        return;
+    connect(selection, &QItemSelectionModel::selectionChanged, this, &MainWindow::updateMessageFlags);
+    connect(selection, &QItemSelectionModel::selectionChanged, this, &MainWindow::scheduleMessageListStatus);
+    connect(selection, &QItemSelectionModel::currentChanged, prettyMsgListModel, [this, model = prettyMsgListModel]() {
+        // Later, because the current message also changes while the models are busy removing rows
+        QMetaObject::invokeMethod(model, [this, model]() {
+            const QModelIndex current = msgListWidget->tree->currentIndex();
+            // On the header of a group, the message from before stays shown until another one takes its place
+            if (!current.data(Imap::Mailbox::RoleIsGroupHeader).toBool())
+                model->setKeptVisibleIndex(toPrettyIndex(current));
+        }, Qt::QueuedConnection);
+        scheduleMessageListStatus();
+    });
+}
+
+void MainWindow::swapMessageListModel(QAbstractItemModel *model)
+{
+    MsgListView *tree = msgListWidget->tree;
+    const QPersistentModelIndex current = toPrettyIndex(tree->currentIndex());
+    QList<QPersistentModelIndex> selected;
+    QItemSelectionModel *oldSelection = tree->selectionModel();
+    if (oldSelection) {
+        const QModelIndexList rows = oldSelection->selectedRows(0);
+        for (const QModelIndex &index : rows) {
+            const QModelIndex pretty = toPrettyIndex(index);
+            if (pretty.isValid())
+                selected << pretty;
+        }
+    }
+    const bool relevance = m_actionSortByRelevance && m_actionSortByRelevance->isChecked();
+
+    tree->setModel(model);
+    if (oldSelection && oldSelection != tree->selectionModel())
+        oldSelection->deleteLater();
+    connectMessageListSelection();
+    if (relevance && !m_actionSortByRelevance->isChecked()) {
+        // Setting the model sorts it again by the header's column, which ended sorting by relevance
+        m_actionSortByRelevance->setChecked(true);
+        slotSortingPreferenceChanged();
+    }
+
+    QItemSelection selection;
+    for (const QPersistentModelIndex &index : std::as_const(selected)) {
+        const QModelIndex row = fromPrettyIndex(index);
+        if (row.isValid())
+            selection.select(row, row.siblingAtColumn(model->columnCount(row.parent()) - 1));
+    }
+    if (!selection.isEmpty())
+        tree->selectionModel()->select(selection, QItemSelectionModel::ClearAndSelect);
+    const QModelIndex newCurrent = fromPrettyIndex(current);
+    if (newCurrent.isValid()) {
+        tree->selectionModel()->setCurrentIndex(newCurrent, QItemSelectionModel::NoUpdate);
+        tree->scrollTo(newCurrent);
+    }
+}
+
+void MainWindow::setMessageListGrouping(Imap::Mailbox::GroupingMsgListModel::Grouping grouping, bool remember)
+{
+    using Imap::Mailbox::GroupingMsgListModel;
+    if (!m_groupingMsgListModel || !m_groupByActions)
+        return;
+    MsgListView *tree = msgListWidget->tree;
+    auto threadingModel = qobject_cast<Imap::Mailbox::ThreadingMsgListModel *>(m_imapAccess->threadingMsgListModel());
+    const bool shown = tree->model() == m_groupingMsgListModel;
+    const bool wasGrouped = GroupingMsgListModel::isRealGrouping(m_groupBy) || shown;
+    if (grouping != m_groupBy)
+        m_collapsedGroups.clear();
+    m_groupBy = grouping;
+
+    if (GroupingMsgListModel::isRealGrouping(grouping)) {
+        // The groups show a flat list, so that the sorting applies within each group
+        {
+            const QSignalBlocker blocker(actionThreadMsgList);
+            actionThreadMsgList->setChecked(false);
+        }
+        threadingModel->setUserWantsThreading(false);
+        m_actionSortNone->setEnabled(true);
+        if (m_actionSortThreading->isChecked())
+            m_actionSortNone->trigger();
+        m_actionSortThreading->setEnabled(false);
+        m_groupingMsgListModel->setGroupOrder(tree->header()->sortIndicatorOrder());
+        m_groupingMsgListModel->setGrouping(grouping);
+        if (!shown) {
+            m_groupingMsgListModel->setSourceModel(prettyMsgListModel);
+            swapMessageListModel(m_groupingMsgListModel);
+        }
+        tree->setRootIsDecorated(true);
+        applyGroupExpansion();
+    } else {
+        if (shown) {
+            // First, so that the view finds the PrettyMsgListModel through the groups to let go of it
+            swapMessageListModel(prettyMsgListModel);
+            m_groupingMsgListModel->setSourceModel(nullptr);
+        }
+        const bool threaded = grouping == GroupingMsgListModel::Grouping::Conversation;
+        const bool wasThreaded = actionThreadMsgList->isChecked();
+        {
+            const QSignalBlocker blocker(actionThreadMsgList);
+            actionThreadMsgList->setChecked(threaded);
+        }
+        if (wasGrouped || wasThreaded != threaded) {
+            if (threaded || !wasGrouped) {
+                slotThreadMsgList();
+            } else {
+                // A flat list again, keeping the sorting of the groups
+                m_actionSortNone->setEnabled(true);
+                m_actionSortThreading->setEnabled(false);
+                tree->setRootIsDecorated(false);
+                threadingModel->setUserWantsThreading(false);
+                if (remember)
+                    m_settings->setValue(Common::SettingsNames::guiMsgListShowThreading, false);
+            }
+        }
+    }
+    if (remember)
+        saveMessageListGrouping();
+    syncGroupByActions();
+}
+
+void MainWindow::applyMessageListGrouping()
+{
+    using Imap::Mailbox::GroupingMsgListModel;
+    if (!m_groupByActions || !m_groupingMsgListModel)
+        return;
+    const GroupingMsgListModel::Grouping stored = GroupingMsgListModel::groupingFromName(
+        accountSettings()->value(Common::SettingsNames::guiMsgListGroupBy).toString());
+    if (GroupingMsgListModel::isRealGrouping(stored)) {
+        setMessageListGrouping(stored, false);
+    } else if (GroupingMsgListModel::isRealGrouping(m_groupBy)) {
+        // The account shown before had groups; this one follows the threading preference
+        const bool threaded = m_settings->value(Common::SettingsNames::guiMsgListShowThreading).toBool();
+        setMessageListGrouping(threaded ? GroupingMsgListModel::Grouping::Conversation : GroupingMsgListModel::Grouping::None,
+                               false);
+    } else {
+        syncGroupByActions();
+    }
+}
+
+void MainWindow::saveMessageListGrouping()
+{
+    using Imap::Mailbox::GroupingMsgListModel;
+    QSettings *account = accountSettings();
+    // Flat and threaded lists follow the threading preference of all accounts
+    if (GroupingMsgListModel::isRealGrouping(m_groupBy))
+        account->setValue(Common::SettingsNames::guiMsgListGroupBy, GroupingMsgListModel::groupingName(m_groupBy));
+    else
+        account->remove(Common::SettingsNames::guiMsgListGroupBy);
+}
+
+void MainWindow::syncGroupByActions()
+{
+    using Imap::Mailbox::GroupingMsgListModel;
+    if (!m_groupByActions)
+        return;
+    const bool grouped = GroupingMsgListModel::isRealGrouping(m_groupBy);
+    GroupingMsgListModel::Grouping shown = m_groupBy;
+    if (!grouped) {
+        shown = actionThreadMsgList->isChecked() ? GroupingMsgListModel::Grouping::Conversation
+                                                 : GroupingMsgListModel::Grouping::None;
+    }
+    const QList<QAction *> actions = m_groupByActions->actions();
+    for (QAction *action : actions) {
+        const auto grouping = static_cast<GroupingMsgListModel::Grouping>(action->data().toInt());
+        if (grouping == GroupingMsgListModel::Grouping::Conversation)
+            action->setEnabled(actionThreadMsgList->isEnabled());
+        if (grouping == shown && !action->isChecked())
+            action->setChecked(true);
+    }
+    m_actionExpandAllGroups->setEnabled(grouped);
+    m_actionCollapseAllGroups->setEnabled(grouped);
+}
+
+void MainWindow::applyGroupExpansion()
+{
+    if (!m_groupingMsgListModel || msgListWidget->tree->model() != m_groupingMsgListModel)
+        return;
+    for (int row = 0, rows = m_groupingMsgListModel->rowCount(); row < rows; ++row) {
+        const QModelIndex header = m_groupingMsgListModel->index(row, 0);
+        msgListWidget->tree->setExpanded(header, !m_collapsedGroups.contains(m_groupingMsgListModel->groupKey(header)));
+    }
 }
 
 void MainWindow::slotHideRead()
@@ -4596,6 +4959,10 @@ void MainWindow::updateSortButton()
     QString text;
     if (!column || column == m_actionSortNone) {
         text = i18nc("@info:tooltip", "Sorting: not sorted");
+    } else if (column == m_actionSortByRelevance) {
+        // Ascending puts the best matches first
+        text = descending ? i18nc("@info:tooltip", "Sorting: relevance, best matches last")
+                          : i18nc("@info:tooltip", "Sorting: relevance, best matches first");
     } else {
         const QString criterion = KLocalizedString::removeAcceleratorMarker(column->text());
         text = descending ? i18nc("@info:tooltip %1 is a sort criterion", "Sorting: %1, descending", criterion)
@@ -5423,7 +5790,7 @@ void MainWindow::possiblyLoadMessageOnSplittersChanged()
         // We do not have to check whether it's a different message; the setMessage() will do this or us
         // and there are multiple proxy models involved anyway
         QModelIndex index = msgListWidget->tree->currentIndex();
-        if (index.isValid()) {
+        if (index.isValid() && !index.data(Imap::Mailbox::RoleIsGroupHeader).toBool()) {
             // OTOH, setting an invalid QModelIndex would happily assert-fail
             m_messageWidget->messageView->setMessage(msgListWidget->tree->currentIndex());
         }

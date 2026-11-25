@@ -68,6 +68,7 @@ protected:
     void startDrag(Qt::DropActions supportedActions) override;
     bool event(QEvent *event) override;
     void rowsAboutToBeRemoved(const QModelIndex &parent, int start, int end) override;
+    QModelIndex moveCursor(CursorAction cursorAction, Qt::KeyboardModifiers modifiers) override;
     /** @short Returns a list of all selected and related (collapsed) message indexes for column 0 */
     QModelIndexList selectedTree() const;
 private slots:
@@ -91,6 +92,8 @@ private:
     /** @short Select the new current message once the rows are gone */
     void finishRemoval();
     static Imap::Mailbox::PrettyMsgListModel *findPrettyMsgListModel(QAbstractItemModel *model);
+    /** @short Map an index of the PrettyMsgListModel to the model of the view, through proxies such as the groups */
+    QModelIndex mapFromPrettyModel(const QModelIndex &prettyIndex) const;
 
     QSignalMapper *headerFieldsMapper;
     QTimer *m_naviActivationTimer;

@@ -56,6 +56,11 @@ QFont MsgItemDelegate::itemFont(const QModelIndex &index) const
 
     Q_ASSERT(index.isValid());
 
+    if (index.data(Imap::Mailbox::RoleIsGroupHeader).toBool()) {
+        font.setBold(true);
+        return font;
+    }
+
     // We will need the data, but asking for Flags or IsMarkedXYZ doesn't cause a fetch
     index.data(Imap::Mailbox::RoleMessageSubject);
 

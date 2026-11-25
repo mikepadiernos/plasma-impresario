@@ -517,6 +517,8 @@ void MsgListView::slotMsgListModelRowsAboutToBeRemoved(const QModelIndex &parent
         if (translated.isValid())
             translated = prettyModel->mapFromSource(translated);
         if (translated.isValid())
+            translated = mapFromPrettyModel(translated);
+        if (translated.isValid())
             removed.insert(translated);
     }
     if (removed.isEmpty())
@@ -524,6 +526,60 @@ void MsgListView::slotMsgListModelRowsAboutToBeRemoved(const QModelIndex &parent
     prepareForRemoval([&removed](const QModelIndex &index) {
         return removed.contains(index.siblingAtColumn(0));
     });
+}
+
+QModelIndex MsgListView::mapFromPrettyModel(const QModelIndex &prettyIndex) const
+{
+    QList<QAbstractProxyModel *> proxies;
+    QAbstractItemModel *current = model();
+    while (current && current != prettyIndex.model()) {
+        auto proxy = qobject_cast<QAbstractProxyModel *>(current);
+        if (!proxy)
+            return {};
+        proxies.prepend(proxy);
+        current = proxy->sourceModel();
+    }
+    if (!current)
+        return {};
+    QModelIndex index = prettyIndex;
+    for (QAbstractProxyModel *proxy : std::as_const(proxies))
+        index = proxy->mapFromSource(index);
+    return index;
+}
+
+/** @short Step over the headers of expanded groups, which are not messages
+
+A collapsed group's header stays reachable, so that Right can expand it. Left on a message moves to its header.
+*/
+QModelIndex MsgListView::moveCursor(CursorAction cursorAction, Qt::KeyboardModifiers modifiers)
+{
+    QModelIndex next = QTreeView::moveCursor(cursorAction, modifiers);
+    const auto isExpandedHeader = [this](const QModelIndex &index) {
+        return index.isValid() && index.data(Imap::Mailbox::RoleIsGroupHeader).toBool()
+            && isExpanded(index.siblingAtColumn(0));
+    };
+    if (!isExpandedHeader(next))
+        return next;
+    bool downwards;
+    switch (cursorAction) {
+    case MoveDown:
+    case MovePageDown:
+    case MoveHome:
+        downwards = true;
+        break;
+    case MoveUp:
+    case MovePageUp:
+    case MoveEnd:
+        downwards = false;
+        break;
+    default:
+        return next;
+    }
+    while (isExpandedHeader(next))
+        next = downwards ? indexBelow(next) : indexAbove(next);
+    if (!next.isValid())
+        return currentIndex();
+    return next;
 }
 
 void MsgListView::rowsAboutToBeRemoved(const QModelIndex &parent, int start, int end)

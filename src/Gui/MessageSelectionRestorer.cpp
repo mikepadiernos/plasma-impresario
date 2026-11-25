@@ -59,8 +59,12 @@ void MessageSelectionRestorer::check()
     m_checkScheduled = false;
     if (!m_pending || !m_model || !m_view || !m_model->rowCount())
         return;
-    const auto matches = m_model->match(m_model->index(0, 0), Imap::Mailbox::RoleMessageUid, m_uid, -1,
-                                        Qt::MatchExactly | Qt::MatchRecursive);
+    // The view may show a proxy on top of the model, such as the message list's groups
+    QAbstractItemModel *viewModel = m_view->model();
+    if (!viewModel || !viewModel->rowCount())
+        return;
+    const auto matches = viewModel->match(viewModel->index(0, 0), Imap::Mailbox::RoleMessageUid, m_uid, -1,
+                                          Qt::MatchExactly | Qt::MatchRecursive);
     for (const QModelIndex &index : matches) {
         if (index.data(Imap::Mailbox::RoleMailboxName).toString() != m_mailbox)
             continue;

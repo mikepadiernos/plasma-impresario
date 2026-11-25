@@ -38,6 +38,7 @@
 #include "Imap/ConnectionState.h"
 #include "Imap/Model/Cache.h"
 #include "Imap/Model/CopyMoveOperation.h"
+#include "Imap/Model/GroupingMsgListModel.h"
 #include "Imap/Model/SpecialFolder.h"
 #include "Imap/Parser/Uids.h"
 #include "UiUtils/DestructiveActions.h"
@@ -46,6 +47,7 @@
 #include "UiUtils/ShortcutOverview.h"
 #include "MessageActionHandler.h"
 
+class QActionGroup;
 class QAuthenticator;
 class QComboBox;
 class QCloseEvent;
@@ -419,7 +421,25 @@ private:
     void createSysTray();
     void removeSysTray();
 
-    QModelIndexList translatedSelection() const;
+    /** @short The selected messages as indexes of the MsgListModel, without the headers of groups */
+    Q_INVOKABLE QModelIndexList translatedSelection() const;
+
+    /** @short Show the message list flat, in conversations or in groups; @p remember stores the choice for the account */
+    void setMessageListGrouping(Imap::Mailbox::GroupingMsgListModel::Grouping grouping, bool remember = true);
+    /** @short Show the message list in the active account's grouping */
+    void applyMessageListGrouping();
+    void saveMessageListGrouping();
+    void syncGroupByActions();
+    /** @short Show @p model in the message list, keeping the current and the selected messages */
+    void swapMessageListModel(QAbstractItemModel *model);
+    void connectMessageListSelection();
+    /** @short Expand the groups except those which the user has collapsed */
+    void applyGroupExpansion();
+    /** @short Sort by relevance while @p searchConditions look for text, otherwise go back to the previous sorting */
+    void updateRelevanceSorting(const QStringList &searchConditions);
+    /** @short Map an index of the message list view to the PrettyMsgListModel, an invalid index for a group's header */
+    QModelIndex toPrettyIndex(const QModelIndex &viewIndex) const;
+    QModelIndex fromPrettyIndex(const QModelIndex &prettyIndex) const;
 
     /** @short Where a move which can be undone went */
     enum class MoveKind {
@@ -475,6 +495,11 @@ private:
 
     Imap::Mailbox::PrettyMailboxModel *prettyMboxModel;
     Imap::Mailbox::PrettyMsgListModel *prettyMsgListModel;
+    /** Shown on top of prettyMsgListModel while the messages are grouped by something else than conversations */
+    Imap::Mailbox::GroupingMsgListModel *m_groupingMsgListModel = nullptr;
+    Imap::Mailbox::GroupingMsgListModel::Grouping m_groupBy = Imap::Mailbox::GroupingMsgListModel::Grouping::None;
+    /** Keys of the groups which the user has collapsed during this session */
+    QSet<QString> m_collapsedGroups;
     Composer::SenderIdentitiesModel *m_senderIdentities;
     Imap::Mailbox::FavoriteTagsModel *m_favoriteTags;
 
@@ -621,6 +646,11 @@ private:
     QAction *m_actionSortNone;
     QAction *m_actionSortAscending;
     QAction *m_actionSortDescending;
+    QAction *m_actionSortByRelevance = nullptr;
+    QActionGroup *m_groupByActions = nullptr;
+    QMenu *m_groupByMenu = nullptr;
+    QAction *m_actionExpandAllGroups = nullptr;
+    QAction *m_actionCollapseAllGroups = nullptr;
     QAction *m_actionLayoutCompact;
     QAction *m_actionLayoutWide;
     QAction *m_actionLayoutOneAtTime;
