@@ -19,9 +19,9 @@
   <img alt="Status: in development" src="https://img.shields.io/badge/status-in_development-orange">
 </p>
 
-**[Screenshots](#screenshots)** · **[Features](#implemented-today)** ·
-**[Build and run](#build-and-run)** · **[Roadmap](docs/ROADMAP.md)** ·
-**[Documentation](docs/README.md)** ·
+**[Screenshots](#screenshots)** · **[Status](#project-status)** ·
+**[Features](#implemented-today)** · **[Build and run](#build-and-run)** ·
+**[Roadmap](docs/ROADMAP.md)** · **[Documentation](docs/README.md)** ·
 **[Security and limitations](docs/CAVEATS.md#security-and-data-protection)**
 
 Plasma Impresario turns the Trojitá IMAP client into a Plasma-native mail
@@ -30,11 +30,9 @@ Other desktop environments are outside the supported scope.
 
 > [!IMPORTANT]
 >
-> Plasma Impresario is in development. The KDE / Qt 6 baseline (M01) is merged
-> into `main`. The mail shell, embedded panels and multiple accounts (M02) are
-> on `feature/m02-shell-next` and are not yet merged. Offscreen tests and live
-> IMAP tests against a synthetic Dovecot server cover them, but no M02 feature
-> has been verified in a real Plasma session yet.
+> Plasma Impresario is in development. Only the KDE / Qt 6 baseline (M01) is in
+> `main`; the work below it lives on feature branches until each milestone is
+> complete. See [project status](#project-status).
 
 ## Screenshots
 
@@ -74,7 +72,27 @@ show the container's default style rather than a Plasma theme.
 
 </details>
 
+## Project status
+
+Features done are roadmap items whose issues are **Completed** or **Merged** on
+the [project board](https://github.com/users/mikepadiernos/projects/4), as of
+2026-11-24.
+
+| Milestone                                     | Branch                        | Done             | State                                                                                                               |
+| --------------------------------------------- | ----------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------- |
+| 🧱 M01 KDE / Qt 6 baseline                    | `main`                        | 🟩🟩🟩🟩🟩 19/19 | ✅ Merged                                                                                                           |
+| 🧭 M02 Shell, accounts and mailbox foundation | `feature/m02-shell-next`      | 🟩🟩⬜⬜⬜ 6/14  | 🚧 Tested offscreen and against a synthetic Dovecot server; not yet checked in a real Plasma session                |
+| 📬 M03 Mail operations, sorting and folders   | `feature/m03-mail-operations` | 🟩🟩⬜⬜⬜ 4/12  | 🚧 Folder navigation, sorting and triage, quick actions, and folder actions with recoverable deletion are Completed |
+| 📋 M04–M12                                    | —                             | —                | Planned; M08 branding started with the product rename                                                               |
+
+The [roadmap overview](docs/ROADMAP.md#milestones-at-a-glance) tracks every
+milestone, and [pending tasks](docs/TODO.md#in-progress) record what each one
+is waiting on.
+
 ## Implemented today
+
+This section covers M01 and M02. M03 features are summarized in
+[project status](#project-status) until their branch is merged.
 
 Legend: ✅ verified against a disposable IMAP server · 🧪 implemented, needs
 verification

@@ -28,23 +28,24 @@ integration, productivity features and release-quality refinements.
 
 ## Milestones at a glance
 
-Legend: ✅ merged into `main` · 🚧 in development · 📋 backlog. Board statuses
-as of 2026-11-24.
+Legend: ✅ merged into `main` · 🚧 in development · 📋 backlog. **Done** counts
+roadmap features whose issues are **Completed** or **Merged** (🟩 = 20%).
+Board statuses as of 2026-11-24.
 
-| Milestone | Focus | Parent issue | Board |
-| --- | --- | --- | --- |
-| [M01](#m01-kde--qt6-compatibility-baseline) | 🧱 KDE / Qt 6 compatibility baseline | [#1](https://github.com/mikepadiernos/plasma-impresario/issues/1) | ✅ Merged |
-| [M02](#m02-shell-accounts-and-core-mailbox-foundation) | 🧭 Shell, accounts and core mailbox foundation | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4) | 🚧 Development |
-| [M03](#m03-mail-operations-sorting-and-folder-management) | 📬 Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5) | 🚧 Development on `feature/m03-mail-operations` |
-| [M04](#m04-reading-search-and-conversation-flow) | 📖 Reading, search and conversation flow | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6) | 📋 Backlog |
-| [M05](#m05-desktop-integration-and-provider-support) | 🖥️ Desktop integration and provider support | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7) | 📋 Backlog |
-| [M06](#m06-output-notifications-and-rules-automation) | 🔔 Output, notifications and rules automation | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8) | 📋 Backlog |
-| [M07](#m07-settings-and-workspace-configuration) | ⚙️ Settings and workspace configuration | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9) | 📋 Backlog |
-| [M08](#m08-themes-and-branding-foundation) | 🎨 Themes and branding foundation | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10) | 🚧 Development: M08.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
-| [M09](#m09-reliability-sync-and-notification-quality) | 🔄 Reliability, sync and notification quality | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11) | 📋 Backlog |
-| [M10](#m10-release-readiness-and-polish) | 🚀 Release readiness and polish | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12) | 📋 Backlog |
-| [M11](#m11-nextcloud-and-digital-asset-management) | ☁️ Nextcloud and digital asset management | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31) | 📋 Backlog |
-| [M12](#m12-refinements) | ✨ Refinements | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15) | 📋 Backlog |
+| Milestone | Focus | Parent issue | Done | Board |
+| --- | --- | --- | --- | --- |
+| [M01](#m01-kde--qt6-compatibility-baseline) | 🧱 KDE / Qt 6 compatibility baseline | [#1](https://github.com/mikepadiernos/plasma-impresario/issues/1) | 🟩🟩🟩🟩🟩 19/19 | ✅ Merged |
+| [M02](#m02-shell-accounts-and-core-mailbox-foundation) | 🧭 Shell, accounts and core mailbox foundation | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4) | 🟩🟩⬜⬜⬜ 6/14 | 🚧 Development on `feature/m02-shell-next` |
+| [M03](#m03-mail-operations-sorting-and-folder-management) | 📬 Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5) | 🟩🟩⬜⬜⬜ 4/12 | 🚧 Development on `feature/m03-mail-operations`, where its items are checked |
+| [M04](#m04-reading-search-and-conversation-flow) | 📖 Reading, search and conversation flow | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6) | ⬜⬜⬜⬜⬜ 0/14 | 📋 Backlog |
+| [M05](#m05-desktop-integration-and-provider-support) | 🖥️ Desktop integration and provider support | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7) | ⬜⬜⬜⬜⬜ 0/23 | 📋 Backlog |
+| [M06](#m06-output-notifications-and-rules-automation) | 🔔 Output, notifications and rules automation | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8) | ⬜⬜⬜⬜⬜ 0/9 | 📋 Backlog |
+| [M07](#m07-settings-and-workspace-configuration) | ⚙️ Settings and workspace configuration | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9) | ⬜⬜⬜⬜⬜ 0/12 | 📋 Backlog |
+| [M08](#m08-themes-and-branding-foundation) | 🎨 Themes and branding foundation | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10) | ⬜⬜⬜⬜⬜ 1/32 | 🚧 Development: M08.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
+| [M09](#m09-reliability-sync-and-notification-quality) | 🔄 Reliability, sync and notification quality | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11) | ⬜⬜⬜⬜⬜ 0/9 | 📋 Backlog |
+| [M10](#m10-release-readiness-and-polish) | 🚀 Release readiness and polish | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12) | ⬜⬜⬜⬜⬜ 0/8 | 📋 Backlog |
+| [M11](#m11-nextcloud-and-digital-asset-management) | ☁️ Nextcloud and digital asset management | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31) | ⬜⬜⬜⬜⬜ 0/7 | 📋 Backlog |
+| [M12](#m12-refinements) | ✨ Refinements | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15) | ⬜⬜⬜⬜⬜ 0/80 | 📋 Backlog |
 
 > [!TIP]
 >
@@ -613,6 +614,7 @@ policy.
 
 **Project:** [M10 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498549) ·
 [Accessible workflows](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542030) ·
+
 [Release guidance and triage](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542126)
 
 - [ ] Review accessibility, localization, keyboard support, and final visual tuning [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314542030)

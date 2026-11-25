@@ -44,7 +44,19 @@ progress · 📋 planned · ⛔ blocked
   the [M02 handoff](#m02-shell-and-account-foundation).
 - 🚧 **M03 mail operations, sorting and folder management**
   ([#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)): in
-  Development on `feature/m03-mail-operations`.
+  Development on `feature/m03-mail-operations`, which is based on this branch
+  and holds the detailed M03 handoff. Folder navigation
+  ([#37](https://github.com/mikepadiernos/plasma-impresario/issues/37)),
+  sorting and triage
+  ([#38](https://github.com/mikepadiernos/plasma-impresario/issues/38)), quick
+  actions ([#83](https://github.com/mikepadiernos/plasma-impresario/issues/83))
+  and destructive-operation recovery
+  ([#89](https://github.com/mikepadiernos/plasma-impresario/issues/89)) are
+  Completed; batch selection and feedback
+  ([#88](https://github.com/mikepadiernos/plasma-impresario/issues/88)) is in
+  Review and power-user workflows
+  ([#84](https://github.com/mikepadiernos/plasma-impresario/issues/84)) in
+  Development. The other six features are Defined.
 - 🚧 **M08 themes and branding foundation**
   ([#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)): in
   Development because M08.01 Branding and visual language
@@ -297,3 +309,27 @@ component audit and reproduction steps.
   roadmap numbering as current until the titles are updated.
 - Keep roadmap links, issue parents, milestone assignments and project status
   synchronized when roadmap scope changes.
+- ✅ **Board audit, 2026-11-24:** every roadmap checkbox matches its issue's
+  board status, every closed issue is Completed or Merged, and sub-issue
+  milestones match their parents. Missing Start and Target dates were filled
+  in from issue, pull request and commit dates for the M01 features, bugs
+  #228 and #241, documentation issues #239, #249, #251, #255 and #258, and #36.
+  [#49](https://github.com/mikepadiernos/plasma-impresario/issues/49) now lists
+  only its own M08.01 feature and links #123 and #124.
+- ✅ **Parent checklists, 2026-11-24:** linked feature checkboxes in issue
+  bodies match their issues' board statuses, and
+  [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4) now lists
+  #74, #78, #79 and #80. The Merged M01 issues
+  [#33](https://github.com/mikepadiernos/plasma-impresario/issues/33),
+  [#34](https://github.com/mikepadiernos/plasma-impresario/issues/34) and
+  [#57](https://github.com/mikepadiernos/plasma-impresario/issues/57) check the
+  tasks backed by merged work and recorded evidence. Each one leaves its
+  live-reading, system-prefix or other-distribution tasks unchecked, with a
+  note pointing to the [M01 handoff](#m01-release-gate-and-integration).
+- 📋 **Pending wording, #87:** M03 issue
+  [#87](https://github.com/mikepadiernos/plasma-impresario/issues/87) is
+  titled "Provide an Aqua Mail-inspired message list", while its roadmap item
+  still reads "Provide readable compact message rows…". The open pull request
+  [#257](https://github.com/mikepadiernos/plasma-impresario/pull/257) rewords
+  the roadmap item to match; keep both as they are until it is merged or
+  closed.
