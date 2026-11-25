@@ -35,6 +35,7 @@
 #include "ui_SettingsIdentitiesPage.h"
 #include "ui_SettingsImapPage.h"
 #include "ui_SettingsOutgoingPage.h"
+#include "Composer/AccountIdentities.h"
 #include "Composer/SenderIdentitiesModel.h"
 #include "Imap/Model/FavoriteTagsModel.h"
 #include "Plugins/PasswordPlugin.h"
@@ -139,7 +140,7 @@ signals:
     void widgetsUpdated();
 };
 
-/** @short Sender identities of one account: its own by default, or the identities shared by all accounts */
+/** @short Sender identities of one account: its own by default, the identities shared by all accounts, or none */
 class IdentitiesPage : public QScrollArea, Ui_IdentitiesPage, public ConfigurationWidgetInterface
 {
     Q_OBJECT
@@ -165,9 +166,11 @@ private slots:
     void deleteButtonClicked();
 
 private:
+    Composer::AccountIdentities::Source selectedSource() const;
+
     Composer::SenderIdentitiesModel *m_accountIdentities;
     Composer::SenderIdentitiesModel *m_sharedIdentities;
-    /** The list shown and edited, depending on whether the account uses the shared identities */
+    /** The list shown, depending on the identity source; read-only when the account uses no identity */
     Composer::SenderIdentitiesModel *m_identitiesModel;
     QSettings &m_shared;
 

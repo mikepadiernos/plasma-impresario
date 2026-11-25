@@ -3,8 +3,8 @@
 
 #include <QObject>
 
-/** @short Verify per-account identity defaults, the shared-identity option and
- * migration */
+/** @short Verify per-account identity defaults, the shared and no-identity
+ * options, and migration */
 class AccountIdentitiesTest : public QObject {
     Q_OBJECT
 
@@ -12,6 +12,8 @@ private slots:
     void accountsUseTheirOwnIdentitiesByDefault();
     void newAccountStartsWithOwnEmptyIdentities();
     void sharedIdentitiesCanBeChosen();
+    void noIdentityCanBeChosen();
+    void earlierSharedChoiceIsKept();
     void migrationCopiesSharedIdentities();
     void migrationKeepsExistingOwnIdentities();
     void migrationRunsOnlyOnce();

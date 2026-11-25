@@ -361,6 +361,17 @@ private slots:
         window.findChild<QAction *>(QStringLiteral("action_previous_account"))->trigger();
         QCOMPARE(window.senderIdentitiesModel(), work);
         QCOMPARE(work->rowCount(), 2);
+
+        // An account without an identity offers none to the composer but keeps its own for later.
+        Composer::AccountIdentities::setSource(*window.accountSettings(), Composer::AccountIdentities::Source::None);
+        auto *none = window.senderIdentitiesModel();
+        QVERIFY(none != work);
+        QVERIFY(none != shared);
+        QCOMPARE(none->rowCount(), 0);
+        QCOMPARE(window.accountIdentitiesModel(), work);
+        QCOMPARE(work->rowCount(), 2);
+        Composer::AccountIdentities::setSource(*window.accountSettings(), Composer::AccountIdentities::Source::Own);
+        QCOMPARE(window.senderIdentitiesModel(), work);
     }
 
     void newAccountsStartWithoutIdentities()

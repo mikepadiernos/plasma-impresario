@@ -11,19 +11,34 @@
 namespace Composer {
 namespace AccountIdentities {
 
+Source source(const QSettings &account)
+{
+    if (account.value(Common::SettingsNames::composerNoIdentityKey, false).toBool())
+        return Source::None;
+    if (account.value(Common::SettingsNames::composerUseSharedIdentitiesKey, false).toBool())
+        return Source::Shared;
+    return Source::Own;
+}
+
+void setSource(QSettings &account, Source source)
+{
+    account.setValue(Common::SettingsNames::composerUseSharedIdentitiesKey, source == Source::Shared);
+    account.setValue(Common::SettingsNames::composerNoIdentityKey, source == Source::None);
+}
+
 bool usesSharedIdentities(const QSettings &account)
 {
-    return account.value(Common::SettingsNames::composerUseSharedIdentitiesKey, false).toBool();
+    return source(account) == Source::Shared;
 }
 
 void setUsesSharedIdentities(QSettings &account, bool shared)
 {
-    account.setValue(Common::SettingsNames::composerUseSharedIdentitiesKey, shared);
+    setSource(account, shared ? Source::Shared : Source::Own);
 }
 
 void initializeNewAccount(QSettings &account)
 {
-    setUsesSharedIdentities(account, false);
+    setSource(account, Source::Own);
 }
 
 bool migrateAccount(QSettings &shared, QSettings &account)
@@ -37,7 +52,7 @@ bool migrateAccount(QSettings &shared, QSettings &account)
         identities.loadFromSettings(shared);
         identities.saveToSettings(account);
     }
-    setUsesSharedIdentities(account, false);
+    setSource(account, Source::Own);
     return true;
 }
 

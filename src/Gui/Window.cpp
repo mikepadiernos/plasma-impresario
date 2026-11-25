@@ -1713,8 +1713,16 @@ QSettings *MainWindow::accountSettings() const
 
 Composer::SenderIdentitiesModel *MainWindow::senderIdentitiesModel()
 {
-    if (Composer::AccountIdentities::usesSharedIdentities(*accountSettings()))
+    switch (Composer::AccountIdentities::source(*accountSettings())) {
+    case Composer::AccountIdentities::Source::Shared:
         return m_senderIdentities;
+    case Composer::AccountIdentities::Source::None:
+        if (!m_noIdentities)
+            m_noIdentities = new Composer::SenderIdentitiesModel(this);
+        return m_noIdentities;
+    case Composer::AccountIdentities::Source::Own:
+        break;
+    }
     return accountIdentitiesModel();
 }
 
