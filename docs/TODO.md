@@ -494,7 +494,7 @@ component audit and reproduction steps.
 
 ### M13 Microsoft milestone insertion
 
-- 🚧 **Inserted, 2026-11-25**
+- ✅ **Inserted, 2026-11-25**
   ([#385](https://github.com/mikepadiernos/plasma-impresario/issues/385)):
   Microsoft accounts and Exchange became M13
   ([#388](https://github.com/mikepadiernos/plasma-impresario/issues/388)) before
@@ -520,6 +520,8 @@ component audit and reproduction steps.
   prefix "M11:" (roadmap M14), and the empty GitHub milestone "M13: Tagging,
   Maildir, and Opus workspace integration" shares the "M13:" prefix. Resolve
   both in the milestone reorder [#249](https://github.com/mikepadiernos/plasma-impresario/issues/249).
-- 📋 **Resume:** after #385 is merged, move it to Completed and then Merged;
-  when #249 retitles the Refinements issues, remove the title-prefix bullet and
-  this section.
+- ✅ **Merged:** #385 merged in
+  [#418](https://github.com/mikepadiernos/plasma-impresario/pull/418) and is
+  closed and Merged on the board.
+- 📋 **Resume:** when #249 retitles the Refinements issues, remove the
+  title-prefix bullet and this section.
