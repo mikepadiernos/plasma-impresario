@@ -1645,6 +1645,11 @@ void MainWindow::createWidgets()
         }
     });
     connect(m_messageWidget->messageView, &MessageView::transferError, this, &MainWindow::slotDownloadTransferError);
+    // Space pages through the open message, then continues with the next unread one
+    connect(m_messageWidget, &CompleteMessageWidget::pagedPastEnd, this, [this]() {
+        if (m_messageWidget->messageView->currentMessage().isValid())
+            slotNextUnread();
+    });
 
     m_attachmentPanel = new AttachmentPanel();
     m_attachmentPanel->setNetworkAccessManager(m_messageWidget->messageView->networkAccessManager());

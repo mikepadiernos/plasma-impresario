@@ -61,6 +61,9 @@ public:
     MessageView *messageView;
     QScrollArea *area;
     void closeEvent(QCloseEvent *event) override;
+signals:
+    /** Space was pressed while the end of the message was already shown */
+    void pagedPastEnd();
 protected:
     void keyPressEvent(QKeyEvent *ke) override;
 

@@ -106,6 +106,9 @@ void CompleteMessageWidget::keyPressEvent(QKeyEvent *ke)
     } else if (ke->key() == Qt::Key_End) {
         animator->setEndValue(area->verticalScrollBar()->maximum());
         animator->start();
+    } else if (ke->key() == Qt::Key_Space && animator->state() != QAbstractAnimation::Running
+               && area->verticalScrollBar()->value() >= area->verticalScrollBar()->maximum()) {
+        emit pagedPastEnd();
     } else if (ke->key() == Qt::Key_Space || ke->key() == Qt::Key_Backspace) {
         const int delta = area->verticalScrollBar()->pageStep() * (ke->key() == Qt::Key_Backspace ? -1 : 1);
         const int start = animator->state() == QAbstractAnimation::Running ? animator->endValue().toInt() : area->verticalScrollBar()->value();

@@ -527,6 +527,8 @@ QString htmlizedTextPart(const QModelIndex &partIndex, const QFontInfo &font, co
 {
     static const QString defaultStyle = QString::fromUtf8(
         ".plain-text{word-wrap: break-word; white-space: pre-wrap;}"
+        // Keep lines to a readable measure in a wide reader; hard-wrapped mail and a few quote levels still fit
+        ".plain-text{max-width: 90ch;}"
         // The following line, sadly, produces a warning "QFont::setPixelSize: Pixel size <= 0 (0)".
         // However, if it is not in place or if the font size is set higher, even to 0.1px, WebEngine reserves space for the
         // quotation characters and therefore a weird white area appears. Even width: 0px doesn't help, so it looks like
