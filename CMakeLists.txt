@@ -298,6 +298,8 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/QaimDfsIterator.cpp
     ${path_UiUtils}/RecentFolders.cpp
     ${path_UiUtils}/RelatedMessages.cpp
+    ${path_UiUtils}/SelectionAfterRemoval.cpp
+    ${path_UiUtils}/ShortcutOverview.cpp
 )
 
 if(WITH_WEBENGINE)
