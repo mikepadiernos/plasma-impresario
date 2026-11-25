@@ -1,7 +1,7 @@
 # Accounts, sync, and storage refinement
 
 **[Refinements](README.md)** ·
-**[M12 in roadmap](../ROADMAP.md#m12-refinements)** ·
+**[M13 in roadmap](../ROADMAP.md#m13-refinements)** ·
 **[Previous: Shell and interaction](01-shell-and-interaction.md)** ·
 **[Next: Mail organization and triage](03-mail-organization-and-triage.md)**
 
@@ -9,7 +9,7 @@ Refines account setup, authentication, provider compatibility, folder sync,
 offline recovery and storage feedback.
 
 **Roadmap subsection:**
-[M12.03: Accounts, sync, and storage](../ROADMAP.md#m12-refinements) ·
+[M13.03: Accounts, sync, and storage](../ROADMAP.md#m13-refinements) ·
 **Issue:** [#22](https://github.com/mikepadiernos/plasma-impresario/issues/22)
 
 > [!NOTE]

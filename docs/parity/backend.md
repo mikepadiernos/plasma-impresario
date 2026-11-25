@@ -51,9 +51,9 @@ Not yet implemented:
 | --------------------------------------- | ------ | --------------------------------------------------------------------------------------- |
 | 🧩 Protocol-aware account model in use  | 📋     | M02 [#215](https://github.com/mikepadiernos/plasma-impresario/issues/215) (Development) |
 | 🔐 OAuth authentication                 | 📋     | M02 [#218](https://github.com/mikepadiernos/plasma-impresario/issues/218)               |
-| 📮 POP3, JMAP, Gmail, Outlook, Exchange | 📋     | M05.05 in [M05](../ROADMAP.md#m05-desktop-integration-and-provider-support)             |
-| 🛡️ Virus and spam scanning hooks        | 📋     | M05.06 in [M05](../ROADMAP.md#m05-desktop-integration-and-provider-support)             |
-| ⚙️ Rules engine                         | 📋     | [M06](../ROADMAP.md#m06-output-notifications-and-rules-automation)                      |
+| 📮 POP3, JMAP, Gmail, Outlook, Exchange | 📋     | M06.05 in [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support)             |
+| 🛡️ Virus and spam scanning hooks        | 📋     | M06.06 in [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support)             |
+| ⚙️ Rules engine                         | 📋     | [M07](../ROADMAP.md#m07-output-notifications-and-rules-automation)                      |
 
 Transport, credential and cache limitations are documented in
 [caveats and security](../CAVEATS.md#security-and-data-protection); account
@@ -143,7 +143,7 @@ Parity expectations:
 | 🔐 Confirm supported authentication paths      | 📋     | Password authentication works; OAuth is planned ([#218](https://github.com/mikepadiernos/plasma-impresario/issues/218))                                    |
 | 📝 Document the account setup flow             | 🧪     | Exercised against a disposable Dovecot; setup work continues in M02 [#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)                    |
 | 📶 Capture connection and retry failure states | ✅     | The footer and account selector report connection, offline and authentication states ([#79](https://github.com/mikepadiernos/plasma-impresario/issues/79)) |
-| 🔄 Define mailbox synchronization expectations | 📋     | Planned with reliability work in [M09](../ROADMAP.md#m09-reliability-sync-and-notification-quality)                                                        |
+| 🔄 Define mailbox synchronization expectations | 📋     | Planned with reliability work in [M10](../ROADMAP.md#m10-reliability-sync-and-notification-quality)                                                        |
 | 🗂️ Assess folder discovery and metadata        | 📋     | Not yet assessed across servers                                                                                                                            |
 | 📈 Review large-folder performance             | 📋     | No large-mailbox benchmarks are recorded                                                                                                                   |
 | 🖥️ Respect KDE-native account integration      | 📋     | Account settings use `QSettings`; see the [KDE Plasma integration guide](../integrations/kde-plasma.md)                                                    |

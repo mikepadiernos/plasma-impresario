@@ -1,7 +1,7 @@
 # Reading, composition, and attachment refinement
 
 **[Refinements](README.md)** ·
-**[M12 in roadmap](../ROADMAP.md#m12-refinements)** ·
+**[M13 in roadmap](../ROADMAP.md#m13-refinements)** ·
 **[Previous: Mail organization and triage](03-mail-organization-and-triage.md)**
 ·
 **[Next: Search, sorting and automation](05-search-sorting-and-automation.md)**
@@ -10,7 +10,7 @@ Refines message rendering, conversation navigation, compose and reply flows,
 drafts, attachment handling and editor usability.
 
 **Roadmap subsection:**
-[M12.05: Reading, composition, and attachments](../ROADMAP.md#m12-refinements) ·
+[M13.05: Reading, composition, and attachments](../ROADMAP.md#m13-refinements) ·
 **Issue:** [#24](https://github.com/mikepadiernos/plasma-impresario/issues/24)
 
 > [!NOTE]

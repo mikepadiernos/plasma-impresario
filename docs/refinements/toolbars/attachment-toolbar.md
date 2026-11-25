@@ -2,7 +2,7 @@
 
 **[Refinements](../README.md)** · **[Toolbars](README.md)** ·
 **[Interface design](../../philosophy/designs.md)** ·
-**[M12 in roadmap](../../ROADMAP.md#m12-refinements)**
+**[M13 in roadmap](../../ROADMAP.md#m13-refinements)**
 
 This proposed toolbar appears for attachment actions in the reading pane or
 compose workflow.

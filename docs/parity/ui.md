@@ -37,7 +37,7 @@ keys; this page does not repeat them.
 > `feature/m02-shell-next` and are not yet merged into `main`. Offscreen tests
 > and opt-in live IMAP tests against a synthetic Dovecot
 > (`tools/dev-container/`) cover them; a real Plasma session has not been
-> verified. M13
+> verified. M14
 > ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319))
 > tracks that check.
 
@@ -67,10 +67,10 @@ The interface does not yet provide the following:
 | 📥 Unified inbox across accounts               | 📋     | [M03](../ROADMAP.md#m03-mail-operations-sorting-and-folder-management)        |
 | 🔐 Verified signature results in Details panel | 📋     | M04 [#303](https://github.com/mikepadiernos/plasma-impresario/issues/303)     |
 | 🔍 Server-side related-message search          | 📋     | M04 [#302](https://github.com/mikepadiernos/plasma-impresario/issues/302)     |
-| 📅 My Day / Agenda panel                       | 📋     | M05.04 in [M05](../ROADMAP.md#m05-desktop-integration-and-provider-support)   |
-| 🔔 Plasma notifications                        | 📋     | M05.01 and [M06](../ROADMAP.md#m06-output-notifications-and-rules-automation) |
-| 🗂️ Optional tabs                               | 📋     | [M07](../ROADMAP.md#m07-settings-and-workspace-configuration)                 |
-| 🎨 App-local themes                            | 📋     | [M08](../ROADMAP.md#m08-themes-and-branding-foundation)                       |
+| 📅 My Day / Agenda panel                       | 📋     | M06.04 in [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support)   |
+| 🔔 Plasma notifications                        | 📋     | M06.01 and [M07](../ROADMAP.md#m07-output-notifications-and-rules-automation) |
+| 🗂️ Optional tabs                               | 📋     | [M08](../ROADMAP.md#m08-settings-and-workspace-configuration)                 |
+| 🎨 App-local themes                            | 📋     | [M09](../ROADMAP.md#m09-themes-and-branding-foundation)                       |
 
 See [caveats and security](../CAVEATS.md) for other limitations.
 
@@ -144,12 +144,12 @@ Parity expectations:
 
 ## Parity checklist
 
-| Area                                     | Status | Current state                                                                                                                                    |
-| ---------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 📬 Message list and reader behavior      | 🧪     | Inherited list and reader placed in the new shell; reading-pane work is planned in [M04](../ROADMAP.md#m04-reading-search-and-conversation-flow) |
-| 🗂️ Folder and account layout             | 🧪     | Sidebar placement and the account selector exist; accounts are not grouped in the folder tree                                                    |
-| 🔍 Search and filter UI                  | 📋     | Inherited search and saved searches exist; scoped search and saved filters are planned in M04                                                    |
-| 🔔 Notifications and status feedback     | 📋     | Footer connection status exists; Plasma notifications are planned in M05.01 and M06                                                              |
-| 🎨 Theme and contrast support            | 📋     | Follows the Qt and Plasma palette and icon theme; contrast and high-DPI checks are not recorded; app themes are planned in M08                   |
-| ⌨️ Keyboard navigation and focus clarity | 🧪     | <kbd>F6</kbd> region cycling exists; desktop-heavy keyboard navigation is planned in M04                                                         |
-| 🖥️ KDE and Plasma integration            | 📋     | See the [KDE Plasma integration guide](../integrations/kde-plasma.md)                                                                            |
+| Area                                     | Status | Current state                                                                                                                                                  |
+| ---------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 📬 Message list and reader behavior      | 🧪     | Inherited list and reader placed in the new shell; reading-pane work is planned in [M04](../ROADMAP.md#m04-reading-and-conversation-flow)                      |
+| 🗂️ Folder and account layout             | 🧪     | Sidebar placement and the account selector exist; accounts are not grouped in the folder tree                                                                  |
+| 🔍 Search and filter UI                  | 📋     | Inherited search and saved searches exist; cross-account search, virtual folders and a local index are planned in [M05](../ROADMAP.md#m05-search-and-indexing) |
+| 🔔 Notifications and status feedback     | 📋     | Footer connection status exists; Plasma notifications are planned in M06.01 and M07                                                                            |
+| 🎨 Theme and contrast support            | 📋     | Follows the Qt and Plasma palette and icon theme; contrast and high-DPI checks are not recorded; app themes are planned in M09                                 |
+| ⌨️ Keyboard navigation and focus clarity | 🧪     | <kbd>F6</kbd> region cycling exists; desktop-heavy keyboard navigation is planned in M04                                                                       |
+| 🖥️ KDE and Plasma integration            | 📋     | See the [KDE Plasma integration guide](../integrations/kde-plasma.md)                                                                                          |

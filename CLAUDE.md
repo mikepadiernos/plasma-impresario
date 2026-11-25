@@ -120,6 +120,11 @@ backward.
 
 ## Blocked and pending tasks
 
+- Keep every handoff and workflow note, including blockers, pending board
+  actions, moved or renumbered items and resume steps, in `docs/TODO.md`
+  only. Elsewhere, such as the roadmap, other docs, issue and pull request
+  bodies or comments, and commit messages, reference the relevant TODO
+  section in one line instead of repeating its details.
 - When a task cannot be performed, record it in `docs/TODO.md` with the
   blocker, relevant milestone or issue, confirmed state, and actionable steps
   for resuming. Add a brief link to the relevant TODO section in the roadmap

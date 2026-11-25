@@ -1,7 +1,7 @@
 # Calendar and contacts refinement
 
 **[Refinements](README.md)** ·
-**[M12 in roadmap](../ROADMAP.md#m12-refinements)** ·
+**[M13 in roadmap](../ROADMAP.md#m13-refinements)** ·
 **[Previous: Desktop, services and assets](08-desktop-services-and-assets.md)**
 · **[Next: Notes, journal and workspaces](10-notes-journal-and-workspaces.md)**
 
@@ -9,7 +9,7 @@ Defines refinement criteria for potential calendar, scheduling, contacts and
 address-book workflows.
 
 **Roadmap subsection:**
-[M12.10: Calendar and contacts](../ROADMAP.md#m12-refinements) · **Issue:**
+[M13.10: Calendar and contacts](../ROADMAP.md#m13-refinements) · **Issue:**
 [#29](https://github.com/mikepadiernos/plasma-impresario/issues/29)
 
 ## Focus

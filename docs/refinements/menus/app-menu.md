@@ -2,7 +2,7 @@
 
 **[Refinements](../README.md)** · **[Menus](README.md)** ·
 **[Interface design](../../philosophy/designs.md)** ·
-**[M12 in roadmap](../../ROADMAP.md#m12-refinements)**
+**[M13 in roadmap](../../ROADMAP.md#m13-refinements)**
 
 This page defines the proposed top-level menu bar structure for Plasma
 Impresario and maps each entry to the action that exists today, if any.

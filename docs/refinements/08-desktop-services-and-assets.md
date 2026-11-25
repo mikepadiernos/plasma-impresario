@@ -1,7 +1,7 @@
 # Desktop, services, and assets refinement
 
 **[Refinements](README.md)** ·
-**[M12 in roadmap](../ROADMAP.md#m12-refinements)** ·
+**[M13 in roadmap](../ROADMAP.md#m13-refinements)** ·
 **[Previous: Settings and notifications](07-settings-and-notifications.md)** ·
 **[Next: Calendar and contacts](09-calendar-and-contacts.md)**
 
@@ -9,7 +9,7 @@ Refines KDE and Plasma integration, provider behavior and Nextcloud asset
 workflows.
 
 **Roadmap subsection:**
-[M12.09: Desktop, services, and assets](../ROADMAP.md#m12-refinements) ·
+[M13.09: Desktop, services, and assets](../ROADMAP.md#m13-refinements) ·
 **Issue:** [#28](https://github.com/mikepadiernos/plasma-impresario/issues/28)
 
 ## Focus

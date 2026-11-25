@@ -76,14 +76,14 @@ show the container's default style rather than a Plasma theme.
 
 Features done are roadmap items whose issues are **Completed** or **Merged** on
 the [project board](https://github.com/users/mikepadiernos/projects/4), as of
-2026-11-24.
+2026-11-25.
 
-| Milestone                                     | Branch                        | Done             | State                                                                                                               |
-| --------------------------------------------- | ----------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------- |
-| 🧱 M01 KDE / Qt 6 baseline                    | `main`                        | 🟩🟩🟩🟩🟩 19/19 | ✅ Merged                                                                                                           |
-| 🧭 M02 Shell, accounts and mailbox foundation | `feature/m02-shell-next`      | 🟩🟩⬜⬜⬜ 7/17  | 🚧 Tested offscreen and against a synthetic Dovecot server; not yet checked in a real Plasma session                |
-| 📬 M03 Mail operations, sorting and folders   | `feature/m03-mail-operations` | 🟩🟩⬜⬜⬜ 4/12  | 🚧 Folder navigation, sorting and triage, quick actions, and folder actions with recoverable deletion are Completed |
-| 📋 M04–M12                                    | —                             | —                | Planned; M08 branding started with the product rename                                                               |
+| Milestone                                     | Branch                        | Done             | State                                                                                                                             |
+| --------------------------------------------- | ----------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| 🧱 M01 KDE / Qt 6 baseline                    | `main`                        | 🟩🟩🟩🟩🟩 19/19 | ✅ Merged                                                                                                                         |
+| 🧭 M02 Shell, accounts and mailbox foundation | `feature/m02-shell-next`      | 🟩🟩🟩⬜⬜ 7/14  | 🚧 Tested offscreen and against a synthetic Dovecot server; not yet checked in a real Plasma session                              |
+| 📬 M03 Mail operations, sorting and folders   | `feature/m03-mail-operations` | 🟩🟩⬜⬜⬜ 4/12  | 🚧 Folder navigation, sorting and triage, quick actions, and folder actions with recoverable deletion are Completed               |
+| 📋 M04–M14                                    | —                             | —                | Planned, including search and indexing in M05 and real Plasma session checks in M14; M09 branding started with the product rename |
 
 The [roadmap overview](docs/ROADMAP.md#milestones-at-a-glance) tracks every
 milestone, and [pending tasks](docs/TODO.md#in-progress) record what each one
@@ -125,7 +125,7 @@ replies and attachments are scheduled for verification in M04
 
 M02 is headless work (M02.01,
 [#318](https://github.com/mikepadiernos/plasma-impresario/issues/318)). Checks
-that need a real Plasma session are their own milestone (M13,
+that need a real Plasma session are their own milestone (M14,
 [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)), and none
 has been done yet. The mail shell and embedded panels are Completed
 ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); the
@@ -169,7 +169,9 @@ record the verification.
 
 Enter a query and choose **Save Current Search** from the search options menu.
 **Saved Searches** in the same menu runs or deletes the active account's saved
-queries; a query runs in the selected folder.
+queries; a query runs in the selected folder. Searching across folders and
+accounts, virtual folders and an optional offline index are planned in
+[M05](docs/ROADMAP.md#m05-search-and-indexing).
 
 ### Command line
 
@@ -228,7 +230,8 @@ integration still needs a real Plasma session.
 ## Product direction
 
 The [roadmap](docs/ROADMAP.md) puts reliable mail and account boundaries first,
-then mail operations, reading and search, desktop and provider integration,
+then mail operations, reading, search and indexing, desktop and provider
+integration,
 automation, settings, themes and release quality. Grouped account navigation,
 rules, provider OAuth, theme profiles and workspace features are planned.
 [Plasma Opus](docs/integrations/plasma-opus.md) is the companion file manager;

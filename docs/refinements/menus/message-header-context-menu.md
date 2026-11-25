@@ -2,7 +2,7 @@
 
 **[Refinements](../README.md)** · **[Menus](README.md)** ·
 **[Interface design](../../philosophy/designs.md)** ·
-**[M12 in roadmap](../../ROADMAP.md#m12-refinements)**
+**[M13 in roadmap](../../ROADMAP.md#m13-refinements)**
 
 This proposed menu appears in the message header row or metadata region for the
 currently selected message.

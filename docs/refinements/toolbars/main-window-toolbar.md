@@ -2,7 +2,7 @@
 
 **[Refinements](../README.md)** · **[Toolbars](README.md)** ·
 **[Interface design](../../philosophy/designs.md)** ·
-**[M12 in roadmap](../../ROADMAP.md#m12-refinements)**
+**[M13 in roadmap](../../ROADMAP.md#m13-refinements)**
 
 This proposed Impresario-specific icon toolbar is separate from the account and
 folder sidebar. It can be positioned in any shell region. Within either side
@@ -13,7 +13,7 @@ Reserve space for it rather than covering the header, content or status bar.
 Other toolbars remain horizontal.
 
 **Roadmap subsection:**
-[M12.02: Shell and interaction](../../ROADMAP.md#m12-refinements) · **Issue:**
+[M13.02: Shell and interaction](../../ROADMAP.md#m13-refinements) · **Issue:**
 [#151](https://github.com/mikepadiernos/plasma-impresario/issues/151)
 
 **Legend:** ✅ exists in the current code on `feature/m02-shell-next` · 📋
@@ -65,7 +65,7 @@ Toolbar** hides or shows it. Items appear in this order:
 | Main menu button    | —                                                                                                | ✅ While the menu bar is hidden   | Opens the Application, View, Mailbox and Message menus                                                                         |
 | Customization mode  | —                                                                                                | 📋 Planned                        | See [toolbars and customization](../../philosophy/designs.md#toolbars-and-customization)                                       |
 | Side-column docking | —                                                                                                | 📋 Planned                        | Docking inside a side column or at full app height                                                                             |
-| Menu corner markers | —                                                                                                | 📋 Planned                        | Part of [M08](../../ROADMAP.md#m08-themes-and-branding-foundation)                                                             |
+| Menu corner markers | —                                                                                                | 📋 Planned                        | Part of [M09](../../ROADMAP.md#m09-themes-and-branding-foundation)                                                             |
 
 > [!NOTE]
 >
@@ -77,7 +77,7 @@ Toolbar** hides or shows it. Items appear in this order:
 - Use compact theme icons, visible focus, accessible names and tooltips. Clearly
   distinguish unavailable actions from active ones.
 - Indicate icons that open menus with the theme-accented corner marker described
-  in [M08](../../ROADMAP.md#m08-themes-and-branding-foundation), not a selection
+  in [M09](../../ROADMAP.md#m09-themes-and-branding-foundation), not a selection
   marker. Preserve keyboard access to those menus.
 - Keep actions scoped to the active account, folder, message or pane; update
   availability when context changes. Make destructive actions recognizable and

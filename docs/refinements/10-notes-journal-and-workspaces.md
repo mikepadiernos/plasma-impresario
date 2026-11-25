@@ -1,14 +1,14 @@
 # Notes, journal, and workspaces refinement
 
 **[Refinements](README.md)** ·
-**[M12 in roadmap](../ROADMAP.md#m12-refinements)** ·
+**[M13 in roadmap](../ROADMAP.md#m13-refinements)** ·
 **[Previous: Calendar and contacts](09-calendar-and-contacts.md)**
 
 Defines refinement criteria for potential notes, journal, editor and cross-app
 workspace behavior.
 
 **Roadmap subsection:**
-[M12.11: Notes, journal, and workspaces](../ROADMAP.md#m12-refinements) ·
+[M13.11: Notes, journal, and workspaces](../ROADMAP.md#m13-refinements) ·
 **Issue:** [#30](https://github.com/mikepadiernos/plasma-impresario/issues/30)
 
 ## Focus

@@ -38,7 +38,7 @@ planned · ⚠️ limitation
 > The shell described in this section is implemented on `feature/m02-shell-next`
 > and is not yet merged into `main`. Offscreen tests and opt-in live IMAP tests
 > against a synthetic Dovecot server in `tools/dev-container/` cover it; it has
-> not been verified in a real Plasma session, which M13
+> not been verified in a real Plasma session, which M14
 > ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319))
 > tracks.
 
@@ -84,15 +84,17 @@ work that is implemented but whose issue is still in Review or earlier.
 | 🎨 Compact and comfortable row density                                   | ✅     | M02       | [#75](https://github.com/mikepadiernos/plasma-impresario/issues/75)                                                                                 |
 | 💾 Restore layout, sizes, density and selected message across sessions   | ✅     | M02       | [#81](https://github.com/mikepadiernos/plasma-impresario/issues/81)                                                                                 |
 | 🧭 Account groups in the folder tree                                     | 🚧     | M02       | [#80](https://github.com/mikepadiernos/plasma-impresario/issues/80)                                                                                 |
-| 🔍 Related messages from the server and other folders                    | 📋     | M04       | [#302](https://github.com/mikepadiernos/plasma-impresario/issues/302)                                                                               |
+| 🔍 Related messages from the server and other folders                    | 📋     | M05.01    | [#302](https://github.com/mikepadiernos/plasma-impresario/issues/302)                                                                               |
+| 🔍 Search across folders and accounts, saved searches as virtual folders | 📋     | M05       | [Roadmap](../ROADMAP.md#m05-search-and-indexing)                                                                                                    |
+| 🔍 Search Results panel                                                  | 📋     | M05.05    | [#348](https://github.com/mikepadiernos/plasma-impresario/issues/348)                                                                               |
 | 🔒 Verified signature and decryption results in Message Details          | 📋     | M04       | [#303](https://github.com/mikepadiernos/plasma-impresario/issues/303)                                                                               |
-| 📅 My Day / Agenda panel                                                 | 📋     | M05.04    | [#304](https://github.com/mikepadiernos/plasma-impresario/issues/304)                                                                               |
-| 👥 Address-book names, photos and organizations in Contacts              | 📋     | M05.04    | [#305](https://github.com/mikepadiernos/plasma-impresario/issues/305)                                                                               |
-| 🗂️ Optional mail workspace tabs                                          | 📋     | M07       | [#246](https://github.com/mikepadiernos/plasma-impresario/issues/246)                                                                               |
-| 🎨 Themes and appearance                                                 | 📋     | M08       | [Roadmap](../ROADMAP.md#m08-themes-and-branding-foundation)                                                                                         |
-| 🧭 Designed header with search, compose, account switcher and status     | 📋     | M12.02    | [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306)                                                                               |
-| 🧩 Sliding and floating panels; rearranging panels in customization mode | 📋     | M12.02    | [#307](https://github.com/mikepadiernos/plasma-impresario/issues/307)                                                                               |
-| 🧰 Toolbar customization and the navigation icon toolbar                 | 📋     | M12.02    | [#151](https://github.com/mikepadiernos/plasma-impresario/issues/151)                                                                               |
+| 📅 My Day / Agenda panel                                                 | 📋     | M06.04    | [#304](https://github.com/mikepadiernos/plasma-impresario/issues/304)                                                                               |
+| 👥 Address-book names, photos and organizations in Contacts              | 📋     | M06.04    | [#305](https://github.com/mikepadiernos/plasma-impresario/issues/305)                                                                               |
+| 🗂️ Optional mail workspace tabs                                          | 📋     | M08       | [#246](https://github.com/mikepadiernos/plasma-impresario/issues/246)                                                                               |
+| 🎨 Themes and appearance                                                 | 📋     | M09       | [Roadmap](../ROADMAP.md#m09-themes-and-branding-foundation)                                                                                         |
+| 🧭 Designed header with search, compose, account switcher and status     | 📋     | M13.02    | [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306)                                                                               |
+| 🧩 Sliding and floating panels; rearranging panels in customization mode | 📋     | M13.02    | [#307](https://github.com/mikepadiernos/plasma-impresario/issues/307)                                                                               |
+| 🧰 Toolbar customization and the navigation icon toolbar                 | 📋     | M13.02    | [#151](https://github.com/mikepadiernos/plasma-impresario/issues/151)                                                                               |
 
 ### Layouts and regions
 
@@ -211,8 +213,8 @@ of supporting panels.
 | 🧭 Sidebar panels       | Account groups, folder navigation, saved views and similar navigation panels in either side column.                                                                                    | 🧪 folder sidebar; 🚧 account groups ([#80](https://github.com/mikepadiernos/plasma-impresario/issues/80))          |
 | 📬 Main content panes   | Message list and reading pane in the main column, side by side or stacked, preserving account, folder and message context when the arrangement changes.                                | 🧪 [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                              |
 | 🧩 Embedded panels      | Message metadata, attachments, contacts and similar tools in a side column, below the reader or in the footer. Panels in main-column space preserve the message-list and reader state. | 🧪 [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                              |
-| 🧩 Sliding and floating | Additional configurable placements outside the five fixed regions, following the Plasma Opus design, with panels rearranged in the customization mode.                                 | 📋 M12.02 [#307](https://github.com/mikepadiernos/plasma-impresario/issues/307)                                     |
-| 🧭 Header               | Global actions, search, compose, account switcher and connection context.                                                                                                              | 📋 M12.02 [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306)                                     |
+| 🧩 Sliding and floating | Additional configurable placements outside the five fixed regions, following the Plasma Opus design, with panels rearranged in the customization mode.                                 | 📋 M13.02 [#307](https://github.com/mikepadiernos/plasma-impresario/issues/307)                                     |
+| 🧭 Header               | Global actions, search, compose, account switcher and connection context.                                                                                                              | 📋 M13.02 [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306)                                     |
 | 📶 Footer and status    | Sync progress, errors and background-work status.                                                                                                                                      | ✅ connection status ([#79](https://github.com/mikepadiernos/plasma-impresario/issues/79)); 📋 sync and task status |
 
 ### Embedded panels
@@ -227,11 +229,12 @@ and a hidden panel's size is restored when it returns.
 - 📋 **Panel extensions:** verified signer details
   ([M04, #303](https://github.com/mikepadiernos/plasma-impresario/issues/303)),
   related messages from the server and across folders
-  ([M04, #302](https://github.com/mikepadiernos/plasma-impresario/issues/302))
+  ([M05.01, #302](https://github.com/mikepadiernos/plasma-impresario/issues/302)),
+  a Search Results panel ([M05.05, #348](https://github.com/mikepadiernos/plasma-impresario/issues/348))
   and address-book details
-  ([M05.04, #305](https://github.com/mikepadiernos/plasma-impresario/issues/305)).
+  ([M06.04, #305](https://github.com/mikepadiernos/plasma-impresario/issues/305)).
 - 📋 **My Day / Agenda**
-  ([M05.04, #304](https://github.com/mikepadiernos/plasma-impresario/issues/304)):
+  ([M06.04, #304](https://github.com/mikepadiernos/plasma-impresario/issues/304)):
   a daily overview beside the mail workflow, described below.
 
 The My Day / Agenda panel shows:
@@ -263,7 +266,7 @@ losing existing behavior.
 
 > [!NOTE]
 >
-> Planned for M07
+> Planned for M08
 > ([#246](https://github.com/mikepadiernos/plasma-impresario/issues/246)); not
 > implemented.
 
@@ -290,7 +293,7 @@ a tab bar.
 
 > [!NOTE]
 >
-> Planned for M12.02
+> Planned for M13.02
 > ([#151](https://github.com/mikepadiernos/plasma-impresario/issues/151)). Today
 > the existing Navigation toolbar docks at the left window edge and the menu bar
 > is hidden by default.
@@ -324,7 +327,7 @@ This toolbar is separate from movable sidebar panels. See the
 
 > [!NOTE]
 >
-> Planned for [M08](../ROADMAP.md#m08-themes-and-branding-foundation); not
+> Planned for [M09](../ROADMAP.md#m09-themes-and-branding-foundation); not
 > implemented. Row density is the only appearance option available today.
 
 Appearance options adapt the
@@ -349,20 +352,20 @@ desktop and panel widget proposals. They adapt ideas from the
 [inspirations](inspirations.md) and are design candidates unless marked
 otherwise.
 
-| Widget                            | Design                                                                                                | Inspired by             | Status                                                                                                                      |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| 🔍 Search                         | Search the current folder or selected accounts, with visible scope, filters and saved searches.       | Vivaldi Mail, Aqua Mail | ✅ per-account saved searches ([#76](https://github.com/mikepadiernos/plasma-impresario/issues/76)); 📋 cross-account scope |
-| 🧭 Account and folder navigation  | Account groups, folder hierarchy and unread counts with clear account context.                        | Trojitá, Aqua Mail      | ✅ account selector and counts; 🚧 account groups ([#80](https://github.com/mikepadiernos/plasma-impresario/issues/80))     |
-| 📥 Unified inbox                  | Combine selected accounts while identifying each message's source and keeping actions account-aware.  | Vivaldi Mail            | 📋 M03                                                                                                                      |
-| 📬 Message list and quick actions | Sender, subject, date and unread state with accessible archive, move, flag and delete actions.        | Aqua Mail, The Bat!     | 📋 M03                                                                                                                      |
-| 🔃 Filters and sorting            | Active filters, sort order and threading, without obscuring the current folder or selection.          | Vivaldi Mail, The Bat!  | 📋 M03                                                                                                                      |
-| 📖 Conversation reader            | Message content, metadata, quoted text and reply actions in a focused reading pane.                   | Trojitá, Aqua Mail      | 📋 M04                                                                                                                      |
-| ✉️ Compose and recipients         | Identity selection, recipient entry, drafts and sending feedback.                                     | Trojitá, Kontact        | 📋 M04                                                                                                                      |
-| 📎 Attachments                    | File names, sizes, loading progress and safe open or save actions.                                    | Aqua Mail, The Bat!     | 🧪 [Attachments panel](#current-embedded-panels)                                                                            |
-| 📅 My Day / Agenda                | Today's events, due tasks and flagged or follow-up mail in an embedded panel.                         | ePim, Kontact           | 📋 M05.04 ([#304](https://github.com/mikepadiernos/plasma-impresario/issues/304))                                           |
-| 📶 Connection and task status     | Account state, sync progress, errors and actionable recovery without interrupting reading.            | KDE, Kontact            | ✅ connection status; 📋 sync and task progress                                                                             |
-| ⚙️ Rules and bulk actions         | Inspect rule conditions and apply operations to selected messages with progress and failure feedback. | The Bat!                | 📋 M06                                                                                                                      |
-| 🗂️ Workspace and productivity     | Optional account/workspace, contact and scheduling entry points when integrations are available.      | ePim, Kontact           | 📋 M07                                                                                                                      |
+| Widget                            | Design                                                                                                | Inspired by             | Status                                                                                                                                                                                                 |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 🔍 Search                         | Search the current folder or selected accounts, with visible scope, filters and saved searches.       | Vivaldi Mail, Aqua Mail | ✅ per-account saved searches ([#76](https://github.com/mikepadiernos/plasma-impresario/issues/76)); 📋 cross-account scope, index and virtual folders in [M05](../ROADMAP.md#m05-search-and-indexing) |
+| 🧭 Account and folder navigation  | Account groups, folder hierarchy and unread counts with clear account context.                        | Trojitá, Aqua Mail      | ✅ account selector and counts; 🚧 account groups ([#80](https://github.com/mikepadiernos/plasma-impresario/issues/80))                                                                                |
+| 📥 Unified inbox                  | Combine selected accounts while identifying each message's source and keeping actions account-aware.  | Vivaldi Mail            | 📋 M03                                                                                                                                                                                                 |
+| 📬 Message list and quick actions | Sender, subject, date and unread state with accessible archive, move, flag and delete actions.        | Aqua Mail, The Bat!     | 📋 M03                                                                                                                                                                                                 |
+| 🔃 Filters and sorting            | Active filters, sort order and threading, without obscuring the current folder or selection.          | Vivaldi Mail, The Bat!  | 📋 M03                                                                                                                                                                                                 |
+| 📖 Conversation reader            | Message content, metadata, quoted text and reply actions in a focused reading pane.                   | Trojitá, Aqua Mail      | 📋 M04                                                                                                                                                                                                 |
+| ✉️ Compose and recipients         | Identity selection, recipient entry, drafts and sending feedback.                                     | Trojitá, Kontact        | 📋 M04                                                                                                                                                                                                 |
+| 📎 Attachments                    | File names, sizes, loading progress and safe open or save actions.                                    | Aqua Mail, The Bat!     | 🧪 [Attachments panel](#current-embedded-panels)                                                                                                                                                       |
+| 📅 My Day / Agenda                | Today's events, due tasks and flagged or follow-up mail in an embedded panel.                         | ePim, Kontact           | 📋 M06.04 ([#304](https://github.com/mikepadiernos/plasma-impresario/issues/304))                                                                                                                      |
+| 📶 Connection and task status     | Account state, sync progress, errors and actionable recovery without interrupting reading.            | KDE, Kontact            | ✅ connection status; 📋 sync and task progress                                                                                                                                                        |
+| ⚙️ Rules and bulk actions         | Inspect rule conditions and apply operations to selected messages with progress and failure feedback. | The Bat!                | 📋 M07                                                                                                                                                                                                 |
+| 🗂️ Workspace and productivity     | Optional account/workspace, contact and scheduling entry points when integrations are available.      | ePim, Kontact           | 📋 M08                                                                                                                                                                                                 |
 
 ## Interaction and accessibility
 
@@ -387,7 +390,7 @@ otherwise.
 
 The **Compact**, **Wide** and **One At a Time** layouts arrange panes; the
 separate **Row Density** menu sets compact or comfortable row spacing. A
-focus-reading mode remains planned (M07 settings, validated in M12.02).
+focus-reading mode remains planned (M08 settings, validated in M13.02).
 
 Prototype each density with realistic mail data and long folder names. Preserve
 saved splitter sizes where practical, and test keyboard navigation and message
@@ -399,5 +402,5 @@ selection while switching layouts.
 | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | 1. Record the current main-window behavior and its acceptance tests              | ✅ Offscreen QtTest suites such as `test_EmbeddedPanels`, `test_MainWindowDensity` and `test_SessionRestart`                |
 | 2. Build the new shell without changing IMAP, cache or composition behavior      | 🧪 [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35) Completed                                            |
-| 3. Validate layouts, accessibility and navigation with representative data       | 🚧 Synthetic Dovecot checks (`test_LiveImapPanels`) pass; a real Plasma session (M13, #319) and accessibility review remain |
+| 3. Validate layouts, accessibility and navigation with representative data       | 🚧 Synthetic Dovecot checks (`test_LiveImapPanels`) pass; a real Plasma session (M14, #319) and accessibility review remain |
 | 4. Migrate settings and saved window state only after the new behavior is tested | ⚠️ Pre-shell pane sizes are not migrated; see [#264](https://github.com/mikepadiernos/plasma-impresario/issues/264)         |

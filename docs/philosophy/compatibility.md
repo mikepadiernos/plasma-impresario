@@ -28,7 +28,7 @@ planned · ⚠️ limitation
 | 📖 WebEngine reader                      | Qt6 WebEngineWidgets, on by default       | ✅     | Renderer-enabled build with the `qt6-webengine` 6.140.0 package passed all 35 CTest cases at M01 completion; live-session reading remains unverified.                                     |
 | 📬 Live account setup                    | Isolated test account                     | 🚧     | Deferred to M02 ([#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)); exercised only against a disposable Dovecot container so far.                                      |
 | 📖 Live reading, replies and attachments | Isolated test mail                        | 📋     | Deferred to M04 ([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)).                                                                                                    |
-| 🖥️ Plasma-session startup and recovery   | Real Plasma session                       | 📋     | Deferred to M05.01 ([#101](https://github.com/mikepadiernos/plasma-impresario/issues/101)).                                                                                               |
+| 🖥️ Plasma-session startup and recovery   | Real Plasma session                       | 📋     | Deferred to M06.01 ([#101](https://github.com/mikepadiernos/plasma-impresario/issues/101)).                                                                                               |
 | 📦 System-prefix installs                | Renderer-free and WebEngine               | 📋     | Pending; only user and temporary prefixes have been verified.                                                                                                                             |
 
 ### Installer package managers
