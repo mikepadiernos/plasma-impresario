@@ -246,6 +246,13 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
   list header's state; `guiMsgListShowThreading` is no longer written. Group By
   is not tested against the fake server. A folder's saved position is restored
   only after its message UIDs have loaded.
+- ⚠️ Two-line message rows show no preview text, because message bodies are
+  not fetched for the list, and no contact photos, only the sender's initials.
+  Combined views do not yet show each message's account and folder
+  ([#223](https://github.com/mikepadiernos/plasma-impresario/issues/223)). All
+  rows share one height, so date group headings are as tall as a two-line row.
+  The column header, with its column chooser and sorting by clicking, is
+  hidden in Two Lines.
 - ⚠️ These paths are unit-tested but not yet exercised in a window against a
   live server.
 
@@ -260,6 +267,8 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
 - Open the folder to confirm the result of a bulk action.
 - Turn off the dense layout before changing the density or panels you want to
   keep.
+- In Two Lines, sort from View > Sorting, or switch View > Message Rows to
+  Columns to choose and resize columns.
 
 **Proposed improvements:**
 
@@ -273,6 +282,8 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
   and show folder paths.
 - 📋 Report bulk results after the server confirms them.
 - 📋 Keep the dense layout's preferences separate from the normal ones.
+- 📋 Offer an opt-in preview line from already downloaded text, contact photos
+  from the address book only, and shorter date group headings.
 - 📋 Add live window-level tests.
 
 ## Before reporting results

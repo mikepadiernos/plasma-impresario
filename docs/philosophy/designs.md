@@ -615,10 +615,16 @@ to mail.
 
 > [!NOTE]
 >
-> Planned for M03
-> ([#87](https://github.com/mikepadiernos/plasma-impresario/issues/87)). Today
-> the message list uses single-line rows with
-> [compact or comfortable density](#row-density-and-restored-selection).
+> Built in M03
+> ([#87](https://github.com/mikepadiernos/plasma-impresario/issues/87)) without
+> preview text or contact images. View > Message Rows chooses Two Lines, the
+> default, or the single-line Columns, and Two Lines can show the sender's
+> initials. Both follow the
+> [compact or comfortable density](#row-density-and-restored-selection), and
+> the dense processing layout switches to Columns. Combined views do not yet
+> show the source account and folder
+> ([#223](https://github.com/mikepadiernos/plasma-impresario/issues/223)); see
+> the [caveats](../CAVEATS.md#mail-operations).
 
 An Aqua Mail-inspired, multi-line message list is the target presentation,
 adapted to a keyboard- and mouse-driven Plasma desktop. Each row emphasizes the
