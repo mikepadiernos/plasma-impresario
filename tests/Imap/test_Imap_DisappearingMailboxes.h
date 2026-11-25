@@ -38,6 +38,9 @@ private slots:
     void testGoingOfflineOnlineUnselect();
     void testTrafficAfterSyncedMailboxGoesAway();
     void testPartFetchAfterMailboxDisappears();
+    void testMessageListReportsLostMailbox();
+    void testSelectPipelinedAfterUnselect();
+    void testSelectPipelinedAfterUnselect_data();
     void testSlowOfflineMsgStructure();
     void testSlowOfflineFlags();
     void testSlowOfflineFlags2();

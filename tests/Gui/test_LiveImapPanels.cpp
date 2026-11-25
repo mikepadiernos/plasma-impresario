@@ -10,8 +10,10 @@
 #include "Gui/MsgListView.h"
 #include "Gui/RelatedMessagesPanel.h"
 #include "Gui/Window.h"
+#include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/Model.h"
+#include "Imap/Model/NetworkWatcher.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -20,6 +22,7 @@
 #include "static_plugins.h"
 
 #include <KLocalizedString>
+#include <algorithm>
 #include <QApplication>
 #include <QDialog>
 #include <QDir>
@@ -285,6 +288,21 @@ private slots:
         open(QStringLiteral("Lunch on Friday"));
         QTRY_COMPARE_WITH_TIMEOUT(subjects(related->sameSender()), QStringList{QStringLiteral("Quarterly plan")}, 10000);
         QVERIFY(related->conversation().isEmpty());
+
+        // Going online again reloads the folder list; the shown folder is opened again rather than left empty.
+        auto *watcher = qobject_cast<Imap::Mailbox::NetworkWatcher *>(window.imapAccess()->networkWatcher());
+        QVERIFY(watcher);
+        watcher->setNetworkOffline();
+        QTRY_VERIFY_WITH_TIMEOUT(!window.imapModel()->isNetworkAvailable(), 10000);
+        QSignalSpy foldersListed(window.imapModel(), &QAbstractItemModel::rowsInserted);
+        watcher->setNetworkOnline();
+        // Until the server answers, the list still shows the folder's old rows
+        QTRY_VERIFY_WITH_TIMEOUT(std::any_of(foldersListed.cbegin(), foldersListed.cend(),
+                                             [](const QList<QVariant> &args) { return !args.first().toModelIndex().isValid(); }),
+                                 20000);
+        QTRY_VERIFY_WITH_TIMEOUT(findMessage(messages, QStringLiteral("Quarterly plan")).isValid(), 20000);
+        QTRY_COMPARE_WITH_TIMEOUT(tree->currentIndex().data(Imap::Mailbox::RoleMailboxName).toString(), QStringLiteral("INBOX"), 10000);
+        open(QStringLiteral("Budget numbers"));
 
         QCOMPARE(passwordPrompts, 0);
         QVERIFY2(imapErrors.isEmpty(), qPrintable(imapErrors.isEmpty() ? QString() : imapErrors.first().first().toString()));

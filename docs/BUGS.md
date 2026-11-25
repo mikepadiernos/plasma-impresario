@@ -21,19 +21,20 @@ Legend: ![Open][open] · ![Fix in progress][fix-in-progress] ·
 
 ## Status
 
-| Status          | Issue                                                                 | Bug                                                              | Board  |
-| --------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------- | ------ |
-| ![Fixed][fixed] | [#427](https://github.com/mikepadiernos/plasma-impresario/issues/427) | APPENDUID with several UIDs reads past the end of the response   | Merged |
-| ![Fixed][fixed] | [#426](https://github.com/mikepadiernos/plasma-impresario/issues/426) | Message list view can crash while being destroyed                | Merged |
-| ![Fixed][fixed] | [#425](https://github.com/mikepadiernos/plasma-impresario/issues/425) | Threaded quick search sends search words unquoted                | Merged |
-| ![Fixed][fixed] | [#376](https://github.com/mikepadiernos/plasma-impresario/issues/376) | Reply to All but Me keeps the user's address without an identity | Merged |
-| ![Fixed][fixed] | [#366](https://github.com/mikepadiernos/plasma-impresario/issues/366) | An untrusted SMTP certificate cannot be accepted                 | Merged |
-| ![Fixed][fixed] | [#364](https://github.com/mikepadiernos/plasma-impresario/issues/364) | Sending hangs when the SMTP connection fails                     | Merged |
-| ![Fixed][fixed] | [#241](https://github.com/mikepadiernos/plasma-impresario/issues/241) | Plasma displays a generic icon instead of the application icon   | Merged |
-| ![Fixed][fixed] | [#228](https://github.com/mikepadiernos/plasma-impresario/issues/228) | Installed app missing from Plasma application menu               | Merged |
+| Status                                    | Issue                                                                 | Bug                                                              | Board  |
+| ----------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------- | ------ |
+| ![Needs verification][needs-verification] | [#446](https://github.com/mikepadiernos/plasma-impresario/issues/446) | Message list stays empty after going online again                | Review |
+| ![Fixed][fixed]                           | [#427](https://github.com/mikepadiernos/plasma-impresario/issues/427) | APPENDUID with several UIDs reads past the end of the response   | Merged |
+| ![Fixed][fixed]                           | [#426](https://github.com/mikepadiernos/plasma-impresario/issues/426) | Message list view can crash while being destroyed                | Merged |
+| ![Fixed][fixed]                           | [#425](https://github.com/mikepadiernos/plasma-impresario/issues/425) | Threaded quick search sends search words unquoted                | Merged |
+| ![Fixed][fixed]                           | [#376](https://github.com/mikepadiernos/plasma-impresario/issues/376) | Reply to All but Me keeps the user's address without an identity | Merged |
+| ![Fixed][fixed]                           | [#366](https://github.com/mikepadiernos/plasma-impresario/issues/366) | An untrusted SMTP certificate cannot be accepted                 | Merged |
+| ![Fixed][fixed]                           | [#364](https://github.com/mikepadiernos/plasma-impresario/issues/364) | Sending hangs when the SMTP connection fails                     | Merged |
+| ![Fixed][fixed]                           | [#241](https://github.com/mikepadiernos/plasma-impresario/issues/241) | Plasma displays a generic icon instead of the application icon   | Merged |
+| ![Fixed][fixed]                           | [#228](https://github.com/mikepadiernos/plasma-impresario/issues/228) | Installed app missing from Plasma application menu               | Merged |
 
-No open bugs are recorded. Limitations of implemented features are tracked in
-[caveats](CAVEATS.md), and unconfirmed scenarios in [edge cases](EDGE.md).
+Limitations of implemented features are tracked in [caveats](CAVEATS.md), and
+unconfirmed scenarios in [edge cases](EDGE.md).
 
 > [!TIP]
 >
@@ -42,6 +43,17 @@ No open bugs are recorded. Limitations of implemented features are tracked in
 > issue from the entry.
 
 ## Fixed issues
+
+### [bug] Message list stays empty after going online again
+
+| Field            | Details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Issue**        | [#446](https://github.com/mikepadiernos/plasma-impresario/issues/446)                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| **Status**       | ![Needs verification][needs-verification]                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Reproduction** | Open a folder, go offline, optionally open a message whose body is not downloaded, then go online again.                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **Expected**     | The folder's messages are listed again and the open message loads.                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Actual**       | Going online reloads the folder list, which replaces every folder item. The message list belonged to the removed item, so it was emptied and nothing reopened the folder. The old item could still be selected meanwhile, for example to load the open message, and its UNSELECT was then answered after the SELECT of the new item had been sent; the UNSELECT reply reset the connection under that SELECT, which failed with "Wrong connection state -- how come that a mailbox was opened in this moment?". |
+| **Fix**          | `MsgListModel` reports the mailbox it lost when its item is removed, and the main window reopens the folder of that name, except in the Unified Inbox, which reopens its INBOXes itself. `UnSelectTask` leaves the connection to a SELECT sent after it, and with QRESYNC no longer waits for a CLOSED that will not come. `test_Imap_DisappearingMailboxes` covers both; `test_LiveImapPanels` goes offline and online on a live server and opens a message afterwards.                                        |
 
 ### [bug] APPENDUID with several UIDs reads past the end of the response
 

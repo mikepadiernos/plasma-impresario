@@ -53,6 +53,8 @@ private:
     CommandHandle unSelectTag;
     CommandHandle selectMissingTag;
     ImapTask *conn;
+    /** @short A SELECT was sent on this connection after the UNSELECT, so the state after our reply is its own */
+    bool m_selectPipelined = false;
 };
 
 }
