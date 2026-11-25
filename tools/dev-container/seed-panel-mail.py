@@ -14,6 +14,9 @@ a real OpenPGP signature. The messages are:
              different subject); unread
   signed     "Signed release note" from Carol, multipart/signed; unread
   lunch      "Lunch on Friday" from Alice (same sender as plan-1); unread
+  news       "Weekly news" from Erin, HTML with a remote image on
+             images.example.test and a link whose text shows another site;
+             unread
 """
 
 import base64
@@ -26,6 +29,7 @@ ALICE = f"Alice Example <alice@{DOMAIN}>"
 BOB = f"Bob Example <bob@{DOMAIN}>"
 CAROL = f"Carol Example <carol@{DOMAIN}>"
 DAVE = f"Dave Example <dave@{DOMAIN}>"
+ERIN = f"Erin Example <erin@{DOMAIN}>"
 
 
 def headers(sender, to, subject, date, message_id, extra=()):
@@ -162,6 +166,19 @@ MESSAGES = [
         ),
     ),
     ("4-signed", None, signed_message()),
+    (
+        "6-news",
+        None,
+        headers(ERIN, USER, "Weekly news", "Tue, 24 Nov 2026 08:00:00 +0000", "news")
+        + [
+            "Content-Type: text/html; charset=utf-8",
+            "",
+            "<html><body><p>This week's news.</p>",
+            f'<p><img src="https://images.{DOMAIN}/banner.png" alt="Banner"></p>',
+            f'<p><a id="sign-in" href="https://sign-in.{DOMAIN}.invalid/">https://bank.{DOMAIN}/</a></p>',
+            "</body></html>",
+        ],
+    ),
     (
         "5-lunch",
         None,
