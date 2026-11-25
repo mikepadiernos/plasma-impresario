@@ -35,6 +35,7 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QToolButton>
 
 namespace {
 
@@ -435,6 +436,97 @@ private slots:
         // A notification about one account must not linger after switching to another
         nextAccount->trigger();
         QVERIFY(bar->isHidden());
+    }
+
+    void quickActionsOffline()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        Gui::MainWindow window(&settings);
+
+        const QList<std::pair<QString, QKeySequence>> expected = {
+            {QStringLiteral("action_move_to_folder"), QKeySequence(QStringLiteral("V"))},
+            {QStringLiteral("action_copy_to_folder"), QKeySequence(QStringLiteral("Shift+V"))},
+            {QStringLiteral("action_mark_as_unread"), QKeySequence(QStringLiteral("Shift+M"))},
+        };
+        for (const auto &[name, shortcut] : expected) {
+            auto *action = window.findChild<QAction *>(name);
+            QVERIFY2(action, qPrintable(name));
+            QCOMPARE(action->shortcut(), shortcut);
+            // Offline and without a selection there is nothing to act on
+            QVERIFY2(!action->isEnabled(), qPrintable(name));
+        }
+
+        // Every shortcut belongs to one action only
+        QHash<QString, QString> owners;
+        for (QAction *action : window.findChildren<QAction *>()) {
+            if (!action->objectName().startsWith(QLatin1String("action_")))
+                continue;
+            for (const QKeySequence &shortcut : action->shortcuts()) {
+                const QString key = shortcut.toString(QKeySequence::PortableText);
+                if (key.isEmpty())
+                    continue;
+                const QString owner = owners.value(key);
+                QVERIFY2(owner.isEmpty() || owner == action->objectName(),
+                         qPrintable(key + QLatin1String(": ") + owner + QLatin1String(", ") + action->objectName()));
+                owners.insert(key, action->objectName());
+            }
+        }
+
+        for (const QString &name : {QStringLiteral("moveToMenu"), QStringLiteral("copyToMenu")}) {
+            auto *menu = window.findChild<QMenu *>(name);
+            QVERIFY2(menu, qPrintable(name));
+            QVERIFY2(!menu->menuAction()->isEnabled(), qPrintable(name));
+            // Without remembered folders only the picker is offered
+            emit menu->aboutToShow();
+            QCOMPARE(menu->actions().size(), 1);
+        }
+        auto *moveButton = window.findChild<QToolButton *>(QStringLiteral("moveToFolderButton"));
+        QVERIFY(moveButton);
+        QCOMPARE(moveButton->defaultAction(), window.findChild<QAction *>(QStringLiteral("action_move_to_folder")));
+        QVERIFY(!moveButton->isEnabled());
+
+        // Recent destinations are remembered per account, most recent first
+        const QString key = Common::SettingsNames::imapRecentDestinationFolders;
+        QVERIFY(QMetaObject::invokeMethod(&window, "rememberRecentFolder", Q_ARG(QString, QStringLiteral("Work/Projects"))));
+        QVERIFY(QMetaObject::invokeMethod(&window, "rememberRecentFolder", Q_ARG(QString, QStringLiteral("R&D"))));
+        const QStringList work{QStringLiteral("R&D"), QStringLiteral("Work/Projects")};
+        QCOMPARE(window.accountSettings()->value(key).toStringList(), work);
+        QVERIFY(!settings.contains(key));
+
+        // Nothing is listed yet, so the folders cannot be judged and are offered; '&' is not a mnemonic
+        auto *moveMenu = window.findChild<QMenu *>(QStringLiteral("moveToMenu"));
+        emit moveMenu->aboutToShow();
+        QStringList offered;
+        for (QAction *action : moveMenu->actions()) {
+            if (!action->isSeparator() && action->objectName().isEmpty())
+                offered << action->data().toString();
+        }
+        QCOMPARE(offered, work);
+        QCOMPARE(moveMenu->actions().constFirst()->text(), QStringLiteral("R&&D"));
+        QCOMPARE(moveMenu->actions().constLast()->objectName(), QStringLiteral("moveToOtherFolder"));
+
+        const QString firstAccount = window.imapAccess()->credentialAccountId();
+        auto *nextAccount = window.findChild<QAction *>(QStringLiteral("action_next_account"));
+        nextAccount->trigger();
+        QCOMPARE(window.imapAccess()->credentialAccountId(), QStringLiteral("account-2"));
+        QVERIFY(window.accountSettings()->value(key).toStringList().isEmpty());
+        emit moveMenu->aboutToShow();
+        QCOMPARE(moveMenu->actions().size(), 1);
+        QVERIFY(QMetaObject::invokeMethod(&window, "rememberRecentFolder", Q_ARG(QString, QStringLiteral("Family"))));
+        QCOMPARE(window.accountSettings()->value(key).toStringList(), QStringList{QStringLiteral("Family")});
+
+        nextAccount->trigger();
+        QCOMPARE(window.imapAccess()->credentialAccountId(), firstAccount);
+        QCOMPARE(window.accountSettings()->value(key).toStringList(), work);
+        QVERIFY(!settings.contains(key));
+
+        // Offline, the picker is not offered
+        window.findChild<QAction *>(QStringLiteral("action_move_to_folder"))->trigger();
+        QVERIFY(QMetaObject::invokeMethod(&window, "slotMoveToFolder"));
+        QVERIFY(!window.findChild<QDialog *>(QStringLiteral("moveToFolderDialog")));
     }
 };
 

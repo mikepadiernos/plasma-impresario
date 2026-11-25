@@ -1081,7 +1081,7 @@ if(BUILD_TESTING)
             foreach(account_case migratesSingleProfileIntoFirstAccount switchingKeepsAccountsIndependent backgroundAccountStatusIsShown
                     removingAccountDeletesItsSettingsAndPasswords accountsSwitchFromTheKeyboard
                     savedSearchesAndFolderExpansionFollowTheAccount focusCyclesThroughShellRegions
-                    goToFolderActionsWithoutFolders destructiveActionsOffline)
+                    goToFolderActionsWithoutFolders destructiveActionsOffline quickActionsOffline)
                 add_test(NAME test_MainWindowAccounts_${account_case} COMMAND test_MainWindowAccounts ${account_case})
                 set_tests_properties(test_MainWindowAccounts_${account_case} PROPERTIES
                     TIMEOUT 60
@@ -1202,6 +1202,8 @@ if(BUILD_TESTING)
     target_link_libraries(test_AttachmentCollector PRIVATE UiUtils)
     trojita_test(Misc RelatedMessages)
     target_link_libraries(test_RelatedMessages PRIVATE UiUtils)
+    trojita_test(Misc RecentFolders)
+    target_link_libraries(test_RecentFolders PRIVATE UiUtils)
     trojita_test(Misc SpecialFolder)
     if(WITH_DESKTOP)
         trojita_test(Misc DestructiveActions)
