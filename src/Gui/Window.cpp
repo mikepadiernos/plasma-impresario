@@ -4978,8 +4978,10 @@ void MainWindow::slotSaveCurrentMessageBody()
 
 void MainWindow::slotDownloadTransferError(const QString &errorString)
 {
-    Gui::Util::messageBoxCritical(this, tr("Can't save into file"),
-                                  tr("Unable to save into file. Error:\n%1").arg(errorString));
+    // Reported both when the data cannot be downloaded, for example offline, and when the file cannot be written
+    Gui::Util::messageBoxCritical(this, i18nc("@title:window", "Could Not Save File"),
+                                  i18nc("@info %1 is an error message", "The file could not be downloaded or saved.\n%1",
+                                        errorString));
 }
 
 void MainWindow::slotDownloadMessageFileNameRequested(QString *fileName)
