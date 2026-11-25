@@ -136,6 +136,7 @@
 
 #include "Imap/Model/AccountCapabilities.h"
 #include "OAuth/OAuth.h"
+#include "AccountSidebar.h"
 #include "CapabilityActionGate.h"
 
 /** @short All user-facing widgets and related classes */
@@ -1820,6 +1821,7 @@ void MainWindow::refreshAccountSwitcher()
         m_capabilityGate->addAction(moveToArchive, Imap::AccountOperation::ServerSideMove);
     }
     m_capabilityGate->apply(Imap::AccountCapabilities::forAccount(*accountSettings()));
+    m_accountSidebar->refresh(*m_accounts, *m_accountStatus);
 }
 
 void MainWindow::detachAccountModels()
@@ -2001,7 +2003,7 @@ void MainWindow::cycleFocusRegion(int step)
     QList<Region> regions;
     if (m_accountSwitcher)
         regions.append(Region{m_accountSwitcher, m_accountSwitcher});
-    regions.append(Region{mboxTree, mboxTree});
+    regions.append(Region{m_accountSidebar, mboxTree});
     regions.append(Region{msgListWidget, msgListWidget->tree});
 #ifdef TROJITA_HAVE_WEBENGINE
     regions.append(Region{m_messageWidget, m_messageWidget->messageView});
@@ -3252,7 +3254,7 @@ void MainWindow::setMailboxSidebarRight(bool right)
     if (!m_shellRow || m_mainStack)
         return;
     QSplitter *target = right ? m_shellRight.widget : m_shellLeft.widget;
-    if (mboxTree->parentWidget() == target)
+    if (m_accountSidebar->parentWidget() == target)
         return;
     // The sidebar keeps its width; whatever else is in the columns stays where it is.
     rememberShellExtents();
@@ -3314,6 +3316,10 @@ void MainWindow::createShell()
 
     for (QSplitter *region : {m_shellLeft.widget, m_shellRight.widget, m_shellFooter.widget})
         region->hide();
+
+    // The folder tree is grouped by account; the sidebar takes the tree's place in the side columns
+    m_accountSidebar = new AccountSidebar(mboxTree);
+    connect(m_accountSidebar, &AccountSidebar::accountActivated, this, &MainWindow::switchAccount);
     setCentralWidget(m_shellBody);
 }
 
@@ -3323,9 +3329,9 @@ void MainWindow::placeMailboxSidebar()
         return;
     // Called before leaving the one-at-a-time layout too, so that deleting its stack does not delete the tree
     QSplitter *column = m_mailboxSidebarOnRight ? m_shellRight.widget : m_shellLeft.widget;
-    column->insertWidget(0, mboxTree);
+    column->insertWidget(0, m_accountSidebar);
     column->setStretchFactor(0, 1);
-    mboxTree->show();
+    m_accountSidebar->show();
 }
 
 void MainWindow::placeEmbeddedPanels()
@@ -3337,7 +3343,7 @@ void MainWindow::placeEmbeddedPanels()
         QSplitter *region = panelRegion(panel);
         if (!nextIndex.contains(region)) {
             // Panels follow the mailbox tree or the reader, in their canonical order.
-            const bool afterAnchor = region->count() > 0 && (region->widget(0) == mboxTree || region->widget(0) == m_messageWidget);
+            const bool afterAnchor = region->count() > 0 && (region->widget(0) == m_accountSidebar || region->widget(0) == m_messageWidget);
             nextIndex.insert(region, afterAnchor ? 1 : 0);
         }
         int &index = nextIndex[region];
@@ -3389,7 +3395,7 @@ bool MainWindow::shellRegionHasContent(const QSplitter *region) const
 {
     for (int i = 0; i < region->count(); ++i) {
         QWidget *widget = region->widget(i);
-        if (widget == mboxTree)
+        if (widget == m_accountSidebar)
             return true;
         if (auto panel = qobject_cast<EmbeddedPanel *>(widget); panel && panel->shouldBeShown())
             return true;
@@ -3604,7 +3610,8 @@ void MainWindow::slotLayoutOneAtTime()
         return;
 
     rememberShellExtents();
-    m_mainStack = new OnePanelAtTimeWidget(this, mboxTree, msgListWidget, m_readerColumn, m_mainToolbar, m_oneAtTimeGoBack);
+    m_mainStack = new OnePanelAtTimeWidget(this, mboxTree, msgListWidget, m_readerColumn, m_mainToolbar, m_oneAtTimeGoBack,
+                                           m_accountSidebar);
     m_mainColumn->addWidget(m_mainStack);
     m_mainStack->show();
     placeEmbeddedPanels();

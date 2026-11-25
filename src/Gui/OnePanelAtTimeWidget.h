@@ -45,7 +45,8 @@ class OnePanelAtTimeWidget: public QStackedWidget
     Q_OBJECT
 public:
    OnePanelAtTimeWidget(QMainWindow *mainWindow, MailBoxTreeView *mboxTree, MessageListWidget *msgListWidget,
-                        QWidget *messageWidget, QToolBar *toolbar, QAction* toolbarActions);
+                        QWidget *messageWidget, QToolBar *toolbar, QAction* toolbarActions,
+                        QWidget *mailboxPage = nullptr);
     ~OnePanelAtTimeWidget() override;
 
 public slots:
@@ -55,6 +56,8 @@ public slots:
 private:
     QMainWindow *m_mainWindow;
     MailBoxTreeView *m_mboxTree;
+    /** The first page: the mailbox tree or a widget that holds it */
+    QWidget *m_mailboxPage;
     MessageListWidget *m_msgListWidget;
     QWidget *m_messageWidget;
 

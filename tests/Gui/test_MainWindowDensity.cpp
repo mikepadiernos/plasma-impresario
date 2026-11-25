@@ -4,6 +4,7 @@
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
 #include "Composer/Submission.h"
+#include "Gui/AccountSidebar.h"
 #include "Gui/AttachmentPanel.h"
 #include "Gui/ComposeWidget.h"
 #include "Gui/DensityDelegate.h"
@@ -130,6 +131,9 @@ private slots:
         auto *right = window.findChild<QAction *>(QStringLiteral("mailboxSidebarRight"));
         QVERIFY(menu);
         QVERIFY(mailboxes);
+        auto *sidebar = window.findChild<Gui::AccountSidebar *>();
+        QVERIFY(sidebar);
+        QVERIFY(sidebar->isAncestorOf(mailboxes));
         QVERIFY(messages);
         QVERIFY(left);
         QVERIFY(right);
@@ -145,7 +149,7 @@ private slots:
         QCOMPARE(row->indexOf(mainColumn), 1);
         QCOMPARE(row->indexOf(rightColumn), 2);
         QCOMPARE(body->indexOf(footer), 1);
-        QCOMPARE(mailboxes->parentWidget(), rightColumn);
+        QCOMPARE(sidebar->parentWidget(), rightColumn);
         QVERIFY(right->isChecked());
         window.resize(1000, 700);
         window.show();
@@ -158,7 +162,7 @@ private slots:
         const int sidebarWidth = row->sizes().last();
         QVERIFY(sidebarWidth > 0);
         left->trigger();
-        QCOMPARE(mailboxes->parentWidget(), leftColumn);
+        QCOMPARE(sidebar->parentWidget(), leftColumn);
         QVERIFY(leftColumn->isVisible());
         QVERIFY(!rightColumn->isVisible());
         QVERIFY(qAbs(row->sizes().first() - sidebarWidth) <= 2);
@@ -186,7 +190,7 @@ private slots:
         QVERIFY(messageDelegate->sizeHint(option, index).height() > messageHeight);
         QCOMPARE(row->sizes(), sizesBeforeDensityChange);
         QVERIFY(QMetaObject::invokeMethod(&window, "slotLayoutWide"));
-        QCOMPARE(mailboxes->parentWidget(), leftColumn);
+        QCOMPARE(sidebar->parentWidget(), leftColumn);
         QCOMPARE(mainColumn->orientation(), Qt::Horizontal);
         QCOMPARE(mainColumn->count(), 2);
         auto *readerColumn = window.findChild<QSplitter *>(QStringLiteral("readerColumn"));
@@ -239,20 +243,20 @@ private slots:
         QVERIFY(!rightColumn->isVisible());
 #endif
         right->trigger();
-        QCOMPARE(mailboxes->parentWidget(), rightColumn);
-        QCOMPARE(rightColumn->indexOf(mailboxes), 0);
+        QCOMPARE(sidebar->parentWidget(), rightColumn);
+        QCOMPARE(rightColumn->indexOf(sidebar), 0);
         QVERIFY(!leftColumn->isVisible());
         QVERIFY(QMetaObject::invokeMethod(&window, "slotLayoutCompact"));
-        QCOMPARE(mailboxes->parentWidget(), rightColumn);
+        QCOMPARE(sidebar->parentWidget(), rightColumn);
         QCOMPARE(mainColumn->orientation(), Qt::Vertical);
         QCOMPARE(readerColumn->parentWidget(), mainColumn);
         QVERIFY(row->sizes().last() < row->sizes().at(1));
         QVERIFY(QMetaObject::invokeMethod(&window, "slotLayoutOneAtTime"));
         QVERIFY(qobject_cast<QStackedWidget *>(readerColumn->parentWidget()));
-        QVERIFY(qobject_cast<QStackedWidget *>(mailboxes->parentWidget()));
+        QVERIFY(qobject_cast<QStackedWidget *>(sidebar->parentWidget()));
         QVERIFY(!rightColumn->isVisible());
         QVERIFY(QMetaObject::invokeMethod(&window, "slotLayoutWide"));
-        QCOMPARE(mailboxes->parentWidget(), rightColumn);
+        QCOMPARE(sidebar->parentWidget(), rightColumn);
         QVERIFY(rightColumn->isVisible());
         QCOMPARE(readerColumn->parentWidget(), mainColumn);
         QCOMPARE(mainColumn->orientation(), Qt::Horizontal);
@@ -269,7 +273,7 @@ private slots:
         QVERIFY(detailsPanel->isVisible());
         QCOMPARE(detailsPanel->parentWidget(), rightColumn);
         const int detailsIndex = rightColumn->indexOf(detailsPanel);
-        const int mailboxIndex = rightColumn->indexOf(mailboxes);
+        const int mailboxIndex = rightColumn->indexOf(sidebar);
         const int columnSpace = rightColumn->height() - rightColumn->handleWidth();
         const int detailsHeight = rightColumn->sizes().at(detailsIndex);
         QVERIFY2(detailsHeight >= std::min(detailsPanel->sizeHint().height(), columnSpace * 2 / 3) - 2,

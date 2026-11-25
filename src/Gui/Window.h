@@ -93,6 +93,7 @@ class MSAFactory;
 namespace Gui
 {
 
+class AccountSidebar;
 class CapabilityActionGate;
 class AttachmentPanel;
 class ContactPanel;
@@ -418,6 +419,8 @@ private:
     QHash<EmbeddedPanel *, int> m_panelExtents;
     /** Panel regions which still have to be fitted once they are laid out */
     QSet<QSplitter *> m_panelRegionsPending;
+    /** The folder tree grouped by account, in the column chosen for the mailbox sidebar */
+    AccountSidebar *m_accountSidebar = nullptr;
     /** Hides the actions which the active account's protocol does not support */
     CapabilityActionGate *m_capabilityGate = nullptr;
 

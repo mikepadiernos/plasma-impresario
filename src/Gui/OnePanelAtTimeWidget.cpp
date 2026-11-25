@@ -31,14 +31,16 @@
 
 namespace Gui {
 OnePanelAtTimeWidget::OnePanelAtTimeWidget(QMainWindow *mainWindow, MailBoxTreeView *mboxTree, MessageListWidget *msgListWidget,
-                                           QWidget *messageWidget, QToolBar *toolbar, QAction *actionGoBack):
-    QStackedWidget(mainWindow), m_mainWindow(mainWindow), m_mboxTree(mboxTree), m_msgListWidget(msgListWidget),
+                                           QWidget *messageWidget, QToolBar *toolbar, QAction *actionGoBack,
+                                           QWidget *mailboxPage):
+    QStackedWidget(mainWindow), m_mainWindow(mainWindow), m_mboxTree(mboxTree),
+    m_mailboxPage(mailboxPage ? mailboxPage : mboxTree), m_msgListWidget(msgListWidget),
     m_messageWidget(messageWidget), m_toolbar(toolbar), m_actionGoBack(actionGoBack)
 {
-    addWidget(m_mboxTree);
+    addWidget(m_mailboxPage);
     addWidget(m_msgListWidget);
     addWidget(m_messageWidget);
-    setCurrentWidget(m_mboxTree);
+    setCurrentWidget(m_mailboxPage);
 
     connect(m_msgListWidget->tree, &QAbstractItemView::clicked, this, &OnePanelAtTimeWidget::slotOneAtTimeGoDeeper);
     connect(m_msgListWidget->tree, &QAbstractItemView::activated, this, &OnePanelAtTimeWidget::slotOneAtTimeGoDeeper);
