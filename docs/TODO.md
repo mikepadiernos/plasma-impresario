@@ -5,7 +5,7 @@
 **[Bugs](BUGS.md)** · **[Caveats](CAVEATS.md)** · **[Edge cases](EDGE.md)**
 
 This log records unfinished work, blockers and resumable handoffs. Issue
-statuses below match the project board as of 2026-11-24.
+statuses below match the project board as of 2026-11-25.
 
 Legend: ✅ done or verified · 🧪 implemented, needs verification · 🚧 in
 progress · 📋 planned · ⛔ blocked
@@ -40,10 +40,10 @@ progress · 📋 planned · ⛔ blocked
 
 ## In progress
 
-- 🚧 **M02 shell, accounts and mailbox foundation**
-  ([#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)): work
-  continues on `feature/m02-shell-next`, which is not merged into `main`. See
-  the [M02 handoff](#m02-shell-and-account-foundation).
+- ✅ **M02 shell, accounts and mailbox foundation**
+  ([#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)): merged
+  into `main`. M03 still needs to merge it; see
+  [merging M02 into M03](#merging-m02-into-m03).
 - 🚧 **M03 mail operations, sorting and folder management**
   ([#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)): in
   Development on `feature/m03-mail-operations`, which is based on this branch
@@ -74,42 +74,37 @@ progress · 📋 planned · ⛔ blocked
 
 ### M02 shell and account foundation
 
-All M02 work is on `feature/m02-shell-next`, which already contains the earlier
-`feature/m02-shell-accounts` and `feature/m02-shell-continuation` branches. It
-is not merged into `main`. Its features are in **M02.01 Headless
-implementation and verification**
-([#318](https://github.com/mikepadiernos/plasma-impresario/issues/318)): all
-13 features, built and verified with offscreen QtTest and the synthetic Dovecot
-server in `tools/dev-container/`.
-
-The checks that need a real Plasma session, KWallet or a real provider account
-were the M02.02 subsection. They moved to their own milestone,
-[M14](#m14-real-plasma-session-verification), on 2026-11-25 so they do not
-block M02.
+M02 ([#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)) is
+feature-complete: all 14 roadmap items are checked and
+`feature/m02-shell-next` is merged into `main`. Its features were in **M02.01
+Headless implementation and verification**
+([#318](https://github.com/mikepadiernos/plasma-impresario/issues/318)), built
+and verified with offscreen QtTest and the synthetic Dovecot server in
+`tools/dev-container/`. The checks that need a real Plasma session, KWallet or
+a real provider account moved to
+[M14](#m14-real-plasma-session-verification) on 2026-11-25. What remains here
+is [merging M02 into M03](#merging-m02-into-m03) and the
+[open follow-ups](#open-follow-ups).
 
 #### Issue status
 
-| Issue                                                                 | Feature                                                     | Board       | State                                                                                        |
-| --------------------------------------------------------------------- | ----------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------- |
-| [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)     | M02 milestone                                               | Development | 🚧 Waits on the open features below                                                          |
-| [#318](https://github.com/mikepadiernos/plasma-impresario/issues/318) | M02.01 Headless implementation and verification             | Development | 🚧 Parent of the 13 features below                                                           |
-| [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)   | Mail shell                                                  | Completed   | ✅ Verified headless; Plasma-session check moved to #315                                     |
-| [#74](https://github.com/mikepadiernos/plasma-impresario/issues/74)   | App skeleton in the design-spec layout                      | Development | ⏸️ Held while M03 is active; needs a layout decision ([held work](#m02-work-held-for-m03))   |
-| [#36](https://github.com/mikepadiernos/plasma-impresario/issues/36)   | Account setup and mailbox state                             | Development | 🚧 Decisions recorded in [account model](#account-model-decisions)                           |
-| [#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)   | Account setup, editing, removal, identities and credentials | Review      | 👀 Setup, editing, removal, identities and credential default verified; KWallet in #316      |
-| [#80](https://github.com/mikepadiernos/plasma-impresario/issues/80)   | Account grouping, folder navigation and keyboard focus      | Development | ⏸️ Held while M03 is active; needs a grouping decision ([held work](#m02-work-held-for-m03)) |
-| [#215](https://github.com/mikepadiernos/plasma-impresario/issues/215) | Protocol-aware account and capability model                 | Development | 🚧 Protocol stored per account; interface use held ([held work](#m02-work-held-for-m03))     |
-| [#218](https://github.com/mikepadiernos/plasma-impresario/issues/218) | OAuth account authentication                                | Defined     | 📋 Not started; live provider check moved to #317 (see below)                                |
-| [#75](https://github.com/mikepadiernos/plasma-impresario/issues/75)   | Density modes                                               | Completed   | ✅ Row-density selector                                                                      |
-| [#76](https://github.com/mikepadiernos/plasma-impresario/issues/76)   | Folder counts and saved searches                            | Completed   | ✅ Verified against disposable IMAP                                                          |
-| [#77](https://github.com/mikepadiernos/plasma-impresario/issues/77)   | Milestone gate for later mailbox work                       | Completed   | ✅                                                                                           |
-| [#79](https://github.com/mikepadiernos/plasma-impresario/issues/79)   | Connection, authentication, offline and loading states      | Completed   | ✅ Footer and per-account status                                                             |
-| [#81](https://github.com/mikepadiernos/plasma-impresario/issues/81)   | Pane layout, selection and density across sessions          | Completed   | ✅ Verified against disposable IMAP                                                          |
-| [#222](https://github.com/mikepadiernos/plasma-impresario/issues/222) | Multiple simultaneous accounts                              | Completed   | ✅ Verified against disposable IMAP; caveat [#262](CAVEATS.md#multiple-accounts)             |
-
-Completed issues move to Merged when `feature/m02-shell-next` is merged into
-`main`. The Plasma-session checks split from #35, #78 and #218 are tracked in
-[M14](#m14-real-plasma-session-verification).
+| Issue                                                                 | Feature                                                     | Board  | State                                                                            |
+| --------------------------------------------------------------------- | ----------------------------------------------------------- | ------ | -------------------------------------------------------------------------------- |
+| [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)     | M02 milestone                                               | Merged | ✅ Feature-complete                                                              |
+| [#318](https://github.com/mikepadiernos/plasma-impresario/issues/318) | M02.01 Headless implementation and verification             | Merged | ✅ All 13 features                                                               |
+| [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)   | Mail shell                                                  | Merged | ✅ Verified headless; Plasma-session check is #315                               |
+| [#74](https://github.com/mikepadiernos/plasma-impresario/issues/74)   | App skeleton in the design-spec layout                      | Merged | ✅ Optional header region                                                        |
+| [#36](https://github.com/mikepadiernos/plasma-impresario/issues/36)   | Account setup and mailbox state                             | Merged | ✅ [Account model decisions](#account-model-decisions)                           |
+| [#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)   | Account setup, editing, removal, identities and credentials | Merged | ✅ Verified against disposable Dovecot; KWallet is #316                          |
+| [#80](https://github.com/mikepadiernos/plasma-impresario/issues/80)   | Account grouping, folder navigation and keyboard focus      | Merged | ✅ Account sidebar                                                               |
+| [#215](https://github.com/mikepadiernos/plasma-impresario/issues/215) | Protocol-aware account and capability model                 | Merged | ✅ Unsupported actions hidden                                                    |
+| [#218](https://github.com/mikepadiernos/plasma-impresario/issues/218) | OAuth account authentication                                | Merged | ✅ Headless; live sign-in is #317, caveat [#362](CAVEATS.md#oauth-sign-in)       |
+| [#75](https://github.com/mikepadiernos/plasma-impresario/issues/75)   | Density modes                                               | Merged | ✅ Row-density selector                                                          |
+| [#76](https://github.com/mikepadiernos/plasma-impresario/issues/76)   | Folder counts and saved searches                            | Merged | ✅ Verified against disposable IMAP                                              |
+| [#77](https://github.com/mikepadiernos/plasma-impresario/issues/77)   | Milestone gate for later mailbox work                       | Merged | ✅                                                                               |
+| [#79](https://github.com/mikepadiernos/plasma-impresario/issues/79)   | Connection, authentication, offline and loading states      | Merged | ✅ Footer and per-account status                                                 |
+| [#81](https://github.com/mikepadiernos/plasma-impresario/issues/81)   | Pane layout, selection and density across sessions          | Merged | ✅ Verified against disposable IMAP                                              |
+| [#222](https://github.com/mikepadiernos/plasma-impresario/issues/222) | Multiple simultaneous accounts                              | Merged | ✅ Verified against disposable IMAP; caveat [#262](CAVEATS.md#multiple-accounts) |
 
 #### Live verification environment
 
@@ -168,7 +163,7 @@ need a real session.
   stored password. A new profile selected QtKeychain, signed in through the password
   prompt when no secret store was available, and wrote no password to any
   settings file. Storage in KWallet still needs a real session (#316).
-- 🧪 **Sender identities, #78:** each account has its own identities by
+- ✅ **Sender identities, #78:** each account has its own identities by
   default, edited on the Identities tab of the Account Settings dialog. An account can
   instead use the identities shared by all accounts; it keeps its own list for
   later. An account can also send with **No identity**: the composer then
@@ -232,8 +227,8 @@ need a real session.
     Related Messages are off by default in the right column, so the default look
     is unchanged.
   - <kbd>F6</kbd> and <kbd>Shift</kbd>+<kbd>F6</kbd> cycle focus through the
-    account selector, folder tree, message list, reader and each visible
-    embedded panel.
+    header (when shown), account selector, folder sidebar, message list, reader
+    and each visible embedded panel.
   - Offscreen tests cover placement, sidebar swaps, hiding empty regions,
     one-panel layout and size persistence.
   - `test_LiveImapPanels` verified the details, contacts, related messages and
@@ -258,28 +253,48 @@ need a real session.
     sliding, floating or rearrangeable panels
     [#307](https://github.com/mikepadiernos/plasma-impresario/issues/307)
     (M13.02).
+- ✅ **Capability-aware actions, #215:** `Gui::CapabilityActionGate` hides the
+  actions the active account's protocol cannot perform and shows them again on
+  switching back: folder management as `ServerFolders`, junk and tags as
+  `ServerSideFlags`, archive as `ServerSideMove`. It re-shows only actions it
+  hid itself. Every account is IMAP until M06.05, so nothing is hidden today.
+  `test_MainWindowShell` switches between an IMAP and a POP3 account.
+- ✅ **Account grouping, #80:** with two or more accounts, `Gui::AccountSidebar`
+  shows a header per account above the active account's folder tree. Clicking
+  another header switches to it; clicking the active one collapses or expands
+  its folders. Up and Down move between headers, Return activates, and F6
+  treats the sidebar as one region. With one account no header is shown. The
+  sidebar replaces the bare tree in both side columns and the one-panel layout.
+- ✅ **Header region, #74:** **View › Show Header** adds an optional header
+  above the columns with the account, folder and account status. It is off by
+  default and saved as `Appearance/ShowHeader` in `plasma-impresariorc`. The
+  designed header stays in M13.02 as
+  [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306).
+- ✅ **OAuth, #218:** authorization code flow with PKCE through the browser and
+  a loopback redirect, token refresh, and SASL `XOAUTH2`/`OAUTHBEARER` for IMAP
+  and SMTP, with Google and Microsoft providers. Grants are stored per account
+  through the password plugin and deleted with the account. `test_OAuth`
+  covers sign-in, renewal, failures, isolation and the SASL exchanges. Live
+  sign-in is #317 in M14; limitations are
+  [caveat #362](CAVEATS.md#oauth-sign-in).
 
-#### Blockers and open decisions
+#### Open follow-ups
 
-- ⛔ **OAuth verification, #218:** the work is not started, so the issue stays
-  in Defined. The IMAP layer has no XOAUTH2 or OAUTHBEARER authentication and
-  there is no token source; both can be implemented and covered by parser tests
-  KAccounts and signond are installed, but token retrieval and renewal
-  cannot be verified without a real Google or Microsoft account, which needs
-  your input. That check is tracked in M14 as
-  [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317).
-- 🚧 **Account model, #36, #78 and #215:** decided and implemented as
-  recorded in [account model decisions](#account-model-decisions). The
-  interface does not consult the capabilities yet; that work is held (below).
-- ⏸️ **Held while M03 is active:** #80, #74 and the interface part of #215;
-  see [M02 work held for M03](#m02-work-held-for-m03).
-- ➡️ **Plasma session:** the shell (#315, from #35), KWallet storage (#316,
-  from #78) and OAuth sign-in (#317, from #218) checks moved to
-  [M14](#m14-real-plasma-session-verification) and no longer block M02.
+- 📋 **Reply to all but me with No identity:** an account set to **No
+  identity** has no addresses to exclude, so *Reply to All but Me* keeps the
+  user's own address, like *Reply to All*. Consider falling back to the
+  account's IMAP user name when it is an email address.
+- 📋 **OAuth:** the improvements listed in
+  [caveat #362](CAVEATS.md#oauth-sign-in), and live sign-in (#317, M14).
+- 📋 **SMTP socket errors:** `src/qwwsmtpclient/qwwsmtpclient.cpp` connects the
+  old `QAbstractSocket::error` signal by name, which Qt 6 renamed to
+  `errorOccurred`, so socket errors may not reach `onError`. Predates M02; not
+  yet reported as a bug.
+- 🧪 **Saved selection per account, #81 and #222:** not recorded as verified.
 
 #### Account model decisions
 
-These decisions close the open account-model questions in #36, #78 and #215.
+These decisions close the account-model questions in #36, #78, #80 and #215.
 
 | Area                | Decision                                                                                                                                                                                                                                   | State      |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
@@ -290,70 +305,43 @@ These decisions close the open account-model questions in #36, #78 and #215.
 | Identities          | Each account has its own identities by default. It can instead use the shared identities, or no identity, in which case the composer starts with an empty From address and no signature. The account's own identities are kept either way. | ✅ Decided |
 | Credentials         | Passwords are stored per account ID and per service (`imap`, `smtp`). New profiles use QtKeychain; profiles with legacy cleartext passwords keep the cleartext store.                                                                      | ✅ Decided |
 | Removal             | Removal deletes the account's settings file, registry entry and stored passwords. The offline cache is kept for now ([caveat #262](CAVEATS.md#multiple-accounts)).                                                                         | ✅ Decided |
-| Folder structure    | Each account has its own folder tree, shown for the active account only. Showing all accounts in one tree is #80 and needs your decision.                                                                                                  | ❓ Ask     |
-| Unavailable actions | Actions an account's protocol does not support should be hidden, not disabled. Wiring this into the interface waits until M03's actions settle; until POP3 or JMAP exist (M06.05), every account is IMAP.                                  | ❓ Confirm |
+| Folder structure    | Each account has its own folder tree. With several accounts, the sidebar is an accordion: a header per account and the active account's tree under its header (#80).                                                                       | ✅ Decided |
+| Unavailable actions | Actions an account's protocol does not support are hidden, not disabled, through `CapabilityActionGate` (#215). New server-dependent actions must be registered with it.                                                                   | ✅ Decided |
+| Mailbox lifecycle   | Accounts are created at startup and kept across switches; folders load on demand, and the selected mailbox and message are restored per account. Removal also deletes OAuth grants.                                                        | ✅ Decided |
 
-#### M02 work held for M03
+#### Merging M02 into M03
 
-M03 is in development in `.worktrees/m03` on `feature/m03-mail-operations` and
-rewrites much of `Window.cpp`, the folder tree models and the message list. To
-avoid conflicting changes, these M02 items are held:
+M03 is in development in `.worktrees/m03` on `feature/m03-mail-operations` with
+uncommitted work (`ViewStateStore`). M03's owner merges `main` (now including
+M02) into M03 once that work is committed:
 
-- ⏸️ **Account grouping in the folder tree, #80:** changes `MailboxTree`,
-  `PrettyMailboxModel` and `Window.cpp`, all of which M03 changes. Needs your
-  decision: one tree with a collapsible node per account, or the current
-  selector plus a per-account tree.
-- ⏸️ **App skeleton in the design-spec layout, #74:** changes the main window
-  layout that M03 also changes. Needs your decision on which design-spec layout
-  in [designs](philosophy/designs.md) to follow and what it adds beyond the
-  shell from #35.
-- ⏸️ **Capability-aware actions, #215:** hides actions that the account's
-  protocol does not support. Most of those actions are added or changed by M03,
-  so this waits until M03 is merged.
-- ⏸️ **Merge M02 into M03:** wait until the M03 worktree's uncommitted work
-  (`ViewStateStore`) is committed, then merge in two steps in the M03 worktree.
-  1. Run `git merge merge/m02-into-m03` (pushed). It is M03 at `50f6f2d0` with
-     M02 at `c0719cfa` merged in. Its conflicts in `CMakeLists.txt`,
-     `src/Common/SettingsNames.h` and `tests/Gui/test_MainWindowAccounts.cpp`
-     keep both sides, and M03's caveat, edge cases and design notes moved into
-     M02's sectioned tables in `docs/CAVEATS.md`, `docs/EDGE.md` and
-     `docs/philosophy/designs.md` (new _Mail operations_ sections). All 88
-     tests pass, and `test_LiveImapAccounts` passes against Dovecot 2.4.5. Any
-     new conflicts are limited to files M03 changed since `50f6f2d0`.
-  2. Run `git merge feature/m02-shell-next`. It brings the 15 later M02 commits,
-     including the [M05 insertion](#m05-search-milestone-insertion) that
-     `c0719cfa` predates. In `docs/ROADMAP.md`, take M02's renumbered version,
-     re-check M03's Completed items (#37, #38, #83, #84, #88 and #89) and keep
-     any M03 roadmap edits made since `50f6f2d0`. In M03's other docs, move
+1. Delete the stale `merge/m02-into-m03` branch; it predates the M02 commits
+   for #80, #74, #215 and #218.
+2. In the M03 worktree, run `git merge origin/main`. A dry run against M03 at
+   `50f6f2d0` conflicts only in additive places; keep both sides:
+   - `CMakeLists.txt`, `src/Common/SettingsNames.h` and
+     `src/Common/SettingsNames.cpp` (M03's trash and recent-folder keys beside
+     M02's OAuth keys and `composerUseSharedIdentitiesKey`);
+   - `src/Imap/Model/ImapAccess.cpp` (M03's archive folder name beside M02's
+     OAuth session);
+   - `tests/Gui/test_MainWindowAccounts.cpp`;
+   - `docs/CAVEATS.md`, `docs/EDGE.md`, `docs/ROADMAP.md` and
+     `docs/philosophy/designs.md`: take M02's sectioned tables and add M03's
+     entries as _Mail operations_ sections. In the roadmap, keep M02's version
+     and re-check M03's Completed items (#37, #38, #83, #84, #88 and #89). Move
      search references from M04 to M05 and shift M05–M12 to M06–M13.
+   `src/Gui/Window.cpp` and `Window.h` merge without conflicts.
+3. Register M03's new server-dependent actions (rename, copy and move to
+   folder, delete-to-trash and similar) with `m_capabilityGate` in
+   `MainWindow::refreshAccountSwitcher()`.
+4. Wherever M03 places or reparents the folder tree, use `m_accountSidebar`
+   instead of `mboxTree`; tests that check the tree's parent should check the
+   sidebar's, as `test_MainWindowDensity` and `test_SessionRestart` do.
+5. Build, run the full suite and `test_LiveImapAccounts`, then delete this
+   section.
 
-  Merge in that direction only, then delete `merge/m02-into-m03`. In a
-  container build of a worktree, also mount the main repository's `.git` at
-  its host path, or the version header step fails.
-
-#### How to resume
-
-1. Confirm the board status of every issue in the table above.
-2. M02.01, headless: finish #74, #80 and the interface part of #215 using the
-   decisions above. M03 cannot reach `main` before M02, because #4 blocks later
-   milestones, so decide where this work happens: on
-   `feature/m03-mail-operations` after merging M02 into it, or on
-   `feature/m02-shell-next` once M03 is quiet.
-3. For #218, add SASL support with parser tests and a token interface backed by
-   KAccounts.
-4. Advance each issue through Completed before checking its roadmap item.
-5. Reconcile the pending roadmap changes in the open pull requests
-   [#250](https://github.com/mikepadiernos/plasma-impresario/pull/250)
-   (milestone reorder,
-   [#249](https://github.com/mikepadiernos/plasma-impresario/issues/249)) and
-   [#252](https://github.com/mikepadiernos/plasma-impresario/pull/252) (feature
-   priority,
-   [#251](https://github.com/mikepadiernos/plasma-impresario/issues/251)). Both
-   issues are in Review, and both predate the
-   [M05 insertion](#m05-search-milestone-insertion).
-6. Merge `feature/m02-shell-next` into `main` only when all M02 roadmap items
-   and acceptance checks are complete. The M14 Plasma-session checks are not
-   required.
+In a container build of a worktree, also mount the main repository's `.git` at
+its host path, or the version header step fails.
 
 ### M14 real Plasma session verification
 
@@ -368,7 +356,7 @@ parent issue. M14 is blocked by M02 but does not block later milestones.
 | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | M14 milestone                                          | Defined | ⛔ Needs a real Plasma session                         |
 | [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315) | Mail shell and embedded panels in Plasma (from #35)    | Defined | ⛔ Needs a real Plasma session                         |
 | [#316](https://github.com/mikepadiernos/plasma-impresario/issues/316) | KWallet credential storage in Plasma (from #78)        | Defined | ⛔ Needs a real Plasma session and KWallet             |
-| [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317) | OAuth sign-in with a real provider account (from #218) | Defined | ⛔ Needs #218, a Plasma session and a provider account |
+| [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317) | OAuth sign-in with a real provider account (from #218) | Defined | ⛔ Needs a Plasma session and a provider account       |
 
 #### How to resume
 
@@ -377,8 +365,7 @@ parent issue. M14 is blocked by M02 but does not block later milestones.
    disposable account.
 2. Complete #315 and #316 by following the acceptance criteria in each issue,
    and record the Plasma, Qt and KDE Frameworks versions.
-3. Complete #317 after #218 is implemented, with a provider account you
-   control.
+3. Complete #317 with a provider account you control; #218 is implemented.
 4. Advance each issue through the board workflow, then close #319.
 
 ### M01 release gate and integration
@@ -393,7 +380,7 @@ and privacy evidence, without an isolated account or a live Plasma session.
 
 | Handoff                                                                                               | Moved to                                                                     | Board       | State                                                                                |
 | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------ |
-| Live account setup                                                                                    | M02 [#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)      | Development | 🚧 Accepted against disposable Dovecot; see [M02](#m02-shell-and-account-foundation) |
+| Live account setup                                                                                    | M02 [#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)      | Merged      | ✅ Accepted against disposable Dovecot; see [M02](#m02-shell-and-account-foundation) |
 | Live message reading, replies and attachments                                                         | M04 [#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)      | Backlog     | 📋                                                                                   |
 | Plasma desktop-session startup and recovery                                                           | M06.01 [#101](https://github.com/mikepadiernos/plasma-impresario/issues/101) | Backlog     | 📋                                                                                   |
 | Renderer-enabled and renderer-free installs at protected system prefixes                              | Not assigned                                                                 | —           | 📋 Pending                                                                           |

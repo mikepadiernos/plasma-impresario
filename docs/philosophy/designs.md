@@ -35,10 +35,10 @@ planned · ⚠️ limitation
 
 > [!IMPORTANT]
 >
-> The shell described in this section is implemented on `feature/m02-shell-next`
-> and is not yet merged into `main`. Offscreen tests and opt-in live IMAP tests
-> against a synthetic Dovecot server in `tools/dev-container/` cover it; it has
-> not been verified in a real Plasma session, which M14
+> The shell described in this section was built in M02. Offscreen tests and
+> opt-in live IMAP tests against a synthetic Dovecot server in
+> `tools/dev-container/` cover it; it has not been verified in a real Plasma
+> session, which M14
 > ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319))
 > tracks.
 
@@ -51,6 +51,9 @@ default settings it looks like the classic three-pane layout:
 
 ```text
 Toolbar / menu
+┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
+╎ Header (View › Show Header, off by default): account, folder and status    ╎
+└╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
 ┌────────────────────┬──────────────────────────────────────────┬ ─ ─ ─ ─ ─ ┐
 │ Left column        │ Main column                              │ Right
 │ Mailbox tree       │ Message list                             │ column
@@ -72,18 +75,20 @@ work that is implemented but whose issue is still in Review or earlier.
 
 | Feature                                                                  | Status | Milestone | Issue                                                                                                                                               |
 | ------------------------------------------------------------------------ | ------ | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 🧭 Shell regions: toolbar, left, main and right columns, footer          | 🧪     | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                 |
-| 🧭 Mailbox sidebar in either side column                                 | 🧪     | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                 |
-| 🧭 Compact, wide and one-at-a-time layouts with sizes saved per layout   | 🧪     | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                 |
-| 📎 Attachments panel, shown by default                                   | 🧪     | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                 |
-| 🧩 Message Details, Contacts and Related Messages panels, off by default | 🧪     | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35), caveat [#264](https://github.com/mikepadiernos/plasma-impresario/issues/264)   |
-| ⌨️ <kbd>F6</kbd> / <kbd>Shift</kbd>+<kbd>F6</kbd> focus cycling          | 🧪     | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                 |
+| 🧭 Shell regions: toolbar, left, main and right columns, footer          | ✅     | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                 |
+| 🧭 Mailbox sidebar in either side column                                 | ✅     | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                 |
+| 🧭 Compact, wide and one-at-a-time layouts with sizes saved per layout   | ✅     | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                 |
+| 📎 Attachments panel, shown by default                                   | ✅     | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                 |
+| 🧩 Message Details, Contacts and Related Messages panels, off by default | ✅     | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35), caveat [#264](https://github.com/mikepadiernos/plasma-impresario/issues/264)   |
+| ⌨️ <kbd>F6</kbd> / <kbd>Shift</kbd>+<kbd>F6</kbd> focus cycling          | ✅     | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                 |
 | 📬 Multiple accounts with a toolbar selector                             | ✅     | M02       | [#222](https://github.com/mikepadiernos/plasma-impresario/issues/222), caveat [#262](https://github.com/mikepadiernos/plasma-impresario/issues/262) |
 | 📶 Connection, authentication and offline status                         | ✅     | M02       | [#79](https://github.com/mikepadiernos/plasma-impresario/issues/79)                                                                                 |
 | 🔍 Folder counts and per-account saved searches                          | ✅     | M02       | [#76](https://github.com/mikepadiernos/plasma-impresario/issues/76)                                                                                 |
 | 🎨 Compact and comfortable row density                                   | ✅     | M02       | [#75](https://github.com/mikepadiernos/plasma-impresario/issues/75)                                                                                 |
 | 💾 Restore layout, sizes, density and selected message across sessions   | ✅     | M02       | [#81](https://github.com/mikepadiernos/plasma-impresario/issues/81)                                                                                 |
-| 🧭 Account groups in the folder tree                                     | 🚧     | M02       | [#80](https://github.com/mikepadiernos/plasma-impresario/issues/80)                                                                                 |
+| 🧭 Account groups in the folder sidebar                                  | ✅     | M02       | [#80](https://github.com/mikepadiernos/plasma-impresario/issues/80)                                                                                 |
+| 🧭 Optional header with the account, folder and status                   | ✅     | M02       | [#74](https://github.com/mikepadiernos/plasma-impresario/issues/74)                                                                                 |
+| 🧩 Actions hidden when the account protocol cannot perform them          | ✅     | M02       | [#215](https://github.com/mikepadiernos/plasma-impresario/issues/215)                                                                               |
 | 🔍 Related messages from the server and other folders                    | 📋     | M05.01    | [#302](https://github.com/mikepadiernos/plasma-impresario/issues/302)                                                                               |
 | 🔍 Search across folders and accounts, saved searches as virtual folders | 📋     | M05       | [Roadmap](../ROADMAP.md#m05-search-and-indexing)                                                                                                    |
 | 🔍 Search Results panel                                                  | 📋     | M05.05    | [#348](https://github.com/mikepadiernos/plasma-impresario/issues/348)                                                                               |
@@ -98,7 +103,7 @@ work that is implemented but whose issue is still in Review or earlier.
 
 ### Layouts and regions
 
-The mailbox tree goes in the left or right column, chosen in **View › Folder
+The folder sidebar goes in the left or right column, chosen in **View › Folder
 Sidebar Position**. **View › Layout** arranges the main column:
 
 | Layout        | Main column                                                                                             |
@@ -123,6 +128,31 @@ Region sizes follow these rules:
 - ⚠️ Sizes saved by versions before the shell are not migrated, so the panes
   start at their default sizes once after upgrading; see
   [CAVEATS](../CAVEATS.md#related-messages-and-message-details-panels).
+
+### Account sidebar and header
+
+With two or more accounts, the folder sidebar shows a header for each account
+and the folder tree under the active one; with one account it shows the tree
+alone. Each header shows the account's name and flags an account that needs
+attention. Clicking another account's header switches to that account, like the
+toolbar's account selector; clicking the active account's header collapses or
+expands its folders. The headers take keyboard focus and announce whether the
+folders are shown.
+
+**View › Show Header** adds a header region above the columns with the active
+account, the current folder and the account's status when it needs attention.
+It is off by default, saved as `ShowHeader` in the `Appearance` group of
+`plasma-impresariorc`, and is the first region in the <kbd>F6</kbd> focus cycle
+while shown. The designed header with search, compose and the account switcher
+remains planned for M13.02
+([#306](https://github.com/mikepadiernos/plasma-impresario/issues/306)).
+
+Actions the active account's protocol cannot perform are hidden rather than
+disabled: with a POP3 account, folder management, archiving, junk and tags are
+hidden, and they return when switching to an IMAP or JMAP account. Actions that
+are hidden for another reason stay hidden.
+
+### Row density and restored selection
 
 **View › Row Density** selects **Compact** or **Comfortable** spacing for folder
 and message rows. The selected folder and message are restored when they become
@@ -208,14 +238,14 @@ of supporting panels.
 
 ### Panes and placement
 
-| Area                    | Design                                                                                                                                                                                 | Status                                                                                                              |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| 🧭 Sidebar panels       | Account groups, folder navigation, saved views and similar navigation panels in either side column.                                                                                    | 🧪 folder sidebar; 🚧 account groups ([#80](https://github.com/mikepadiernos/plasma-impresario/issues/80))          |
-| 📬 Main content panes   | Message list and reading pane in the main column, side by side or stacked, preserving account, folder and message context when the arrangement changes.                                | 🧪 [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                              |
-| 🧩 Embedded panels      | Message metadata, attachments, contacts and similar tools in a side column, below the reader or in the footer. Panels in main-column space preserve the message-list and reader state. | 🧪 [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                              |
-| 🧩 Sliding and floating | Additional configurable placements outside the five fixed regions, following the Plasma Opus design, with panels rearranged in the customization mode.                                 | 📋 M13.02 [#307](https://github.com/mikepadiernos/plasma-impresario/issues/307)                                     |
-| 🧭 Header               | Global actions, search, compose, account switcher and connection context.                                                                                                              | 📋 M13.02 [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306)                                     |
-| 📶 Footer and status    | Sync progress, errors and background-work status.                                                                                                                                      | ✅ connection status ([#79](https://github.com/mikepadiernos/plasma-impresario/issues/79)); 📋 sync and task status |
+| Area                    | Design                                                                                                                                                                                 | Status                                                                                                                                                                                                               |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🧭 Sidebar panels       | Account groups, folder navigation, saved views and similar navigation panels in either side column.                                                                                    | ✅ folder sidebar ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)) and account groups ([#80](https://github.com/mikepadiernos/plasma-impresario/issues/80))                                     |
+| 📬 Main content panes   | Message list and reading pane in the main column, side by side or stacked, preserving account, folder and message context when the arrangement changes.                                | ✅ [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                                                                               |
+| 🧩 Embedded panels      | Message metadata, attachments, contacts and similar tools in a side column, below the reader or in the footer. Panels in main-column space preserve the message-list and reader state. | ✅ [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                                                                               |
+| 🧩 Sliding and floating | Additional configurable placements outside the five fixed regions, following the Plasma Opus design, with panels rearranged in the customization mode.                                 | 📋 M13.02 [#307](https://github.com/mikepadiernos/plasma-impresario/issues/307)                                                                                                                                      |
+| 🧭 Header               | Global actions, search, compose, account switcher and connection context.                                                                                                              | ✅ account, folder and status ([#74](https://github.com/mikepadiernos/plasma-impresario/issues/74)); 📋 search, compose and switcher in M13.02 [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306) |
+| 📶 Footer and status    | Sync progress, errors and background-work status.                                                                                                                                      | ✅ connection status ([#79](https://github.com/mikepadiernos/plasma-impresario/issues/79)); 📋 sync and task status                                                                                                  |
 
 ### Embedded panels
 
