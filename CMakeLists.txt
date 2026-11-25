@@ -1160,7 +1160,11 @@ if(BUILD_TESTING)
             add_test(NAME test_MsgListViewSelection COMMAND test_MsgListViewSelection)
             set_tests_properties(test_MsgListViewSelection PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MainWindowDensity COMMAND test_MainWindowDensity)
-            foreach(account_case migratesSingleProfileIntoFirstAccount switchingKeepsAccountsIndependent backgroundAccountStatusIsShown
+            set(reader_account_cases)
+            if(WITH_WEBENGINE)
+                set(reader_account_cases focusFollowsScreenOrder escapeReturnsToMessageList)
+            endif()
+            foreach(account_case ${reader_account_cases} migratesSingleProfileIntoFirstAccount switchingKeepsAccountsIndependent backgroundAccountStatusIsShown
                     removingAccountDeletesItsSettingsAndPasswords accountsSwitchFromTheKeyboard
                     savedSearchesAndFolderExpansionFollowTheAccount focusCyclesThroughShellRegions
                     goToFolderActionsWithoutFolders checkMailAndNextUnreadFolder destructiveActionsOffline quickActionsOffline

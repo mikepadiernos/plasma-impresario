@@ -30,9 +30,11 @@
 #include <KLocalizedString>
 #include <algorithm>
 #include <QApplication>
+#include <QContextMenuEvent>
 #include <QDialog>
 #include <QDir>
 #include <QLineEdit>
+#include <QMenu>
 #include <QMessageBox>
 #include <QWebEngineScript>
 #include <QPushButton>
@@ -417,6 +419,71 @@ private slots:
         QTRY_COMPARE(window.focusWidget(), attachments->listView());
         snapshot(window, QStringLiteral("13-wide-reader-actions"));
 
+        // Escape in a panel goes back to the message list. Shortcuts need the active window, which the certificate
+        // prompt took away.
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        QTest::keyClick(attachments->listView(), Qt::Key_Escape);
+        QTRY_COMPARE(window.focusWidget(), static_cast<QWidget *>(messages));
+
+        // F6 follows the screen: the reader, the right column from top to bottom, then the footer
+        place(window, QStringLiteral("MessageDetails"), QStringLiteral("Footer"));
+        QTRY_VERIFY(details->isVisible() && contact->isVisible() && related->isVisible());
+        const auto focusIn = [&window](QWidget *container) {
+            QWidget *focus = window.focusWidget();
+            return focus && (focus == container || container->isAncestorOf(focus));
+        };
+        QList<QWidget *> visited;
+        action(window, QStringLiteral("action_focus_msg_list"))->trigger();
+        for (int i = 0; i < 16; ++i) {
+            action(window, QStringLiteral("action_focus_next_region"))->trigger();
+            if (focusIn(messages))
+                break;
+            for (QWidget *pane : {static_cast<QWidget *>(reader), static_cast<QWidget *>(contact), static_cast<QWidget *>(related),
+                                  static_cast<QWidget *>(details)}) {
+                if (focusIn(pane) && !visited.contains(pane))
+                    visited << pane;
+            }
+        }
+        QList<QWidget *> rightColumn{contact, related};
+        std::sort(rightColumn.begin(), rightColumn.end(),
+                  [](QWidget *a, QWidget *b) { return a->mapToGlobal(QPoint()).y() < b->mapToGlobal(QPoint()).y(); });
+        QCOMPARE(visited, QList<QWidget *>{reader} + rightColumn + QList<QWidget *>{details});
+        QVERIFY(focusIn(messages));
+        place(window, QStringLiteral("MessageDetails"), QStringLiteral("RightColumn"));
+
+        // Triage from the list: S flags the current message, and the Menu key opens the menu of the current row.
+        // The platform turns the Menu key into a keyboard context menu event at the cursor rectangle; the offscreen
+        // platform does not, so the test sends that event the way QWidgetWindow does.
+        open(QStringLiteral("Lunch on Friday"));
+        const QModelIndex lunchRow = findMessage(messages, QStringLiteral("Lunch on Friday"));
+        QVERIFY(!lunchRow.data(Imap::Mailbox::RoleMessageIsMarkedFlagged).toBool());
+        messages->setFocus();
+        QTest::keyClick(messages, Qt::Key_S);
+        QTRY_VERIFY_WITH_TIMEOUT(lunchRow.data(Imap::Mailbox::RoleMessageIsMarkedFlagged).toBool(), 10000);
+        QList<QAction *> menuActions;
+        bool menuFlagged = false;
+        QTimer menus;
+        connect(&menus, &QTimer::timeout, this, [&] {
+            if (auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget())) {
+                menuActions = menu->actions();
+                menuFlagged = action(window, QStringLiteral("action_mark_as_flagged"))->isChecked();
+                menu->close();
+            }
+        });
+        menus.start(20);
+        QTRY_COMPARE(QApplication::focusWidget(), static_cast<QWidget *>(messages));
+        const QPoint menuAt = messages->inputMethodQuery(Qt::ImCursorRectangle).toRect().center();
+        QVERIFY(messages->visualRect(lunchRow).contains(menuAt));
+        QContextMenuEvent menuKey(QContextMenuEvent::Keyboard, menuAt, messages->mapToGlobal(menuAt));
+        QApplication::sendEvent(messages, &menuKey);
+        QTRY_VERIFY_WITH_TIMEOUT(!menuActions.isEmpty(), 5000);
+        menus.stop();
+        QVERIFY(menuActions.contains(action(window, QStringLiteral("action_mark_as_flagged"))));
+        QVERIFY(menuFlagged);
+        QTest::keyClick(messages, Qt::Key_S);
+        QTRY_VERIFY_WITH_TIMEOUT(!lunchRow.data(Imap::Mailbox::RoleMessageIsMarkedFlagged).toBool(), 10000);
+
         // Zoom and the plain-text preference apply to the open message.
         const auto shownViews = [reader]() {
             QList<Gui::EmbeddedWebView *> shown;
@@ -466,14 +533,9 @@ private slots:
         QSignalSpy foldersListed(window.imapModel(), &QAbstractItemModel::rowsInserted);
         watcher->setNetworkOnline();
         QTRY_VERIFY_WITH_TIMEOUT(!partErrors->isVisible(), 20000);
-        auto *travelBody = reader->findChild<Gui::EmbeddedWebView *>();
-        QVERIFY(travelBody);
-        // Callbacks still pending when the window goes away must not write into this stack frame
-        const auto bodyText = std::make_shared<QString>();
-        QTRY_VERIFY_WITH_TIMEOUT(
-            (travelBody->page()->toPlainText([bodyText](const QString &text) { *bodyText = text; }),
-             bodyText->contains(QLatin1String("The train leaves at nine"))),
-            20000);
+        // The reader can rebuild its views while the folder is opened again, so they are looked up on each try.
+        shownText->clear();
+        QTRY_VERIFY_WITH_TIMEOUT(readShown().contains(QLatin1String("The train leaves at nine")), 20000);
 
         // Going online again reloads the folder list; the shown folder is opened again rather than left empty.
         // Until the server answers, the list still shows the folder's old rows.

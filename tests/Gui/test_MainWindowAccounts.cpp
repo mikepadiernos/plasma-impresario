@@ -6,6 +6,11 @@
 #include "Common/Paths.h"
 #include "Common/SettingsNames.h"
 #include "Gui/AccountSidebar.h"
+#include "Gui/CompleteMessageWidget.h"
+#include "Gui/ContactPanel.h"
+#include "Gui/MessageDetailsPanel.h"
+#include "Gui/MessageView.h"
+#include "Gui/ReaderActionBar.h"
 #include "Composer/AccountIdentities.h"
 #include "Composer/SenderIdentitiesModel.h"
 #include "Gui/ComposeWidget.h"
@@ -58,6 +63,7 @@
 #include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QTemporaryDir>
+#include <QShortcut>
 #include <QTest>
 #include <QTimer>
 #include <QToolButton>
@@ -444,6 +450,116 @@ private slots:
         QVERIFY(window.focusWidget() != mailboxes && window.focusWidget() != messages);
         QVERIFY(window.focusWidget() != switcher);
     }
+
+#ifdef TROJITA_HAVE_WEBENGINE
+    void focusFollowsScreenOrder()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+
+        Gui::MainWindow window(&settings);
+        window.resize(1400, 900);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        window.activateWindow();
+        const auto action = [&window](const QString &name) {
+            auto *result = window.findChild<QAction *>(name);
+            Q_ASSERT(result);
+            return result;
+        };
+        auto *mailboxes = window.findChild<Gui::MailBoxTreeView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *reader = window.findChild<Gui::CompleteMessageWidget *>();
+        auto *switcher = accountSwitcher(window);
+        QVERIFY(mailboxes && messages && reader && switcher);
+        QVERIFY(switcher->isVisible());
+
+        const auto in = [&window](QWidget *container) {
+            QWidget *focus = window.focusWidget();
+            return focus && (focus == container || container->isAncestorOf(focus));
+        };
+        // The panes visited by F6 from the message list until it comes back
+        const auto cycle = [&]() {
+            QList<QWidget *> order;
+            action(QStringLiteral("action_focus_msg_list"))->trigger();
+            for (int i = 0; i < 12; ++i) {
+                action(QStringLiteral("action_focus_next_region"))->trigger();
+                if (in(messages))
+                    break;
+                for (QWidget *pane : {static_cast<QWidget *>(mailboxes), static_cast<QWidget *>(reader),
+                                      static_cast<QWidget *>(switcher)}) {
+                    if (in(pane))
+                        order << pane;
+                }
+            }
+            return order;
+        };
+        QVERIFY(QMetaObject::invokeMethod(&window, "slotLayoutWide"));
+        QCOMPARE(cycle(), (QList<QWidget *>{reader, switcher, mailboxes}));
+
+        // Folders on the right come after the reader, before the cycle starts again at the top
+        action(QStringLiteral("mailboxSidebarRight"))->trigger();
+        QTRY_VERIFY(mailboxes->mapToGlobal(QPoint()).x() > reader->mapToGlobal(QPoint()).x());
+        QCOMPARE(cycle(), (QList<QWidget *>{reader, mailboxes, switcher}));
+        action(QStringLiteral("action_focus_msg_list"))->trigger();
+        action(QStringLiteral("action_focus_previous_region"))->trigger();
+        QVERIFY(in(switcher));
+        action(QStringLiteral("action_focus_previous_region"))->trigger();
+        QCOMPARE(window.focusWidget(), mailboxes);
+
+        // Right to left: the panes are visited from the right edge, then the header
+        window.setLayoutDirection(Qt::RightToLeft);
+        QTRY_VERIFY(mailboxes->mapToGlobal(QPoint()).x() < reader->mapToGlobal(QPoint()).x());
+        QList<QWidget *> fromRight{messages, reader, mailboxes};
+        std::sort(fromRight.begin(), fromRight.end(), [](QWidget *a, QWidget *b) {
+            return a->mapToGlobal(QPoint(a->width(), 0)).x() > b->mapToGlobal(QPoint(b->width(), 0)).x();
+        });
+        const qsizetype list = fromRight.indexOf(messages);
+        const QList<QWidget *> expected = fromRight.mid(list + 1) + QList<QWidget *>{switcher} + fromRight.mid(0, list);
+        QCOMPARE(cycle(), expected);
+        window.setLayoutDirection(Qt::LeftToRight);
+        action(QStringLiteral("mailboxSidebarLeft"))->trigger();
+    }
+
+    void escapeReturnsToMessageList()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+
+        Gui::MainWindow window(&settings);
+        window.resize(1400, 900);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *reader = window.findChild<Gui::CompleteMessageWidget *>();
+        auto *contact = window.findChild<Gui::ContactPanel *>();
+        auto *bar = window.findChild<Gui::ReaderActionBar *>(QStringLiteral("readerActions"));
+        auto *search = window.findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        QVERIFY(messages && reader && contact && bar && search);
+        // Without a message the panels show a placeholder; each panel is still a scope of its own
+        QVERIFY(!contact->findChildren<QShortcut *>(QStringLiteral("escapeToMessageList")).isEmpty());
+
+        reader->messageView->setFocus();
+        QVERIFY(reader->messageView->hasFocus() || reader->messageView->isAncestorOf(window.focusWidget()));
+        QTest::keyClick(window.focusWidget(), Qt::Key_Escape);
+        QCOMPARE(window.focusWidget(), messages);
+
+        // The bar is hidden without a message; its buttons are still in the scope
+        QVERIFY(!bar->findChildren<QShortcut *>(QStringLiteral("escapeToMessageList")).isEmpty());
+
+        // The quick search keeps its own Escape, which also ends in the list
+        search->setEnabled(true);
+        search->setFocus();
+        QTest::keyClick(search, Qt::Key_Escape);
+        QCOMPARE(window.focusWidget(), messages);
+    }
+#endif
 
     void goToFolderActionsWithoutFolders()
     {
