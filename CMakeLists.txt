@@ -1057,6 +1057,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_MailBoxTreeView PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_MainWindowAccounts tests/Gui/test_MainWindowAccounts.cpp)
         target_link_libraries(test_MainWindowAccounts PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_MainWindowShell tests/Gui/test_MainWindowShell.cpp)
+        target_link_libraries(test_MainWindowShell PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_SavedSearch tests/Gui/test_SavedSearch.cpp)
         target_link_libraries(test_SavedSearch PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_ClearTextPassword tests/Gui/test_ClearTextPassword.cpp)
@@ -1098,6 +1100,14 @@ if(BUILD_TESTING)
                     identitiesFollowTheAccount newAccountsStartWithoutIdentities)
                 add_test(NAME test_MainWindowAccounts_${account_case} COMMAND test_MainWindowAccounts ${account_case})
                 set_tests_properties(test_MainWindowAccounts_${account_case} PROPERTIES
+                    TIMEOUT 60
+                    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
+            endforeach()
+            foreach(shell_case capabilityGateHidesOnlyUnsupportedActions unsupportedActionsFollowTheActiveAccount
+                    sidebarShowsHeadersOnlyForSeveralAccounts sidebarGroupsAccountsInTheWindow
+                    headerRegionIsOptional headerShowsFolderAndStatus)
+                add_test(NAME test_MainWindowShell_${shell_case} COMMAND test_MainWindowShell ${shell_case})
+                set_tests_properties(test_MainWindowShell_${shell_case} PROPERTIES
                     TIMEOUT 60
                     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
             endforeach()
