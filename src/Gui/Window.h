@@ -37,9 +37,11 @@
 #include "Composer/Recipients.h"
 #include "Imap/ConnectionState.h"
 #include "Imap/Model/Cache.h"
+#include "Imap/Model/CopyMoveOperation.h"
 #include "Imap/Model/SpecialFolder.h"
 #include "Imap/Parser/Uids.h"
 #include "UiUtils/DestructiveActions.h"
+#include "UiUtils/RecentFolders.h"
 #include "MessageActionHandler.h"
 
 class QAuthenticator;
@@ -195,12 +197,17 @@ private slots:
     void slotUpdateMessageActions();
     void handleTag(const bool checked, const int index);
     void handleMarkAsRead(bool);
+    void handleMarkAsUnread();
     void handleMarkAsDeleted(bool);
     void handleMarkAsFlagged(const bool);
     void handleMarkAsJunk(const bool);
     void handleMarkAsNotJunk(const bool);
     void slotMoveToArchiveFailed(const QString &error);
     void handleMoveToArchive();
+    void slotMoveToFolder();
+    void slotCopyToFolder();
+    /** @short Put @p mailbox first among the active account's recent Move To and Copy To destinations */
+    void rememberRecentFolder(const QString &mailbox);
     void handleDeletePermanently();
     void slotNextUnread();
     void slotPreviousUnread();
@@ -380,6 +387,7 @@ private:
     enum class MoveKind {
         Trash,
         Archive,
+        Folder,
     };
     /** @short Name of the mailbox shown in the message list */
     QString currentMailboxName() const;
@@ -394,6 +402,16 @@ private:
     void updateDeleteActionMode();
     /** @short Report the result of moving @p count messages from @p source to @p target, offering Undo if possible */
     void trackMove(Imap::Mailbox::ImapTask *task, const QString &source, const QString &target, int count, MoveKind kind);
+    /** @short Report the result of copying @p count messages to @p target */
+    void trackCopy(Imap::Mailbox::ImapTask *task, const QString &target, int count);
+    /** @short The folder which Archive moves messages to */
+    QString archiveTarget() const;
+    /** @short Copy or move the messages to @p mailbox, remembering it as a recent destination */
+    void copyOrMoveToFolder(const QModelIndexList &messages, const QString &mailbox, Imap::Mailbox::CopyMoveOperation op);
+    /** @short Let the user choose the folder to copy or move the selected messages to */
+    void pickFolder(Imap::Mailbox::CopyMoveOperation op);
+    /** @short Fill a Move To or Copy To menu with the recent destinations of the active account */
+    void populateRecentFoldersMenu(QMenu *menu, Imap::Mailbox::CopyMoveOperation op);
     /** @short Move messages which an earlier move put into @p target back to @p source */
     void undoMove(const QString &source, const QString &target, uint uidValidity, const Imap::Uids &uids);
     /** @short Open the message list's mailbox again after an operation had to select @p usedMailbox */
@@ -525,6 +543,12 @@ private:
     QAction *markAsJunk;
     QAction *markAsNotJunk;
     QAction *moveToArchive;
+    QAction *m_markAsUnread = nullptr;
+    QAction *m_moveToFolder = nullptr;
+    QAction *m_copyToFolder = nullptr;
+    QMenu *m_moveToMenu = nullptr;
+    QMenu *m_copyToMenu = nullptr;
+    QToolButton *m_moveButton = nullptr;
     QAction *m_deletePermanently = nullptr;
     QAction *m_deleteMovesToTrash = nullptr;
     /** @short Text and icon of the Delete action while it toggles the \\Deleted mark */

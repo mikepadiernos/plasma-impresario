@@ -284,6 +284,13 @@ void MainWindow::reply(const Composer::ReplyMode mode)
 
 namespace {
 
+/** @short Icon for an action shown at toolbar size, where Plasma prefers the -symbolic variant */
+QIcon quickActionIcon(const QString &name)
+{
+    const QString symbolic = name + QLatin1String("-symbolic");
+    return QIcon::hasThemeIcon(symbolic) ? QIcon::fromTheme(symbolic) : UiUtils::loadIcon(name);
+}
+
 QString goToSpecialFolderText(Imap::Mailbox::SpecialUse kind)
 {
     using Imap::Mailbox::SpecialUse;
@@ -362,6 +369,12 @@ void MainWindow::defineActions()
     shortcutHandler->defineAction(QStringLiteral("action_forward_attachment"), QStringLiteral("mail-forward"), tr("&Forward"), tr("Ctrl+Shift+F"));
     shortcutHandler->defineAction(QStringLiteral("action_resend"), QStringLiteral("mail-resend"), tr("Resend..."));
     shortcutHandler->defineAction(QStringLiteral("action_archive"), QStringLiteral("mail-move-to-archive"), tr("&Archive"), QStringLiteral("A"));
+    shortcutHandler->defineAction(QStringLiteral("action_move_to_folder"), QStringLiteral("edit-move"),
+                                  i18nc("@action", "&Move to Folder…"), QStringLiteral("V"));
+    shortcutHandler->defineAction(QStringLiteral("action_copy_to_folder"), QStringLiteral("edit-copy"),
+                                  i18nc("@action", "&Copy to Folder…"), QStringLiteral("Shift+V"));
+    shortcutHandler->defineAction(QStringLiteral("action_mark_as_unread"), QStringLiteral("mail-mark-unread"),
+                                  i18nc("@action", "Mark as &Unread"), QStringLiteral("Shift+M"));
     shortcutHandler->defineAction(QStringLiteral("action_contact_editor"), QStringLiteral("contact-unknown"), tr("Address Book..."));
     shortcutHandler->defineAction(QStringLiteral("action_network_offline"), QStringLiteral("network-disconnect"), tr("&Offline"));
     shortcutHandler->defineAction(QStringLiteral("action_network_expensive"), QStringLiteral("network-wireless"), tr("&Expensive Connection"));
@@ -568,7 +581,8 @@ void MainWindow::createActions()
     msgListWidget->tree->addAction(markAsDeleted);
     connect(markAsDeleted, &QAction::triggered, this, &MainWindow::handleMarkAsDeleted);
     m_markAsDeletedText = markAsDeleted->text();
-    m_markAsDeletedIcon = markAsDeleted->icon();
+    m_markAsDeletedIcon = quickActionIcon(QStringLiteral("list-remove"));
+    markAsDeleted->setIcon(m_markAsDeletedIcon);
 
     m_deletePermanently = ShortcutHandler::instance()->createAction(QStringLiteral("action_delete_permanently"), this);
     m_deletePermanently->setEnabled(false);
@@ -614,6 +628,42 @@ void MainWindow::createActions()
     moveToArchive = ShortcutHandler::instance()->createAction(QStringLiteral("action_archive"), this);
     msgListWidget->tree->addAction(moveToArchive);
     connect(moveToArchive, &QAction::triggered, this, &MainWindow::handleMoveToArchive);
+
+    m_markAsUnread = ShortcutHandler::instance()->createAction(QStringLiteral("action_mark_as_unread"), this);
+    msgListWidget->tree->addAction(m_markAsUnread);
+    connect(m_markAsUnread, &QAction::triggered, this, &MainWindow::handleMarkAsUnread);
+
+    m_moveToFolder = ShortcutHandler::instance()->createAction(QStringLiteral("action_move_to_folder"), this);
+    msgListWidget->tree->addAction(m_moveToFolder);
+    connect(m_moveToFolder, &QAction::triggered, this, &MainWindow::slotMoveToFolder);
+
+    m_copyToFolder = ShortcutHandler::instance()->createAction(QStringLiteral("action_copy_to_folder"), this);
+    msgListWidget->tree->addAction(m_copyToFolder);
+    connect(m_copyToFolder, &QAction::triggered, this, &MainWindow::slotCopyToFolder);
+
+    m_moveToMenu = new QMenu(i18nc("@title:menu", "Move &To"), this);
+    m_moveToMenu->setObjectName(QStringLiteral("moveToMenu"));
+    m_moveToMenu->setIcon(quickActionIcon(QStringLiteral("edit-move")));
+    connect(m_moveToMenu, &QMenu::aboutToShow, this, [this]() {
+        populateRecentFoldersMenu(m_moveToMenu, Imap::Mailbox::MOVE);
+    });
+    m_copyToMenu = new QMenu(i18nc("@title:menu", "Cop&y To"), this);
+    m_copyToMenu->setObjectName(QStringLiteral("copyToMenu"));
+    m_copyToMenu->setIcon(quickActionIcon(QStringLiteral("edit-copy")));
+    connect(m_copyToMenu, &QMenu::aboutToShow, this, [this]() {
+        populateRecentFoldersMenu(m_copyToMenu, Imap::Mailbox::COPY);
+    });
+    // Never leave a menu empty, a tool button would not open it
+    populateRecentFoldersMenu(m_moveToMenu, Imap::Mailbox::MOVE);
+    populateRecentFoldersMenu(m_copyToMenu, Imap::Mailbox::COPY);
+
+    // These are on the toolbar, where the icons are small enough for the monochrome variants
+    markAsRead->setIcon(quickActionIcon(QStringLiteral("mail-mark-read")));
+    m_markAsUnread->setIcon(quickActionIcon(QStringLiteral("mail-mark-unread")));
+    markAsFlagged->setIcon(quickActionIcon(QStringLiteral("mail-flagged")));
+    moveToArchive->setIcon(quickActionIcon(QStringLiteral("mail-move-to-archive")));
+    m_moveToFolder->setIcon(quickActionIcon(QStringLiteral("edit-move")));
+    m_copyToFolder->setIcon(quickActionIcon(QStringLiteral("edit-copy")));
 
     auto addTagAction = [this](int row) {
         QAction *tag = ShortcutHandler::instance()->createAction(QStringLiteral("action_tag_").append(QString::number(row)), this);
@@ -795,6 +845,12 @@ void MainWindow::createActions()
     m_mainToolbar->addAction(markAsJunk);
     m_mainToolbar->addAction(markAsNotJunk);
     m_mainToolbar->addAction(moveToArchive);
+    m_moveButton = new QToolButton(this);
+    m_moveButton->setObjectName(QStringLiteral("moveToFolderButton"));
+    m_moveButton->setPopupMode(QToolButton::MenuButtonPopup);
+    m_moveButton->setMenu(m_moveToMenu);
+    m_moveButton->setDefaultAction(m_moveToFolder);
+    m_mainToolbar->addWidget(m_moveButton);
 
     // Push the status indicators all the way to the other side of the toolbar -- either to the far right, or far bottom.
     QWidget *toolbarSpacer = new QWidget(m_mainToolbar);
@@ -989,6 +1045,16 @@ void MainWindow::createMenus()
         ADD_ACTION(messageMenu, markAsDeleted);
         ADD_ACTION(messageMenu, m_deletePermanently);
         ADD_ACTION(messageMenu, m_deleteMovesToTrash);
+        messageMenu->addSeparator();
+        ADD_ACTION(messageMenu, markAsRead);
+        ADD_ACTION(messageMenu, m_markAsUnread);
+        ADD_ACTION(messageMenu, markAsFlagged);
+        messageMenu->addSeparator();
+        ADD_ACTION(messageMenu, moveToArchive);
+        messageMenu->addMenu(m_moveToMenu);
+        messageMenu->addMenu(m_copyToMenu);
+        ADD_ACTION(messageMenu, m_moveToFolder);
+        ADD_ACTION(messageMenu, m_copyToFolder);
 
     QMenu *mainMenuBehindToolBar = new QMenu(this);
     m_menuFromToolBar->setMenu(mainMenuBehindToolBar);
@@ -1653,12 +1719,15 @@ void MainWindow::showContextMenuMsgListTree(const QPoint &position)
     if (index.isValid()) {
         updateMessageFlagsOf(index);
         actionList.append(markAsRead);
+        actionList.append(m_markAsUnread);
         actionList.append(markAsDeleted);
         actionList.append(m_deletePermanently);
         actionList.append(markAsFlagged);
         actionList.append(markAsJunk);
         actionList.append(markAsNotJunk);
         actionList.append(moveToArchive);
+        actionList.append(m_moveToMenu->menuAction());
+        actionList.append(m_copyToMenu->menuAction());
         actionList.append(m_actionMarkMailboxAsRead);
         actionList.append(saveWholeMessage);
         actionList.append(viewMsgSource);
@@ -1848,6 +1917,108 @@ void MainWindow::slotGoToFolder()
     dialog->setMailboxes(prettyMboxModel);
     connect(dialog, &QDialog::accepted, this, [this, dialog]() { goToMailbox(dialog->selectedMailbox()); });
     dialog->open();
+}
+
+void MainWindow::slotMoveToFolder()
+{
+    pickFolder(Imap::Mailbox::MOVE);
+}
+
+void MainWindow::slotCopyToFolder()
+{
+    pickFolder(Imap::Mailbox::COPY);
+}
+
+void MainWindow::pickFolder(const Imap::Mailbox::CopyMoveOperation op)
+{
+    if (!prettyMboxModel || !imapModel()->isNetworkAvailable())
+        return;
+    QList<QPersistentModelIndex> messages;
+    for (const QModelIndex &index : translatedSelection())
+        messages << QPersistentModelIndex(index);
+    if (messages.isEmpty())
+        return;
+
+    const bool move = op == Imap::Mailbox::MOVE;
+    const QString current = currentMailboxName();
+    auto *dialog = new MailboxPickerDialog(this);
+    dialog->setObjectName(move ? QStringLiteral("moveToFolderDialog") : QStringLiteral("copyToFolderDialog"));
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setWindowTitle(move ? i18nc("@title:window", "Move to Folder") : i18nc("@title:window", "Copy to Folder"));
+    dialog->setPrompt(move ? i18ncp("@label", "Move %1 message to:", "Move %1 messages to:", messages.size())
+                           : i18ncp("@label", "Copy %1 message to:", "Copy %1 messages to:", messages.size()));
+    dialog->setMailboxes(prettyMboxModel, {current});
+    const QStringList recent = UiUtils::RecentFolders::load(*accountSettings(), Common::SettingsNames::imapRecentDestinationFolders)
+            .offered(UiUtils::RecentFolders::StateLookup(), {current});
+    if (!recent.isEmpty())
+        dialog->setCurrentMailbox(recent.constFirst());
+    QPointer<Imap::Mailbox::Model> model = imapModel();
+    connect(dialog, &QDialog::accepted, this, [this, dialog, model, messages, op]() {
+        // The selection may have changed, or the messages may be gone, while the dialog was open
+        if (!model || model != imapModel())
+            return;
+        QModelIndexList stillThere;
+        for (const QPersistentModelIndex &index : messages) {
+            if (index.isValid())
+                stillThere << index;
+        }
+        copyOrMoveToFolder(stillThere, dialog->selectedMailbox(), op);
+    });
+    dialog->open();
+}
+
+void MainWindow::populateRecentFoldersMenu(QMenu *menu, const Imap::Mailbox::CopyMoveOperation op)
+{
+    using UiUtils::RecentFolders;
+    menu->clear();
+    QSettings *settings = accountSettings();
+    RecentFolders recent = RecentFolders::load(*settings, Common::SettingsNames::imapRecentDestinationFolders);
+    // The unfiltered folder tree, so that unsubscribed folders do not look deleted
+    const RecentFolders::StateLookup state = RecentFolders::stateFromModel(m_imapAccess->mailboxModel());
+    if (recent.prune(state))
+        recent.save(*settings, Common::SettingsNames::imapRecentDestinationFolders);
+
+    const QStringList folders = recent.offered(state, {currentMailboxName()});
+    for (const QString &mailbox : folders) {
+        QString label = mailbox;
+        QAction *action = menu->addAction(label.replace(QLatin1Char('&'), QLatin1String("&&")));
+        action->setData(mailbox);
+        action->setToolTip(mailbox);
+        const QIcon special = Imap::Mailbox::PrettyMailboxModel::specialFolderIcon(imapModel()->mailboxSpecialUse(mailbox));
+        action->setIcon(special.isNull() ? UiUtils::loadIcon(QStringLiteral("folder")) : special);
+        connect(action, &QAction::triggered, this, [this, mailbox, op]() {
+            copyOrMoveToFolder(translatedSelection(), mailbox, op);
+        });
+    }
+    if (!folders.isEmpty())
+        menu->addSeparator();
+    QAction *other = menu->addAction(i18nc("@action:inmenu", "Other Folder…"));
+    other->setObjectName(op == Imap::Mailbox::MOVE ? QStringLiteral("moveToOtherFolder") : QStringLiteral("copyToOtherFolder"));
+    connect(other, &QAction::triggered, this, [this, op]() {
+        pickFolder(op);
+    });
+}
+
+void MainWindow::rememberRecentFolder(const QString &mailbox)
+{
+    QSettings *settings = accountSettings();
+    auto recent = UiUtils::RecentFolders::load(*settings, Common::SettingsNames::imapRecentDestinationFolders);
+    recent.add(mailbox);
+    recent.save(*settings, Common::SettingsNames::imapRecentDestinationFolders);
+}
+
+void MainWindow::copyOrMoveToFolder(const QModelIndexList &messages, const QString &mailbox,
+                                    const Imap::Mailbox::CopyMoveOperation op)
+{
+    Imap::Mailbox::Model *model = imapModel();
+    if (mailbox.isEmpty() || messages.isEmpty() || !model || !model->isNetworkAvailable())
+        return;
+    rememberRecentFolder(mailbox);
+    Imap::Mailbox::ImapTask *task = model->copyMoveMessages(mailbox, messages, op);
+    if (op == Imap::Mailbox::MOVE)
+        trackMove(task, currentMailboxName(), mailbox, messages.size(), MoveKind::Folder);
+    else
+        trackCopy(task, mailbox, messages.size());
 }
 
 /** @short Deletes a network error message box instance upon resetting of reconnect state */
@@ -2343,6 +2514,11 @@ void MainWindow::handleMarkAsRead(bool value)
 #endif
 }
 
+void MainWindow::handleMarkAsUnread()
+{
+    handleMarkAsRead(false);
+}
+
 void MainWindow::slotNextUnread()
 {
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -2454,9 +2630,7 @@ void MainWindow::handleMoveToArchive()
     if (translatedIndexes.isEmpty()) {
         qDebug() << "Model::handleMoveToArchive: no valid messages";
     } else {
-        auto archiveFolderName = accountSettings()->value(Common::SettingsNames::imapArchiveFolderName).toString();
-        if (archiveFolderName.isEmpty())
-            archiveFolderName = Common::SettingsNames::imapDefaultArchiveFolderName;
+        const QString archiveFolderName = archiveTarget();
         auto copyMoveMessagesTask = imapModel()->copyMoveMessages(archiveFolderName, translatedIndexes,
                                                                   Imap::Mailbox::CopyMoveOperation::MOVE);
         trackMove(copyMoveMessagesTask, currentMailboxName(), archiveFolderName, translatedIndexes.size(), MoveKind::Archive);
@@ -2558,6 +2732,18 @@ QString MainWindow::currentMailboxName() const
     return model ? model->currentMailbox().data(Imap::Mailbox::RoleMailboxName).toString() : QString();
 }
 
+QString MainWindow::archiveTarget() const
+{
+    // A folder chosen in the settings wins, even before the folder above it has been listed
+    const QString configured = accountSettings()->value(Common::SettingsNames::imapArchiveFolderName).toString();
+    if (!configured.isEmpty())
+        return configured;
+    // Otherwise whatever the model resolved for Archive, such as the server's \Archive folder
+    const Imap::Mailbox::Model *model = imapModel();
+    const QString special = model ? model->specialFolderMailbox(Imap::Mailbox::SpecialUse::Archive) : QString();
+    return special.isEmpty() ? Common::SettingsNames::imapDefaultArchiveFolderName : special;
+}
+
 bool MainWindow::deleteMovesToTrash() const
 {
     return accountSettings()->value(Common::SettingsNames::imapDeleteMovesToTrash, true).toBool();
@@ -2586,7 +2772,7 @@ void MainWindow::updateDeleteActionMode()
         markAsDeleted->setToolTip(QString());
     } else {
         markAsDeleted->setText(i18nc("@action", "Move to &Trash"));
-        markAsDeleted->setIcon(UiUtils::loadIcon(QStringLiteral("user-trash")));
+        markAsDeleted->setIcon(quickActionIcon(QStringLiteral("user-trash")));
         markAsDeleted->setToolTip(i18nc("@info:tooltip", "Move the selected messages to %1", trash));
     }
 }
@@ -2601,9 +2787,22 @@ void MainWindow::trackMove(Imap::Mailbox::ImapTask *task, const QString &source,
             [this, model, source, target, count, kind](Imap::Mailbox::ImapTask *finished) {
         if (!model || model != imapModel())
             return;
-        const QString text = kind == MoveKind::Trash
-                ? i18ncp("@info", "Moved %1 message to Trash", "Moved %1 messages to Trash", count)
-                : i18ncp("@info", "Archived %1 message", "Archived %1 messages", count);
+        QString text;
+        QString openText;
+        switch (kind) {
+        case MoveKind::Trash:
+            text = i18ncp("@info", "Moved %1 message to Trash", "Moved %1 messages to Trash", count);
+            openText = i18nc("@action:button", "Open Trash");
+            break;
+        case MoveKind::Archive:
+            text = i18ncp("@info", "Archived %1 message", "Archived %1 messages", count);
+            openText = i18nc("@action:button", "Open Archive");
+            break;
+        case MoveKind::Folder:
+            text = i18ncp("@info", "Moved %1 message to %2", "Moved %1 messages to %2", count, target);
+            openText = i18nc("@action:button", "Open Folder");
+            break;
+        }
         InlineNotificationBar::Action action;
         auto *copyMove = qobject_cast<Imap::Mailbox::CopyMoveMessagesTask *>(finished);
         if (copyMove && copyMove->copyUidValidity() && !copyMove->copyUidDestinationUids().isEmpty() && !source.isEmpty()) {
@@ -2616,8 +2815,7 @@ void MainWindow::trackMove(Imap::Mailbox::ImapTask *task, const QString &source,
             }};
         } else {
             // Without COPYUID (RFC 4315) there is no telling which messages in the target are the moved ones
-            action = {kind == MoveKind::Trash ? i18nc("@action:button", "Open Trash") : i18nc("@action:button", "Open Archive"),
-                      QStringLiteral("go-jump"), QStringLiteral("openMoveTarget"), [this, model, target]() {
+            action = {openText, QStringLiteral("go-jump"), QStringLiteral("openMoveTarget"), [this, model, target]() {
                 if (model && model == imapModel())
                     goToMailbox(target);
             }};
@@ -2631,6 +2829,29 @@ void MainWindow::trackMove(Imap::Mailbox::ImapTask *task, const QString &source,
             slotMoveToArchiveFailed(message);
         else
             m_notificationBar->showError(i18nc("@info", "Could not move the messages to %1: %2", target, message));
+    });
+}
+
+void MainWindow::trackCopy(Imap::Mailbox::ImapTask *task, const QString &target, const int count)
+{
+    if (!task)
+        return;
+    QPointer<Imap::Mailbox::Model> model = imapModel();
+    connect(task, &Imap::Mailbox::ImapTask::completed, this, [this, model, target, count]() {
+        if (!model || model != imapModel())
+            return;
+        const InlineNotificationBar::Action open{i18nc("@action:button", "Open Folder"), QStringLiteral("go-jump"),
+                                                 QStringLiteral("openCopyTarget"), [this, model, target]() {
+            if (model && model == imapModel())
+                goToMailbox(target);
+        }};
+        m_notificationBar->showInfo(i18ncp("@info", "Copied %1 message to %2", "Copied %1 messages to %2", count, target),
+                                    {open});
+    });
+    connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, model, target](const QString &message) {
+        if (!model || model != imapModel())
+            return;
+        m_notificationBar->showError(i18nc("@info", "Could not copy the messages to %1: %2", target, message));
     });
 }
 
@@ -2859,12 +3080,17 @@ void MainWindow::updateMessageFlagsOf(const QModelIndex &index)
     markAsFlagged->setEnabled(okToModify);
     markAsJunk->setEnabled(okToModify);
     markAsNotJunk->setEnabled(okToModify);
+    for (QAction *action : {m_markAsUnread, m_moveToFolder, m_copyToFolder}) {
+        if (action)
+            action->setEnabled(okToModify);
+    }
+    for (QMenu *menu : {m_moveToMenu, m_copyToMenu}) {
+        if (menu)
+            menu->menuAction()->setEnabled(okToModify);
+    }
 
     // There's no point in moving from Archive to, well, Archive
-    auto archiveFolderName = accountSettings()->value(Common::SettingsNames::imapArchiveFolderName).toString();
-    if (archiveFolderName.isEmpty()) {
-        archiveFolderName = Common::SettingsNames::imapDefaultArchiveFolderName;
-    }
+    const QString archiveFolderName = archiveTarget();
     moveToArchive->setEnabled(okToModify &&
                               std::any_of(indexes.cbegin(), indexes.cend(),
                                           [archiveFolderName](const QModelIndex &i) {
