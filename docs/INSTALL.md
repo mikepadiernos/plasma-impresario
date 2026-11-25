@@ -17,6 +17,7 @@ Legend: ✅ verified · 🧪 implemented, needs verification · ⚠️ limitatio
 - [Options](#options)
 - [Requirements by distribution](#requirements-by-distribution)
 - [What gets installed](#what-gets-installed)
+- [Upgrading from Trojitá or Plasma Mail](#upgrading-from-trojitá-or-plasma-mail)
 - [Launch and troubleshooting](#launch-and-troubleshooting)
 - [Development checks](#development-checks)
 
@@ -37,6 +38,8 @@ The installer then:
    `BUILD_TESTING=OFF` and `WITH_WEBENGINE=ON`, then builds in parallel.
 4. 🖥️ Installs to the prefix, using `sudo` only when the prefix (or its nearest
    existing parent) is not writable.
+5. 🔁 [Converts older Trojitá or Plasma Mail installations](#upgrading-from-trojitá-or-plasma-mail)
+   and makes Plasma Impresario the mail handler wherever the user chose them.
 
 On unsupported distributions, install the dependencies manually and use
 `--no-deps`.
@@ -60,18 +63,21 @@ Run `./install.sh --help` for the same list.
 | `--build-dir PATH`    | Use `PATH` as the build directory instead of `build/` in the repository.                                                                                    |
 | `--with-webengine`    | Require Qt 6 WebEngineWidgets for the message reader. This is the default.                                                                                  |
 | `--without-webengine` | ⚠️ Build without message viewing and skip the WebEngine package. See the warning above.                                                                     |
+| `--keep-legacy`       | Leave Trojitá and Plasma Mail installations and mail handler settings unchanged.                                                                            |
 | `--help`, `-h`        | Show the option summary and exit.                                                                                                                           |
 
 The installer also reads these environment variables:
 
-| Variable                       | Effect                                                                                |
-| ------------------------------ | ------------------------------------------------------------------------------------- |
-| `PREFIX`                       | Default installation prefix; `--prefix` overrides it.                                 |
-| `BUILD_DIR`                    | Default build directory; `--build-dir` overrides it.                                  |
-| `WITH_WEBENGINE`               | `true` (default) or `false`; the WebEngine options override it.                       |
-| `INSTALL_DEPS`                 | Any value other than `true` skips dependency handling, like `--no-deps`.              |
-| `CMAKE_BUILD_PARALLEL_LEVEL`   | Number of parallel build jobs; defaults to `nproc`.                                   |
-| `PLASMA_IMPRESARIO_OS_RELEASE` | Alternate os-release file. The older `PLASMA_MAIL_OS_RELEASE` name is also supported. |
+| Variable                       | Effect                                                                                            |
+| ------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `PREFIX`                       | Default installation prefix; `--prefix` overrides it.                                             |
+| `BUILD_DIR`                    | Default build directory; `--build-dir` overrides it.                                              |
+| `WITH_WEBENGINE`               | `true` (default) or `false`; the WebEngine options override it.                                   |
+| `INSTALL_DEPS`                 | Any value other than `true` skips dependency handling, like `--no-deps`.                          |
+| `CMAKE_BUILD_PARALLEL_LEVEL`   | Number of parallel build jobs; defaults to `nproc`.                                               |
+| `CONVERT_LEGACY`               | Any value other than `true` skips legacy conversion, like `--keep-legacy`.                        |
+| `LEGACY_PREFIXES`              | Colon-separated prefixes searched for older installations; defaults to `/usr/local:$HOME/.local`. |
+| `PLASMA_IMPRESARIO_OS_RELEASE` | Alternate os-release file. The older `PLASMA_MAIL_OS_RELEASE` name is also supported.             |
 
 For example:
 
@@ -141,21 +147,43 @@ Paths are relative to the prefix.
 
 The handbook is installed only when KF6 DocTools is available.
 
+## Upgrading from Trojitá or Plasma Mail
+
+Plasma Impresario reads Trojitá's settings, cache, and stored mail in place, so
+accounts and preferences need no migration. After installing, the installer
+replaces older installations:
+
+- In `/usr/local` and `~/.local` (or `LEGACY_PREFIXES`), a prefix with a
+  Trojitá or Plasma Mail `bin/trojita` program and no Plasma Impresario binary
+  has its Trojitá files removed: launcher, metadata, icons, plugins,
+  translations, handbook, and man page. Its `bin/trojita` becomes a link to the
+  new `plasma-impresario`, so scripts and launchers that call `trojita` keep
+  working. Package-manager prefixes such as `/usr` are never changed.
+- Obsolete `share/metainfo/org.kde.trojita.appdata.xml` metadata is removed
+  from the installation prefix.
+- Where the user's `mimeapps.list` chose Trojitá or Plasma Mail, for example as
+  the default mail client, it now chooses Plasma Impresario.
+
+Panel entries pinned to the old launcher keep working through the hidden
+compatibility launcher. A protected prefix requests administrator privileges;
+if conversion fails, the installer prints a warning and leaves the files in
+place. An upstream Trojitá built from source into one of these prefixes is also
+replaced; use `--keep-legacy` to keep it.
+
 ## Launch and troubleshooting
 
 Start Plasma Impresario from the application menu or run `plasma-impresario`.
 
-| Problem                                                              | What to do                                                                                                                                                                                                                        |
-| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `plasma-impresario` is not found on the command line                 | Add `$HOME/.local/bin` (or `PREFIX/bin`) to `PATH`. The application-menu launcher does not depend on it.                                                                                                                          |
-| The launcher is missing with a custom prefix                         | Plasma must search the prefix's `share` directory through `XDG_DATA_HOME` or `XDG_DATA_DIRS`. Configure the session environment before logging in, or use the default prefix.                                                     |
-| "Unsupported distribution" or "No supported package manager found"   | Install the dependencies manually and run `./install.sh --no-deps`.                                                                                                                                                               |
-| "Root privileges or sudo are required"                               | Install `sudo`, run as root, or install the missing packages yourself and use `--no-deps`.                                                                                                                                        |
-| CMake fails after the dependency check passed                        | The check does not cover versions or CMake-only requirements. Compare the CMake error with the [compatibility baseline](philosophy/compatibility.md).                                                                             |
-| "Icon cache … may be stale" or "Could not refresh icon cache"        | Install `gtk-update-icon-cache` and run `gtk-update-icon-cache --force --ignore-theme-index "$PREFIX/share/icons/hicolor"` with `PREFIX` set to the prefix. Run `kbuildsycoca6`, or log out and back in, if the old icon remains. |
-| `share/metainfo/org.kde.trojita.appdata.xml` remains after upgrading | An in-place upgrade over an older build can leave this obsolete metadata. Remove it.                                                                                                                                              |
-| Messages do not display                                              | The build is renderer-free. Rebuild with the default `--with-webengine`.                                                                                                                                                          |
-| The handbook or man page describes Trojitá                           | Both come from the historical [`docs/old`](old/README.md) archive and may describe old behavior.                                                                                                                                  |
+| Problem                                                            | What to do                                                                                                                                                                                                                        |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `plasma-impresario` is not found on the command line               | Add `$HOME/.local/bin` (or `PREFIX/bin`) to `PATH`. The application-menu launcher does not depend on it.                                                                                                                          |
+| The launcher is missing with a custom prefix                       | Plasma must search the prefix's `share` directory through `XDG_DATA_HOME` or `XDG_DATA_DIRS`. Configure the session environment before logging in, or use the default prefix.                                                     |
+| "Unsupported distribution" or "No supported package manager found" | Install the dependencies manually and run `./install.sh --no-deps`.                                                                                                                                                               |
+| "Root privileges or sudo are required"                             | Install `sudo`, run as root, or install the missing packages yourself and use `--no-deps`.                                                                                                                                        |
+| CMake fails after the dependency check passed                      | The check does not cover versions or CMake-only requirements. Compare the CMake error with the [compatibility baseline](philosophy/compatibility.md).                                                                             |
+| "Icon cache … may be stale" or "Could not refresh icon cache"      | Install `gtk-update-icon-cache` and run `gtk-update-icon-cache --force --ignore-theme-index "$PREFIX/share/icons/hicolor"` with `PREFIX` set to the prefix. Run `kbuildsycoca6`, or log out and back in, if the old icon remains. |
+| Messages do not display                                            | The build is renderer-free. Rebuild with the default `--with-webengine`.                                                                                                                                                          |
+| The handbook or man page describes Trojitá                         | Both come from the historical [`docs/old`](old/README.md) archive and may describe old behavior.                                                                                                                                  |
 
 ## Development checks
 
