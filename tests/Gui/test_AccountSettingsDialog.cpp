@@ -7,7 +7,9 @@
 #include "Composer/SenderIdentitiesModel.h"
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
+#include "Imap/Model/Model.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
+#include "OAuth/TokenSource.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
 #include "Gui/WebEngineMessageProfile.h"
@@ -174,6 +176,23 @@ private slots:
                     static_cast<int>(Composer::AccountIdentities::Source::Own));
                 identitySource->setCurrentIndex(
                     identitySource->findData(static_cast<int>(Composer::AccountIdentities::Source::None)));
+
+                // Password authentication stays the default; OAuth replaces the password with a provider sign-in.
+                auto *authMethod = dialog->findChild<QComboBox *>(QStringLiteral("imapAuthMethod"));
+                auto *provider = dialog->findChild<QComboBox *>(QStringLiteral("oauthProvider"));
+                auto *clientId = dialog->findChild<QLineEdit *>(QStringLiteral("oauthClientId"));
+                auto *password = dialog->findChild<QLineEdit *>(QStringLiteral("imapPass"));
+                auto *smtpAuthMethod = dialog->findChild<QComboBox *>(QStringLiteral("smtpAuthMethod"));
+                QVERIFY(authMethod && provider && clientId && password && smtpAuthMethod);
+                QCOMPARE(authMethod->currentData().toString(), Common::SettingsNames::authMethodPassword);
+                QCOMPARE(smtpAuthMethod->currentData().toString(), Common::SettingsNames::authMethodPassword);
+                QVERIFY(provider->isHidden());
+                QVERIFY(!password->isHidden());
+                authMethod->setCurrentIndex(authMethod->findData(Common::SettingsNames::authMethodOAuth));
+                QVERIFY(!provider->isHidden());
+                QVERIFY(password->isHidden());
+                provider->setCurrentIndex(provider->findData(QStringLiteral("microsoft")));
+                clientId->setText(QStringLiteral("home-client"));
                 save(dialog);
             }));
         QCOMPARE(titles,
@@ -191,6 +210,18 @@ private slots:
         QCOMPARE(Composer::AccountIdentities::source(home), Composer::AccountIdentities::Source::None);
         QCOMPARE(Composer::AccountIdentities::source(work), Composer::AccountIdentities::Source::Own);
         QCOMPARE(window.senderIdentitiesModel()->rowCount(), 0);
+        // Only the edited account signs in with OAuth, and its SMTP keeps using a password.
+        QCOMPARE(home.value(Common::SettingsNames::imapAuthMethodKey).toString(),
+            Common::SettingsNames::authMethodOAuth);
+        QCOMPARE(home.value(Common::SettingsNames::oauthProviderKey).toString(), QStringLiteral("microsoft"));
+        QCOMPARE(home.value(Common::SettingsNames::oauthClientIdKey).toString(), QStringLiteral("home-client"));
+        QVERIFY(!home.contains(Common::SettingsNames::smtpAuthMethodKey));
+        for (const auto &key : { Common::SettingsNames::imapAuthMethodKey, Common::SettingsNames::smtpAuthMethodKey,
+                 Common::SettingsNames::oauthProviderKey, Common::SettingsNames::oauthClientIdKey }) {
+            QVERIFY(!work.contains(key));
+            QVERIFY(!settings.contains(key));
+        }
+        QVERIFY(OAuth::TokenSource::find(window.imapModel()));
     }
 
     void cancellingAccountSettingsKeepsTheAccount()
