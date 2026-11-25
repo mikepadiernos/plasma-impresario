@@ -7,7 +7,8 @@
 This proposed menu appears when the user right-clicks an attachment in the
 reading pane, attachment tray, or compose attachment list.
 
-**Legend:** ✅ exists in the current code on `main` · 📋 planned only
+**Legend:** ![Exists][exists] in the current code on `main` ·
+![Planned][planned] not implemented yet
 
 ## Purpose
 
@@ -36,35 +37,35 @@ desktop file handling available while keeping the user aware of potential risk.
 
 ## Actions
 
-| Action                 | Shortcut | Availability                                 | Notes                                                                 |
-| ---------------------- | -------- | -------------------------------------------- | --------------------------------------------------------------------- |
-| Open                   | —        | ✅ Attachments panel, inline attachment menu | **Open**, or activate the item; inline **Open Directly**              |
-| Open with              | —        | 📋 Planned                                   |                                                                       |
-| Save as                | —        | ✅ Attachments panel                         | **Save As…** in the menu, **Save Attachment As…** in the panel header |
-| Save all               | —        | 📋 Planned                                   | The reader's **Save whole message…** saves the full message instead   |
-| Download               | —        | ✅ Inline attachment menu                    | **Download**                                                          |
-| Preview                | —        | ✅ Inline attachment menu                    | **Show Preview** for previewable types                                |
-| Show in file manager   | —        | 📋 Planned                                   |                                                                       |
-| Copy file path         | —        | 📋 Planned                                   |                                                                       |
-| Rename                 | —        | ✅ Composer attachment list                  | **Rename…** changes the name sent with the message                    |
-| Remove                 | —        | ✅ Composer attachment list                  | **Remove**                                                            |
-| Add to notes           | —        | 📋 Planned                                   |                                                                       |
-| Forward as attachment  | —        | 📋 Planned                                   | **Forward** sends the whole message as an attachment                  |
-| Inspect security state | —        | 📋 Planned                                   |                                                                       |
-| Scan with ClamAV       | —        | 📋 Planned                                   |                                                                       |
+| Action                 | Shortcut | Availability                                                | Notes                                                                 |
+| ---------------------- | -------- | ----------------------------------------------------------- | --------------------------------------------------------------------- |
+| Open                   | —        | ![Exists][exists] Attachments panel, inline attachment menu | **Open**, or activate the item; inline **Open Directly**              |
+| Open with              | —        | ![Planned][planned]                                         |                                                                       |
+| Save as                | —        | ![Exists][exists] Attachments panel                         | **Save As…** in the menu, **Save Attachment As…** in the panel header |
+| Save all               | —        | ![Planned][planned]                                         | The reader's **Save whole message…** saves the full message instead   |
+| Download               | —        | ![Exists][exists] Inline attachment menu                    | **Download**                                                          |
+| Preview                | —        | ![Exists][exists] Inline attachment menu                    | **Show Preview** for previewable types                                |
+| Show in file manager   | —        | ![Planned][planned]                                         |                                                                       |
+| Copy file path         | —        | ![Planned][planned]                                         |                                                                       |
+| Rename                 | —        | ![Exists][exists] Composer attachment list                  | **Rename…** changes the name sent with the message                    |
+| Remove                 | —        | ![Exists][exists] Composer attachment list                  | **Remove**                                                            |
+| Add to notes           | —        | ![Planned][planned]                                         |                                                                       |
+| Forward as attachment  | —        | ![Planned][planned]                                         | **Forward** sends the whole message as an attachment                  |
+| Inspect security state | —        | ![Planned][planned]                                         |                                                                       |
+| Scan with ClamAV       | —        | ![Planned][planned]                                         |                                                                       |
 
 ## Current menus
 
 Attachment actions are split across three places today:
 
-- 📎 **Attachments embedded panel** (`src/Gui/AttachmentPanel.cpp`): header
+- **Attachments embedded panel** (`src/Gui/AttachmentPanel.cpp`): header
   buttons **Open Attachment** and **Save Attachment As…**, and a context menu
   with **Open** and **Save As…**.
-- 📎 **Inline attachment drop-down** in the reader
+- **Inline attachment drop-down** in the reader
   (`src/Gui/AttachmentView.cpp`): **Download**, **Open Directly**, **Show
   Preview** for previewable types, and **Show Message Source** for attached
   messages.
-- 📎 **Composer attachment list** (`src/Gui/ComposerAttachmentsList.cpp`):
+- **Composer attachment list** (`src/Gui/ComposerAttachmentsList.cpp`):
   **Send Inline**, **Rename…** and **Remove**.
 
 ## Safety and quality rules
@@ -77,3 +78,6 @@ Attachment actions are split across three places today:
   attachment action flow.
 - File manager integration should remain consistent with KDE desktop
   conventions.
+
+[exists]: https://img.shields.io/badge/Exists-1a7f37
+[planned]: https://img.shields.io/badge/Planned-6e7781

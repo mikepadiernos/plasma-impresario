@@ -8,17 +8,18 @@ These proposed toolbar layouts keep primary actions visible and consistent
 without crowding each surface. Each specification maps its entries to actions
 that exist today.
 
-**Legend:** ✅ exists in the current code on `main` · 📋 planned only
+**Legend:** ![Exists][exists] in the current code on `main` ·
+![Planned][planned] not implemented yet
 
 ## Toolbar tree map
 
-| Specification                                   | Scope                                         | Exists today                           |
-| ----------------------------------------------- | --------------------------------------------- | -------------------------------------- |
-| [Navigation toolbar](main-window-toolbar.md)    | Movable icon toolbar and global actions       | ✅ **Navigation** toolbar, docked left |
-| [Message list toolbar](message-list-toolbar.md) | Message triage and selection actions          | 📋 Quick search field only             |
-| [Reading pane toolbar](reading-pane-toolbar.md) | Actions while reading a message               | 📋 No toolbar                          |
-| [Compose toolbar](compose-toolbar.md)           | Message composition                           | 📋 Button row only                     |
-| [Attachment toolbar](attachment-toolbar.md)     | Attachment actions while reading or composing | ✅ Attachments panel header buttons    |
+| Specification                                   | Scope                                         | Exists today                                          |
+| ----------------------------------------------- | --------------------------------------------- | ----------------------------------------------------- |
+| [Navigation toolbar](main-window-toolbar.md)    | Movable icon toolbar and global actions       | ![Exists][exists] **Navigation** toolbar, docked left |
+| [Message list toolbar](message-list-toolbar.md) | Message triage and selection actions          | ![Planned][planned] Quick search field only           |
+| [Reading pane toolbar](reading-pane-toolbar.md) | Actions while reading a message               | ![Planned][planned] No toolbar                        |
+| [Compose toolbar](compose-toolbar.md)           | Message composition                           | ![Planned][planned] Button row only                   |
+| [Attachment toolbar](attachment-toolbar.md)     | Attachment actions while reading or composing | ![Exists][exists] Attachments panel header buttons    |
 
 ## Layout principles
 
@@ -37,3 +38,6 @@ that exist today.
 >
 > Use toolbars for the current context; keep less common or destructive actions
 > in appropriate menus or dialogs.
+
+[exists]: https://img.shields.io/badge/Exists-1a7f37
+[planned]: https://img.shields.io/badge/Planned-6e7781

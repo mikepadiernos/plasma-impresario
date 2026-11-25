@@ -48,7 +48,7 @@ and every subsection issue below are open and in the board's Backlog column.
 These specifications support the M14.02 shell and interaction work. Each one
 marks which actions exist in the current code and which are planned only.
 
-| Specification                     | Scope                                                         |
-| --------------------------------- | ------------------------------------------------------------- |
-| 🧭 [Menus](menus/README.md)       | Application menu and context menus                            |
-| 🧰 [Toolbars](toolbars/README.md) | Navigation, message list, reader, compose and attachment bars |
+| Specification                  | Scope                                                         |
+| ------------------------------ | ------------------------------------------------------------- |
+| [Menus](menus/README.md)       | Application menu and context menus                            |
+| [Toolbars](toolbars/README.md) | Navigation, message list, reader, compose and attachment bars |
