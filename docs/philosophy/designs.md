@@ -132,9 +132,14 @@ the source folder when the server reported their new UIDs (RFC 4315 COPYUID).
 Otherwise the bar offers **Open Trash**, **Open Archive** or **Open Folder**.
 Copies report _Copied 2 messages to …_ with **Open Folder** and cannot be
 undone. Marking more than one message reports _Marked 5 messages as read_,
-_Marked 5 messages as unread_, _Flagged 5 messages_ or _Removed the flag from 5
-messages_ when the command is sent; a single message is not reported. The bar
-is cleared when the account changes.
+_Marked 5 messages as unread_, _Flagged 5 messages_, tag and junk changes once
+the server has confirmed them; a single message is not reported. When an
+operation runs longer than 400 ms, the bar shows what is happening with an
+indeterminate progress indicator, such as _Moving 250 messages to Archive…_,
+until the result replaces it. Quick operations show no progress. Every failed
+move, copy, delete, read, flag, tag or junk change is reported with the number
+of messages and the server's message, such as _Could not flag 3 messages: …_.
+The bar is cleared when the account changes.
 
 The **message list toolbar** shares a row with the quick search field. It
 holds checkable **quick filters**, **Unread**, **Flagged** and **With
@@ -169,6 +174,24 @@ assigned one in the shortcut settings. The message context menu offers Select
 Thread and Select All; the empty area offers Select All, the filters and **Mark
 Mailbox as Read**. All message actions, including read, flag, tags, archive,
 delete and move or copy, apply to the whole selection.
+
+In the message list, Shift with Up, Down, Page Up, Page Down, Home or End
+extends the selection from the message where it started. Ctrl with the same
+keys moves the cursor without changing the selection, and Ctrl+Space adds or
+removes the message at the cursor. Single-key shortcuts such as M, S, A and V
+act on the whole selection; while several messages are selected, other letters
+do not jump to a matching message, so the selection is not lost. When the
+current message leaves the list because it was moved, archived, deleted or
+expunged, the next remaining message becomes current and the only selected
+one, or the previous message at the end of the list. Other selected messages
+are skipped, and the keyboard focus stays in the list. The reader shows the new
+current message under the usual mark-as-read settings. Nothing is selected when
+the list becomes empty.
+
+**Help › Keyboard Shortcuts** (?) opens a searchable list of every action and
+its current shortcut, grouped by menu, then Message List, Message Reader,
+General and Other Windows. It is read-only; its **Configure Shortcuts…** button
+opens the shortcut settings, and the list shows the changes afterwards.
 
 An embedded **attachments panel** sits below the reader in every layout, in a
 resizable reader column whose split is saved with the layout. It lists the
