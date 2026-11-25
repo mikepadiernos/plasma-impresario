@@ -10,6 +10,11 @@ CHECK_DEPS_ONLY=false
 BUILD_ONLY=false
 WITH_WEBENGINE="${WITH_WEBENGINE:-true}"
 OS_RELEASE_FILE="${PLASMA_IMPRESARIO_OS_RELEASE:-${PLASMA_MAIL_OS_RELEASE:-/etc/os-release}}"
+CONVERT_LEGACY="${CONVERT_LEGACY:-true}"
+# Colon-separated prefixes that may hold a Trojita or Plasma Mail installation from before the rename.
+LEGACY_PREFIXES="${LEGACY_PREFIXES-/usr/local:${HOME}/.local}"
+APP_ID="io.github.mikepadiernos.plasma_impresario"
+LEGACY_DESKTOP_ID="org.kde.trojita"
 SUDO=""
 PACKAGE_MANAGER=""
 
@@ -27,6 +32,7 @@ Options:
   --build-dir PATH    Use a custom build directory
   --with-webengine    Require Qt6 WebEngineWidgets (default; needed to read mail)
   --without-webengine Build without message viewing (incomplete mail client)
+  --keep-legacy       Leave Trojita and Plasma Mail installations and mail handler settings unchanged
   --help              Show this help message
 EOF
 }
@@ -367,6 +373,168 @@ configure_and_build() {
   fi
 }
 
+canonical_path() {
+  if [[ -d "$1" ]]; then
+    (cd -P -- "$1" && pwd)
+  else
+    printf '%s\n' "${1%/}"
+  fi
+}
+
+# Run a command, using sudo when any of the given files' directories is not writable.
+run_with_access() {
+  local -n files_ref="$1"
+  shift
+  local file
+  for file in "${files_ref[@]}"; do
+    if [[ "${EUID}" -ne 0 && ! -w "$(dirname "${file}")" ]]; then
+      if ! require_root_or_sudo; then
+        return 1
+      fi
+      "${SUDO}" "$@"
+      return
+    fi
+  done
+  "$@"
+}
+
+# Files that only Trojita and Plasma Mail builds from before the rename install under a prefix.
+legacy_install_files() {
+  local prefix="$1" path
+  local -a candidates=(
+    "${prefix}/bin/be.contacts"
+    "${prefix}/share/applications/${LEGACY_DESKTOP_ID}.desktop"
+    "${prefix}/share/metainfo/${LEGACY_DESKTOP_ID}.appdata.xml"
+    "${prefix}/share/icons/hicolor/32x32/apps/trojita.png"
+    "${prefix}/share/icons/hicolor/scalable/apps/trojita.svg"
+    "${prefix}/share/man/man1/trojita.1"
+  )
+  shopt -s nullglob
+  candidates+=(
+    "${prefix}"/lib/libtrojita_plugins.so*
+    "${prefix}"/lib64/libtrojita_plugins.so*
+    "${prefix}"/lib/*-linux-gnu/libtrojita_plugins.so*
+    "${prefix}"/lib/trojita
+    "${prefix}"/lib64/trojita
+    "${prefix}"/lib/*-linux-gnu/trojita
+    "${prefix}"/share/locale/*/LC_MESSAGES/trojita_qt.qm
+    "${prefix}"/share/doc/HTML/*/trojita
+  )
+  shopt -u nullglob
+  for path in "${candidates[@]}"; do
+    if [[ -e "${path}" || -L "${path}" ]]; then
+      printf '%s\n' "${path}"
+    fi
+  done
+}
+
+refresh_desktop_database() {
+  local applications="$1"
+  local -a cache=("${applications}/mimeinfo.cache")
+  if [[ -d "${applications}" ]] && command -v update-desktop-database >/dev/null 2>&1; then
+    run_with_access cache update-desktop-database -q "${applications}" 2>/dev/null || true
+  fi
+}
+
+# Replace a Trojita or Plasma Mail installation in another prefix: remove its files and keep the trojita
+# command working as a link to the new binary.
+convert_legacy_prefix() {
+  local prefix="$1"
+  local binary="${PREFIX}/bin/plasma-impresario"
+  local file
+  local -a files=()
+  local -a targets=()
+
+  mapfile -t files < <(legacy_install_files "${prefix}")
+  targets=("${files[@]}" "${prefix}/bin/trojita")
+  echo "[${APP_NAME}] Converting the Trojita installation in ${prefix} to ${APP_NAME}..."
+  if ! run_with_access targets sh -c 'rm -rf -- "$@" && ln -sfn -- "$0" "$1"' \
+    "${binary}" "${prefix}/bin/trojita" "${files[@]}"; then
+    echo "[${APP_NAME}] Warning: could not convert ${prefix}; remove its Trojita files manually." >&2
+    return 0
+  fi
+  for file in "${files[@]}"; do
+    echo "[${APP_NAME}]   removed ${file}"
+  done
+  echo "[${APP_NAME}]   ${prefix}/bin/trojita now starts ${binary}"
+  refresh_desktop_database "${prefix}/share/applications"
+}
+
+convert_legacy_installations() {
+  local install_prefix prefix entry
+  local -a prefixes=()
+  local -a obsolete=()
+  install_prefix="$(canonical_path "${PREFIX}")"
+
+  # The rename made this metadata obsolete; an in-place upgrade does not remove it.
+  if [[ -e "${PREFIX}/share/metainfo/${LEGACY_DESKTOP_ID}.appdata.xml" ]]; then
+    obsolete=("${PREFIX}/share/metainfo/${LEGACY_DESKTOP_ID}.appdata.xml")
+    if run_with_access obsolete rm -f -- "${obsolete[@]}"; then
+      echo "[${APP_NAME}] Removed obsolete Trojita metadata ${obsolete[0]}"
+    fi
+  fi
+
+  IFS=':' read -r -a prefixes <<< "${LEGACY_PREFIXES}"
+  for entry in "${prefixes[@]}"; do
+    [[ -n "${entry}" && -d "${entry}" ]] || continue
+    prefix="$(canonical_path "${entry}")"
+    case "${prefix}" in
+      /|/usr)
+        echo "[${APP_NAME}] Skipping ${prefix}: the package manager owns it." >&2
+        continue
+        ;;
+    esac
+    # The new installation provides the trojita alias itself; an older Plasma Impresario is not legacy.
+    if [[ "${prefix}" == "${install_prefix}" || -e "${prefix}/bin/plasma-impresario" ]]; then
+      continue
+    fi
+    if [[ -f "${prefix}/bin/trojita" && ! -L "${prefix}/bin/trojita" ]]; then
+      convert_legacy_prefix "${prefix}"
+    fi
+  done
+}
+
+# Make Plasma Impresario the mail handler wherever the user chose Trojita or Plasma Mail.
+convert_mail_handler() {
+  local config_home="${XDG_CONFIG_HOME:-${HOME}/.config}"
+  local list tmp_list changed=false
+
+  for list in "${config_home}/mimeapps.list" "${config_home}/kde-mimeapps.list" \
+    "${HOME}/.local/share/applications/mimeapps.list"; do
+    # Only rewrite the caller's own files so a sudo-run installer cannot take ownership of them.
+    [[ -f "${list}" && -O "${list}" ]] && grep -Fq "${LEGACY_DESKTOP_ID}.desktop" "${list}" || continue
+    tmp_list="$(mktemp "${list}.XXXXXX")"
+    awk -v old="${LEGACY_DESKTOP_ID}.desktop" -v new="${APP_ID}.desktop" '
+      /^[^#[][^=]*=/ && index($0, old) {
+        key = substr($0, 1, index($0, "="))
+        n = split(substr($0, length(key) + 1), ids, ";")
+        line = key
+        delete seen
+        for (i = 1; i <= n; i++) {
+          id = (ids[i] == old) ? new : ids[i]
+          if (id == "" || seen[id]++)
+            continue
+          line = line id ";"
+        }
+        print line
+        next
+      }
+      { print }
+    ' "${list}" > "${tmp_list}"
+    if [[ "$(< "${tmp_list}")" == "$(< "${list}")" ]]; then
+      rm -f -- "${tmp_list}"
+      continue
+    fi
+    chmod --reference="${list}" "${tmp_list}" 2>/dev/null || true
+    mv -f -- "${tmp_list}" "${list}"
+    echo "[${APP_NAME}] Updated mail handler associations in ${list}"
+    changed=true
+  done
+  if [[ "${changed}" == "true" ]] && command -v kbuildsycoca6 >/dev/null 2>&1; then
+    kbuildsycoca6 >/dev/null 2>&1 || true
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-deps)
@@ -399,6 +567,10 @@ while [[ $# -gt 0 ]]; do
       WITH_WEBENGINE="false"
       shift
       ;;
+    --keep-legacy)
+      CONVERT_LEGACY=false
+      shift
+      ;;
     --help|-h)
       usage
       exit 0
@@ -429,6 +601,10 @@ if [[ "${CHECK_DEPS_ONLY}" == "true" ]]; then
   exit 0
 fi
 configure_and_build
+if [[ "${BUILD_ONLY}" != "true" && "${CONVERT_LEGACY}" == "true" ]]; then
+  convert_legacy_installations
+  convert_mail_handler
+fi
 
 if [[ "${BUILD_ONLY}" == "true" ]]; then
   echo "[${APP_NAME}] Build complete; application was not installed."
