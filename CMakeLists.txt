@@ -403,6 +403,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/ExternalElementsWidget.cpp
     ${path_DesktopGui}/FlowLayout.cpp
     ${path_DesktopGui}/FromAddressProxyModel.cpp
+    ${path_DesktopGui}/InlineNotificationBar.cpp
     ${path_DesktopGui}/LineEdit.cpp
     ${path_DesktopGui}/MailBoxTreeView.cpp
     ${path_DesktopGui}/MailboxPickerDialog.cpp
