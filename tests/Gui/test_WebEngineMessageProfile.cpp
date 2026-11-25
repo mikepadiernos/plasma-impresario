@@ -98,7 +98,9 @@ private slots:
             "<html><body><a id=\"web\" href=\"https://example.org/path\">Web</a>"
             "<a id=\"mail\" href=\"mailto:someone@example.org\">Mail</a>"
             "<a id=\"file\" href=\"file:///etc/passwd\">File</a>"
-            "<a id=\"part\" href=\"trojita-imap://msg/1\">Other part</a></body></html>");
+            "<a id=\"part\" href=\"trojita-imap://msg/1\">Other part</a>"
+            "<a id=\"fake\" href=\"https://evil.test/login\"> https://bank.example.com/login </a>"
+            "<a id=\"same\" href=\"https://evil.test/login\">Second</a></body></html>");
         Gui::WebEngineMessageProfile profile(message.message->index());
         Gui::WebEngineMessagePage page(&profile);
         QSignalSpy finished(&page, &QWebEnginePage::loadFinished);
@@ -112,13 +114,23 @@ private slots:
         page.runJavaScript(QStringLiteral("document.getElementById('web').click()"), QWebEngineScript::ApplicationWorld);
         QTRY_COMPARE_WITH_TIMEOUT(links.size(), 1, 10000);
         QCOMPARE(links.at(0).at(0).toUrl(), QUrl(QStringLiteral("https://example.org/path")));
+        QCOMPARE(links.at(0).at(1).toString(), QStringLiteral("Web"));
         page.runJavaScript(QStringLiteral("document.getElementById('mail').click()"), QWebEngineScript::ApplicationWorld);
         QTRY_COMPARE_WITH_TIMEOUT(links.size(), 2, 10000);
         QCOMPARE(links.at(1).at(0).toUrl(), QUrl(QStringLiteral("mailto:someone@example.org")));
+        QVERIFY(links.at(1).at(1).toString().isEmpty());
         page.runJavaScript(QStringLiteral("document.getElementById('file').click(); document.getElementById('part').click()"),
                            QWebEngineScript::ApplicationWorld);
         QTest::qWait(300);
         QCOMPARE(links.size(), 2);
+        QCOMPARE(page.url(), QUrl(QStringLiteral("trojita-imap://msg/0")));
+
+        // The text of the clicked link comes along, even when another link has the same target
+        page.runJavaScript(QStringLiteral("document.getElementById('same').focus(); document.getElementById('fake').click()"),
+                           QWebEngineScript::ApplicationWorld);
+        QTRY_COMPARE_WITH_TIMEOUT(links.size(), 3, 10000);
+        QCOMPARE(links.at(2).at(0).toUrl(), QUrl(QStringLiteral("https://evil.test/login")));
+        QCOMPARE(links.at(2).at(1).toString().trimmed(), QStringLiteral("https://bank.example.com/login"));
         QCOMPARE(page.url(), QUrl(QStringLiteral("trojita-imap://msg/0")));
     }
 

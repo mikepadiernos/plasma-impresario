@@ -6,6 +6,8 @@
 #include "Gui/AttachmentPanel.h"
 #include "Gui/CompleteMessageWidget.h"
 #include "Gui/ContactPanel.h"
+#include "Gui/EmbeddedWebView.h"
+#include "Gui/ExternalElementsWidget.h"
 #include "Gui/FindBar.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MessageDetailsPanel.h"
@@ -27,6 +29,7 @@
 #include <QDir>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QWebEngineScript>
 #include <QPushButton>
 #include <QSettings>
 #include <QSignalSpy>
@@ -192,8 +195,9 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT((inbox = findMailbox(tree->model(), QStringLiteral("INBOX"))).isValid(), 20000);
         tree->scrollTo(inbox);
         QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(inbox).center());
-        QTRY_COMPARE_WITH_TIMEOUT(inbox.data(Imap::Mailbox::RoleTotalMessageCount).toInt(), 5, 10000);
-        for (const auto *subject : {"Quarterly plan", "Re: Quarterly plan", "Budget numbers", "Signed release note", "Lunch on Friday"})
+        QTRY_COMPARE_WITH_TIMEOUT(inbox.data(Imap::Mailbox::RoleTotalMessageCount).toInt(), 6, 10000);
+        for (const auto *subject : {"Quarterly plan", "Re: Quarterly plan", "Budget numbers", "Signed release note", "Lunch on Friday",
+                                    "Weekly news"})
             QTRY_VERIFY2_WITH_TIMEOUT(findMessage(messages, QString::fromUtf8(subject)).isValid(), subject, 10000);
 
         const auto open = [&](const QString &subject) {
@@ -322,6 +326,43 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(findMessage(messages, QStringLiteral("Lunch on Friday")).isValid(), 10000);
         open(QStringLiteral("Lunch on Friday"));
         QTRY_VERIFY(!findBar->isVisible());
+
+        // Remote content stays blocked, and the bar names the server it would contact.
+        auto *remote = reader->findChild<Gui::ExternalElementsWidget *>();
+        QVERIFY(remote);
+        QVERIFY(!remote->isVisible());
+        open(QStringLiteral("Weekly news"));
+        QTRY_VERIFY_WITH_TIMEOUT(remote->isVisible(), 15000);
+        QCOMPARE(remote->blockedHosts(), QStringList{QStringLiteral("images.example.test")});
+        QVERIFY2(remote->message().contains(QLatin1String("images.example.test")), qPrintable(remote->message()));
+        snapshot(window, QStringLiteral("11-wide-remote-content-blocked"));
+
+        // A link whose text shows another site asks before opening; Cancel keeps it closed.
+        auto *body = reader->findChild<Gui::EmbeddedWebView *>();
+        QVERIFY(body);
+        QString confirmation;
+        QTimer answer;
+        connect(&answer, &QTimer::timeout, &answer, [&]() {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            if (!box || box->objectName() != QLatin1String("linkConfirmation"))
+                return;
+            confirmation = box->text() + QLatin1Char('\n') + box->informativeText();
+            box->button(QMessageBox::Cancel)->click();
+        });
+        answer.start(50);
+        body->page()->runJavaScript(QStringLiteral("document.getElementById('sign-in').click()"),
+                                    QWebEngineScript::ApplicationWorld);
+        QTRY_VERIFY_WITH_TIMEOUT(!confirmation.isEmpty(), 10000);
+        answer.stop();
+        QVERIFY2(confirmation.contains(QLatin1String("sign-in.example.test.invalid"))
+                     && confirmation.contains(QLatin1String("bank.example.test")),
+                 qPrintable(confirmation));
+
+        // Consent applies to this message only.
+        QTest::mouseClick(remote->findChild<QPushButton *>(QStringLiteral("loadRemoteContent")), Qt::LeftButton);
+        QTRY_VERIFY(!remote->isVisible());
+        open(QStringLiteral("Lunch on Friday"));
+        QVERIFY(remote->blockedHosts().isEmpty());
 
         QCOMPARE(passwordPrompts, 0);
         QVERIFY2(imapErrors.isEmpty(), qPrintable(imapErrors.isEmpty() ? QString() : imapErrors.first().first().toString()));
