@@ -153,6 +153,9 @@ void SMTP::handleDone(bool ok)
 void SMTP::handleError(QAbstractSocket::SocketError err, const QString &msg)
 {
     Q_UNUSED(err);
+    // A TLS failure is reported through handleSslErrors() first
+    if (failed)
+        return;
     failed = true;
     emit error(msg);
 }
@@ -160,6 +163,7 @@ void SMTP::handleError(QAbstractSocket::SocketError err, const QString &msg)
 void SMTP::handleSslErrors(const QList<QSslError>& errors)
 {
     auto msg = UiUtils::Formatting::sslErrorsToHtml(errors);
+    failed = true;
     emit error(tr("<p>Cannot send message due to an SSL/TLS error</p>\n%1").arg(msg));
 }
 
