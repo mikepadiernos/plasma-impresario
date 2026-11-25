@@ -28,23 +28,24 @@ integration, productivity features and release-quality refinements.
 
 ## Milestones at a glance
 
-Legend: ✅ merged into `main` · 🚧 in development · 📋 backlog. Board statuses
-as of 2026-11-24.
+Legend: ✅ merged into `main` · 🚧 in development · 📋 backlog. **Done** counts
+roadmap features whose issues are **Completed** or **Merged** (🟩 = 20%).
+Board statuses as of 2026-11-24.
 
-| Milestone | Focus | Parent issue | Board |
-| --- | --- | --- | --- |
-| [M01](#m01-kde--qt6-compatibility-baseline) | 🧱 KDE / Qt 6 compatibility baseline | [#1](https://github.com/mikepadiernos/plasma-impresario/issues/1) | ✅ Merged |
-| [M02](#m02-shell-accounts-and-core-mailbox-foundation) | 🧭 Shell, accounts and core mailbox foundation | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4) | 🚧 Development |
-| [M03](#m03-mail-operations-sorting-and-folder-management) | 📬 Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5) | 🚧 Development on `feature/m03-mail-operations` |
-| [M04](#m04-reading-search-and-conversation-flow) | 📖 Reading, search and conversation flow | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6) | 📋 Backlog |
-| [M05](#m05-desktop-integration-and-provider-support) | 🖥️ Desktop integration and provider support | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7) | 📋 Backlog |
-| [M06](#m06-output-notifications-and-rules-automation) | 🔔 Output, notifications and rules automation | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8) | 📋 Backlog |
-| [M07](#m07-settings-and-workspace-configuration) | ⚙️ Settings and workspace configuration | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9) | 📋 Backlog |
-| [M08](#m08-themes-and-branding-foundation) | 🎨 Themes and branding foundation | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10) | 🚧 Development: M08.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
-| [M09](#m09-reliability-sync-and-notification-quality) | 🔄 Reliability, sync and notification quality | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11) | 📋 Backlog |
-| [M10](#m10-release-readiness-and-polish) | 🚀 Release readiness and polish | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12) | 📋 Backlog |
-| [M11](#m11-nextcloud-and-digital-asset-management) | ☁️ Nextcloud and digital asset management | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31) | 📋 Backlog |
-| [M12](#m12-refinements) | ✨ Refinements | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15) | 📋 Backlog |
+| Milestone | Focus | Parent issue | Done | Board |
+| --- | --- | --- | --- | --- |
+| [M01](#m01-kde--qt6-compatibility-baseline) | 🧱 KDE / Qt 6 compatibility baseline | [#1](https://github.com/mikepadiernos/plasma-impresario/issues/1) | 🟩🟩🟩🟩🟩 19/19 | ✅ Merged |
+| [M02](#m02-shell-accounts-and-core-mailbox-foundation) | 🧭 Shell, accounts and core mailbox foundation | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4) | 🟩🟩⬜⬜⬜ 7/17 | 🚧 Development on `feature/m02-shell-next` |
+| [M03](#m03-mail-operations-sorting-and-folder-management) | 📬 Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5) | 🟩🟩⬜⬜⬜ 4/12 | 🚧 Development on `feature/m03-mail-operations`, where its items are checked |
+| [M04](#m04-reading-search-and-conversation-flow) | 📖 Reading, search and conversation flow | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6) | ⬜⬜⬜⬜⬜ 0/14 | 📋 Backlog |
+| [M05](#m05-desktop-integration-and-provider-support) | 🖥️ Desktop integration and provider support | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7) | ⬜⬜⬜⬜⬜ 0/23 | 📋 Backlog |
+| [M06](#m06-output-notifications-and-rules-automation) | 🔔 Output, notifications and rules automation | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8) | ⬜⬜⬜⬜⬜ 0/9 | 📋 Backlog |
+| [M07](#m07-settings-and-workspace-configuration) | ⚙️ Settings and workspace configuration | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9) | ⬜⬜⬜⬜⬜ 0/12 | 📋 Backlog |
+| [M08](#m08-themes-and-branding-foundation) | 🎨 Themes and branding foundation | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10) | ⬜⬜⬜⬜⬜ 1/32 | 🚧 Development: M08.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
+| [M09](#m09-reliability-sync-and-notification-quality) | 🔄 Reliability, sync and notification quality | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11) | ⬜⬜⬜⬜⬜ 0/9 | 📋 Backlog |
+| [M10](#m10-release-readiness-and-polish) | 🚀 Release readiness and polish | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12) | ⬜⬜⬜⬜⬜ 0/8 | 📋 Backlog |
+| [M11](#m11-nextcloud-and-digital-asset-management) | ☁️ Nextcloud and digital asset management | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31) | ⬜⬜⬜⬜⬜ 0/7 | 📋 Backlog |
+| [M12](#m12-refinements) | ✨ Refinements | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15) | ⬜⬜⬜⬜⬜ 0/80 | 📋 Backlog |
 
 > [!TIP]
 >
@@ -178,47 +179,69 @@ installation depends on the working renderer.
 
 ### M02: Shell, accounts, and core mailbox foundation
 
-**Project:** [M02 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314497855) ·
-[Mail shell](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314539964) ·
-[Accounts and mailbox state](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540057)
+**Project:** [M02 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314497855)
 
-- [ ] Build a Plasma Opus-inspired shell with a header, left column, main
-  column, right column, and footer. Existing widgets and panes, such as the
-  folder tree, message list, and reader, keep their current appearance and
-  layout, adapted to the new shell, so the default look is unchanged. See the
-  [shell and interface widget designs](philosophy/designs.md).
-  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314539964)
-  - Keep the current toolbar and menus as the header, and show connection
-    status in the footer.
-  - Place the mailbox sidebar in either side column, and arrange the message
-    list and reader side by side, stacked, or one panel at a time in the main
-    column.
-  - Show side columns and the footer only while they hold content, and save
-    region sizes, sidebar side, and layout per layout.
-  - Provide attachments, message details, contacts, and related messages
-    embedded panels. Each can be shown, hidden when empty, and placed below
-    the reader, in either side column, or in the footer; include shown panels
-    in F6 focus cycling.
-  - Verify the shell in a real Plasma session.
-- [ ] Define account models, connection state, folder structure, and mailbox lifecycle [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540057)
-- [x] Support multiple simultaneous mail accounts in one window with independent account state and configuration [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314607650)
-- [ ] Design protocol-aware account and capability models that preserve existing IMAP behavior and allow POP3 and JMAP integrations in M05 [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314594590)
-- [ ] Support OAuth account authentication with secure desktop authorization, per-account token storage, renewal, and recovery [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314595922)
-- [ ] Implement the app skeleton in the same overall layout as the design spec [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568848)
-- [x] Support compact and comfortable density modes before moving into feature-heavy workflows [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568860)
-- [x] Add folder counts, unread counts, and saved-search entry points to the mailbox foundation [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568869)
-- [x] Keep this milestone as the blocker for all later mailbox productivity work [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569071)
-- [ ] Provide account setup, editing, removal, identities, and secure credential storage for IMAP and sending accounts [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569080)
-- [ ] Verify baseline account setup and recovery with an isolated test account,
-  as the M01.04 live-account acceptance handoff. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569080)
-- [x] Expose connection, authentication, offline, and loading states without blocking the interface [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569089)
-- [ ] Support account grouping, collapsible folder navigation, and keyboard focus across the shell [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569100)
-- [x] Preserve pane layout, selection, and density preferences across sessions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569110)
+- **M02.01: Headless implementation and verification**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317303874)
+
+  Work that can be built and verified without a desktop session, using
+  offscreen QtTest runs and the synthetic Dovecot server in
+  `tools/dev-container/`.
+
+  - [x] Build a Plasma Opus-inspired shell with a header, left column, main
+    column, right column, and footer. Existing widgets and panes, such as the
+    folder tree, message list, and reader, keep their current appearance and
+    layout, adapted to the new shell, so the default look is unchanged. See the
+    [shell and interface widget designs](philosophy/designs.md).
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314539964)
+    - Keep the current toolbar and menus as the header, and show connection
+      status in the footer.
+    - Place the mailbox sidebar in either side column, and arrange the message
+      list and reader side by side, stacked, or one panel at a time in the main
+      column.
+    - Show side columns and the footer only while they hold content, and save
+      region sizes, sidebar side, and layout per layout.
+    - Provide attachments, message details, contacts, and related messages
+      embedded panels. Each can be shown, hidden when empty, and placed below
+      the reader, in either side column, or in the footer; include shown panels
+      in F6 focus cycling.
+  - [ ] Define account models, connection state, folder structure, and mailbox lifecycle [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540057)
+  - [x] Support multiple simultaneous mail accounts in one window with independent account state and configuration [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314607650)
+  - [ ] Design protocol-aware account and capability models that preserve existing IMAP behavior and allow POP3 and JMAP integrations in M05 [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314594590)
+  - [ ] Support OAuth account authentication with secure desktop authorization, per-account token storage, renewal, and recovery [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314595922)
+  - [ ] Implement the app skeleton in the same overall layout as the design spec [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568848)
+  - [x] Support compact and comfortable density modes before moving into feature-heavy workflows [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568860)
+  - [x] Add folder counts, unread counts, and saved-search entry points to the mailbox foundation [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314568869)
+  - [x] Keep this milestone as the blocker for all later mailbox productivity work [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569071)
+  - [ ] Provide account setup, editing, removal, identities, and secure credential storage for IMAP and sending accounts [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569080)
+  - [ ] Verify baseline account setup and recovery with an isolated test account,
+    as the M01.04 live-account acceptance handoff. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569080)
+  - [x] Expose connection, authentication, offline, and loading states without blocking the interface [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569089)
+  - [ ] Support account grouping, collapsible folder navigation, and keyboard focus across the shell [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569100)
+  - [x] Preserve pane layout, selection, and density preferences across sessions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569110)
+
+- **M02.02: Real Plasma session verification**
+
+  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317303994)
+
+  Checks that need a real KDE Plasma session, KWallet, or a real provider
+  account, and cannot be completed in the headless environment.
+
+  - [ ] Verify the mail shell, embedded panels, and F6 focus cycling in a real
+    Plasma session with the active Plasma style, color scheme, and icon theme.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317304059)
+  - [ ] Verify secure credential storage with KWallet in a real Plasma session.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317304111)
+  - [ ] Verify OAuth authorization, token renewal, and recovery with a real
+    provider account in a Plasma session.
+    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317304160)
 
 Later milestone parent issues are blocked by #4. Apply the same gate when
 starting their feature issues.
 
-Pending implementation and isolated account verification:
+Pending headless implementation, isolated account verification, and the
+M02.02 Plasma-session checks:
 [M02 handoff](TODO.md#m02-shell-and-account-foundation).
 
 Caveats: [multiple accounts](CAVEATS.md#multiple-accounts)
@@ -591,6 +614,7 @@ policy.
     KWin, and keep saved references for retry. Workspaces associated with
     Plasma Activities apply their appearance with that Activity.
     [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317050543)
+
 ### M09: Reliability, sync, and notification quality
 
 **Project:** [M09 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498466) ·

@@ -44,7 +44,19 @@ progress · 📋 planned · ⛔ blocked
   the [M02 handoff](#m02-shell-and-account-foundation).
 - 🚧 **M03 mail operations, sorting and folder management**
   ([#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)): in
-  Development on `feature/m03-mail-operations`.
+  Development on `feature/m03-mail-operations`, which is based on this branch
+  and holds the detailed M03 handoff. Folder navigation
+  ([#37](https://github.com/mikepadiernos/plasma-impresario/issues/37)),
+  sorting and triage
+  ([#38](https://github.com/mikepadiernos/plasma-impresario/issues/38)), quick
+  actions ([#83](https://github.com/mikepadiernos/plasma-impresario/issues/83))
+  and destructive-operation recovery
+  ([#89](https://github.com/mikepadiernos/plasma-impresario/issues/89)) are
+  Completed; batch selection and feedback
+  ([#88](https://github.com/mikepadiernos/plasma-impresario/issues/88)) is in
+  Review and power-user workflows
+  ([#84](https://github.com/mikepadiernos/plasma-impresario/issues/84)) in
+  Development. The other six features are Defined.
 - 🚧 **M08 themes and branding foundation**
   ([#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)): in
   Development because M08.01 Branding and visual language
@@ -62,27 +74,40 @@ progress · 📋 planned · ⛔ blocked
 
 All M02 work is on `feature/m02-shell-next`, which already contains the earlier
 `feature/m02-shell-accounts` and `feature/m02-shell-continuation` branches. It
-is not merged into `main`. No M02 feature has been verified in a real Plasma
-session.
+is not merged into `main`. The milestone has two subsections:
+
+- **M02.01 Headless implementation and verification**
+  ([#318](https://github.com/mikepadiernos/plasma-impresario/issues/318)): all
+  13 features, built and verified with offscreen QtTest and the synthetic
+  Dovecot server in `tools/dev-container/`.
+- **M02.02 Real Plasma session verification**
+  ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)): the
+  checks that need a real Plasma session, KWallet or a real provider account,
+  split from #35, #78 and #218. None has been done yet.
 
 #### Issue status
 
 | Issue                                                                 | Feature                                                     | Board       | State                                                                            |
 | --------------------------------------------------------------------- | ----------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------- |
 | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)     | M02 milestone                                               | Development | 🚧 Waits on the open features below                                              |
-| [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)   | Mail shell                                                  | Review      | 🧪 Implemented; needs a real Plasma session                                      |
+| [#318](https://github.com/mikepadiernos/plasma-impresario/issues/318) | M02.01 Headless implementation and verification             | Development | 🚧 Parent of the 13 features below                                               |
+| [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)   | Mail shell                                                  | Completed   | ✅ Verified headless; Plasma-session check moved to #315                         |
 | [#74](https://github.com/mikepadiernos/plasma-impresario/issues/74)   | App skeleton in the design-spec layout                      | Development | 🚧 Open                                                                          |
 | [#36](https://github.com/mikepadiernos/plasma-impresario/issues/36)   | Account setup and mailbox state                             | Development | 🚧 Open decisions below                                                          |
 | [#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)   | Account setup, editing, removal, identities and credentials | Development | 🚧 Live setup accepted; open decisions below                                     |
 | [#80](https://github.com/mikepadiernos/plasma-impresario/issues/80)   | Account grouping, folder navigation and keyboard focus      | Development | 🚧 Needs account grouping in the folder tree                                     |
 | [#215](https://github.com/mikepadiernos/plasma-impresario/issues/215) | Protocol-aware account and capability model                 | Development | 🚧 Model exists; the interface does not use it                                   |
-| [#218](https://github.com/mikepadiernos/plasma-impresario/issues/218) | OAuth account authentication                                | Defined     | 📋 Not started; live verification needs a real provider account (see below)      |
+| [#218](https://github.com/mikepadiernos/plasma-impresario/issues/218) | OAuth account authentication                                | Defined     | 📋 Not started; live provider check moved to #317 (see below)                    |
 | [#75](https://github.com/mikepadiernos/plasma-impresario/issues/75)   | Density modes                                               | Completed   | ✅ Row-density selector                                                          |
 | [#76](https://github.com/mikepadiernos/plasma-impresario/issues/76)   | Folder counts and saved searches                            | Completed   | ✅ Verified against disposable IMAP                                              |
 | [#77](https://github.com/mikepadiernos/plasma-impresario/issues/77)   | Milestone gate for later mailbox work                       | Completed   | ✅                                                                               |
 | [#79](https://github.com/mikepadiernos/plasma-impresario/issues/79)   | Connection, authentication, offline and loading states      | Completed   | ✅ Footer and per-account status                                                 |
 | [#81](https://github.com/mikepadiernos/plasma-impresario/issues/81)   | Pane layout, selection and density across sessions          | Completed   | ✅ Verified against disposable IMAP                                              |
 | [#222](https://github.com/mikepadiernos/plasma-impresario/issues/222) | Multiple simultaneous accounts                              | Completed   | ✅ Verified against disposable IMAP; caveat [#262](CAVEATS.md#multiple-accounts) |
+| [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | M02.02 Real Plasma session verification                     | Defined     | ⛔ Needs a real Plasma session                                                   |
+| [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315) | Mail shell and embedded panels in Plasma (from #35)         | Defined     | ⛔ Needs a real Plasma session                                                   |
+| [#316](https://github.com/mikepadiernos/plasma-impresario/issues/316) | KWallet credential storage in Plasma (from #78)             | Defined     | ⛔ Needs a real Plasma session and KWallet                                       |
+| [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317) | OAuth sign-in with a real provider account (from #218)      | Defined     | ⛔ Needs #218, a Plasma session and a provider account                           |
 
 Completed issues move to Merged when `feature/m02-shell-next` is merged into
 `main`.
@@ -160,11 +185,12 @@ need a real session.
     because the model connects lazily, and certificate prompts were answered for
     the active account instead of the requesting one.
   - Known limits are recorded in [caveat #262](CAVEATS.md#multiple-accounts).
-- 🧪 **Mail shell, #35:** the shell has a left column, main column, right column
-  and footer, with connection status in the footer. The Navigation toolbar docks
-  at the left window edge by default, and the menu bar is hidden by default. The
-  mailbox sidebar can sit in either side column; the message list and reader can
-  be side by side, stacked or shown one panel at a time.
+- ✅ **Mail shell, #35 (Completed):** the shell has a left column, main
+  column, right column and footer, with connection status in the footer. The
+  Navigation toolbar docks at the left window edge by default, and the menu bar
+  is hidden by default. The mailbox sidebar can sit in either side column; the
+  message list and reader can be side by side, stacked or shown one panel at a
+  time.
   - View › Embedded Panels has a submenu per panel: **Show Panel**, **Hide When
     Empty** and a position below the reader, in either side column or in the
     footer. Side columns and the footer appear only while they hold the sidebar
@@ -205,25 +231,29 @@ need a real session.
 - ⛔ **OAuth verification, #218:** the work is not started, so the issue stays
   in Defined. The IMAP layer has no XOAUTH2 or OAUTHBEARER authentication and
   there is no token source; both can be implemented and covered by parser tests
-  now. KAccounts and signond are installed, but token retrieval and renewal
+  KAccounts and signond are installed, but token retrieval and renewal
   cannot be verified without a real Google or Microsoft account, which needs
-  your input.
+  your input. That check is tracked in M02.02 as
+  [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317).
 - 🚧 **Account model, #78, #36 and #215:** `AccountCapabilities` exists, but
   nothing in the interface consults it yet; POP3 and JMAP belong to M05.05.
   Account editing uses the settings dialog, and per-account identities are not
   separate from the shared sender identities.
 - 🚧 **Navigation, #80:** accounts are grouped by the toolbar selector, not in
   the folder tree; grouping in the folder tree is needed before Review.
-- 🧪 **Plasma session, #35:** verification in a real Plasma session is the
-  remaining step before Completed.
+- ⛔ **Plasma session, M02.02:** the dev container has no Plasma session, so
+  the shell (#315, from #35) and KWallet storage (#316, from #78) checks wait
+  for a real session. #35 is Completed; its Plasma check is tracked in #315.
 
 #### How to resume
 
 1. Confirm the board status of every issue in the table above.
-2. Verify #35 in a real Plasma session, then move it to Completed.
-3. Resolve the open decisions and finish #74, #36, #78, #80 and #215.
-4. For #218, add SASL support with parser tests, add a token interface backed by
-   KAccounts, then verify with an account you control.
+2. M02.01, headless: resolve the open decisions and finish #74, #36, #78, #80
+   and #215.
+3. For #218, add SASL support with parser tests and a token interface backed by
+   KAccounts.
+4. M02.02, in a real Plasma session: complete #315, #316 and #317 (the last
+   with an account you control), then close #319.
 5. Advance each issue through Completed before checking its roadmap item.
 6. Reconcile the pending roadmap changes in the open pull requests
    [#250](https://github.com/mikepadiernos/plasma-impresario/pull/250)
@@ -295,5 +325,29 @@ component audit and reproduction steps.
   Review in pull request
   [#250](https://github.com/mikepadiernos/plasma-impresario/pull/250). Treat the
   roadmap numbering as current until the titles are updated.
+- ✅ **Board audit, 2026-11-24:** every roadmap checkbox matches its issue's
+  board status, every closed issue is Completed or Merged, and sub-issue
+  milestones match their parents. Missing Start and Target dates were filled
+  in from issue, pull request and commit dates for the M01 features, bugs
+  #228 and #241, documentation issues #239, #249, #251, #255 and #258, and #36.
+  [#49](https://github.com/mikepadiernos/plasma-impresario/issues/49) now lists
+  only its own M08.01 feature and links #123 and #124.
+- ✅ **Parent checklists, 2026-11-24:** linked feature checkboxes in issue
+  bodies match their issues' board statuses, and
+  [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4) now lists
+  #74, #78, #79 and #80. The Merged M01 issues
+  [#33](https://github.com/mikepadiernos/plasma-impresario/issues/33),
+  [#34](https://github.com/mikepadiernos/plasma-impresario/issues/34) and
+  [#57](https://github.com/mikepadiernos/plasma-impresario/issues/57) check the
+  tasks backed by merged work and recorded evidence. Each one leaves its
+  live-reading, system-prefix or other-distribution tasks unchecked, with a
+  note pointing to the [M01 handoff](#m01-release-gate-and-integration).
+- 📋 **Pending wording, #87:** M03 issue
+  [#87](https://github.com/mikepadiernos/plasma-impresario/issues/87) is
+  titled "Provide an Aqua Mail-inspired message list", while its roadmap item
+  still reads "Provide readable compact message rows…". The open pull request
+  [#257](https://github.com/mikepadiernos/plasma-impresario/pull/257) rewords
+  the roadmap item to match; keep both as they are until it is merged or
+  closed.
 - Keep roadmap links, issue parents, milestone assignments and project status
   synchronized when roadmap scope changes.

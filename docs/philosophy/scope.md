@@ -27,17 +27,17 @@ implementation, [designs](designs.md#current-interface) describes the current
 interface, and [caveats](../CAVEATS.md) records security and platform
 limitations.
 
-| Capability                                               | Status | Notes                                                                                                                             |
-| -------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| 🧱 KDE / Qt 6 baseline (M01)                             | ✅     | Merged into `main`; see [compatibility](compatibility.md).                                                                        |
-| 📬 IMAP reading with on-demand fetching and local cache  | 🧪     | Inherited from Trojitá. Live reading with a real account is pending in M04.                                                       |
-| ✉️ SMTP and other submission paths                       | 🧪     | Inherited from Trojitá. Live sending is pending in M04.                                                                           |
-| 📬 Multiple simultaneous IMAP accounts                   | ✅     | Completed on `feature/m02-shell-next`, not yet in `main` ([#222](https://github.com/mikepadiernos/plasma-impresario/issues/222)). |
-| 🧭 Mail shell and embedded panels                        | 🧪     | In Review ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); see [designs](designs.md#shell-status).          |
-| 🔐 OAuth account authentication                          | ⛔     | Needs SASL support in the IMAP layer and a token source; see [TODO](../TODO.md#m02-shell-and-account-foundation).                 |
-| 📮 POP3 retrieval with SMTP submission                   | 📋     | M05.05. POP3 stores retrieved mail locally and has no IMAP-style server folder synchronization.                                   |
-| 📡 JMAP accounts                                         | 📋     | M05.05. Capabilities depend on the server.                                                                                        |
-| 🏢 Consumer Outlook, Exchange Online and Exchange Server | 📋     | M05.05. Exchange Online and on-premises Exchange Server differ in interfaces, authentication options and administrator policies.  |
+| Capability                                               | Status | Notes                                                                                                                                                                                                           |
+| -------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🧱 KDE / Qt 6 baseline (M01)                             | ✅     | Merged into `main`; see [compatibility](compatibility.md).                                                                                                                                                      |
+| 📬 IMAP reading with on-demand fetching and local cache  | 🧪     | Inherited from Trojitá. Live reading with a real account is pending in M04.                                                                                                                                     |
+| ✉️ SMTP and other submission paths                       | 🧪     | Inherited from Trojitá. Live sending is pending in M04.                                                                                                                                                         |
+| 📬 Multiple simultaneous IMAP accounts                   | ✅     | Completed on `feature/m02-shell-next`, not yet in `main` ([#222](https://github.com/mikepadiernos/plasma-impresario/issues/222)).                                                                               |
+| 🧭 Mail shell and embedded panels                        | 🧪     | Completed ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); Plasma check in [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315); see [designs](designs.md#shell-status). |
+| 🔐 OAuth account authentication                          | ⛔     | Needs SASL support in the IMAP layer and a token source; see [TODO](../TODO.md#m02-shell-and-account-foundation).                                                                                               |
+| 📮 POP3 retrieval with SMTP submission                   | 📋     | M05.05. POP3 stores retrieved mail locally and has no IMAP-style server folder synchronization.                                                                                                                 |
+| 📡 JMAP accounts                                         | 📋     | M05.05. Capabilities depend on the server.                                                                                                                                                                      |
+| 🏢 Consumer Outlook, Exchange Online and Exchange Server | 📋     | M05.05. Exchange Online and on-premises Exchange Server differ in interfaces, authentication options and administrator policies.                                                                                |
 
 ## Target experience
 
