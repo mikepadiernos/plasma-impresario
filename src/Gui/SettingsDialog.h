@@ -285,6 +285,8 @@ public:
     QWidget *asWidget() override;
     bool checkValidity() const override;
     bool passwordFailures(QString &message) const override;
+    /** @short Revoke an OAuth sign-in made in the dialog unless the saved settings use it */
+    void finish(const QSettings &s);
 
 private:
     enum { NETWORK, PROCESS };
@@ -389,6 +391,7 @@ private:
     QString m_originalPasswordPlugin;
     QString m_originalAddressbookPlugin;
     QString m_originalSpellcheckerPlugin;
+    ImapPage *m_imapPage = nullptr;
 
     SettingsDialog(const SettingsDialog &); // don't implement
     SettingsDialog &operator=(const SettingsDialog &); // don't implement

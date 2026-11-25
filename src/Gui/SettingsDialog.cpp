@@ -99,7 +99,8 @@ SettingsDialog::SettingsDialog(MainWindow *parent, Scope scope, Composer::Sender
     if (scope == Scope::Account) {
         addPage(new IdentitiesPage(this, *m_accountSettings, *m_settings, m_accountIdentities, m_senderIdentities),
                 i18nc("@title:tab", "I&dentities"), m_accountSettings);
-        addPage(new ImapPage(this, *m_accountSettings), tr("I&MAP"), m_accountSettings);
+        m_imapPage = new ImapPage(this, *m_accountSettings);
+        addPage(m_imapPage, tr("I&MAP"), m_accountSettings);
         addPage(new CachePage(this, *m_accountSettings), tr("&Offline"), m_accountSettings);
         addPage(new OutgoingPage(this, *m_accountSettings), tr("&SMTP"), m_accountSettings);
     } else {
@@ -206,6 +207,9 @@ void SettingsDialog::accept()
     Q_FOREACH(ConfigurationWidgetInterface *page, pages) {
         page->save(*m_pageSettings.value(page));
     }
+    // Only now do the settings say whether the SMTP page uses a sign-in made on the IMAP page
+    if (m_imapPage)
+        m_imapPage->finish(*m_accountSettings);
 
     m_settings->sync();
     m_accountSettings->sync();
@@ -253,6 +257,8 @@ void SettingsDialog::reject()
     m_senderIdentities->loadFromSettings(*m_settings);
     m_accountIdentities->loadFromSettings(*m_accountSettings);
     m_favoriteTags->loadFromSettings(*m_settings);
+    if (m_imapPage)
+        m_imapPage->finish(*m_accountSettings);
     QDialog::reject();
 }
 
@@ -1044,6 +1050,12 @@ QWidget *ImapPage::asWidget()
     return this;
 }
 
+void ImapPage::finish(const QSettings &s)
+{
+    if (m_oauth)
+        m_oauth->finish(s);
+}
+
 bool ImapPage::checkValidity() const
 {
     switch (method->currentIndex()) {
@@ -1054,6 +1066,11 @@ bool ImapPage::checkValidity() const
         if (usesOAuth() && m_oauth->accountConfig().clientId.isEmpty()
                 && checkProblemWithEmptyTextField(m_oauth->clientId, tr("The OAuth client ID is missing here")))
             return false;
+        if (m_oauth->hasUnsavedClientSecret()) {
+            QToolTip::showText(m_oauth->clientSecret->mapToGlobal(QPoint(10, m_oauth->clientSecret->height() / 2)),
+                               tr("Sign in to store this client secret, or clear it"), nullptr);
+            return false;
+        }
         break;
     default:
         // PREAUTH must definitely be supported here -- think imap-over-ssh-with-ssh-keys etc.

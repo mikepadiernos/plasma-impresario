@@ -46,8 +46,16 @@ public:
     void setActive(bool active);
     void setLoginHint(const QString &loginHint);
     OAuth::AccountConfig accountConfig() const;
-    /** @short Write the provider and client to the account settings */
+    /** @short Write the provider and client to the account settings; the client secret is stored with the grant */
     void save(QSettings &settings) const;
+    /** @short Whether a client secret was entered but not yet stored by signing in */
+    bool hasUnsavedClientSecret() const;
+    /**
+     * @short Revoke a sign-in made in this dialog unless the account settings now use it
+     *
+     * Call when the dialog closes with the account's saved settings, both after saving and after cancelling.
+     */
+    void finish(const QSettings &settings);
     State state() const;
     /** @short The session for the values currently shown */
     OAuth::Session *session();
@@ -68,6 +76,8 @@ private:
     void refreshState();
     void setState(State state, const QString &message = QString());
     void updateClientIdPlaceholder();
+    void updateClientSecretPlaceholder();
+    QString signedOutMessage(OAuth::Session::Revocation revocation) const;
 
     QFormLayout *m_layout;
     QWidget *m_buttons;
@@ -78,6 +88,11 @@ private:
     State m_state = State::Unknown;
     bool m_active = false;
     bool m_hadSettings = false;
+    /** @short A client secret which older versions saved in the settings file */
+    QString m_legacySecret;
+    QString m_storedSecret;
+    OAuth::AccountConfig m_authorizedConfig;
+    bool m_signedInHere = false;
 };
 
 }
