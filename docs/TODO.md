@@ -541,5 +541,24 @@ component audit and reproduction steps.
 - ✅ **Merged:** #385 merged in
   [#418](https://github.com/mikepadiernos/plasma-impresario/pull/418) and is
   closed and Merged on the board.
+- ⛔ **Microsoft app registration,
+  [#396](https://github.com/mikepadiernos/plasma-impresario/issues/396):**
+  needs the maintainer's Microsoft account, so it cannot be done here. The
+  plan is in [App registration](integrations/microsoft.md#app-registration).
+  To resume:
+  1. Use a work or school Microsoft Entra tenant with a DNS-verified project
+     domain; an app registered with a personal Microsoft account cannot be
+     publisher-verified later.
+  2. Register "Plasma Impresario" for accounts in any organizational
+     directory and personal Microsoft accounts, as a mobile and desktop
+     client with the `http://localhost` redirect and public client flows
+     allowed, and add the delegated permissions listed in the guide.
+  3. Record the client ID for release builds through
+     `IMPRESARIO_OAUTH_MICROSOFT_CLIENT_ID`; it is not a secret.
+  4. Ask the KDE PIM developers, such as Daniel Vrátil, in the KDE PIM Matrix
+     room whether KMail's and the EWS resource's client IDs are
+     publisher-verified and which tenant holds them.
+  5. Ask KDE e.V. whether it can host or publisher-verify the app, and record
+     both answers in #396.
 - 📋 **Resume:** when #249 retitles the Refinements issues, remove the
-  title-prefix bullet and this section.
+  title-prefix bullet; remove this section when that and #396 are done.
