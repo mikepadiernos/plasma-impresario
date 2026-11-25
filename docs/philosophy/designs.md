@@ -90,23 +90,48 @@ available in the Mailbox menu while the account has those folders, and in the
 context menu of the Trash or Junk folder itself. They mark every message in the
 folder `\Deleted` and expunge it; an empty folder is only reported as empty.
 
+**Quick actions** for the selected messages are in the Message menu, the
+message list's context menu and the main toolbar, and are disabled offline or
+without a selection:
+
+- **Archive** (A) moves the messages to the account's archive folder: the
+  folder set in the account settings, otherwise the Archive special folder the
+  tree recognizes (such as the server's `\Archive` folder), otherwise
+  `Archive`.
+- **Move to Folder…** (V) and **Copy to Folder…** (Shift+V) open the folder
+  picker without the open folder and without folders that cannot hold
+  messages. The **Move To** and **Copy To** submenus list the account's five
+  most recent destinations, newest first, followed by **Other Folder…**.
+  Destinations are remembered per account as `imap.recentDestinationFolders`
+  when an operation starts. Folders the loaded tree shows as deleted or not
+  selectable are dropped when a menu opens; folders below a branch that has not
+  been loaded are kept. On the toolbar, Move to Folder… has the recent
+  destinations behind its arrow.
+- **Mark as Read** (M) and **Mark as Flagged** (S) are toggles that show the
+  state of the selection. **Mark as Unread** (Shift+M) always marks the
+  selection unread.
+
+Toolbar-sized icons use the theme's `-symbolic` variants when available.
+Per-message hover actions in the list are planned separately.
+
 Delete Permanently, Expunge and the Empty actions ask first, naming the number
 of messages when it is known. The question has a **Do not ask again** check
 box, which takes effect only when the operation is accepted. The answers are
 stored in `plasma-impresariorc`, group `Confirmations`, as `ConfirmExpunge`,
 `ConfirmDeletePermanently` and `ConfirmEmptyFolder` (`false` skips the
-question). Moving to Trash and archiving are not confirmed because they can
-be undone.
+question). Moving to Trash, archiving and moving or copying to other folders
+are not confirmed because they can be undone or are harmless.
 
 Results appear in a **notification bar** between the quick search field and
 the message list instead of a dialog. For example, it reports _Moved 3
 messages to Trash_, _Archived 2 messages_, _Permanently deleted 1 message_,
 renames, emptied folders and failures, including the server's message.
 Information hides itself after eight seconds; errors stay until closed. After
-a move to Trash or Archive, **Undo** moves the messages back to the source
-folder when the server reported their new UIDs (RFC 4315 COPYUID). Otherwise
-the bar offers **Open Trash** or **Open Archive**. The bar is cleared when the
-account changes.
+a move to Trash, Archive or another folder, **Undo** moves the messages back to
+the source folder when the server reported their new UIDs (RFC 4315 COPYUID).
+Otherwise the bar offers **Open Trash**, **Open Archive** or **Open Folder**.
+Copies report _Copied 2 messages to …_ with **Open Folder** and cannot be
+undone. The bar is cleared when the account changes.
 
 An embedded **attachments panel** sits below the reader in every layout, in a
 resizable reader column whose split is saved with the layout. It lists the
@@ -348,7 +373,10 @@ claims that every component is implemented.
   source and keeping actions account-aware. Inspired by Vivaldi Mail.
 - **Message list and quick actions:** Present sender, subject, date and unread
   state with accessible archive, move, flag and delete actions. Inspired by Aqua
-  Mail and The Bat!.
+  Mail and The Bat!. Menu, context-menu, toolbar and keyboard quick actions,
+  including recent move and copy destinations, are implemented (see
+  [Current interface](#current-interface)); per-message hover actions remain
+  planned.
 - **Filters and sorting:** Expose active filters, sort order and threading
   without obscuring the current folder or selection. Inspired by Vivaldi Mail
   and The Bat!.
