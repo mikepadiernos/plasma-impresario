@@ -436,7 +436,10 @@ than copied from its mobile interface:
 - **Actions and navigation:** Message actions are arranged in the shared
   [customization mode](#toolbars-and-customization), with configurable keyboard
   shortcuts. Touch-capable devices can enable configurable gestures that do not
-  replace mouse or keyboard actions or interfere with normal scrolling.
+  replace mouse or keyboard actions or interfere with normal scrolling. An
+  optional Vim mode, off by default, adds Vim-style movement and multi-key
+  actions with a which-key style hint panel, and can share its settings with
+  [Plasma Opus](../integrations/plasma-opus.md#vim-mode-and-shortcuts).
 - **Accounts and composition:** Building on per-account identities and
   plain-text signatures, rich-text signatures are offered where supported, and
   the composer shows which account and identity will be used before sending.

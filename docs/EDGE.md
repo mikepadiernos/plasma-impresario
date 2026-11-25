@@ -126,6 +126,8 @@ Planned in [M13](ROADMAP.md#m13-microsoft-accounts-and-exchange); see the
 | Interface       | Narrow windows, display scaling, RTL locales and high-contrast modes                   | ![Not validated][not-validated]                                                 |
 | Interface       | Upgrading with pane sizes saved before the shell, including a folder tree on the right | ![Offscreen tests][offscreen] `test_MainWindowShell` (compact and wide layouts) |
 | Navigation      | <kbd>F6</kbd> focus cycling with hidden or collapsed panes                             | ![Not validated][not-validated]                                                 |
+| Navigation      | Vim mode keys typed in the composer, search or address fields                          | ![Not validated][not-validated]                                                 |
+| Navigation      | A Plasma Opus keymap that conflicts with the single-key mail shortcuts                 | ![Not validated][not-validated]                                                 |
 | Navigation      | <kbd>F6</kbd> focus cycling with the header region shown                               | ![Offscreen tests][offscreen] `test_MainWindowShell`                            |
 | Embedded panels | Swapping sidebar sides with panels in both columns                                     | ![Not validated][not-validated]                                                 |
 | Embedded panels | One-panel layout with side-column panels                                               | ![Not validated][not-validated]                                                 |
