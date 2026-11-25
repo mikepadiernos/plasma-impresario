@@ -221,7 +221,7 @@ install_dependencies() {
     pacman)
       local pkg
       local -a available_optional=()
-      local -a optional_packages=(mimetic gpgme gpgmepp qgpgme qtkeychain-qt6 kdoctools sonnet akonadi akonadi-contacts)
+      local -a optional_packages=(mimetic gpgme gpgmepp qgpgme qtkeychain-qt6 kdoctools sonnet knotifications akonadi akonadi-contacts)
       for pkg in "${optional_packages[@]}"; do
         if package_installed "${pkg}" || pacman -Si "${pkg}" >/dev/null 2>&1; then
           available_optional+=("${pkg}")
@@ -258,6 +258,7 @@ install_dependencies() {
         qtkeychain-qt6 \
         kdoctools \
         sonnet \
+        knotifications \
         akonadi \
         akonadi-contacts
       return 0
@@ -283,6 +284,7 @@ install_dependencies() {
         libkf6config-dev \
         libkf6i18n-dev \
         libkf6sonnet-dev \
+        libkf6notifications-dev \
         libkf6akonadicore-dev \
         libkf6akonadimime-dev
       return 0
@@ -305,6 +307,7 @@ install_dependencies() {
         kf6-kconfig-devel \
         kf6-ki18n-devel \
         kf6-sonnet-devel \
+        kf6-knotifications-devel \
         kf6-akonadi-devel
       return 0
       ;;
@@ -325,6 +328,7 @@ install_dependencies() {
         kf6-kconfig-devel \
         kf6-ki18n-devel \
         sonnet-devel \
+        kf6-knotifications-devel \
         akonadi-devel
       return 0
       ;;
