@@ -162,9 +162,9 @@ and project status before acting.
   `feature/m02-shell-next`, because M03 builds on the shell and multiple
   accounts. Merging M03 into `main` would also merge the M02 work, so merge M02
   first (it waits on the real-Plasma check for #35 and on OAuth #218).
-- **Current state:** M03 #5 is in Development. Folder navigation #37 is
-  Completed; destructive operations and folder actions #89 are in Review. The
-  other feature issues follow in this order: #83, #38, #88, #84, #85, #90, #87,
+- **Current state:** M03 #5 is in Development. Folder navigation #37 and
+  destructive operations #89 are Completed; quick actions #83 are in Review.
+  The other feature issues follow in this order: #38, #88, #84, #85, #90, #87,
   #82, #223 and #86.
 - **Pending verification:** Delete to Trash, Undo, Delete Permanently, Empty
   Trash/Junk and Rename Folder are covered by model and unit tests but have not
