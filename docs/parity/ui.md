@@ -37,7 +37,9 @@ keys; this page does not repeat them.
 > `feature/m02-shell-next` and are not yet merged into `main`. Offscreen tests
 > and opt-in live IMAP tests against a synthetic Dovecot
 > (`tools/dev-container/`) cover them; a real Plasma session has not been
-> verified.
+> verified. M02.02
+> ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319))
+> tracks that check.
 
 The main window is `MainWindow` in `src/Gui/Window.cpp`; the panels are in
 `src/Gui/` (`AttachmentPanel`, `MessageDetailsPanel`, `ContactPanel`,

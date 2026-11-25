@@ -38,7 +38,9 @@ planned · ⚠️ limitation
 > The shell described in this section is implemented on `feature/m02-shell-next`
 > and is not yet merged into `main`. Offscreen tests and opt-in live IMAP tests
 > against a synthetic Dovecot server in `tools/dev-container/` cover it; it has
-> not been verified in a real Plasma session.
+> not been verified in a real Plasma session, which M02.02
+> ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319))
+> tracks.
 
 The Qt Widgets application has a shell with a left column, a main column, a
 right column and a footer, followed by the status bar. The Navigation toolbar
@@ -393,9 +395,9 @@ selection while switching layouts.
 
 ## Implementation sequence
 
-| Step                                                                             | Status                                                                                                              |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| 1. Record the current main-window behavior and its acceptance tests              | ✅ Offscreen QtTest suites such as `test_EmbeddedPanels`, `test_MainWindowDensity` and `test_SessionRestart`        |
-| 2. Build the new shell without changing IMAP, cache or composition behavior      | 🧪 [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35) in Review                                    |
-| 3. Validate layouts, accessibility and navigation with representative data       | 🚧 Synthetic Dovecot checks (`test_LiveImapPanels`) pass; a real Plasma session and accessibility review remain     |
-| 4. Migrate settings and saved window state only after the new behavior is tested | ⚠️ Pre-shell pane sizes are not migrated; see [#264](https://github.com/mikepadiernos/plasma-impresario/issues/264) |
+| Step                                                                             | Status                                                                                                                         |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 1. Record the current main-window behavior and its acceptance tests              | ✅ Offscreen QtTest suites such as `test_EmbeddedPanels`, `test_MainWindowDensity` and `test_SessionRestart`                   |
+| 2. Build the new shell without changing IMAP, cache or composition behavior      | 🧪 [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35) in Review                                               |
+| 3. Validate layouts, accessibility and navigation with representative data       | 🚧 Synthetic Dovecot checks (`test_LiveImapPanels`) pass; a real Plasma session (M02.02, #319) and accessibility review remain |
+| 4. Migrate settings and saved window state only after the new behavior is tested | ⚠️ Pre-shell pane sizes are not migrated; see [#264](https://github.com/mikepadiernos/plasma-impresario/issues/264)            |
