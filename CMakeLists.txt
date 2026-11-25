@@ -287,6 +287,14 @@ set(libPlugins_SOURCES
     ${path_Plugins}/SpellcheckerPlugin.cpp
 )
 
+set(path_OAuth ${CMAKE_CURRENT_SOURCE_DIR}/src/OAuth)
+set(libOAuth_SOURCES
+    ${path_OAuth}/OAuth.cpp
+    ${path_OAuth}/Session.cpp
+    ${path_OAuth}/TokenSource.cpp
+    ${path_OAuth}/TokenStore.cpp
+)
+
 set(path_UiUtils ${CMAKE_CURRENT_SOURCE_DIR}/src/UiUtils)
 set(libUiUtils_SOURCES
     ${path_UiUtils}/AttachmentCollector.cpp
@@ -623,6 +631,25 @@ target_link_libraries(Plugins
         Qt::Core
     PRIVATE
         Common
+)
+
+# Optional build-time OAuth client IDs; accounts can override them. Never configure a client secret here.
+set(IMPRESARIO_OAUTH_GOOGLE_CLIENT_ID "" CACHE STRING "Default OAuth client ID for Google accounts")
+set(IMPRESARIO_OAUTH_MICROSOFT_CLIENT_ID "" CACHE STRING "Default OAuth client ID for Microsoft accounts")
+add_library(OAuth STATIC ${libOAuth_SOURCES})
+set_property(TARGET OAuth APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+target_compile_definitions(OAuth PRIVATE
+    IMPRESARIO_OAUTH_GOOGLE_CLIENT_ID="${IMPRESARIO_OAUTH_GOOGLE_CLIENT_ID}"
+    IMPRESARIO_OAUTH_MICROSOFT_CLIENT_ID="${IMPRESARIO_OAUTH_MICROSOFT_CLIENT_ID}"
+)
+target_link_libraries(OAuth
+    PUBLIC
+        Qt::Core
+        Qt::Network
+        Common
+        Plugins
+    PRIVATE
+        Qt::Gui
 )
 
 add_library(UiUtils STATIC ${libUiUtils_SOURCES})

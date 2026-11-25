@@ -41,6 +41,9 @@ struct SettingsNames {
            obsImapStartOffline, obsImapSslPemCertificate, imapSslPemPubKey,
            imapBlacklistedCapabilities, imapUseSystemProxy, imapNeedsNetwork, imapNumberRefreshInterval,
            imapAccountIcon, imapArchiveFolderName, imapDefaultArchiveFolderName;
+    /** @short Per-account authentication method for IMAP and SMTP, and the account's OAuth 2.0 configuration */
+    static const QString imapAuthMethodKey, smtpAuthMethodKey, authMethodPassword, authMethodOAuth,
+           oauthProviderKey, oauthClientIdKey, oauthClientSecretKey;
     static const QString composerSaveToImapKey, composerImapSentKey, smtpUseBurlKey, composerUseSharedIdentitiesKey;
     static const QString cacheMetadataKey, cacheMetadataMemory,
            cacheOfflineKey, cacheOfflineNone, cacheOfflineXDays, cacheOfflineAll, cacheOfflineNumberDaysKey;
