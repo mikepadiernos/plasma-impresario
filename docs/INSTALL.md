@@ -34,16 +34,42 @@ On unsupported distributions, install dependencies manually and use `--no-deps`.
 | `--build-dir PATH`    | Use a custom build directory.                                                                                                              |
 | `--with-webengine`    | Require the full WebEngine reader; this is the default.                                                                                    |
 | `--without-webengine` | Build without message viewing; this is an incomplete mail client.                                                                          |
+| `--keep-legacy`       | Leave Trojitá and Plasma Mail installations and mail handler settings unchanged; see [Upgrading](#upgrading-from-trojitá-or-plasma-mail).  |
 
 Dependency checks do not verify package versions or CMake-only requirements.
 `PLASMA_IMPRESARIO_OS_RELEASE` can specify an alternate os-release file; the
-older `PLASMA_MAIL_OS_RELEASE` name is also supported.
+older `PLASMA_MAIL_OS_RELEASE` name is also supported. `CONVERT_LEGACY=false`
+is equivalent to `--keep-legacy`, and `LEGACY_PREFIXES` sets the
+colon-separated prefixes searched for older installations.
 
 For example:
 
 ```bash
 ./install.sh --prefix "$HOME/apps/plasma-impresario" --build-dir "$HOME/plasma-impresario-build"
 ```
+
+## Upgrading from Trojitá or Plasma Mail
+
+Plasma Impresario reads Trojitá's settings, cache, and stored mail in place, so
+accounts and preferences need no migration. After installing, the installer
+replaces older installations:
+
+- In `/usr/local` and `~/.local` (or `LEGACY_PREFIXES`), a prefix with a
+  Trojitá or Plasma Mail `bin/trojita` program and no Plasma Impresario binary
+  has its Trojitá files removed: launcher, metadata, icons, plugins,
+  translations, handbook, and man page. Its `bin/trojita` becomes a link to the
+  new `plasma-impresario`, so scripts and launchers that call `trojita` keep
+  working. Package-manager prefixes such as `/usr` are never changed.
+- Obsolete `share/metainfo/org.kde.trojita.appdata.xml` metadata is removed
+  from the installation prefix.
+- Where the user's `mimeapps.list` chose Trojitá or Plasma Mail, for example as
+  the default mail client, it now chooses Plasma Impresario.
+
+Panel entries pinned to the old launcher keep working through a hidden
+compatibility launcher. A protected prefix requests administrator privileges;
+if conversion fails, the installer prints a warning and leaves the files in
+place. An upstream Trojitá built from source into one of these prefixes is also
+replaced; use `--keep-legacy` to keep it.
 
 ## Launch and troubleshooting
 
@@ -57,8 +83,6 @@ For example:
   `gtk-update-icon-cache --force --ignore-theme-index "$PREFIX/share/icons/hicolor"`
   with `PREFIX` set to the installation prefix. Refresh Plasma's application
   database with `kbuildsycoca6` or log out and back in if the old icon remains.
-- An in-place upgrade may leave `share/metainfo/org.kde.trojita.appdata.xml`
-  under the prefix. Remove that obsolete metadata if it remains.
 - The installed Trojitá handbook and man page come from `docs/old` and may
   describe historical behavior.
 
