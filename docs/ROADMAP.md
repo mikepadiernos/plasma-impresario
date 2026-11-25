@@ -53,12 +53,6 @@ once work starts and gray before. Board statuses as of 2026-11-25.
 | [M14](#m14-refinements) | Refinements | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15) | ![0 of 84 done](https://img.shields.io/badge/0%2F84-0%25-6e7781) | ![Backlog][backlog] |
 | [M15](#m15-real-plasma-session-verification) | Real Plasma session verification | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781) | ![Defined][defined] |
 
-> [!TIP]
->
-> Some board issue titles still use earlier milestone numbers; the parent issue
-> links above and each **Project** link point to the right item. See
-> [pending tasks](TODO.md#milestone-feature-issue-synchronization).
-
 ## Recommended priority
 
 | Priority | Focus | Recommended next work |
