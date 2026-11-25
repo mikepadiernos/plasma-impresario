@@ -28,6 +28,7 @@
 #include "static_plugins.h"
 
 #include <KLocalizedString>
+#include <algorithm>
 #include <QApplication>
 #include <QDialog>
 #include <QDir>
@@ -460,6 +461,7 @@ private slots:
         QVERIFY2(partErrors->text().contains(QLatin1String("offline")), qPrintable(partErrors->text()));
         QVERIFY(partErrors->actionButtons().isEmpty());
         snapshot(window, QStringLiteral("12-wide-part-unavailable-offline"));
+        QSignalSpy foldersListed(window.imapModel(), &QAbstractItemModel::rowsInserted);
         watcher->setNetworkOnline();
         QTRY_VERIFY_WITH_TIMEOUT(!partErrors->isVisible(), 20000);
         auto *travelBody = reader->findChild<Gui::EmbeddedWebView *>();
@@ -470,6 +472,15 @@ private slots:
             (travelBody->page()->toPlainText([bodyText](const QString &text) { *bodyText = text; }),
              bodyText->contains(QLatin1String("The train leaves at nine"))),
             20000);
+
+        // Going online again reloads the folder list; the shown folder is opened again rather than left empty.
+        // Until the server answers, the list still shows the folder's old rows.
+        QTRY_VERIFY_WITH_TIMEOUT(std::any_of(foldersListed.cbegin(), foldersListed.cend(),
+                                             [](const QList<QVariant> &args) { return !args.first().toModelIndex().isValid(); }),
+                                 20000);
+        QTRY_VERIFY_WITH_TIMEOUT(findMessage(messages, QStringLiteral("Quarterly plan")).isValid(), 20000);
+        QTRY_COMPARE_WITH_TIMEOUT(tree->currentIndex().data(Imap::Mailbox::RoleMailboxName).toString(), QStringLiteral("INBOX"), 10000);
+        open(QStringLiteral("Budget numbers"));
 
         QCOMPARE(passwordPrompts, 0);
         QVERIFY2(imapErrors.isEmpty(), qPrintable(imapErrors.isEmpty() ? QString() : imapErrors.first().first().toString()));

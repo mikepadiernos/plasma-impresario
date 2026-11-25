@@ -1819,6 +1819,11 @@ void MainWindow::setupModels(bool reconnect)
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::modelReset, msgListWidget, &MessageListWidget::slotAutoEnableDisableSearch);
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::modelReset, this, &MainWindow::updateMessageFlags);
     connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, this, &MainWindow::slotMailboxChanged);
+    // Reloading the folder list, as after going online again, replaces the shown folder with a new item
+    connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxLost, this, [this](const QString &mailbox) {
+        if (!m_unifiedInbox)
+            mboxTree->restoreMailbox(mailbox);
+    });
     connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, this, [this]() {
         commitFolderPosition();
         m_positionMailbox = currentMailboxName();

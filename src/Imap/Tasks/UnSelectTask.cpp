@@ -39,6 +39,11 @@ UnSelectTask::UnSelectTask(Model *model, ImapTask *parentTask) :
     parser = conn->parser;
     Q_ASSERT(parser);
     connect(this, &ImapTask::completed, this, &UnSelectTask::resetConnectionState);
+    connect(model, &Model::connectionStateChanged, this, [this](uint parserId, Imap::ConnectionState state) {
+        if (parser && parserId == parser->parserId() && (!unSelectTag.isEmpty() || !selectMissingTag.isEmpty())
+            && (state == CONN_STATE_SELECTING || state == CONN_STATE_SELECTING_WAIT_FOR_CLOSE))
+            m_selectPipelined = true;
+    });
 }
 
 void UnSelectTask::perform()
@@ -156,6 +161,12 @@ QVariant UnSelectTask::taskData(const int role) const
 void UnSelectTask::resetConnectionState()
 {
     auto const state = model->accessParser(parser).connState;
+    if (m_selectPipelined) {
+        // The connection belongs to the SELECT sent after us. Nothing is selected now, so no CLOSED will come for it.
+        if (state == CONN_STATE_SELECTING_WAIT_FOR_CLOSE)
+            model->changeConnectionState(parser, CONN_STATE_SELECTING);
+        return;
+    }
     if (state > CONN_STATE_AUTHENTICATED && state < CONN_STATE_LOGOUT) {
         model->changeConnectionState(parser, CONN_STATE_AUTHENTICATED);
     }

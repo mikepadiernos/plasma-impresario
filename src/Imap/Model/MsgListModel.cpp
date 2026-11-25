@@ -372,7 +372,10 @@ void MsgListModel::handleRowsAboutToBeRemoved(const QModelIndex &parent, int sta
 {
     if (! parent.isValid()) {
         // Top-level items are tricky :(. As a quick hack, let's just die.
+        const QString lost = currentMailbox().data(RoleMailboxName).toString();
         resetMe();
+        if (!lost.isEmpty())
+            emit mailboxLost(lost);
         return;
     }
 
@@ -411,7 +414,9 @@ void MsgListModel::handleRowsAboutToBeRemoved(const QModelIndex &parent, int sta
             TreeItem *up = msgListPtr->parent();
             while (up) {
                 if (m == up) {
+                    const QString lost = currentMailbox().data(RoleMailboxName).toString();
                     resetMe();
+                    emit mailboxLost(lost);
                     return;
                 }
                 up = up->parent();
