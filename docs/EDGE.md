@@ -38,6 +38,20 @@ Legend: ![Verified][verified] against a synthetic live IMAP server ·
 | Attachments     | Related parts with a `start` parameter                              | ![Limitation][limitation] The attachments panel assumes the first part |
 | Attachments     | Opened files kept in the temp folder                                | ![Not validated][not-validated]                                        |
 
+### Message security
+
+| Scenario                                                                       | Coverage                                                                                                                           |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Good, bad and unknown-key signatures and encrypted messages in Message Details | ![Offscreen tests][offscreen] `test_Cryptography_PGP` against GpgME, `test_MessageSecurity` without it                             |
+| Verification or decryption finishing after the message is shown                | ![Offscreen tests][offscreen] `test_Cryptography_PGP`, `test_EmbeddedPanels`                                                       |
+| A signed message's parts unavailable offline                                   | ![Offscreen tests][offscreen] `test_Cryptography_PGP`: shown as could not be verified or decryption failed                         |
+| A signed message from a live server                                            | ![Verified][verified] `test_LiveImapPanels`: never shown as verified without a key                                                 |
+| A malformed or stripped signature, such as from a mailing list                 | ![Offscreen tests][offscreen] `test_Cryptography_PGP`                                                                              |
+| Inline PGP armor in loaded text, in an attachment or quoted mid-line           | ![Offscreen tests][offscreen] `test_MessageSecurity`; ![Limitation][limitation] not verified ([#442](CAVEATS.md#message-security)) |
+| A signature inside an attached message or a second signed part                 | ![Limitation][limitation] only the outermost result ([#442](CAVEATS.md#message-security))                                          |
+| An expired or revoked signing key, or an S/MIME certificate chain              | ![Not validated][not-validated]                                                                                                    |
+| A screen reader announcing the Security row                                    | ![Not validated][not-validated] M15                                                                                                |
+
 ### Multiple accounts
 
 | Scenario                                                               | Coverage                                                                                                                                                                                                    |

@@ -22,6 +22,7 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned · ✅ resolved
 - [Current limitations](#current-limitations)
   - [Multiple accounts](#multiple-accounts)
   - [Related messages and message details panels](#related-messages-and-message-details-panels)
+  - [Message security](#message-security)
   - [OAuth sign-in](#oauth-sign-in)
   - [Mail operations](#mail-operations)
 - [Before reporting results](#before-reporting-results)
@@ -35,7 +36,7 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned · ✅ resolved
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | ⚠️ Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete         |
 | ✅ Accounts          | One window holds several IMAP accounts, grouped by account in the folder sidebar; the limitations recorded for them are resolved ([details](#multiple-accounts))                                                   |
-| ⚠️ Embedded panels   | Related messages search only loaded messages in the current folder, and message details show MIME-level security only ([details](#related-messages-and-message-details-panels))                                    |
+| ⚠️ Embedded panels   | Related messages search only loaded messages in the current folder ([details](#related-messages-and-message-details-panels)); message details do not verify inline PGP ([details](#message-security))              |
 | ⚠️ Mail operations   | Special folders need server attributes or English names, Go to Folder and related searches use loaded data only, and Undo after a move needs server COPYUID support ([details](#mail-operations))                  |
 | ⚠️ OAuth sign-in     | Microsoft uses the `common` tenant only and cannot revoke grants from the app, IMAP and SMTP refresh tokens independently, and switching provider replaces a grant without revoking it ([details](#oauth-sign-in)) |
 | ⚠️ Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                             |
@@ -94,10 +95,9 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
   current folder's message list, not the server or other folders. It lists at
   most 25 messages per group (conversation and same sender) and scans at most
   the 20,000 most recent rows.
-- ⚠️ The message details panel derives its Security field from the top-level
-  MIME type (`multipart/signed`, `multipart/encrypted` or S/MIME). It does not
-  detect inline PGP or show whether a signature is valid; the reader still
-  verifies and decrypts.
+- ✅ The message details panel's Security field shows the reader's
+  verification and decryption results (#303). Inline PGP and nested signatures
+  remain limited; see [Message security](#message-security).
 - ✅ Pane sizes saved by builds before the shell carry over the first time each
   layout opens: the folder tree's width, on the side it was saved on, and the
   split between the message list and the reader. Sizes the shell has saved
@@ -107,16 +107,46 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
 
 - Use the search bar or open the other folder to find related mail that is not
   loaded.
-- Rely on the reader's security status for signature and decryption results.
 
 **Proposed improvements:**
 
 - 📋 Add an opt-in server-side search on `Message-ID`, `References` and sender,
   optionally across folders (M04,
   [#302](https://github.com/mikepadiernos/plasma-impresario/issues/302)).
-- 📋 Feed the details panel from the reader's verification result, including
-  inline PGP (M04,
-  [#303](https://github.com/mikepadiernos/plasma-impresario/issues/303)).
+
+### Message security
+
+| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                                                                      |
+| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| [#442](https://github.com/mikepadiernos/plasma-impresario/issues/442) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/442#issuecomment-7174234978) | Messages with inline PGP or several protected parts, with Message Details shown |
+
+**Current behavior:**
+
+- ✅ The reader verifies and decrypts PGP/MIME and S/MIME through GpgME, and the
+  message details panel shows its result: in progress, valid and trusted, valid
+  but untrusted, unknown key, invalid, unverifiable, decrypted or failed. The
+  panel never starts verification or decryption itself.
+- ⚠️ The reader does not process inline PGP (`-----BEGIN PGP SIGNED MESSAGE-----`
+  or `-----BEGIN PGP MESSAGE-----` in the body) and shows the armor as text.
+  The details panel recognizes the armor at the start of a line in loaded,
+  non-attachment `text/plain` parts and labels it _not verified_ or _not
+  decrypted_. It never downloads a part to look for armor.
+- ⚠️ The panel reports the outermost signature and encryption only. Signatures
+  inside an attached message or in a later signed part appear in the reader
+  only.
+
+**Workarounds:**
+
+- Save an inline PGP message's text and verify or decrypt it with `gpg` or
+  Kleopatra.
+- Open an attached message to see its own signature in the reader.
+
+**Proposed improvements:**
+
+- 📋 Verify and decrypt inline PGP in the reader through GpgME, so that the
+  details panel can report the result. Not yet scheduled.
+- 📋 List each protected part in the Security tooltip when a message has more
+  than one.
 
 ### OAuth sign-in
 

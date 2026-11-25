@@ -157,6 +157,18 @@ operations and Undo still need a check against a live server; see
 [design guide](docs/philosophy/designs.md#current-interface) describes each
 one.
 
+### Added in M04
+
+M04 is in progress on `feature/m04-reading-flow`
+([#6](https://github.com/mikepadiernos/plasma-impresario/issues/6)).
+
+| Area             | What works                                                                                                           | Status                                    |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| Message security | Message Details shows the reader's signature and decryption results, with the signer, an icon and an accessible name | ![Needs verification][needs-verification] |
+
+Inline PGP is detected but not verified; see
+[caveats](docs/CAVEATS.md#message-security).
+
 ### Accounts
 
 - The toolbar account selector switches between accounts without

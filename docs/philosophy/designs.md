@@ -80,33 +80,33 @@ board](https://github.com/users/mikepadiernos/projects/4);
 ![Needs verification][needs-verification] marks work that is implemented but
 whose issue is still in Review or earlier.
 
-| Feature                                                               | Status              | Milestone | Issue                                                                                                                                               |
-| --------------------------------------------------------------------- | ------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shell regions: toolbar, left, main and right columns, footer          | ![Done][done]       | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                 |
-| Mailbox sidebar in either side column                                 | ![Done][done]       | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                 |
-| Compact, wide and one-at-a-time layouts with sizes saved per layout   | ![Done][done]       | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                 |
-| Attachments panel, shown by default                                   | ![Done][done]       | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                 |
-| Message Details, Contacts and Related Messages panels, off by default | ![Done][done]       | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35), caveat [#264](https://github.com/mikepadiernos/plasma-impresario/issues/264)   |
-| <kbd>F6</kbd> / <kbd>Shift</kbd>+<kbd>F6</kbd> focus cycling          | ![Done][done]       | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                 |
-| Multiple accounts with a toolbar selector                             | ![Done][done]       | M02       | [#222](https://github.com/mikepadiernos/plasma-impresario/issues/222), caveat [#262](https://github.com/mikepadiernos/plasma-impresario/issues/262) |
-| Connection, authentication and offline status                         | ![Done][done]       | M02       | [#79](https://github.com/mikepadiernos/plasma-impresario/issues/79)                                                                                 |
-| Folder counts and per-account saved searches                          | ![Done][done]       | M02       | [#76](https://github.com/mikepadiernos/plasma-impresario/issues/76)                                                                                 |
-| Compact and comfortable row density                                   | ![Done][done]       | M02       | [#75](https://github.com/mikepadiernos/plasma-impresario/issues/75)                                                                                 |
-| Restore layout, sizes, density and selected message across sessions   | ![Done][done]       | M02       | [#81](https://github.com/mikepadiernos/plasma-impresario/issues/81)                                                                                 |
-| Account groups in the folder sidebar                                  | ![Done][done]       | M02       | [#80](https://github.com/mikepadiernos/plasma-impresario/issues/80)                                                                                 |
-| Optional header with the account, folder and status                   | ![Done][done]       | M02       | [#74](https://github.com/mikepadiernos/plasma-impresario/issues/74)                                                                                 |
-| Actions hidden when the account protocol cannot perform them          | ![Done][done]       | M02       | [#215](https://github.com/mikepadiernos/plasma-impresario/issues/215)                                                                               |
-| Related messages from the server and other folders                    | ![Planned][planned] | M05.01    | [#302](https://github.com/mikepadiernos/plasma-impresario/issues/302)                                                                               |
-| Search across folders and accounts, saved searches as virtual folders | ![Planned][planned] | M05       | [Roadmap](../ROADMAP.md#m05-search-and-indexing)                                                                                                    |
-| Search Results panel                                                  | ![Planned][planned] | M05.05    | [#348](https://github.com/mikepadiernos/plasma-impresario/issues/348)                                                                               |
-| Verified signature and decryption results in Message Details          | ![Planned][planned] | M04       | [#303](https://github.com/mikepadiernos/plasma-impresario/issues/303)                                                                               |
-| My Day / Agenda panel                                                 | ![Planned][planned] | M06.04    | [#304](https://github.com/mikepadiernos/plasma-impresario/issues/304)                                                                               |
-| Address-book names, photos and organizations in Contacts              | ![Planned][planned] | M06.04    | [#305](https://github.com/mikepadiernos/plasma-impresario/issues/305)                                                                               |
-| Optional mail workspace tabs                                          | ![Planned][planned] | M08       | [#246](https://github.com/mikepadiernos/plasma-impresario/issues/246)                                                                               |
-| Themes and appearance                                                 | ![Planned][planned] | M09       | [Roadmap](../ROADMAP.md#m09-themes-and-branding-foundation)                                                                                         |
-| Designed header with search, compose, account switcher and status     | ![Planned][planned] | M14.02    | [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306)                                                                               |
-| Sliding and floating panels; rearranging panels in customization mode | ![Planned][planned] | M14.02    | [#307](https://github.com/mikepadiernos/plasma-impresario/issues/307)                                                                               |
-| Toolbar customization and the navigation icon toolbar                 | ![Planned][planned] | M14.02    | [#151](https://github.com/mikepadiernos/plasma-impresario/issues/151)                                                                               |
+| Feature                                                               | Status                                    | Milestone | Issue                                                                                                                                               |
+| --------------------------------------------------------------------- | ----------------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shell regions: toolbar, left, main and right columns, footer          | ![Done][done]                             | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                 |
+| Mailbox sidebar in either side column                                 | ![Done][done]                             | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                 |
+| Compact, wide and one-at-a-time layouts with sizes saved per layout   | ![Done][done]                             | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                 |
+| Attachments panel, shown by default                                   | ![Done][done]                             | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                 |
+| Message Details, Contacts and Related Messages panels, off by default | ![Done][done]                             | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35), caveat [#264](https://github.com/mikepadiernos/plasma-impresario/issues/264)   |
+| <kbd>F6</kbd> / <kbd>Shift</kbd>+<kbd>F6</kbd> focus cycling          | ![Done][done]                             | M02       | [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                 |
+| Multiple accounts with a toolbar selector                             | ![Done][done]                             | M02       | [#222](https://github.com/mikepadiernos/plasma-impresario/issues/222), caveat [#262](https://github.com/mikepadiernos/plasma-impresario/issues/262) |
+| Connection, authentication and offline status                         | ![Done][done]                             | M02       | [#79](https://github.com/mikepadiernos/plasma-impresario/issues/79)                                                                                 |
+| Folder counts and per-account saved searches                          | ![Done][done]                             | M02       | [#76](https://github.com/mikepadiernos/plasma-impresario/issues/76)                                                                                 |
+| Compact and comfortable row density                                   | ![Done][done]                             | M02       | [#75](https://github.com/mikepadiernos/plasma-impresario/issues/75)                                                                                 |
+| Restore layout, sizes, density and selected message across sessions   | ![Done][done]                             | M02       | [#81](https://github.com/mikepadiernos/plasma-impresario/issues/81)                                                                                 |
+| Account groups in the folder sidebar                                  | ![Done][done]                             | M02       | [#80](https://github.com/mikepadiernos/plasma-impresario/issues/80)                                                                                 |
+| Optional header with the account, folder and status                   | ![Done][done]                             | M02       | [#74](https://github.com/mikepadiernos/plasma-impresario/issues/74)                                                                                 |
+| Actions hidden when the account protocol cannot perform them          | ![Done][done]                             | M02       | [#215](https://github.com/mikepadiernos/plasma-impresario/issues/215)                                                                               |
+| Related messages from the server and other folders                    | ![Planned][planned]                       | M05.01    | [#302](https://github.com/mikepadiernos/plasma-impresario/issues/302)                                                                               |
+| Search across folders and accounts, saved searches as virtual folders | ![Planned][planned]                       | M05       | [Roadmap](../ROADMAP.md#m05-search-and-indexing)                                                                                                    |
+| Search Results panel                                                  | ![Planned][planned]                       | M05.05    | [#348](https://github.com/mikepadiernos/plasma-impresario/issues/348)                                                                               |
+| Verified signature and decryption results in Message Details          | ![Needs verification][needs-verification] | M04       | [#303](https://github.com/mikepadiernos/plasma-impresario/issues/303), caveat [#442](https://github.com/mikepadiernos/plasma-impresario/issues/442) |
+| My Day / Agenda panel                                                 | ![Planned][planned]                       | M06.04    | [#304](https://github.com/mikepadiernos/plasma-impresario/issues/304)                                                                               |
+| Address-book names, photos and organizations in Contacts              | ![Planned][planned]                       | M06.04    | [#305](https://github.com/mikepadiernos/plasma-impresario/issues/305)                                                                               |
+| Optional mail workspace tabs                                          | ![Planned][planned]                       | M08       | [#246](https://github.com/mikepadiernos/plasma-impresario/issues/246)                                                                               |
+| Themes and appearance                                                 | ![Planned][planned]                       | M09       | [Roadmap](../ROADMAP.md#m09-themes-and-branding-foundation)                                                                                         |
+| Designed header with search, compose, account switcher and status     | ![Planned][planned]                       | M14.02    | [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306)                                                                               |
+| Sliding and floating panels; rearranging panels in customization mode | ![Planned][planned]                       | M14.02    | [#307](https://github.com/mikepadiernos/plasma-impresario/issues/307)                                                                               |
+| Toolbar customization and the navigation icon toolbar                 | ![Planned][planned]                       | M14.02    | [#151](https://github.com/mikepadiernos/plasma-impresario/issues/151)                                                                               |
 
 ### Layouts and regions
 
@@ -176,7 +176,7 @@ default look matches the classic layout.
 | Panel            | Default             | Content                                                                                                                                                                                                                  | Actions                                                                                  |
 | ---------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
 | Attachments      | Shown, below reader | The current message's attachments with type icons, names and sizes. Attachments that arrive late, such as after decryption, are added as they appear.                                                                    | Open, Save As, context menu, drag into the composer                                      |
-| Message Details  | Off, right column   | Subject, From, To, Cc, date, size, folder, read/flagged/replied/forwarded state and whether the message is signed or encrypted at the MIME level. Rows without a value are hidden.                                       | None                                                                                     |
+| Message Details  | Off, right column   | Subject, From, To, Cc, date, size, folder, read/flagged/replied/forwarded state and the reader's signature and decryption result. Rows without a value are hidden.                                                       | None                                                                                     |
 | Contacts         | Off, right column   | The From, Reply-To, To and Cc addresses, each listed once with all its roles. Reply-To is listed only when it names other addresses than From.                                                                           | Write Email, Copy Address, Open in Address Book (only when an address-book plugin loads) |
 | Related Messages | Off, right column   | Messages of the current folder in the same conversation (same subject without reply prefixes, or linked through Message-ID and In-Reply-To) and other messages from the same sender, newest first, at most 25 per group. | Activating a message selects it in the message list                                      |
 
@@ -210,9 +210,34 @@ The Attachments panel lists files differently from the message-list paperclip:
 > [!NOTE]
 >
 > Related Messages considers only messages whose envelope the list has already
-> loaded, so the panel never makes the client download envelopes. Message
-> Details reports MIME-level security only, not verified signatures. See
+> loaded, so the panel never makes the client download envelopes. See
 > [CAVEATS](../CAVEATS.md#related-messages-and-message-details-panels).
+
+**Security in Message Details** follows the reader's cryptography results and
+updates when verification or decryption finishes; the panel never starts either
+itself. Each state has its own text, a theme icon and an accessible name, and
+the row's tooltip adds the reader's summary, the signing date and details.
+
+| Result                             | Text                                                                                | Icon               |
+| ---------------------------------- | ----------------------------------------------------------------------------------- | ------------------ |
+| Verification in progress           | _Signed, verifying the signature…_                                                  | `clock`            |
+| Valid, trusted signature           | _Valid signature from <signer>_                                                     | `security-high`    |
+| Valid, untrusted signature         | _Valid signature from <signer>, but the signer is not trusted or is not the sender_ | `security-medium`  |
+| Signer's key not available         | _Signed with an unknown key, not verified_                                          | `security-medium`  |
+| Bad signature                      | _Invalid signature from <signer>_                                                   | `security-low`     |
+| Verification could not run         | _Signed, but the signature could not be verified_                                   | `dialog-warning`   |
+| No reader result (MIME level only) | _Signed, not verified_                                                              | `document-sign`    |
+| Decryption in progress             | _Encrypted, decrypting…_                                                            | `clock`            |
+| Decrypted                          | _Encrypted and decrypted_                                                           | `document-decrypt` |
+| Decryption failed                  | _Encrypted, decryption failed_                                                      | `dialog-error`     |
+| Not decrypted (MIME level only)    | _Encrypted, not decrypted_                                                          | `document-encrypt` |
+
+A message that is both encrypted and signed shows one line for each; the icon
+reflects the signature. Without a signer name, the signer is left out.
+
+Inline PGP armor in loaded text is labelled as such but is never verified or
+decrypted, because the reader does not process inline PGP
+([#442](https://github.com/mikepadiernos/plasma-impresario/issues/442)).
 
 ### Mail operations
 
@@ -518,9 +543,9 @@ and a hidden panel's size is restored when it returns.
 - ![Needs verification][needs-verification] **Attachments, Message Details,
   Contacts and Related Messages:** implemented; see [Current embedded
   panels](#current-embedded-panels).
-- ![Planned][planned] **Panel extensions:** verified signer details ([M04,
-  #303](https://github.com/mikepadiernos/plasma-impresario/issues/303)), related
-  messages from the server and across folders ([M05.01,
+- ![Needs verification][needs-verification] **Verified security in Message
+  Details** ([M04, #303](https://github.com/mikepadiernos/plasma-impresario/issues/303)).
+- ![Planned][planned] **Panel extensions:** related messages from the server and across folders ([M05.01,
   #302](https://github.com/mikepadiernos/plasma-impresario/issues/302)), a
   Search Results panel ([M05.05,
   #348](https://github.com/mikepadiernos/plasma-impresario/issues/348)) and
