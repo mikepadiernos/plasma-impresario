@@ -49,6 +49,7 @@ class TreeItem
     TreeItem(const TreeItem &); // don't implement
     void operator=(const TreeItem &);  // don't implement
     friend class DeleteMailboxTask; // for direct access to m_children
+    friend class RenameMailboxTask; // for direct access to m_children
     friend class ObtainSynchronizedMailboxTask;
     friend class KeepMailboxOpenTask; // for direct access to m_children
     friend class ListChildMailboxesTask; // setStatus() in case of failure

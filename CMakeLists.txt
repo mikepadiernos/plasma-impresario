@@ -539,6 +539,7 @@ set(libImap_SOURCES
     ${path_Imap}/Tasks/ObtainSynchronizedMailboxTask.cpp
     ${path_Imap}/Tasks/OfflineConnectionTask.cpp
     ${path_Imap}/Tasks/OpenConnectionTask.cpp
+    ${path_Imap}/Tasks/RenameMailboxTask.cpp
     ${path_Imap}/Tasks/SortTask.cpp
     ${path_Imap}/Tasks/SubscribeUnsubscribeTask.cpp
     ${path_Imap}/Tasks/ThreadTask.cpp

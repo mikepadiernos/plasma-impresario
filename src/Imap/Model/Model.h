@@ -185,11 +185,32 @@ public:
     ImapTask *copyMoveMessages(const QString &destMboxName, const QModelIndexList &messages, const CopyMoveOperation op);
     /** @short Copy or move a sequence of messages between two mailboxes */
     void copyMoveMessages(TreeItemMailbox *sourceMbox, const QString &destMboxName, Imap::Uids uids, const CopyMoveOperation op);
+    /** @short Copy or move messages identified by UID, even if they have not been loaded yet
+
+    This opens @arg sourceMailbox if needed. When @arg expectedUidValidity is non-zero, nothing is copied if the
+    source mailbox's UIDVALIDITY differs. Returns nullptr when offline or when the arguments are invalid.
+    */
+    ImapTask *copyMoveMessagesByUid(const QModelIndex &sourceMailbox, const Imap::Uids &uids, const QString &destMboxName,
+                                    const CopyMoveOperation op, const uint expectedUidValidity = 0);
+    /** @short Mark messages as \\Deleted and remove only those messages from the server
+
+    The removal uses UID EXPUNGE (RFC 4315). Without UIDPLUS the messages are only marked as deleted and
+    @arg expungeScheduled is set to false; an explicit EXPUNGE of the mailbox removes them later. Returns the task
+    whose completion means that the operation has finished, or nullptr when offline.
+    */
+    ImapTask *deleteMessagesPermanently(const QModelIndexList &messages, bool *expungeScheduled = nullptr);
+    /** @short Mark every message in a mailbox as \\Deleted and expunge it
+
+    Reports the result through mailboxEmptied() or mailboxEmptyFailed().
+    */
+    void emptyMailbox(const QModelIndex &mailbox);
 
     /** @short Create a new mailbox */
     void createMailbox(const QString &name, const AutoSubscription subscription = AutoSubscription::NO_EXPLICIT_SUBSCRIPTION);
     /** @short Delete an existing mailbox */
     void deleteMailbox(const QString &name);
+    /** @short Rename an existing mailbox, keeping its subscription */
+    void renameMailbox(const QString &oldName, const QString &newName);
 
     /** @short Subscribe a mailbox */
     void subscribeMailbox(const QString &name);
@@ -277,6 +298,9 @@ public:
 
     /** @short Return an index for the message specified by the mailbox name and the message UID */
     QModelIndex messageIndexByUid(const QString &mailboxName, const uint uid);
+
+    /** @short Index of a mailbox which is already known to the model, or an invalid index */
+    QModelIndex mailboxIndexByName(const QString &mailboxName);
 
     /** @short Provide a list of capabilities to not use
 
@@ -411,6 +435,14 @@ signals:
     void mailboxDeletionSucceded(const QString &mailbox);
     /** @short Mailbox deletion failed */
     void mailboxDeletionFailed(const QString &mailbox, const QString &message);
+    /** @short A mailbox was renamed */
+    void mailboxRenameSucceeded(const QString &oldName, const QString &newName);
+    /** @short Renaming a mailbox failed */
+    void mailboxRenameFailed(const QString &oldName, const QString &newName, const QString &message);
+    /** @short All messages of a mailbox were marked as deleted and expunged */
+    void mailboxEmptied(const QString &mailbox);
+    /** @short Emptying a mailbox failed */
+    void mailboxEmptyFailed(const QString &mailbox, const QString &message);
     /** @short Got an error while syncing a mailbox */
     void mailboxSyncFailed(const QString &mailbox, const QString &message);
 
@@ -473,6 +505,7 @@ private:
     friend class ExpungeMessagesTask;
     friend class CreateMailboxTask;
     friend class DeleteMailboxTask;
+    friend class RenameMailboxTask;
     friend class CopyMoveMessagesTask;
     friend class ObtainSynchronizedMailboxTask;
     friend class KeepMailboxOpenTask;
