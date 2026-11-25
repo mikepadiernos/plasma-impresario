@@ -188,6 +188,30 @@ are skipped, and the keyboard focus stays in the list. The reader shows the new
 current message under the usual mark-as-read settings. Nothing is selected when
 the list becomes empty.
 
+For working through a busy folder, a few commands borrow The Bat!'s quick
+filter and fast triage. **Message › Show Related** and the message context menu
+limit the current folder to **Messages from This Sender**, **to This
+Recipient**, **with This Subject** or, for a message with a `mailto:`
+List-Post header, **from This Mailing List**. The subject ignores reply and
+forward prefixes (Re:, Fwd:, AW:, SV: and similar) and list tags such as
+`[dev]`. They run as a server search through the quick search field, which
+shows the condition as `from:`, `to:`, `subject:` or `list:` followed by the
+value. Typing the same form searches that field only, and Escape or the clear
+button returns to the whole folder. The current message stays current when it
+matches. **Select Similar** in the same places selects **All from This
+Sender**, **All with This Subject**, **Unread** or **Flagged** messages among
+those the list has loaded. Sender and subject only consider messages whose
+envelope is already loaded, and threads with a match are expanded so that
+the usual actions apply to exactly the selected rows. **Mark as Read and Go to
+Next Unread** (Shift+N) marks the selection read and shows the next unread
+message. **Next Message** (F) and **Previous Message** (B) step through the
+list without skipping read messages. N and P still go to the next and previous
+unread message. **View › Dense Processing Layout** switches to compact rows,
+turns off the Message Details, Contacts and Related Messages panels and
+focuses the message list. The attachments panel stays, since it often decides
+what happens to a message. Turning the layout off restores the density and
+the panels it changed; its state is kept across restarts.
+
 **Help › Keyboard Shortcuts** (?) opens a searchable list of every action and
 its current shortcut, grouped by menu, then Message List, Message Reader,
 General and Other Windows. It is read-only; its **Configure Shortcuts…** button
@@ -440,9 +464,10 @@ claims that every component is implemented.
 - **Filters and sorting:** Expose active filters, sort order and threading
   without obscuring the current folder or selection. Inspired by Vivaldi Mail
   and The Bat!. Unread, Flagged and With Attachments quick filters, a Sort
-  button, selection commands and folder counts are implemented (see
-  [Current interface](#current-interface)); filters by tag, date or sender
-  and per-folder filter state remain planned.
+  button, selection commands, folder counts and Show Related filters by the
+  current message's sender, recipient, subject or mailing list are implemented
+  (see [Current interface](#current-interface)); filters by tag or date and
+  per-folder filter state remain planned.
 - **Conversation reader:** Display message content, metadata, quoted text and
   reply actions in a focused reading pane. Inspired by Trojitá and Aqua Mail.
 - **Compose and recipients:** Provide identity selection, recipient entry,
@@ -460,7 +485,9 @@ claims that every component is implemented.
   desktop conventions.
 - **Rules and bulk actions:** Let users inspect rule conditions and apply
   operations to selected messages with progress and failure feedback. Inspired
-  by The Bat!.
+  by The Bat!. Batch actions with progress and errors, Select Similar, triage
+  keys and a Dense Processing Layout are implemented (see
+  [Current interface](#current-interface)); rules remain planned.
 - **Workspace and productivity context:** Offer optional account/workspace,
   contact and scheduling entry points when integrations are available. Inspired
   by ePim and Kontact.
