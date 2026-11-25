@@ -76,13 +76,16 @@ offscreen tests only · ⚠️ known limitation · 📋 not yet validated
 
 ### Sending
 
-| Scenario                                                    | Coverage                                                                                        |
-| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| The SMTP server refuses the connection                      | 🧪 `test_SmtpClient`, fixed in [#364](BUGS.md#bug-sending-hangs-when-the-smtp-connection-fails) |
-| The SMTP server drops the connection during the transaction | 🧪 `test_SmtpClient`                                                                            |
-| An implicit TLS connection to a plain-text server           | 🧪 `test_SmtpClient`                                                                            |
-| An untrusted SMTP certificate                               | 📋 Sending fails; unlike IMAP, the certificate cannot be accepted                               |
-| The server closes the connection right after `QUIT`         | 🧪 `test_SmtpClient`                                                                            |
+| Scenario                                                          | Coverage                                                                                            |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| The SMTP server refuses the connection                            | 🧪 `test_SmtpClient`, fixed in [#364](BUGS.md#bug-sending-hangs-when-the-smtp-connection-fails)     |
+| The SMTP server drops the connection during the transaction       | 🧪 `test_SmtpClient`                                                                                |
+| An implicit TLS connection to a plain-text server                 | 🧪 `test_SmtpClient`                                                                                |
+| An untrusted SMTP certificate, accepted or rejected               | 🧪 `test_SmtpClient`, fixed in [#366](BUGS.md#bug-an-untrusted-smtp-certificate-cannot-be-accepted) |
+| An SMTP certificate whose key changed since it was accepted       | 🧪 `test_SmtpClient`                                                                                |
+| Cancelling sending while the certificate prompt is open           | 🧪 `test_SmtpClient`                                                                                |
+| Answering the composer's certificate prompt against a real server | 📋                                                                                                  |
+| The server closes the connection right after `QUIT`               | 🧪 `test_SmtpClient`                                                                                |
 
 ### Interface and embedded panels
 

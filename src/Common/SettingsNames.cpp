@@ -51,6 +51,7 @@ const QString SettingsNames::smtpAuthReuseImapCredsKey = QStringLiteral("msa.smt
 const QString SettingsNames::sendmailKey = QStringLiteral("msa.sendmail");
 const QString SettingsNames::sendmailDefaultCmd = QStringLiteral("sendmail -bm -oi");
 const QString SettingsNames::smtpUseBurlKey = QStringLiteral("msa.smtp.burl");
+const QString SettingsNames::smtpSslPemPubKey = QStringLiteral("msa.smtp.ssl.pemPubKey");
 const QString SettingsNames::imapMethodKey = QStringLiteral("imap.method");
 const QString SettingsNames::methodTCP = QStringLiteral("TCP");
 const QString SettingsNames::methodSSL = QStringLiteral("SSL");

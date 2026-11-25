@@ -25,6 +25,8 @@
 #include <memory>
 #include <QPersistentModelIndex>
 #include <QPointer>
+#include <QSslCertificate>
+#include <QSslError>
 
 #include "Common/Logging.h"
 #include "Composer/Recipients.h"
@@ -79,6 +81,7 @@ public:
 public slots:
     void setPassword(const QString &password);
     void cancelPassword();
+    void setCertificateAccepted(bool accepted);
 
 private slots:
     void gotError(const QString &error);
@@ -109,6 +112,9 @@ signals:
     void succeeded();
     void passwordRequested(const QString &user, const QString &host);
     void gotPassword(const QString &password);
+    /** @short The MSA's server certificate is not trusted; answer with setCertificateAccepted() */
+    void certificateCheckRequested(const QList<QSslCertificate> &chain, const QList<QSslError> &errors);
+    void gotCertificateDecision(bool accepted);
     void canceled();
     void logged(const Common::LogKind kind, const QString& source, const QString& message);
 

@@ -645,6 +645,8 @@ QwwSmtpClient::QwwSmtpClient(QObject *parent)
     d->inProgress = false;
     d->localName = "localhost";
     d->socket = new QSslSocket(this);
+    // Let the user decide about an untrusted certificate instead of failing the handshake right away
+    d->socket->setPauseMode(QAbstractSocket::PauseOnSslErrors);
     connect(d->socket, SIGNAL(connected()), this, SLOT(onConnected()));
     connect(d->socket, &QAbstractSocket::errorOccurred, this, [this](QAbstractSocket::SocketError e) { d->onError(e); });
     connect(d->socket, SIGNAL(disconnected()), this, SLOT(onDisconnected()));
@@ -799,6 +801,19 @@ void QwwSmtpClientPrivate::abortDialog() {
 
 void QwwSmtpClient::ignoreSslErrors()
 {d->socket->ignoreSslErrors();
+}
+
+void QwwSmtpClient::resumeAfterSslErrors(bool ignore)
+{
+    if (ignore)
+        d->socket->ignoreSslErrors();
+    // Without ignored errors, resuming fails the handshake with QAbstractSocket::SslHandshakeFailedError
+    d->socket->resume();
+}
+
+QList<QSslCertificate> QwwSmtpClient::peerCertificateChain() const
+{
+    return d->socket->peerCertificateChain();
 }
 
 QwwSmtpClient::AuthModes QwwSmtpClient::supportedAuthModes() const{

@@ -20,6 +20,7 @@ fixed and Completed or Merged
 
 | Status   | Issue                                                                 | Bug                                                            | Board  |
 | -------- | --------------------------------------------------------------------- | -------------------------------------------------------------- | ------ |
+| ✅ Fixed | [#366](https://github.com/mikepadiernos/plasma-impresario/issues/366) | An untrusted SMTP certificate cannot be accepted               | Merged |
 | ✅ Fixed | [#364](https://github.com/mikepadiernos/plasma-impresario/issues/364) | Sending hangs when the SMTP connection fails                   | Merged |
 | ✅ Fixed | [#241](https://github.com/mikepadiernos/plasma-impresario/issues/241) | Plasma displays a generic icon instead of the application icon | Merged |
 | ✅ Fixed | [#228](https://github.com/mikepadiernos/plasma-impresario/issues/228) | Installed app missing from Plasma application menu             | Merged |
@@ -34,6 +35,17 @@ No open bugs are recorded. Limitations of implemented features are tracked in
 > issue from the entry.
 
 ## Fixed issues
+
+### [bug] An untrusted SMTP certificate cannot be accepted
+
+| Field            | Details                                                                                                                                                                                                                                                                                                                |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Issue**        | [#366](https://github.com/mikepadiernos/plasma-impresario/issues/366)                                                                                                                                                                                                                                                  |
+| **Status**       | ✅ Merged                                                                                                                                                                                                                                                                                                              |
+| **Reproduction** | Send a message through an SMTP server whose certificate the system does not trust, such as a self-signed one.                                                                                                                                                                                                          |
+| **Expected**     | As with IMAP, the composer shows the certificate and asks whether to trust it, and remembers an accepted public key for the account.                                                                                                                                                                                   |
+| **Actual**       | Sending failed with *Cannot send message due to an SSL/TLS error*, and the certificate could not be accepted.                                                                                                                                                                                                          |
+| **Fix**          | Pause the TLS handshake on certificate errors and ask in the composer. Continue with an accepted key and remember it per account; accept that key later without asking, and forget it when the SMTP host changes. `test_SmtpClient` covers implicit TLS, STARTTLS, rejection, pinned and changed keys, and cancelling. |
 
 ### [bug] Sending hangs when the SMTP connection fails
 

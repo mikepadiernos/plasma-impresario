@@ -24,6 +24,8 @@
 
 #include <QByteArray>
 #include <QObject>
+#include <QSslCertificate>
+#include <QSslError>
 #include "Common/Logging.h"
 #include "Imap/Model/UidSubmitData.h"
 
@@ -45,9 +47,13 @@ public:
 public slots:
     virtual void cancel() = 0;
     virtual void setPassword(const QString &password);
+    /** @short Answer certificateCheckRequested(): continue with the server's certificate, or fail */
+    virtual void setCertificateAccepted(bool accepted);
 signals:
     void connecting();
     void passwordRequested(const QString &user, const QString &host);
+    /** @short The server's certificate is not trusted; sending waits for setCertificateAccepted() */
+    void certificateCheckRequested(const QList<QSslCertificate> &chain, const QList<QSslError> &errors);
     void sending();
     void sent();
     void error(const QString &message);

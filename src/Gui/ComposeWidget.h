@@ -29,6 +29,8 @@
 #include <QPersistentModelIndex>
 #include <QUrl>
 #include <QPointer>
+#include <QSslCertificate>
+#include <QSslError>
 #include <QWidget>
 
 #include "Common/Logging.h"
@@ -130,6 +132,7 @@ private slots:
 
     void passwordRequested(const QString &user, const QString &host);
     void passwordError();
+    void certificateCheckRequested(const QList<QSslCertificate> &chain, const QList<QSslError> &errors);
     void toggleReplyMarking();
     void updateReplyMarkingAction();
     void updateReplyMode();
@@ -200,6 +203,8 @@ private:
 
     MainWindow *m_mainWindow;
     QSettings *m_settings;
+    /** Settings of the account that was active when this composer opened; they configured its submission */
+    QPointer<QSettings> m_accountSettings;
     /** Identities of the account that was active when this composer opened */
     Composer::SenderIdentitiesModel *m_senderIdentities;
 
