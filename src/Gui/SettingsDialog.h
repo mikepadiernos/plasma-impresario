@@ -74,6 +74,7 @@ namespace Gui
 {
 class MainWindow;
 class SettingsDialog;
+class SettingsOAuthControls;
 
 /** @short Common interface for any page of the settings dialogue */
 class ConfigurationWidgetInterface {
@@ -262,6 +263,10 @@ private:
     UiUtils::PasswordWatcher *m_pwWatcher;
 
     MSA::Account *m_smtpAccountSettings;
+    QComboBox *smtpAuthMethod = nullptr;
+    QLabel *smtpOAuthNote = nullptr;
+
+    bool usesOAuth() const;
 
     OutgoingPage(const OutgoingPage &); // don't implement
     OutgoingPage &operator=(const OutgoingPage &); // don't implement
@@ -288,6 +293,10 @@ private:
     quint16 m_imapPort;
     bool m_imapStartTls;
     UiUtils::PasswordWatcher *m_pwWatcher;
+    QComboBox *imapAuthMethod = nullptr;
+    SettingsOAuthControls *m_oauth = nullptr;
+
+    bool usesOAuth() const;
 
 private slots:
     void updateWidgets();

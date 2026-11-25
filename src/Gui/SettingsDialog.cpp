@@ -54,10 +54,12 @@
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
 #include "MSA/Account.h"
+#include "OAuth/OAuth.h"
 #include "Plugins/AddressbookPlugin.h"
 #include "Plugins/PasswordPlugin.h"
 #include "Plugins/PluginManager.h"
 #include "UiUtils/IconLoader.h"
+#include "SettingsOAuthControls.h"
 #include "UiUtils/PasswordWatcher.h"
 #include <KLocalizedString>
 #include "ShortcutHandler/ShortcutHandler.h"
@@ -865,8 +867,33 @@ ImapPage::ImapPage(SettingsDialog *parent, QSettings &s): QScrollArea(parent), U
     connect(m_parent, &SettingsDialog::reloadPasswordsRequested, imapPass, &QLineEdit::clear);
     connect(m_parent, &SettingsDialog::reloadPasswordsRequested, m_pwWatcher, &UiUtils::PasswordWatcher::reloadPassword);
 
+    imapAuthMethod = new QComboBox(this);
+    imapAuthMethod->setObjectName(QStringLiteral("imapAuthMethod"));
+    imapAuthMethod->addItem(tr("Password"), SettingsNames::authMethodPassword);
+    imapAuthMethod->addItem(tr("OAuth 2.0 sign-in with the provider"), SettingsNames::authMethodOAuth);
+    imapAuthMethod->setCurrentIndex(OAuth::isEnabled(s, OAuth::Service::Imap) ? 1 : 0);
+    int authRow = 0;
+    QFormLayout::ItemRole role;
+    formLayout->getWidgetPosition(imapPass, &authRow, &role);
+    formLayout->insertRow(authRow, tr("Authentication:"), imapAuthMethod);
+    int oauthRow = 0;
+    formLayout->getWidgetPosition(passwordPluginStatus, &oauthRow, &role);
+    QPointer<Plugins::PluginManager> pluginManager = m_parent->pluginManager();
+    m_oauth = new SettingsOAuthControls(formLayout, oauthRow + 1, s, m_parent->imapAccess()->credentialAccountId(),
+                                        [pluginManager]() -> Plugins::PasswordPlugin * {
+                                            return pluginManager ? pluginManager->password() : nullptr;
+                                        }, this);
+    m_oauth->setLoginHint(imapUser->text());
+    connect(imapUser, &QLineEdit::textChanged, m_oauth, &SettingsOAuthControls::setLoginHint);
+    connect(imapAuthMethod, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &ImapPage::updateWidgets);
+
     updateWidgets();
     maybeShowPortWarning();
+}
+
+bool ImapPage::usesOAuth() const
+{
+    return imapAuthMethod && imapAuthMethod->currentData().toString() == Common::SettingsNames::authMethodOAuth;
 }
 
 void ImapPage::slotSetPassword()
@@ -942,6 +969,17 @@ void ImapPage::updateWidgets()
     imapPass->setEnabled(m_pwWatcher->isPluginAvailable() && !m_pwWatcher->isWaitingForPlugin());
     imapPassLabel->setEnabled(m_pwWatcher->isPluginAvailable() && !m_pwWatcher->isWaitingForPlugin());
 
+    if (m_oauth) {
+        // With OAuth, the stored sign-in replaces the password
+        const bool oauth = usesOAuth();
+        lay->setRowVisible(imapPass, !oauth);
+        if (oauth) {
+            passwordWarning->setVisible(false);
+            passwordPluginStatus->setVisible(false);
+        }
+        m_oauth->setActive(oauth);
+    }
+
     emit widgetsUpdated();
 }
 
@@ -986,7 +1024,15 @@ void ImapPage::save(QSettings &s)
     s.setValue(SettingsNames::imapAccountIcon, accountIcon->text().isEmpty() ? QVariant() : QVariant(accountIcon->text()));
     s.setValue(SettingsNames::imapArchiveFolderName, archiveFolderName->text());
 
-    if (m_pwWatcher->isPluginAvailable() && !m_pwWatcher->isWaitingForPlugin()) {
+    if (usesOAuth())
+        s.setValue(SettingsNames::imapAuthMethodKey, SettingsNames::authMethodOAuth);
+    else
+        s.remove(SettingsNames::imapAuthMethodKey);
+    m_oauth->save(s);
+
+    if (usesOAuth()) {
+        emit saved();
+    } else if (m_pwWatcher->isPluginAvailable() && !m_pwWatcher->isWaitingForPlugin()) {
         m_pwWatcher->setPassword(imapPass->text());
     } else {
         emit saved();
@@ -1004,6 +1050,9 @@ bool ImapPage::checkValidity() const
     case NETWORK:
         // We don't require the username, and that's on purpose. Some servers *could* possibly support PREAUTH :)
         if (checkProblemWithEmptyTextField(imapHost, tr("The IMAP server hostname is missing here")))
+            return false;
+        if (usesOAuth() && m_oauth->accountConfig().clientId.isEmpty()
+                && checkProblemWithEmptyTextField(m_oauth->clientId, tr("The OAuth client ID is missing here")))
             return false;
         break;
     default:
@@ -1039,7 +1088,7 @@ void ImapPage::maybeShowPortWarning()
 
 bool ImapPage::passwordFailures(QString &message) const
 {
-    if (!m_pwWatcher->isPluginAvailable() || m_pwWatcher->isWaitingForPlugin() || m_pwWatcher->didWriteOk()) {
+    if (usesOAuth() || !m_pwWatcher->isPluginAvailable() || m_pwWatcher->isWaitingForPlugin() || m_pwWatcher->didWriteOk()) {
         return false;
     } else {
         message = m_pwWatcher->progressMessage();
@@ -1174,7 +1223,28 @@ OutgoingPage::OutgoingPage(SettingsDialog *parent, QSettings &s): QScrollArea(pa
     connect(m_parent, &SettingsDialog::reloadPasswordsRequested, smtpPass, &QLineEdit::clear);
     connect(m_parent, &SettingsDialog::reloadPasswordsRequested, m_pwWatcher, &UiUtils::PasswordWatcher::reloadPassword);
 
+    smtpAuthMethod = new QComboBox(this);
+    smtpAuthMethod->setObjectName(QStringLiteral("smtpAuthMethod"));
+    smtpAuthMethod->addItem(tr("Password"), SettingsNames::authMethodPassword);
+    smtpAuthMethod->addItem(tr("OAuth 2.0 sign-in with the provider"), SettingsNames::authMethodOAuth);
+    smtpAuthMethod->setCurrentIndex(OAuth::isEnabled(s, OAuth::Service::Smtp) ? 1 : 0);
+    smtpOAuthNote = new QLabel(tr("Sending uses the OAuth provider, client and sign-in configured on the IMAP page."),
+                               this);
+    smtpOAuthNote->setObjectName(QStringLiteral("smtpOAuthNote"));
+    smtpOAuthNote->setWordWrap(true);
+    int authRow = 0;
+    QFormLayout::ItemRole role;
+    formLayout->getWidgetPosition(smtpAuthReuseImapCreds, &authRow, &role);
+    formLayout->insertRow(authRow + 1, tr("Authentication method:"), smtpAuthMethod);
+    formLayout->insertRow(authRow + 2, smtpOAuthNote);
+    connect(smtpAuthMethod, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &OutgoingPage::updateWidgets);
+
     updateWidgets();
+}
+
+bool OutgoingPage::usesOAuth() const
+{
+    return smtpAuthMethod && smtpAuthMethod->currentData().toString() == Common::SettingsNames::authMethodOAuth;
 }
 
 void OutgoingPage::slotSetPassword()
@@ -1303,6 +1373,18 @@ void OutgoingPage::updateWidgets()
         lay->labelForField(smtpPass)->setVisible(authEnabled && !reuseImapCreds);
         lay->labelForField(smtpPass)->setEnabled(m_pwWatcher->isPluginAvailable() && !m_pwWatcher->isWaitingForPlugin());
 
+        if (smtpAuthMethod) {
+            lay->setRowVisible(smtpAuthMethod, authEnabled);
+            smtpOAuthNote->setVisible(authEnabled && usesOAuth());
+            if (authEnabled && usesOAuth()) {
+                // The account's OAuth sign-in replaces the SMTP password
+                smtpPass->setVisible(false);
+                lay->labelForField(smtpPass)->setVisible(false);
+                passwordWarning->setVisible(false);
+                passwordPluginStatus->setVisible(false);
+            }
+        }
+
         break;
     }
     case MSA::Account::Method::SENDMAIL:
@@ -1322,6 +1404,10 @@ void OutgoingPage::updateWidgets()
         lay->labelForField(smtpPass)->setVisible(false);
         passwordWarning->setVisible(false);
         passwordPluginStatus->setVisible(false);
+        if (smtpAuthMethod) {
+            lay->setRowVisible(smtpAuthMethod, false);
+            smtpOAuthNote->setVisible(false);
+        }
         if (m_smtpAccountSettings->submissionMethod() == MSA::Account::Method::SENDMAIL) {
             sendmail->setVisible(true);
             lay->labelForField(sendmail)->setVisible(true);
@@ -1355,7 +1441,15 @@ void OutgoingPage::save(QSettings &s)
 {
     m_smtpAccountSettings->saveSettings();
 
-    if (smtpAuth->isVisibleTo(this) && smtpAuth->isChecked() && m_pwWatcher->isPluginAvailable() && !m_pwWatcher->isWaitingForPlugin()) {
+    const bool oauth = method->currentIndex() == NETWORK && smtpAuth->isChecked() && usesOAuth();
+    if (oauth)
+        s.setValue(Common::SettingsNames::smtpAuthMethodKey, Common::SettingsNames::authMethodOAuth);
+    else
+        s.remove(Common::SettingsNames::smtpAuthMethodKey);
+
+    if (oauth) {
+        emit saved();
+    } else if (smtpAuth->isVisibleTo(this) && smtpAuth->isChecked() && m_pwWatcher->isPluginAvailable() && !m_pwWatcher->isWaitingForPlugin()) {
         m_pwWatcher->setPassword(smtpPass->text());
     } else {
         emit saved();
@@ -1406,7 +1500,7 @@ bool OutgoingPage::checkValidity() const
 bool OutgoingPage::passwordFailures(QString &message) const
 {
     // The const_cast is needed as Qt4 does not define the arguement of isVisibleTo as const
-    if (!smtpAuth->isVisibleTo(const_cast<Gui::OutgoingPage*>(this)) || !smtpAuth->isChecked() || !m_pwWatcher->isPluginAvailable() || m_pwWatcher->isWaitingForPlugin() || m_pwWatcher->didWriteOk()) {
+    if (usesOAuth() || !smtpAuth->isVisibleTo(const_cast<Gui::OutgoingPage*>(this)) || !smtpAuth->isChecked() || !m_pwWatcher->isPluginAvailable() || m_pwWatcher->isWaitingForPlugin() || m_pwWatcher->didWriteOk()) {
         return false;
     } else {
         message = m_pwWatcher->progressMessage();

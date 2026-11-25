@@ -421,6 +421,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/RelatedMessagesPanel.cpp
     ${path_DesktopGui}/ReplaceCharValidator.cpp
     ${path_DesktopGui}/SettingsDialog.cpp
+    ${path_DesktopGui}/SettingsOAuthControls.cpp
     ${path_DesktopGui}/Spinner.cpp
     ${path_DesktopGui}/TagAddDialog.cpp
     ${path_DesktopGui}/TagHandler.cpp
@@ -900,6 +901,7 @@ if(WITH_DESKTOP)
             Cryptography
             IPC
             MSA
+            OAuth
             UiUtils
     )
 
