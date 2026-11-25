@@ -22,6 +22,7 @@ progress · 📋 planned · ⛔ blocked
 - [In progress](#in-progress)
 - [Pending verification](#pending-verification)
   - [M02 shell and account foundation](#m02-shell-and-account-foundation)
+  - [M14 real Plasma session verification](#m14-real-plasma-session-verification)
   - [M01 release gate and integration](#m01-release-gate-and-integration)
   - [Milestone feature-issue synchronization](#milestone-feature-issue-synchronization)
   - [M05 search milestone insertion](#m05-search-milestone-insertion)
@@ -75,16 +76,16 @@ progress · 📋 planned · ⛔ blocked
 
 All M02 work is on `feature/m02-shell-next`, which already contains the earlier
 `feature/m02-shell-accounts` and `feature/m02-shell-continuation` branches. It
-is not merged into `main`. The milestone has two subsections:
+is not merged into `main`. Its features are in **M02.01 Headless
+implementation and verification**
+([#318](https://github.com/mikepadiernos/plasma-impresario/issues/318)): all
+13 features, built and verified with offscreen QtTest and the synthetic Dovecot
+server in `tools/dev-container/`.
 
-- **M02.01 Headless implementation and verification**
-  ([#318](https://github.com/mikepadiernos/plasma-impresario/issues/318)): all
-  13 features, built and verified with offscreen QtTest and the synthetic
-  Dovecot server in `tools/dev-container/`.
-- **M02.02 Real Plasma session verification**
-  ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)): the
-  checks that need a real Plasma session, KWallet or a real provider account,
-  split from #35, #78 and #218. None has been done yet.
+The checks that need a real Plasma session, KWallet or a real provider account
+were the M02.02 subsection. They moved to their own milestone,
+[M14](#m14-real-plasma-session-verification), on 2026-11-25 so they do not
+block M02.
 
 #### Issue status
 
@@ -105,13 +106,10 @@ is not merged into `main`. The milestone has two subsections:
 | [#79](https://github.com/mikepadiernos/plasma-impresario/issues/79)   | Connection, authentication, offline and loading states      | Completed   | ✅ Footer and per-account status                                                             |
 | [#81](https://github.com/mikepadiernos/plasma-impresario/issues/81)   | Pane layout, selection and density across sessions          | Completed   | ✅ Verified against disposable IMAP                                                          |
 | [#222](https://github.com/mikepadiernos/plasma-impresario/issues/222) | Multiple simultaneous accounts                              | Completed   | ✅ Verified against disposable IMAP; caveat [#262](CAVEATS.md#multiple-accounts)             |
-| [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | M02.02 Real Plasma session verification                     | Defined     | ⛔ Needs a real Plasma session                                                               |
-| [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315) | Mail shell and embedded panels in Plasma (from #35)         | Defined     | ⛔ Needs a real Plasma session                                                               |
-| [#316](https://github.com/mikepadiernos/plasma-impresario/issues/316) | KWallet credential storage in Plasma (from #78)             | Defined     | ⛔ Needs a real Plasma session and KWallet                                                   |
-| [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317) | OAuth sign-in with a real provider account (from #218)      | Defined     | ⛔ Needs #218, a Plasma session and a provider account                                       |
 
 Completed issues move to Merged when `feature/m02-shell-next` is merged into
-`main`.
+`main`. The Plasma-session checks split from #35, #78 and #218 are tracked in
+[M14](#m14-real-plasma-session-verification).
 
 #### Live verification environment
 
@@ -262,16 +260,16 @@ need a real session.
   there is no token source; both can be implemented and covered by parser tests
   KAccounts and signond are installed, but token retrieval and renewal
   cannot be verified without a real Google or Microsoft account, which needs
-  your input. That check is tracked in M02.02 as
+  your input. That check is tracked in M14 as
   [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317).
 - 🚧 **Account model, #36, #78 and #215:** decided and implemented as
   recorded in [account model decisions](#account-model-decisions). The
   interface does not consult the capabilities yet; that work is held (below).
 - ⏸️ **Held while M03 is active:** #80, #74 and the interface part of #215;
   see [M02 work held for M03](#m02-work-held-for-m03).
-- ⛔ **Plasma session, M02.02:** the dev container has no Plasma session, so
-  the shell (#315, from #35) and KWallet storage (#316, from #78) checks wait
-  for a real session. #35 is Completed; its Plasma check is tracked in #315.
+- ➡️ **Plasma session:** the shell (#315, from #35), KWallet storage (#316,
+  from #78) and OAuth sign-in (#317, from #218) checks moved to
+  [M14](#m14-real-plasma-session-verification) and no longer block M02.
 
 #### Account model decisions
 
@@ -331,10 +329,8 @@ avoid conflicting changes, these M02 items are held:
    `feature/m02-shell-next` once M03 is quiet.
 3. For #218, add SASL support with parser tests and a token interface backed by
    KAccounts.
-4. M02.02, in a real Plasma session: complete #315, #316 and #317 (the last
-   with an account you control), then close #319.
-5. Advance each issue through Completed before checking its roadmap item.
-6. Reconcile the pending roadmap changes in the open pull requests
+4. Advance each issue through Completed before checking its roadmap item.
+5. Reconcile the pending roadmap changes in the open pull requests
    [#250](https://github.com/mikepadiernos/plasma-impresario/pull/250)
    (milestone reorder,
    [#249](https://github.com/mikepadiernos/plasma-impresario/issues/249)) and
@@ -343,8 +339,35 @@ avoid conflicting changes, these M02 items are held:
    [#251](https://github.com/mikepadiernos/plasma-impresario/issues/251)). Both
    issues are in Review, and both predate the
    [M05 insertion](#m05-search-milestone-insertion).
-7. Merge `feature/m02-shell-next` into `main` only when all M02 roadmap items
-   and acceptance checks are complete.
+6. Merge `feature/m02-shell-next` into `main` only when all M02 roadmap items
+   and acceptance checks are complete. The M14 Plasma-session checks are not
+   required.
+
+### M14 real Plasma session verification
+
+These checks need a real KDE Plasma session, KWallet or a real provider
+account, which the headless dev container cannot provide. They were the M02.02
+subsection until 2026-11-25 and became their own milestone so that M02 can be
+completed and merged. #319, the former M02.02 subsection, is now the M14
+parent issue. M14 is blocked by M02 but does not block later milestones.
+
+| Issue                                                                 | Feature                                                | Board   | State                                                  |
+| --------------------------------------------------------------------- | ------------------------------------------------------ | ------- | ------------------------------------------------------ |
+| [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | M14 milestone                                          | Defined | ⛔ Needs a real Plasma session                         |
+| [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315) | Mail shell and embedded panels in Plasma (from #35)    | Defined | ⛔ Needs a real Plasma session                         |
+| [#316](https://github.com/mikepadiernos/plasma-impresario/issues/316) | KWallet credential storage in Plasma (from #78)        | Defined | ⛔ Needs a real Plasma session and KWallet             |
+| [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317) | OAuth sign-in with a real provider account (from #218) | Defined | ⛔ Needs #218, a Plasma session and a provider account |
+
+#### How to resume
+
+1. Install the M02 build in a Plasma 6 session on the
+   [compatibility baseline](philosophy/compatibility.md), using a synthetic or
+   disposable account.
+2. Complete #315 and #316 by following the acceptance criteria in each issue,
+   and record the Plasma, Qt and KDE Frameworks versions.
+3. Complete #317 after #218 is implemented, with a provider account you
+   control.
+4. Advance each issue through the board workflow, then close #319.
 
 ### M01 release gate and integration
 
@@ -389,7 +412,7 @@ component audit and reproduction steps.
 
 ### Milestone feature-issue synchronization
 
-- ✅ **M01–M13:** each roadmap item has its own linked project card and issue.
+- ✅ **M01–M14:** each roadmap item has its own linked project card and issue.
   Items belong to their subsection issue where applicable, or otherwise to their
   milestone issue; subsection issues belong to the milestone issue. Issue
   milestone assignments and parent links were verified. Existing project
@@ -464,6 +487,10 @@ component audit and reproduction steps.
   [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11), its
   features and #357). Resolve this in the milestone reorder
   [#249](https://github.com/mikepadiernos/plasma-impresario/issues/249).
+- ➡️ **Plasma-session milestone:** the M13 created on `feature/m02-shell-next`
+  is roadmap M14 after the insertion; its parent
+  [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) and
+  board titles still say "M13".
 - 📋 **Resume:** rebase pull requests
   [#250](https://github.com/mikepadiernos/plasma-impresario/pull/250) and
   [#252](https://github.com/mikepadiernos/plasma-impresario/pull/252) onto this

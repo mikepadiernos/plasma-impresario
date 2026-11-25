@@ -35,7 +35,7 @@ Board statuses as of 2026-11-25.
 | Milestone | Focus | Parent issue | Done | Board |
 | --- | --- | --- | --- | --- |
 | [M01](#m01-kde--qt6-compatibility-baseline) | 🧱 KDE / Qt 6 compatibility baseline | [#1](https://github.com/mikepadiernos/plasma-impresario/issues/1) | 🟩🟩🟩🟩🟩 19/19 | ✅ Merged |
-| [M02](#m02-shell-accounts-and-core-mailbox-foundation) | 🧭 Shell, accounts and core mailbox foundation | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4) | 🟩🟩⬜⬜⬜ 7/17 | 🚧 Development on `feature/m02-shell-next` |
+| [M02](#m02-shell-accounts-and-core-mailbox-foundation) | 🧭 Shell, accounts and core mailbox foundation | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4) | 🟩🟩🟩⬜⬜ 7/14 | 🚧 Development on `feature/m02-shell-next` |
 | [M03](#m03-mail-operations-sorting-and-folder-management) | 📬 Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5) | 🟩🟩⬜⬜⬜ 4/12 | 🚧 Development on `feature/m03-mail-operations`, where its items are checked |
 | [M04](#m04-reading-and-conversation-flow) | 📖 Reading and conversation flow | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6) | ⬜⬜⬜⬜⬜ 0/13 | 📋 Backlog |
 | [M05](#m05-search-and-indexing) | 🔍 Search and indexing | [#324](https://github.com/mikepadiernos/plasma-impresario/issues/324) | ⬜⬜⬜⬜⬜ 0/24 | 📋 Backlog |
@@ -47,6 +47,7 @@ Board statuses as of 2026-11-25.
 | [M11](#m11-release-readiness-and-polish) | 🚀 Release readiness and polish | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12) | ⬜⬜⬜⬜⬜ 0/8 | 📋 Backlog |
 | [M12](#m12-nextcloud-and-digital-asset-management) | ☁️ Nextcloud and digital asset management | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31) | ⬜⬜⬜⬜⬜ 0/7 | 📋 Backlog |
 | [M13](#m13-refinements) | ✨ Refinements | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15) | ⬜⬜⬜⬜⬜ 0/80 | 📋 Backlog |
+| [M14](#m14-real-plasma-session-verification) | 🖥️ Real Plasma session verification | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ⬜⬜⬜⬜⬜ 0/3 | 📋 Defined |
 
 > [!TIP]
 >
@@ -220,28 +221,13 @@ installation depends on the working renderer.
   - [ ] Support account grouping, collapsible folder navigation, and keyboard focus across the shell [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569100)
   - [x] Preserve pane layout, selection, and density preferences across sessions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569110)
 
-- **M02.02: Real Plasma session verification**
-
-  **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317303994)
-
-  Checks that need a real KDE Plasma session, KWallet, or a real provider
-  account, and cannot be completed in the headless environment.
-
-  - [ ] Verify the mail shell, embedded panels, and F6 focus cycling in a real
-    Plasma session with the active Plasma style, color scheme, and icon theme.
-    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317304059)
-  - [ ] Verify secure credential storage with KWallet in a real Plasma session.
-    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317304111)
-  - [ ] Verify OAuth authorization, token renewal, and recovery with a real
-    provider account in a Plasma session.
-    [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317304160)
-
 Later milestone parent issues are blocked by #4. Apply the same gate when
 starting their feature issues.
 
-Pending headless implementation, isolated account verification, and the
-M02.02 Plasma-session checks:
-[M02 handoff](TODO.md#m02-shell-and-account-foundation).
+Pending headless implementation and isolated account verification:
+[M02 handoff](TODO.md#m02-shell-and-account-foundation). Checks that need a
+real Plasma session moved to
+[M14](#m14-real-plasma-session-verification) so they do not block M02.
 Account grouping (#80), the design-spec skeleton (#74) and capability-aware
 actions (#215) are held while M03 is in development:
 [M02 work held for M03](TODO.md#m02-work-held-for-m03).
@@ -975,6 +961,27 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Define compatibility and failure expectations for sharing editor or workspace context with Plasma Opus [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314572957)
 
 This milestone follows the core app and Nextcloud integration. Refine implemented features here and document criteria for potential future work.
+
+### M14: Real Plasma session verification
+
+**Project:** [M14 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317303994)
+
+Checks that need a real KDE Plasma session, KWallet, or a real provider
+account, and cannot be completed in the headless environment. They moved here
+from M02 so the headless M02 foundation can be completed and merged; each
+verifies a feature that is already implemented and tested headless.
+
+- [ ] Verify the mail shell, embedded panels, and F6 focus cycling in a real
+  Plasma session with the active Plasma style, color scheme, and icon theme.
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317304059)
+- [ ] Verify secure credential storage with KWallet in a real Plasma session.
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317304111)
+- [ ] Verify OAuth authorization, token renewal, and recovery with a real
+  provider account in a Plasma session.
+  [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317304160)
+
+This milestone is blocked by M02 but does not block later milestones. Pending
+checks: [M14 handoff](TODO.md#m14-real-plasma-session-verification).
 
 ## Keeping the roadmap current
 
