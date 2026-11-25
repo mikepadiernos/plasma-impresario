@@ -288,8 +288,23 @@ need a real session.
 
 #### Open follow-ups
 
-- 📋 **OAuth:** the improvements listed in
-  [caveat #362](CAVEATS.md#oauth-sign-in), and live sign-in (#317, M15).
+- ✅ **Multiple accounts:** caveat
+  [#262](CAVEATS.md#multiple-accounts) is resolved, closed and Merged
+  ([#420](https://github.com/mikepadiernos/plasma-impresario/pull/420)).
+- 📋 **OAuth:** the M02 items of [caveat #362](CAVEATS.md#oauth-sign-in) are
+  merged in [#421](https://github.com/mikepadiernos/plasma-impresario/pull/421).
+  Still open: the Microsoft tenant and shared token session (#397, #398,
+  M13.01), live sign-in (#317, M15), and two proposals without a milestone:
+  keeping a replaced grant until the dialog is saved, and skipping revocation
+  in Account Settings for a grant another account shares.
+- 📋 **Panels:** the M02 item of
+  [caveat #264](CAVEATS.md#related-messages-and-message-details-panels), pane
+  sizes after upgrading, is merged in
+  [#422](https://github.com/mikepadiernos/plasma-impresario/pull/422). Still
+  open: #302 and #303 in M04.
+- 📋 **Resume:** #362 and #264 stay open in Review because their remaining
+  items belong to later milestones. Move each to Completed and close it when
+  those items are merged, then remove its bullet here.
 
 #### Account model decisions
 
