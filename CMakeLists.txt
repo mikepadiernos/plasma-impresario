@@ -310,6 +310,7 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/Color.cpp
     ${path_UiUtils}/Formatting.cpp
     ${path_UiUtils}/IconLoader.cpp
+    ${path_UiUtils}/MessageSecurity.cpp
     ${path_UiUtils}/PasswordWatcher.cpp
     ${path_UiUtils}/PlainTextFormatter.cpp
     ${path_UiUtils}/QaimDfsIterator.cpp
@@ -1305,6 +1306,8 @@ if(BUILD_TESTING)
     target_link_libraries(test_AttachmentCollector PRIVATE UiUtils)
     trojita_test(Misc RelatedMessages)
     target_link_libraries(test_RelatedMessages PRIVATE UiUtils)
+    trojita_test(Misc MessageSecurity)
+    target_link_libraries(test_MessageSecurity PRIVATE UiUtils)
     trojita_test(Misc QuickFilters)
     target_link_libraries(test_QuickFilters PRIVATE UiUtils)
     trojita_test(Misc RecentFolders)
