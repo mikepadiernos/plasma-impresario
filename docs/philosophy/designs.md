@@ -21,6 +21,7 @@ Legend: ![Done][done] · ![Needs verification][needs-verification] ·
   - [Current embedded panels](#current-embedded-panels)
   - [Mail operations](#mail-operations)
   - [Reader colors](#reader-colors)
+  - [Search highlighting](#search-highlighting)
   - [Status bar](#status-bar)
 - [Proposed Plasma Impresario shell](#proposed-plasma-impresario-shell)
   - [Panes and placement](#panes-and-placement)
@@ -507,6 +508,23 @@ The reader's **Color scheme** context menu can still force black on white.
 Colors are applied from an isolated script that only adds a stylesheet; message
 scripts stay disabled and no remote content is loaded for it. A changed color
 scheme applies to open messages at once.
+
+### Search highlighting
+
+A message opened while a quick search is on shows the search text in the
+reader's **find bar** when its body contains it. The matches are highlighted and
+the first is selected; <kbd>F3</kbd> and <kbd>Shift</kbd>+<kbd>F3</kbd> step
+through them. The keyboard focus stays in the message list, so the next result
+is still a key press away.
+
+- The text comes from a **Subject** or **Body** search, a `subject:` filter, or
+  the first `SUBJECT`, `BODY` or `TEXT` value of a raw IMAP search.
+  Sender, recipient and `list:` filters search headers only, so they highlight
+  nothing.
+- Only the loaded parts of the message are searched. Nothing is fetched for it,
+  and remote content stays blocked.
+- A message without a match opens without the find bar. Clearing the search
+  turns highlighting off for the next message; the open one is left as it is.
 
 ### Status bar
 

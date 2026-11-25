@@ -31,15 +31,18 @@ Legend: ![Verified][verified] against a synthetic live IMAP server ·
 
 ### Message content and attachments
 
-| Area            | Scenario                                                                                                  | Coverage                                                                                |
-| --------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Message content | Malformed MIME, missing bodies, invalid dates and unusual encodings                                       | ![Not validated][not-validated]                                                         |
-| Attachments     | Large files, missing downloads and unsafe types                                                           | ![Not validated][not-validated]                                                         |
-| Attachments     | Related parts with a `start` parameter                                                                    | ![Limitation][limitation] The attachments panel assumes the first part                  |
-| Attachments     | Opened files kept in the temp folder                                                                      | ![Not validated][not-validated]                                                         |
-| Reader colors   | Plain text, HTML with and without its own background, and forced black on white in dark and light schemes | ![Offscreen tests][offscreen] `test_WebEngineMessageProfile`; message scripts never run |
-| Reader colors   | HTML that sets only a light text color on the body, or dark backgrounds only on inner tables              | ![Not validated][not-validated] Shown on a white page in a dark scheme                  |
-| Reader colors   | Switching the Plasma color scheme with a message open                                                     | ![Not validated][not-validated] M15                                                     |
+| Area             | Scenario                                                                                                  | Coverage                                                                                |
+| ---------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Message content  | Malformed MIME, missing bodies, invalid dates and unusual encodings                                       | ![Not validated][not-validated]                                                         |
+| Attachments      | Large files, missing downloads and unsafe types                                                           | ![Not validated][not-validated]                                                         |
+| Attachments      | Related parts with a `start` parameter                                                                    | ![Limitation][limitation] The attachments panel assumes the first part                  |
+| Attachments      | Opened files kept in the temp folder                                                                      | ![Not validated][not-validated]                                                         |
+| Reader colors    | Plain text, HTML with and without its own background, and forced black on white in dark and light schemes | ![Offscreen tests][offscreen] `test_WebEngineMessageProfile`; message scripts never run |
+| Reader colors    | HTML that sets only a light text color on the body, or dark backgrounds only on inner tables              | ![Not validated][not-validated] Shown on a white page in a dark scheme                  |
+| Reader colors    | Switching the Plasma color scheme with a message open                                                     | ![Not validated][not-validated] M15                                                     |
+| Search highlight | A body search on a live server: the term is found in the reader, the focus stays in the list              | ![Verified][verified] `test_LiveImapPanels`                                             |
+| Search highlight | Sender, recipient, list and raw searches without a body key highlight nothing                             | ![Offscreen tests][offscreen] `test_Relevance`                                          |
+| Search highlight | The term only in an HTML part's hidden text, in a nested message, or split by markup                      | ![Not validated][not-validated]                                                         |
 
 ### Message security
 
