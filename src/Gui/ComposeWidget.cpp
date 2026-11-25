@@ -51,6 +51,7 @@
 #include "Common/InvokeMethod.h"
 #include "Common/Paths.h"
 #include "Common/SettingsNames.h"
+#include "Common/TrustedCertificates.h"
 #include "Gui/CompleteMessageWidget.h"
 #include "Gui/ComposeWidget.h"
 #include "Gui/FromAddressProxyModel.h"
@@ -164,6 +165,7 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
     , m_mainWindow(mainWindow)
     , m_settings(mainWindow->settings())
     , m_accountSettings(mainWindow->accountSettings())
+    , m_imapAccess(mainWindow->imapAccess())
     , m_senderIdentities(mainWindow->senderIdentitiesModel())
     , m_composer(messageComposer)
     , m_submission(nullptr)
@@ -645,8 +647,12 @@ void ComposeWidget::markReplyModeHandpicked()
 
 void ComposeWidget::passwordRequested(const QString &user, const QString &host)
 {
-    if (m_mainWindow->accountSettings()->value(Common::SettingsNames::smtpAuthReuseImapCredsKey, false).toBool()) {
-        auto password = qobject_cast<const Imap::Mailbox::Model*>(m_mainWindow->imapAccess()->imapModel())->imapPassword();
+    if (!m_accountSettings || !m_imapAccess) {
+        m_submission->cancelPassword();
+        return;
+    }
+    if (m_accountSettings->value(Common::SettingsNames::smtpAuthReuseImapCredsKey, false).toBool()) {
+        auto password = qobject_cast<const Imap::Mailbox::Model*>(m_imapAccess->imapModel())->imapPassword();
         if (password.isNull()) {
             // This can happen for example when we've always been offline since the last profile change,
             // and the IMAP password is therefore not already cached in the IMAP model.
@@ -692,6 +698,16 @@ void ComposeWidget::passwordError()
 
 void ComposeWidget::certificateCheckRequested(const QList<QSslCertificate> &chain, const QList<QSslError> &errors)
 {
+    const QString host = m_accountSettings ? m_accountSettings->value(Common::SettingsNames::smtpHostKey).toString()
+                                           : QString();
+    QSettings *profile = m_mainWindow ? m_mainWindow->settings() : nullptr;
+    if (profile && !chain.isEmpty() && Common::TrustedCertificates::isTrusted(*profile, host, chain.first())) {
+        // Another account, or this host's IMAP service, already got the user's approval for this key
+        if (m_accountSettings)
+            m_accountSettings->setValue(Common::SettingsNames::smtpSslPemPubKey, chain.first().publicKey().toPem());
+        m_submission->setCertificateAccepted(true);
+        return;
+    }
     const QByteArray oldPubKey = m_accountSettings ?
                 m_accountSettings->value(Common::SettingsNames::smtpSslPemPubKey).toByteArray() : QByteArray();
     QString title, message;
@@ -705,6 +721,8 @@ void ComposeWidget::certificateCheckRequested(const QList<QSslCertificate> &chai
         return;
     if (accepted && m_accountSettings && !chain.isEmpty())
         m_accountSettings->setValue(Common::SettingsNames::smtpSslPemPubKey, chain.first().publicKey().toPem());
+    if (accepted && profile && !chain.isEmpty())
+        Common::TrustedCertificates::trust(*profile, host, chain.first());
     m_submission->setCertificateAccepted(accepted);
 }
 
@@ -867,20 +885,28 @@ void ComposeWidget::send()
         saveDraft(m_autoSavePath);
     }
 
+    if (!m_accountSettings || !m_imapAccess) {
+        gotError(tr("The account this message was written from has been removed, so it cannot be sent. "
+                    "Copy its contents into a new message from another account."));
+        return;
+    }
+
     if (!buildMessageData()) {
         return;
     }
 
-    const bool reuseImapCreds = m_mainWindow->accountSettings()->value(Common::SettingsNames::smtpAuthReuseImapCredsKey, false).toBool();
-    m_submission->setImapOptions(m_mainWindow->accountSettings()->value(Common::SettingsNames::composerSaveToImapKey, true).toBool(),
-                                 m_mainWindow->accountSettings()->value(Common::SettingsNames::composerImapSentKey, QStringLiteral("Sent")).toString(),
-                                 m_mainWindow->accountSettings()->value(Common::SettingsNames::imapHostKey).toString(),
-                                 m_mainWindow->accountSettings()->value(Common::SettingsNames::imapUserKey).toString(),
-                                 m_mainWindow->accountSettings()->value(Common::SettingsNames::msaMethodKey).toString() == Common::SettingsNames::methodImapSendmail);
-    m_submission->setSmtpOptions(m_mainWindow->accountSettings()->value(Common::SettingsNames::smtpUseBurlKey, false).toBool(),
+    // Send with the account this composer was opened from, even if another account is active now.
+    QSettings &account = *m_accountSettings;
+    const bool reuseImapCreds = account.value(Common::SettingsNames::smtpAuthReuseImapCredsKey, false).toBool();
+    m_submission->setImapOptions(account.value(Common::SettingsNames::composerSaveToImapKey, true).toBool(),
+                                 account.value(Common::SettingsNames::composerImapSentKey, QStringLiteral("Sent")).toString(),
+                                 account.value(Common::SettingsNames::imapHostKey).toString(),
+                                 account.value(Common::SettingsNames::imapUserKey).toString(),
+                                 account.value(Common::SettingsNames::msaMethodKey).toString() == Common::SettingsNames::methodImapSendmail);
+    m_submission->setSmtpOptions(account.value(Common::SettingsNames::smtpUseBurlKey, false).toBool(),
                                  reuseImapCreds ?
-                                     m_mainWindow->imapAccess()->username() :
-                                     m_mainWindow->accountSettings()->value(Common::SettingsNames::smtpUserKey).toString());
+                                     m_imapAccess->username() :
+                                     account.value(Common::SettingsNames::smtpUserKey).toString());
 
     ProgressPopUp *progress = new ProgressPopUp();
     OverlayWidget *overlay = new OverlayWidget(progress, this);

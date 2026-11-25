@@ -30,6 +30,7 @@
 #include "Common/Paths.h"
 #include "Common/PortNumbers.h"
 #include "Common/SettingsNames.h"
+#include "Common/TrustedCertificates.h"
 #include "Imap/Model/CombinedCache.h"
 #include "Imap/Model/DummyNetworkWatcher.h"
 #include "Imap/Model/MailboxModel.h"
@@ -499,6 +500,9 @@ void ImapAccess::slotSslErrors(const QList<QSslCertificate> &sslCertificateChain
     if (!m_sslChain.isEmpty() && !lastKnownPubKey.isEmpty() && lastKnownPubKey == m_sslChain[0].publicKey().toPem()) {
         // This certificate chain contains the same public keys as the last time; we should accept that
         m_imapModel->setSslPolicy(m_sslChain, m_sslErrors, true);
+    } else if (!m_sslChain.isEmpty() && Common::TrustedCertificates::isTrusted(*m_appSettings, m_server, m_sslChain[0])) {
+        // Another account, or this host's SMTP service, already got the user's approval for this key
+        setSslPolicy(true);
     } else {
         UiUtils::Formatting::formatSslState(
                     m_sslChain, lastKnownPubKey, m_sslErrors, &m_sslInfoTitle, &m_sslInfoMessage, &m_sslInfoIcon);
@@ -539,6 +543,7 @@ void ImapAccess::setSslPolicy(bool accept)
 {
     if (accept && !m_sslChain.isEmpty()) {
         m_settings->setValue(Common::SettingsNames::imapSslPemPubKey, m_sslChain[0].publicKey().toPem());
+        Common::TrustedCertificates::trust(*m_appSettings, m_server, m_sslChain[0]);
     }
     m_imapModel->setSslPolicy(m_sslChain, m_sslErrors, accept);
 }
@@ -581,6 +586,11 @@ connecting to a completely different server since the last time.
 void ImapAccess::nukeCache()
 {
     Imap::removeRecursively(m_cacheDir);
+}
+
+QString ImapAccess::cacheDirectory() const
+{
+    return m_cacheDir;
 }
 
 QModelIndex ImapAccess::deproxifiedIndex(const QModelIndex index)

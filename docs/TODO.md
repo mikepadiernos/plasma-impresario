@@ -155,8 +155,9 @@ need a real session.
     connection and an "IMAP Cache Error" appeared at startup with two accounts.
     Each account now uses its own connection name. Not on `main`, which has no
     multiple accounts.
-  - The dialog edits only the active account; see
-    [caveat #262](CAVEATS.md#multiple-accounts).
+  - The dialog edits the active account. An account header's menu in the
+    folder sidebar opens it for another account by switching first
+    ([#262](CAVEATS.md#multiple-accounts)).
 - ✅ **Credential defaults and removal, #78:** verified with
   `test_LiveImapAccounts` against Dovecot 2.4.5. Removing a connected
   background account and then the active account deleted each one's settings
@@ -216,7 +217,8 @@ need a real session.
   - That check found and fixed two bugs: background accounts never logged in
     because the model connects lazily, and certificate prompts were answered for
     the active account instead of the requesting one.
-  - Known limits are recorded in [caveat #262](CAVEATS.md#multiple-accounts).
+  - The limitations found then are resolved in
+    [#262](CAVEATS.md#multiple-accounts).
 - ✅ **Mail shell, #35 (Completed):** the shell has a left column, main
   column, right column and footer, with connection status in the footer. The
   Navigation toolbar docks at the left window edge by default, and the menu bar
@@ -300,7 +302,7 @@ These decisions close the account-model questions in #36, #78, #80 and #215.
 | Protocol            | The account's own settings store its protocol under `account.protocol` (`imap`, `pop3` or `jmap`). Accounts without it are IMAP; an unknown value is reported and treated as IMAP. `AccountCapabilities::forAccount` reads it.             | ✅ Decided |
 | Identities          | Each account has its own identities by default. It can instead use the shared identities, or no identity, in which case the composer starts with an empty From address and no signature. The account's own identities are kept either way. | ✅ Decided |
 | Credentials         | Passwords are stored per account ID and per service (`imap`, `smtp`). New profiles use QtKeychain; profiles with legacy cleartext passwords keep the cleartext store.                                                                      | ✅ Decided |
-| Removal             | Removal deletes the account's settings file, registry entry and stored passwords. The offline cache is kept for now ([caveat #262](CAVEATS.md#multiple-accounts)).                                                                         | ✅ Decided |
+| Removal             | Removal deletes the account's settings file, registry entry, stored passwords and offline cache.                                                                                                                                           | ✅ Decided |
 | Folder structure    | Each account has its own folder tree. With several accounts, the sidebar is an accordion: a header per account and the active account's tree under its header (#80).                                                                       | ✅ Decided |
 | Unavailable actions | Actions an account's protocol does not support are hidden, not disabled, through `CapabilityActionGate` (#215). New server-dependent actions must be registered with it.                                                                   | ✅ Decided |
 | Mailbox lifecycle   | Accounts are created at startup and kept across switches; folders load on demand, and the selected mailbox and message are restored per account. Removal also deletes OAuth grants.                                                        | ✅ Decided |

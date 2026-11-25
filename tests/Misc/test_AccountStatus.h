@@ -16,6 +16,7 @@ private slots:
     void attentionKinds_data();
     void attentionKinds();
     void listsAccountsNeedingAttention();
+    void raisesAttentionOnceUntilConnected();
     void labelsAreDistinct();
 };
 

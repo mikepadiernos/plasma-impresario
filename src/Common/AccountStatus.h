@@ -7,6 +7,7 @@
 
 #include <QHash>
 #include <QObject>
+#include <QSet>
 #include <QString>
 #include <QStringList>
 
@@ -54,8 +55,16 @@ public:
 signals:
     void statusChanged(const QString &accountId);
 
+    /**
+     * An account started to need attention, after statusChanged().
+     *
+     * This is emitted once until the account connects again, so that retries which fail again do not repeat it.
+     */
+    void attentionRaised(const QString &accountId);
+
 private:
     QHash<QString, AccountStatus> m_statuses;
+    QSet<QString> m_raised;
 };
 
 }
