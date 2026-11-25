@@ -17,8 +17,12 @@
 #endif
 #include "static_plugins.h"
 
+#include "Plugins/PluginManager.h"
+
 #include <KLocalizedString>
 #include <QApplication>
+#include <QDir>
+#include <QFile>
 #include <QComboBox>
 #include <QDialog>
 #include <QInputDialog>
@@ -59,6 +63,18 @@ QModelIndex findMailbox(const QAbstractItemModel *model, const QString &name)
         return {};
     const QModelIndexList matches = model->match(model->index(0, 0), Imap::Mailbox::RoleMailboxName, name, 1, Qt::MatchExactly);
     return matches.isEmpty() ? QModelIndex() : QModelIndex(matches.first());
+}
+
+/** @short Whether any settings file in @arg directory contains @arg text */
+bool settingsContain(const QTemporaryDir &directory, const QString &text)
+{
+    const auto files = QDir(directory.path()).entryInfoList(QDir::Files);
+    for (const auto &file : files) {
+        QFile settingsFile(file.filePath());
+        if (settingsFile.open(QIODevice::ReadOnly) && settingsFile.readAll().contains(text.toUtf8()))
+            return true;
+    }
+    return false;
 }
 
 QComboBox *accountSwitcher(Gui::MainWindow &window)
@@ -216,6 +232,83 @@ private slots:
         qInfo("Certificate prompts accepted: %d", certificatePrompts);
         QVERIFY2(workErrors.isEmpty(), qPrintable(workErrors.isEmpty() ? QString() : workErrors.first().first().toString()));
         QVERIFY2(homeErrors.isEmpty(), qPrintable(homeErrors.isEmpty() ? QString() : homeErrors.first().first().toString()));
+
+        // Removing the connected background account deletes its settings and stored password; the active one stays.
+        QVERIFY(QMetaObject::invokeMethod(&window, "removeAccountNow", Q_ARG(QString, QStringLiteral("account-2"))));
+        QTRY_VERIFY(!settings.contains(QStringLiteral("accountPasswords/account-2/imap")));
+        QVERIFY(!QFile::exists(directory.filePath(QStringLiteral("main-account-2.conf"))));
+        QCOMPARE(switcher->count(), 2);
+        QCOMPARE(window.imapModel(), workModel);
+        QVERIFY(settings.contains(QStringLiteral("accountPasswords/account-1/imap")));
+
+        // Removing the active account switches to the remaining one, which connects with its own password.
+        QVERIFY(QMetaObject::invokeMethod(&window, "removeAccountNow", Q_ARG(QString, QStringLiteral("account-1"))));
+        QTRY_VERIFY(!settings.contains(QStringLiteral("accountPasswords/account-1/imap")));
+        QVERIFY(!QFile::exists(directory.filePath(QStringLiteral("main-account-1.conf"))));
+        QCOMPARE(settings.value(QStringLiteral("accounts/ids")).toStringList(), QStringList{QStringLiteral("account-3")});
+        QCOMPARE(window.imapAccess()->credentialAccountId(), QStringLiteral("account-3"));
+        QCOMPARE(switcher->count(), 1);
+        QCOMPARE(passwordPrompts, 0);
+    }
+
+    /**
+     * A new profile stores passwords through QtKeychain. The container has no Secret Service, so the stored password
+     * is missing: the app must prompt, sign in with the typed password and never write it to the settings files.
+     * Expects the same server as accountsConnectAndSwitchIndependently.
+     */
+    void newProfilesKeepPasswordsOutOfSettings()
+    {
+        bool ok = false;
+        const int port = qEnvironmentVariableIntValue("PLASMA_TEST_IMAPS_PORT", &ok);
+        QVERIFY(ok && port > 0 && port <= 65535);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        settings.setValue(Common::SettingsNames::guiShowSystray, false);
+        settings.setValue(QStringLiteral("accounts/ids"), QStringList{QStringLiteral("account-1")});
+        settings.setValue(QStringLiteral("accounts/active"), QStringLiteral("account-1"));
+        settings.setValue(QStringLiteral("accounts/next"), 2);
+        settings.setValue(QStringLiteral("accounts/names/account-1"), QStringLiteral("Work"));
+        settings.sync();
+        configureAccount(directory.filePath(QStringLiteral("main-account-1.conf")), port, QStringLiteral("work@example.test"));
+
+        int passwordPrompts = 0;
+        QTimer dialogs;
+        connect(&dialogs, &QTimer::timeout, this, [&] {
+            for (QWidget *widget : QApplication::topLevelWidgets()) {
+                if (!widget->isVisible())
+                    continue;
+                if (auto *message = qobject_cast<QMessageBox *>(widget);
+                    message && message->standardButtons() == (QMessageBox::Yes | QMessageBox::No)) {
+                    message->button(QMessageBox::Yes)->click();
+                } else if (auto *dialog = qobject_cast<QDialog *>(widget)) {
+                    if (auto *input = dialog->findChild<QLineEdit *>(QStringLiteral("passwordLineEdit"))) {
+                        ++passwordPrompts;
+                        input->setText(syntheticPassword);
+                        dialog->accept();
+                    }
+                }
+            }
+        });
+        dialogs.start(20);
+
+        Gui::MainWindow window(&settings);
+        QCOMPARE(window.pluginManager()->passwordPlugin(), QStringLiteral("qtkeychainpassword"));
+        window.resize(1000, 700);
+        window.show();
+        auto *tree = window.findChild<Gui::MailBoxTreeView *>();
+        QVERIFY(tree);
+        QModelIndex inbox;
+        QTRY_VERIFY_WITH_TIMEOUT((inbox = findMailbox(tree->model(), QStringLiteral("INBOX"))).isValid(), 20000);
+        openMailbox(tree, inbox);
+        QTRY_COMPARE_WITH_TIMEOUT(inbox.data(Imap::Mailbox::RoleTotalMessageCount).toInt(), 2, 10000);
+        QVERIFY(passwordPrompts >= 1);
+        qInfo("QtKeychain plugin loaded: %s; password prompts: %d", window.pluginManager()->password() ? "yes" : "no",
+              passwordPrompts);
+        settings.sync();
+        window.accountSettings()->sync();
+        QVERIFY(!settings.contains(QStringLiteral("accountPasswords")));
+        QVERIFY(!settingsContain(directory, syntheticPassword));
     }
 };
 
