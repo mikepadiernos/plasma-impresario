@@ -40,33 +40,34 @@ flowchart TD
     E --> F[Merged]
 ```
 
-Review means implemented, not done: a feature's roadmap item is checked only
-after its issue reaches Completed or Merged. See
+$\color{#2f81f7}\textbf{Review}$ means implemented, not done: a feature's
+roadmap item is checked only after its issue reaches
+$\color{#2da44e}\textbf{Completed}$ or $\color{#8957e5}\textbf{Merged}$. See
 [project workflow](CLAUDE.md#project-workflow) for when each move happens and
 [roadmap](CLAUDE.md#roadmap) for checkbox rules.
 
 ### Branches and commits
 
-| Topic       | Convention                                                                                                                                                                                                                |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 🌿 Branches | One `feature/<short-name>` branch per milestone, such as `feature/m02-shell-next`. Bugs, caveats and other issues get their own branch, such as `fix/GH241-plasma-app-icon`. Do not commit issue work directly to `main`. |
-| 📝 Commits  | [Conventional Commits](https://www.conventionalcommits.org/): `<type>(<scope>): <summary>`, such as `fix(GH241): resolve the project icon in Plasma`. Commit by scope.                                                    |
-| 🐞 Bugs     | Title prefix `[bug]`, `bug` label, an entry in [`docs/BUGS.md`](docs/BUGS.md).                                                                                                                                            |
-| ⚠️ Caveats  | Title prefix `[caveat]`, `caveat` label, an entry in [`docs/CAVEATS.md`](docs/CAVEATS.md) linked to the issue.                                                                                                            |
+| Topic        | Convention                                                                                                                                                                                                                |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Branches** | One `feature/<short-name>` branch per milestone, such as `feature/m02-shell-next`. Bugs, caveats and other issues get their own branch, such as `fix/GH241-plasma-app-icon`. Do not commit issue work directly to `main`. |
+| **Commits**  | [Conventional Commits](https://www.conventionalcommits.org/): `<type>(<scope>): <summary>`, such as `fix(GH241): resolve the project icon in Plasma`. Commit by scope.                                                    |
+| **Bugs**     | Title prefix `[bug]`, `bug` label, an entry in [`docs/BUGS.md`](docs/BUGS.md).                                                                                                                                            |
+| **Caveats**  | Title prefix `[caveat]`, `caveat` label, an entry in [`docs/CAVEATS.md`](docs/CAVEATS.md) linked to the issue.                                                                                                            |
 
 Details: [branches and merging](CLAUDE.md#branches-and-merging) and
 [issues and caveats](CLAUDE.md#issues-and-caveats).
 
 ### Code conventions
 
-- 🧪 **Tests:** cover non-widget logic with QtTest in `tests/`. Isolate tests
+- **Tests:** cover non-widget logic with QtTest in `tests/`. Isolate tests
   from the real home folder, mail data and configuration with `QTemporaryDir`
   and `QStandardPaths::setTestModeEnabled(true)`.
-- 🌐 **Strings:** localize new user-visible strings with `i18n()` or `i18nc()`.
-- 🎨 **Icons:** use Plasma's active icon theme through `QIcon::fromTheme()`;
+- **Strings:** localize new user-visible strings with `i18n()` or `i18nc()`.
+- **Icons:** use Plasma's active icon theme through `QIcon::fromTheme()`;
   never bundle a replacement theme. At 24 logical pixels or smaller, prefer
   `-symbolic` variants.
-- ⚙️ **Settings:** store settings in KConfig and session state through
+- **Settings:** store settings in KConfig and session state through
   `KSharedConfig::openStateConfig()`. Prefer KDE Frameworks facilities to custom
   implementations.
 
