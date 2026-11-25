@@ -131,7 +131,44 @@ a move to Trash, Archive or another folder, **Undo** moves the messages back to
 the source folder when the server reported their new UIDs (RFC 4315 COPYUID).
 Otherwise the bar offers **Open Trash**, **Open Archive** or **Open Folder**.
 Copies report _Copied 2 messages to …_ with **Open Folder** and cannot be
-undone. The bar is cleared when the account changes.
+undone. Marking more than one message reports _Marked 5 messages as read_,
+_Marked 5 messages as unread_, _Flagged 5 messages_ or _Removed the flag from 5
+messages_ when the command is sent; a single message is not reported. The bar
+is cleared when the account changes.
+
+The **message list toolbar** shares a row with the quick search field. It
+holds checkable **quick filters**, **Unread**, **Flagged** and **With
+Attachments**, as icon buttons with tooltips and accessible names, followed
+by **Clear Filters** (shown only while a filter is on) and a **Sort** button
+that opens the Mailbox › Sorting menu and shows the sort column and direction
+in its icon and tooltip. The same filters are in **View › Filter** and in the
+context menu of the empty area below the messages. Active filters must all
+match, and they combine with the quick search. **Hide Read Messages** is the
+Unread filter under its old name. Filters are stored per account as
+`gui/msgList.filterUnread`, `filterFlagged` and `filterAttachments`, so they
+apply to every folder of that account. An account without its own filters
+starts with the former global Hide Read Messages preference. A thread is
+shown when any of its messages matches, and then all of its messages are
+shown. A message whose flags are not loaded yet is hidden by Unread and
+Flagged until they arrive. A message whose structure is not loaded yet is
+shown by With Attachments, so that rows do not disappear while scrolling. The
+current message stays listed while it is current, even after it stops
+matching (for example, when reading marks it read under Unread). It is hidden
+once another message becomes current.
+
+Below the list, a **status line** shows the folder's message and unread
+counts as reported by the server (_120 messages, 7 unread_). It adds _showing
+7 of 120_ while filters are on and _3 selected_ when more than one message is
+selected. **Select All** (Ctrl+A), **Select Thread**, **Invert Selection** and
+**Deselect** are in the Message menu. Their shortcuts apply only while the
+message list has the focus, so Ctrl+A still selects text in the reader or the
+search field. Select Thread selects the current message's whole thread and is
+available only while threading is on. Invert Selection treats a collapsed
+thread as one row. Only Select All has a default shortcut; the others can be
+assigned one in the shortcut settings. The message context menu offers Select
+Thread and Select All; the empty area offers Select All, the filters and **Mark
+Mailbox as Read**. All message actions, including read, flag, tags, archive,
+delete and move or copy, apply to the whole selection.
 
 An embedded **attachments panel** sits below the reader in every layout, in a
 resizable reader column whose split is saved with the layout. It lists the
@@ -379,7 +416,10 @@ claims that every component is implemented.
   planned.
 - **Filters and sorting:** Expose active filters, sort order and threading
   without obscuring the current folder or selection. Inspired by Vivaldi Mail
-  and The Bat!.
+  and The Bat!. Unread, Flagged and With Attachments quick filters, a Sort
+  button, selection commands and folder counts are implemented (see
+  [Current interface](#current-interface)); filters by tag, date or sender
+  and per-folder filter state remain planned.
 - **Conversation reader:** Display message content, metadata, quoted text and
   reply actions in a focused reading pane. Inspired by Trojitá and Aqua Mail.
 - **Compose and recipients:** Provide identity selection, recipient entry,
