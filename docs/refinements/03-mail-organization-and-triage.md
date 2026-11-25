@@ -1,7 +1,7 @@
 # Mail organization and triage refinement
 
 **[Refinements](README.md)** ·
-**[M13 in roadmap](../ROADMAP.md#m13-refinements)** ·
+**[M14 in roadmap](../ROADMAP.md#m14-refinements)** ·
 **[Previous: Accounts, sync and storage](02-accounts-sync-and-storage.md)** ·
 **[Next: Reading, composition and attachments](04-reading-composition-and-attachments.md)**
 
@@ -9,7 +9,7 @@ Refines inbox organization, folder navigation, selection, unread counts, quick
 actions and bulk operations.
 
 **Roadmap subsection:**
-[M13.04: Mail organization and triage](../ROADMAP.md#m13-refinements) ·
+[M14.04: Mail organization and triage](../ROADMAP.md#m14-refinements) ·
 **Issue:** [#23](https://github.com/mikepadiernos/plasma-impresario/issues/23)
 
 ## Focus

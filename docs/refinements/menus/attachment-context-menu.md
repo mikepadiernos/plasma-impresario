@@ -2,7 +2,7 @@
 
 **[Refinements](../README.md)** · **[Menus](README.md)** ·
 **[Interface design](../../philosophy/designs.md)** ·
-**[M13 in roadmap](../../ROADMAP.md#m13-refinements)**
+**[M14 in roadmap](../../ROADMAP.md#m14-refinements)**
 
 This proposed menu appears when the user right-clicks an attachment in the
 reading pane, attachment tray, or compose attachment list.

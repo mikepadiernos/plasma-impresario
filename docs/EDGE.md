@@ -75,6 +75,24 @@ offscreen tests only · ⚠️ known limitation · 📋 not yet validated
 | A grant revoked at the provider while the app is open    | 📋                                                                                              |
 | Signing in against a real Google or Microsoft account    | 📋                                                                                              |
 
+### Microsoft accounts and Exchange
+
+Planned in [M13](ROADMAP.md#m13-microsoft-accounts-and-exchange); see the
+[Microsoft guide](integrations/microsoft.md).
+
+| Scenario                                                                            | Coverage |
+| ----------------------------------------------------------------------------------- | -------- |
+| A tenant that requires admin consent or blocks sign-in through Conditional Access   | 📋       |
+| IMAP or SMTP AUTH turned off for the mailbox or tenant                              | 📋       |
+| Graph throttling with `Retry-After`, and a delta token the server no longer accepts | 📋       |
+| The same message changed through IMAP and Graph at once                             | 📋       |
+| An Autodiscover redirect to a host outside the mail domain                          | 📋       |
+| A hybrid mailbox moved between Exchange Server and Exchange Online                  | 📋       |
+| A shared mailbox without Send As or Send on Behalf permission                       | 📋       |
+| Protected (`.rpmsg`) messages, archive mailboxes and public folders                 | 📋       |
+| An event in a Windows time zone with no single IANA match                           | 📋       |
+| The same calendar reached through Akonadi and Graph                                 | 📋       |
+
 ### Sending
 
 | Scenario                                                          | Coverage                                                                                            |

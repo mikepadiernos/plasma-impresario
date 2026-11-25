@@ -22,10 +22,11 @@ progress · 📋 planned · ⛔ blocked
 - [In progress](#in-progress)
 - [Pending verification](#pending-verification)
   - [M02 shell and account foundation](#m02-shell-and-account-foundation)
-  - [M14 real Plasma session verification](#m14-real-plasma-session-verification)
+  - [M15 real Plasma session verification](#m15-real-plasma-session-verification)
   - [M01 release gate and integration](#m01-release-gate-and-integration)
   - [Milestone feature-issue synchronization](#milestone-feature-issue-synchronization)
   - [M05 search milestone insertion](#m05-search-milestone-insertion)
+  - [M13 Microsoft milestone insertion](#m13-microsoft-milestone-insertion)
 
 ## Backlog
 
@@ -82,7 +83,7 @@ Headless implementation and verification**
 and verified with offscreen QtTest and the synthetic Dovecot server in
 `tools/dev-container/`. The checks that need a real Plasma session, KWallet or
 a real provider account moved to
-[M14](#m14-real-plasma-session-verification) on 2026-11-25. What remains here
+[M15](#m15-real-plasma-session-verification) on 2026-11-25. What remains here
 is [merging M02 into M03](#merging-m02-into-m03) and the
 [open follow-ups](#open-follow-ups).
 
@@ -255,12 +256,13 @@ need a real session.
     [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306) and
     sliding, floating or rearrangeable panels
     [#307](https://github.com/mikepadiernos/plasma-impresario/issues/307)
-    (M13.02).
+    (M14.02).
 - ✅ **Capability-aware actions, #215:** `Gui::CapabilityActionGate` hides the
   actions the active account's protocol cannot perform and shows them again on
   switching back: folder management as `ServerFolders`, junk and tags as
   `ServerSideFlags`, archive as `ServerSideMove`. It re-shows only actions it
-  hid itself. Every account is IMAP until M06.05, so nothing is hidden today.
+  hid itself. Every account is IMAP until M06.05 (POP3 and JMAP) or M13
+  (Graph and EWS), so nothing is hidden today.
   `test_MainWindowShell` switches between an IMAP and a POP3 account.
 - ✅ **Account grouping, #80:** with two or more accounts, `Gui::AccountSidebar`
   shows a header per account above the active account's folder tree. Clicking
@@ -271,20 +273,20 @@ need a real session.
 - ✅ **Header region, #74:** **View › Show Header** adds an optional header
   above the columns with the account, folder and account status. It is off by
   default and saved as `Appearance/ShowHeader` in `plasma-impresariorc`. The
-  designed header stays in M13.02 as
+  designed header stays in M14.02 as
   [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306).
 - ✅ **OAuth, #218:** authorization code flow with PKCE through the browser and
   a loopback redirect, token refresh, and SASL `XOAUTH2`/`OAUTHBEARER` for IMAP
   and SMTP, with Google and Microsoft providers. Grants are stored per account
   through the password plugin and deleted with the account. `test_OAuth`
   covers sign-in, renewal, failures, isolation and the SASL exchanges. Live
-  sign-in is #317 in M14; limitations are
+  sign-in is #317 in M15; limitations are
   [caveat #362](CAVEATS.md#oauth-sign-in).
 
 #### Open follow-ups
 
 - 📋 **OAuth:** the improvements listed in
-  [caveat #362](CAVEATS.md#oauth-sign-in), and live sign-in (#317, M14).
+  [caveat #362](CAVEATS.md#oauth-sign-in), and live sign-in (#317, M15).
 
 #### Account model decisions
 
@@ -324,7 +326,7 @@ M02) into M03 once that work is committed:
      entries as _Mail operations_ sections. In the roadmap, keep M02's version
      and re-check M03's Completed items (#37, #38, #83, #84, #88 and #89). Move
      search references from M04 to M05 and shift M05–M12 to M06–M13.
-   `src/Gui/Window.cpp` and `Window.h` merge without conflicts.
+     `src/Gui/Window.cpp` and `Window.h` merge without conflicts.
 3. Register M03's new server-dependent actions (rename, copy and move to
    folder, delete-to-trash and similar) with `m_capabilityGate` in
    `MainWindow::refreshAccountSwitcher()`.
@@ -337,20 +339,20 @@ M02) into M03 once that work is committed:
 In a container build of a worktree, also mount the main repository's `.git` at
 its host path, or the version header step fails.
 
-### M14 real Plasma session verification
+### M15 real Plasma session verification
 
 These checks need a real KDE Plasma session, KWallet or a real provider
 account, which the headless dev container cannot provide. They were the M02.02
 subsection until 2026-11-25 and became their own milestone so that M02 can be
-completed and merged. #319, the former M02.02 subsection, is now the M14
-parent issue. M14 is blocked by M02 but does not block later milestones.
+completed and merged. #319, the former M02.02 subsection, is now the M15
+parent issue. M15 is blocked by M02 but does not block later milestones.
 
-| Issue                                                                 | Feature                                                | Board   | State                                                  |
-| --------------------------------------------------------------------- | ------------------------------------------------------ | ------- | ------------------------------------------------------ |
-| [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | M14 milestone                                          | Defined | ⛔ Needs a real Plasma session                         |
-| [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315) | Mail shell and embedded panels in Plasma (from #35)    | Defined | ⛔ Needs a real Plasma session                         |
-| [#316](https://github.com/mikepadiernos/plasma-impresario/issues/316) | KWallet credential storage in Plasma (from #78)        | Defined | ⛔ Needs a real Plasma session and KWallet             |
-| [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317) | OAuth sign-in with a real provider account (from #218) | Defined | ⛔ Needs a Plasma session and a provider account       |
+| Issue                                                                 | Feature                                                | Board   | State                                            |
+| --------------------------------------------------------------------- | ------------------------------------------------------ | ------- | ------------------------------------------------ |
+| [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | M15 milestone                                          | Defined | ⛔ Needs a real Plasma session                   |
+| [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315) | Mail shell and embedded panels in Plasma (from #35)    | Defined | ⛔ Needs a real Plasma session                   |
+| [#316](https://github.com/mikepadiernos/plasma-impresario/issues/316) | KWallet credential storage in Plasma (from #78)        | Defined | ⛔ Needs a real Plasma session and KWallet       |
+| [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317) | OAuth sign-in with a real provider account (from #218) | Defined | ⛔ Needs a Plasma session and a provider account |
 
 #### How to resume
 
@@ -372,13 +374,13 @@ and the installer
 Merged into `main`. M01.04 was completed from automated build, installer, launch
 and privacy evidence, without an isolated account or a live Plasma session.
 
-| Handoff                                                                                               | Moved to                                                                     | Board       | State                                                                                |
-| ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------ |
-| Live account setup                                                                                    | M02 [#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)      | Merged      | ✅ Accepted against disposable Dovecot; see [M02](#m02-shell-and-account-foundation) |
-| Live message reading, replies and attachments                                                         | M04 [#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)      | Backlog     | 📋                                                                                   |
-| Plasma desktop-session startup and recovery                                                           | M06.01 [#101](https://github.com/mikepadiernos/plasma-impresario/issues/101) | Backlog     | 📋                                                                                   |
-| Renderer-enabled and renderer-free installs at protected system prefixes                              | Not assigned                                                                 | —           | 📋 Pending                                                                           |
-| Package lists, package-manager branches and real installs on distribution families other than CachyOS | Not assigned                                                                 | —           | 📋 Pending; do not claim support until verified                                      |
+| Handoff                                                                                               | Moved to                                                                     | Board   | State                                                                                |
+| ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------ |
+| Live account setup                                                                                    | M02 [#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)      | Merged  | ✅ Accepted against disposable Dovecot; see [M02](#m02-shell-and-account-foundation) |
+| Live message reading, replies and attachments                                                         | M04 [#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)      | Backlog | 📋                                                                                   |
+| Plasma desktop-session startup and recovery                                                           | M06.01 [#101](https://github.com/mikepadiernos/plasma-impresario/issues/101) | Backlog | 📋                                                                                   |
+| Renderer-enabled and renderer-free installs at protected system prefixes                              | Not assigned                                                                 | —       | 📋 Pending                                                                           |
+| Package lists, package-manager branches and real installs on distribution families other than CachyOS | Not assigned                                                                 | —       | 📋 Pending; do not claim support until verified                                      |
 
 <details>
 <summary>Recorded M01 evidence on CachyOS</summary>
@@ -405,7 +407,7 @@ component audit and reproduction steps.
 
 ### Milestone feature-issue synchronization
 
-- ✅ **M01–M14:** each roadmap item has its own linked project card and issue.
+- ✅ **M01–M15:** each roadmap item has its own linked project card and issue.
   Items belong to their subsection issue where applicable, or otherwise to their
   milestone issue; subsection issues belong to the milestone issue. Issue
   milestone assignments and parent links were verified. Existing project
@@ -480,12 +482,44 @@ component audit and reproduction steps.
   [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11), its
   features and #357). Resolve this in the milestone reorder
   [#249](https://github.com/mikepadiernos/plasma-impresario/issues/249).
-- ➡️ **Plasma-session milestone:** the M13 created on `feature/m02-shell-next`
-  is roadmap M14 after the insertion; its parent
+- ✅ **Plasma-session milestone:** the M13 created on `feature/m02-shell-next`
+  is roadmap M15 after the M05 and M13 insertions. Its parent
   [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) and
-  board titles still say "M13".
+  features #315–#317 were retitled "M15:" on 2026-11-25.
 - 📋 **Resume:** rebase pull requests
   [#250](https://github.com/mikepadiernos/plasma-impresario/pull/250) and
   [#252](https://github.com/mikepadiernos/plasma-impresario/pull/252) onto this
   insertion before merging them, then retitle board issues to roadmap numbers
   and remove this section and the roadmap tip.
+
+### M13 Microsoft milestone insertion
+
+- 🚧 **Inserted, 2026-11-25**
+  ([#385](https://github.com/mikepadiernos/plasma-impresario/issues/385)):
+  Microsoft accounts and Exchange became M13
+  ([#388](https://github.com/mikepadiernos/plasma-impresario/issues/388)) before
+  Refinements, which became M14; Real Plasma session verification became
+  M15. The GitHub milestone "M13: Microsoft accounts and Exchange",
+  subsections #389–#395 and features #396–#417 were created in the Backlog,
+  and #388 is blocked by M02 ([#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)).
+- ✅ **Moved:** [#219](https://github.com/mikepadiernos/plasma-impresario/issues/219)
+  and [#220](https://github.com/mikepadiernos/plasma-impresario/issues/220) moved
+  from M06.05 ([#43](https://github.com/mikepadiernos/plasma-impresario/issues/43))
+  to M13.02
+  (#390) and M13.03 (#391) with their milestone and were retitled "M13:". #43
+  and #7 no longer list them.
+- ✅ **Renumbered:** GitHub milestone "M13: Real Plasma session verification"
+  is now "M15: …", and #319 and #315–#317 were retitled "M15:". Roadmap-number
+  references in the bodies of #4, #324, #329, #349, #362, #382 and #383 were
+  shifted, and the
+  [#362](https://github.com/mikepadiernos/plasma-impresario/issues/362)
+  recommendation comment links M13.01 (#397, #398).
+- ✅ **E-Mail checklists:** recommendations #369–#375 and #377–#383 were added
+  to their parent issues' feature lists.
+- 📋 **Title prefixes:** Refinements issues keep the GitHub milestone and title
+  prefix "M11:" (roadmap M14), and the empty GitHub milestone "M13: Tagging,
+  Maildir, and Opus workspace integration" shares the "M13:" prefix. Resolve
+  both in the milestone reorder [#249](https://github.com/mikepadiernos/plasma-impresario/issues/249).
+- 📋 **Resume:** after #385 is merged, move it to Completed and then Merged;
+  when #249 retitles the Refinements issues, remove the title-prefix bullet and
+  this section.

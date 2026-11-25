@@ -2,7 +2,7 @@
 
 **[Refinements](../README.md)** · **[Toolbars](README.md)** ·
 **[Interface design](../../philosophy/designs.md)** ·
-**[M13 in roadmap](../../ROADMAP.md#m13-refinements)**
+**[M14 in roadmap](../../ROADMAP.md#m14-refinements)**
 
 This proposed toolbar appears in the message composer and supports drafting,
 recipients, and send actions.

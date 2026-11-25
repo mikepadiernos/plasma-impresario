@@ -2,7 +2,7 @@
 
 **[Refinements](../README.md)** · **[Toolbars](../toolbars/README.md)** ·
 **[Interface design](../../philosophy/designs.md)** ·
-**[M13 in roadmap](../../ROADMAP.md#m13-refinements)**
+**[M14 in roadmap](../../ROADMAP.md#m14-refinements)**
 
 These proposed application and context menus organize actions by the object and
 task, following KDE Plasma conventions. Each specification maps its entries to

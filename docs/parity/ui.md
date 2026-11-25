@@ -36,7 +36,7 @@ keys; this page does not repeat them.
 > The shell, sidebar placement and embedded panels were built in M02. Offscreen
 > tests and opt-in live IMAP tests against a synthetic Dovecot
 > (`tools/dev-container/`) cover them; a real Plasma session has not been
-> verified. M14
+> verified. M15
 > ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)) tracks
 > that check.
 

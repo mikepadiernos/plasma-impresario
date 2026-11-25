@@ -30,19 +30,19 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned
 
 ## Current limitations
 
-| Area                 | Current constraint                                                                                                                                                                                                                                                                                        |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ⚠️ Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                |
-| ⚠️ Accounts          | One window holds several IMAP accounts, grouped by account in the folder sidebar; background errors appear only in the account headers and selector, removing an account keeps its offline cache, and each account confirms the same untrusted certificate separately ([details](#multiple-accounts))     |
-| ⚠️ Embedded panels   | Related messages search only loaded messages in the current folder, message details show MIME-level security only, and pane sizes reset once after upgrading ([details](#related-messages-and-message-details-panels))                                                                                    |
-| ⚠️ OAuth sign-in     | Signing in again is possible only from Account Settings, Microsoft uses the `common` tenant only, grants are not revoked at the provider, and an optional client secret is stored unencrypted ([details](#oauth-sign-in))                                                                                 |
-| ⚠️ Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                    |
-| 🔒 Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings`                                                                                                                                            |
-| 🔒 Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used                                                                                                                                                                                                                   |
-| 🔒 Local data        | Persistent SQL cache stores message metadata and fetched parts; the application does not encrypt cache contents                                                                                                                                                                                           |
-| 📋 Integrations      | Plasma notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                                                                                                                                                    |
-| ⚠️ Compatibility     | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                                                                                                              |
-| ⚠️ Quality evidence  | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded                                                                                                                                                                                           |
+| Area                 | Current constraint                                                                                                                                                                                                                                                                                    |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ⚠️ Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                            |
+| ⚠️ Accounts          | One window holds several IMAP accounts, grouped by account in the folder sidebar; background errors appear only in the account headers and selector, removing an account keeps its offline cache, and each account confirms the same untrusted certificate separately ([details](#multiple-accounts)) |
+| ⚠️ Embedded panels   | Related messages search only loaded messages in the current folder, message details show MIME-level security only, and pane sizes reset once after upgrading ([details](#related-messages-and-message-details-panels))                                                                                |
+| ⚠️ OAuth sign-in     | Signing in again is possible only from Account Settings, Microsoft uses the `common` tenant only, grants are not revoked at the provider, and an optional client secret is stored unencrypted ([details](#oauth-sign-in))                                                                             |
+| ⚠️ Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                |
+| 🔒 Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings`                                                                                                                                        |
+| 🔒 Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used                                                                                                                                                                                                               |
+| 🔒 Local data        | Persistent SQL cache stores message metadata and fetched parts; the application does not encrypt cache contents                                                                                                                                                                                       |
+| 📋 Integrations      | Plasma notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                                                                                                                                                |
+| ⚠️ Compatibility     | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                                                                                                          |
+| ⚠️ Quality evidence  | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded                                                                                                                                                                                       |
 
 ### Multiple accounts
 
@@ -173,14 +173,17 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned
 
 - 📋 Offer **Sign In** from the offline message and the account's sidebar
   header.
-- 📋 Add a tenant field for Microsoft accounts.
+- 📋 Add a tenant choice for Microsoft accounts (M13.01,
+  [#397](https://github.com/mikepadiernos/plasma-impresario/issues/397)).
 - 📋 Store the client secret through the password plugin with the grant.
 - 📋 Revoke the grant at the provider when signing out or removing the account.
 - 📋 Share one token session between IMAP and SMTP per account, and reuse the
-  access token until it expires.
+  access token until it expires (M13.01,
+  [#398](https://github.com/mikepadiernos/plasma-impresario/issues/398), for
+  Microsoft accounts).
 - 📋 Revoke a grant made in a dialog that is then cancelled.
 - 📋 Verify sign-in with a real provider account
-  ([#317](https://github.com/mikepadiernos/plasma-impresario/issues/317), M14).
+  ([#317](https://github.com/mikepadiernos/plasma-impresario/issues/317), M15).
 
 ## Before reporting results
 

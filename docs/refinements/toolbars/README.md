@@ -2,7 +2,7 @@
 
 **[Refinements](../README.md)** · **[Menus](../menus/README.md)** ·
 **[Interface design](../../philosophy/designs.md)** ·
-**[M13 in roadmap](../../ROADMAP.md#m13-refinements)**
+**[M14 in roadmap](../../ROADMAP.md#m14-refinements)**
 
 These proposed toolbar layouts keep primary actions visible and consistent
 without crowding each surface. Each specification maps its entries to actions

@@ -5,7 +5,7 @@ handoff: M06](../ROADMAP.md#m06-desktop-integration-and-provider-support)** ·
 **[Workspace settings:
 M08](../ROADMAP.md#m08-settings-and-workspace-configuration)** · **[Search:
 M05](../ROADMAP.md#m05-search-and-indexing)** · **[Refinements:
-M13](../ROADMAP.md#m13-refinements)**
+M14](../ROADMAP.md#m14-refinements)**
 
 These are proposed workflows between Plasma Impresario and the
 [Plasma Opus](https://github.com/mikepadiernos/plasma-opus) file manager, not

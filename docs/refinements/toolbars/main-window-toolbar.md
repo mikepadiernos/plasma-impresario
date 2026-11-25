@@ -2,7 +2,7 @@
 
 **[Refinements](../README.md)** · **[Toolbars](README.md)** ·
 **[Interface design](../../philosophy/designs.md)** ·
-**[M13 in roadmap](../../ROADMAP.md#m13-refinements)**
+**[M14 in roadmap](../../ROADMAP.md#m14-refinements)**
 
 This proposed Impresario-specific icon toolbar is separate from the account and
 folder sidebar. It can be positioned in any shell region. Within either side
@@ -13,7 +13,7 @@ Reserve space for it rather than covering the header, content or status bar.
 Other toolbars remain horizontal.
 
 **Roadmap subsection:**
-[M13.02: Shell and interaction](../../ROADMAP.md#m13-refinements) · **Issue:**
+[M14.02: Shell and interaction](../../ROADMAP.md#m14-refinements) · **Issue:**
 [#151](https://github.com/mikepadiernos/plasma-impresario/issues/151)
 
 **Legend:** ✅ exists in the current code on `main` · 📋 planned only
