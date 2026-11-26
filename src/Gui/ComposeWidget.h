@@ -47,6 +47,7 @@ class ComposeWidget;
 class QAbstractListModel;
 class QActionGroup;
 class QComboBox;
+class QLabel;
 class QLineEdit;
 class QMenu;
 class QPushButton;
@@ -60,6 +61,9 @@ class Submission;
 
 namespace Imap {
 class ImapAccess;
+namespace Mailbox {
+class Model;
+}
 }
 
 namespace MSA {
@@ -97,6 +101,12 @@ public:
                                         const QString &subject, const QList<QByteArray> &inReplyTo, const QList<QByteArray> &references);
     static ComposeWidget *createFromReadOnly(MainWindow *mainWindow, const QModelIndex &messageRoot, const QList<QPair<Composer::RecipientKind, QString>> &recipients);
     void placeOnMainWindow();
+    /** @short The account this message is sent from */
+    QString accountId() const;
+    /** @short Send this message from @p accountId, with one of its identities; false when that account is unavailable */
+    bool setAccount(const QString &accountId);
+    /** @short The account the draft at @p path was written from, or an empty string for older drafts */
+    static QString draftAccountId(const QString &path);
 protected:
     void changeEvent(QEvent *e) override;
     void closeEvent(QCloseEvent *ce) override;
@@ -141,6 +151,7 @@ private slots:
     void updateReplyMarkingAction();
     void updateReplyMode();
     void markReplyModeHandpicked();
+    void updateAccountWarning();
 
 signals:
     void logged(const Common::LogKind kind, const QString& source, const QString& message);
@@ -160,6 +171,12 @@ private:
     void removeRecipient(int position);
     void fadeIn(QWidget *w);
     void askPassword(const QString &user, const QString &host);
+
+    void createSubmission(Imap::Mailbox::Model *model, const QString &credentialAccountId);
+    void populateAccounts();
+    QString senderProblem() const;
+    QString noOutgoingServerText() const;
+    QString removedAccountText() const;
 
     bool buildMessageData();
     bool shouldBuildMessageLocally() const;
@@ -208,12 +225,24 @@ private:
 
     MainWindow *m_mainWindow;
     QSettings *m_settings;
-    /** Settings of the account that was active when this composer opened; the message is sent with them */
+    /** The account which sends the message: the one this composer opened for, or the one the user chose */
+    QString m_accountId;
+    /** Settings of the sending account */
     QPointer<QSettings> m_accountSettings;
-    /** Connection of the account that was active when this composer opened */
+    /** Connection of the sending account */
     QPointer<Imap::ImapAccess> m_imapAccess;
-    /** Identities of the account that was active when this composer opened */
+    /** Identities of the sending account */
     Composer::SenderIdentitiesModel *m_senderIdentities;
+    /** How the sending account submits messages; empty when it has no outgoing server set up */
+    std::unique_ptr<MSA::MSAFactory> m_msaFactory;
+    /** The model whose messages this composer replies to, forwards or attaches */
+    QPointer<Imap::Mailbox::Model> m_sourceModel;
+    /** The sender saved with a loaded draft */
+    QString m_draftSender;
+    /** Why the message is not sent from the account it was written from */
+    QString m_accountProblem;
+    QComboBox *m_account;
+    QLabel *m_accountWarning;
 
     std::shared_ptr<Composer::AbstractComposer> m_composer;
     Composer::Submission *m_submission;

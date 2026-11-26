@@ -162,6 +162,21 @@ public:
     // FIXME: this should be changed to some wrapper when support for multiple accounts is available
     Imap::ImapAccess *imapAccess() const;
 
+    /** @short The configured accounts in their order */
+    QStringList accountIds() const;
+    /** @short The name which the user gave @p accountId */
+    QString accountName(const QString &accountId) const;
+    /** @short The account which a composer opened now belongs to: the one of the message handled now, or the shown one */
+    QString composerAccountId() const;
+    /** @short The name of the account which @p message belongs to while several accounts are set up, otherwise empty */
+    QString messageAccountName(const QModelIndex &message) const;
+    /** @short Run @p fn while accountSettings(), imapAccess(), imapModel(), senderIdentitiesModel() and msaFactory()
+    refer to @p accountId
+
+    Returns false without running @p fn when the account is gone or has no connection set up.
+    */
+    bool withAccount(const QString &accountId, const std::function<void()> &fn);
+
     void enableLoggingToDisk();
 
     static QWidget *messageSourceWidget(const QModelIndex &message);
@@ -173,6 +188,10 @@ public:
         UiUtils::DestructiveActions::Confirmation, const QString &, const QString &)>;
     /** @short Replace the confirmation dialog, for example in tests; an empty function restores the dialog */
     void setConfirmationPrompt(const ConfirmationPrompt &prompt);
+
+signals:
+    /** @short An account was added, renamed or removed */
+    void accountsChanged();
 
 public slots:
     void slotComposeMailUrl(const QUrl &url);

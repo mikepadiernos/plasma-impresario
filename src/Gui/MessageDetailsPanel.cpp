@@ -53,6 +53,7 @@ MessageDetailsPanel::MessageDetailsPanel(QWidget *parent)
     m_date = addField(QStringLiteral("Date"), i18nc("@label message details", "Date:"));
     m_size = addField(QStringLiteral("Size"), i18nc("@label message details", "Size:"));
     m_folder = addField(QStringLiteral("Folder"), i18nc("@label message details", "Folder:"));
+    m_account = addField(QStringLiteral("Account"), i18nc("@label message details", "Account:"));
     m_status = addField(QStringLiteral("Status"), i18nc("@label message details", "Status:"));
 
     // The security row pairs an icon with the text so that the state never depends on the icon alone.
@@ -111,6 +112,12 @@ QString MessageDetailsPanel::fieldText(const QString &field) const
 UiUtils::MessageSecurity MessageDetailsPanel::security() const
 {
     return m_securityState;
+}
+
+void MessageDetailsPanel::setAccountResolver(const std::function<QString(const QModelIndex &)> &resolver)
+{
+    m_accountName = resolver;
+    scheduleRefresh();
 }
 
 void MessageDetailsPanel::setMessageModel(QAbstractItemModel *model)
@@ -257,6 +264,7 @@ void MessageDetailsPanel::refresh()
         const QVariant size = index.data(RoleMessageSize);
         setField(m_size, size.isValid() ? UiUtils::Formatting::prettySize(size.toULongLong()) : QString());
         setField(m_folder, index.data(RoleMailboxName).toString());
+        setField(m_account, m_accountName ? m_accountName(index) : QString());
 
         QStringList status;
         status << (index.data(RoleMessageIsMarkedRead).toBool() ? i18nc("@info message status", "Read")

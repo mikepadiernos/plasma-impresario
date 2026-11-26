@@ -24,6 +24,7 @@
 
 #include <QModelIndex>
 #include <QWidget>
+#include <functional>
 
 namespace Imap {
 namespace Message {
@@ -45,6 +46,8 @@ public:
     EnvelopeView(QWidget *parent, Plugins::PluginManager *pluginManager);
 
     void setMessage(const QModelIndex &index);
+    /** @short Name the account of a message in an Account row; an empty name hides the row */
+    void setAccountResolver(const std::function<QString(const QModelIndex &)> &resolver);
 
 private:
     QString headerText(const QModelIndex &index);
@@ -52,6 +55,7 @@ private:
     QString htmlizeAddresses(const QList<Imap::Message::MailAddress> &addresses);
 
     Plugins::PluginManager *m_pluginManager;
+    std::function<QString(const QModelIndex &)> m_accountName;
 
     EnvelopeView(const EnvelopeView &); // don't implement
     EnvelopeView &operator=(const EnvelopeView &); // don't implement

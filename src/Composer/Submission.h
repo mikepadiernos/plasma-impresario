@@ -63,6 +63,11 @@ public:
     void setImapOptions(const bool saveToSentFolder, const QString &sentFolderName,
                         const QString &hostname, const QString &username, const bool useImapSubmit);
     void setSmtpOptions(const bool useBurl, const QString &smtpUsername);
+    /** @short Whether the message refers to messages of another account than the one it is sent from
+
+    Such a message is always built locally, as references to another server's messages cannot be used by CATENATE.
+    */
+    void setForeignSource(const bool foreign);
 
     void send();
 
@@ -120,6 +125,9 @@ signals:
 
 private:
     bool shouldBuildMessageLocally() const;
+    bool canCatenate() const;
+    /** @short The model of @p message, which may belong to another account than the one the message is sent from */
+    Imap::Mailbox::Model *modelOf(const QModelIndex &message) const;
 
     static QString killDomainPartFromString(const QString &s);
 
@@ -137,6 +145,7 @@ private:
     bool m_useBurl;
     QString m_smtpUsername;
     bool m_useImapSubmit;
+    bool m_foreignSource = false;
 
     SubmissionProgress m_state;
     QByteArray m_rawMessageData;

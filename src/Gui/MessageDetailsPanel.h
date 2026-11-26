@@ -4,6 +4,7 @@
 #pragma once
 
 #include <QPointer>
+#include <functional>
 
 #include "EmbeddedPanel.h"
 #include "UiUtils/MessageSecurity.h"
@@ -17,7 +18,7 @@ namespace Gui {
 
 /** @short Embedded panel with the metadata of the message shown in the reader
 
-Shows the subject, correspondents, date, size, folder, status flags and the message's
+Shows the subject, correspondents, date, size, folder, account, status flags and the message's
 security. The security comes from the reader's signature verification and decryption
 when its part model is set through setMessageModel(), and otherwise from the MIME
 structure, which is reported as not verified. Rows without a value are hidden.
@@ -43,6 +44,9 @@ public:
     static QString securityText(const UiUtils::MessageSecurity &security);
     static QString securityIconName(const UiUtils::MessageSecurity &security);
 
+    /** @short Name the account of a message in the Account row; an empty name hides the row */
+    void setAccountResolver(const std::function<QString(const QModelIndex &)> &resolver);
+
 public slots:
     /** Follow the reader's part model (Cryptography::MessageModel) for verification and decryption results */
     void setMessageModel(QAbstractItemModel *model);
@@ -63,6 +67,7 @@ private:
     QLabel *m_date;
     QLabel *m_size;
     QLabel *m_folder;
+    QLabel *m_account;
     QLabel *m_status;
     QWidget *m_securityRow;
     QLabel *m_securityIcon;
@@ -70,6 +75,7 @@ private:
     UiUtils::MessageSecurity m_securityState;
     QPointer<QAbstractItemModel> m_partModel;
     QList<QMetaObject::Connection> m_partModelConnections;
+    std::function<QString(const QModelIndex &)> m_accountName;
     bool m_hasContent = false;
 };
 

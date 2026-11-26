@@ -21,12 +21,16 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#include <KLocalizedString>
 #include <QAbstractProxyModel>
 #include <QActionGroup>
 #include <QBuffer>
 #include <QFileDialog>
+#include <QFormLayout>
 #include <QGraphicsOpacityEffect>
+#include <QHBoxLayout>
 #include <QKeyEvent>
+#include <QLabel>
 #include <QMenu>
 #include <QMessageBox>
 #include <QProgressDialog>
@@ -34,6 +38,7 @@
 #include <QRegularExpression>
 #include <QSettings>
 #include <QScreen>
+#include <QSignalBlocker>
 #include <QSslKey>
 #include <QTimer>
 #include <QToolButton>
@@ -66,6 +71,7 @@
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/Model.h"
 #include "Imap/Parser/MailAddress.h"
+#include "MSA/AbstractMSA.h"
 #include "Plugins/AddressbookPlugin.h"
 #include "Plugins/PluginManager.h"
 #include "ShortcutHandler/ShortcutHandler.h"
@@ -164,9 +170,14 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
     , m_genUrlAuthReceived(false)
     , m_mainWindow(mainWindow)
     , m_settings(mainWindow->settings())
+    , m_accountId(mainWindow->composerAccountId())
     , m_accountSettings(mainWindow->accountSettings())
     , m_imapAccess(mainWindow->imapAccess())
     , m_senderIdentities(mainWindow->senderIdentitiesModel())
+    , m_msaFactory(msaFactory)
+    , m_sourceModel(mainWindow->imapModel())
+    , m_account(nullptr)
+    , m_accountWarning(nullptr)
     , m_composer(messageComposer)
     , m_submission(nullptr)
     , m_completionPopup(nullptr)
@@ -181,18 +192,38 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
 
     Q_ASSERT(m_mainWindow);
     m_mainWindow->registerComposeWindow(this);
-    m_submission = new Composer::Submission(this, m_composer, m_mainWindow->imapModel(), msaFactory,
-                                             m_mainWindow->imapAccess()->credentialAccountId());
-    connect(m_submission, &Composer::Submission::succeeded, this, &ComposeWidget::sent);
-    connect(m_submission, &Composer::Submission::failed, this, &ComposeWidget::gotError);
-    connect(m_submission, &Composer::Submission::failed, this, [this](const QString& message) {
-        emit logged(Common::LogKind::LOG_SUBMISSION, QStringLiteral("ComposeWidget"), message);
-    });
-    connect(m_submission, &Composer::Submission::logged, this, &ComposeWidget::logged);
-    connect(m_submission, &Composer::Submission::passwordRequested, this, &ComposeWidget::passwordRequested, Qt::QueuedConnection);
-    connect(m_submission, &Composer::Submission::certificateCheckRequested, this,
-            &ComposeWidget::certificateCheckRequested, Qt::QueuedConnection);
+    createSubmission(m_mainWindow->imapModel(), m_mainWindow->imapAccess()->credentialAccountId());
     ui->setupUi(this);
+
+    // The account to send from shares the From row with its identities
+    m_account = new QComboBox(ui->envelopeWidget);
+    m_account->setObjectName(QStringLiteral("composerAccount"));
+    m_account->setAccessibleName(i18nc("@label:listbox", "Send from account"));
+    m_account->setToolTip(i18nc("@info:tooltip", "The account which sends this message and files it in its Sent folder"));
+    m_account->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    {
+        const QFormLayout::TakeRowResult from = ui->envelopeLayout->takeRow(0);
+        auto *fromRow = new QHBoxLayout;
+        fromRow->setContentsMargins(0, 0, 0, 0);
+        fromRow->addWidget(m_account);
+        fromRow->addWidget(ui->sender, 1);
+        ui->envelopeLayout->insertRow(0, from.labelItem->widget(), fromRow);
+        delete from.labelItem;
+        delete from.fieldItem;
+    }
+    setTabOrder(ui->sender->previousInFocusChain(), m_account);
+    setTabOrder(m_account, ui->sender);
+    connect(m_account, &QComboBox::activated, this, [this](int index) {
+        setAccount(m_account->itemData(index).toString());
+    });
+
+    m_accountWarning = new QLabel(this);
+    m_accountWarning->setObjectName(QStringLiteral("composerAccountWarning"));
+    m_accountWarning->setWordWrap(true);
+    m_accountWarning->setTextFormat(Qt::PlainText);
+    m_accountWarning->setStyleSheet(Gui::Util::cssWarningBorder());
+    m_accountWarning->hide();
+    ui->verticalLayout_2->insertWidget(0, m_accountWarning);
 
     if (interactiveComposer()) {
         interactiveComposer()->setReportTrojitaVersions(m_settings->value(Common::SettingsNames::interopRevealVersions, true).toBool());
@@ -323,6 +354,12 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
     connect(ui->sender, static_cast<void (QComboBox::*)(const int)>(&QComboBox::currentIndexChanged), this, &ComposeWidget::slotUpdateSignature);
     connect(ui->sender, &QComboBox::editTextChanged, this, &ComposeWidget::setMessageUpdated);
     connect(ui->sender->lineEdit(), &QLineEdit::textChanged, this, &ComposeWidget::slotCheckAddressOfSender);
+    connect(ui->sender, &QComboBox::editTextChanged, this, &ComposeWidget::updateAccountWarning);
+    populateAccounts();
+    connect(m_mainWindow, &MainWindow::accountsChanged, this, [this]() {
+        populateAccounts();
+        updateAccountWarning();
+    });
 
     QTimer *autoSaveTimer = new QTimer(this);
     connect(autoSaveTimer, &QTimer::timeout, this, &ComposeWidget::autoSaveDraft);
@@ -339,6 +376,7 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
     ui->envelopeLayout->itemAt(OFFSET_OF_FIRST_ADDRESSEE, QFormLayout::FieldRole)->widget()->setFocus();
 
     slotUpdateSignature();
+    updateAccountWarning();
 
     // default size
     int sz = ui->mailText->idealWidth();
@@ -351,6 +389,159 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
 ComposeWidget::~ComposeWidget()
 {
     delete ui;
+}
+
+void ComposeWidget::createSubmission(Imap::Mailbox::Model *model, const QString &credentialAccountId)
+{
+    if (m_submission) {
+        m_submission->disconnect(this);
+        m_submission->deleteLater();
+    }
+    m_submission = new Composer::Submission(this, m_composer, model, m_msaFactory.get(), credentialAccountId);
+    // Replies, forwards and attachments refer to messages of the account the composer opened for
+    m_submission->setForeignSource(model != m_sourceModel);
+    connect(m_submission, &Composer::Submission::succeeded, this, &ComposeWidget::sent);
+    connect(m_submission, &Composer::Submission::failed, this, &ComposeWidget::gotError);
+    connect(m_submission, &Composer::Submission::failed, this, [this](const QString& message) {
+        emit logged(Common::LogKind::LOG_SUBMISSION, QStringLiteral("ComposeWidget"), message);
+    });
+    connect(m_submission, &Composer::Submission::logged, this, &ComposeWidget::logged);
+    connect(m_submission, &Composer::Submission::passwordRequested, this, &ComposeWidget::passwordRequested, Qt::QueuedConnection);
+    connect(m_submission, &Composer::Submission::certificateCheckRequested, this,
+            &ComposeWidget::certificateCheckRequested, Qt::QueuedConnection);
+}
+
+void ComposeWidget::populateAccounts()
+{
+    const QSignalBlocker blocker(m_account);
+    m_account->clear();
+    const QStringList accounts = m_mainWindow->accountIds();
+    for (const QString &accountId : accounts)
+        m_account->addItem(m_mainWindow->accountName(accountId), accountId);
+    m_account->setCurrentIndex(m_account->findData(m_accountId));
+    // With one account, there is nothing to choose, unless the composer's own account was removed
+    m_account->setVisible(accounts.size() > 1 || m_account->currentIndex() == -1);
+}
+
+QString ComposeWidget::accountId() const
+{
+    return m_accountId;
+}
+
+bool ComposeWidget::setAccount(const QString &accountId)
+{
+    if (accountId == m_accountId && m_accountSettings && m_imapAccess)
+        return true;
+    QSettings *settings = nullptr;
+    Imap::ImapAccess *access = nullptr;
+    Composer::SenderIdentitiesModel *identities = nullptr;
+    Imap::Mailbox::Model *model = nullptr;
+    MSA::MSAFactory *factory = nullptr;
+    const bool available = m_mainWindow->withAccount(accountId, [&]() {
+        settings = m_mainWindow->accountSettings();
+        access = m_mainWindow->imapAccess();
+        identities = m_mainWindow->senderIdentitiesModel();
+        model = m_mainWindow->imapModel();
+        factory = m_mainWindow->msaFactory();
+    });
+    if (!available) {
+        const QSignalBlocker blocker(m_account);
+        m_account->setCurrentIndex(m_account->findData(m_accountId));
+        return false;
+    }
+
+    const QString previousSender = ui->sender->currentText();
+    m_accountId = accountId;
+    m_accountSettings = settings;
+    m_imapAccess = access;
+    m_senderIdentities = identities;
+    m_msaFactory.reset(factory);
+    m_accountProblem.clear();
+    createSubmission(model, access->credentialAccountId());
+    {
+        const QSignalBlocker blocker(m_account);
+        m_account->setCurrentIndex(m_account->findData(accountId));
+    }
+
+    // Offer the identities of the new account: the one a reply calls for, the same one, or its first one
+    qobject_cast<QAbstractProxyModel *>(ui->sender->model())->setSourceModel(identities);
+    int row = -1;
+    if (!m_replyingToMessage.isValid() || !Composer::Util::chooseSenderIdentityForReply(identities, m_replyingToMessage, row))
+        row = ui->sender->findText(previousSender);
+    if (row == -1 && identities->rowCount() > 0)
+        row = 0;
+    if (row >= 0)
+        ui->sender->setCurrentIndex(row);
+    else
+        ui->sender->setEditText(previousSender);
+    slotUpdateSignature();
+    updateAccountWarning();
+    setMessageUpdated();
+    return true;
+}
+
+QString ComposeWidget::noOutgoingServerText() const
+{
+    return i18nc("@info", "%1 has no outgoing mail server set up, so it cannot send this message. "
+                 "Set one up in the account's settings, or choose another account.", m_mainWindow->accountName(m_accountId));
+}
+
+QString ComposeWidget::removedAccountText() const
+{
+    return i18nc("@info", "The account this message was written from has been removed, so it cannot be sent. "
+                 "Choose another account to send it from.");
+}
+
+/** @short Why the chosen sender does not suit the sending account, or an empty string */
+QString ComposeWidget::senderProblem() const
+{
+    Imap::Message::MailAddress sender;
+    if (!m_senderIdentities || !Imap::Message::MailAddress::fromPrettyString(sender, ui->sender->currentText()))
+        return QString();
+    const QString address = sender.mailbox + QLatin1Char('@') + sender.host;
+    auto hasAddress = [&address](const Composer::SenderIdentitiesModel *identities) {
+        for (int row = 0; row < identities->rowCount(); ++row) {
+            if (identities->index(row, Composer::SenderIdentitiesModel::COLUMN_EMAIL).data().toString()
+                    .compare(address, Qt::CaseInsensitive) == 0)
+                return true;
+        }
+        return false;
+    };
+    if (hasAddress(m_senderIdentities))
+        return QString();
+    const QString name = m_mainWindow->accountName(m_accountId);
+    const QStringList accounts = m_mainWindow->accountIds();
+    for (const QString &other : accounts) {
+        if (other == m_accountId)
+            continue;
+        bool belongs = false;
+        m_mainWindow->withAccount(other, [&]() { belongs = hasAddress(m_mainWindow->senderIdentitiesModel()); });
+        if (belongs) {
+            return i18nc("@info", "%1 is an identity of %2, but this message is sent from %3.",
+                         address, m_mainWindow->accountName(other), name);
+        }
+    }
+    if (!m_draftSender.isEmpty() && ui->sender->currentText() == m_draftSender && m_senderIdentities->rowCount() > 0)
+        return i18nc("@info", "%1, which this draft was saved with, is no longer an identity of %2.", address, name);
+    return QString();
+}
+
+void ComposeWidget::updateAccountWarning()
+{
+    if (!m_accountWarning)
+        return;
+    QStringList problems;
+    if (!m_accountProblem.isEmpty())
+        problems << m_accountProblem;
+    if (!m_accountSettings || !m_imapAccess)
+        problems << removedAccountText();
+    else if (!m_msaFactory)
+        problems << noOutgoingServerText();
+    const QString sender = senderProblem();
+    if (!sender.isEmpty())
+        problems << sender;
+    m_accountWarning->setText(problems.join(QLatin1Char('\n')));
+    m_accountWarning->setVisible(!problems.isEmpty());
 }
 
 std::shared_ptr<Composer::MessageComposer> ComposeWidget::interactiveComposer()
@@ -432,12 +623,23 @@ ComposeWidget *ComposeWidget::createBlank(MainWindow *mainWindow)
 /** @short Load a draft in composer window */
 ComposeWidget *ComposeWidget::createDraft(MainWindow *mainWindow, const QString &path)
 {
-    MSA::MSAFactory *msaFactory = mainWindow->msaFactory();
-    if (!msaFactory)
+    ComposeWidget *w = nullptr;
+    auto create = [mainWindow, &w]() {
+        MSA::MSAFactory *msaFactory = mainWindow->msaFactory();
+        if (!msaFactory)
+            return;
+        auto composer = std::make_shared<Composer::MessageComposer>(mainWindow->imapModel());
+        w = new ComposeWidget(mainWindow, composer, msaFactory);
+    };
+    // A draft goes on with the account it was written from; loadDraft() reports when that one is gone
+    // or cannot send, so the draft still opens from the active account then
+    const QString accountId = draftAccountId(path);
+    if (!accountId.isEmpty())
+        mainWindow->withAccount(accountId, create);
+    if (!w)
+        create();
+    if (!w)
         return nullptr;
-
-    auto composer = std::make_shared<Composer::MessageComposer>(mainWindow->imapModel());
-    ComposeWidget *w = new ComposeWidget(mainWindow, composer, msaFactory);
     w->loadDraft(path);
     w->placeOnMainWindow();
     w->show();
@@ -886,8 +1088,11 @@ void ComposeWidget::send()
     }
 
     if (!m_accountSettings || !m_imapAccess) {
-        gotError(tr("The account this message was written from has been removed, so it cannot be sent. "
-                    "Copy its contents into a new message from another account."));
+        gotError(removedAccountText());
+        return;
+    }
+    if (!m_msaFactory) {
+        gotError(noOutgoingServerText());
         return;
     }
 
@@ -1760,6 +1965,7 @@ bool ComposeWidget::setReplyMode(const Composer::ReplyMode mode)
  * Version (int)
  * Whether this draft was stored explicitly (bool)
  * The sender (QString)
+ * The ID of the account which sends the message (QString, since version 5)
  * Amount of recipients (int)
  * n * (RecipientKind ("int") + recipient (QString))
  * Subject (QString)
@@ -1768,14 +1974,14 @@ bool ComposeWidget::setReplyMode(const Composer::ReplyMode mode)
 
 void ComposeWidget::saveDraft(const QString &path)
 {
-    constexpr int trojitaDraftVersion = 4;
+    constexpr int trojitaDraftVersion = 5;
 
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly))
         return; // TODO: error message?
     QDataStream stream(&file);
     stream.setVersion(QDataStream::Qt_4_6);
-    stream << trojitaDraftVersion << m_explicitDraft << ui->sender->currentText();
+    stream << trojitaDraftVersion << m_explicitDraft << ui->sender->currentText() << m_accountId;
     stream << (qint32)m_recipients.count();
     for (auto i = 0; i < m_recipients.count(); ++i) {
         stream << m_recipients.at(i).first->itemData(m_recipients.at(i).first->currentIndex()).toInt();
@@ -1819,12 +2025,22 @@ void ComposeWidget::loadDraft(const QString &path)
     stream >> m_explicitDraft;
     stream >> string; // sender
 
+    QString accountId;
+    if (version >= 5)
+        stream >> accountId;
+    // The identities to pick the sender from are those of the draft's account
+    if (!accountId.isEmpty() && !setAccount(accountId)) {
+        m_accountProblem = i18nc("@info", "The account this draft was written from no longer exists, so it is sent from %1.",
+                                 m_mainWindow->accountName(m_accountId));
+    }
+
     int senderIndex = ui->sender->findText(string);
     if (senderIndex != -1) {
         ui->sender->setCurrentIndex(senderIndex);
     } else {
         ui->sender->setEditText(string);
     }
+    m_draftSender = string;
 
     qint32 recipientCount;
     if (version >= 4) {
@@ -1888,6 +2104,24 @@ void ComposeWidget::loadDraft(const QString &path)
     ui->mailText->setPlainText(string);
     m_saveState->setMessageUpdated(false); // this is now the most up-to-date one
     file.close();
+    updateAccountWarning();
+}
+
+/** @short The account which the draft at @p path was written from, or an empty string for older drafts */
+QString ComposeWidget::draftAccountId(const QString &path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return QString();
+    QDataStream stream(&file);
+    stream.setVersion(QDataStream::Qt_4_6);
+    int version = 0;
+    bool explicitDraft = false;
+    QString sender, accountId;
+    stream >> version >> explicitDraft >> sender;
+    if (version >= 5)
+        stream >> accountId;
+    return stream.status() == QDataStream::Ok ? accountId : QString();
 }
 
 void ComposeWidget::autoSaveDraft()

@@ -438,6 +438,11 @@ FORWARD_METHOD(zoomOut)
 FORWARD_METHOD(zoomOriginal)
 FORWARD_METHOD(searchDialogRequested)
 
+void MessageView::setAccountResolver(const std::function<QString(const QModelIndex &)> &resolver)
+{
+    m_envelope->setAccountResolver(resolver);
+}
+
 void MessageView::setNetworkWatcher(Imap::Mailbox::NetworkWatcher *netWatcher)
 {
     if (m_netWatcher)

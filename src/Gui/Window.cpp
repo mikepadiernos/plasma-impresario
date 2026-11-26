@@ -1688,6 +1688,8 @@ void MainWindow::createWidgets()
 
 #ifdef TROJITA_HAVE_WEBENGINE
     m_messageWidget = new CompleteMessageWidget(this, m_settings, m_pluginManager, m_favoriteTags);
+    const auto accountName = [this](const QModelIndex &message) { return messageAccountName(message); };
+    m_messageWidget->messageView->setAccountResolver(accountName);
     connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::scrollMessageUp);
     connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::slotUpdateMessageActions);
     connect(m_messageWidget->messageView, &MessageView::linkHovered, [](const QString &url) {
@@ -1713,6 +1715,7 @@ void MainWindow::createWidgets()
     connect(m_attachmentPanel, &AttachmentPanel::transferError, this, &MainWindow::slotDownloadTransferError);
 
     m_messageDetailsPanel = new MessageDetailsPanel();
+    m_messageDetailsPanel->setAccountResolver(accountName);
     connect(m_messageWidget->messageView, &MessageView::messageModelChanged, m_messageDetailsPanel, &MessageDetailsPanel::setMessageModel);
     m_contactPanel = new ContactPanel();
     m_relatedMessagesPanel = new RelatedMessagesPanel();
@@ -2376,6 +2379,10 @@ void MainWindow::openCompleteMessageWidget()
         return;
 
     CompleteMessageWidget *widget = new CompleteMessageWidget(0, m_settings, m_pluginManager, m_favoriteTags);
+    // The window has no parent, so it may outlive this one
+    widget->messageView->setAccountResolver([window = QPointer<MainWindow>(this)](const QModelIndex &message) {
+        return window ? window->messageAccountName(message) : QString();
+    });
     widget->messageView->setMessage(index);
     widget->messageView->setNetworkWatcher(qobject_cast<Imap::Mailbox::NetworkWatcher*>(m_imapAccess->networkWatcher()));
     widget->setFocusPolicy(Qt::StrongFocus);
@@ -3250,6 +3257,7 @@ void MainWindow::slotAddAccount()
     const QString accountId = m_accounts->addAccount(name);
     Composer::AccountIdentities::initializeNewAccount(*m_accounts->settings(accountId));
     switchAccount(accountId);
+    emit accountsChanged();
     slotShowAccountSettings();
 }
 
@@ -3379,6 +3387,7 @@ void MainWindow::renameAccount(const QString &accountId)
     refreshAccountSwitcher();
     updateMessageListScope();
     slotUpdateWindowTitle();
+    emit accountsChanged();
 }
 
 void MainWindow::slotRemoveAccount()
@@ -3481,6 +3490,7 @@ void MainWindow::removeAccountNow(const QString &accountId)
         syncUnifiedSources();
     refreshAccountSwitcher();
     slotUpdateWindowTitle();
+    emit accountsChanged();
 }
 
 bool MainWindow::sharesOAuthGrant(const QString &accountId) const
@@ -6903,6 +6913,42 @@ void MainWindow::actAs(const QString &accountId, const QModelIndexList &selectio
     m_actingAccess = previousAccess;
     m_actingAccountId = previousAccountId;
     m_actingSelection = previousSelection;
+}
+
+QStringList MainWindow::accountIds() const
+{
+    return m_accounts->accountIds();
+}
+
+QString MainWindow::accountName(const QString &accountId) const
+{
+    return m_accounts->displayName(accountId);
+}
+
+QString MainWindow::composerAccountId() const
+{
+    return currentAccountId();
+}
+
+QString MainWindow::messageAccountName(const QModelIndex &message) const
+{
+    if (!message.isValid() || m_accounts->accountIds().size() < 2)
+        return QString();
+    const QString named = message.data(Imap::Mailbox::RoleMessageAccountName).toString();
+    if (!named.isEmpty())
+        return named;
+    const QModelIndex source = Imap::deproxifiedIndex(message);
+    const QString accountId = accountOfModel(qobject_cast<const Imap::Mailbox::Model *>(source.model()));
+    return accountId.isEmpty() ? QString() : m_accounts->displayName(accountId);
+}
+
+bool MainWindow::withAccount(const QString &accountId, const std::function<void()> &fn)
+{
+    Imap::ImapAccess *access = m_accountAccess.value(accountId);
+    if (!access || !access->imapModel() || !m_accounts->accountIds().contains(accountId))
+        return false;
+    actAs(accountId, QModelIndexList(), fn);
+    return true;
 }
 
 bool MainWindow::actOnModel(const Imap::Mailbox::Model *model, const std::function<void()> &fn)

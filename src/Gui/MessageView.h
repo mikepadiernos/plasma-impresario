@@ -91,6 +91,8 @@ public:
     ~MessageView() override;
 
     void setNetworkWatcher(Imap::Mailbox::NetworkWatcher *netWatcher);
+    /** @short Name the account of the shown message in its header; an empty name leaves it out */
+    void setAccountResolver(const std::function<QString(const QModelIndex &)> &resolver);
     QModelIndex currentMessage() const;
     Plugins::PluginManager *pluginManager() const;
     QSettings* profileSettings() const;
