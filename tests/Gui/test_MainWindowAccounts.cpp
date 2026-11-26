@@ -759,7 +759,11 @@ private slots:
         search->setFocus();
         previous->trigger();
         QCOMPARE(window.focusWidget(), mailboxes);
+        // The quick search is a stop of its own, before the list that it fills
         next->trigger();
+        QCOMPARE(window.focusWidget(), search);
+        next->trigger();
+        QCOMPARE(window.focusWidget(), messages);
         next->trigger();
         QWidget *reader = window.focusWidget();
         QVERIFY(reader);
@@ -879,6 +883,57 @@ private slots:
         search->setFocus();
         QTest::keyClick(search, Qt::Key_Escape);
         QCOMPARE(window.focusWidget(), messages);
+    }
+
+    void findMovesToSearchOrFindsInMessage()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+
+        Gui::MainWindow window(&settings);
+        window.resize(1400, 900);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
+        auto *reader = window.findChild<Gui::CompleteMessageWidget *>();
+        auto *search = window.findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        auto *find = window.findChild<QAction *>(QStringLiteral("action_find"));
+        QVERIFY(messages && reader && search && find);
+        QCOMPARE(find->shortcut(), QKeySequence(QKeySequence::Find));
+        // One action of the window answers Find, so that the key is never ambiguous; the reader's own find action
+        // keeps its key in a message window of its own
+        int answering = 0;
+        for (QAction *action : window.findChildren<QAction *>()) {
+            if (action->shortcuts().contains(QKeySequence(QKeySequence::Find)))
+                ++answering;
+        }
+        QCOMPARE(answering, 1);
+        QVERIFY(!reader->messageView->findAction()->shortcuts().contains(QKeySequence(QKeySequence::Find)));
+        bool inMenu = false;
+        for (QMenu *menu : window.findChildren<QMenu *>())
+            inMenu = inMenu || menu->actions().contains(find);
+        QVERIFY(inMenu);
+
+        // From the list, Find moves to the quick search with its query selected, so that typing replaces it
+        search->setEnabled(true);
+        search->setText(QStringLiteral("budget"));
+        messages->setFocus();
+        find->trigger();
+        QVERIFY(search->hasFocus());
+        QCOMPARE(search->selectedText(), QStringLiteral("budget"));
+        search->deselect();
+        find->trigger();
+        QCOMPARE(search->selectedText(), QStringLiteral("budget"));
+
+        // A reader without a message has nothing to find in
+        reader->messageView->setFocus();
+        QVERIFY(!search->hasFocus());
+        find->trigger();
+        QVERIFY(search->hasFocus());
     }
 #endif
 

@@ -27,6 +27,7 @@
 #include "UiUtils/SearchScope.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
+#include "Gui/MessageView.h"
 #include "Gui/WebEngineMessageProfile.h"
 #endif
 #include "static_plugins.h"
@@ -347,6 +348,30 @@ private slots:
         QTest::keyClick(search, Qt::Key_Return);
         QTRY_VERIFY_WITH_TIMEOUT(findMessage(messages, QStringLiteral("Lunch on Friday")).isValid(), 10000);
         open(QStringLiteral("Lunch on Friday"));
+        QTRY_VERIFY(!findBar->isVisible());
+
+        // Find moves from the list to the quick search, ready to replace the last query, and finds in the open
+        // message while the reader has focus; F6 stops at the search before the list.
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        search->setText(QStringLiteral("lunch"));
+        messages->setFocus();
+        QTest::keySequence(window.focusWidget(), QKeySequence::Find);
+        QTRY_VERIFY(search->hasFocus());
+        QCOMPARE(search->selectedText(), QStringLiteral("lunch"));
+        QTest::keyClick(search, Qt::Key_Escape);
+        QTRY_COMPARE(window.focusWidget(), messages);
+        search->clear();
+        QTest::keyClick(search, Qt::Key_Return);
+        action(window, QStringLiteral("action_focus_previous_region"))->trigger();
+        QCOMPARE(window.focusWidget(), search);
+        action(window, QStringLiteral("action_focus_next_region"))->trigger();
+        QCOMPARE(window.focusWidget(), messages);
+        reader->messageView->setFocus();
+        QTest::keySequence(window.focusWidget(), QKeySequence::Find);
+        QTRY_VERIFY_WITH_TIMEOUT(findBar->isVisible() && findText->hasFocus(), 5000);
+        QVERIFY(!search->hasFocus());
+        QTest::keyClick(findText, Qt::Key_Escape);
         QTRY_VERIFY(!findBar->isVisible());
 
         // Remote content stays blocked, and the bar names the server it would contact.

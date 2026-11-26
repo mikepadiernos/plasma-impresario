@@ -1211,7 +1211,7 @@ if(BUILD_TESTING)
             add_test(NAME test_MainWindowDensity COMMAND test_MainWindowDensity)
             set(reader_account_cases)
             if(WITH_WEBENGINE)
-                set(reader_account_cases focusFollowsScreenOrder escapeReturnsToMessageList)
+                set(reader_account_cases focusFollowsScreenOrder escapeReturnsToMessageList findMovesToSearchOrFindsInMessage)
             endif()
             foreach(account_case ${reader_account_cases} migratesSingleProfileIntoFirstAccount switchingKeepsAccountsIndependent backgroundAccountStatusIsShown
                     removingAccountDeletesItsSettingsAndPasswords accountsSwitchFromTheKeyboard
