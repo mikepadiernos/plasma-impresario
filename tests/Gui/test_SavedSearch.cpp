@@ -4,6 +4,7 @@
 #include "Gui/InlineNotificationBar.h"
 #include "Gui/MessageListWidget.h"
 #include "Gui/MsgListView.h"
+#include "Gui/SearchBuilderDialog.h"
 #include "Gui/SearchFoldersDialog.h"
 #include "Imap/Model/ItemRoles.h"
 #include "UiUtils/SearchScope.h"
@@ -14,18 +15,22 @@
 #include <QAbstractButton>
 #include <QApplication>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDateEdit>
 #include <QDialog>
+#include <QDialogButtonBox>
 #include <QInputDialog>
 #include <QLineEdit>
 #include <QMenu>
 #include <QMessageBox>
+#include <QPushButton>
 #include <QSignalSpy>
 #include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QToolButton>
 #include <QTreeWidget>
 
 class SavedSearchTest : public QObject
@@ -325,6 +330,119 @@ private slots:
         QCOMPARE(search.size(), 1);
         QVERIFY(search.takeFirst().at(0).toStringList().isEmpty());
         QVERIFY(problem->isHidden());
+    }
+
+    void buildsQueries()
+    {
+        using UiUtils::SearchQuery::Field;
+        Imap::Mailbox::FavoriteTagsModel tags;
+        Gui::MessageListWidget widget(nullptr, &tags, QStringLiteral("account-b"));
+        QStandardItemModel model;
+        enableSearch(widget, model);
+        widget.show();
+        auto *query = widget.findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        auto *openBuilder = widget.findChild<QAction *>(QStringLiteral("searchBuilder"));
+        QVERIFY(query);
+        QVERIFY(openBuilder);
+        QSignalSpy search(&widget, &Gui::MessageListWidget::requestingSearch);
+        const auto open = [&]() -> Gui::SearchBuilderDialog * {
+            openBuilder->trigger();
+            const auto dialogs = widget.findChildren<Gui::SearchBuilderDialog *>();
+            return dialogs.size() == 1 ? dialogs.constFirst() : nullptr;
+        };
+
+        // The query in the quick search opens as its conditions
+        query->setText(QStringLiteral("from:ann -subject:report"));
+        auto *dialog = open();
+        QVERIFY(dialog);
+        QVERIFY(dialog->isVisible());
+        const auto rows = [&dialog]() {
+            return dialog->findChildren<QWidget *>(QStringLiteral("searchBuilderCondition"));
+        };
+        auto *text = dialog->findChild<QLineEdit *>(QStringLiteral("searchBuilderQuery"));
+        auto *problem = dialog->findChild<Gui::InlineNotificationBar *>(QStringLiteral("searchBuilderProblem"));
+        auto *match = dialog->findChild<QComboBox *>(QStringLiteral("searchBuilderMatch"));
+        auto *add = dialog->findChild<QPushButton *>(QStringLiteral("searchBuilderAdd"));
+        QPushButton *searchButton = dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok);
+        QVERIFY(text && problem && match && add && searchButton);
+        QCOMPARE(rows().size(), 2);
+        QCOMPARE(text->text(), QStringLiteral("from:ann -subject:report"));
+        QVERIFY(problem->isHidden());
+        QVERIFY(searchButton->isEnabled());
+        QCOMPARE(rows().at(1)->findChild<QComboBox *>(QStringLiteral("searchBuilderComparison"))->currentText(),
+                 i18nc("@item:inlistbox search builder comparison", "does not contain"));
+
+        // A condition added from the keyboard gets the focus; an invalid value is explained and cannot be searched for
+        dialog->activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(dialog));
+        add->setFocus();
+        QTest::keyClick(add, Qt::Key_Space);
+        QCOMPARE(rows().size(), 3);
+        QWidget *size = rows().at(2);
+        auto *field = size->findChild<QComboBox *>(QStringLiteral("searchBuilderField"));
+        QTRY_VERIFY(field->hasFocus());
+        field->setCurrentIndex(field->findData(static_cast<int>(Field::Size)));
+        auto *comparison = size->findChild<QComboBox *>(QStringLiteral("searchBuilderComparison"));
+        QCOMPARE(comparison->currentText(), i18nc("@item:inlistbox search builder size comparison", "is larger than"));
+        auto *value = size->findChild<QLineEdit *>(QStringLiteral("searchBuilderValue"));
+        QVERIFY(value->isVisibleTo(dialog));
+        QTest::keyClicks(value, QStringLiteral("2X"));
+        QVERIFY(!problem->isHidden());
+        QCOMPARE(problem->kind(), Gui::InlineNotificationBar::Kind::Error);
+        QVERIFY2(problem->text().startsWith(QLatin1String("Condition 3: ")), qPrintable(problem->text()));
+        QVERIFY(!searchButton->isEnabled());
+        value->clear();
+        QTest::keyClicks(value, QStringLiteral("2M"));
+        QVERIFY(problem->isHidden());
+        QCOMPARE(text->text(), QStringLiteral("from:ann -subject:report size>2M"));
+
+        // Any instead of all, a status, and removing a condition
+        match->setCurrentIndex(1);
+        QCOMPARE(text->text(), QStringLiteral("from:ann OR -subject:report OR size>2M"));
+        auto *first = rows().at(0)->findChild<QComboBox *>(QStringLiteral("searchBuilderField"));
+        first->setCurrentIndex(first->findData(static_cast<int>(Field::Is)));
+        auto *status = rows().at(0)->findChild<QComboBox *>(QStringLiteral("searchBuilderStatus"));
+        QVERIFY(status->isVisibleTo(dialog));
+        QVERIFY(!rows().at(0)->findChild<QLineEdit *>(QStringLiteral("searchBuilderValue"))->isVisibleTo(dialog));
+        status->setCurrentIndex(status->findData(QStringLiteral("flagged")));
+        QCOMPARE(text->text(), QStringLiteral("is:flagged OR -subject:report OR size>2M"));
+        rows().at(1)->findChild<QToolButton *>(QStringLiteral("searchBuilderRemove"))->click();
+        QCOMPARE(rows().size(), 2);
+        QCOMPARE(text->text(), QStringLiteral("is:flagged OR size>2M"));
+
+        // Return in a value searches; the query replaces the quick search
+        QTest::keyClick(value, Qt::Key_Return);
+        QCOMPARE(query->text(), QStringLiteral("is:flagged OR size>2M"));
+        QCOMPARE(search.size(), 1);
+        QCOMPARE(search.takeFirst().at(0).toStringList(),
+                 QStringList({QStringLiteral("OR"), QStringLiteral("FLAGGED"), QStringLiteral("LARGER"), QStringLiteral("2097152")}));
+        QTRY_VERIFY(widget.findChildren<Gui::SearchBuilderDialog *>().isEmpty());
+
+        // A query without a builder form is explained, and the dialog starts with an empty condition
+        query->setText(QStringLiteral("from:ann (lunch OR dinner)"));
+        dialog = open();
+        QVERIFY(dialog);
+        problem = dialog->findChild<Gui::InlineNotificationBar *>(QStringLiteral("searchBuilderProblem"));
+        QVERIFY(!problem->isHidden());
+        QCOMPARE(problem->kind(), Gui::InlineNotificationBar::Kind::Info);
+        QVERIFY2(problem->text().contains(QStringLiteral("from:ann AND (lunch OR dinner)")), qPrintable(problem->text()));
+        QCOMPARE(rows().size(), 1);
+        QVERIFY(dialog->findChild<QLineEdit *>(QStringLiteral("searchBuilderQuery"))->text().isEmpty());
+        QVERIFY(!dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->isEnabled());
+        QVERIFY(!rows().at(0)->findChild<QToolButton *>(QStringLiteral("searchBuilderRemove"))->isEnabled());
+        dialog->reject();
+        QCOMPARE(query->text(), QStringLiteral("from:ann (lunch OR dinner)"));
+        QVERIFY(search.isEmpty());
+        QTRY_VERIFY(widget.findChildren<Gui::SearchBuilderDialog *>().isEmpty());
+
+        // So is a raw IMAP query
+        widget.findChild<QAction *>(QStringLiteral("searchRaw"))->setChecked(true);
+        query->setText(QStringLiteral(":=SEEN"));
+        dialog = open();
+        QVERIFY(dialog);
+        problem = dialog->findChild<Gui::InlineNotificationBar *>(QStringLiteral("searchBuilderProblem"));
+        QVERIFY2(problem->text().contains(QStringLiteral("Raw IMAP")), qPrintable(problem->text()));
+        dialog->reject();
     }
 
     void choosesCustomRanges()

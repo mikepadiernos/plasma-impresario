@@ -7,6 +7,7 @@
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MessageListWidget.h"
 #include "Gui/MsgListView.h"
+#include "Gui/SearchBuilderDialog.h"
 #include "Gui/SearchFoldersDialog.h"
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
@@ -727,6 +728,29 @@ private slots:
 
         // A valid query replaces the explanation; clearing shows the whole folder again
         expectFound(QStringLiteral("from:carol"), {notes});
+
+        // The search builder, opened from the main window, writes a query which the server runs like a typed one
+        QAction *openBuilder = nullptr;
+        for (QAction *action : window.findChildren<QAction *>()) {
+            if (action->shortcut() == QKeySequence(QStringLiteral("Ctrl+Shift+B")))
+                openBuilder = action;
+        }
+        QVERIFY(openBuilder);
+        openBuilder->trigger();
+        auto *builder = searchWidget->findChild<Gui::SearchBuilderDialog *>();
+        QVERIFY(builder);
+        QCOMPARE(builder->query(), QStringLiteral("from:carol"));
+        using UiUtils::SearchQuery::Comparison;
+        using UiUtils::SearchQuery::Field;
+        UiUtils::SearchBuilder::Conditions built;
+        built.match = UiUtils::SearchBuilder::Match::Any;
+        built.conditions = {{Field::From, Comparison::Contains, false, QStringLiteral("carol")},
+                            {Field::Size, Comparison::Greater, false, QStringLiteral("2K")}};
+        builder->setConditions(built);
+        builder->accept();
+        QCOMPARE(query->text(), QStringLiteral("from:carol OR size>2K"));
+        QTRY_VERIFY2_WITH_TIMEOUT(subjects() == QStringList({report, notes}) && !failed(),
+                                  qPrintable(describe(subjects(), searchWidget)), 10000);
         search(QString());
         QTRY_VERIFY2_WITH_TIMEOUT(messages->model()->rowCount() == 4 && !failed(),
                                   qPrintable(describe(subjects(), searchWidget)), 10000);
