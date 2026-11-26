@@ -146,6 +146,8 @@ private:
 Every column is presented as PrettyMsgListModel presents it, and the quick filters work the same way. Sorting happens
 here rather than on the server: by date and received date, size, subject or correspondents; other columns sort by
 date. Equal messages keep the order of their accounts. The tooltips name the account and folder of each message.
+
+While relevance terms are set, the messages are sorted as PrettyMsgListModel sorts them by relevance instead.
 */
 class PrettyUnifiedMsgListModel : public QSortFilterProxyModel
 {
@@ -159,6 +161,10 @@ public:
     void setKeptVisibleIndex(const QModelIndex &index);
     /** @short Number of messages shown, not counting rows of messages which are not known yet */
     int visibleMessageCount() const;
+    /** @short Sort by relevance for @p terms (see UiUtils::relevanceTerms()); no terms leave the order unsorted */
+    void setRelevanceTerms(const QStringList &terms, Qt::SortOrder order);
+    QStringList relevanceTerms() const;
+    bool isSortingByRelevance() const;
 
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 
@@ -171,6 +177,7 @@ private:
 
     PrettyMsgListModel::Filters m_filters = PrettyMsgListModel::NoFilter;
     QPersistentModelIndex m_keptVisible;
+    QStringList m_relevanceTerms;
 };
 
 }

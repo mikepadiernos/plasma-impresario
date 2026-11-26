@@ -279,6 +279,9 @@ enum {
     /** @short Where a message of a UnifiedMsgListModel comes from, as its row names it: the account, or the account and
     folder in search results */
     RoleMessageRowLabel,
+    /** @short Snippet of the downloaded text of a message found by a text search, with the matches marked
+    (Imap::Mailbox::SearchSnippet); invalid when the list shows no search */
+    RoleMessageSearchSnippet,
 
     /** @short The very last role */
     RoleInvalidLastOne

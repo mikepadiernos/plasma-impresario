@@ -14,6 +14,8 @@ namespace Imap
 namespace Mailbox
 {
 
+class SearchSnippets;
+
 /** @short A flat list of chosen messages of one account, from any of its folders
 
 The rows point at message items of the source model, normally the account's Model, in the order in which they were
@@ -23,6 +25,8 @@ actions on messages work.
 
 A message which the source removes, as after an expunge, leaves the list; resetting or destroying the source empties
 it. Data changes of listed messages are forwarded.
+
+The RoleMessageSearchSnippet of each message comes from snippets(), which has no terms and no text until it is told.
 */
 class SearchResultsModel : public QAbstractProxyModel
 {
@@ -37,6 +41,8 @@ public:
     void clear();
     /** @short The listed messages in the source model */
     QModelIndexList messages() const;
+    /** @short The snippets of the listed messages for the terms of the search */
+    SearchSnippets *snippets() const;
 
     QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const override;
     QModelIndex parent(const QModelIndex &index) const override;
@@ -57,6 +63,7 @@ private:
 
     QList<QPersistentModelIndex> m_rows;
     QList<QMetaObject::Connection> m_connections;
+    SearchSnippets *m_snippets;
 };
 
 }

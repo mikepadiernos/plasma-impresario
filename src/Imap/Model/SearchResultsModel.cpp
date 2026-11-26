@@ -7,6 +7,7 @@
 
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/MsgListModel.h"
+#include "Imap/Model/SearchSnippets.h"
 
 namespace Imap
 {
@@ -16,7 +17,13 @@ namespace Mailbox
 
 SearchResultsModel::SearchResultsModel(QObject *parent)
     : QAbstractProxyModel(parent)
+    , m_snippets(new SearchSnippets(this))
 {
+    connect(m_snippets, &SearchSnippets::changed, this, [this]() {
+        if (!m_rows.isEmpty())
+            emit dataChanged(index(0, 0), index(int(m_rows.size()) - 1, MsgListModel::COLUMN_COUNT - 1),
+                             {RoleMessageSearchSnippet});
+    });
 }
 
 void SearchResultsModel::setSourceModel(QAbstractItemModel *model)
@@ -80,6 +87,11 @@ void SearchResultsModel::clear()
     beginResetModel();
     m_rows.clear();
     endResetModel();
+}
+
+SearchSnippets *SearchResultsModel::snippets() const
+{
+    return m_snippets;
 }
 
 QModelIndexList SearchResultsModel::messages() const
@@ -190,6 +202,8 @@ QVariant SearchResultsModel::data(const QModelIndex &proxyIndex, int role) const
     const QModelIndex message = mapToSource(proxyIndex);
     if (!message.isValid())
         return QVariant();
+    if (role == RoleMessageSearchSnippet)
+        return m_snippets->snippet(message);
     if (role != Qt::DisplayRole && role != Qt::ToolTipRole)
         return message.data(role);
     // Each column shows what MsgListModel shows in it

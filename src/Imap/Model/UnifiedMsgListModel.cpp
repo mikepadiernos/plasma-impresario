@@ -9,6 +9,7 @@
 #include "ItemRoles.h"
 #include "MsgListModel.h"
 #include "UiUtils/Formatting.h"
+#include "UiUtils/Relevance.h"
 
 namespace Imap
 {
@@ -539,6 +540,25 @@ int PrettyUnifiedMsgListModel::visibleMessageCount() const
     return count;
 }
 
+void PrettyUnifiedMsgListModel::setRelevanceTerms(const QStringList &terms, Qt::SortOrder order)
+{
+    m_relevanceTerms = terms;
+    // Sorting again by the same column in the same order would be a no-op, so start from the source's order
+    QSortFilterProxyModel::sort(-1, order);
+    if (!terms.isEmpty())
+        QSortFilterProxyModel::sort(0, order);
+}
+
+QStringList PrettyUnifiedMsgListModel::relevanceTerms() const
+{
+    return m_relevanceTerms;
+}
+
+bool PrettyUnifiedMsgListModel::isSortingByRelevance() const
+{
+    return !m_relevanceTerms.isEmpty();
+}
+
 QVariant PrettyUnifiedMsgListModel::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid() || index.model() != this)
@@ -574,6 +594,19 @@ bool PrettyUnifiedMsgListModel::filterAcceptsRow(int sourceRow, const QModelInde
 
 bool PrettyUnifiedMsgListModel::lessThan(const QModelIndex &left, const QModelIndex &right) const
 {
+    if (!m_relevanceTerms.isEmpty()) {
+        const int leftScore = UiUtils::relevanceScore(left, m_relevanceTerms);
+        const int rightScore = UiUtils::relevanceScore(right, m_relevanceTerms);
+        if (leftScore != rightScore)
+            return leftScore > rightScore;
+        if (leftScore >= 0) {
+            const QDateTime leftDate = left.data(RoleMessageDate).toDateTime();
+            const QDateTime rightDate = right.data(RoleMessageDate).toDateTime();
+            if (leftDate != rightDate)
+                return leftDate > rightDate;
+        }
+        return left.row() < right.row();
+    }
     auto byDate = [&left, &right](const int role) -> std::optional<bool> {
         const QDateTime a = left.data(role).toDateTime();
         const QDateTime b = right.data(role).toDateTime();

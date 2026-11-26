@@ -22,6 +22,7 @@
 #include "PrettyMsgListModel.h"
 #include "ItemRoles.h"
 #include "MsgListModel.h"
+#include "SearchSnippets.h"
 #include "ThreadingMsgListModel.h"
 #include "UiUtils/Formatting.h"
 #include "UiUtils/IconLoader.h"
@@ -35,11 +36,17 @@ namespace Mailbox
 {
 
 PrettyMsgListModel::PrettyMsgListModel(QObject *parent):
-    QSortFilterProxyModel(parent), m_filters(NoFilter)
+    QSortFilterProxyModel(parent), m_filters(NoFilter), m_snippets(new SearchSnippets(this))
 {
     setDynamicSortFilter(true);
     // Another mailbox reuses the UIDs
     connect(this, &QAbstractItemModel::modelAboutToBeReset, this, [this]() { m_relevanceCache.clear(); });
+    // Only the rows of threads are told; the messages within them are painted again as they are shown
+    connect(m_snippets, &SearchSnippets::changed, this, [this]() {
+        const int rows = rowCount();
+        if (rows > 0)
+            emit dataChanged(index(0, 0), index(rows - 1, columnCount() - 1), {RoleMessageSearchSnippet});
+    });
 }
 
 QVariant PrettyMsgListModel::data(const QModelIndex &index, int role) const
@@ -53,6 +60,8 @@ QVariant PrettyMsgListModel::data(const QModelIndex &index, int role) const
     if (index.row() < 0 || index.row() >= rowCount(index.parent()))
         return QVariant();
 
+    if (role == RoleMessageSearchSnippet)
+        return m_snippets->snippet(mapToSource(index));
     if (const auto pretty = presentationData(mapToSource(index), index.column(), role))
         return *pretty;
     return QSortFilterProxyModel::data(index, role);
@@ -407,6 +416,11 @@ QStringList PrettyMsgListModel::relevanceTerms() const
 bool PrettyMsgListModel::isSortingByRelevance() const
 {
     return !m_relevanceTerms.isEmpty();
+}
+
+SearchSnippets *PrettyMsgListModel::snippets() const
+{
+    return m_snippets;
 }
 
 int PrettyMsgListModel::relevance(const QModelIndex &sourceIndex) const

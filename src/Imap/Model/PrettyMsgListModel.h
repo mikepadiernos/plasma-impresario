@@ -36,6 +36,8 @@ namespace Imap
 namespace Mailbox
 {
 
+class SearchSnippets;
+
 /** @short A pretty proxy model which increases sexiness of the (Threaded)MsgListModel
 
 The model also provides the quick filters of the message list. Active filters are combined, so that a message has to
@@ -55,6 +57,8 @@ so that going through a conversation can reach its other messages.
 
 While relevance terms are set, the model sorts the messages itself by UiUtils::relevanceScore(), the best matches first
 in ascending order; equally relevant messages are sorted newest first. Otherwise the order of the source is kept.
+
+The RoleMessageSearchSnippet of each message comes from snippets(), which has no terms and no text until it is told.
 */
 class PrettyMsgListModel: public QSortFilterProxyModel
 {
@@ -92,6 +96,8 @@ public:
     void setRelevanceTerms(const QStringList &terms, Qt::SortOrder order);
     QStringList relevanceTerms() const;
     bool isSortingByRelevance() const;
+    /** @short The snippets of the messages for the terms of the search */
+    SearchSnippets *snippets() const;
 
 signals:
     void sortingPreferenceChanged(int column, Qt::SortOrder order);
@@ -111,6 +117,7 @@ private:
     QStringList m_relevanceTerms;
     /** Scores of loaded messages by UID; their envelope does not change */
     mutable QHash<uint, int> m_relevanceCache;
+    SearchSnippets *m_snippets;
 };
 
 }

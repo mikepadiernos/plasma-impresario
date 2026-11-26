@@ -147,6 +147,11 @@ public:
     /** @short Pause before a scheduled pass, pause between batches and messages per batch; for tests */
     void setTimings(int scheduleMs, int batchMs, int batchSize);
 
+    /** @short The downloaded text parts of a message in the cache, without its attachments
+
+    Empty when its headers or text are not in the cache. Nothing is fetched.
+    */
+    static QString downloadedText(const AbstractCache &cache, const QString &mailbox, uint uid);
     /** @short What the index keeps of a message in the cache; false when its headers are not in the cache */
     bool document(const AbstractCache &cache, const QString &mailbox, uint uid, const QStringList &flags,
                   SearchIndex::Document *document) const;

@@ -70,6 +70,20 @@ QByteArray partData(const AbstractCache &cache, const QString &mailbox, uint uid
     return data.isNull() ? QByteArray("") : data;
 }
 
+/** @short The BODYSTRUCTURE which the cache keeps serialized, or null */
+QSharedPointer<Message::AbstractMessage> bodyStructure(QByteArray serialized)
+{
+    QDataStream stream(&serialized, QIODevice::ReadOnly);
+    stream.setVersion(QDataStream::Qt_4_6);
+    QVariantList list;
+    stream >> list;
+    try {
+        return Message::AbstractMessage::fromList(list, QByteArray(), 0);
+    } catch (const Imap::ParserException &) {
+        return QSharedPointer<Message::AbstractMessage>();
+    }
+}
+
 /** @short Collects the text and the attachments of a message from its BODYSTRUCTURE and the cached parts */
 struct PartWalker {
     const AbstractCache &cache;
@@ -737,6 +751,25 @@ void SearchIndexer::step()
     m_batch.start();
 }
 
+QString SearchIndexer::downloadedText(const AbstractCache &cache, const QString &mailbox, uint uid)
+{
+    const AbstractCache::MessageDataBundle data = cache.messageMetadata(mailbox, uid);
+    if (data.uid != uid)
+        return QString();
+    const QSharedPointer<Message::AbstractMessage> structure = bodyStructure(data.serializedBodyStructure);
+    if (!structure)
+        return QString();
+    PartWalker walker{cache, mailbox, uid};
+    if (const auto *multi = dynamic_cast<const Message::MultiMessage *>(structure.data()))
+        walker.children(multi, QByteArray());
+    else
+        walker.visit(structure.data(), "1");
+    QString text = walker.texts.join(QLatin1Char('\n'));
+    if (text.size() > maximumText)
+        text.truncate(maximumText);
+    return text;
+}
+
 bool SearchIndexer::document(const AbstractCache &cache, const QString &mailbox, uint uid, const QStringList &flags,
                              SearchIndex::Document *document) const
 {
@@ -772,16 +805,7 @@ bool SearchIndexer::document(const AbstractCache &cache, const QString &mailbox,
         listPost << url.toString();
     d.listPost = listPost.join(QLatin1Char(' '));
 
-    QDataStream stream(&data.serializedBodyStructure, QIODevice::ReadOnly);
-    stream.setVersion(QDataStream::Qt_4_6);
-    QVariantList serialized;
-    stream >> serialized;
-    QSharedPointer<Message::AbstractMessage> structure;
-    try {
-        structure = Message::AbstractMessage::fromList(serialized, QByteArray(), 0);
-    } catch (const Imap::ParserException &) {
-        structure.clear();
-    }
+    const QSharedPointer<Message::AbstractMessage> structure = bodyStructure(data.serializedBodyStructure);
     if (!structure) {
         // Without the structure there are no parts to find; the headers are still worth indexing
         d.hasText = true;
