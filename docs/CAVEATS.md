@@ -608,9 +608,9 @@ Plasma session; that check is
 
 ### Search
 
-| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                    |
-| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/454#issuecomment-7181065871) | The quick search's query syntax and builder, **Date** and **Search In** menus, saved searches with a date range or places, and searches the server cannot run |
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                   |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/454#issuecomment-7181065871) | The quick search's query syntax and builder, **Date** and **Search In** menus, saved searches with a date range or places, searches the server cannot run, and **Clear All** |
 
 **Current behavior:**
 
@@ -652,6 +652,14 @@ Plasma session; that check is
   It opens with the current search and shows the query it will run; a query
   it cannot show is explained instead
   ([#335](https://github.com/mikepadiernos/plasma-impresario/issues/335)).
+- ![Resolved][resolved] A search applies within the quick filters
+  (**Unread**, **Flagged**, **With Attachments**). A row above the list shows
+  the query, date range, places and filters in effect, and its **Clear All**
+  button, **View › Filter › Clear Search and Filters** and
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Backspace</kbd> clear them in one
+  step. The folder's list comes back with the message that was current before
+  the first search or filter, or with the message opened among the results
+  ([#336](https://github.com/mikepadiernos/plasma-impresario/issues/336)).
 - ![Limitation][limitation] The server compares the calendar day in each
   message's Date header, in the sender's time zone, because IMAP's `SENTSINCE`
   and `SENTBEFORE` disregard the time and zone. The list shows local time, so a
@@ -701,6 +709,14 @@ Plasma session; that check is
   phrase, unlike the same words typed without quotes in the search field.
 - ![Limitation][limitation] Every query is run by the server; there is no
   local index yet (M05.04), so searches need a connection.
+- ![Limitation][limitation] **Clear All** restores the selection only in a
+  single folder. In the Unified Inbox it clears the search and filters but
+  leaves the selection as it is. After a search of several places, the list
+  returns to the message that was current before the search; a result opened
+  in another folder is not kept.
+- ![Limitation][limitation] Filters still on from an earlier session have no
+  position to return to, so **Clear All** shows the whole folder and keeps the
+  current message. The **Search In** places stay chosen after **Clear All**.
 
 **Workarounds:**
 
@@ -722,6 +738,8 @@ Plasma session; that check is
   with `size>100K`.
 - For a query the builder cannot open, type it in the search field, or use
   one builder row per word to match the words anywhere.
+- To keep a result from another folder in view, double-click it to open it
+  in its own window before clearing the search.
 
 **Proposed improvements:**
 
@@ -744,6 +762,9 @@ Plasma session; that check is
 - Accept translated field names next to the English ones.
 - Show nested groups in the builder as indented rows, and let the query text
   be edited there.
+- Open the folder of a result picked in a search of several places when
+  **Clear All** is pressed, and restore the Unified Inbox selection.
+- Offer to reset the **Search In** places with **Clear All**.
 
 ## Before reporting results
 
