@@ -11,6 +11,7 @@
 
 #include "Imap/Model/FavoriteTagsModel.h"
 #include "Imap/Model/ItemRoles.h"
+#include "UiUtils/MailingLists.h"
 #include "UiUtils/QuickFilters.h"
 #include "UiUtils/RelatedMessages.h"
 
@@ -627,14 +628,15 @@ GroupingMsgListModel::GroupInfo GroupingMsgListModel::groupInfo(int sourceRow, c
         return info;
     }
     case Grouping::MailingList: {
-        const QString list = UiUtils::listPostAddress(index.data(RoleMessageHeaderListPost));
-        if (list.isEmpty()) {
+        const UiUtils::MailingList list
+            = UiUtils::MailingLists::fromHeaders(index.data(RoleMessageHeaderList), index.data(RoleMessageHeaderListPost));
+        if (!list.isValid()) {
             info.key = QStringLiteral("\u0002none");
             info.label = tr("Not from a list");
             info.tier = 1;
         } else {
-            info.key = QLatin1String("l:") + list;
-            info.label = list;
+            info.key = QLatin1String("l:") + list.searchValue();
+            info.label = list.name.isEmpty() ? list.searchValue() : tr("%1 (%2)").arg(list.name, list.searchValue());
         }
         return info;
     }

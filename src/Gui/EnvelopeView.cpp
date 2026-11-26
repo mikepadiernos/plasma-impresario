@@ -21,8 +21,11 @@
 */
 #include "EnvelopeView.h"
 #include <KLocalizedString>
+#include <QDesktopServices>
 #include <QFontMetrics>
 #include <QLabel>
+#include <QMessageBox>
+#include <QPushButton>
 #include <QUrlQuery>
 #include <QGridLayout>
 #include <QLayoutItem>
@@ -38,6 +41,7 @@
 namespace Gui {
 
 EnvelopeView::EnvelopeView(QWidget *parent, Plugins::PluginManager *pluginManager): QWidget(parent), m_pluginManager(pluginManager)
+    , m_openUrl([](const QUrl &url) { QDesktopServices::openUrl(url); })
 {
     QVBoxLayout *lay = new QVBoxLayout(this);
     lay->setContentsMargins(0, 0, 0, 0);
@@ -65,6 +69,86 @@ void EnvelopeView::setAccountResolver(const std::function<QString(const QModelIn
     m_accountName = resolver;
 }
 
+void EnvelopeView::setUrlOpener(const std::function<void(const QUrl &)> &opener)
+{
+    m_openUrl = opener;
+}
+
+namespace {
+
+using ListAction = UiUtils::MailingLists::Action;
+
+QString listActionText(ListAction action)
+{
+    switch (action) {
+    case ListAction::Post:
+        return i18nc("@action mailing list", "Post");
+    case ListAction::Subscribe:
+        return i18nc("@action mailing list", "Subscribe");
+    case ListAction::Unsubscribe:
+        return i18nc("@action mailing list", "Unsubscribe");
+    case ListAction::Help:
+        return i18nc("@action mailing list", "Help");
+    case ListAction::Archive:
+        return i18nc("@action mailing list", "Archive");
+    case ListAction::Owner:
+        return i18nc("@action mailing list", "Owner");
+    }
+    return QString();
+}
+
+QString listActionQuestion(ListAction action, const QString &list)
+{
+    switch (action) {
+    case ListAction::Post:
+        return i18nc("@info %1 is a mailing list", "Write a message to %1?", list);
+    case ListAction::Subscribe:
+        return i18nc("@info %1 is a mailing list", "Subscribe to %1?", list);
+    case ListAction::Unsubscribe:
+        return i18nc("@info %1 is a mailing list", "Unsubscribe from %1?", list);
+    case ListAction::Help:
+        return i18nc("@info %1 is a mailing list", "Get help about %1?", list);
+    case ListAction::Archive:
+        return i18nc("@info %1 is a mailing list", "Open the archive of %1?", list);
+    case ListAction::Owner:
+        return i18nc("@info %1 is a mailing list", "Contact the owner of %1?", list);
+    }
+    return QString();
+}
+
+}
+
+void EnvelopeView::requestListAction(int position)
+{
+    if (position < 0 || position >= m_listActions.size())
+        return;
+    const UiUtils::MailingLists::ActionTarget target = m_listActions.at(position);
+    const bool mail = target.url.scheme().compare(QLatin1String("mailto"), Qt::CaseInsensitive) == 0;
+    // The headers come from whoever sent the message, so the user sees where an action leads before following it
+    const QString where = mail
+        ? i18nc("@info", "This opens a new message to <b>%1</b>, which you can check before sending it.",
+                target.url.path().toHtmlEscaped())
+        : i18nc("@info", "This opens <b>%1</b> in your web browser.", target.url.toDisplayString().toHtmlEscaped());
+    // Newsletters often offer List-Unsubscribe without naming their list
+    const QString list = m_list.isValid() ? m_list.displayName().toHtmlEscaped()
+                                          : i18nc("@info the list of a list action question", "this mailing list");
+    auto *box = new QMessageBox(QMessageBox::Question, i18nc("@title:window", "Mailing List"),
+                                QStringLiteral("<p>%1</p><p>%2</p>").arg(listActionQuestion(target.action, list), where),
+                                QMessageBox::Cancel, this);
+    box->setObjectName(QStringLiteral("listActionConfirmation"));
+    box->setAttribute(Qt::WA_DeleteOnClose);
+    box->setTextFormat(Qt::RichText);
+    QPushButton *follow = box->addButton(mail ? i18nc("@action:button", "Write Message") : i18nc("@action:button", "Open Link"),
+                                         QMessageBox::AcceptRole);
+    follow->setObjectName(QStringLiteral("followListAction"));
+    box->setDefaultButton(QMessageBox::Cancel);
+    connect(box, &QMessageBox::finished, this, [this, box, follow, url = target.url]() {
+        if (box->clickedButton() == follow && m_openUrl)
+            m_openUrl(url);
+    });
+    box->open();
+}
+
 /** @short */
 void EnvelopeView::setMessage(const QModelIndex &index)
 {
@@ -81,6 +165,8 @@ void EnvelopeView::setMessage(const QModelIndex &index)
         w->deleteLater();
     }
 
+    m_list = UiUtils::MailingList();
+    m_listActions.clear();
     if (!index.isValid()) {
         return;
     }
@@ -156,31 +242,40 @@ void EnvelopeView::setMessage(const QModelIndex &index)
     if (receiverWidget)
         ADD_ROW(receiverLabel, receiverWidget)
 
-    // Mailing list
-    QVariantList headerListPost = index.data(Imap::Mailbox::RoleMessageHeaderListPost).toList();
-    if (!headerListPost.isEmpty()) {
-        QStringList buf;
-        bool elided = false;
-        Q_FOREACH(const QVariant &item, headerListPost) {
-            const QString scheme = item.toUrl().scheme().toLower();
-            const bool isMailTo = scheme == QLatin1String("mailto");
-            if (isMailTo || scheme == QLatin1String("http") || scheme == QLatin1String("https")) {
-                QString target = item.toUrl().toString();
-                // eg. github uses reply+<some hash>@reply.github.com
-                QString caption = isMailTo ? item.toUrl().toString(QUrl::RemoveScheme) : target;
-                elided = elided || UiUtils::elideAddress(caption);
-                target = target.toHtmlEscaped();
-                buf << tr("<a href=\"%1\">%2</a>").arg(target, caption.toHtmlEscaped());
-            } else {
-                buf << item.toUrl().toString().toHtmlEscaped();
-            }
+    // Mailing list: name it, and offer the actions of its List-* headers, which ask before doing anything
+    m_list = UiUtils::MailingLists::fromMessage(index);
+    m_listActions = UiUtils::MailingLists::actions(index);
+    if (m_list.isValid() || !m_listActions.isEmpty()) {
+        QString text;
+        if (m_list.isValid()) {
+            text = m_list.name.isEmpty() ? m_list.searchValue().toHtmlEscaped()
+                                         : i18nc("@info mailing list name and ID", "%1 (%2)", m_list.name.toHtmlEscaped(),
+                                                 m_list.searchValue().toHtmlEscaped());
         }
-        auto lbl = new QLabel(QString(QLatin1String("<html>&nbsp;%1</html>")).arg(buf.join(tr(", "))));
+        QStringList links;
+        for (qsizetype i = 0; i < m_listActions.size(); ++i) {
+            const QUrl &url = m_listActions.at(i).url;
+            links << QStringLiteral("<a href=\"list-action:%1\" title=\"%2\">%3</a>")
+                         .arg(QString::number(i), url.toDisplayString().toHtmlEscaped(),
+                              listActionText(m_listActions.at(i).action).toHtmlEscaped());
+        }
+        if (!links.isEmpty())
+            text += (text.isEmpty() ? QString() : QStringLiteral(" &nbsp; ")) + links.join(QStringLiteral(" &middot; "));
+        auto lbl = new QLabel(QStringLiteral("<html>&nbsp;%1</html>").arg(text), this);
+        lbl->setObjectName(QStringLiteral("envelopeMailingList"));
         SET_LABEL_OPTIONS(lbl)
-        lbl->setOpenExternalLinks(true);
-        if (elided)
-            connect(lbl, &QLabel::linkHovered, lbl, &QLabel::setToolTip);
-        ADD_ROW(tr("Mailing List"), lbl)
+        lbl->setOpenExternalLinks(false);
+        connect(lbl, &QLabel::linkHovered, lbl, [this, lbl](const QString &link) {
+            const int position = link.startsWith(QLatin1String("list-action:")) ? link.mid(12).toInt() : -1;
+            lbl->setToolTip(position >= 0 && position < m_listActions.size()
+                                ? m_listActions.at(position).url.toDisplayString()
+                                : QString());
+        });
+        connect(lbl, &QLabel::linkActivated, this, [this](const QString &link) {
+            if (link.startsWith(QLatin1String("list-action:")))
+                requestListAction(link.mid(12).toInt());
+        });
+        ADD_ROW(i18nc("@label", "Mailing List"), lbl)
     }
 
     // The account matters once several of them are set up, above all in the Unified Inbox

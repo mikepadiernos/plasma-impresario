@@ -69,6 +69,8 @@ public:
         QList<QUrl> hdrListPost;
         /** @short Is the List-Post set to "NO"? */
         bool hdrListPostNo;
+        /** @short List-Id and the RFC 2369 action headers, see LowLevelParser::listHeaders() */
+        QMap<QByteArray, QByteArray> hdrList;
 
         MessageDataBundle();
         MessageDataBundle(const uint uid, const Imap::Message::Envelope &envelope, const QDateTime &internalDate,
@@ -80,7 +82,7 @@ public:
             return uid == other.uid && envelope == other.envelope && internalDate == other.internalDate &&
                     serializedBodyStructure == other.serializedBodyStructure && size == other.size &&
                     hdrReferences == other.hdrReferences && hdrListPost == other.hdrListPost &&
-                    hdrListPostNo == other.hdrListPostNo;
+                    hdrListPostNo == other.hdrListPostNo && hdrList == other.hdrList;
         }
     };
 

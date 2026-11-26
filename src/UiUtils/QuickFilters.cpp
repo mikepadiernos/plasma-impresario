@@ -10,6 +10,7 @@
 
 #include "Imap/Model/ItemRoles.h"
 #include "Conversations.h"
+#include "MailingLists.h"
 #include "RelatedMessages.h"
 #include "SearchQuery.h"
 
@@ -127,9 +128,7 @@ QStringList fieldFilterConditions(const ParsedFieldFilter &filter) {
   case FieldFilter::Subject:
     return {QStringLiteral("SUBJECT"), filter.value};
   case FieldFilter::MailingList:
-    // The header holds "<mailto:address>", and HEADER matches a substring of it
-    return {QStringLiteral("HEADER"), QStringLiteral("List-Post"),
-            filter.value};
+    return MailingLists::searchKeys(filter.value);
   case FieldFilter::None:
     break;
   }
@@ -160,8 +159,7 @@ QString fieldFilterValue(const QModelIndex &message, FieldFilter field) {
     return searchableSubject(
         message.data(Imap::Mailbox::RoleMessageSubject).toString());
   case FieldFilter::MailingList:
-    return listPostAddress(
-        message.data(Imap::Mailbox::RoleMessageHeaderListPost));
+    return MailingLists::fromMessage(message).searchValue();
   case FieldFilter::None:
     break;
   }

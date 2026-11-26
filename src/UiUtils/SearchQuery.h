@@ -40,7 +40,7 @@ enum class Field {
     Body,
     /** The whole message, headers and body */
     Message,
-    /** The address of a mailing list, from the List-Post header */
+    /** A mailing list: its List-Id or the address of its List-Post header */
     List,
     Has,
     Is,

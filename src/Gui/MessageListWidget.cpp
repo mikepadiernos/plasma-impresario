@@ -58,6 +58,7 @@
 #include "SearchBuilderDialog.h"
 #include "Util.h"
 #include "UiUtils/IconLoader.h"
+#include "UiUtils/MailingLists.h"
 #include "UiUtils/QuickFilters.h"
 
 namespace Gui {
@@ -219,6 +220,10 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     m_savedSearches = optionsMenu->addMenu(i18nc("@title:menu", "Saved Searches"));
     m_savedSearches->setObjectName(QStringLiteral("savedSearches"));
     connect(m_savedSearches, &QMenu::aboutToShow, this, &MessageListWidget::rebuildSavedSearchMenu);
+    m_mailingLists = optionsMenu->addMenu(i18nc("@title:menu", "Mailing Lists"));
+    m_mailingLists->setObjectName(QStringLiteral("mailingLists"));
+    m_mailingLists->setToolTipsVisible(true);
+    connect(m_mailingLists, &QMenu::aboutToShow, this, &MessageListWidget::rebuildMailingListMenu);
     optionsMenu->addSeparator();
     optionsMenu->setToolTipsVisible(true);
     const KConfigGroup quickSearch = quickSearchGroup();
@@ -533,6 +538,89 @@ void MessageListWidget::rebuildSavedSearchMenu()
     const auto searches = UiUtils::SavedSearches::load(savedSearchesRoot(), {m_accountId});
     for (const UiUtils::SavedSearch &search : searches)
         addSavedSearch(search);
+}
+
+void MessageListWidget::rebuildMailingListMenu()
+{
+    m_mailingLists->clear();
+    const UiUtils::ParsedFieldFilter filter = UiUtils::parseFieldFilter(m_quickSearchText->text());
+    const QString shown = filter.field == UiUtils::FieldFilter::MailingList ? filter.value.toLower() : QString();
+    UiUtils::MailingList shownList;
+    const auto lists = UiUtils::MailingLists::listsIn(tree->model());
+    for (const UiUtils::MailingLists::Found &found : lists) {
+        const UiUtils::MailingList list = found.list;
+        QString text = list.name.isEmpty()
+            ? i18ncp("@action:inmenu mailing list and its loaded messages", "%2 (%1 message)", "%2 (%1 messages)",
+                     found.messages, list.searchValue())
+            : i18ncp("@action:inmenu mailing list, its ID and its loaded messages", "%2 <%3> (%1 message)",
+                     "%2 <%3> (%1 messages)", found.messages, list.name, list.searchValue());
+        QAction *action = m_mailingLists->addAction(text.replace(QLatin1Char('&'), QLatin1String("&&")));
+        action->setCheckable(true);
+        action->setChecked(list.searchValue() == shown);
+        if (action->isChecked())
+            shownList = list;
+        action->setToolTip(i18nc("@info:tooltip", "Show the messages of this list"));
+        connect(action, &QAction::triggered, this, [this, list]() {
+            showFieldFilter(UiUtils::fieldFilterText(UiUtils::FieldFilter::MailingList, list.searchValue()));
+        });
+    }
+    if (lists.isEmpty()) {
+        QAction *none = m_mailingLists->addAction(i18nc("@item:inmenu", "No Mailing Lists in the Loaded Messages"));
+        none->setEnabled(false);
+    }
+    if (!shownList.isValid() && !shown.isEmpty())
+        shownList.id = shown;
+    m_mailingLists->addSeparator();
+    QAction *pin = m_mailingLists->addAction(suggestionIcon(QStringLiteral("window-pin")),
+                                             i18nc("@action:inmenu", "Pin Shown List as Saved Search"));
+    pin->setObjectName(QStringLiteral("pinMailingList"));
+    pin->setEnabled(shownList.isValid());
+    pin->setToolTip(i18nc("@info:tooltip", "Save a search for the messages of the shown list in every folder of every "
+                                           "account, and show it with the saved searches"));
+    connect(pin, &QAction::triggered, this, [this, shownList]() { pinMailingList(shownList); });
+}
+
+bool MessageListWidget::pinMailingList(const UiUtils::MailingList &list)
+{
+    if (!list.isValid())
+        return false;
+    const QString query = UiUtils::fieldFilterText(UiUtils::FieldFilter::MailingList, list.searchValue());
+    const KConfigGroup root = savedSearchesRoot();
+    const auto existing = UiUtils::SavedSearches::load(root, {m_accountId});
+    for (const UiUtils::SavedSearch &search : existing) {
+        if (search.query == query && search.places == Places::AllAccounts
+            && search.dates == UiUtils::SearchScope::DateRange())
+            return runSavedSearch(search.owner, search.id);
+    }
+
+    UiUtils::SavedSearch search = currentSearch();
+    search.owner = m_accountId;
+    search.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    search.query = query;
+    search.fuzzy = false;
+    search.raw = false;
+    search.dates = UiUtils::SearchScope::DateRange();
+    search.places = Places::AllAccounts;
+    search.folders.clear();
+    search.name = list.displayName();
+    // Two lists may share a description; their IDs tell them apart
+    if (UiUtils::SavedSearches::isNameTaken(root, m_accountId, search.name))
+        search.name = i18nc("@item saved search for a mailing list: its name and ID", "%1 (%2)", list.displayName(),
+                            list.searchValue());
+    if (UiUtils::SavedSearches::isNameTaken(root, m_accountId, search.name)) {
+        Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Pin Mailing List"),
+                                     i18nc("@info", "A saved search with this name already exists."));
+        return false;
+    }
+    KConfigGroup group = savedSearchGroup().group(search.id);
+    UiUtils::SavedSearches::write(group, search);
+    if (!group.sync()) {
+        Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Pin Mailing List"),
+                                     i18nc("@info", "The search could not be saved."));
+    }
+    applySavedSearch(search);
+    emit savedSearchesChanged();
+    return true;
 }
 
 void MessageListWidget::setAccountId(const QString &accountId)

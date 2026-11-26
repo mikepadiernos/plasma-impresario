@@ -249,6 +249,8 @@ public:
     void setHdrListPost(const QList<QUrl> &hdrListPost);
     bool hdrListPostNo() const;
     void setHdrListPostNo(const bool hdrListPostNo);
+    const QMap<QByteArray, QByteArray> &hdrList() const;
+    void setHdrList(const QMap<QByteArray, QByteArray> &hdrList);
     const QByteArray &rememberedBodyStructure() const;
     void setRememberedBodyStructure(const QByteArray &blob);
 
@@ -274,6 +276,7 @@ private:
     QList<QUrl> m_hdrListPost;
     QByteArray m_rememberedBodyStructure;
     bool m_hdrListPostNo;
+    QMap<QByteArray, QByteArray> m_hdrList;
     std::unique_ptr<TreeItemPart> m_partHeader;
     std::unique_ptr<TreeItemPart> m_partText;
 

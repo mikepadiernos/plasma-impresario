@@ -26,6 +26,7 @@
 #include <QWidget>
 #include <functional>
 #include "Imap/Model/FavoriteTagsModel.h"
+#include "UiUtils/MailingLists.h"
 #include "UiUtils/SearchQuery.h"
 #include "UiUtils/SavedSearches.h"
 #include "UiUtils/SearchScope.h"
@@ -137,6 +138,13 @@ public:
     bool deleteSavedSearch(const QString &owner, const QString &id);
     /** @short The SavedSearches group of the settings, which holds the searches of every account */
     static KConfigGroup savedSearchesRoot();
+    /** @short Save a search for the messages of @p list in every folder of every account, named after the list, and
+    run it
+
+    When this account already saved one, that search runs instead. False when the list is invalid or the search
+    cannot be saved.
+    */
+    bool pinMailingList(const UiUtils::MailingList &list);
 
     // FIXME: consider making this private and moving the logic from Window with it
     MsgListView *tree;
@@ -178,6 +186,8 @@ private slots:
     void saveCurrentSearch();
     /** Rebuilds the menu of searches saved for this account. */
     void rebuildSavedSearchMenu();
+    /** Rebuilds the menu of the mailing lists of the loaded messages. */
+    void rebuildMailingListMenu();
     void slotComplexSearchInput(QAction*);
     void slotConditionalSearchReset();
     void slotDeActivateSimpleSearch();
@@ -269,6 +279,7 @@ private:
     QString m_currentPlaceText;
     QString m_searchToolTip;
     QMenu *m_savedSearches;
+    QMenu *m_mailingLists;
     QString m_accountId;
     bool m_supportsFuzzySearch;
     bool m_searchAvailable = true;

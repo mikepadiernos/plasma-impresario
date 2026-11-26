@@ -312,6 +312,7 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/Formatting.cpp
     ${path_UiUtils}/IconLoader.cpp
     ${path_UiUtils}/LinkSafety.cpp
+    ${path_UiUtils}/MailingLists.cpp
     ${path_UiUtils}/MessageSecurity.cpp
     ${path_UiUtils}/PasswordWatcher.cpp
     ${path_UiUtils}/PlainTextFormatter.cpp
@@ -517,6 +518,7 @@ set(libImap_SOURCES
 
     ${path_Imap}/Parser/Command.cpp
     ${path_Imap}/Parser/Data.cpp
+    ${path_Imap}/Parser/ListHeaders.cpp
     ${path_Imap}/Parser/LowLevelParser.cpp
     ${path_Imap}/Parser/MailAddress.cpp
     ${path_Imap}/Parser/Message.cpp

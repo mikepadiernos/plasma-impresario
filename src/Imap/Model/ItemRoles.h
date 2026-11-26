@@ -130,6 +130,8 @@ enum {
     RoleMessageHeaderListPost,
     /** @short Is the List-Post set to a special value of "NO"? */
     RoleMessageHeaderListPostNo,
+    /** @short List-Id and the RFC 2369 action headers as a QVariantMap of lower-case names to unfolded values */
+    RoleMessageHeaderList,
     /** @short A full message envelope */
     RoleMessageEnvelope,
     /** @short Is this a mail with at least one attachment?

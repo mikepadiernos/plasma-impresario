@@ -8,6 +8,8 @@
 #include <cmath>
 #include <optional>
 
+#include "MailingLists.h"
+
 namespace UiUtils {
 namespace SearchQuery {
 
@@ -646,8 +648,7 @@ struct Translator {
         case Field::Message:
             return key(QStringLiteral("TEXT"));
         case Field::List:
-            // The header holds "<mailto:address>", and HEADER matches a substring of it
-            return Keys{QStringList{QStringLiteral("HEADER"), QStringLiteral("List-Post"), term.value}};
+            return Keys{MailingLists::searchKeys(term.value)};
         case Field::Has:
             // IMAP cannot ask for attachments; most messages with one are multipart/mixed
             return Keys{QStringList{QStringLiteral("HEADER"), QStringLiteral("Content-Type"), QStringLiteral("multipart/mixed")}};
