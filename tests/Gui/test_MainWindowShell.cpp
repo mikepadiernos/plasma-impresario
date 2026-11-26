@@ -461,7 +461,7 @@ private slots:
     // being in the sidebar
     auto *next =
         window.findChild<QAction *>(QStringLiteral("action_focus_next_region"));
-    auto *messages = window.findChild<Gui::MsgListView *>();
+    auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
     QVERIFY(next && messages);
     window.activateWindow();
     sidebar->headers().at(0)->setFocus();

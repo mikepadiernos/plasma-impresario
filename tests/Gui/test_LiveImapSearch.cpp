@@ -13,6 +13,7 @@
 #include "Gui/SearchBuilderDialog.h"
 #include "Gui/SearchFoldersDialog.h"
 #include "Gui/SearchIndexDialog.h"
+#include "Gui/SearchResultsPanel.h"
 #include "Gui/Window.h"
 #include "Imap/Model/FolderSearch.h"
 #include "Imap/Model/ImapAccess.h"
@@ -31,6 +32,7 @@
 #include "UiUtils/SearchScope.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
+#include "Gui/MessageView.h"
 #include "Gui/WebEngineMessageProfile.h"
 #endif
 #include "static_plugins.h"
@@ -278,7 +280,7 @@ private slots:
         auto *switcher = accountSwitcher(window);
         auto *tree = window.findChild<Gui::MailBoxTreeView *>();
         auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
-        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
         QVERIFY(switcher && tree && searchWidget && messages);
         auto *query = searchWidget->findChild<QLineEdit *>(QStringLiteral("quickSearch"));
         auto *scope = searchWidget->findChild<QLabel *>(QStringLiteral("messageListScope"));
@@ -490,7 +492,7 @@ private slots:
         window.show();
         auto *tree = window.findChild<Gui::MailBoxTreeView *>();
         auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
-        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
         QVERIFY(tree && searchWidget && messages);
         auto *query = searchWidget->findChild<QLineEdit *>(QStringLiteral("quickSearch"));
         auto *status = searchWidget->findChild<QLabel *>(QStringLiteral("messageListStatus"));
@@ -608,7 +610,7 @@ private slots:
         window.show();
         auto *tree = window.findChild<Gui::MailBoxTreeView *>();
         auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
-        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
         QVERIFY(tree && searchWidget && messages);
         auto *query = searchWidget->findChild<QLineEdit *>(QStringLiteral("quickSearch"));
         auto *status = searchWidget->findChild<QLabel *>(QStringLiteral("messageListStatus"));
@@ -713,7 +715,7 @@ private slots:
         window.show();
         auto *tree = window.findChild<Gui::MailBoxTreeView *>();
         auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
-        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
         QVERIFY(tree && searchWidget && messages);
         auto *query = searchWidget->findChild<QLineEdit *>(QStringLiteral("quickSearch"));
         auto *status = searchWidget->findChild<QLabel *>(QStringLiteral("messageListStatus"));
@@ -862,7 +864,7 @@ private slots:
         window.show();
         auto *tree = window.findChild<Gui::MailBoxTreeView *>();
         auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
-        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
         auto *download = window.findChild<QAction *>(QStringLiteral("action_download_search_text"));
         QVERIFY(tree && searchWidget && messages && download);
         auto *query = searchWidget->findChild<QLineEdit *>(QStringLiteral("quickSearch"));
@@ -1060,7 +1062,7 @@ private slots:
         window.show();
         auto *tree = window.findChild<Gui::MailBoxTreeView *>();
         auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
-        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
         auto *searchServer = window.findChild<QAction *>(QStringLiteral("action_search_server"));
         QVERIFY(tree && searchWidget && messages && searchServer);
         auto *query = searchWidget->findChild<QLineEdit *>(QStringLiteral("quickSearch"));
@@ -1206,7 +1208,7 @@ private slots:
         window.show();
         auto *tree = window.findChild<Gui::MailBoxTreeView *>();
         auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
-        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
         QVERIFY(tree && searchWidget && messages);
         auto *query = searchWidget->findChild<QLineEdit *>(QStringLiteral("quickSearch"));
         auto *menu = searchWidget->findChild<QMenu *>(QStringLiteral("mailingLists"));
@@ -1332,7 +1334,7 @@ private slots:
         window.show();
         auto *tree = window.findChild<Gui::MailBoxTreeView *>();
         auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
-        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
         QVERIFY(tree && searchWidget && messages);
         auto *query = searchWidget->findChild<QLineEdit *>(QStringLiteral("quickSearch"));
         auto *scope = searchWidget->findChild<QLabel *>(QStringLiteral("messageListScope"));
@@ -1467,7 +1469,7 @@ private slots:
         auto *switcher = accountSwitcher(window);
         auto *tree = window.findChild<Gui::MailBoxTreeView *>();
         auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
-        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
         auto *panel = window.findChild<Gui::SavedSearchFolders *>();
         auto *markAsRead = window.findChild<QAction *>(QStringLiteral("action_mark_as_read"));
         QVERIFY(switcher && tree && searchWidget && messages && panel && markAsRead);
@@ -1643,6 +1645,160 @@ private slots:
         searches.deleteGroup();
         counts.deleteGroup();
         QVERIFY(config->sync());
+    }
+
+    /**
+     * Uses alpha's and beta's invoices, as above. With the Search Results panel turned on, a search lists its results
+     * in the panel and the message list keeps showing the chosen folder; a result opens in the reader, can be shown in
+     * its folder, and moves to the message list when the panel is turned off.
+     */
+    void listsResultsInTheSearchResultsPanel()
+    {
+        using UiUtils::SearchScope::Places;
+        bool ok = false;
+        const int port = qEnvironmentVariableIntValue("PLASMA_TEST_IMAPS_PORT", &ok);
+        QVERIFY(ok && port > 0 && port <= 65535);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        settings.setValue(Common::SettingsNames::guiShowSystray, false);
+        settings.setValue(Common::SettingsNames::passwordPlugin, QStringLiteral("cleartextpassword"));
+        settings.setValue(QStringLiteral("accounts/ids"), QStringList{QStringLiteral("account-1"), QStringLiteral("account-2")});
+        settings.setValue(QStringLiteral("accounts/active"), QStringLiteral("account-1"));
+        settings.setValue(QStringLiteral("accounts/next"), 3);
+        settings.setValue(QStringLiteral("accounts/names/account-1"), QStringLiteral("Alpha"));
+        settings.setValue(QStringLiteral("accounts/names/account-2"), QStringLiteral("Beta"));
+        settings.setValue(QStringLiteral("accountPasswords/account-1/imap"), syntheticPassword);
+        settings.setValue(QStringLiteral("accountPasswords/account-2/imap"), syntheticPassword);
+        settings.setValue(Common::SettingsNames::autoMarkReadEnabled, false);
+        settings.sync();
+        configureAccount(directory.filePath(QStringLiteral("main-account-1.conf")), port, QStringLiteral("alpha@example.test"));
+        configureAccount(directory.filePath(QStringLiteral("main-account-2.conf")), port, QStringLiteral("beta@example.test"));
+
+        QTimer dialogs;
+        connect(&dialogs, &QTimer::timeout, this, &answerDialogs);
+        dialogs.start(20);
+
+        Gui::MainWindow window(&settings);
+        window.resize(1400, 800);
+        window.show();
+        auto *switcher = accountSwitcher(window);
+        auto *tree = window.findChild<Gui::MailBoxTreeView *>();
+        auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
+        auto *toggle = window.findChild<QAction *>(QStringLiteral("embeddedPanelSearchResults"));
+        QVERIFY(switcher && tree && searchWidget && messages && toggle);
+        auto *query = searchWidget->findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        auto *scope = searchWidget->findChild<QLabel *>(QStringLiteral("messageListScope"));
+        QVERIFY(query && scope);
+
+        QModelIndex inbox;
+        QTRY_VERIFY_WITH_TIMEOUT((inbox = findMailbox(tree->model(), QStringLiteral("INBOX"))).isValid(), 20000);
+        tree->scrollTo(inbox);
+        QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(inbox).center());
+        QTRY_VERIFY_WITH_TIMEOUT(messages->model()->rowCount() >= 2, 10000);
+        const QString folderScope = scope->text();
+        QVERIFY(folderScope != QStringLiteral("Search Results"));
+
+        if (!toggle->isChecked())
+            toggle->trigger();
+        QVERIFY(toggle->isChecked());
+        auto *panel = window.findChild<Gui::SearchResultsPanel *>();
+        QVERIFY(panel);
+        QVERIFY(!panel->isSearchShown());
+        Gui::MsgListView *results = panel->view();
+        QVERIFY(!results->isVisible());
+
+        // Searching every account fills the panel; the list still shows INBOX of Alpha
+        searchWidget->setSearchPlaces(Places::AllAccounts);
+        query->setText(QStringLiteral("invoice"));
+        emit query->returnPressed();
+        QStringList rows;
+        QTRY_VERIFY2_WITH_TIMEOUT(panel->statusText().contains(QLatin1String("messages found"))
+                                      && (rows = shownRows(results->model())).filter(QStringLiteral("invoice-beta-receipt")).size() == 1
+                                      && rows.filter(QStringLiteral("invoice-alpha-archive")).size() == 1,
+                                  qPrintable(panel->statusText() + QLatin1String(": ") + rows.join(QLatin1String(", "))), 30000);
+        QVERIFY(panel->isSearchShown());
+        QTRY_VERIFY(results->isVisible());
+        QCOMPARE(scope->text(), folderScope);
+        QVERIFY(messages->model()->rowCount() >= 2);
+        QCOMPARE(switcher->currentText(), QStringLiteral("Alpha"));
+
+        const auto resultRow = [results](const QString &subject) {
+            const QAbstractItemModel *model = results->model();
+            for (int row = 0; row < model->rowCount(); ++row) {
+                const QModelIndex index = model->index(row, 0);
+                if (index.data(Imap::Mailbox::RoleMessageSubject).toString() == subject)
+                    return index;
+            }
+            return QModelIndex();
+        };
+
+        // A result of another account opens in the reader and leaves the shown account as it is
+        const QString receipt = QStringLiteral("Synthetic invoice-beta-receipt");
+        QModelIndex receiptRow = resultRow(receipt);
+        QVERIFY(receiptRow.isValid());
+        results->scrollTo(receiptRow);
+        QTest::mouseClick(results->viewport(), Qt::LeftButton, Qt::NoModifier, results->visualRect(receiptRow).center());
+        QTRY_COMPARE(panel->currentMessage().data(Imap::Mailbox::RoleMessageSubject).toString(), receipt);
+#ifdef TROJITA_HAVE_WEBENGINE
+        auto *reader = window.findChild<Gui::MessageView *>();
+        QVERIFY(reader);
+        QTRY_COMPARE_WITH_TIMEOUT(reader->currentMessage().data(Imap::Mailbox::RoleMessageSubject).toString(), receipt, 10000);
+#endif
+        QCOMPARE(switcher->currentText(), QStringLiteral("Alpha"));
+        QCOMPARE(scope->text(), folderScope);
+
+        // Showing it in its folder switches to Beta and selects it there; the panel keeps the results
+        auto *reveal = panel->findChild<QToolButton *>(QStringLiteral("searchResultsPanelReveal"));
+        QVERIFY(reveal);
+        QTRY_VERIFY(reveal->isEnabled());
+        reveal->click();
+        QTRY_COMPARE_WITH_TIMEOUT(switcher->currentText(), QStringLiteral("Beta"), 20000);
+        QTRY_COMPARE_WITH_TIMEOUT(messages->currentIndex().data(Imap::Mailbox::RoleMessageSubject).toString(), receipt, 20000);
+        QVERIFY(panel->isSearchShown());
+        QVERIFY(resultRow(receipt).isValid());
+        QVERIFY(scope->text() != QStringLiteral("Search Results"));
+
+        // Turning the panel off moves the results to the message list, which can show a result in its folder too
+        toggle->trigger();
+        QVERIFY(!toggle->isChecked());
+        QTRY_COMPARE_WITH_TIMEOUT(scope->text(), QStringLiteral("Search Results"), 10000);
+        QTRY_VERIFY2_WITH_TIMEOUT((rows = shownRows(messages->model())).filter(QStringLiteral("invoice-alpha-archive")).size() == 1,
+                                  qPrintable(describe(rows, searchWidget)), 30000);
+        QModelIndex archiveRow;
+        for (int row = 0; row < messages->model()->rowCount() && !archiveRow.isValid(); ++row) {
+            const QModelIndex index = messages->model()->index(row, 0);
+            if (index.data(Imap::Mailbox::RoleMessageSubject).toString() == QLatin1String("Synthetic invoice-alpha-archive"))
+                archiveRow = index;
+        }
+        QVERIFY(archiveRow.isValid());
+        messages->scrollTo(archiveRow);
+        QTest::mouseClick(messages->viewport(), Qt::LeftButton, Qt::NoModifier, messages->visualRect(archiveRow).center());
+        QTRY_COMPARE(messages->currentIndex().data(Imap::Mailbox::RoleMessageSubject).toString(),
+                     QStringLiteral("Synthetic invoice-alpha-archive"));
+        auto *revealInList = window.findChild<QAction *>(QStringLiteral("action_reveal_in_folder"));
+        QVERIFY(revealInList);
+        QTRY_VERIFY(revealInList->isEnabled());
+        revealInList->trigger();
+        QTRY_COMPARE_WITH_TIMEOUT(switcher->currentText(), QStringLiteral("Alpha"), 20000);
+        QTRY_VERIFY_WITH_TIMEOUT(scope->text() != QStringLiteral("Search Results"), 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(messages->currentIndex().data(Imap::Mailbox::RoleMessageSubject).toString(),
+                                  QStringLiteral("Synthetic invoice-alpha-archive"), 20000);
+
+        // Back in the panel, clearing the search shows its placeholder again
+        toggle->trigger();
+        QVERIFY(toggle->isChecked());
+        query->setText(QStringLiteral("invoice"));
+        emit query->returnPressed();
+        QTRY_VERIFY_WITH_TIMEOUT(panel->isSearchShown() && panel->statusText().contains(QLatin1String("found")), 30000);
+        QVERIFY(scope->text() != QStringLiteral("Search Results"));
+        searchWidget->clearSearch();
+        QTRY_VERIFY_WITH_TIMEOUT(!panel->isSearchShown(), 10000);
+        QCOMPARE(results->model()->rowCount(), 0);
+
+        toggle->trigger();
+        QVERIFY(!toggle->isChecked());
     }
 };
 

@@ -197,7 +197,7 @@ private slots:
         window.resize(1400, 900);
         window.show();
         auto *tree = window.findChild<Gui::MailBoxTreeView *>();
-        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
         auto *details = window.findChild<Gui::MessageDetailsPanel *>();
         auto *contact = window.findChild<Gui::ContactPanel *>();
         auto *related = window.findChild<Gui::RelatedMessagesPanel *>();

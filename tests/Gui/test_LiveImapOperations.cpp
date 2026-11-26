@@ -248,7 +248,7 @@ private slots:
         window.resize(1400, 900);
         window.show();
         auto *tree = window.findChild<Gui::MailBoxTreeView *>();
-        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
         auto *bar = window.findChild<Gui::InlineNotificationBar *>(QStringLiteral("messageNotificationBar"));
         auto *markAsDeleted = window.findChild<QAction *>(QStringLiteral("action_mark_as_deleted"));
         auto *deletePermanently = window.findChild<QAction *>(QStringLiteral("action_delete_permanently"));

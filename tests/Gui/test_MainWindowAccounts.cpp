@@ -743,7 +743,7 @@ private slots:
         QVERIFY(QTest::qWaitForWindowExposed(&window));
         window.activateWindow();
         auto *mailboxes = window.findChild<Gui::MailBoxTreeView *>();
-        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
         auto *switcher = accountSwitcher(window);
         QVERIFY(mailboxes);
         QVERIFY(messages);
@@ -791,7 +791,7 @@ private slots:
             return result;
         };
         auto *mailboxes = window.findChild<Gui::MailBoxTreeView *>();
-        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
         auto *reader = window.findChild<Gui::CompleteMessageWidget *>();
         auto *switcher = accountSwitcher(window);
         QVERIFY(mailboxes && messages && reader && switcher);
@@ -857,7 +857,7 @@ private slots:
         QVERIFY(QTest::qWaitForWindowExposed(&window));
         window.activateWindow();
         QVERIFY(QTest::qWaitForWindowActive(&window));
-        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
         auto *reader = window.findChild<Gui::CompleteMessageWidget *>();
         auto *contact = window.findChild<Gui::ContactPanel *>();
         auto *bar = window.findChild<Gui::ReaderActionBar *>(QStringLiteral("readerActions"));
@@ -1624,7 +1624,7 @@ private slots:
         QVERIFY(!dense->isChecked());
         density->setComfortable(true);
         auto *rows = window.findChild<Gui::MessageRowsMenu *>();
-        auto *rowsView = window.findChild<Gui::MsgListView *>();
+        auto *rowsView = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
         QVERIFY(rows);
         QVERIFY(rowsView);
         rows->setMultiLine(true);

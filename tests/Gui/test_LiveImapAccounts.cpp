@@ -194,7 +194,7 @@ private slots:
         auto *switcher = accountSwitcher(window);
         auto *tree = window.findChild<Gui::MailBoxTreeView *>();
         auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
-        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
         QVERIFY(switcher);
         QVERIFY(tree);
         QVERIFY(searchWidget);
@@ -504,7 +504,7 @@ private slots:
                     QStringLiteral("Pat"), user + QStringLiteral("@example.test"), QString(), QString()));
             }));
         }
-        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
         auto *details = window.findChild<Gui::MessageDetailsPanel *>();
         QVERIFY(messages && details);
         if (auto *panel = window.findChild<QAction *>(QStringLiteral("embeddedPanelMessageDetails")); panel && !panel->isChecked())
