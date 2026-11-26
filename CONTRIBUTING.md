@@ -140,15 +140,17 @@ as `Synthetic Dovecot 2.4.5 on 127.0.0.1:10993`; record it with your results.
 tools/dev-container/run.sh sh tools/dev-container/live-imap-accounts.sh
 tools/dev-container/run.sh sh tools/dev-container/live-imap-panels.sh
 tools/dev-container/run.sh sh tools/dev-container/live-imap-compose.sh
+tools/dev-container/run.sh sh tools/dev-container/live-imap-operations.sh
 tools/dev-container/vnc.sh
 ```
 
-| Script                  | What it does                                                                                                                                                                                                                                                                                               |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `live-imap-accounts.sh` | Runs `test_LiveImapAccounts`: connects a work and a home account and switches between them.                                                                                                                                                                                                                |
-| `live-imap-panels.sh`   | Seeds a conversation, a message with attachments and a signed message, then runs `test_LiveImapPanels` against the Message Details, Contacts, Related Messages and Attachments panels. Saves layout screenshots to `build/shell-screenshots/` or a directory given as the second argument.                 |
-| `live-imap-compose.sh`  | Seeds the same mailbox with a Sent folder, then runs `test_LiveImapCompose`: opens a message, saves an attachment, replies to all and forwards it, then sends a new message that a local sendmail script first refuses, saves and reopens a draft, and recovers an unsent message after a simulated crash. |
-| `vnc.sh`                | Runs the application on a virtual display with the same seeded mailbox. Connect to `vnc://localhost:5901` with the password `synthvnc`; set `VNC_PORT` for another port. Quit the application, or press <kbd>Ctrl</kbd>+<kbd>C</kbd>, to stop.                                                             |
+| Script                    | What it does                                                                                                                                                                                                                                                                                               |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `live-imap-accounts.sh`   | Runs `test_LiveImapAccounts`: connects a work and a home account and switches between them.                                                                                                                                                                                                                |
+| `live-imap-panels.sh`     | Seeds a conversation, a message with attachments and a signed message, then runs `test_LiveImapPanels` against the Message Details, Contacts, Related Messages and Attachments panels. Saves layout screenshots to `build/shell-screenshots/` or a directory given as the second argument.                 |
+| `live-imap-compose.sh`    | Seeds the same mailbox with a Sent folder, then runs `test_LiveImapCompose`: opens a message, saves an attachment, replies to all and forwards it, then sends a new message that a local sendmail script first refuses, saves and reopens a draft, and recovers an unsent message after a simulated crash. |
+| `live-imap-operations.sh` | Seeds INBOX, Trash, Junk and a Projects folder, then runs `test_LiveImapOperations`: moves a message to Trash and undoes it, deletes one permanently, marks one as deleted and expunges it, empties Trash and Junk, and renames the open folder, checking each result in the server's mail files.          |
+| `vnc.sh`                  | Runs the application on a virtual display with the same seeded mailbox. Connect to `vnc://localhost:5901` with the password `synthvnc`; set `VNC_PORT` for another port. Quit the application, or press <kbd>Ctrl</kbd>+<kbd>C</kbd>, to stop.                                                             |
 
 > [!NOTE]
 >
