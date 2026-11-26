@@ -54,16 +54,23 @@ collectRelatedMessages().
 QList<QPersistentModelIndex> collectConversation(const QAbstractItemModel *messages, const QModelIndex &current, int maximum = 1000,
                                                  int maximumScannedRows = 20000);
 
-/** @short The message of the conversation of @arg current which comes after (or before) it
+/** @short The message of the thread of @arg current which comes after (or before) it
 
-@arg view is the shown message list and @arg current one of its rows. With @arg threaded, the conversation is the
-thread of @arg current: its top-level message and every reply below it, whether expanded or not. Otherwise it is
-@arg current and the rows of @arg view which are the same messages as @arg related, for example the conversation
-found by collectRelatedMessages(). Either way the messages go from the oldest to the newest, whatever the sorting of
-the list, and messages of the same date keep their list order. Group headers and rows without a UID, such as a
-thread's missing parent, are skipped. There is no wrap-around.
+@arg view is the shown, threaded message list and @arg current one of its rows. The thread is its top-level message
+and every reply below it, whether expanded or not; a group header above it is not part of it. The messages go from
+the oldest to the newest, whatever the sorting of the list, and messages of the same date keep their list order. Group
+headers and rows without a UID, such as a thread's missing first message, are skipped. There is no wrap-around.
 */
-QModelIndex adjacentInConversation(const QAbstractItemModel *view, const QModelIndex &current, bool forward, bool threaded,
-                                   const QList<QPersistentModelIndex> &related);
+QModelIndex adjacentInThread(const QAbstractItemModel *view, const QModelIndex &current, bool forward);
+
+/** @short The message of @arg conversation which comes after (or before) @arg current by date
+
+@arg conversation holds the other messages of the conversation, for example from collectConversation(), as indexes of
+any model above the IMAP model. The messages go from the oldest to the newest; messages of the same date keep the order
+of @arg conversation, with @arg current first. Messages without a UID are skipped and there is no wrap-around. The
+result is an index of the IMAP model (see Imap::deproxifiedIndex()), so it can be a message which a filtered list
+does not show.
+*/
+QModelIndex adjacentByDate(const QModelIndex &current, bool forward, const QList<QPersistentModelIndex> &conversation);
 
 }

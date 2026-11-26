@@ -183,44 +183,51 @@ QList<QPersistentModelIndex> collectConversation(const QAbstractItemModel *messa
     return result;
 }
 
-QModelIndex adjacentInConversation(const QAbstractItemModel *view, const QModelIndex &current, bool forward, bool threaded,
-                                   const QList<QPersistentModelIndex> &related)
-{
-    if (!view || !current.isValid() || current.model() != view || isGroupHeader(current))
-        return QModelIndex();
-    const QModelIndex here = current.siblingAtColumn(0);
+namespace {
 
-    QList<QModelIndex> members;
-    if (threaded) {
-        QModelIndex root = here;
-        while (root.parent().isValid() && !isGroupHeader(root.parent()))
-            root = root.parent();
-        members.append(root);
-        appendDescendants(view, root, members);
-    } else {
-        QSet<QPersistentModelIndex> wanted;
-        for (const QPersistentModelIndex &message : related)
-            wanted.insert(QPersistentModelIndex(Imap::deproxifiedIndex(message)));
-        wanted.insert(QPersistentModelIndex(Imap::deproxifiedIndex(here)));
-        QList<QModelIndex> rows;
-        appendDescendants(view, QModelIndex(), rows);
-        for (const QModelIndex &row : std::as_const(rows)) {
-            if (!isGroupHeader(row) && wanted.contains(QPersistentModelIndex(Imap::deproxifiedIndex(row))))
-                members.append(row);
-        }
-    }
+/** The member after or before @arg here, once @arg members are put in date order */
+QModelIndex stepByDate(QList<QModelIndex> members, const QModelIndex &here, bool forward)
+{
     std::stable_sort(members.begin(), members.end(), [](const QModelIndex &a, const QModelIndex &b) {
         return a.data(Imap::Mailbox::RoleMessageDate).toDateTime() < b.data(Imap::Mailbox::RoleMessageDate).toDateTime();
     });
     members.removeIf([&here](const QModelIndex &index) {
         return index != here && (isGroupHeader(index) || index.data(Imap::Mailbox::RoleMessageUid).toUInt() == 0);
     });
-
     const qsizetype at = members.indexOf(here);
     if (at < 0)
         return QModelIndex();
     const qsizetype next = at + (forward ? 1 : -1);
     return next >= 0 && next < members.size() ? members.at(next) : QModelIndex();
+}
+
+}
+
+QModelIndex adjacentInThread(const QAbstractItemModel *view, const QModelIndex &current, bool forward)
+{
+    if (!view || !current.isValid() || current.model() != view || isGroupHeader(current))
+        return QModelIndex();
+    const QModelIndex here = current.siblingAtColumn(0);
+    QModelIndex root = here;
+    while (root.parent().isValid() && !isGroupHeader(root.parent()))
+        root = root.parent();
+    QList<QModelIndex> members{root};
+    appendDescendants(view, root, members);
+    return stepByDate(members, here, forward);
+}
+
+QModelIndex adjacentByDate(const QModelIndex &current, bool forward, const QList<QPersistentModelIndex> &conversation)
+{
+    if (!current.isValid() || isGroupHeader(current))
+        return QModelIndex();
+    const QModelIndex here = Imap::deproxifiedIndex(current.siblingAtColumn(0));
+    QList<QModelIndex> members{here};
+    for (const QPersistentModelIndex &message : conversation) {
+        const QModelIndex member = Imap::deproxifiedIndex(message);
+        if (member.isValid() && !members.contains(member))
+            members.append(member);
+    }
+    return stepByDate(members, here, forward);
 }
 
 }

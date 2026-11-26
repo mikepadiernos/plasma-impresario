@@ -50,7 +50,8 @@ when the data arrive:
 When the messages are shown in threads, a thread is shown as a whole when any of its messages matches.
 
 The message set by setKeptVisibleIndex() stays shown even when it stops matching, for example when reading it clears
-its unread state, until another message takes its place.
+its unread state, until another message takes its place. A message which the filters hide is shown once it is set,
+so that going through a conversation can reach its other messages.
 
 While relevance terms are set, the model sorts the messages itself by UiUtils::relevanceScore(), the best matches first
 in ascending order; equally relevant messages are sorted newest first. Otherwise the order of the source is kept.

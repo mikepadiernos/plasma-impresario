@@ -3778,11 +3778,19 @@ void MainWindow::goToMessageInConversation(bool forward)
     const QModelIndex current = tree->currentIndex();
     if (!current.isValid())
         return;
-    // A thread is the conversation; a flat or grouped list follows the subject and Message-ID links of the loaded rows
-    const bool threaded = showsThreads();
-    const QList<QPersistentModelIndex> related =
-        threaded ? QList<QPersistentModelIndex>() : UiUtils::collectConversation(m_imapAccess->msgListModel(), current);
-    const QModelIndex target = UiUtils::adjacentInConversation(tree->model(), current, forward, threaded, related);
+    // The Unified Inbox shows messages of several folders, whose conversations are not known
+    if (m_unifiedInbox)
+        return;
+    // A thread is the conversation. A flat or grouped list follows the subject and Message-ID links of the loaded rows,
+    // also to messages which the quick filters hide; those are shown while they are current.
+    QModelIndex target;
+    if (showsThreads()) {
+        target = UiUtils::adjacentInThread(tree->model(), current, forward);
+    } else {
+        const QModelIndex message =
+            UiUtils::adjacentByDate(current, forward, UiUtils::collectConversation(m_imapAccess->msgListModel(), current));
+        target = revealMessage(message);
+    }
     if (!target.isValid())
         return;
     // Expands a collapsed thread or group on the way
@@ -3791,6 +3799,23 @@ void MainWindow::goToMessageInConversation(bool forward)
     m_messageWidget->messageView->setMessage(target);
 #endif
     tree->setCurrentIndex(target);
+}
+
+QModelIndex MainWindow::revealMessage(const QModelIndex &message)
+{
+    auto *msgList = qobject_cast<QAbstractProxyModel *>(m_imapAccess->msgListModel());
+    auto *threading = qobject_cast<QAbstractProxyModel *>(m_imapAccess->threadingMsgListModel());
+    if (!message.isValid() || !msgList || !threading || !prettyMsgListModel)
+        return QModelIndex();
+    const QModelIndex source = threading->mapFromSource(msgList->mapFromSource(message));
+    if (!source.isValid())
+        return QModelIndex();
+    QModelIndex pretty = prettyMsgListModel->mapFromSource(source);
+    if (!pretty.isValid()) {
+        prettyMsgListModel->setKeptVisibleIndex(source);
+        pretty = prettyMsgListModel->mapFromSource(source);
+    }
+    return fromPrettyIndex(pretty);
 }
 
 void MainWindow::slotPreviousUnread()

@@ -421,6 +421,8 @@ private:
     void goToMessageInConversation(bool forward);
     /** @short Whether the message list shows threads, rather than a flat list or groups */
     bool showsThreads() const;
+    /** @short The row of the message list for @arg message of the IMAP model, shown even if the quick filters hide it */
+    QModelIndex revealMessage(const QModelIndex &message);
 
     void createMailboxBelow(const QModelIndex &index);
 
