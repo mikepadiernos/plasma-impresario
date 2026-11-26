@@ -201,6 +201,7 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     QWidget(parent), m_accountId(accountId), m_supportsFuzzySearch(false), m_favoriteTags(m_favoriteTagsModel)
 {
     tree = new MsgListView(this, m_favoriteTagsModel);
+    tree->setObjectName(QStringLiteral("messageListView"));
 
     m_quickSearchText = new LineEdit(this);
     m_quickSearchText->setObjectName(QStringLiteral("quickSearch"));

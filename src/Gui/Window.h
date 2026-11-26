@@ -125,6 +125,7 @@ class ContactPanel;
 class EmbeddedPanel;
 class MessageDetailsPanel;
 class RelatedMessagesPanel;
+class SearchResultsPanel;
 class CompleteMessageWidget;
 class ComposeWidget;
 class DensityMenu;
@@ -489,6 +490,11 @@ private:
     bool showsThreads() const;
     /** @short The row of the message list for @arg message of the IMAP model, shown even if the quick filters hide it */
     QModelIndex revealMessage(const QModelIndex &message);
+    /** @short Show the folder of @arg message, of an IMAP model, and select the message there
+
+    Results shown in the message list give way to the folder; those in the Search Results panel stay.
+    */
+    void revealInFolder(const QModelIndex &message);
 
     void createMailboxBelow(const QModelIndex &index);
 
@@ -684,6 +690,18 @@ private:
     void setFolderViewActionsEnabled(bool enabled);
     /** @short Search the places chosen in the quick search, which span several folders or accounts */
     void startSearchAcross(const QStringList &conditions);
+    /** @short Whether the shown search lists its results in the message list rather than in the Search Results panel */
+    bool searchShownInList() const;
+    /** @short Whether a search started now would list its results in the Search Results panel
+
+    Saved searches are virtual folders, so they always show in the message list.
+    */
+    bool wantsSearchInPanel() const;
+    /** @short The results which the shown search fills, of the Search Results panel or of the message list */
+    Imap::Mailbox::UnifiedMsgListModel *searchModel() const;
+    Imap::Mailbox::PrettyUnifiedMsgListModel *searchPrettyModel() const;
+    /** @short Run the shown search again where its results now belong, after the Search Results panel was toggled */
+    void moveSearchResults();
     /** @short Stop searching several folders and show the list from before the search */
     void leaveSearchAcross();
     void cancelFolderSearches();
@@ -774,6 +792,7 @@ private:
     MessageDetailsPanel *m_messageDetailsPanel = nullptr;
     ContactPanel *m_contactPanel = nullptr;
     RelatedMessagesPanel *m_relatedMessagesPanel = nullptr;
+    SearchResultsPanel *m_searchResultsPanel = nullptr;
     /** All embedded panels, in their canonical order within a region */
     QList<EmbeddedPanel *> m_embeddedPanels;
 
@@ -1038,6 +1057,20 @@ private:
     QAction *m_actionStopSearch = nullptr;
     QAction *m_actionRetrySearch = nullptr;
     QAction *m_actionSearchServer = nullptr;
+    /** While the shown search lists its results in the Search Results panel rather than in the message list */
+    bool m_searchInPanel = false;
+    /** The conditions of the quick search, which are searched again when the results move */
+    QStringList m_lastSearchConditions;
+    /** Shows the folder of a message of the search results or the Unified Inbox */
+    QAction *m_actionRevealInFolder = nullptr;
+    /** A message to select once its folder is shown, from revealInFolder() */
+    struct PendingReveal {
+        QString accountId;
+        QString mailbox;
+        uint uidValidity = 0;
+        uint uid = 0;
+    };
+    PendingReveal m_pendingReveal;
     /** While an action works on messages of another account than the shown one */
     Imap::ImapAccess *m_actingAccess = nullptr;
     QString m_actingAccountId;
