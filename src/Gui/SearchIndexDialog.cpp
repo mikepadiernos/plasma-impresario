@@ -11,6 +11,7 @@
 #include <QLabel>
 #include <QLocale>
 #include <QMessageBox>
+#include <QMimeDatabase>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QScrollBar>
@@ -303,6 +304,51 @@ void SearchIndexDialog::refresh()
                 + i18ncp("@info", "%1 message holds decrypted text of encrypted mail.",
                          "%1 messages hold decrypted text of encrypted mail.", decrypted);
         }
+        QString attachmentWarning;
+        if (m_indexer->indexesAttachments()) {
+            const Imap::Mailbox::SearchIndex::AttachmentSummary files = m_indexer->index()->attachmentSummary();
+            summary += QLatin1Char(' ')
+                + i18ncp("@info", "The text of %1 attached file is searchable.",
+                         "The text of %1 attached files is searchable.", files.read);
+            if (files.notDownloaded > 0) {
+                summary += QLatin1Char(' ')
+                    + i18ncp("@info", "%1 attached file is not downloaded yet, so its text is not searchable.",
+                             "%1 attached files are not downloaded yet, so their text is not searchable.",
+                             files.notDownloaded);
+            }
+            if (files.tooLarge > 0) {
+                summary += QLatin1Char(' ')
+                    + i18ncp("@info %2 is the size limit in megabytes",
+                             "%1 attached file is larger than the limit of %2 MB and is not read.",
+                             "%1 attached files are larger than the limit of %2 MB and are not read.", files.tooLarge,
+                             locale.toString(qulonglong(m_indexer->attachmentLimit() / (1024 * 1024))));
+            }
+            if (files.failed > 0) {
+                summary += QLatin1Char(' ')
+                    + i18ncp("@info", "%1 attached file could not be read.", "%1 attached files could not be read.",
+                             files.failed);
+            }
+            if (!files.withoutExtractor.isEmpty()) {
+                const QMimeDatabase mimeTypes;
+                QStringList types;
+                int count = 0;
+                for (auto it = files.withoutExtractor.constBegin(); it != files.withoutExtractor.constEnd(); ++it) {
+                    const QMimeType type = mimeTypes.mimeTypeForName(it.key());
+                    types << (type.isValid() && !type.comment().isEmpty() ? type.comment() : it.key());
+                    count += it.value();
+                }
+                types.removeDuplicates();
+                std::sort(types.begin(), types.end(), [](const QString &a, const QString &b) {
+                    return QString::localeAwareCompare(a, b) < 0;
+                });
+                attachmentWarning = i18ncp("@info %2 is a list of file types",
+                                           "The text of %1 attached file is not searchable because no text extractor "
+                                           "is installed for its type: %2.",
+                                           "The text of %1 attached files is not searchable because no text extractor "
+                                           "is installed for their types: %2.",
+                                           count, locale.createSeparatedList(types));
+            }
+        }
         if (lastUpdate.isValid()) {
             summary += QLatin1Char(' ')
                 + i18nc("@info date and time", "Last updated %1.",
@@ -316,6 +362,8 @@ void SearchIndexDialog::refresh()
         }
         if (paused && !warning.isEmpty())
             warning += QLatin1Char(' ') + i18nc("@info", "Resume indexing to catch up.");
+        if (!attachmentWarning.isEmpty())
+            warning += (warning.isEmpty() ? QString() : QStringLiteral(" ")) + attachmentWarning;
     }
     m_filling = false;
     m_folders->verticalScrollBar()->setValue(scrolled);
