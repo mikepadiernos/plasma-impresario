@@ -13,6 +13,7 @@
 #include "Gui/SearchFoldersDialog.h"
 #include "Gui/SearchIndexDialog.h"
 #include "Gui/Window.h"
+#include "Imap/Model/FolderSearch.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/Model.h"
@@ -906,6 +907,154 @@ private slots:
         emit query->returnPressed();
         watcher->setNetworkOnline();
         QTRY_VERIFY_WITH_TIMEOUT(window.imapModel()->isNetworkAvailable(), 10000);
+    }
+
+    /**
+     * gamma@example.test with the messages of searchesWithQuerySyntax, kept offline and indexed while online. A search
+     * of the account is answered from the index first and continued on the server on request, which adds the messages
+     * the index lacks without listing any twice; indexed matches of a folder whose UIDVALIDITY differs from the
+     * server's are left out.
+     */
+    void continuesIndexedSearchOnServer()
+    {
+        using UiUtils::SearchScope::Places;
+        bool ok = false;
+        const int port = qEnvironmentVariableIntValue("PLASMA_TEST_IMAPS_PORT", &ok);
+        QVERIFY(ok && port > 0 && port <= 65535);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        settings.setValue(Common::SettingsNames::guiShowSystray, false);
+        settings.setValue(Common::SettingsNames::autoMarkReadEnabled, false);
+        settings.setValue(Common::SettingsNames::passwordPlugin, QStringLiteral("cleartextpassword"));
+        settings.setValue(QStringLiteral("accounts/ids"), QStringList{QStringLiteral("account-1")});
+        settings.setValue(QStringLiteral("accounts/active"), QStringLiteral("account-1"));
+        settings.setValue(QStringLiteral("accounts/next"), 2);
+        settings.setValue(QStringLiteral("accounts/names/account-1"), QStringLiteral("Gamma"));
+        settings.setValue(QStringLiteral("accountPasswords/account-1/imap"), syntheticPassword);
+        settings.sync();
+        const QString accountFile = directory.filePath(QStringLiteral("main-account-1.conf"));
+        configureAccount(accountFile, port, QStringLiteral("gamma@example.test"));
+        {
+            QSettings account(accountFile, QSettings::IniFormat);
+            account.setValue(Common::SettingsNames::cacheOfflineKey, Common::SettingsNames::cacheOfflineAll);
+            account.setValue(Common::SettingsNames::searchIndexKey, true);
+            account.sync();
+        }
+
+        QTimer dialogs;
+        connect(&dialogs, &QTimer::timeout, this, &answerDialogs);
+        dialogs.start(20);
+
+        Gui::MainWindow window(&settings);
+        window.resize(1000, 700);
+        window.show();
+        auto *tree = window.findChild<Gui::MailBoxTreeView *>();
+        auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
+        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *searchServer = window.findChild<QAction *>(QStringLiteral("action_search_server"));
+        QVERIFY(tree && searchWidget && messages && searchServer);
+        auto *query = searchWidget->findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        auto *status = searchWidget->findChild<QLabel *>(QStringLiteral("messageListStatus"));
+        QVERIFY(query && status);
+        Imap::Mailbox::SearchIndexer *indexer = window.imapAccess()->searchIndexer();
+        QVERIFY(indexer);
+        QVERIFY2(indexer->isAvailable(), qPrintable(indexer->unavailableReason()));
+        indexer->setTimings(200, 20, 200);
+
+        QModelIndex inbox;
+        QTRY_VERIFY_WITH_TIMEOUT((inbox = findMailbox(tree->model(), QStringLiteral("INBOX"))).isValid(), 20000);
+        tree->scrollTo(inbox);
+        QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(inbox).center());
+        QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(), 4, 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(indexer->index()->entries(QStringLiteral("INBOX")).size(), 4, 20000);
+        QTRY_VERIFY_WITH_TIMEOUT(!indexer->isRunning(), 20000);
+
+        const QString plan = QStringLiteral("Release plan");
+        const QString lunch = QStringLiteral("Lunch on Friday");
+        const QString report = QStringLiteral("Quarterly report");
+        uint lunchUid = 0;
+        QTRY_VERIFY_WITH_TIMEOUT(
+            [&]() {
+                for (int row = 0; row < messages->model()->rowCount(); ++row) {
+                    const QModelIndex index = messages->model()->index(row, 0);
+                    if (index.data(Imap::Mailbox::RoleMessageSubject).toString() == lunch)
+                        lunchUid = index.data(Imap::Mailbox::RoleMessageUid).toUInt();
+                }
+                return lunchUid != 0;
+            }(),
+            10000);
+
+        // Every row, so that a message listed twice shows up
+        const auto subjects = [&]() {
+            QStringList result;
+            for (int row = 0; row < messages->model()->rowCount(); ++row) {
+                const QString subject = messages->model()->index(row, 0).data(Imap::Mailbox::RoleMessageSubject).toString();
+                if (subject.isEmpty())
+                    return QStringList{QStringLiteral("(not loaded)")};
+                result << subject;
+            }
+            result.sort();
+            return result;
+        };
+        const auto folderSearch = [&]() {
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            return window.findChild<Imap::Mailbox::FolderSearch *>();
+        };
+        const auto indexed = [&]() {
+            return status->text().contains(QLatin1String("in mail indexed on this computer"))
+                && !status->text().contains(QLatin1String("offline"));
+        };
+        // The index answers first, and the server is offered
+        const auto expectIndexed = [&](const QString &text, QStringList expected) {
+            query->setText(text);
+            emit query->returnPressed();
+            expected.sort();
+            QTRY_VERIFY2_WITH_TIMEOUT(subjects() == expected && indexed() && searchServer->isVisible(),
+                                      qPrintable(text + QStringLiteral(" -> ") + describe(subjects(), searchWidget)), 15000);
+        };
+        // The server adds what the index lacks, and nothing twice
+        const auto expectServer = [&](const QString &text, QStringList expected) {
+            QVERIFY2(searchServer->isVisible() && searchServer->isEnabled(), qPrintable(describe(subjects(), searchWidget)));
+            searchServer->trigger();
+            expected.sort();
+            QTRY_VERIFY2_WITH_TIMEOUT(subjects() == expected && !indexed() && !searchServer->isVisible()
+                                          && !folderSearch()->isRunning(),
+                                      qPrintable(text + QStringLiteral(" on the server -> ")
+                                                 + describe(subjects(), searchWidget)),
+                                      30000);
+            QVERIFY(folderSearch()->continuedOnServer());
+            QVERIFY(!status->text().contains(QLatin1String("could not be searched")));
+        };
+
+        searchWidget->setSearchPlaces(Places::Account);
+        expectIndexed(QStringLiteral("from:ann"), {plan, report});
+        expectServer(QStringLiteral("from:ann"), {plan, report});
+
+        // A message the index does not have is found on the server only
+        indexer->setPaused(true);
+        QVERIFY(indexer->index()->remove(QStringLiteral("INBOX"), {lunchUid}));
+        expectIndexed(QStringLiteral("lunch"), {});
+        QTRY_VERIFY2_WITH_TIMEOUT(status->text().contains(QLatin1String("results may be incomplete")),
+                                  qPrintable(describe(subjects(), searchWidget)), 5000);
+        expectServer(QStringLiteral("lunch"), {lunch});
+
+        // Indexed UIDs of a renumbered folder name other messages, so they are left out until the server is asked
+        Imap::Mailbox::SearchIndex::Folder folder = indexer->index()->folder(QStringLiteral("INBOX"));
+        QVERIFY(folder.uidValidity != 0);
+        folder.uidValidity += 1;
+        QVERIFY(indexer->index()->setFolder(folder));
+        expectIndexed(QStringLiteral("from:ann"), {});
+        QCOMPARE(folderSearch()->discardedFolders(), QStringList{QStringLiteral("INBOX")});
+        QTRY_VERIFY2_WITH_TIMEOUT(status->text().contains(QLatin1String("results may be incomplete"))
+                                      && status->toolTip().contains(QLatin1String("renumbered")),
+                                  qPrintable(describe(subjects(), searchWidget)), 5000);
+        expectServer(QStringLiteral("from:ann"), {plan, report});
+        indexer->setPaused(false);
+
+        query->setText(QString());
+        emit query->returnPressed();
+        searchWidget->setSearchPlaces(Places::CurrentFolder);
     }
 
     /**
