@@ -20,6 +20,13 @@ Legend: ![Done][done] · ![Needs verification][needs-verification] ·
   - [Layouts and regions](#layouts-and-regions)
   - [Current embedded panels](#current-embedded-panels)
   - [Mail operations](#mail-operations)
+  - [Reader colors](#reader-colors)
+  - [Search highlighting](#search-highlighting)
+  - [Remote content and links](#remote-content-and-links)
+  - [Loading and unavailable content](#loading-and-unavailable-content)
+  - [Reader actions](#reader-actions)
+  - [Reading and triage](#reading-and-triage)
+  - [Accounts in reading and composing](#accounts-in-reading-and-composing)
   - [Status bar](#status-bar)
 - [Proposed Plasma Impresario shell](#proposed-plasma-impresario-shell)
   - [Panes and placement](#panes-and-placement)
@@ -99,7 +106,7 @@ whose issue is still in Review or earlier.
 | Related messages from the server and other folders                    | ![Planned][planned] | M05.01    | [#302](https://github.com/mikepadiernos/plasma-impresario/issues/302)                                                                               |
 | Search across folders and accounts, saved searches as virtual folders | ![Planned][planned] | M05       | [Roadmap](../ROADMAP.md#m05-search-and-indexing)                                                                                                    |
 | Search Results panel                                                  | ![Planned][planned] | M05.05    | [#348](https://github.com/mikepadiernos/plasma-impresario/issues/348)                                                                               |
-| Verified signature and decryption results in Message Details          | ![Planned][planned] | M04       | [#303](https://github.com/mikepadiernos/plasma-impresario/issues/303)                                                                               |
+| Verified signature and decryption results in Message Details          | ![Done][done]       | M04       | [#303](https://github.com/mikepadiernos/plasma-impresario/issues/303), caveat [#442](https://github.com/mikepadiernos/plasma-impresario/issues/442) |
 | My Day / Agenda panel                                                 | ![Planned][planned] | M06.04    | [#304](https://github.com/mikepadiernos/plasma-impresario/issues/304)                                                                               |
 | Address-book names, photos and organizations in Contacts              | ![Planned][planned] | M06.04    | [#305](https://github.com/mikepadiernos/plasma-impresario/issues/305)                                                                               |
 | Optional mail workspace tabs                                          | ![Planned][planned] | M08       | [#246](https://github.com/mikepadiernos/plasma-impresario/issues/246)                                                                               |
@@ -173,12 +180,12 @@ the mailbox's UIDVALIDITY before selecting a saved UID.
 Four embedded panels are available. Only Attachments is shown by default, so the
 default look matches the classic layout.
 
-| Panel            | Default             | Content                                                                                                                                                                                                                  | Actions                                                                                  |
-| ---------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| Attachments      | Shown, below reader | The current message's attachments with type icons, names and sizes. Attachments that arrive late, such as after decryption, are added as they appear.                                                                    | Open, Save As, context menu, drag into the composer                                      |
-| Message Details  | Off, right column   | Subject, From, To, Cc, date, size, folder, read/flagged/replied/forwarded state and whether the message is signed or encrypted at the MIME level. Rows without a value are hidden.                                       | None                                                                                     |
-| Contacts         | Off, right column   | The From, Reply-To, To and Cc addresses, each listed once with all its roles. Reply-To is listed only when it names other addresses than From.                                                                           | Write Email, Copy Address, Open in Address Book (only when an address-book plugin loads) |
-| Related Messages | Off, right column   | Messages of the current folder in the same conversation (same subject without reply prefixes, or linked through Message-ID and In-Reply-To) and other messages from the same sender, newest first, at most 25 per group. | Activating a message selects it in the message list                                      |
+| Panel            | Default             | Content                                                                                                                                                                                       | Actions                                                                                  |
+| ---------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Attachments      | Shown, below reader | The current message's attachments with type icons, names and sizes. Attachments that arrive late, such as after decryption, are added as they appear.                                         | Open, Save As, context menu, drag into the composer                                      |
+| Message Details  | Off, right column   | Subject, From, To, Cc, date, size, folder, read/flagged/replied/forwarded state and the reader's signature and decryption result. Rows without a value are hidden.                            | None                                                                                     |
+| Contacts         | Off, right column   | The From, Reply-To, To and Cc addresses, each listed once with all its roles. Reply-To is listed only when it names other addresses than From.                                                | Write Email, Copy Address, Open in Address Book (only when an address-book plugin loads) |
+| Related Messages | Off, right column   | Messages of the current folder in the same conversation (see [Conversations](#conversations-and-their-subjects)) and other messages from the same sender, newest first, at most 25 per group. | Activating a message selects it in the message list                                      |
 
 Each panel has a submenu in **View › Embedded Panels**. Preferences are saved in
 the `Appearance` group of `plasma-impresariorc`, where `<Panel>` is
@@ -210,9 +217,34 @@ The Attachments panel lists files differently from the message-list paperclip:
 > [!NOTE]
 >
 > Related Messages considers only messages whose envelope the list has already
-> loaded, so the panel never makes the client download envelopes. Message
-> Details reports MIME-level security only, not verified signatures. See
+> loaded, so the panel never makes the client download envelopes. See
 > [CAVEATS](../CAVEATS.md#related-messages-and-message-details-panels).
+
+**Security in Message Details** follows the reader's cryptography results and
+updates when verification or decryption finishes; the panel never starts either
+itself. Each state has its own text, a theme icon and an accessible name, and
+the row's tooltip adds the reader's summary, the signing date and details.
+
+| Result                             | Text                                                                                | Icon               |
+| ---------------------------------- | ----------------------------------------------------------------------------------- | ------------------ |
+| Verification in progress           | _Signed, verifying the signature…_                                                  | `clock`            |
+| Valid, trusted signature           | _Valid signature from <signer>_                                                     | `security-high`    |
+| Valid, untrusted signature         | _Valid signature from <signer>, but the signer is not trusted or is not the sender_ | `security-medium`  |
+| Signer's key not available         | _Signed with an unknown key, not verified_                                          | `security-medium`  |
+| Bad signature                      | _Invalid signature from <signer>_                                                   | `security-low`     |
+| Verification could not run         | _Signed, but the signature could not be verified_                                   | `dialog-warning`   |
+| No reader result (MIME level only) | _Signed, not verified_                                                              | `document-sign`    |
+| Decryption in progress             | _Encrypted, decrypting…_                                                            | `clock`            |
+| Decrypted                          | _Encrypted and decrypted_                                                           | `document-decrypt` |
+| Decryption failed                  | _Encrypted, decryption failed_                                                      | `dialog-error`     |
+| Not decrypted (MIME level only)    | _Encrypted, not decrypted_                                                          | `document-encrypt` |
+
+A message that is both encrypted and signed shows one line for each; the icon
+reflects the signature. Without a signer name, the signer is left out.
+
+Inline PGP armor in loaded text is labelled as such but is never verified or
+decrypted, because the reader does not process inline PGP
+([#442](https://github.com/mikepadiernos/plasma-impresario/issues/442)).
 
 ### Mail operations
 
@@ -345,7 +377,10 @@ Flagged until they arrive. A message whose structure is not loaded yet is
 shown by With Attachments, so that rows do not disappear while scrolling. The
 current message stays listed while it is current, even after it stops
 matching (for example, when reading marks it read under Unread). It is hidden
-once another message becomes current.
+once another message becomes current. Turning a filter on or off, or changing
+the grouping, keeps the current message current, listed and, in a threaded
+list, inside its expanded thread
+([#96](https://github.com/mikepadiernos/plasma-impresario/issues/96)).
 
 **View › Group By** and the Sort button's menu offer **None**,
 **Conversation**, **Date**, **Sender**, **Subject**, **Tag**, **Read State**
@@ -364,6 +399,9 @@ is requested. Date groups follow the sort direction, newest first when
 descending; the other groups are alphabetical, and the sorting applies inside
 each group. **Expand All Groups** and **Collapse All
 Groups** are in the Group By menu and, while grouping, in the context menu.
+Likewise **Expand All Conversations** (<kbd>Ctrl</kbd>+<kbd>.</kbd>) and
+**Collapse All Conversations** (<kbd>Ctrl</kbd>+<kbd>,</kbd>) open and close
+every thread while the list is grouped by Conversation.
 Collapsed groups stay collapsed until the grouping or the account changes.
 Headers cannot be selected; message actions, Select All, drag and drop, the
 reader and the related-messages panel skip them. Up and Down step over the
@@ -466,6 +504,190 @@ its current shortcut, grouped by menu, then Message List, Message Reader,
 General and Other Windows. It is read-only; its **Configure Shortcuts…** button
 opens the shortcut settings, and the list shows the changes afterwards.
 
+### Reader colors
+
+The reader follows the active color scheme without changing the message:
+
+- **Plain text** uses the scheme's background, text and link colors.
+- **HTML that sets a background of its own** (a `background` or `bgcolor` on
+  the page or its body) keeps all its colors.
+- **Other HTML** is written for white paper, so in a dark scheme it is shown on
+  a white page with black default text; in a light scheme it uses the scheme's
+  colors. Colors the message sets for any element still win.
+
+The reader's **Color scheme** context menu can still force black on white.
+Colors are applied from an isolated script that only adds a stylesheet; message
+scripts stay disabled and no remote content is loaded for it. A changed color
+scheme applies to open messages at once.
+
+### Search highlighting
+
+A message opened while a quick search is on shows the search text in the
+reader's **find bar** when its body contains it. The matches are highlighted and
+the first is selected; <kbd>F3</kbd> and <kbd>Shift</kbd>+<kbd>F3</kbd> step
+through them. The keyboard focus stays in the message list, so the next result
+is still a key press away.
+
+- The text comes from a **Subject** or **Body** search, a `subject:` filter, or
+  the first `SUBJECT`, `BODY` or `TEXT` value of a raw IMAP search.
+  Sender, recipient and `list:` filters search headers only, so they highlight
+  nothing.
+- Only the loaded parts of the message are searched. Nothing is fetched for it,
+  and remote content stays blocked.
+- A message without a match opens without the find bar. Clearing the search
+  turns highlighting off for the next message; the open one is left as it is.
+
+### Remote content and links
+
+The reader blocks remote content, such as images and style sheets on other
+servers, until the user asks for it. A bar above the message names the servers
+it would contact, up to three and then a count, and explains that loading it can
+tell the sender when the message is read. **Load Remote Content** loads it for
+the open message only; the next message starts blocked again.
+
+Links open in the default browser. Before opening an http or https link, the
+reader asks for confirmation when the link may not go where it appears to:
+
+- the link text is a web address on another site than the target;
+- the address has a user name before the host;
+- the host is a numeric IP address;
+- the host has internationalized labels, which can imitate another name.
+
+The dialog names the site that would open, lists the reasons and shows the full
+address. **Cancel** is the default. Other links open without asking; their
+target is shown in a tooltip on hover. Scripts stay disabled throughout; the
+link text is read from an isolated script. See
+[caveats](../CAVEATS.md#reading-privacy).
+
+### Loading and unavailable content
+
+The reader fetches a message's parts when it shows them. Parts which are not
+downloaded and cannot be fetched are reported in the reader rather than left
+blank:
+
+- Offline, an error bar above the message says that part of the message is not
+  available offline and loads when the network is back. It does so on its own.
+- When the server does not send a part, the bar says that it could not be
+  loaded and offers **Try Again**.
+- When the message's structure itself cannot be fetched, the reader shows a
+  page saying that the message is not available offline, or could not be
+  loaded, with **Try Again** when online. Before this, the reader waited
+  without end.
+- Chromium's own error page is turned off; the bar is the only report.
+- Saving an attachment that cannot be downloaded or written reports
+  **Could Not Save File** with the reason.
+
+On an expensive connection, large parts still wait behind a **Load** button
+with their type and size. See
+[caveats](../CAVEATS.md#loading-on-demand).
+
+### Reader actions
+
+A bar above the message in the main window acts on the open message, whatever
+is selected in the list ([#39](https://github.com/mikepadiernos/plasma-impresario/issues/39)):
+
+- **Reply**, with the reply menu, and **Forward**.
+- **Archive** and **Move to Trash**. Without a Trash folder, or with moving to
+  Trash turned off, the button becomes **Delete** or **Undelete**. Undo returns
+  the message to its own folder, also when it was opened from Related Messages.
+- **Read** and **Flag** toggles, which show the message's marks as the server
+  reports them. Offline, these and the move buttons are disabled.
+- An attachment chip, such as **2 attachments**, shown only when the message
+  has attachments. It shows the Attachments panel, also when the panel was
+  turned off, and moves the focus to it.
+- **Zoom Out**, **Reset Zoom** and **Zoom In** for the open message, and
+  **Prefer Plain Text**, which changes the reader setting and reloads the
+  message.
+
+Buttons use the theme's symbolic icons and have accessible names; the bar
+collapses into an overflow menu when narrow. See
+[caveats](../CAVEATS.md#reader-actions).
+
+### Reading and triage
+
+The reader is laid out for reading, and the list keys work through a folder
+without the mouse ([#91](https://github.com/mikepadiernos/plasma-impresario/issues/91)):
+
+- Plain-text mail wraps at about 90 characters of its font, so lines stay
+  readable in a wide reader; hard-wrapped mail and a few levels of quotes still
+  fit. A `message.css` in the data folder can override the width.
+- With the focus in the message list, <kbd>Space</kbd> and
+  <kbd>Backspace</kbd> page through the open message. At its end,
+  <kbd>Space</kbd> opens the next unread message, as in Thunderbird; after the
+  last unread message it does nothing.
+- <kbd>N</kbd> and <kbd>P</kbd> go to the next and previous unread message,
+  <kbd>Shift</kbd>+<kbd>N</kbd> marks the selection read and goes to the next
+  unread one, and <kbd>F</kbd> and <kbd>B</kbd> go to the next and previous
+  message. Archive and Trash select the following message.
+- Opening a message marks it read, after the delay set in the reader settings.
+- <kbd>Alt</kbd>+<kbd>Down</kbd> and <kbd>Alt</kbd>+<kbd>Up</kbd> (**Next** and
+  **Previous Message in Conversation** in the Mailbox menu) step through the
+  conversation of the current message from the oldest message to the newest,
+  whatever the list's sorting, and stop at either end
+  ([#40](https://github.com/mikepadiernos/plasma-impresario/issues/40)). In a
+  threaded list the conversation is the thread, and a collapsed thread opens
+  on the way. In a flat or grouped list it is the conversation of the current
+  message among the loaded messages (see
+  [Conversations](#conversations-and-their-subjects)), so a reply under a new
+  subject is included. A message
+  that a filter hides is shown while it is current, so the steps reach the
+  whole conversation
+  ([#96](https://github.com/mikepadiernos/plasma-impresario/issues/96)). The
+  steps do nothing in the Unified Inbox; see
+  [Conversations](../CAVEATS.md#conversations).
+
+#### Conversations and their subjects
+
+Threads, Related Messages and the conversation steps share one notion of a
+conversation ([#369](https://github.com/mikepadiernos/plasma-impresario/issues/369)):
+
+- Messages that share a Message-ID, as their own, in In-Reply-To or in
+  References, belong together. A message whose References name two
+  conversations merges them.
+- Only a reply that has neither In-Reply-To nor References joins by subject.
+  Its subject must start with a reply or forward prefix, and it joins the
+  closest earlier message with the same normalized subject, or else the closest
+  later one, at most 30 days apart. Two messages without prefixes, such as two
+  unrelated "Hello" mails, never join.
+- The normalized subject ignores case, spacing, leading list tags such as
+  `[team]`, and repeated or counted prefixes in common languages: Re:, Fw:,
+  Fwd:, AW:, WG:, SV:, VS:, VB:, Antw:, Doorst:, TR:, RIF:, R:, RES:, ENC:,
+  RV:, Odp:, PD:, YNT:, ILT:, VL:, VÁ:, 回复:, 转发:, 회신:, Отв:, ΑΠ: and others,
+  with `[2]` or `(2)` counters and a full-width colon.
+- In a threaded list, the server's threads that hold one conversation are shown
+  as one: the thread with the earliest message keeps its place and takes the
+  others in as replies to its first message. Only messages whose envelopes are
+  loaded count, and the list merges again as more envelopes load.
+
+### Accounts in reading and composing
+
+With two or more accounts, mail keeps the account it belongs to from reading to
+sending ([#224](https://github.com/mikepadiernos/plasma-impresario/issues/224)):
+
+- The reader's headers and the Message Details panel have an **Account** row
+  naming the account that received the open message, also in the Unified Inbox
+  and the standalone message window. With one account the row is hidden.
+- Replies and forwards open with the account that received the message and the
+  identity that the message was addressed to, whichever account is active.
+- The composer has an account selector beside the **From** identities. Choosing
+  another account offers its identities, keeping the identity a reply calls
+  for or the same address when it has one, and sends and files the message
+  with that account's outgoing server, Sent folder and credentials. The
+  original message is still marked answered or forwarded on its own account.
+- A warning above the composer explains what would stop or surprise the send:
+  an account without an outgoing server, an identity that belongs to another
+  account, a draft identity that no longer exists, or a draft whose account was
+  removed. Sending without an outgoing server is refused with the same reason.
+  Renaming or removing an account updates open composers at once.
+- A reply or forward switched to another account is assembled on the desktop
+  before it is uploaded, because one IMAP server cannot copy parts held by
+  another; the original account's server is used only to fetch those parts.
+- Drafts, including the copy saved before each send, remember the account. A
+  draft opens with that account even when another one is active; if it was
+  removed, the draft opens with the active account and says so.
+
+See [caveats](../CAVEATS.md#multiple-accounts).
+
 ### Status bar
 
 The status bar below the footer reports IMAP connection activity, offline state,
@@ -518,9 +740,9 @@ and a hidden panel's size is restored when it returns.
 - ![Needs verification][needs-verification] **Attachments, Message Details,
   Contacts and Related Messages:** implemented; see [Current embedded
   panels](#current-embedded-panels).
-- ![Planned][planned] **Panel extensions:** verified signer details ([M04,
-  #303](https://github.com/mikepadiernos/plasma-impresario/issues/303)), related
-  messages from the server and across folders ([M05.01,
+- ![Done][done] **Verified security in Message
+  Details** ([M04, #303](https://github.com/mikepadiernos/plasma-impresario/issues/303)).
+- ![Planned][planned] **Panel extensions:** related messages from the server and across folders ([M05.01,
   #302](https://github.com/mikepadiernos/plasma-impresario/issues/302)), a
   Search Results panel ([M05.05,
   #348](https://github.com/mikepadiernos/plasma-impresario/issues/348)) and
@@ -684,8 +906,9 @@ proposed Impresario behaviors, not claims about the current client.
 >
 > Planned for M08
 > ([#114](https://github.com/mikepadiernos/plasma-impresario/issues/114)). Today
-> row density, per-account identities and plain-text identity signatures are
-> available; the other options below are not implemented.
+> row density, per-account identities, plain-text identity signatures and the
+> composer's account selector are available; the other options below are not
+> implemented.
 
 Aqua Mail's customization patterns are adapted to the Plasma desktop rather
 than copied from its mobile interface:
@@ -701,9 +924,10 @@ than copied from its mobile interface:
   optional Vim mode, off by default, adds Vim-style movement and multi-key
   actions with a which-key style hint panel, and can share its settings with
   [Plasma Opus](../integrations/plasma-opus.md#vim-mode-and-shortcuts).
-- **Accounts and composition:** Building on per-account identities and
-  plain-text signatures, rich-text signatures are offered where supported, and
-  the composer shows which account and identity will be used before sending.
+- **Accounts and composition:** Building on per-account identities, plain-text
+  signatures and the composer's
+  [account selector](#accounts-in-reading-and-composing), rich-text signatures
+  are offered where supported.
 - **Notifications and sync:** Per-account and per-folder notification
   preferences, quiet periods and privacy-conscious previews respect Plasma Do
   Not Disturb. Account sync schedules and loading preferences are offered where
@@ -809,7 +1033,13 @@ otherwise.
 - ![Needs verification][needs-verification] <kbd>F6</kbd> and
   <kbd>Shift</kbd>+<kbd>F6</kbd> cycle focus between the account switcher,
   folder tree, message list, reader and each shown embedded panel, skipping
-  hidden panes.
+  hidden panes. The order follows the screen: the header first, then each
+  column from the leading side, top to bottom, then the footer. It mirrors in
+  right-to-left layouts and follows the folder tree and panel placement.
+- ![Needs verification][needs-verification] <kbd>Escape</kbd> in the reader,
+  the reader's action bar or an embedded panel returns focus to the message
+  list; in One At a Time it first goes back to the list. The find bar and the
+  quick search keep their own <kbd>Escape</kbd>.
 - ![Done][done] Folder expansion is remembered per account, so switching
   accounts restores each account's tree.
 - Make primary actions keyboard accessible with visible focus and predictable

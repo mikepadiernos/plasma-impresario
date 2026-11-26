@@ -31,6 +31,16 @@ namespace Gui
 class WebEngineMessagePage;
 class WebEngineMessageProfile;
 
+/** @short Whether an http or https link from a message may be opened
+
+A link without warning signs is allowed at once. Otherwise a dialog shows the
+real destination and the reasons for caution, and returns whether the user chose
+to open it anyway. Cancel is the default.
+@param url The link target.
+@param text The link's text, used to spot text which shows another address.
+*/
+bool confirmExternalLink(QWidget *parent, const QUrl &url, const QString &text);
+
 /** An embeddable Qt WebEngine view for message content.
 
   The view uses a per-message profile and sizes itself to the rendered content
@@ -81,7 +91,7 @@ private:
     void setColorScheme(const ColorScheme colorScheme);
 private slots:
     void autoScroll();
-    void slotLinkClicked(const QUrl &url);
+    void slotLinkClicked(const QUrl &url, const QString &text);
     void handlePageLoadFinished(bool success);
 private:
     WebEngineMessagePage *m_page;

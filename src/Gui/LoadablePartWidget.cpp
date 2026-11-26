@@ -24,6 +24,7 @@
 #include "Imap/Model/ItemRoles.h"
 #include "UiUtils/Formatting.h"
 
+#include <KLocalizedString>
 #include <QPushButton>
 
 namespace Gui
@@ -44,9 +45,11 @@ LoadablePartWidget::LoadablePartWidget(QWidget *parent, Imap::Network::MsgPartNe
             partIndex.data(Imap::Mailbox::RoleIsFetched).toBool()) {
         m_loadOnShow = true;
     } else {
-        loadButton = new QPushButton(tr("Load %1 (%2)").arg(partIndex.data(Imap::Mailbox::RolePartMimeType).toString(),
-                                     UiUtils::Formatting::prettySize(partIndex.data(Imap::Mailbox::RolePartOctets).toULongLong())),
+        loadButton = new QPushButton(i18nc("@action:button %1 is a MIME type, %2 a size", "Load %1 (%2)",
+                                           partIndex.data(Imap::Mailbox::RolePartMimeType).toString(),
+                                           UiUtils::Formatting::prettySize(partIndex.data(Imap::Mailbox::RolePartOctets).toULongLong())),
                                      this);
+        loadButton->setObjectName(QStringLiteral("loadPart"));
         connect(loadButton, &QAbstractButton::clicked, this, &LoadablePartWidget::loadClicked);
         addWidget(loadButton);
     }

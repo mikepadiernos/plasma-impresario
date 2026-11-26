@@ -184,6 +184,7 @@ void AttachmentPanel::refresh()
     m_refreshTimer->stop();
     const auto attachments = UiUtils::collectAttachments(m_model.data());
     const bool changed = attachments != m_attachments || m_list->count() != attachments.size();
+    const bool countChanged = attachments.size() != m_attachments.size();
     m_attachments = attachments;
 
     if (changed) {
@@ -220,6 +221,8 @@ void AttachmentPanel::refresh()
                          : i18ncp("@title embedded panel", "%1 Attachment", "%1 Attachments", m_attachments.size()));
     updateActions();
     updateVisibility();
+    if (countChanged)
+        emit attachmentCountChanged(m_attachments.size());
 }
 
 void AttachmentPanel::updateActions()

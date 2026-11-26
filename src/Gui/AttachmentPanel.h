@@ -53,6 +53,8 @@ public slots:
 
 signals:
     void transferError(const QString &errorString);
+    /** The number of attachments of the shown message changed, for example when its structure arrived */
+    void attachmentCountChanged(int count);
 
 private:
     void scheduleRefresh();

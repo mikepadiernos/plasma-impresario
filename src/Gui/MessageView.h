@@ -36,6 +36,7 @@
 class QBoxLayout;
 class QLabel;
 class QLayout;
+class QPushButton;
 class QSettings;
 class QStackedLayout;
 class QTimer;
@@ -69,6 +70,8 @@ class EmbeddedWebView;
 class EnvelopeView;
 class MainWindow;
 class ExternalElementsWidget;
+class InlineNotificationBar;
+class SimplePartWidget;
 class Spinner;
 class TagListWidget;
 class WebEngineMessageProfile;
@@ -88,6 +91,8 @@ public:
     ~MessageView() override;
 
     void setNetworkWatcher(Imap::Mailbox::NetworkWatcher *netWatcher);
+    /** @short Name the account of the shown message in its header; an empty name leaves it out */
+    void setAccountResolver(const std::function<QString(const QModelIndex &)> &resolver);
     QModelIndex currentMessage() const;
     Plugins::PluginManager *pluginManager() const;
     QSettings* profileSettings() const;
@@ -96,6 +101,15 @@ public:
     bool isCryptoMessage() const;
     /** The network manager which serves the parts of the current message */
     Imap::Network::MsgPartNetAccessManager *networkAccessManager() const;
+    /** @short Text from the active search to find in the next messages which are opened
+
+    An empty string turns this off. The message which is shown already is left alone. */
+    void setHighlightTerm(const QString &term);
+    QString highlightTerm() const;
+    /** @short Ask again for the current message, or for its parts which could not be loaded */
+    void retryLoading();
+    /** @short Show the current message again, for example after the preferred rendering changed */
+    void reloadMessage();
 public slots:
     void setMessage(const QModelIndex &index);
     void setEmpty();
@@ -117,12 +131,15 @@ private slots:
     void partLinkHovered(const QString &link, const QString &title, const QString &textContent);
     void triggerSearchDialogBy(Gui::EmbeddedWebView *w);
     void onWebViewLoadStarted();
-    void onWebViewLoadFinished();
+    void onWebViewLoadFinished(bool ok);
+    void onNetworkPolicyChanged();
 signals:
     void messageChanged();
     void messageModelChanged(QAbstractItemModel *model);
     void linkHovered(const QString &url);
     void searchRequestedBy(Gui::EmbeddedWebView *webView);
+    /** @short The first loaded part of the current message which contains the highlight term */
+    void highlightTermFound(Gui::EmbeddedWebView *webView, const QString &term);
     void transferError(const QString &errorString);
 private:
     bool eventFilter(QObject *object, QEvent *event) override;
@@ -131,9 +148,23 @@ private:
     AbstractPartWidget *bodyWidget() const;
     void unsetPreviousMessage();
     void clearWaitingConns();
+    void findHighlightTerm(EmbeddedWebView *view, int retries);
+    void showMessageUnavailable();
+    void updateFailedParts();
+
+    bool isOffline() const;
 
     QStackedLayout *m_stack;
     QWidget *m_homePage;
+    /** Shown instead of the message when its structure cannot be loaded */
+    QWidget *m_unavailablePage;
+    QLabel *m_unavailableIcon;
+    QLabel *m_unavailableTitle;
+    QLabel *m_unavailableText;
+    QPushButton *m_retryMessage;
+    /** Reports parts of the shown message which could not be loaded */
+    InlineNotificationBar *m_partErrors;
+    QList<QPointer<SimplePartWidget>> m_failedParts;
 
     QWidget *m_messageWidget;
     QBoxLayout *m_msgLayout;
@@ -156,6 +187,9 @@ private:
     Plugins::PluginManager *m_pluginManager;
     TagHandler m_taghandler;
     QSet<QWebEngineView*> m_loadingItems;
+    QString m_highlightTerm;
+    /** The part of the current message which has been reported through highlightTermFound() */
+    QPointer<EmbeddedWebView> m_highlightPart;
 
     std::vector<QMetaObject::Connection> m_waitingMessageConns;
 

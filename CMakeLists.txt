@@ -308,8 +308,11 @@ set(path_UiUtils ${CMAKE_CURRENT_SOURCE_DIR}/src/UiUtils)
 set(libUiUtils_SOURCES
     ${path_UiUtils}/AttachmentCollector.cpp
     ${path_UiUtils}/Color.cpp
+    ${path_UiUtils}/Conversations.cpp
     ${path_UiUtils}/Formatting.cpp
     ${path_UiUtils}/IconLoader.cpp
+    ${path_UiUtils}/LinkSafety.cpp
+    ${path_UiUtils}/MessageSecurity.cpp
     ${path_UiUtils}/PasswordWatcher.cpp
     ${path_UiUtils}/PlainTextFormatter.cpp
     ${path_UiUtils}/QaimDfsIterator.cpp
@@ -446,6 +449,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/PasswordDialog.cpp
     ${path_DesktopGui}/ProgressPopUp.cpp
     ${path_DesktopGui}/ProtocolLoggerWidget.cpp
+    ${path_DesktopGui}/ReaderActionBar.cpp
     ${path_DesktopGui}/RelatedMessagesPanel.cpp
     ${path_DesktopGui}/ReplaceCharValidator.cpp
     ${path_DesktopGui}/SettingsDialog.cpp
@@ -1088,6 +1092,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_DensityMenu PRIVATE Qt6::Widgets Qt6::Test KF6::ConfigCore KF6::I18n)
         add_executable(test_AttachmentPanel tests/Gui/test_AttachmentPanel.cpp)
         target_link_libraries(test_AttachmentPanel PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_ReaderActionBar tests/Gui/test_ReaderActionBar.cpp)
+        target_link_libraries(test_ReaderActionBar PRIVATE DesktopGui UiUtils Qt6::Test KF6::I18n)
         add_executable(test_EmbeddedPanels tests/Gui/test_EmbeddedPanels.cpp)
         target_link_libraries(test_EmbeddedPanels PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_MsgListViewTeardown tests/Gui/test_MsgListViewTeardown.cpp)
@@ -1114,6 +1120,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_LiveImapAccounts PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_LiveImapPanels tests/Gui/test_LiveImapPanels.cpp)
         target_link_libraries(test_LiveImapPanels PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_LiveImapCompose tests/Gui/test_LiveImapCompose.cpp)
+        target_link_libraries(test_LiveImapCompose PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_InlineNotificationBar tests/Gui/test_InlineNotificationBar.cpp)
         target_link_libraries(test_InlineNotificationBar PRIVATE DesktopGui Qt6::Test KF6::I18n)
         add_executable(test_MessageSelectionRestorer tests/Gui/test_MessageSelectionRestorer.cpp)
@@ -1131,6 +1139,8 @@ if(BUILD_TESTING)
             set_tests_properties(test_DensityMenu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_AttachmentPanel COMMAND test_AttachmentPanel)
             set_tests_properties(test_AttachmentPanel PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_ReaderActionBar COMMAND test_ReaderActionBar)
+            set_tests_properties(test_ReaderActionBar PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_EmbeddedPanels COMMAND test_EmbeddedPanels)
             set_tests_properties(test_EmbeddedPanels PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MsgListViewTeardown COMMAND test_MsgListViewTeardown)
@@ -1153,13 +1163,18 @@ if(BUILD_TESTING)
             add_test(NAME test_MsgListViewSelection COMMAND test_MsgListViewSelection)
             set_tests_properties(test_MsgListViewSelection PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MainWindowDensity COMMAND test_MainWindowDensity)
-            foreach(account_case migratesSingleProfileIntoFirstAccount switchingKeepsAccountsIndependent backgroundAccountStatusIsShown
+            set(reader_account_cases)
+            if(WITH_WEBENGINE)
+                set(reader_account_cases focusFollowsScreenOrder escapeReturnsToMessageList)
+            endif()
+            foreach(account_case ${reader_account_cases} migratesSingleProfileIntoFirstAccount switchingKeepsAccountsIndependent backgroundAccountStatusIsShown
                     removingAccountDeletesItsSettingsAndPasswords accountsSwitchFromTheKeyboard
                     savedSearchesAndFolderExpansionFollowTheAccount focusCyclesThroughShellRegions
                     goToFolderActionsWithoutFolders checkMailAndNextUnreadFolder destructiveActionsOffline quickActionsOffline
                     messageListFiltersOffline shortcutOverviewAndSelectionOffline powerUserProcessingOffline
                     groupingAndRelevanceOffline folderViewStateOffline unifiedInboxOffline unifiedInboxIsRestored
-                    identitiesFollowTheAccount composerSendsWithItsOwnAccount newAccountsStartWithoutIdentities
+                    identitiesFollowTheAccount composerSendsWithItsOwnAccount composerChoosesItsAccount
+                    newAccountsStartWithoutIdentities
                     oauthAccountsOfferSignIn)
                 add_test(NAME test_MainWindowAccounts_${account_case} COMMAND test_MainWindowAccounts ${account_case})
                 set_tests_properties(test_MainWindowAccounts_${account_case} PROPERTIES
@@ -1279,6 +1294,7 @@ if(BUILD_TESTING)
       add_custom_target(crypto_test_data DEPENDS crypto_test_data.h)
 
       trojita_test(Cryptography Cryptography_PGP)
+      target_link_libraries(test_Cryptography_PGP PRIVATE UiUtils)
       set_property(TEST test_Cryptography_PGP PROPERTY ENVIRONMENT "${UBSAN_ENV_SUPPRESSIONS}")
       add_dependencies(test_Cryptography_PGP crypto_test_data)
     endif()
@@ -1305,6 +1321,8 @@ if(BUILD_TESTING)
     target_link_libraries(test_AttachmentCollector PRIVATE UiUtils)
     trojita_test(Misc RelatedMessages)
     target_link_libraries(test_RelatedMessages PRIVATE UiUtils)
+    trojita_test(Misc MessageSecurity)
+    target_link_libraries(test_MessageSecurity PRIVATE UiUtils)
     trojita_test(Misc QuickFilters)
     target_link_libraries(test_QuickFilters PRIVATE UiUtils)
     trojita_test(Misc RecentFolders)
@@ -1325,6 +1343,8 @@ if(BUILD_TESTING)
     target_link_libraries(test_UnifiedMsgListModel PRIVATE UiUtils)
     trojita_test(Misc Relevance)
     target_link_libraries(test_Relevance PRIVATE UiUtils)
+    trojita_test(Misc LinkSafety)
+    target_link_libraries(test_LinkSafety PRIVATE UiUtils)
     if(WITH_DESKTOP)
         trojita_test(Misc DestructiveActions)
         target_link_libraries(test_DestructiveActions PRIVATE UiUtils KF6::ConfigCore)

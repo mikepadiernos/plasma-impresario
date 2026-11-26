@@ -35,32 +35,32 @@ whose issues are $\color{#2da44e}\textbf{Completed}$ or
 $\color{#8957e5}\textbf{Merged}$; the count is green when all are done, amber
 once work starts and gray before. Board statuses as of 2026-11-25.
 
-| Milestone | Focus | Parent issue | Done | Board |
-| --- | --- | --- | --- | --- |
-| [M01](#m01-kde--qt6-compatibility-baseline) | KDE / Qt 6 compatibility baseline | [#1](https://github.com/mikepadiernos/plasma-impresario/issues/1) | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged] |
-| [M02](#m02-shell-accounts-and-core-mailbox-foundation) | Shell, accounts and core mailbox foundation | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4) | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged] |
-| [M03](#m03-mail-operations-sorting-and-folder-management) | Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5) | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged] |
-| [M04](#m04-reading-and-conversation-flow) | Reading and conversation flow | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6) | ![0 of 15 done](https://img.shields.io/badge/0%2F15-0%25-6e7781) | ![Backlog][backlog] |
-| [M05](#m05-search-and-indexing) | Search and indexing | [#324](https://github.com/mikepadiernos/plasma-impresario/issues/324) | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781) | ![Backlog][backlog] |
-| [M06](#m06-desktop-integration-and-provider-support) | Desktop integration and provider support | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7) | ![0 of 27 done](https://img.shields.io/badge/0%2F27-0%25-6e7781) | ![Backlog][backlog] |
-| [M07](#m07-output-notifications-and-rules-automation) | Output, notifications and rules automation | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8) | ![0 of 11 done](https://img.shields.io/badge/0%2F11-0%25-6e7781) | ![Backlog][backlog] |
-| [M08](#m08-settings-and-workspace-configuration) | Settings and workspace configuration | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9) | ![0 of 15 done](https://img.shields.io/badge/0%2F15-0%25-6e7781) | ![Backlog][backlog] |
-| [M09](#m09-themes-and-branding-foundation) | Themes and branding foundation | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10) | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700) | ![Development][development]: M09.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
-| [M10](#m10-reliability-sync-and-notification-quality) | Reliability, sync and notification quality | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11) | ![0 of 12 done](https://img.shields.io/badge/0%2F12-0%25-6e7781) | ![Backlog][backlog] |
-| [M11](#m11-release-readiness-and-polish) | Release readiness and polish | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12) | ![0 of 10 done](https://img.shields.io/badge/0%2F10-0%25-6e7781) | ![Backlog][backlog] |
-| [M12](#m12-nextcloud-and-digital-asset-management) | Nextcloud and digital asset management | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31) | ![0 of 7 done](https://img.shields.io/badge/0%2F7-0%25-6e7781) | ![Backlog][backlog] |
-| [M13](#m13-microsoft-accounts-and-exchange) | Microsoft accounts and Exchange | [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388) | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781) | ![Backlog][backlog] |
-| [M14](#m14-refinements) | Refinements | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15) | ![0 of 84 done](https://img.shields.io/badge/0%2F84-0%25-6e7781) | ![Backlog][backlog] |
-| [M15](#m15-real-plasma-session-verification) | Real Plasma session verification | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781) | ![Defined][defined] |
+| Milestone                                                 | Focus                                          | Parent issue                                                          | Done                                                                 | Board                                                                                                                                    |
+| --------------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| [M01](#m01-kde--qt6-compatibility-baseline)               | KDE / Qt 6 compatibility baseline              | [#1](https://github.com/mikepadiernos/plasma-impresario/issues/1)     | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
+| [M02](#m02-shell-accounts-and-core-mailbox-foundation)    | Shell, accounts and core mailbox foundation    | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)     | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
+| [M03](#m03-mail-operations-sorting-and-folder-management) | Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)     | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
+| [M04](#m04-reading-and-conversation-flow)                 | Reading and conversation flow                  | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6)     | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
+| [M05](#m05-search-and-indexing)                           | Search and indexing                            | [#324](https://github.com/mikepadiernos/plasma-impresario/issues/324) | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
+| [M06](#m06-desktop-integration-and-provider-support)      | Desktop integration and provider support       | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)     | ![0 of 27 done](https://img.shields.io/badge/0%2F27-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
+| [M07](#m07-output-notifications-and-rules-automation)     | Output, notifications and rules automation     | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8)     | ![0 of 11 done](https://img.shields.io/badge/0%2F11-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
+| [M08](#m08-settings-and-workspace-configuration)          | Settings and workspace configuration           | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9)     | ![0 of 15 done](https://img.shields.io/badge/0%2F15-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
+| [M09](#m09-themes-and-branding-foundation)                | Themes and branding foundation                 | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)   | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development]: M09.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
+| [M10](#m10-reliability-sync-and-notification-quality)     | Reliability, sync and notification quality     | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11)   | ![0 of 12 done](https://img.shields.io/badge/0%2F12-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
+| [M11](#m11-release-readiness-and-polish)                  | Release readiness and polish                   | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12)   | ![0 of 10 done](https://img.shields.io/badge/0%2F10-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
+| [M12](#m12-nextcloud-and-digital-asset-management)        | Nextcloud and digital asset management         | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31)   | ![0 of 7 done](https://img.shields.io/badge/0%2F7-0%25-6e7781)       | ![Backlog][backlog]                                                                                                                      |
+| [M13](#m13-microsoft-accounts-and-exchange)               | Microsoft accounts and Exchange                | [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388) | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
+| [M14](#m14-refinements)                                   | Refinements                                    | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)   | ![0 of 84 done](https://img.shields.io/badge/0%2F84-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
+| [M15](#m15-real-plasma-session-verification)              | Real Plasma session verification               | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781)       | ![Defined][defined]                                                                                                                      |
 
 ## Recommended priority
 
-| Priority | Focus | Recommended next work |
-| --- | --- | --- |
-| **P0** | Reproducible, safe baseline | Confirm product identity and supported build matrix; establish verified TLS and safe credential defaults; document cache and logging behavior; add focused connection/security and launch smoke tests |
-| **P1** | Rendering and account boundaries | Verify live reader workflows; design stable per-account settings, cache and credentials before adding simultaneous accounts |
-| **P2** | Shell and reliability | Prototype the Plasma Impresario layout over existing mailbox/list/reader behavior; validate accessibility, keyboard use, responsive layouts and partial-failure recovery |
-| **P3** | Optional productivity features | Add provider APIs, rules, Nextcloud, calendar/contacts and workspace features only after core reliability, permissions and privacy behavior are defined |
+| Priority | Focus                            | Recommended next work                                                                                                                                                                                 |
+| -------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **P0**   | Reproducible, safe baseline      | Confirm product identity and supported build matrix; establish verified TLS and safe credential defaults; document cache and logging behavior; add focused connection/security and launch smoke tests |
+| **P1**   | Rendering and account boundaries | Verify live reader workflows; design stable per-account settings, cache and credentials before adding simultaneous accounts                                                                           |
+| **P2**   | Shell and reliability            | Prototype the Plasma Impresario layout over existing mailbox/list/reader behavior; validate accessibility, keyboard use, responsive layouts and partial-failure recovery                              |
+| **P3**   | Optional productivity features   | Add provider APIs, rules, Nextcloud, calendar/contacts and workspace features only after core reliability, permissions and privacy behavior are defined                                               |
 
 These are sequencing priorities, not issue statuses or completion markers.
 Follow the [board workflow](../CONTRIBUTING.md#board-statuses) before updating
@@ -265,34 +265,47 @@ Caveats: [mail operations](CAVEATS.md#mail-operations)
 [Conversations](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540557) ·
 [Composition and sending](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540653)
 
-- [ ] Build the reading pane with metadata, preview controls, attachments, and action buttons [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540493)
-- [ ] Show the reader's verified signature and decryption results, including inline PGP, in the message details panel [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317147460)
-- [ ] Add thread-aware grouping and conversation navigation [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540557)
-- [ ] Improve the preview panel for readability and fast triage [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569371)
-- [ ] Ensure keyboard navigation works for desktop-heavy usage [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569380)
-- [ ] Validate the full reading flow from list selection through reading and response actions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569544)
-- [ ] Exercise live message reading, replies, attachments, and failure recovery
+- [x] Build the reading pane with metadata, preview controls, attachments, and action buttons [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540493)
+- [x] Show the reader's verified signature and decryption results, including inline PGP, in the message details panel [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317147460)
+- [x] Add thread-aware grouping and conversation navigation [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540557)
+- [x] Improve the preview panel for readability and fast triage [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569371)
+- [x] Ensure keyboard navigation works for desktop-heavy usage [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569380)
+- [x] Validate the full reading flow from list selection through reading and response actions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569544)
+- [x] Exercise live message reading, replies, attachments, and failure recovery
   with isolated test mail, completing the M01.04 live-reader smoke handoff.
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569544)
-- [ ] Load message bodies and attachments on demand and show clear loading, unavailable, and error states [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569551)
-- [ ] Support compose, reply, reply-all, forward, drafts, sending, and failed-send recovery [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540653)
-- [ ] Preserve the originating account and sending identity in reading, replies, drafts, and composition across individual and unified mail views [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314607717)
-- [ ] Keep threaded and flat views navigable and preserve conversation context across filters [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569569)
-- [ ] Protect reading privacy with explicit remote-content and external-link handling [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569578)
-- [ ] Highlight active search terms in the reader and step through matches with
+- [x] Load message bodies and attachments on demand and show clear loading, unavailable, and error states [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569551)
+- [x] Support compose, reply, reply-all, forward, drafts, sending, and failed-send recovery [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540653)
+- [x] Preserve the originating account and sending identity in reading, replies, drafts, and composition across individual and unified mail views [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314607717)
+- [x] Keep threaded and flat views navigable and preserve conversation context across filters [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569569)
+- [x] Protect reading privacy with explicit remote-content and external-link handling [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569578)
+- [x] Highlight active search terms in the reader and step through matches with
   the find bar, without loading remote content. See
   [M05](#m05-search-and-indexing).
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317852924)
-- [ ] Group replies that lack References and In-Reply-To headers by their
+- [x] Group replies that lack References and In-Reply-To headers by their
   normalized subject within a time window, ignoring localized prefixes such as
   Re:, AW: and Re[2]: and leading list tags, and merge conversations that a new
   message links together. See [E-Mail](philosophy/inspirations.md#e-mail).
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318073350)
-- [ ] In dark color schemes, show plain-text mail in the app's colors and HTML
+- [x] In dark color schemes, show plain-text mail in the app's colors and HTML
   mail that sets no background of its own on a light page, without loading
   remote content or running scripts. See
   [E-Mail](philosophy/inspirations.md#e-mail).
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318073669)
+
+Caveats: [message security](CAVEATS.md#message-security)
+([#442](https://github.com/mikepadiernos/plasma-impresario/issues/442));
+[reading privacy](CAVEATS.md#reading-privacy)
+([#443](https://github.com/mikepadiernos/plasma-impresario/issues/443));
+[loading on demand](CAVEATS.md#loading-on-demand)
+([#444](https://github.com/mikepadiernos/plasma-impresario/issues/444));
+[reader actions](CAVEATS.md#reader-actions)
+([#445](https://github.com/mikepadiernos/plasma-impresario/issues/445));
+[conversations](CAVEATS.md#conversations)
+([#449](https://github.com/mikepadiernos/plasma-impresario/issues/449));
+[composing and sending](CAVEATS.md#composing-and-sending)
+([#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)).
 
 ### M05: Search and indexing
 

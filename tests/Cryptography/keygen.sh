@@ -87,6 +87,9 @@ UNKNOWN=$(_encrypt unknown@test.trojita.flaska.net plaintext)
 PLAINTEXT_FOR_SIGNING="Content-Type: text/plain\r\n\r\nplaintext\r\n"
 SIGNATURE_ME=$(gpg_sign valid@test.trojita.flaska.net "${PLAINTEXT_FOR_SIGNING}")
 
+# signature by the key that is deleted below, so that its key is missing during verification
+SIGNATURE_UNKNOWN=$(gpg_sign unknown@test.trojita.flaska.net "${PLAINTEXT_FOR_SIGNING}")
+
 echo "$HEAD
 
 const QByteArray encValid(
@@ -107,6 +110,10 @@ $UNKNOWN
 
 const QByteArray sigFromMe(
 $SIGNATURE_ME
+);
+
+const QByteArray sigFromUnknown(
+$SIGNATURE_UNKNOWN
 );
 
 $TAIL" > crypto_test_data.h

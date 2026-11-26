@@ -20,6 +20,7 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "EnvelopeView.h"
+#include <KLocalizedString>
 #include <QFontMetrics>
 #include <QLabel>
 #include <QUrlQuery>
@@ -57,6 +58,11 @@ EnvelopeView::EnvelopeView(QWidget *parent, Plugins::PluginManager *pluginManage
     l->setAlignment(Qt::AlignRight); \
     form->addWidget(l, form->rowCount(), 0, Qt::AlignTop); \
     form->addWidget(WDG, form->rowCount()-1, 1, Qt::AlignTop); \
+}
+
+void EnvelopeView::setAccountResolver(const std::function<QString(const QModelIndex &)> &resolver)
+{
+    m_accountName = resolver;
 }
 
 /** @short */
@@ -175,6 +181,15 @@ void EnvelopeView::setMessage(const QModelIndex &index)
         if (elided)
             connect(lbl, &QLabel::linkHovered, lbl, &QLabel::setToolTip);
         ADD_ROW(tr("Mailing List"), lbl)
+    }
+
+    // The account matters once several of them are set up, above all in the Unified Inbox
+    const QString account = m_accountName ? m_accountName(index) : QString();
+    if (!account.isEmpty()) {
+        auto lbl = new QLabel(QStringLiteral("<html>&nbsp;%1</html>").arg(account.toHtmlEscaped()), this);
+        lbl->setObjectName(QStringLiteral("envelopeAccount"));
+        SET_LABEL_OPTIONS(lbl)
+        ADD_ROW(i18nc("@label the account a message belongs to", "Account"), lbl)
     }
 
     // separating the message

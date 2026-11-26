@@ -113,6 +113,7 @@ class AccountSidebar;
 class CapabilityActionGate;
 class ShellHeader;
 class AttachmentPanel;
+class ReaderActionBar;
 class ContactPanel;
 class EmbeddedPanel;
 class MessageDetailsPanel;
@@ -161,6 +162,21 @@ public:
     // FIXME: this should be changed to some wrapper when support for multiple accounts is available
     Imap::ImapAccess *imapAccess() const;
 
+    /** @short The configured accounts in their order */
+    QStringList accountIds() const;
+    /** @short The name which the user gave @p accountId */
+    QString accountName(const QString &accountId) const;
+    /** @short The account which a composer opened now belongs to: the one of the message handled now, or the shown one */
+    QString composerAccountId() const;
+    /** @short The name of the account which @p message belongs to while several accounts are set up, otherwise empty */
+    QString messageAccountName(const QModelIndex &message) const;
+    /** @short Run @p fn while accountSettings(), imapAccess(), imapModel(), senderIdentitiesModel() and msaFactory()
+    refer to @p accountId
+
+    Returns false without running @p fn when the account is gone or has no connection set up.
+    */
+    bool withAccount(const QString &accountId, const std::function<void()> &fn);
+
     void enableLoggingToDisk();
 
     static QWidget *messageSourceWidget(const QModelIndex &message);
@@ -172,6 +188,10 @@ public:
         UiUtils::DestructiveActions::Confirmation, const QString &, const QString &)>;
     /** @short Replace the confirmation dialog, for example in tests; an empty function restores the dialog */
     void setConfirmationPrompt(const ConfirmationPrompt &prompt);
+
+signals:
+    /** @short An account was added, renamed or removed */
+    void accountsChanged();
 
 public slots:
     void slotComposeMailUrl(const QUrl &url);
@@ -198,6 +218,7 @@ private slots:
     void slotFocusMessageView();
     void slotFocusNextRegion();
     void slotFocusPreviousRegion();
+    void slotReturnToMessageList();
     void removeAccountNow(const QString &accountId);
     /** Authorize an OAuth account in the browser again, then reconnect it */
     void signInAccount(const QString &accountId);
@@ -415,6 +436,12 @@ private:
     /** @short Select the loaded messages of the list which match @p criterion */
     void selectSimilarMessages(UiUtils::SimilarMessages criterion);
     void goToAdjacentMessage(bool forward);
+    /** @short Open the next or previous message of the current message's conversation */
+    void goToMessageInConversation(bool forward);
+    /** @short Whether the message list shows threads, rather than a flat list or groups */
+    bool showsThreads() const;
+    /** @short The row of the message list for @arg message of the IMAP model, shown even if the quick filters hide it */
+    QModelIndex revealMessage(const QModelIndex &message);
 
     void createMailboxBelow(const QModelIndex &index);
 
@@ -446,6 +473,12 @@ private:
     void fitPanelRegion(QSplitter *region);
     /** Select a message picked in the related messages panel. */
     void activateRelatedMessage(const QModelIndex &message);
+    /** @short Run @p fn while actions work on the message open in the reader, and on its account */
+    void actOnOpenMessage(const std::function<void()> &fn);
+    /** Bring the reader's action bar in line with the open message and its account */
+    void updateReaderActions();
+    /** Show the attachments panel, even when it was turned off, and move the focus into it */
+    void showAttachmentPanel();
 
     /** Display the current connection status in the window footer. */
     void updateConnectionStatus(const QString &message);
@@ -519,6 +552,8 @@ private:
     };
     /** @short Name of the mailbox shown in the message list */
     QString currentMailboxName() const;
+    /** @short The mailbox holding all of @arg messages, such as a message opened from another folder, else the list's */
+    QString sourceMailboxName(const QModelIndexList &messages) const;
     /** @short Ask before a permanent operation unless the user opted out; true means go ahead */
     bool confirmPermanentAction(UiUtils::DestructiveActions::Confirmation kind, const QString &title, const QString &text,
                                 const QString &acceptText);
@@ -636,6 +671,8 @@ private:
     /** The reader and the embedded panels which follow its message, stacked vertically */
     QSplitter *m_readerColumn = nullptr;
     AttachmentPanel *m_attachmentPanel = nullptr;
+    /** Actions above the reader which work on the open message */
+    ReaderActionBar *m_readerActions = nullptr;
     MessageDetailsPanel *m_messageDetailsPanel = nullptr;
     ContactPanel *m_contactPanel = nullptr;
     RelatedMessagesPanel *m_relatedMessagesPanel = nullptr;
@@ -807,6 +844,10 @@ private:
     QAction *m_markReadNextUnread = nullptr;
     QAction *m_nextAnyMessage = nullptr;
     QAction *m_previousAnyMessage = nullptr;
+    QAction *m_nextInConversation = nullptr;
+    QAction *m_previousInConversation = nullptr;
+    QAction *m_expandAllConversations = nullptr;
+    QAction *m_collapseAllConversations = nullptr;
     QAction *m_actionDenseProcessing = nullptr;
     DensityMenu *m_densityMenu = nullptr;
     MessageRowsMenu *m_messageRowsMenu = nullptr;

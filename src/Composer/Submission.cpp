@@ -174,6 +174,24 @@ void Submission::setSmtpOptions(const bool useBurl, const QString &smtpUsername)
     m_source->setPreloadEnabled(shouldBuildMessageLocally());
 }
 
+void Submission::setForeignSource(const bool foreign)
+{
+    m_foreignSource = foreign;
+    m_source->setPreloadEnabled(shouldBuildMessageLocally());
+}
+
+bool Submission::canCatenate() const
+{
+    return !m_foreignSource && m_model && m_model->isCatenateSupported();
+}
+
+Imap::Mailbox::Model *Submission::modelOf(const QModelIndex &message) const
+{
+    if (auto *own = qobject_cast<Imap::Mailbox::Model *>(const_cast<QAbstractItemModel *>(message.model())))
+        return own;
+    return m_model;
+}
+
 void Submission::send()
 {
     if (!m_model) {
@@ -211,7 +229,7 @@ void Submission::slotMessageDataAvailable()
         gotError(tr("Cannot send right now -- saving failed:\n %1").arg(errorMessage));
         return;
     }
-    if (m_model->isCatenateSupported() && !m_source->asCatenateData(catenateable, &errorMessage)) {
+    if (canCatenate() && !m_source->asCatenateData(catenateable, &errorMessage)) {
         gotError(tr("Cannot send right now -- saving (CATENATE) failed:\n %1").arg(errorMessage));
         return;
     }
@@ -224,7 +242,7 @@ void Submission::slotMessageDataAvailable()
         changeConnectionState(STATE_SAVING);
         QPointer<Imap::Mailbox::AppendTask> appendTask = nullptr;
 
-        if (m_model->isCatenateSupported()) {
+        if (canCatenate()) {
             // FIXME: without UIDPLUS, there isn't much point in $SubmitPending...
             appendTask = QPointer<Imap::Mailbox::AppendTask>(
                         m_model->appendIntoMailbox(
@@ -321,7 +339,7 @@ void Submission::gotError(const QString &error)
 void Submission::sent()
 {
     if (m_source->replyingToMessage().isValid()) {
-        m_updateReplyingToMessageFlagsTask = m_model->setMessageFlags(QModelIndexList() << m_source->replyingToMessage(),
+        m_updateReplyingToMessageFlagsTask = modelOf(m_source->replyingToMessage())->setMessageFlags(QModelIndexList() << m_source->replyingToMessage(),
                                                                       QStringLiteral("\\Answered"), Imap::Mailbox::FLAG_ADD);
         connect(m_updateReplyingToMessageFlagsTask, &Imap::Mailbox::ImapTask::completed,
                 this, &Submission::onUpdatingFlagsOfReplyingToSucceded);
@@ -329,7 +347,7 @@ void Submission::sent()
                 this, &Submission::onUpdatingFlagsOfReplyingToFailed);
         changeConnectionState(STATE_UPDATING_FLAGS);
     } else if (m_source->forwardingMessage().isValid()) {
-        m_updateForwardingMessageFlagsTask = m_model->setMessageFlags(QModelIndexList() << m_source->forwardingMessage(),
+        m_updateForwardingMessageFlagsTask = modelOf(m_source->forwardingMessage())->setMessageFlags(QModelIndexList() << m_source->forwardingMessage(),
                                                                       QStringLiteral("$Forwarded"), Imap::Mailbox::FLAG_ADD);
         connect(m_updateForwardingMessageFlagsTask, &Imap::Mailbox::ImapTask::completed,
                 this, &Submission::onUpdatingFlagsOfForwardingSucceeded);
@@ -411,9 +429,9 @@ bool Submission::shouldBuildMessageLocally() const
     if (!m_useImapSubmit) {
         // sending via SMTP or Sendmail
         // Unless all of URLAUTH, CATENATE and BURL is present and enabled, we will still have to download the data in the end
-        return ! (m_useBurl && m_model->isCatenateSupported() && m_model->isGenUrlAuthSupported());
+        return ! (m_useBurl && canCatenate() && m_model->isGenUrlAuthSupported());
     } else {
-        return ! m_model->isCatenateSupported();
+        return ! canCatenate();
     }
 }
 

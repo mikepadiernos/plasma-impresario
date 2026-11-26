@@ -55,10 +55,15 @@ public:
     void setMessage(const QModelIndex &index);
 
     void quoteText(const std::function<void(const QString &)> &callback) const;
+    /** Show a bar of actions above the message; the widget takes ownership */
+    void setActionBar(QWidget *bar);
 
     MessageView *messageView;
     QScrollArea *area;
     void closeEvent(QCloseEvent *event) override;
+signals:
+    /** Space was pressed while the end of the message was already shown */
+    void pagedPastEnd();
 protected:
     void keyPressEvent(QKeyEvent *ke) override;
 

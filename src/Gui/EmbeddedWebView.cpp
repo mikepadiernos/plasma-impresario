@@ -24,14 +24,16 @@
 #include "MessageView.h"
 #include "Gui/WebEngineMessagePage.h"
 #include "Gui/WebEngineMessageProfile.h"
+#include "UiUtils/LinkSafety.h"
 
 #include <QAbstractScrollArea>
 #include <QAction>
 #include <QApplication>
 #include <QDesktopServices>
-#include <QJsonArray>
-#include <QJsonDocument>
+#include <KLocalizedString>
 #include <QLayout>
+#include <QMessageBox>
+#include <QPushButton>
 #include <QMouseEvent>
 #include <QScrollBar>
 #include <QStyle>
@@ -120,11 +122,57 @@ void EmbeddedWebView::constrainSize()
     m_sizeContrainTimer->stop();
 }
 
-void EmbeddedWebView::slotLinkClicked(const QUrl &url)
+bool confirmExternalLink(QWidget *parent, const QUrl &url, const QString &text)
+{
+    const UiUtils::LinkAssessment assessment = UiUtils::assessLink(url, text);
+    if (assessment.warnings.isEmpty())
+        return true;
+
+    const QString host = assessment.host.toHtmlEscaped();
+    QStringList reasons;
+    for (const auto warning : assessment.warnings) {
+        switch (warning) {
+        case UiUtils::LinkWarning::TextShowsOtherSite:
+            reasons << i18nc("@info link warning; %1 and %2 are site names",
+                             "The link text shows <b>%1</b>, but the link goes to <b>%2</b>.",
+                             assessment.textHost.toHtmlEscaped(), host);
+            break;
+        case UiUtils::LinkWarning::UserInfo:
+            reasons << i18nc("@info link warning",
+                             "The address puts a user name before the site, which can make another site look like "
+                             "the destination.");
+            break;
+        case UiUtils::LinkWarning::IpAddress:
+            reasons << i18nc("@info link warning", "The link goes to a numeric address instead of a named site.");
+            break;
+        case UiUtils::LinkWarning::InternationalHost:
+            reasons << i18nc("@info link warning",
+                             "The site name uses international characters, which can imitate another name.");
+            break;
+        }
+    }
+
+    QMessageBox box(QMessageBox::Warning, i18nc("@title:window", "Open Link?"),
+                    i18nc("@info %1 is a site name", "This link may not go where it appears to. It opens <b>%1</b>.", host),
+                    QMessageBox::Cancel, parent);
+    box.setObjectName(QStringLiteral("linkConfirmation"));
+    box.setTextFormat(Qt::RichText);
+    box.setInformativeText(QStringLiteral("<ul><li>%1</li></ul><p>%2</p>")
+                               .arg(reasons.join(QLatin1String("</li><li>")),
+                                    url.toString(QUrl::FullyEncoded).toHtmlEscaped()));
+    QPushButton *open = box.addButton(i18nc("@action:button", "Open Link"), QMessageBox::AcceptRole);
+    open->setObjectName(QStringLiteral("openLink"));
+    box.setDefaultButton(QMessageBox::Cancel);
+    box.exec();
+    return box.clickedButton() == open;
+}
+
+void EmbeddedWebView::slotLinkClicked(const QUrl &url, const QString &text)
 {
     // Only allow external http:// and https:// links for safety reasons
     if (url.scheme().toLower() == QLatin1String("http") || url.scheme().toLower() == QLatin1String("https")) {
-        QDesktopServices::openUrl(url);
+        if (confirmExternalLink(this, url, text))
+            QDesktopServices::openUrl(url);
     } else if (url.scheme().toLower() == QLatin1String("mailto")) {
         // The mailto: scheme is registered by Gui::MainWindow and handled internally;
         // even if it wasn't, opening a third-party application in response to a
@@ -146,6 +194,8 @@ void EmbeddedWebView::changeEvent(QEvent *e)
     QWebEngineView::changeEvent(e);
     if (e->type() == QEvent::ParentChange)
         findScrollParent();
+    else if (e->type() == QEvent::PaletteChange)
+        addCustomStylesheet(m_customCss);
 }
 
 bool EmbeddedWebView::eventFilter(QObject *o, QEvent *e)
@@ -307,14 +357,13 @@ void EmbeddedWebView::addCustomStylesheet(const QString &css)
 {
     m_customCss = css;
 
-    QString bgName, fgName;
     QColor bg = palette().color(QPalette::Active, QPalette::Base),
            fg = palette().color(QPalette::Active, QPalette::Text);
 
+    WebEngineMessagePage::Colors colors;
     switch (m_colorScheme) {
     case ColorScheme::BlackOnWhite:
-        bgName = QStringLiteral("white !important");
-        fgName = QStringLiteral("black !important");
+        colors.forced = true;
         break;
     case ColorScheme::AdjustedSystem:
     {
@@ -330,27 +379,17 @@ void EmbeddedWebView::addCustomStylesheet(const QString &css)
             fg.getHsv(&h, &s, &vv, &a) ;
             fg.setHsv(h, s, 128+v/2, a);
         }
-        bgName = bg.name();
-        fgName = fg.name();
         break;
     }
     case ColorScheme::System:
-        bgName = bg.name();
-        fgName = fg.name();
         break;
     }
-
-
-    const QString myColors(QStringLiteral("body { background-color: %1; color: %2; }\n").arg(bgName, fgName));
-    QJsonArray cssValue;
-    cssValue.append(QString(myColors + m_customCss));
-    const QByteArray encodedCss = QJsonDocument(cssValue).toJson(QJsonDocument::Compact);
-    const QString cssLiteral = QString::fromUtf8(encodedCss.mid(1, encodedCss.size() - 2));
-    const QString script = QStringLiteral(
-        "(()=>{let s=document.getElementById('trojita-user-style');"
-        "if(!s){s=document.createElement('style');s.id='trojita-user-style';document.head.appendChild(s);}"
-        "s.textContent=%1;})()").arg(cssLiteral);
-    m_page->runJavaScript(script);
+    colors.background = bg;
+    colors.text = fg;
+    colors.link = palette().color(QPalette::Active, QPalette::Link);
+    colors.visitedLink = palette().color(QPalette::Active, QPalette::LinkVisited);
+    colors.extraCss = m_customCss;
+    m_page->setColors(colors);
 }
 
 }

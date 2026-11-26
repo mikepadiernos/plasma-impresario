@@ -31,6 +31,7 @@
 #include <QKeyEvent>
 #include <QLabel>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QToolButton>
 #include <QWebEngineFindTextResult>
 #include <QWebEnginePage>
@@ -253,6 +254,21 @@ void FindBar::updateHighlight()
             options |= QWebEnginePage::FindCaseSensitively;
         m_associatedWebView->page()->findText(_lastStringSearched, options);
     }
+}
+
+void FindBar::showSearchTerm(const QString &term)
+{
+    if (!m_associatedWebView || term.isEmpty())
+        return;
+    {
+        const QSignalBlocker blocker(m_lineEdit);
+        m_lineEdit->setText(term);
+    }
+    _lastStringSearched = term;
+    // Not setVisible(), which takes the focus and searches for the selected text instead
+    QWidget::setVisible(true);
+    updateHighlight();
+    findNext();
 }
 
 void FindBar::setAssociatedWebView(QWebEngineView *webView)

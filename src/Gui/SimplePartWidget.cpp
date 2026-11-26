@@ -115,10 +115,11 @@ SimplePartWidget::SimplePartWidget(QWidget *parent, Imap::Network::MsgPartNetAcc
 
 void SimplePartWidget::slotMarkupPlainText(bool success)
 {
-    disconnect(this, &QWebEngineView::loadFinished, this, &SimplePartWidget::slotMarkupPlainText);
-
+    // A failed load keeps the markup pending for a later retry
     if (!success || !m_partIndex.isValid() || !m_partIndex.data(Imap::Mailbox::RoleIsFetched).toBool())
         return;
+
+    disconnect(this, &QWebEngineView::loadFinished, this, &SimplePartWidget::slotMarkupPlainText);
 
     QPalette palette = QApplication::palette();
 
@@ -146,6 +147,20 @@ QString SimplePartWidget::quoteMe() const
 void SimplePartWidget::quoteMeAsync(const QuoteCallback &callback) const
 {
     messagePage()->quoteText(callback);
+}
+
+bool SimplePartWidget::isUnavailable() const
+{
+    return !m_partIndex.isValid() || m_partIndex.data(Imap::Mailbox::RoleIsUnavailable).toBool();
+}
+
+void SimplePartWidget::retryLoading()
+{
+    if (!m_partIndex.isValid())
+        return;
+    m_partIndex.data(Imap::Mailbox::RoleRetryIfUnavailable);
+    if (!messagePage()->loadMessagePart(m_partUrl))
+        qWarning() << "Cannot load message part" << m_partUrl;
 }
 
 void SimplePartWidget::reloadContents()

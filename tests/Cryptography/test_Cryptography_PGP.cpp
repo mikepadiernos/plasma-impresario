@@ -29,6 +29,7 @@
 #include "Imap/data.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Streams/FakeSocket.h"
+#include "UiUtils/MessageSecurity.h"
 
 #ifdef TROJITA_HAVE_CRYPTO_MESSAGES
 #  ifdef TROJITA_HAVE_GPGMEPP
@@ -94,6 +95,7 @@ void CryptographyPGPTest::testDecryption()
 #ifdef TROJITA_HAVE_CRYPTO_MESSAGES
     QCOMPARE(msgModel.rowCount(data), 0);
     QCOMPARE(data.data(Imap::Mailbox::RoleIsFetched).toBool(), false);
+    QCOMPARE(UiUtils::MessageSecurity::evaluate(mappedMsg).encryption, UiUtils::MessageSecurity::Encryption::Pending);
 
     cClientRegExp(t.mk("UID FETCH 333 \\((BODY\\.PEEK\\[2\\] BODY\\.PEEK\\[1\\]|BODY.PEEK\\[1\\] BODY\\.PEEK\\[2\\])\\)"));
     cServer("* 1 FETCH (UID 333 BODY[2] " + asLiteral(cyphertext) + " BODY[1] " + asLiteral("Version: 1\r\n") + ")\r\n"
@@ -122,6 +124,11 @@ void CryptographyPGPTest::testDecryption()
         QCOMPARE(qcaErrorSpy.empty(), successful);
         QCOMPARE(qcaSuccessSpy.empty(), !successful);
     }
+
+    const auto security = UiUtils::MessageSecurity::evaluate(mappedMsg);
+    QCOMPARE(security.encryption, successful ? UiUtils::MessageSecurity::Encryption::Decrypted
+                                             : UiUtils::MessageSecurity::Encryption::Failed);
+    QVERIFY(!security.summary.isEmpty());
 
     QVERIFY(data.data(Imap::Mailbox::RoleIsFetched).toBool());
 
@@ -219,13 +226,10 @@ void CryptographyPGPTest::testDecryptWithoutEnvelope()
     QSignalSpy qcaSuccessSpy(&msgModel, SIGNAL(rowsInserted(const QModelIndex &,int,int)));
     QSignalSpy qcaErrorSpy(&msgModel, SIGNAL(error(const QModelIndex &,QString,QString)));
 
-    int i = 0;
-    while (data.isValid() && data.data(Imap::Mailbox::RolePartCryptoNotFinishedYet).toBool() && i++ < 1000) {
-        QTest::qWait(10);
-    }
-    // allow for event processing, so that the model can retrieve the results
-    QCoreApplication::processEvents();
-    QVERIFY(!data.data(Imap::Mailbox::RolePartCryptoNotFinishedYet).toBool());
+    QTest::qWait(100);
+    // Decryption waits for the ENVELOPE, and says so
+    QVERIFY(data.data(Imap::Mailbox::RolePartCryptoNotFinishedYet).toBool());
+    QCOMPARE(UiUtils::MessageSecurity::evaluate(mappedMsg).encryption, UiUtils::MessageSecurity::Encryption::Pending);
 
     QVERIFY(qcaSuccessSpy.isEmpty());
     QVERIFY(qcaErrorSpy.isEmpty());
@@ -250,6 +254,7 @@ void CryptographyPGPTest::testVerification()
     QFETCH(QString, longDesc);
     QFETCH(bool, validDisregardingTrust);
     QFETCH(bool, validCompletely);
+    QFETCH(int, security);
 
     model->setProperty("trojita-imap-delayed-fetch-part", 0);
     helperSyncBNoMessages();
@@ -285,6 +290,8 @@ void CryptographyPGPTest::testVerification()
     QCOMPARE(msgModel.rowCount(data), 0);
     QCOMPARE(data.data(Imap::Mailbox::RoleIsFetched).toBool(), false);
 
+    QCOMPARE(UiUtils::MessageSecurity::evaluate(mappedMsg).signature, UiUtils::MessageSecurity::Signature::Pending);
+
     cClientRegExp(t.mk("UID FETCH 333 \\((BODY\\.PEEK\\[(2|1|1\\.MIME)\\] ?){3}\\)"));
     cServer("* 1 FETCH (UID 333 BODY[2] " + asLiteral(signature) + " BODY[1] " + asLiteral(plaintext)
             + " BODY[1.MIME] " + asLiteral(ptMimeHdr) + ")\r\n"
@@ -318,6 +325,12 @@ void CryptographyPGPTest::testVerification()
     QCOMPARE(data.data(Imap::Mailbox::RolePartSignatureVerifySupported).toBool(), successful);
     QCOMPARE(data.data(Imap::Mailbox::RolePartSignatureValidDisregardingTrust).toBool(), validDisregardingTrust);
     QCOMPARE(data.data(Imap::Mailbox::RolePartSignatureValidTrusted).toBool(), validCompletely);
+    const auto result = UiUtils::MessageSecurity::evaluate(mappedMsg);
+    QCOMPARE(int(result.signature), security);
+    QCOMPARE(result.encryption, UiUtils::MessageSecurity::Encryption::None);
+    QCOMPARE(result.summary, tldr);
+    if (security != int(UiUtils::MessageSecurity::Signature::UnknownKey))
+        QVERIFY(result.signer.startsWith(QLatin1String("Valid <valid@test.trojita.flaska.net>")));
     QCOMPARE(data.data(Imap::Mailbox::RolePartMimeType).toByteArray(), QByteArray("multipart/signed"));
     QVERIFY(data.data(Imap::Mailbox::RoleIsFetched).toBool() == successful);
 
@@ -350,7 +363,9 @@ void CryptographyPGPTest::testVerification_data()
     QTest::addColumn<QString>("longDesc");
     QTest::addColumn<bool>("validDisregardingTrust");
     QTest::addColumn<bool>("validCompletely");
+    QTest::addColumn<int>("security");
 
+    using Signature = UiUtils::MessageSecurity::Signature;
     QByteArray ptMimeHdr = QByteArrayLiteral("Content-Type: text/plain\r\n\r\n");
 
     // everything is correct
@@ -363,7 +378,8 @@ void CryptographyPGPTest::testVerification_data()
             << QStringLiteral("Verified signature")
             << QStringLiteral("Verified signature from Valid <valid@test.trojita.flaska.net> (")
             << true
-            << true;
+            << true
+            << int(Signature::Trusted);
 
     // my signature, but a different identity
     QTest::newRow("my-signature-different-identity")
@@ -375,7 +391,8 @@ void CryptographyPGPTest::testVerification_data()
             << QStringLiteral("Signed by stranger")
             << QStringLiteral("Verified signature, but the signer is someone else:\nValid <valid@test.trojita.flaska.net> (")
             << true
-            << false;
+            << false
+            << int(Signature::Untrusted);
 
     // my signature, different data
     QTest::newRow("my-signature-different-data")
@@ -387,7 +404,8 @@ void CryptographyPGPTest::testVerification_data()
             << QStringLiteral("Bad signature")
             << QStringLiteral("Bad signature by Valid <valid@test.trojita.flaska.net> (")
             << false
-            << false;
+            << false
+            << int(Signature::Bad);
 
     // A missing Content-Type header (and also an invalid signature)
     QTest::newRow("invalid-implicit-content-type")
@@ -399,7 +417,21 @@ void CryptographyPGPTest::testVerification_data()
             << QStringLiteral("Bad signature")
             << QStringLiteral("Bad signature by Valid <valid@test.trojita.flaska.net> (")
             << false
-            << false;
+            << false
+            << int(Signature::Bad);
+
+    // the signer's key is not in the keyring
+    QTest::newRow("unknown-key")
+            << sigFromUnknown
+            << ptMimeHdr
+            << QByteArray("plaintext\r\n")
+            << true
+            << QStringLiteral("unknown@test.trojita.flaska.net")
+            << QStringLiteral("Some signature: missing key")
+            << QStringLiteral("Key ")
+            << false
+            << false
+            << int(Signature::UnknownKey);
 }
 
 void CryptographyPGPTest::testMalformed()
@@ -440,6 +472,11 @@ void CryptographyPGPTest::testMalformed()
     QCOMPARE(msgModel.rowCount(data), rowCount);
     QCOMPARE(data.data(Imap::Mailbox::RolePartCryptoTLDR).toString(), tldr);
     QCOMPARE(data.data(Imap::Mailbox::RolePartCryptoDetailedMessage).toString(), detail);
+    // A malformed signature is never reported as verified; without a replacement the
+    // panel falls back to the MIME structure.
+    QCOMPARE(UiUtils::MessageSecurity::evaluate(mappedMsg).signature,
+             tldr.isEmpty() ? UiUtils::MessageSecurity::Signature::NotVerified
+                            : UiUtils::MessageSecurity::Signature::Unverifiable);
 
     cEmpty();
     QVERIFY(errorSpy->empty());
@@ -533,6 +570,14 @@ void CryptographyPGPTest::testOffline()
 
     QCOMPARE(data.data(Imap::Mailbox::RolePartCryptoTLDR), QVariant(QStringLiteral("Data Unavailable")));
     QCOMPARE(msgModel.rowCount(data), 2);
+
+    const auto security = UiUtils::MessageSecurity::evaluate(mappedMsg);
+    if (data.data(Imap::Mailbox::RolePartDecryptionSupported).toBool()) {
+        QCOMPARE(security.encryption, UiUtils::MessageSecurity::Encryption::Failed);
+    } else {
+        QCOMPARE(security.signature, UiUtils::MessageSecurity::Signature::Unverifiable);
+        QCOMPARE(security.encryption, UiUtils::MessageSecurity::Encryption::None);
+    }
 
     if (!qcaErrorSpy.isEmpty()) {
         qDebug() << "Unexpected failure in crypto";

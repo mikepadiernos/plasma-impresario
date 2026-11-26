@@ -29,6 +29,7 @@
 #include "ItemRoles.h"
 #include "MailboxTree.h"
 #include "MsgListModel.h"
+#include "UiUtils/Conversations.h"
 
 namespace {
     /** @short Preallocate a bit more space in the hashmaps for future new arrivals */
@@ -82,6 +83,11 @@ ThreadingMsgListModel::ThreadingMsgListModel(QObject *parent):
     m_delayedPrune->setSingleShot(true);
     m_delayedPrune->setInterval(0);
     connect(m_delayedPrune, &QTimer::timeout, this, &ThreadingMsgListModel::delayedPrune);
+    // Envelopes arrive in batches while the list scrolls; check once per batch
+    m_delayedConversationMerge = new QTimer(this);
+    m_delayedConversationMerge->setSingleShot(true);
+    m_delayedConversationMerge->setInterval(250);
+    connect(m_delayedConversationMerge, &QTimer::timeout, this, &ThreadingMsgListModel::delayedConversationMerge);
 }
 
 void ThreadingMsgListModel::setSourceModel(QAbstractItemModel *sourceModel)
@@ -166,6 +172,12 @@ void ThreadingMsgListModel::handleDataChanged(const QModelIndex &topLeft, const 
         if (unknownUids.isEmpty()) {
             wantThreading();
         }
+    }
+
+    // A newly loaded envelope can join a conversation by its subject
+    if (!m_appliedMapping.isEmpty() && !m_mergedMessages.contains(message) && message->fetched()) {
+        m_mergedMessages.insert(message);
+        m_delayedConversationMerge->start();
     }
 }
 
@@ -457,6 +469,9 @@ void ThreadingMsgListModel::resetMe()
 void ThreadingMsgListModel::updateNoThreading()
 {
     threadingHelperLastId = 0;
+    m_appliedMapping.clear();
+    m_mergedMapping.clear();
+    m_mergedMessages.clear();
 
     if (!sourceModel()) {
         // Maybe we got reset because the parent model is no longer here...
@@ -715,6 +730,9 @@ void ThreadingMsgListModel::slotIncrementalThreadingAvailable(const Responses::E
     Imap::Mailbox::Model::realTreeItem(someMessage, &realModel, &realIndex);
     QModelIndex mailboxIndex = realIndex.parent().parent();
     Q_ASSERT(mailboxIndex.isValid());
+
+    // The response applied before no longer describes the threads, so it is not applied again to merge conversations
+    m_appliedMapping.clear();
 
     // First phase: remove all messages mentioned in the incremental responses from their original placement
     Imap::Uids affectedUids;
@@ -987,7 +1005,10 @@ void ThreadingMsgListModel::applyThreading(const QVector<Imap::Responses::Thread
     usedNodes.insert(0);
 
     // Set up parents and find the list of all used nodes
-    registerThreading(mapping, 0, uidToPtrCache, usedNodes);
+    const QVector<Imap::Responses::ThreadingNode> received = mapping;
+    m_mergedMapping = mergeConversations(received, uidToPtrCache);
+    m_appliedMapping = received;
+    registerThreading(m_mergedMapping, 0, uidToPtrCache, usedNodes);
 
     // Now remove all messages which were not referenced in the THREAD response from our mapping
     QHash<uint,ThreadNodeInfo>::iterator it = threading.begin();
@@ -1009,6 +1030,55 @@ void ThreadingMsgListModel::applyThreading(const QVector<Imap::Responses::Thread
 
     // If the sorting was active before, we shall reactivate it now
     searchSortPreferenceImplementation(m_currentSearchConditions, m_currentSortingCriteria, m_sortReverse ? Qt::DescendingOrder : Qt::AscendingOrder);
+}
+
+QVector<Imap::Responses::ThreadingNode> ThreadingMsgListModel::mergeConversations(const QVector<Imap::Responses::ThreadingNode> &mapping,
+                                                                                   const QHash<uint,void *> &uidToPtr)
+{
+    m_mergedMessages.clear();
+    if (!sourceModel() || !sourceModel()->rowCount())
+        return mapping;
+    const Model *realModel = nullptr;
+    Model::realTreeItem(sourceModel()->index(0, 0), &realModel);
+    Q_ASSERT(realModel);
+    return UiUtils::mergeConversationThreads(mapping, [&](uint uid) -> std::optional<UiUtils::ConversationMessage> {
+        const auto it = uidToPtr.constFind(uid);
+        if (it == uidToPtr.constEnd())
+            return std::nullopt;
+        auto *message = static_cast<TreeItemMessage *>(*it);
+        // Reading the envelope of any other message would download it
+        if (!message->fetched())
+            return std::nullopt;
+        m_mergedMessages.insert(message);
+        return UiUtils::conversationMessage(message->toIndex(const_cast<Model *>(realModel)));
+    });
+}
+
+void ThreadingMsgListModel::delayedConversationMerge()
+{
+    // Only a complete response for the whole folder is applied again; anything else waits for the next THREAD response
+    if (m_appliedMapping.isEmpty() || threadingInFlight || m_filteredBySearch || !unknownUids.isEmpty() || !sourceModel()
+            || !sourceModel()->rowCount())
+        return;
+    QModelIndex realIndex;
+    Model::realTreeItem(sourceModel()->index(0, 0), nullptr, &realIndex);
+    auto *list = dynamic_cast<TreeItemMsgList *>(static_cast<TreeItem *>(realIndex.parent().internalPointer()));
+    if (!list)
+        return;
+    const uint highestUid = findHighestUidInMailbox(list);
+    if (findHighEnoughNumber(m_appliedMapping, highestUid) < highestUid)
+        return;
+
+    QHash<uint,void *> uidToPtr;
+    uidToPtr.reserve(list->m_children.size());
+    for (TreeItem *item : std::as_const(list->m_children)) {
+        auto *message = static_cast<TreeItemMessage *>(item);
+        if (message->uid())
+            uidToPtr.insert(message->uid(), message);
+    }
+    const QVector<Imap::Responses::ThreadingNode> mapping = m_appliedMapping;
+    if (mergeConversations(mapping, uidToPtr) != m_mergedMapping)
+        applyThreading(mapping);
 }
 
 void ThreadingMsgListModel::registerThreading(const QVector<Imap::Responses::ThreadingNode> &mapping, uint parentId, const QHash<uint,void *> &uidToPtr, QSet<uint> &usedNodes)

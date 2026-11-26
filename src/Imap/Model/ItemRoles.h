@@ -173,6 +173,12 @@ enum {
 
     /** @short Fetch a part from the cache if it's available, but do not request it from the server */
     RolePartForceFetchFromCache,
+    /** @short Ask again for a message or part which could not be loaded
+
+    Reading this role resets an unavailable message or part and fetches it again under the current network policy.
+    It returns true unless the item is still unavailable, for example because the network is offline.
+    */
+    RoleRetryIfUnavailable,
     /** @short Pointer to the internal buffer */
     RolePartBufferPtr,
 
@@ -231,6 +237,10 @@ enum {
     RolePartSignatureSignerName,
     /** @short When was the signature made */
     RolePartSignatureSignDate,
+    /** @short Could the signature not be checked because the signer's key is not available? */
+    RolePartSignatureKeyMissing,
+    /** @short Did the cryptography backend find the signature bad, for example because the signed data changed? */
+    RolePartSignatureBad,
 
 
     /** @short True if the item in the tasks list is actually a ParserState

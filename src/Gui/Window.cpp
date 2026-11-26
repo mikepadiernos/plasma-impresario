@@ -50,6 +50,7 @@
 #include <QScopedPointer>
 #include <QScreen>
 #include <QScrollBar>
+#include <QShortcut>
 #include <QSplitter>
 #include <QSslError>
 #include <QSslKey>
@@ -131,6 +132,7 @@
 #include "MessageSelectionRestorer.h"
 #include "OnePanelAtTimeWidget.h"
 #include "PasswordDialog.h"
+#include "ReaderActionBar.h"
 #include "RelatedMessagesPanel.h"
 #include "ProtocolLoggerWidget.h"
 #include "SettingsDialog.h"
@@ -151,6 +153,7 @@
 #include "Imap/Model/ModelTest/modeltest.h"
 #include "UiUtils/IconLoader.h"
 #include "UiUtils/QaimDfsIterator.h"
+#include "UiUtils/RelatedMessages.h"
 #include "UiUtils/Relevance.h"
 #include "UiUtils/UnreadFolders.h"
 
@@ -470,6 +473,14 @@ void MainWindow::defineActions()
                                   i18nc("@action", "Ne&xt Message"), QStringLiteral("F"));
     shortcutHandler->defineAction(QStringLiteral("action_go_to_previous_message"), QStringLiteral("go-up"),
                                   i18nc("@action", "Pre&vious Message"), QStringLiteral("B"));
+    shortcutHandler->defineAction(QStringLiteral("action_go_to_next_in_conversation"), QStringLiteral("go-down"),
+                                  i18nc("@action", "Next Message in &Conversation"), QStringLiteral("Alt+Down"));
+    shortcutHandler->defineAction(QStringLiteral("action_go_to_previous_in_conversation"), QStringLiteral("go-up"),
+                                  i18nc("@action", "Previous Message in C&onversation"), QStringLiteral("Alt+Up"));
+    shortcutHandler->defineAction(QStringLiteral("action_expand_all_conversations"), QStringLiteral("expand-all"),
+                                  i18nc("@action", "E&xpand All Conversations"), QStringLiteral("Ctrl+."));
+    shortcutHandler->defineAction(QStringLiteral("action_collapse_all_conversations"), QStringLiteral("collapse-all"),
+                                  i18nc("@action", "Co&llapse All Conversations"), QStringLiteral("Ctrl+,"));
     shortcutHandler->defineAction(QStringLiteral("action_unified_inbox"), QStringLiteral("mail-folder-inbox"),
                                   i18nc("@action", "&Unified Inbox"), QStringLiteral("Ctrl+Shift+I"));
     shortcutHandler->defineAction(QStringLiteral("action_dense_processing_layout"), QStringLiteral("view-list-details"),
@@ -744,6 +755,28 @@ void MainWindow::createActions()
         msgListWidget->tree->addAction(action);
         m_messageWidget->messageView->addAction(action);
     }
+#endif
+    m_nextInConversation = ShortcutHandler::instance()->createAction(QStringLiteral("action_go_to_next_in_conversation"), this);
+    connect(m_nextInConversation, &QAction::triggered, this, [this]() { goToMessageInConversation(true); });
+    m_previousInConversation = ShortcutHandler::instance()->createAction(QStringLiteral("action_go_to_previous_in_conversation"), this);
+    connect(m_previousInConversation, &QAction::triggered, this, [this]() { goToMessageInConversation(false); });
+    m_expandAllConversations = ShortcutHandler::instance()->createAction(QStringLiteral("action_expand_all_conversations"), this);
+    m_expandAllConversations->setEnabled(false);
+    connect(m_expandAllConversations, &QAction::triggered, this, [this]() {
+        if (showsThreads())
+            msgListWidget->tree->expandAll();
+    });
+    m_collapseAllConversations = ShortcutHandler::instance()->createAction(QStringLiteral("action_collapse_all_conversations"), this);
+    m_collapseAllConversations->setEnabled(false);
+    connect(m_collapseAllConversations, &QAction::triggered, this, [this]() {
+        if (showsThreads())
+            msgListWidget->tree->collapseAll();
+    });
+    for (QAction *action : {m_nextInConversation, m_previousInConversation, m_expandAllConversations, m_collapseAllConversations})
+        msgListWidget->tree->addAction(action);
+#ifdef TROJITA_HAVE_WEBENGINE
+    m_messageWidget->messageView->addAction(m_nextInConversation);
+    m_messageWidget->messageView->addAction(m_previousInConversation);
 #endif
 
     markAsDeleted = ShortcutHandler::instance()->createAction(QStringLiteral("action_mark_as_deleted"), this);
@@ -1200,6 +1233,62 @@ void MainWindow::createActions()
     m_replyButton->setMenu(m_replyMenu);
     m_replyButton->setDefaultAction(m_replyPrivate);
 
+#ifdef TROJITA_HAVE_WEBENGINE
+    // The bar above the reader works on the open message, whatever is selected in the list
+    m_readerActions = new ReaderActionBar();
+    m_readerActions->setReplyMenu(m_replyMenu);
+    m_readerActions->setReplyAction(m_replyButton->defaultAction());
+    m_readerActions->setForwardAction(m_forwardAsAttachment);
+    m_readerActions->setPreferPlainText(m_settings->value(Common::SettingsNames::guiPreferPlaintextRendering, QVariant(true)).toBool());
+    m_messageWidget->setActionBar(m_readerActions);
+#endif
+    // Escape leaves the reader or an embedded panel for the message list. The scopes leave out the find bar and
+    // the quick search, which use Escape themselves.
+    QList<QWidget *> escapeScopes;
+#ifdef TROJITA_HAVE_WEBENGINE
+    escapeScopes << m_messageWidget->messageView << m_readerActions;
+#else
+    escapeScopes << m_messageWidget;
+#endif
+    for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels))
+        escapeScopes << panel;
+    for (QWidget *scope : std::as_const(escapeScopes)) {
+        if (!scope)
+            continue;
+        auto *toList = new QShortcut(QKeySequence(Qt::Key_Escape), scope);
+        toList->setObjectName(QStringLiteral("escapeToMessageList"));
+        toList->setContext(Qt::WidgetWithChildrenShortcut);
+        connect(toList, &QShortcut::activated, this, &MainWindow::slotReturnToMessageList);
+    }
+#ifdef TROJITA_HAVE_WEBENGINE
+    connect(m_readerActions, &ReaderActionBar::archiveRequested, this, [this]() {
+        actOnOpenMessage([this]() { handleMoveToArchive(); });
+    });
+    connect(m_readerActions, &ReaderActionBar::trashRequested, this, [this]() {
+        actOnOpenMessage([this]() {
+            handleMarkAsDeleted(!translatedSelection().constFirst().data(Imap::Mailbox::RoleMessageIsMarkedDeleted).toBool());
+        });
+    });
+    connect(m_readerActions, &ReaderActionBar::markReadRequested, this, [this](bool read) {
+        actOnOpenMessage([this, read]() { handleMarkAsRead(read); });
+    });
+    connect(m_readerActions, &ReaderActionBar::flagRequested, this, [this](bool flagged) {
+        actOnOpenMessage([this, flagged]() { handleMarkAsFlagged(flagged); });
+    });
+    connect(m_readerActions, &ReaderActionBar::zoomInRequested, m_messageWidget->messageView, &MessageView::zoomIn);
+    connect(m_readerActions, &ReaderActionBar::zoomOutRequested, m_messageWidget->messageView, &MessageView::zoomOut);
+    connect(m_readerActions, &ReaderActionBar::zoomResetRequested, m_messageWidget->messageView, &MessageView::zoomOriginal);
+    connect(m_readerActions, &ReaderActionBar::preferPlainTextToggled, this, [this](bool preferPlainText) {
+        m_settings->setValue(Common::SettingsNames::guiPreferPlaintextRendering, preferPlainText);
+        m_messageWidget->messageView->reloadMessage();
+    });
+    connect(m_readerActions, &ReaderActionBar::attachmentsRequested, this, &MainWindow::showAttachmentPanel);
+    connect(m_attachmentPanel, &AttachmentPanel::attachmentCountChanged, m_readerActions, &ReaderActionBar::setAttachmentCount);
+    m_readerActions->setAttachmentCount(m_attachmentPanel->attachmentCount());
+    connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::updateReaderActions);
+    connect(m_messageWidget->messageView, &MessageView::messageModelChanged, this, &MainWindow::updateReaderActions);
+#endif
+
     m_accountSwitcher = new QComboBox(this);
     m_accountSwitcher->setToolTip(i18n("Account"));
     m_accountSwitcher->setAccessibleName(i18n("Account"));
@@ -1392,6 +1481,8 @@ void MainWindow::createMenus()
             m_groupByMenu->addSeparator();
             ADD_ACTION(m_groupByMenu, m_actionExpandAllGroups);
             ADD_ACTION(m_groupByMenu, m_actionCollapseAllGroups);
+            ADD_ACTION(m_groupByMenu, m_expandAllConversations);
+            ADD_ACTION(m_groupByMenu, m_collapseAllConversations);
         viewMenu->addAction(m_actionViewForAllFolders);
         viewMenu->addAction(m_actionResetFolderView);
         viewMenu->addSeparator();
@@ -1437,8 +1528,10 @@ void MainWindow::createMenus()
         ADD_ACTION(mailboxMenu, m_nextMessage);
         ADD_ACTION(mailboxMenu, m_previousAnyMessage);
         ADD_ACTION(mailboxMenu, m_nextAnyMessage);
-        mailboxMenu->addSeparator();
 #endif
+        ADD_ACTION(mailboxMenu, m_previousInConversation);
+        ADD_ACTION(mailboxMenu, m_nextInConversation);
+        mailboxMenu->addSeparator();
         ADD_ACTION(mailboxMenu, expunge);
         mailboxMenu->addSeparator();
         ADD_ACTION(mailboxMenu, m_renameMailbox);
@@ -1595,6 +1688,8 @@ void MainWindow::createWidgets()
 
 #ifdef TROJITA_HAVE_WEBENGINE
     m_messageWidget = new CompleteMessageWidget(this, m_settings, m_pluginManager, m_favoriteTags);
+    const auto accountName = [this](const QModelIndex &message) { return messageAccountName(message); };
+    m_messageWidget->messageView->setAccountResolver(accountName);
     connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::scrollMessageUp);
     connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::slotUpdateMessageActions);
     connect(m_messageWidget->messageView, &MessageView::linkHovered, [](const QString &url) {
@@ -1608,6 +1703,11 @@ void MainWindow::createWidgets()
         }
     });
     connect(m_messageWidget->messageView, &MessageView::transferError, this, &MainWindow::slotDownloadTransferError);
+    // Space pages through the open message, then continues with the next unread one
+    connect(m_messageWidget, &CompleteMessageWidget::pagedPastEnd, this, [this]() {
+        if (m_messageWidget->messageView->currentMessage().isValid())
+            slotNextUnread();
+    });
 
     m_attachmentPanel = new AttachmentPanel();
     m_attachmentPanel->setNetworkAccessManager(m_messageWidget->messageView->networkAccessManager());
@@ -1615,6 +1715,8 @@ void MainWindow::createWidgets()
     connect(m_attachmentPanel, &AttachmentPanel::transferError, this, &MainWindow::slotDownloadTransferError);
 
     m_messageDetailsPanel = new MessageDetailsPanel();
+    m_messageDetailsPanel->setAccountResolver(accountName);
+    connect(m_messageWidget->messageView, &MessageView::messageModelChanged, m_messageDetailsPanel, &MessageDetailsPanel::setMessageModel);
     m_contactPanel = new ContactPanel();
     m_relatedMessagesPanel = new RelatedMessagesPanel();
     for (MessageContextPanel *panel : std::initializer_list<MessageContextPanel *>{m_messageDetailsPanel, m_contactPanel, m_relatedMessagesPanel}) {
@@ -2277,6 +2379,10 @@ void MainWindow::openCompleteMessageWidget()
         return;
 
     CompleteMessageWidget *widget = new CompleteMessageWidget(0, m_settings, m_pluginManager, m_favoriteTags);
+    // The window has no parent, so it may outlive this one
+    widget->messageView->setAccountResolver([window = QPointer<MainWindow>(this)](const QModelIndex &message) {
+        return window ? window->messageAccountName(message) : QString();
+    });
     widget->messageView->setMessage(index);
     widget->messageView->setNetworkWatcher(qobject_cast<Imap::Mailbox::NetworkWatcher*>(m_imapAccess->networkWatcher()));
     widget->setFocusPolicy(Qt::StrongFocus);
@@ -2372,6 +2478,8 @@ void MainWindow::showContextMenuMsgListTree(const QPoint &position)
                    << m_actionFilterAttachments << m_actionClearFilters << &filterSeparator << m_actionMarkMailboxAsRead;
         if (msgListWidget->tree->model() == m_groupingMsgListModel)
             actionList << &relatedSeparator << m_actionExpandAllGroups << m_actionCollapseAllGroups;
+        else if (showsThreads())
+            actionList << &relatedSeparator << m_expandAllConversations << m_collapseAllConversations;
     }
     if (! actionList.isEmpty())
         QMenu::exec(actionList, msgListWidget->tree->mapToGlobal(position), nullptr, this);
@@ -2700,7 +2808,7 @@ void MainWindow::copyOrMoveToFolder(const QModelIndexList &messages, const QStri
     rememberRecentFolder(mailbox);
     Imap::Mailbox::ImapTask *task = model->copyMoveMessages(mailbox, messages, op);
     if (op == Imap::Mailbox::MOVE)
-        trackMove(task, currentMailboxName(), mailbox, messages.size(), MoveKind::Folder);
+        trackMove(task, sourceMailboxName(messages), mailbox, messages.size(), MoveKind::Folder);
     else
         trackCopy(task, mailbox, messages.size());
 }
@@ -3149,6 +3257,7 @@ void MainWindow::slotAddAccount()
     const QString accountId = m_accounts->addAccount(name);
     Composer::AccountIdentities::initializeNewAccount(*m_accounts->settings(accountId));
     switchAccount(accountId);
+    emit accountsChanged();
     slotShowAccountSettings();
 }
 
@@ -3177,6 +3286,14 @@ void MainWindow::slotFocusMessageView()
 #else
     m_messageWidget->setFocus();
 #endif
+}
+
+void MainWindow::slotReturnToMessageList()
+{
+    if (!msgListWidget->tree->isVisible() && m_oneAtTimeGoBack->isEnabled())
+        m_oneAtTimeGoBack->trigger();
+    if (msgListWidget->tree->isVisible())
+        msgListWidget->tree->setFocus(Qt::ShortcutFocusReason);
 }
 
 void MainWindow::slotFocusNextRegion()
@@ -3209,6 +3326,27 @@ void MainWindow::cycleFocusRegion(int step)
 #endif
     for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels))
         regions.append(Region{panel, panel->focusTarget()});
+
+    // Visit the panes in screen order, whatever the layout and placement: the header, then the columns from the
+    // leading side, each from top to bottom, then the footer
+    QWidget *footer = m_shellFooter.widget;
+    const bool rightToLeft = layoutDirection() == Qt::RightToLeft;
+    const auto band = [this, footer](const Region &region) {
+        if (region.container == m_shellHeader || region.container == m_accountSwitcher)
+            return 0;
+        return footer && footer->isAncestorOf(region.container) ? 2 : 1;
+    };
+    const auto position = [rightToLeft](const Region &region) {
+        const QRect rect(region.container->mapToGlobal(QPoint(0, 0)), region.container->size());
+        return std::make_pair(rightToLeft ? -rect.right() : rect.left(), rect.top());
+    };
+    std::stable_sort(regions.begin(), regions.end(), [&](const Region &a, const Region &b) {
+        const int bandA = band(a);
+        const int bandB = band(b);
+        if (bandA != bandB)
+            return bandA < bandB;
+        return bandA != 0 && position(a) < position(b);
+    });
 
     const int count = regions.size();
     QWidget *focus = focusWidget();
@@ -3249,6 +3387,7 @@ void MainWindow::renameAccount(const QString &accountId)
     refreshAccountSwitcher();
     updateMessageListScope();
     slotUpdateWindowTitle();
+    emit accountsChanged();
 }
 
 void MainWindow::slotRemoveAccount()
@@ -3351,6 +3490,7 @@ void MainWindow::removeAccountNow(const QString &accountId)
         syncUnifiedSources();
     refreshAccountSwitcher();
     slotUpdateWindowTitle();
+    emit accountsChanged();
 }
 
 bool MainWindow::sharesOAuthGrant(const QString &accountId) const
@@ -3642,6 +3782,52 @@ void MainWindow::goToAdjacentMessage(bool forward)
     tree->setCurrentIndex(target);
 }
 
+void MainWindow::goToMessageInConversation(bool forward)
+{
+    QTreeView *tree = msgListWidget->tree;
+    const QModelIndex current = tree->currentIndex();
+    if (!current.isValid())
+        return;
+    // The Unified Inbox shows messages of several folders, whose conversations are not known
+    if (m_unifiedInbox)
+        return;
+    // A thread is the conversation. A flat or grouped list follows the subject and Message-ID links of the loaded rows,
+    // also to messages which the quick filters hide; those are shown while they are current.
+    QModelIndex target;
+    if (showsThreads()) {
+        target = UiUtils::adjacentInThread(tree->model(), current, forward);
+    } else {
+        const QModelIndex message =
+            UiUtils::adjacentByDate(current, forward, UiUtils::collectConversation(m_imapAccess->msgListModel(), current));
+        target = revealMessage(message);
+    }
+    if (!target.isValid())
+        return;
+    // Expands a collapsed thread or group on the way
+    tree->scrollTo(target);
+#ifdef TROJITA_HAVE_WEBENGINE
+    m_messageWidget->messageView->setMessage(target);
+#endif
+    tree->setCurrentIndex(target);
+}
+
+QModelIndex MainWindow::revealMessage(const QModelIndex &message)
+{
+    auto *msgList = qobject_cast<QAbstractProxyModel *>(m_imapAccess->msgListModel());
+    auto *threading = qobject_cast<QAbstractProxyModel *>(m_imapAccess->threadingMsgListModel());
+    if (!message.isValid() || !msgList || !threading || !prettyMsgListModel)
+        return QModelIndex();
+    const QModelIndex source = threading->mapFromSource(msgList->mapFromSource(message));
+    if (!source.isValid())
+        return QModelIndex();
+    QModelIndex pretty = prettyMsgListModel->mapFromSource(source);
+    if (!pretty.isValid()) {
+        prettyMsgListModel->setKeptVisibleIndex(source);
+        pretty = prettyMsgListModel->mapFromSource(source);
+    }
+    return fromPrettyIndex(pretty);
+}
+
 void MainWindow::slotPreviousUnread()
 {
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -3699,7 +3885,7 @@ void MainWindow::handleMarkAsDeleted(bool value)
         qDebug() << "Model::handleMarkAsDeleted: no valid messages";
     } else if (const QString trash = deleteTrashTarget(); !trash.isEmpty()) {
         auto task = imapModel()->copyMoveMessages(trash, translatedIndexes, Imap::Mailbox::CopyMoveOperation::MOVE);
-        trackMove(task, currentMailboxName(), trash, translatedIndexes.size(), MoveKind::Trash);
+        trackMove(task, sourceMailboxName(translatedIndexes), trash, translatedIndexes.size(), MoveKind::Trash);
     } else {
         // A shortcut can fire while the action still says "Move to Trash", which is not a toggle
         if (!markAsDeleted->isCheckable())
@@ -3827,7 +4013,8 @@ void MainWindow::handleMoveToArchive()
         const QString archiveFolderName = archiveTarget();
         auto copyMoveMessagesTask = imapModel()->copyMoveMessages(archiveFolderName, translatedIndexes,
                                                                   Imap::Mailbox::CopyMoveOperation::MOVE);
-        trackMove(copyMoveMessagesTask, currentMailboxName(), archiveFolderName, translatedIndexes.size(), MoveKind::Archive);
+        trackMove(copyMoveMessagesTask, sourceMailboxName(translatedIndexes), archiveFolderName, translatedIndexes.size(),
+                  MoveKind::Archive);
     }
 }
 
@@ -3943,6 +4130,15 @@ QString MainWindow::currentMailboxName() const
     return model ? model->currentMailbox().data(Imap::Mailbox::RoleMailboxName).toString() : QString();
 }
 
+QString MainWindow::sourceMailboxName(const QModelIndexList &messages) const
+{
+    const QString first = messages.isEmpty() ? QString() : messages.constFirst().data(Imap::Mailbox::RoleMailboxName).toString();
+    const bool shared = !first.isEmpty() && std::all_of(messages.cbegin(), messages.cend(), [&first](const QModelIndex &message) {
+        return message.data(Imap::Mailbox::RoleMailboxName).toString() == first;
+    });
+    return shared ? first : currentMailboxName();
+}
+
 QString MainWindow::archiveTarget() const
 {
     // A folder chosen in the settings wins, even before the folder above it has been listed
@@ -3967,7 +4163,9 @@ QString MainWindow::deleteTrashTarget() const
     if (!model)
         return QString();
     const QString trash = model->specialFolderMailbox(Imap::Mailbox::SpecialUse::Trash);
-    return chooseDeleteAction(deleteMovesToTrash(), trash, currentMailboxName()) == DeleteAction::MoveToTrash ? trash : QString();
+    return chooseDeleteAction(deleteMovesToTrash(), trash, sourceMailboxName(translatedSelection())) == DeleteAction::MoveToTrash
+               ? trash
+               : QString();
 }
 
 void MainWindow::updateDeleteActionMode()
@@ -3986,6 +4184,7 @@ void MainWindow::updateDeleteActionMode()
         markAsDeleted->setIcon(quickActionIcon(QStringLiteral("user-trash")));
         markAsDeleted->setToolTip(i18nc("@info:tooltip", "Move the selected messages to %1", trash));
     }
+    updateReaderActions();
 }
 
 void MainWindow::slotShowShortcutOverview()
@@ -4433,6 +4632,8 @@ void MainWindow::updateMessageFlags()
 
 void MainWindow::updateMessageFlagsOf(const QModelIndex &index)
 {
+    if (!m_acting)
+        updateReaderActions();
     QModelIndexList indexes = index.isValid() ? QModelIndexList() << index : translatedSelection();
     const bool isValid = !indexes.isEmpty() &&
                          // either we operate on the -already valided- selection or the index must be valid
@@ -4600,6 +4801,8 @@ void MainWindow::slotUpdateMessageActions()
     } else {
         m_replyButton->setDefaultAction(m_replyPrivate);
     }
+    if (m_readerActions)
+        m_readerActions->setReplyAction(m_replyButton->defaultAction());
 
     m_forwardAsAttachment->setEnabled(m_messageWidget->messageView->currentMessage().isValid());
     m_resend->setEnabled(m_messageWidget->messageView->currentMessage().isValid());
@@ -4982,8 +5185,10 @@ void MainWindow::slotSaveCurrentMessageBody()
 
 void MainWindow::slotDownloadTransferError(const QString &errorString)
 {
-    Gui::Util::messageBoxCritical(this, tr("Can't save into file"),
-                                  tr("Unable to save into file. Error:\n%1").arg(errorString));
+    // Reported both when the data cannot be downloaded, for example offline, and when the file cannot be written
+    Gui::Util::messageBoxCritical(this, i18nc("@title:window", "Could Not Save File"),
+                                  i18nc("@info %1 is an error message", "The file could not be downloaded or saved.\n%1",
+                                        errorString));
 }
 
 void MainWindow::slotDownloadMessageFileNameRequested(QString *fileName)
@@ -5247,6 +5452,9 @@ void MainWindow::slotSearchRequested(const QStringList &searchConditions)
     threadingMsgListModel->setUserSearchingSortingPreference(searchConditions, threadingMsgListModel->currentSortCriterium(),
                                                              threadingMsgListModel->currentSortOrder());
     updateRelevanceSorting(searchConditions);
+#ifdef TROJITA_HAVE_WEBENGINE
+    m_messageWidget->messageView->setHighlightTerm(UiUtils::searchHighlightTerm(searchConditions));
+#endif
 }
 
 void MainWindow::updateRelevanceSorting(const QStringList &searchConditions)
@@ -5736,6 +5944,14 @@ void MainWindow::syncGroupByActions()
     }
     m_actionExpandAllGroups->setEnabled(grouped);
     m_actionCollapseAllGroups->setEnabled(grouped);
+    m_expandAllConversations->setEnabled(showsThreads());
+    m_collapseAllConversations->setEnabled(showsThreads());
+}
+
+bool MainWindow::showsThreads() const
+{
+    return !m_unifiedInbox && !Imap::Mailbox::GroupingMsgListModel::isRealGrouping(m_groupBy) && actionThreadMsgList
+        && actionThreadMsgList->isEnabled() && actionThreadMsgList->isChecked();
 }
 
 void MainWindow::applyGroupExpansion()
@@ -6596,6 +6812,54 @@ void MainWindow::activateRelatedMessage(const QModelIndex &message)
 #endif
 }
 
+void MainWindow::actOnOpenMessage(const std::function<void()> &fn)
+{
+#ifdef TROJITA_HAVE_WEBENGINE
+    const QModelIndex message = Imap::deproxifiedIndex(m_messageWidget->messageView->currentMessage());
+    const QString accountId = accountOfModel(qobject_cast<const Imap::Mailbox::Model *>(message.model()));
+    if (message.isValid() && !accountId.isEmpty())
+        actAs(accountId, {message}, fn);
+#else
+    Q_UNUSED(fn);
+#endif
+}
+
+void MainWindow::updateReaderActions()
+{
+#ifdef TROJITA_HAVE_WEBENGINE
+    if (!m_readerActions || !m_deleteMovesToTrash)
+        return;
+    const QModelIndex message = Imap::deproxifiedIndex(m_messageWidget->messageView->currentMessage());
+    bool marks = false;
+    bool archive = false;
+    bool movesToTrash = true;
+    actOnOpenMessage([&]() {
+        marks = imapModel()->isNetworkAvailable() && message.data(Imap::Mailbox::RoleMessageUid).toUInt() > 0;
+        archive = message.data(Imap::Mailbox::RoleMailboxName).toString() != archiveTarget();
+        movesToTrash = !deleteTrashTarget().isEmpty();
+    });
+    m_readerActions->setMessage(message);
+    m_readerActions->setMarksEnabled(marks);
+    m_readerActions->setArchiveEnabled(archive);
+    m_readerActions->setMovesToTrash(movesToTrash);
+#endif
+}
+
+void MainWindow::showAttachmentPanel()
+{
+    if (!m_attachmentPanel)
+        return;
+    if (!m_attachmentPanel->isPanelEnabled() && m_embeddedPanelsMenu) {
+        if (QAction *visible = m_embeddedPanelsMenu->visibleAction(m_attachmentPanel))
+            visible->setChecked(true);
+    }
+    // The panel is shown once its region has been laid out again
+    QTimer::singleShot(0, this, [this]() {
+        if (m_attachmentPanel->isVisible())
+            m_attachmentPanel->focusTarget()->setFocus(Qt::OtherFocusReason);
+    });
+}
+
 Imap::Mailbox::Model *MainWindow::imapModel() const
 {
     return qobject_cast<Imap::Mailbox::Model *>(currentAccess()->imapModel());
@@ -6649,6 +6913,42 @@ void MainWindow::actAs(const QString &accountId, const QModelIndexList &selectio
     m_actingAccess = previousAccess;
     m_actingAccountId = previousAccountId;
     m_actingSelection = previousSelection;
+}
+
+QStringList MainWindow::accountIds() const
+{
+    return m_accounts->accountIds();
+}
+
+QString MainWindow::accountName(const QString &accountId) const
+{
+    return m_accounts->displayName(accountId);
+}
+
+QString MainWindow::composerAccountId() const
+{
+    return currentAccountId();
+}
+
+QString MainWindow::messageAccountName(const QModelIndex &message) const
+{
+    if (!message.isValid() || m_accounts->accountIds().size() < 2)
+        return QString();
+    const QString named = message.data(Imap::Mailbox::RoleMessageAccountName).toString();
+    if (!named.isEmpty())
+        return named;
+    const QModelIndex source = Imap::deproxifiedIndex(message);
+    const QString accountId = accountOfModel(qobject_cast<const Imap::Mailbox::Model *>(source.model()));
+    return accountId.isEmpty() ? QString() : m_accounts->displayName(accountId);
+}
+
+bool MainWindow::withAccount(const QString &accountId, const std::function<void()> &fn)
+{
+    Imap::ImapAccess *access = m_accountAccess.value(accountId);
+    if (!access || !access->imapModel() || !m_accounts->accountIds().contains(accountId))
+        return false;
+    actAs(accountId, QModelIndexList(), fn);
+    return true;
 }
 
 bool MainWindow::actOnModel(const Imap::Mailbox::Model *model, const std::function<void()> &fn)

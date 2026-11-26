@@ -550,6 +550,24 @@ void BodyPartsTest::testBinaryFallback()
         dataChangedSpy.clear();
         QTest::qWait(15);
         cEmpty();
+
+        // Asking again resets the unavailable part and fetches it once more
+        QVERIFY(part4.data(RoleRetryIfUnavailable).toBool());
+        QVERIFY(!part4.data(RoleIsUnavailable).toBool());
+        QTest::qWait(15);
+        cClient(t.mk("UID FETCH 333 (BODY.PEEK[4])\r\n"));
+        cServer("* 1 FETCH (UID 333 BODY[4] \"" + QByteArray("retried").toBase64() + "\")\r\n");
+        cServer(t.last("OK fetched after a retry\r\n"));
+        QCOMPARE(dataChangedSpy.size(), 1);
+        CHECK_DATACHANGED(0, part4);
+        QVERIFY(part4.data(RoleIsFetched).toBool());
+        QCOMPARE(model->cache()->messagePart("b", 333, "4"), QByteArray("retried"));
+        dataChangedSpy.clear();
+
+        // A part which is available already is left alone
+        QVERIFY(part4.data(RoleRetryIfUnavailable).toBool());
+        QTest::qWait(15);
+        cEmpty();
     }
 }
 

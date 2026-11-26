@@ -84,7 +84,8 @@ $\color{#2da44e}\textbf{Completed}$ or $\color{#8957e5}\textbf{Merged}$ on the
 | M01 KDE / Qt 6 baseline                    | `main` | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]                                                                                                                                                                    |
 | M02 Shell, accounts and mailbox foundation | `main` | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]; checks in a real Plasma session moved to M15                                                                                                                      |
 | M03 Mail operations, sorting and folders   | `main` | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]                                                                                                                                                                    |
-| M04–M15                                    | —      | —                                                                    | ![Planned][planned] Including search and indexing in M05, Microsoft accounts and Exchange in M13 and real Plasma session checks in M15; M09 branding started with the product rename |
+| M04 Reading and conversation flow          | `main` | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]; checks in a real Plasma session are in M15                                                                                                                        |
+| M05–M15                                    | —      | —                                                                    | ![Planned][planned] Including search and indexing in M05, Microsoft accounts and Exchange in M13 and real Plasma session checks in M15; M09 branding started with the product rename |
 
 The [roadmap overview](docs/ROADMAP.md#milestones-at-a-glance) tracks every
 milestone, and [pending tasks](docs/TODO.md#in-progress) record what each one
@@ -107,9 +108,11 @@ Legend: ![Verified][verified] against a disposable IMAP server ·
 | Composing          | New messages, replies and forwards, local drafts and configurable delivery    |
 | Plugins            | Optional password, address-book, spell-check and OpenPGP plugins              |
 
-M01 verified that these build, install and launch with Qt 6. Live reading,
-replies and attachments are scheduled for verification in M04
-([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)).
+M01 verified that these build, install and launch with Qt 6. M04 verified
+live reading, replies, forwards, attachments, drafts and failed-send recovery
+against a disposable Dovecot server
+([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)); see the
+[composing caveats](docs/CAVEATS.md#composing-and-sending).
 
 ### Added in M02
 
@@ -157,6 +160,32 @@ operations and Undo still need a check against a live server; see
 [design guide](docs/philosophy/designs.md#current-interface) describes each
 one.
 
+### Added in M04
+
+M04 is merged into `main`
+([#6](https://github.com/mikepadiernos/plasma-impresario/issues/6)).
+
+| Area             | What works                                                                                                                                               | Status                                    |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| Message security | Message Details shows the reader's signature and decryption results, with the signer, an icon and an accessible name                                     | ![Needs verification][needs-verification] |
+| Dark schemes     | Plain text follows the color scheme; HTML without its own background is shown on a light page                                                            | ![Needs verification][needs-verification] |
+| Search highlight | A message opened from a quick search shows the term in the find bar; F3 steps through the matches                                                        | ![Needs verification][needs-verification] |
+| Reading privacy  | The remote-content bar names the blocked servers; deceptive links ask before opening                                                                     | ![Needs verification][needs-verification] |
+| Load on demand   | Parts which cannot be loaded, for example offline, are reported in the reader and load again on reconnect or Try Again                                   | ![Needs verification][needs-verification] |
+| Reader actions   | A bar above the reader replies, forwards, archives, trashes, flags, marks read, shows attachments, zooms and switches to plain text for the open message | ![Needs verification][needs-verification] |
+| Reading, triage  | Plain text wraps at a readable width; Space pages through the open message and then opens the next unread one                                            | ![Needs verification][needs-verification] |
+| Conversations    | Alt+Down and Alt+Up step through a conversation from oldest to newest, threaded or not; Ctrl+. and Ctrl+, expand and collapse every thread               | ![Needs verification][needs-verification] |
+| Filters          | Filters keep whole threads and the open message; conversation steps show replies a filter hides                                                          | ![Needs verification][needs-verification] |
+| Subjects         | Replies without links join their conversation by subject within 30 days, ignoring localized prefixes and list tags; References can merge conversations   | ![Needs verification][needs-verification] |
+| Composing        | Replies, Reply to All but Me and Forward send from the message's account; a refused send keeps the composer open, and unsent mail reopens after a crash  | ![Needs verification][needs-verification] |
+| Keyboard         | F6 follows the screen order of panes and panels, also in right-to-left layouts; Escape returns from the reader or a panel to the message list            | ![Needs verification][needs-verification] |
+
+Inline PGP is detected but not verified; see
+[caveats](docs/CAVEATS.md#message-security). A search in a threaded list
+splits threads; see [caveats](docs/CAVEATS.md#conversations). Each refused send
+files another copy in Sent and drafts do not keep attachments; see
+[caveats](docs/CAVEATS.md#composing-and-sending).
+
 ### Accounts
 
 - The toolbar account selector switches between accounts without
@@ -178,6 +207,11 @@ one.
   preselects the account's default identity. An account can instead use the
   shared identities, or **No identity**, which starts the composer with an empty
   From address and no signature.
+- The reader names each message's account. Replies and forwards start from the
+  account that received the message, and the composer can switch to another
+  account beside the **From** identities. Drafts remember their account, and the
+  composer warns about an account without an outgoing server or an identity of
+  another account.
 - With two or more accounts, the folder sidebar shows a header for each
   account. Clicking a header switches to that account; clicking the active
   account's header collapses or expands its folders.
@@ -198,7 +232,8 @@ one.
   account, the folder and the account's status. It is off by default.
 - <kbd>F6</kbd> and <kbd>Shift</kbd>+<kbd>F6</kbd> move focus through the
   header, account selector, folder tree, message list, reader and each visible
-  panel.
+  panel in the order they appear on screen. <kbd>Escape</kbd> in the reader or
+  a panel returns to the message list.
 - The Navigation toolbar docks at the left window edge by default. The menu
   bar is hidden; open the menus from the toolbar's main menu button or turn the
   bar on with **View › Show Main Menu Bar**.

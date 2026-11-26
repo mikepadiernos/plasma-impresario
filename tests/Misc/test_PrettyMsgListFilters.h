@@ -21,6 +21,7 @@ private slots:
   void threadsAreShownAsAWhole();
   void keptVisibleMessageStaysShown();
   void keptVisibleMessageKeepsItsThread();
+  void keptVisibleMessageIsRevealed();
   void visibleMessageCount();
 };
 

@@ -24,6 +24,16 @@ into tokens first. Other keys, such as dates or flags, are ignored.
 */
 QStringList relevanceTerms(const QStringList &conditions);
 
+/** @short Text which the reader highlights in a message opened from the search
+@arg conditions
+
+This is the first value of a SUBJECT, BODY or TEXT key, with its case kept and
+whitespace simplified. A search which only looks at the senders, recipients or
+other headers gives an empty string, since those are not part of the message
+body. A single element is a raw search, as for relevanceTerms().
+*/
+QString searchHighlightTerm(const QStringList &conditions);
+
 /** @short How well @arg message matches @arg terms; higher is better
 
 A term found in the subject counts more than one in the senders, which counts

@@ -253,14 +253,17 @@ void PrettyMsgListModel::setKeptVisibleIndex(const QModelIndex &index)
 
     const QModelIndex previous = m_keptVisible;
     m_keptVisible = source;
-    if (m_filters == NoFilter || !previous.isValid())
+    if (m_filters == NoFilter)
         return;
 
-    // The previous message might have been the only reason for showing its thread
-    QModelIndex top = previous;
-    while (top.parent().isValid())
-        top = top.parent();
-    if (!subtreeMatches(top))
+    const auto topOf = [](QModelIndex index) {
+        while (index.parent().isValid())
+            index = index.parent();
+        return index;
+    };
+    // The new message might be hidden by the filters, for example when it is reached through its conversation, and the
+    // previous message might have been the only reason for showing its thread
+    if ((source.isValid() && !mapFromSource(topOf(source)).isValid()) || (previous.isValid() && !subtreeMatches(topOf(previous))))
         refilter(m_filters);
 }
 

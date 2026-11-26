@@ -56,6 +56,11 @@ CompleteMessageWidget::CompleteMessageWidget(QWidget *parent, QSettings *setting
             this, [this](EmbeddedWebView *w) {
         searchRequestedBy(w);
     });
+    connect(messageView, &MessageView::highlightTermFound,
+            this, [this](EmbeddedWebView *w, const QString &term) {
+        m_findBar->setAssociatedWebView(w);
+        m_findBar->showSearchTerm(term);
+    });
     // because the FindBarMixin is not a QObject, we have to use lambda above, otherwise a cast
     // from FindBarMixin * to QObject * fails
 
@@ -87,6 +92,12 @@ void CompleteMessageWidget::quoteText(const std::function<void(const QString &)>
     messageView->quoteText(callback);
 }
 
+void CompleteMessageWidget::setActionBar(QWidget *bar)
+{
+    bar->setParent(this);
+    static_cast<QVBoxLayout *>(layout())->insertWidget(0, bar);
+}
+
 void CompleteMessageWidget::keyPressEvent(QKeyEvent *ke)
 {
     if (ke->key() == Qt::Key_Home) {
@@ -95,6 +106,9 @@ void CompleteMessageWidget::keyPressEvent(QKeyEvent *ke)
     } else if (ke->key() == Qt::Key_End) {
         animator->setEndValue(area->verticalScrollBar()->maximum());
         animator->start();
+    } else if (ke->key() == Qt::Key_Space && animator->state() != QAbstractAnimation::Running
+               && area->verticalScrollBar()->value() >= area->verticalScrollBar()->maximum()) {
+        emit pagedPastEnd();
     } else if (ke->key() == Qt::Key_Space || ke->key() == Qt::Key_Backspace) {
         const int delta = area->verticalScrollBar()->pageStep() * (ke->key() == Qt::Key_Backspace ? -1 : 1);
         const int start = animator->state() == QAbstractAnimation::Running ? animator->endValue().toInt() : area->verticalScrollBar()->value();

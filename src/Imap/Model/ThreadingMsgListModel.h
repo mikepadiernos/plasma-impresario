@@ -246,6 +246,16 @@ private:
 
     void logTrace(const QString &message);
 
+    /** @short @arg mapping with the threads of one conversation merged, see UiUtils::mergeConversationThreads()
+
+    Only loaded messages count; they are recorded in m_mergedMessages.
+    */
+    QVector<Imap::Responses::ThreadingNode> mergeConversations(const QVector<Imap::Responses::ThreadingNode> &mapping,
+                                                               const QHash<uint,void *> &uidToPtr);
+
+    /** @short Apply the last THREAD response again if messages loaded since then merge conversations differently */
+    void delayedConversationMerge();
+
 
     ThreadingMsgListModel &operator=(const ThreadingMsgListModel &);  // don't implement
     ThreadingMsgListModel(const ThreadingMsgListModel &);  // don't implement
@@ -319,6 +329,17 @@ private:
     ResultValidity m_searchValidity;
 
     QTimer *m_delayedPrune;
+
+    /** @short The THREAD response applied last, as received; empty when it cannot be applied again */
+    QVector<Imap::Responses::ThreadingNode> m_appliedMapping;
+
+    /** @short The threads shown, which is m_appliedMapping with conversations merged */
+    QVector<Imap::Responses::ThreadingNode> m_mergedMapping;
+
+    /** @short Loaded messages which the merging of conversations has already seen */
+    QSet<void *> m_mergedMessages;
+
+    QTimer *m_delayedConversationMerge;
 
     friend class ::ImapModelThreadingTest; // needs access to wantThreading();
 };

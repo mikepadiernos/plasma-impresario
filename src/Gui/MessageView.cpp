@@ -22,10 +22,17 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <KLocalizedString>
+#include <QIcon>
 #include <QKeyEvent>
+#include <QLabel>
 #include <QMenu>
+#include <QPushButton>
 #include <QSettings>
 #include <QStackedLayout>
+#include <QStyle>
+#include <QTimer>
+#include <QWebEngineFindTextResult>
 
 #include "Common/InvokeMethod.h"
 #include "Common/SettingsNames.h"
@@ -34,6 +41,7 @@
 #include "Gui/ComposeWidget.h"
 #include "Gui/EnvelopeView.h"
 #include "Gui/ExternalElementsWidget.h"
+#include "Gui/InlineNotificationBar.h"
 #include "Gui/OverlayWidget.h"
 #include "Gui/PartWidgetFactoryVisitor.h"
 #include "Gui/ShortcutHandler/ShortcutHandler.h"
@@ -98,6 +106,35 @@ MessageView::MessageView(QWidget *parent, QSettings *settings, Plugins::PluginMa
 
     m_stack->addWidget(m_homePage);
 
+    // Shown when the message itself cannot be loaded, rather than waiting for it forever
+    m_unavailablePage = new QWidget(this);
+    m_unavailablePage->setObjectName(QStringLiteral("messageUnavailable"));
+    auto unavailableLayout = new QVBoxLayout(m_unavailablePage);
+    unavailableLayout->addStretch(1);
+    m_unavailableIcon = new QLabel(m_unavailablePage);
+    m_unavailableIcon->setAlignment(Qt::AlignCenter);
+    unavailableLayout->addWidget(m_unavailableIcon);
+    m_unavailableTitle = new QLabel(m_unavailablePage);
+    m_unavailableTitle->setObjectName(QStringLiteral("messageUnavailableTitle"));
+    m_unavailableTitle->setAlignment(Qt::AlignCenter);
+    m_unavailableTitle->setWordWrap(true);
+    QFont titleFont = m_unavailableTitle->font();
+    titleFont.setBold(true);
+    m_unavailableTitle->setFont(titleFont);
+    unavailableLayout->addWidget(m_unavailableTitle);
+    m_unavailableText = new QLabel(m_unavailablePage);
+    m_unavailableText->setObjectName(QStringLiteral("messageUnavailableText"));
+    m_unavailableText->setAlignment(Qt::AlignCenter);
+    m_unavailableText->setWordWrap(true);
+    unavailableLayout->addWidget(m_unavailableText);
+    m_retryMessage = new QPushButton(QIcon::fromTheme(QStringLiteral("view-refresh")),
+                                     i18nc("@action:button", "Try Again"), m_unavailablePage);
+    m_retryMessage->setObjectName(QStringLiteral("retryMessage"));
+    connect(m_retryMessage, &QPushButton::clicked, this, &MessageView::retryLoading);
+    unavailableLayout->addWidget(m_retryMessage, 0, Qt::AlignHCenter);
+    unavailableLayout->addStretch(2);
+    m_stack->addWidget(m_unavailablePage);
+
     // The actual widget for the actual message
     m_messageWidget = new QWidget(this);
     auto fullMsgLayout = new QVBoxLayout(m_messageWidget);
@@ -115,6 +152,11 @@ MessageView::MessageView(QWidget *parent, QSettings *settings, Plugins::PluginMa
     externalElements->hide();
     connect(externalElements, &ExternalElementsWidget::loadingEnabled, this, &MessageView::enableExternalData);
     fullMsgLayout->addWidget(externalElements, 1);
+
+    m_partErrors = new InlineNotificationBar(m_messageWidget);
+    m_partErrors->setObjectName(QStringLiteral("partLoadErrors"));
+    m_partErrors->hide();
+    fullMsgLayout->addWidget(m_partErrors);
 
     // put the actual messages into an extra horizontal view
     // this allows us easy usage of the trailing stretch and also to indent the message a bit
@@ -150,6 +192,9 @@ void MessageView::unsetPreviousMessage()
 {
     clearWaitingConns();
     m_loadingItems.clear();
+    m_highlightPart = nullptr;
+    m_failedParts.clear();
+    m_partErrors->hide();
     message = QModelIndex();
     markAsReadTimer->stop();
     if (auto w = bodyWidget()) {
@@ -218,10 +263,18 @@ void MessageView::setMessage(const QModelIndex &index)
             if (topLeft.data(Imap::Mailbox::RoleIsFetched).toBool()) {
                 // OK, message is fully fetched now
                 showMessageNow();
+            } else if (message.data(Imap::Mailbox::RoleIsUnavailable).toBool()) {
+                showMessageUnavailable();
             }
         }));
-        m_loadingSpinner->setText(tr("Waiting\nfor\nMessage..."));
-        m_loadingSpinner->start();
+        if (message.data(Imap::Mailbox::RoleIsUnavailable).toBool()) {
+            showMessageUnavailable();
+        } else {
+            if (m_stack->currentWidget() == m_unavailablePage)
+                m_stack->setCurrentWidget(m_homePage);
+            m_loadingSpinner->setText(tr("Waiting\nfor\nMessage..."));
+            m_loadingSpinner->start();
+        }
     } else {
         showMessageNow();
     }
@@ -239,6 +292,7 @@ void MessageView::showMessageNow()
 
     netAccess->setExternalsEnabled(false);
     externalElements->hide();
+    externalElements->clear();
 
     netAccess->setModelMessage(rootPartIndex);
     m_webEngineProfile = new WebEngineMessageProfile(rootPartIndex, this);
@@ -384,15 +438,129 @@ FORWARD_METHOD(zoomOut)
 FORWARD_METHOD(zoomOriginal)
 FORWARD_METHOD(searchDialogRequested)
 
+void MessageView::setAccountResolver(const std::function<QString(const QModelIndex &)> &resolver)
+{
+    m_envelope->setAccountResolver(resolver);
+}
+
 void MessageView::setNetworkWatcher(Imap::Mailbox::NetworkWatcher *netWatcher)
 {
+    if (m_netWatcher)
+        disconnect(m_netWatcher, nullptr, this, nullptr);
     m_netWatcher = netWatcher;
     factory->setNetworkWatcher(netWatcher);
+    if (m_netWatcher) {
+        connect(m_netWatcher, &Imap::Mailbox::NetworkWatcher::effectiveNetworkPolicyChanged,
+                this, &MessageView::onNetworkPolicyChanged);
+    }
+}
+
+bool MessageView::isOffline() const
+{
+    if (message.isValid())
+        return message.data(Imap::Mailbox::RoleIsNetworkOffline).toBool();
+    return m_netWatcher && m_netWatcher->effectiveNetworkPolicy() == Imap::Mailbox::NETWORK_OFFLINE;
+}
+
+void MessageView::showMessageUnavailable()
+{
+    m_loadingSpinner->stop();
+    const bool offline = isOffline();
+    const QString iconName = offline ? QStringLiteral("network-disconnect") : QStringLiteral("dialog-warning");
+    const int iconSize = style()->pixelMetric(QStyle::PM_LargeIconSize) * 2;
+    m_unavailableIcon->setPixmap(QIcon::fromTheme(iconName).pixmap(iconSize, iconSize));
+    if (offline) {
+        m_unavailableTitle->setText(i18nc("@info", "This message is not available offline"));
+        m_unavailableText->setText(i18nc("@info", "It has not been downloaded yet. It loads when you go online."));
+    } else {
+        m_unavailableTitle->setText(i18nc("@info", "This message could not be loaded"));
+        m_unavailableText->setText(i18nc("@info", "The server did not send it. Try again, or check the connection."));
+    }
+    m_retryMessage->setVisible(!offline);
+    m_stack->setCurrentWidget(m_unavailablePage);
+}
+
+void MessageView::reloadMessage()
+{
+    const QPersistentModelIndex current = message;
+    if (!current.isValid())
+        return;
+    unsetPreviousMessage();
+    setMessage(current);
+}
+
+void MessageView::retryLoading()
+{
+    if (!message.isValid())
+        return;
+
+    if (!m_waitingMessageConns.empty()) {
+        // The structure of the message is not here yet
+        message.data(Imap::Mailbox::RoleRetryIfUnavailable);
+        if (m_waitingMessageConns.empty()) {
+            // The data arrived synchronously, for example from the cache, and the message is shown already
+            return;
+        }
+        if (message.data(Imap::Mailbox::RoleIsFetched).toBool()) {
+            showMessageNow();
+        } else if (message.data(Imap::Mailbox::RoleIsUnavailable).toBool()) {
+            showMessageUnavailable();
+        } else {
+            m_stack->setCurrentWidget(m_homePage);
+            m_loadingSpinner->setText(tr("Waiting\nfor\nMessage..."));
+            m_loadingSpinner->start();
+        }
+        return;
+    }
+
+    const auto failed = m_failedParts;
+    m_failedParts.clear();
+    updateFailedParts();
+    for (const auto &part : failed) {
+        if (part)
+            part->retryLoading();
+    }
+}
+
+void MessageView::updateFailedParts()
+{
+    m_failedParts.removeAll(QPointer<SimplePartWidget>());
+    if (m_failedParts.isEmpty()) {
+        m_partErrors->hide();
+        return;
+    }
+    const int count = m_failedParts.size();
+    if (isOffline()) {
+        m_partErrors->showError(i18ncp("@info",
+                                       "Part of this message is not available offline. It loads when you go online.",
+                                       "%1 parts of this message are not available offline. They load when you go online.",
+                                       count));
+    } else {
+        m_partErrors->showError(i18ncp("@info",
+                                       "Part of this message could not be loaded.",
+                                       "%1 parts of this message could not be loaded.",
+                                       count),
+                                {{i18nc("@action:button", "Try Again"), QStringLiteral("view-refresh"),
+                                  QStringLiteral("retryParts"), [this]() { retryLoading(); }}});
+    }
+}
+
+void MessageView::onNetworkPolicyChanged()
+{
+    if (!message.isValid())
+        return;
+    if (isOffline()) {
+        if (m_stack->currentWidget() == m_unavailablePage)
+            showMessageUnavailable();
+        updateFailedParts();
+    } else if (m_stack->currentWidget() == m_unavailablePage || !m_failedParts.isEmpty()) {
+        retryLoading();
+    }
 }
 
 void MessageView::externalsRequested(const QUrl &url)
 {
-    Q_UNUSED(url);
+    externalElements->addBlockedUrl(url);
     externalElements->show();
 }
 
@@ -467,13 +635,72 @@ void MessageView::onWebViewLoadStarted()
     }
 }
 
-void MessageView::onWebViewLoadFinished()
+void MessageView::onWebViewLoadFinished(bool ok)
 {
     QWebEngineView *wv = qobject_cast<QWebEngineView*>(sender());
     Q_ASSERT(wv);
     m_loadingItems.remove(wv);
     if (m_loadingItems.isEmpty())
         m_loadingSpinner->stop();
+
+    if (auto part = qobject_cast<SimplePartWidget *>(wv)) {
+        const QPointer<SimplePartWidget> ptr(part);
+        if (!ok && part->isUnavailable()) {
+            if (!m_failedParts.contains(ptr))
+                m_failedParts << ptr;
+            updateFailedParts();
+        } else if (ok && m_failedParts.removeAll(ptr)) {
+            updateFailedParts();
+        }
+    }
+
+    // A part which reloads, such as plain text getting its markup, is searched again
+    if (auto view = qobject_cast<EmbeddedWebView *>(wv))
+        findHighlightTerm(view, 3);
+}
+
+void MessageView::findHighlightTerm(EmbeddedWebView *view, int retries)
+{
+    if (m_highlightTerm.isEmpty() || (m_highlightPart && m_highlightPart != view))
+        return;
+    // Searching the rendered part is local; it never enables remote content
+    const QString term = m_highlightTerm;
+    QPointer<MessageView> self(this);
+    QPointer<EmbeddedWebView> part(view);
+    // A plain text part loads twice, the second time with its markup. Repeating a search for the same text
+    // would continue the earlier one, which the reload has cancelled, so start afresh.
+    view->findText(QString());
+    view->findText(term, {}, [self, part, term, retries](const QWebEngineFindTextResult &result) {
+        if (!self || !part || self->m_highlightTerm != term)
+            return;
+        if (result.numberOfMatches() == 0) {
+            // A search which overlaps a reload is cancelled and reports no matches, so try again shortly
+            if (retries > 0) {
+                QTimer::singleShot(200, part, [self, part, retries]() {
+                    if (self && part)
+                        self->findHighlightTerm(part, retries - 1);
+                });
+            }
+            return;
+        }
+        if (self->m_highlightPart && self->m_highlightPart != part) {
+            // Another part of this message was first
+            part->findText(QString());
+            return;
+        }
+        self->m_highlightPart = part;
+        emit self->highlightTermFound(part, term);
+    });
+}
+
+void MessageView::setHighlightTerm(const QString &term)
+{
+    m_highlightTerm = term;
+}
+
+QString MessageView::highlightTerm() const
+{
+    return m_highlightTerm;
 }
 
 Plugins::PluginManager *MessageView::pluginManager() const

@@ -22,8 +22,14 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned · ✅ resolved
 - [Current limitations](#current-limitations)
   - [Multiple accounts](#multiple-accounts)
   - [Related messages and message details panels](#related-messages-and-message-details-panels)
+  - [Message security](#message-security)
+  - [Reading privacy](#reading-privacy)
+  - [Loading on demand](#loading-on-demand)
+  - [Reader actions](#reader-actions)
+  - [Conversations](#conversations)
   - [OAuth sign-in](#oauth-sign-in)
   - [Mail operations](#mail-operations)
+  - [Composing and sending](#composing-and-sending)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -35,9 +41,14 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned · ✅ resolved
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | ⚠️ Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete         |
 | ✅ Accounts          | One window holds several IMAP accounts, grouped by account in the folder sidebar; the limitations recorded for them are resolved ([details](#multiple-accounts))                                                   |
-| ⚠️ Embedded panels   | Related messages search only loaded messages in the current folder, and message details show MIME-level security only ([details](#related-messages-and-message-details-panels))                                    |
+| ⚠️ Embedded panels   | Related messages search only loaded messages in the current folder ([details](#related-messages-and-message-details-panels)); message details do not verify inline PGP ([details](#message-security))              |
 | ⚠️ Mail operations   | Special folders need server attributes or English names, Go to Folder and related searches use loaded data only, and Undo after a move needs server COPYUID support ([details](#mail-operations))                  |
 | ⚠️ OAuth sign-in     | Microsoft uses the `common` tenant only and cannot revoke grants from the app, IMAP and SMTP refresh tokens independently, and switching provider replaces a grant without revoking it ([details](#oauth-sign-in)) |
+| ⚠️ Reading privacy   | Link warnings are heuristic and remote content consent applies to the open message only ([details](#reading-privacy))                                                                                              |
+| ⚠️ Loading on demand | Parts that failed after a server error load again only on Try Again; the unavailable-message page is not verified live ([details](#loading-on-demand))                                                             |
+| ⚠️ Reader actions    | The action bar is in the main window only, zoom is not saved, and Archive and Trash from the bar are not verified live ([details](#reader-actions))                                                                |
+| ⚠️ Composing         | Each refused send files another copy in Sent, a forward sent before its message downloads is refused, forwards are attachment-only and drafts are local without attachments ([details](#composing-and-sending))    |
+| ⚠️ Conversations     | A search in a threaded list splits threads, conversations cover the loaded messages of the current folder only, and the Unified Inbox has no conversation steps ([details](#conversations))                        |
 | ⚠️ Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                             |
 | 🔒 Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings`                                                     |
 | 🔒 Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used                                                                                                                            |
@@ -94,10 +105,9 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
   current folder's message list, not the server or other folders. It lists at
   most 25 messages per group (conversation and same sender) and scans at most
   the 20,000 most recent rows.
-- ⚠️ The message details panel derives its Security field from the top-level
-  MIME type (`multipart/signed`, `multipart/encrypted` or S/MIME). It does not
-  detect inline PGP or show whether a signature is valid; the reader still
-  verifies and decrypts.
+- ✅ The message details panel's Security field shows the reader's
+  verification and decryption results (#303). Inline PGP and nested signatures
+  remain limited; see [Message security](#message-security).
 - ✅ Pane sizes saved by builds before the shell carry over the first time each
   layout opens: the folder tree's width, on the side it was saved on, and the
   split between the message list and the reader. Sizes the shell has saved
@@ -107,16 +117,195 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
 
 - Use the search bar or open the other folder to find related mail that is not
   loaded.
-- Rely on the reader's security status for signature and decryption results.
 
 **Proposed improvements:**
 
 - 📋 Add an opt-in server-side search on `Message-ID`, `References` and sender,
   optionally across folders (M04,
   [#302](https://github.com/mikepadiernos/plasma-impresario/issues/302)).
-- 📋 Feed the details panel from the reader's verification result, including
-  inline PGP (M04,
-  [#303](https://github.com/mikepadiernos/plasma-impresario/issues/303)).
+
+### Message security
+
+| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                                                                      |
+| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| [#442](https://github.com/mikepadiernos/plasma-impresario/issues/442) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/442#issuecomment-7174234978) | Messages with inline PGP or several protected parts, with Message Details shown |
+
+**Current behavior:**
+
+- ✅ The reader verifies and decrypts PGP/MIME and S/MIME through GpgME, and the
+  message details panel shows its result: in progress, valid and trusted, valid
+  but untrusted, unknown key, invalid, unverifiable, decrypted or failed. The
+  panel never starts verification or decryption itself.
+- ⚠️ The reader does not process inline PGP (`-----BEGIN PGP SIGNED MESSAGE-----`
+  or `-----BEGIN PGP MESSAGE-----` in the body) and shows the armor as text.
+  The details panel recognizes the armor at the start of a line in loaded,
+  non-attachment `text/plain` parts and labels it _not verified_ or _not
+  decrypted_. It never downloads a part to look for armor.
+- ⚠️ The panel reports the outermost signature and encryption only. Signatures
+  inside an attached message or in a later signed part appear in the reader
+  only.
+
+**Workarounds:**
+
+- Save an inline PGP message's text and verify or decrypt it with `gpg` or
+  Kleopatra.
+- Open an attached message to see its own signature in the reader.
+
+**Proposed improvements:**
+
+- 📋 Verify and decrypt inline PGP in the reader through GpgME, so that the
+  details panel can report the result. Not yet scheduled.
+- 📋 List each protected part in the Security tooltip when a message has more
+  than one.
+
+### Reading privacy
+
+| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                                           |
+| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| [#443](https://github.com/mikepadiernos/plasma-impresario/issues/443) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/443#issuecomment-7175141140) | Messages with remote content or links, in the reader |
+
+**Current behavior:**
+
+- ✅ Remote content stays blocked until **Load Remote Content**; the bar names
+  the servers it would contact. Links that look deceptive ask before opening
+  (#97).
+- ⚠️ Link warnings are heuristics. Sites are compared by name, without the
+  public suffix list: a subdomain counts as its parent's site.
+- ⚠️ Links whose text is not an address, such as "Sign in", never warn; their
+  target shows only in the hover tooltip.
+- ⚠️ Newsletters that route links through a tracking server while showing the
+  destination as the link text warn on every link.
+- ⚠️ Consent is all or nothing for the open message and is not remembered; there
+  is no per-sender allow list.
+- ⚠️ The bar lists the servers the page has tried so far; content requested
+  later adds its server then.
+
+**Workarounds:**
+
+- Hover over a link to see its target before clicking.
+- For a warning caused by a tracking server, check that the named site is the
+  sender's mail service before choosing **Open Link**.
+- Load remote content only for senders you trust.
+
+**Proposed improvements:**
+
+- 📋 Compare sites with the public suffix list.
+- 📋 Remember remote-content consent per sender, with a way to review and
+  revoke it (M14.07).
+- 📋 Show the target in the status bar as well, for links whose text is not an
+  address.
+
+### Loading on demand
+
+| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                                      |
+| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| [#444](https://github.com/mikepadiernos/plasma-impresario/issues/444) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/444#issuecomment-7175640115) | Messages and parts the reader cannot load (#94) |
+
+**Current behavior:**
+
+- ✅ Parts that cannot be loaded are reported in an error bar above the
+  message instead of a blank or a Chromium error page. Offline, they load on
+  their own when the network returns (#94).
+- ⚠️ After a server error, a part loads again only on **Try Again** or when the
+  message is reopened.
+- ⚠️ The page for a message whose structure cannot be fetched is covered by
+  code review only; the message list fetches the structure first, so no live
+  scenario reaches it yet.
+- ⚠️ Saving an attachment that cannot be downloaded, for example offline, still
+  reports the failure in a dialog.
+
+**Workarounds:**
+
+- Offline, go online to load the missing parts.
+- After a server error, use **Try Again** in the bar, or reopen the message.
+- To read a folder offline, enable offline caching for the account and open its
+  messages while online.
+
+**Proposed improvements:**
+
+- 📋 Retry a failed part once on its own after a short delay before asking.
+- 📋 Report failed attachment downloads in the attachments panel.
+- 📋 Cover the unavailable page and online refusals with a synthetic server
+  that refuses FETCH.
+
+### Reader actions
+
+| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                  |
+| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | --------------------------- |
+| [#445](https://github.com/mikepadiernos/plasma-impresario/issues/445) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/445#issuecomment-7176256153) | The reader action bar (#39) |
+
+**Current behavior:**
+
+- ✅ The bar above the reader acts on the open message, not the list
+  selection, and Undo returns a moved message to its own folder (#39).
+- ⚠️ Messages opened in their own window have no action bar.
+- ⚠️ Zoom applies to the open message and resets when another message opens.
+- ⚠️ **Prefer Plain Text** is the global reader setting, not a per-message
+  choice.
+- ⚠️ Offline, Archive, Trash, Read and Flag are disabled.
+- ⚠️ Archive and Move to Trash from the bar are covered by offscreen tests only;
+  the live test covers the flag, read, attachment, zoom and plain-text buttons.
+
+**Workarounds:**
+
+- In a standalone message window, use the main window's message actions.
+- After opening another message, zoom again with the bar or the Zoom In and
+  Zoom Out shortcuts.
+
+**Proposed improvements:**
+
+- 📋 Add the bar to standalone message windows.
+- 📋 Remember the zoom level.
+- 📋 Cover Archive and Trash from the bar, with Undo for a message opened from
+  Related Messages, in the live test.
+
+### Conversations
+
+| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                                                                     |
+| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| [#449](https://github.com/mikepadiernos/plasma-impresario/issues/449) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/449#issuecomment-7178393442) | Message list filters, quick search and the conversation steps (#40, #96, #369) |
+
+**Current behavior:**
+
+- ✅ In a threaded list, the Unread, Flagged and Attachments filters keep a
+  matching message's whole thread. The open message stays in the list when a
+  filter or the grouping changes (#96).
+- ✅ **Next in Conversation** and **Previous in Conversation** follow the
+  thread in a threaded list. In a flat list they step through the conversation
+  by date and show messages hidden by a filter (#40, #96).
+- ⚠️ A quick search, or **Show Related**, in a threaded list threads only the
+  matching messages, because the server is asked to thread the search results.
+  Replies that don't match are not shown with their thread.
+- ✅ Replies without In-Reply-To or References join their conversation by
+  subject, ignoring localized prefixes and list tags, within 30 days. Two
+  messages without reply prefixes never join by subject, and a message that
+  references two conversations merges them, in threads as in flat lists
+  ([#369](https://github.com/mikepadiernos/plasma-impresario/issues/369)).
+- ⚠️ A conversation is built from the messages loaded in the current folder.
+  Your replies in Sent and messages in other folders are not included.
+- ⚠️ A threaded list merges conversations only among messages whose envelopes
+  are loaded, so a merge may appear only after scrolling. It does not merge
+  again during a search or after the server reports threads incrementally,
+  until the folder is threaded again.
+- ⚠️ A reply that has a reply prefix but no links can still join an unrelated
+  message of the same subject sent within 30 days.
+- ⚠️ The conversation steps do nothing in the Unified Inbox.
+
+**Workarounds:**
+
+- To see a whole thread that a search split, clear the search, open the
+  message, and use the conversation steps.
+- Open the Sent folder to read your own replies.
+- To see a merge that has not appeared yet, scroll through the folder, or
+  switch Group By to None and back to Conversation.
+
+**Proposed improvements:**
+
+- 📋 Thread all messages on the server and filter by the search's results on the
+  client, so that threads stay whole during a search.
+- 📋 Search related mail on the server and across folders (M04,
+  [#302](https://github.com/mikepadiernos/plasma-impresario/issues/302)).
+- 📋 Step through conversations in the Unified Inbox within each account.
 
 ### OAuth sign-in
 
@@ -312,6 +501,49 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
 - 📋 Extend the Unified Inbox to other special folders, threads and quick
   search across accounts, and moves between accounts.
 - 📋 Add live window-level tests.
+
+### Composing and sending
+
+| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                                                                     |
+| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| [#450](https://github.com/mikepadiernos/plasma-impresario/issues/450) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/450#issuecomment-7179584259) | The composer, replies and forwards, drafts and failed-send recovery (#41, #93) |
+
+**Current behavior:**
+
+- ✅ New messages, replies, including **Reply to All but Me**, and **Forward**
+  send through the account the composer was opened from, mark the original as
+  answered or forwarded, and file a copy in Sent (#41, #93, #224).
+- ✅ A refused send keeps the composer open with the server's error, and the
+  message stays in an automatic draft until it is sent; **Send** tries again.
+  An automatic draft left by a crash opens again at the next start.
+- ⚠️ The copy for Sent is stored before the outgoing server is asked, so every
+  refused attempt leaves another copy in Sent.
+- ⚠️ Sending a forward before the forwarded message has downloaded is refused
+  with "some parts are not available".
+- ⚠️ **Forward** attaches the original message; there is no inline forward.
+- ⚠️ **Save Draft?** writes a local `.draft` file with the recipients, subject
+  and text, but not the attachments.
+- ⚠️ The live test, `tools/dev-container/live-imap-compose.sh`, sends through a
+  local sendmail script; SMTP delivery is covered by offscreen tests only.
+
+**Workarounds:**
+
+- After a refused send succeeds, delete the extra copies from Sent.
+- If a forward is refused because parts are not available, wait a moment and
+  press **Send** again.
+- To forward inline, copy the text into a new message.
+- Attach files again after opening a draft.
+
+**Proposed improvements:**
+
+- 📋 File the Sent copy after the outgoing server accepts the message, or remove
+  the copy of a refused attempt.
+- 📋 Wait for attachments to download when **Send** is pressed, with progress,
+  instead of refusing.
+- 📋 Add an inline forward mode.
+- 📋 Store drafts in the account's Drafts folder on the server, attachments
+  included.
+- 📋 Exercise SMTP delivery in the live test with a local SMTP server.
 
 ## Before reporting results
 
