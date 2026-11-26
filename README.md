@@ -307,6 +307,12 @@ folder is searched. The status line's tooltip shows each account's progress;
 accounts and folders that failed again. A search the server cannot run says why
 in the status line instead of showing an empty list.
 
+A search applies within the quick filters, and a row above the list shows the
+query, date range, places and filters in effect. Its **Clear All** button, or
+<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Backspace</kbd>, clears them together and
+returns to the message that was current before, or keeps the one you opened
+among the results.
+
 Enter a query and choose **Save Current Search** from the search options menu.
 **Saved Searches** in the same menu runs or deletes the active account's saved
 queries; a query runs in the selected folder, with its date range. Preset
