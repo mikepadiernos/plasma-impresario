@@ -145,6 +145,64 @@ private slots:
         QCOMPARE(savedSearches(other)->actions().first()->text(), QStringLiteral("Other"));
     }
 
+    void tracksTheActiveSavedSearch()
+    {
+        KConfigGroup(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), QStringLiteral("SavedSearches"))
+            .deleteGroup();
+        Imap::Mailbox::FavoriteTagsModel tags;
+        Gui::MessageListWidget widget(nullptr, &tags, QStringLiteral("account-a"));
+        QStandardItemModel model;
+        enableSearch(widget, model);
+        QSignalSpy changed(&widget, &Gui::MessageListWidget::savedSearchesChanged);
+        QSignalSpy active(&widget, &Gui::MessageListWidget::activeSavedSearchChanged);
+        auto *quickSearch = widget.findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        quickSearch->setText(QStringLiteral("quarterly"));
+        saveSearch(widget, QStringLiteral("Reports"));
+
+        // The list now shows the saved search
+        QCOMPARE(changed.size(), 1);
+        QCOMPARE(active.size(), 1);
+        const QString id = widget.activeSavedSearchId();
+        QVERIFY(!id.isEmpty());
+        QCOMPARE(widget.activeSavedSearchOwner(), QStringLiteral("account-a"));
+        QCOMPARE(active.takeFirst(), (QVariantList{QStringLiteral("account-a"), id}));
+
+        // Running it again is still the same search; another search is not
+        QSignalSpy search(&widget, &Gui::MessageListWidget::requestingSearch);
+        QVERIFY(widget.runSavedSearch(QStringLiteral("account-a"), id));
+        QCOMPARE(search.size(), 1);
+        QCOMPARE(active.size(), 0);
+        QMetaObject::invokeMethod(&widget, "slotApplySearch");
+        QCOMPARE(widget.activeSavedSearchId(), id);
+        quickSearch->setText(QStringLiteral("quarterly report"));
+        QMetaObject::invokeMethod(&widget, "slotApplySearch");
+        QVERIFY(widget.activeSavedSearchId().isEmpty());
+        QCOMPARE(active.takeFirst(), (QVariantList{QString(), QString()}));
+
+        // Searches are run by their owner's key, whichever account the list belongs to
+        QVERIFY(!widget.runSavedSearch(QStringLiteral("account-b"), id));
+        QVERIFY(!widget.runSavedSearch(QStringLiteral("account-a"), QStringLiteral("missing")));
+        widget.setAccountId(QStringLiteral("account-b"));
+        QVERIFY(widget.runSavedSearch(QStringLiteral("account-a"), id));
+        QCOMPARE(quickSearch->text(), QStringLiteral("quarterly"));
+        QCOMPARE(widget.activeSavedSearchOwner(), QStringLiteral("account-a"));
+        widget.setAccountId(QStringLiteral("account-a"));
+        QVERIFY(widget.activeSavedSearchId().isEmpty());
+
+        // Deleting the shown search ends it
+        QVERIFY(widget.runSavedSearch(QStringLiteral("account-a"), id));
+        QMenu *menu = savedSearches(widget);
+        QCOMPARE(menu->actions().size(), 1);
+        QTimer::singleShot(0, []() {
+            auto *dialog = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            if (dialog)
+                dialog->button(QMessageBox::Yes)->click();
+        });
+        menu->actions().first()->menu()->findChild<QAction *>(QStringLiteral("deleteSavedSearch"))->trigger();
+        QCOMPARE(changed.size(), 2);
+        QVERIFY(widget.activeSavedSearchId().isEmpty());
+    }
+
     void preservesRawAndFuzzySearches()
     {
         Imap::Mailbox::FavoriteTagsModel tags;

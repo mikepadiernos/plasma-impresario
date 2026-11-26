@@ -20,6 +20,7 @@
 #include "Gui/MessageListWidget.h"
 #include "Gui/MessageRowsMenu.h"
 #include "Gui/MsgListView.h"
+#include "Gui/SavedSearchFolders.h"
 #include "Gui/ShortcutHandler/ShortcutHandler.h"
 #include "Gui/Window.h"
 #include "Imap/Model/GroupingMsgListModel.h"
@@ -401,6 +402,107 @@ private slots:
         QCOMPARE(mailboxes->desiredExpansion(), QStringList{QStringLiteral("Shared")});
         window.findChild<QAction *>(QStringLiteral("action_next_account"))->trigger();
         QCOMPARE(mailboxes->desiredExpansion(), QStringList{QStringLiteral("Projects")});
+    }
+
+    void savedSearchesAreVirtualFoldersOfEveryAccount()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        KConfigGroup searches(config, QStringLiteral("SavedSearches"));
+        searches.deleteGroup();
+        KConfigGroup counts(KSharedConfig::openStateConfig(), QStringLiteral("SavedSearchCounts"));
+        counts.deleteGroup();
+        QVERIFY(config->sync());
+
+        Gui::MainWindow window(&settings);
+        auto *panel = window.findChild<Gui::SavedSearchFolders *>();
+        auto *sidebar = window.findChild<Gui::AccountSidebar *>();
+        auto *list = window.findChild<Gui::MessageListWidget *>();
+        auto *mailboxes = window.findChild<Gui::MailBoxTreeView *>();
+        auto *quickSearch = window.findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        QVERIFY(panel && sidebar && list && mailboxes && quickSearch);
+        QCOMPARE(sidebar->footer(), panel);
+        QVERIFY(panel->isHidden());
+
+        // The migrated first account keeps the profile's key; searches of removed accounts are not shown
+        const QByteArray profile = qgetenv("TROJITA_PROFILE");
+        const QString workKey = profile.isEmpty() ? QStringLiteral("account-0") : QString::fromUtf8(profile);
+        KConfigGroup alerts = searches.group(workKey).group(QStringLiteral("alerts"));
+        alerts.writeEntry("Name", QStringLiteral("Alerts"));
+        alerts.writeEntry("Query", QStringLiteral("alert"));
+        alerts.writeEntry("Places", QStringLiteral("all"));
+        KConfigGroup invoices = searches.group(QStringLiteral("account-2")).group(QStringLiteral("invoices"));
+        invoices.writeEntry("Name", QStringLiteral("Home invoices"));
+        invoices.writeEntry("Query", QStringLiteral("invoice"));
+        KConfigGroup orphan = searches.group(QStringLiteral("account-9")).group(QStringLiteral("gone"));
+        orphan.writeEntry("Name", QStringLiteral("Gone"));
+        orphan.writeEntry("Query", QStringLiteral("gone"));
+        QVERIFY(config->sync());
+        counts.writeEntry(UiUtils::SavedSearches::countsKey(workKey, QStringLiteral("alerts")), QList<int>{4, 1});
+        counts.writeEntry(UiUtils::SavedSearches::countsKey(QStringLiteral("account-9"), QStringLiteral("gone")), QList<int>{2, 2});
+        emit window.accountsChanged();
+
+        auto *view = panel->findChild<QTreeWidget *>(QStringLiteral("savedSearchFolders"));
+        QVERIFY(view);
+        QVERIFY(!panel->isHidden());
+        QCOMPARE(view->topLevelItemCount(), 2);
+        QTreeWidgetItem *alertsItem = view->topLevelItem(0);
+        QTreeWidgetItem *invoicesItem = view->topLevelItem(1);
+        QCOMPARE(alertsItem->text(0), QStringLiteral("Alerts"));
+        QCOMPARE(alertsItem->text(1), QStringLiteral("1 / 4"));
+        QVERIFY(alertsItem->font(0).bold());
+        QVERIFY(alertsItem->toolTip(0).contains(QStringLiteral("Searches all accounts")));
+        QCOMPARE(invoicesItem->text(0), QStringLiteral("Home invoices"));
+        QVERIFY(invoicesItem->text(1).isEmpty());
+        QVERIFY(invoicesItem->toolTip(0).contains(QStringLiteral("Searches the shown folder of Home")));
+        QVERIFY(!counts.hasKey(UiUtils::SavedSearches::countsKey(QStringLiteral("account-9"), QStringLiteral("gone"))));
+
+        // A search of the shown folder runs in its own account
+        QCOMPARE(window.imapAccess()->credentialAccountId() == QStringLiteral("account-2"), false);
+        emit view->itemClicked(invoicesItem, 0);
+        emit view->itemActivated(invoicesItem, 0);
+        QTRY_COMPARE(list->activeSavedSearchId(), QStringLiteral("invoices"));
+        QCOMPARE(list->activeSavedSearchOwner(), QStringLiteral("account-2"));
+        QCOMPARE(window.imapAccess()->credentialAccountId(), QStringLiteral("account-2"));
+        QCOMPARE(quickSearch->text(), QStringLiteral("invoice"));
+        QCOMPARE(view->currentItem(), invoicesItem);
+
+        // Choosing a folder leaves the virtual folder and its search
+        emit mailboxes->clicked(QModelIndex());
+        QVERIFY(list->activeSavedSearchId().isEmpty());
+        QVERIFY(quickSearch->text().isEmpty());
+        QVERIFY(!view->currentItem());
+
+        // A search of every account does not need to switch
+        emit view->itemClicked(alertsItem, 0);
+        QTRY_COMPARE(list->activeSavedSearchId(), QStringLiteral("alerts"));
+        QCOMPARE(window.imapAccess()->credentialAccountId(), QStringLiteral("account-2"));
+        QCOMPARE(quickSearch->text(), QStringLiteral("alert"));
+
+        // Typing another search ends the virtual folder; switching accounts does as well
+        quickSearch->setText(QStringLiteral("alerts"));
+        QMetaObject::invokeMethod(list, "slotApplySearch");
+        QVERIFY(list->activeSavedSearchId().isEmpty());
+        emit view->itemClicked(alertsItem, 0);
+        QTRY_COMPARE(list->activeSavedSearchId(), QStringLiteral("alerts"));
+        window.findChild<QAction *>(QStringLiteral("action_next_account"))->trigger();
+        QVERIFY(list->activeSavedSearchId().isEmpty());
+
+        // Searches deleted meanwhile disappear when chosen
+        searches.group(QStringLiteral("account-2")).deleteGroup();
+        QVERIFY(config->sync());
+        emit view->itemClicked(view->topLevelItem(1), 0);
+        QTRY_COMPARE(view->topLevelItemCount(), 1);
+        QVERIFY(list->activeSavedSearchId().isEmpty());
+
+        searches.deleteGroup();
+        counts.deleteGroup();
+        QVERIFY(config->sync());
+        emit window.accountsChanged();
+        QVERIFY(panel->isHidden());
     }
 
     void focusCyclesThroughShellRegions()

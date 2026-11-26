@@ -1185,7 +1185,8 @@ if(BUILD_TESTING)
             endif()
             foreach(account_case ${reader_account_cases} migratesSingleProfileIntoFirstAccount switchingKeepsAccountsIndependent backgroundAccountStatusIsShown
                     removingAccountDeletesItsSettingsAndPasswords accountsSwitchFromTheKeyboard
-                    savedSearchesAndFolderExpansionFollowTheAccount focusCyclesThroughShellRegions
+                    savedSearchesAndFolderExpansionFollowTheAccount savedSearchesAreVirtualFoldersOfEveryAccount
+                    focusCyclesThroughShellRegions
                     goToFolderActionsWithoutFolders checkMailAndNextUnreadFolder destructiveActionsOffline quickActionsOffline
                     messageListFiltersOffline shortcutOverviewAndSelectionOffline powerUserProcessingOffline
                     groupingAndRelevanceOffline folderViewStateOffline unifiedInboxOffline unifiedInboxIsRestored
@@ -1367,6 +1368,8 @@ if(BUILD_TESTING)
     target_link_libraries(test_SearchQuery PRIVATE UiUtils)
     trojita_test(Misc SearchScope)
     target_link_libraries(test_SearchScope PRIVATE UiUtils)
+    trojita_test(Misc SavedSearches)
+    target_link_libraries(test_SavedSearches PRIVATE UiUtils KF6::ConfigCore)
     trojita_test(Misc SearchSuggestions)
     target_link_libraries(test_SearchSuggestions PRIVATE UiUtils)
     trojita_test(Misc SearchSupport)

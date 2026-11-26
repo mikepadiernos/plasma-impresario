@@ -7,6 +7,7 @@
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MessageListWidget.h"
 #include "Gui/MsgListView.h"
+#include "Gui/SavedSearchFolders.h"
 #include "Gui/SearchBuilderDialog.h"
 #include "Gui/SearchFoldersDialog.h"
 #include "Gui/Window.h"
@@ -24,7 +25,9 @@
 
 #include "Plugins/PluginManager.h"
 
+#include <KConfigGroup>
 #include <KLocalizedString>
+#include <KSharedConfig>
 #include <QAction>
 #include <QApplication>
 #include <QComboBox>
@@ -45,6 +48,7 @@
 #include <QToolButton>
 #include <QTreeWidget>
 
+#include <functional>
 #include <memory>
 
 namespace {
@@ -877,6 +881,178 @@ private slots:
         QCOMPARE(searchWidget->searchPlaces(), Places::Account);
         QVERIFY(summary->isHidden());
         QTRY_VERIFY(!clearAll->isEnabled());
+    }
+
+    /** Uses alpha's and beta's invoices and gamma's INBOX, as above; gamma's flags are left as they were */
+    void showsSavedSearchesAsVirtualFolders()
+    {
+        bool ok = false;
+        const int port = qEnvironmentVariableIntValue("PLASMA_TEST_IMAPS_PORT", &ok);
+        QVERIFY(ok && port > 0 && port <= 65535);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        settings.setValue(Common::SettingsNames::guiShowSystray, false);
+        settings.setValue(Common::SettingsNames::passwordPlugin, QStringLiteral("cleartextpassword"));
+        settings.setValue(QStringLiteral("accounts/ids"),
+                          QStringList{QStringLiteral("account-1"), QStringLiteral("account-2"), QStringLiteral("account-3")});
+        settings.setValue(QStringLiteral("accounts/active"), QStringLiteral("account-1"));
+        settings.setValue(QStringLiteral("accounts/next"), 4);
+        settings.setValue(QStringLiteral("accounts/names/account-1"), QStringLiteral("Alpha"));
+        settings.setValue(QStringLiteral("accounts/names/account-2"), QStringLiteral("Beta"));
+        settings.setValue(QStringLiteral("accounts/names/account-3"), QStringLiteral("Gamma"));
+        for (const QString &id : {QStringLiteral("account-1"), QStringLiteral("account-2"), QStringLiteral("account-3")})
+            settings.setValue(QStringLiteral("accountPasswords/%1/imap").arg(id), syntheticPassword);
+        settings.setValue(Common::SettingsNames::autoMarkReadEnabled, false);
+        settings.sync();
+        configureAccount(directory.filePath(QStringLiteral("main-account-1.conf")), port, QStringLiteral("alpha@example.test"));
+        configureAccount(directory.filePath(QStringLiteral("main-account-2.conf")), port, QStringLiteral("beta@example.test"));
+        configureAccount(directory.filePath(QStringLiteral("main-account-3.conf")), port, QStringLiteral("gamma@example.test"));
+        auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        KConfigGroup searches(config, QStringLiteral("SavedSearches"));
+        searches.deleteGroup();
+        KConfigGroup counts(KSharedConfig::openStateConfig(), QStringLiteral("SavedSearchCounts"));
+        counts.deleteGroup();
+        QVERIFY(config->sync());
+
+        QTimer dialogs;
+        connect(&dialogs, &QTimer::timeout, this, &answerDialogs);
+        dialogs.start(20);
+
+        Gui::MainWindow window(&settings);
+        window.resize(1000, 700);
+        window.show();
+        auto *switcher = accountSwitcher(window);
+        auto *tree = window.findChild<Gui::MailBoxTreeView *>();
+        auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
+        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *panel = window.findChild<Gui::SavedSearchFolders *>();
+        auto *markAsRead = window.findChild<QAction *>(QStringLiteral("action_mark_as_read"));
+        QVERIFY(switcher && tree && searchWidget && messages && panel && markAsRead);
+        auto *query = searchWidget->findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        auto *status = searchWidget->findChild<QLabel *>(QStringLiteral("messageListStatus"));
+        auto *view = panel->findChild<QTreeWidget *>(QStringLiteral("savedSearchFolders"));
+        QVERIFY(query && status && view);
+        QVERIFY(panel->isHidden());
+
+        // A message count of zero waits for any message; an earlier test may have delivered more to alpha
+        const auto openInbox = [&](int messageCount) {
+            QModelIndex inbox;
+            QTRY_VERIFY_WITH_TIMEOUT((inbox = findMailbox(tree->model(), QStringLiteral("INBOX"))).isValid(), 20000);
+            tree->scrollTo(inbox);
+            QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(inbox).center());
+            if (messageCount)
+                QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(), messageCount, 10000);
+            else
+                QTRY_VERIFY_WITH_TIMEOUT(messages->model()->rowCount() > 0, 10000);
+        };
+        const auto switchTo = [&](int index) {
+            switcher->setCurrentIndex(index);
+            emit switcher->activated(index);
+        };
+        // Gamma's INBOX is the folder which its search of the shown folder looks in
+        switchTo(2);
+        openInbox(4);
+        switchTo(0);
+        openInbox(0);
+
+        const QString alphaKey = window.imapAccess()->credentialAccountId();
+        KConfigGroup everywhere = searches.group(alphaKey).group(QStringLiteral("everywhere"));
+        everywhere.writeEntry("Name", QStringLiteral("Invoices everywhere"));
+        everywhere.writeEntry("Query", QStringLiteral("invoice"));
+        everywhere.writeEntry("Subject", true);
+        everywhere.writeEntry("Places", QStringLiteral("all"));
+        KConfigGroup releases = searches.group(QStringLiteral("account-3")).group(QStringLiteral("releases"));
+        releases.writeEntry("Name", QStringLiteral("Releases"));
+        releases.writeEntry("Query", QStringLiteral("release"));
+        releases.writeEntry("Subject", true);
+        QVERIFY(config->sync());
+        emit window.accountsChanged();
+        QVERIFY(!panel->isHidden());
+        QCOMPARE(view->topLevelItemCount(), 2);
+        QTreeWidgetItem *everywhereItem = view->topLevelItem(0);
+        QTreeWidgetItem *releasesItem = view->topLevelItem(1);
+        QCOMPARE(everywhereItem->text(0), QStringLiteral("Invoices everywhere"));
+        QCOMPARE(releasesItem->text(0), QStringLiteral("Releases"));
+        QVERIFY(everywhereItem->text(1).isEmpty());
+
+        const auto clickSearch = [&](QTreeWidgetItem *item) {
+            view->scrollToItem(item);
+            QTest::mouseClick(view->viewport(), Qt::LeftButton, Qt::NoModifier, view->visualItemRect(item).center());
+        };
+        const auto unreadShown = [messages]() {
+            int unread = 0;
+            const std::function<void(const QModelIndex &)> walk = [&](const QModelIndex &parent) {
+                for (int row = 0; row < messages->model()->rowCount(parent); ++row) {
+                    const QModelIndex index = messages->model()->index(row, 0, parent);
+                    const QVariant read = index.data(Imap::Mailbox::RoleMessageIsMarkedRead);
+                    if (read.isValid() && !read.toBool())
+                        ++unread;
+                    walk(index);
+                }
+            };
+            walk(QModelIndex());
+            return unread;
+        };
+        const auto storedCounts = [&counts](const QString &owner, const QString &id) {
+            return counts.readEntry(UiUtils::SavedSearches::countsKey(owner, id), QList<int>());
+        };
+
+        // A search of every account counts what it found once every folder was searched
+        clickSearch(everywhereItem);
+        QStringList rows;
+        QTRY_VERIFY2_WITH_TIMEOUT((rows = shownRows(messages->model())).size() == 5 && status->text().contains(QLatin1String("5 messages found")),
+                                  qPrintable(describe(rows, searchWidget)), 30000);
+        QCOMPARE(query->text(), QStringLiteral("invoice"));
+        QCOMPARE(view->currentItem(), everywhereItem);
+        const int invoicesUnread = unreadShown();
+        QTRY_COMPARE_WITH_TIMEOUT(everywhereItem->text(1), QStringLiteral("%1 / 5").arg(invoicesUnread), 5000);
+        QTRY_COMPARE_WITH_TIMEOUT(storedCounts(alphaKey, QStringLiteral("everywhere")), (QList<int>{5, invoicesUnread}), 5000);
+
+        // A search of the shown folder of another account switches to it
+        clickSearch(releasesItem);
+        QTRY_COMPARE_WITH_TIMEOUT(window.imapAccess()->credentialAccountId(), QStringLiteral("account-3"), 5000);
+        QTRY_VERIFY2_WITH_TIMEOUT((rows = shownRows(messages->model())).size() == 2, qPrintable(describe(rows, searchWidget)), 10000);
+        QCOMPARE(query->text(), QStringLiteral("release"));
+        QCOMPARE(view->currentItem(), releasesItem);
+        QTRY_COMPARE_WITH_TIMEOUT(releasesItem->text(1), QStringLiteral("1 / 2"), 5000);
+        QTRY_COMPARE_WITH_TIMEOUT(storedCounts(QStringLiteral("account-3"), QStringLiteral("releases")), (QList<int>{2, 1}), 5000);
+
+        // Reading a message found changes the count while the virtual folder is shown
+        QModelIndex notes;
+        for (int row = 0; row < messages->model()->rowCount(); ++row) {
+            const QModelIndex index = messages->model()->index(row, 0);
+            if (index.data(Imap::Mailbox::RoleMessageSubject).toString() == QLatin1String("[dev] Release notes"))
+                notes = index;
+        }
+        QVERIFY(notes.isValid());
+        messages->scrollTo(notes);
+        QTest::mouseClick(messages->viewport(), Qt::LeftButton, Qt::NoModifier, messages->visualRect(notes).center());
+        QTRY_COMPARE(messages->currentIndex().data(Imap::Mailbox::RoleMessageSubject).toString(), QStringLiteral("[dev] Release notes"));
+        QVERIFY(!markAsRead->isChecked());
+        markAsRead->trigger();
+        QTRY_COMPARE_WITH_TIMEOUT(releasesItem->text(1), QStringLiteral("0 / 2"), 10000);
+        QVERIFY(!releasesItem->font(0).bold());
+        QTRY_VERIFY(markAsRead->isChecked());
+        markAsRead->trigger();
+        QTRY_COMPARE_WITH_TIMEOUT(releasesItem->text(1), QStringLiteral("1 / 2"), 10000);
+        QVERIFY(releasesItem->font(0).bold());
+        QTRY_COMPARE_WITH_TIMEOUT(storedCounts(QStringLiteral("account-3"), QStringLiteral("releases")), (QList<int>{2, 1}), 5000);
+
+        // Choosing a folder leaves the virtual folder and shows the whole folder
+        openInbox(4);
+        QVERIFY(query->text().isEmpty());
+        QVERIFY(searchWidget->activeSavedSearchId().isEmpty());
+        QVERIFY(!view->currentItem());
+
+        // The counts stay known, as when the application starts again
+        emit window.accountsChanged();
+        QCOMPARE(view->topLevelItem(0)->text(1), QStringLiteral("%1 / 5").arg(invoicesUnread));
+        QCOMPARE(view->topLevelItem(1)->text(1), QStringLiteral("1 / 2"));
+
+        searches.deleteGroup();
+        counts.deleteGroup();
+        QVERIFY(config->sync());
     }
 };
 
