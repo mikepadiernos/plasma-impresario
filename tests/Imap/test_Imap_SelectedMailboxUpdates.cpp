@@ -269,6 +269,9 @@ void ImapModelSelectedMailboxUpdatesTest::helperGenericTrafficFirstArrivals(bool
                               "References: <20121031120002.5C37D5807C@linuxized.com> "
                               "<CAKmKYaDZtfZ9wzKML8WgJ=evVhteyOG0RVfsASpBGViwncsaiQ@mail.gmail.com>\r\n"
                               " <50911AE6.8060402@gmail.com>\r\n"
+                              "List-ID: Gentoo Linux mail\r\n"
+                              "\t<gentoo-dev.gentoo.org>\r\n"
+                              "List-Unsubscribe: <mailto:gentoo-dev+unsubscribe@lists.gentoo.org>\r\n"
                               "\r\n");
         cServer("* 1 FETCH (BODY[HEADER.FIELDS (List-Post References fail)]" + asLiteral(headerData) + ")\r\n");
 
@@ -286,6 +289,11 @@ void ImapModelSelectedMailboxUpdatesTest::helperGenericTrafficFirstArrivals(bool
         QCOMPARE(uid43.data(Imap::Mailbox::RoleMessageHeaderListPost).toList(),
                  QVariantList() << QUrl("mailto:gentoo-dev@lists.gentoo.org"));
         QCOMPARE(uid43.data(Imap::Mailbox::RoleMessageHeaderListPostNo).toBool(), false);
+        // List-Id and the list actions are unfolded and keyed by their lower-case names
+        QCOMPARE(uid43.data(Imap::Mailbox::RoleMessageHeaderList).toMap(),
+                 (QVariantMap{{QStringLiteral("list-id"), QStringLiteral("Gentoo Linux mail <gentoo-dev.gentoo.org>")},
+                              {QStringLiteral("list-unsubscribe"),
+                               QStringLiteral("<mailto:gentoo-dev+unsubscribe@lists.gentoo.org>")}}));
     } else {
         // Requesting all envelopes at once
         cClient(t.mk("UID FETCH 43:45 (" FETCH_METADATA_ITEMS ")\r\n"));
@@ -301,6 +309,7 @@ void ImapModelSelectedMailboxUpdatesTest::helperGenericTrafficFirstArrivals(bool
         QCOMPARE(uid43.data(Imap::Mailbox::RoleMessageHeaderReferences).value<QList<QByteArray> >(), QList<QByteArray>());
         QCOMPARE(uid43.data(Imap::Mailbox::RoleMessageHeaderListPost).toList(), QVariantList());
         QCOMPARE(uid43.data(Imap::Mailbox::RoleMessageHeaderListPostNo).toBool(), true);
+        QCOMPARE(uid43.data(Imap::Mailbox::RoleMessageHeaderList).toMap(), QVariantMap());
     }
     helperCheckSubjects(QStringList() << QStringLiteral("A") << QStringLiteral("B") << QStringLiteral("C"));
     cEmpty();

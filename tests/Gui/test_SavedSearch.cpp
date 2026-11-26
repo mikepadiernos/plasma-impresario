@@ -7,6 +7,8 @@
 #include "Gui/SearchBuilderDialog.h"
 #include "Gui/SearchFoldersDialog.h"
 #include "Imap/Model/ItemRoles.h"
+#include "UiUtils/MailingLists.h"
+#include "UiUtils/QuickFilters.h"
 #include "UiUtils/SavedSearches.h"
 #include "UiUtils/SearchScope.h"
 
@@ -78,6 +80,27 @@ private:
     static QStringList dateKeys(const UiUtils::SearchScope::DateRange &range)
     {
         return UiUtils::SearchScope::dateConditions(range, QDate::currentDate());
+    }
+
+    static QStandardItem *listMessage(uint uid, const QString &listId)
+    {
+        auto *item = new QStandardItem(QString::number(uid));
+        item->setData(uid, Imap::Mailbox::RoleMessageUid);
+        item->setData(true, Imap::Mailbox::RoleIsFetched);
+        QVariantMap headers;
+        if (!listId.isEmpty())
+            headers.insert(QStringLiteral("list-id"), listId);
+        item->setData(headers, Imap::Mailbox::RoleMessageHeaderList);
+        item->setData(QVariantList(), Imap::Mailbox::RoleMessageHeaderListPost);
+        item->setData(false, Imap::Mailbox::RoleMessageHeaderListPostNo);
+        return item;
+    }
+
+    static QMenu *mailingLists(Gui::MessageListWidget &widget)
+    {
+        auto *menu = widget.findChild<QMenu *>(QStringLiteral("mailingLists"));
+        QMetaObject::invokeMethod(menu, "aboutToShow");
+        return menu;
     }
 
     static QMenu *savedSearches(Gui::MessageListWidget &widget)
@@ -1281,6 +1304,82 @@ private slots:
                  (QStringList{QStringLiteral("alpha/Archive.2024"), QStringLiteral("beta/INBOX"), QStringLiteral("gamma/INBOX")}));
         alphaItem->setCheckState(0, Qt::Checked);
         QCOMPARE(dialog.selectedFolders().size(), 5);
+    }
+
+    void pinsMailingLists()
+    {
+        const QString account = QStringLiteral("account-lists");
+        KConfigGroup root = Gui::MessageListWidget::savedSearchesRoot();
+        root.group(account).deleteGroup();
+        Imap::Mailbox::FavoriteTagsModel tags;
+        Gui::MessageListWidget widget(nullptr, &tags, account);
+
+        // Without list messages, the menu says so and nothing can be pinned
+        QStandardItemModel plain;
+        plain.appendRow(listMessage(1, QString()));
+        widget.tree->setModel(&plain);
+        QMetaObject::invokeMethod(&widget, "slotAutoEnableDisableSearch");
+        QMenu *menu = mailingLists(widget);
+        QCOMPARE(menu->actions().size(), 3);
+        QVERIFY(!menu->actions().first()->isEnabled());
+        QVERIFY(!widget.findChild<QAction *>(QStringLiteral("pinMailingList"))->isEnabled());
+
+        // The lists of the loaded messages, sorted by name, with their message counts
+        QStandardItemModel model;
+        model.appendRow(listMessage(1, QStringLiteral("Developers <Dev.Lists.Example.ORG>")));
+        model.appendRow(listMessage(2, QStringLiteral("<announce.example.org>")));
+        model.appendRow(listMessage(3, QString()));
+        model.appendRow(listMessage(4, QStringLiteral("<dev.lists.example.org>")));
+        widget.tree->setModel(&model);
+        QMetaObject::invokeMethod(&widget, "slotAutoEnableDisableSearch");
+        menu = mailingLists(widget);
+        QCOMPARE(menu->actions().size(), 4);
+        QCOMPARE(menu->actions().at(0)->text(), QStringLiteral("announce.example.org (1 message)"));
+        QCOMPARE(menu->actions().at(1)->text(), QStringLiteral("Developers <dev.lists.example.org> (2 messages)"));
+        QVERIFY(!menu->actions().at(1)->isChecked());
+        QVERIFY(!widget.findChild<QAction *>(QStringLiteral("pinMailingList"))->isEnabled());
+
+        // Choosing a list shows its messages
+        QSignalSpy search(&widget, &Gui::MessageListWidget::requestingSearch);
+        menu->actions().at(1)->trigger();
+        QCOMPARE(search.size(), 1);
+        QCOMPARE(search.takeFirst().at(0).toStringList(),
+                 UiUtils::MailingLists::searchKeys(QStringLiteral("dev.lists.example.org")));
+        const QString query = UiUtils::fieldFilterText(UiUtils::FieldFilter::MailingList, QStringLiteral("dev.lists.example.org"));
+        QCOMPARE(widget.findChild<QLineEdit *>(QStringLiteral("quickSearch"))->text(), query);
+
+        // The shown list is checked, and can be pinned as a search of every account
+        menu = mailingLists(widget);
+        QVERIFY(menu->actions().at(1)->isChecked());
+        QVERIFY(!menu->actions().at(0)->isChecked());
+        QAction *pin = widget.findChild<QAction *>(QStringLiteral("pinMailingList"));
+        QVERIFY(pin->isEnabled());
+        pin->trigger();
+        auto saved = UiUtils::SavedSearches::load(root, {account});
+        QCOMPARE(saved.size(), 1);
+        QCOMPARE(saved.first().name, QStringLiteral("Developers"));
+        QCOMPARE(saved.first().query, query);
+        QCOMPARE(saved.first().places, UiUtils::SearchScope::Places::AllAccounts);
+        QCOMPARE(saved.first().dates, UiUtils::SearchScope::DateRange());
+
+        // Pinning it again runs the saved search instead of saving another one
+        mailingLists(widget);
+        widget.findChild<QAction *>(QStringLiteral("pinMailingList"))->trigger();
+        QCOMPARE(UiUtils::SavedSearches::load(root, {account}).size(), 1);
+
+        // Another list with the same description is told apart by its ID
+        UiUtils::MailingList other;
+        other.id = QStringLiteral("dev.other.example.org");
+        other.name = QStringLiteral("Developers");
+        QVERIFY(widget.pinMailingList(other));
+        saved = UiUtils::SavedSearches::load(root, {account});
+        QCOMPARE(saved.size(), 2);
+        QStringList names;
+        for (const auto &search : saved)
+            names << search.name;
+        QVERIFY(names.contains(QStringLiteral("Developers (dev.other.example.org)")));
+        QVERIFY(!widget.pinMailingList(UiUtils::MailingList()));
+        root.group(account).deleteGroup();
     }
 };
 

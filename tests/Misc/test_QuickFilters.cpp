@@ -201,7 +201,10 @@ void QuickFiltersTest::buildsSearchConditions() {
       QStringList({QStringLiteral("SUBJECT"), QStringLiteral("Release plan")}));
   QCOMPARE(fieldFilterConditions({FieldFilter::MailingList,
                                   QStringLiteral("dev@lists.example.org")}),
-           QStringList({QStringLiteral("HEADER"), QStringLiteral("List-Post"),
+           QStringList({QStringLiteral("OR"), QStringLiteral("HEADER"),
+                        QStringLiteral("List-Id"),
+                        QStringLiteral("dev@lists.example.org"),
+                        QStringLiteral("HEADER"), QStringLiteral("List-Post"),
                         QStringLiteral("dev@lists.example.org")}));
   QVERIFY(fieldFilterConditions({FieldFilter::None, QStringLiteral("x")})
               .isEmpty());
@@ -241,6 +244,12 @@ void QuickFiltersTest::readsFieldFilterValues() {
       Imap::Mailbox::RoleMessageHeaderListPost);
   QCOMPARE(fieldFilterValue(index, FieldFilter::MailingList),
            QStringLiteral("dev@lists.example.org"));
+  // List-Id names the list when there is one
+  item->setData(QVariantMap{{QStringLiteral("list-id"),
+                             QStringLiteral("Developers <Dev.Lists.Example.org>")}},
+                Imap::Mailbox::RoleMessageHeaderList);
+  QCOMPARE(fieldFilterValue(index, FieldFilter::MailingList),
+           QStringLiteral("dev.lists.example.org"));
   QVERIFY(fieldFilterValue(index, FieldFilter::None).isEmpty());
 
   // Nothing is read from a message which is not fetched yet

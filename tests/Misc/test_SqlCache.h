@@ -39,6 +39,8 @@ private Q_SLOTS:
     void initTestCase();
     void cleanupTestCase();
     void testMailboxOperation();
+    void keepsListHeaders();
+    void dropsMetadataWithoutListHeaders();
 
 private:
     std::shared_ptr<Imap::Mailbox::SQLCache> cache;

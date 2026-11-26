@@ -3,6 +3,7 @@
 */
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
+#include "Gui/EnvelopeView.h"
 #include "Gui/InlineNotificationBar.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MessageListWidget.h"
@@ -16,6 +17,8 @@
 #include "Imap/Model/Model.h"
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
+#include "UiUtils/MailingLists.h"
+#include "UiUtils/SavedSearches.h"
 #include "UiUtils/SearchScope.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -36,6 +39,7 @@
 #include <QHostAddress>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSettings>
@@ -758,6 +762,142 @@ private slots:
         search(QString());
         QTRY_VERIFY2_WITH_TIMEOUT(messages->model()->rowCount() == 4 && !failed(),
                                   qPrintable(describe(subjects(), searchWidget)), 10000);
+    }
+
+    /**
+     * gamma@example.test, whose "[dev] Release notes" names its list in List-Id "Developers
+     * <dev.lists.example.test>" and offers List-Post, List-Unsubscribe and List-Archive. The list is offered as a view
+     * of the loaded messages, shows the message on the server, and can be pinned as a saved search of every account;
+     * the reader names the list and follows its actions only after the user confirms. Pass the slot name to run only
+     * this test.
+     */
+    void showsMailingLists()
+    {
+        bool ok = false;
+        const int port = qEnvironmentVariableIntValue("PLASMA_TEST_IMAPS_PORT", &ok);
+        QVERIFY(ok && port > 0 && port <= 65535);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        settings.setValue(Common::SettingsNames::guiShowSystray, false);
+        settings.setValue(Common::SettingsNames::passwordPlugin, QStringLiteral("cleartextpassword"));
+        settings.setValue(QStringLiteral("accounts/ids"), QStringList{QStringLiteral("account-1")});
+        settings.setValue(QStringLiteral("accounts/active"), QStringLiteral("account-1"));
+        settings.setValue(QStringLiteral("accounts/next"), 2);
+        settings.setValue(QStringLiteral("accounts/names/account-1"), QStringLiteral("Gamma"));
+        settings.setValue(QStringLiteral("accountPasswords/account-1/imap"), syntheticPassword);
+        // The second run of the query syntax test expects the release notes to stay unread
+        settings.setValue(Common::SettingsNames::autoMarkReadEnabled, false);
+        settings.sync();
+        configureAccount(directory.filePath(QStringLiteral("main-account-1.conf")), port, QStringLiteral("gamma@example.test"));
+        auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        KConfigGroup searches(config, QStringLiteral("SavedSearches"));
+        searches.deleteGroup();
+        QVERIFY(config->sync());
+
+        QTimer dialogs;
+        connect(&dialogs, &QTimer::timeout, this, &answerDialogs);
+        dialogs.start(20);
+
+        Gui::MainWindow window(&settings);
+        window.resize(1000, 700);
+        window.show();
+        auto *tree = window.findChild<Gui::MailBoxTreeView *>();
+        auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
+        auto *messages = window.findChild<Gui::MsgListView *>();
+        QVERIFY(tree && searchWidget && messages);
+        auto *query = searchWidget->findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        auto *menu = searchWidget->findChild<QMenu *>(QStringLiteral("mailingLists"));
+        QVERIFY(query && menu);
+
+        QModelIndex inbox;
+        QTRY_VERIFY_WITH_TIMEOUT((inbox = findMailbox(tree->model(), QStringLiteral("INBOX"))).isValid(), 20000);
+        tree->scrollTo(inbox);
+        QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(inbox).center());
+        QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(), 4, 10000);
+        const auto shownSubjects = [&]() {
+            QStringList result;
+            for (int row = 0; row < messages->model()->rowCount(); ++row)
+                result << messages->model()->index(row, 0).data(Imap::Mailbox::RoleMessageSubject).toString();
+            return result;
+        };
+        const QString notes = QStringLiteral("[dev] Release notes");
+
+        // Once the headers of the loaded messages arrive, their one list is offered
+        const QString entry = QStringLiteral("Developers <dev.lists.example.test> (1 message)");
+        const auto menuTexts = [&]() {
+            QMetaObject::invokeMethod(menu, "aboutToShow");
+            QStringList texts;
+            for (QAction *action : menu->actions())
+                texts << action->text();
+            return texts;
+        };
+        QTRY_VERIFY2_WITH_TIMEOUT(menuTexts().value(0) == entry, qPrintable(menuTexts().join(QStringLiteral(" | "))), 10000);
+        QCOMPARE(menu->actions().size(), 3);
+        menu->actions().first()->trigger();
+        QCOMPARE(query->text(),
+                 UiUtils::fieldFilterText(UiUtils::FieldFilter::MailingList, QStringLiteral("dev.lists.example.test")));
+        QTRY_VERIFY2_WITH_TIMEOUT(shownSubjects() == QStringList{notes},
+                                  qPrintable(describe(shownSubjects(), searchWidget)), 10000);
+
+        // Pinning the shown list saves a search of every account, once
+        QMetaObject::invokeMethod(menu, "aboutToShow");
+        QVERIFY(menu->actions().first()->isChecked());
+        auto *pin = searchWidget->findChild<QAction *>(QStringLiteral("pinMailingList"));
+        QVERIFY(pin && pin->isEnabled());
+        pin->trigger();
+        QMetaObject::invokeMethod(menu, "aboutToShow");
+        searchWidget->findChild<QAction *>(QStringLiteral("pinMailingList"))->trigger();
+        const auto saved = UiUtils::SavedSearches::load(Gui::MessageListWidget::savedSearchesRoot(),
+                                                        {QStringLiteral("account-1")});
+        QCOMPARE(saved.size(), 1);
+        QCOMPARE(saved.first().name, QStringLiteral("Developers"));
+        QCOMPARE(saved.first().places, UiUtils::SearchScope::Places::AllAccounts);
+        QTRY_VERIFY2_WITH_TIMEOUT(shownSubjects() == QStringList{notes},
+                                  qPrintable(describe(shownSubjects(), searchWidget)), 10000);
+
+        // The reader names the list, and its actions ask before following a link
+        QList<QUrl> opened;
+        for (auto *envelope : window.findChildren<Gui::EnvelopeView *>())
+            envelope->setUrlOpener([&opened](const QUrl &url) { opened << url; });
+        const QModelIndex message = messages->model()->index(0, 0);
+        messages->scrollTo(message);
+        QTest::mouseClick(messages->viewport(), Qt::LeftButton, Qt::NoModifier, messages->visualRect(message).center());
+        Gui::EnvelopeView *envelope = nullptr;
+        const auto shownEnvelope = [&]() -> Gui::EnvelopeView * {
+            for (auto *view : window.findChildren<Gui::EnvelopeView *>()) {
+                if (view->isVisible() && !view->listActions().isEmpty())
+                    return view;
+            }
+            return nullptr;
+        };
+        QTRY_VERIFY_WITH_TIMEOUT((envelope = shownEnvelope()), 10000);
+        QLabel *row = nullptr;
+        for (auto *label : envelope->findChildren<QLabel *>(QStringLiteral("envelopeMailingList"))) {
+            if (label->isVisible())
+                row = label;
+        }
+        QVERIFY(row);
+        QVERIFY2(row->text().contains(QStringLiteral("Developers (dev.lists.example.test)")), qPrintable(row->text()));
+        int unsubscribe = -1;
+        const auto actions = envelope->listActions();
+        QCOMPARE(actions.size(), 3);
+        for (qsizetype i = 0; i < actions.size(); ++i) {
+            if (actions.at(i).action == UiUtils::MailingLists::Action::Unsubscribe)
+                unsubscribe = int(i);
+        }
+        QVERIFY(unsubscribe >= 0);
+        const QUrl leave(QStringLiteral("mailto:dev-leave@lists.example.test"));
+        QCOMPARE(actions.at(unsubscribe).url, leave);
+        emit row->linkActivated(QStringLiteral("list-action:%1").arg(unsubscribe));
+        auto *box = envelope->findChild<QMessageBox *>(QStringLiteral("listActionConfirmation"));
+        QVERIFY(box);
+        QVERIFY(opened.isEmpty());
+        box->findChild<QPushButton *>(QStringLiteral("followListAction"))->click();
+        QCOMPARE(opened, QList<QUrl>{leave});
+
+        searches.deleteGroup();
+        QVERIFY(config->sync());
     }
 
     void clearsSearchAndFiltersInOneStep()

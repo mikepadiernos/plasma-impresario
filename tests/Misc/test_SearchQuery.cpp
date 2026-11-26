@@ -102,7 +102,7 @@ void SearchQueryTest::translatesToImap_data()
     QTest::newRow("tag") << QStringLiteral("tag:$label1") << QStringLiteral("KEYWORD|$label1");
     QTest::newRow("attachment") << QStringLiteral("has:attachment") << QStringLiteral("HEADER|Content-Type|multipart/mixed");
     QTest::newRow("list") << QStringLiteral("list:dev@lists.example.test")
-                          << QStringLiteral("HEADER|List-Post|dev@lists.example.test");
+                          << QStringLiteral("OR|HEADER|List-Id|dev@lists.example.test|HEADER|List-Post|dev@lists.example.test");
     QTest::newRow("day") << QStringLiteral("date:2025-06-10") << QStringLiteral("SENTSINCE|10-Jun-2025|SENTBEFORE|11-Jun-2025");
     QTest::newRow("month") << QStringLiteral("date=2025-06") << QStringLiteral("SENTSINCE|1-Jun-2025|SENTBEFORE|1-Jul-2025");
     QTest::newRow("year") << QStringLiteral("date:2025") << QStringLiteral("SENTSINCE|1-Jan-2025|SENTBEFORE|1-Jan-2026");

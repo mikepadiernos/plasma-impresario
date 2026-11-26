@@ -30,7 +30,7 @@
 #include "TagGenerator.h"
 
 /** @short What items are expected to be requested when asking for "message metadata" */
-#define FETCH_METADATA_ITEMS "ENVELOPE INTERNALDATE BODYSTRUCTURE RFC822.SIZE BODY.PEEK[HEADER.FIELDS (References List-Post)]"
+#define FETCH_METADATA_ITEMS "ENVELOPE INTERNALDATE BODYSTRUCTURE RFC822.SIZE BODY.PEEK[HEADER.FIELDS (References List-Post List-Id List-Unsubscribe List-Subscribe List-Help List-Archive List-Owner)]"
 
 class QSignalSpy;
 

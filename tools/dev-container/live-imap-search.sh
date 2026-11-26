@@ -5,8 +5,8 @@
 # password is rejected and a folder which does not exist. Searches the server
 # cannot run are checked twice: with ESEARCH, then after restarting the server
 # without it, so that plain SEARCH is used. The query syntax is checked against
-# a third user whose messages have flags, a keyword, an attachment and a
-# mailing list header.
+# a third user whose messages have flags, a keyword, an attachment and the
+# headers of a mailing list, which is also offered as a view and in the reader.
 #
 # Usage: tools/dev-container/run.sh sh tools/dev-container/live-imap-search.sh [build-dir]
 #
@@ -66,7 +66,11 @@ printf '\r\nSee you at noon.\r\n' |
     head -c 2400 /dev/zero | base64 | sed 's/$/\r/'
     printf -- '--part--\r\n'
 } | gamma_message quarterly-report S 'Ann Example <ann@example.test>' 'Quarterly report' 'Tue, 10 Jun 2025 08:00:00 +0000'
-printf 'List-Post: <mailto:dev@lists.example.test>\r\n\r\nNotes for the release.\r\n' |
+{
+    printf 'List-Id: Developers <dev.lists.example.test>\r\nList-Post: <mailto:dev@lists.example.test>\r\n'
+    printf 'List-Unsubscribe: <mailto:dev-leave@lists.example.test>, <https://lists.example.test/leave>\r\n'
+    printf 'List-Archive: <https://lists.example.test/archive>\r\n\r\nNotes for the release.\r\n'
+} |
     gamma_message release-notes '' 'Carol Example <carol@example.test>' '[dev] Release notes' 'Sun, 22 Nov 2026 11:00:00 +0000'
 synthetic_dovecot_start
 

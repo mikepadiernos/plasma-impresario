@@ -20,7 +20,11 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <QSqlDatabase>
+#include <QSqlQuery>
+#include <QTemporaryDir>
 #include <QTest>
+#include <QUrl>
 #include "test_SqlCache.h"
 #include "Imap/Model/SQLCache.h"
 
@@ -86,6 +90,69 @@ void TestSqlCache::testMailboxOperation()
     CHECK_CACHE_ERRORS;
 
     QVERIFY(errorLog.empty());
+}
+
+namespace {
+
+Imap::Mailbox::AbstractCache::MessageDataBundle listMessage(uint uid)
+{
+    Imap::Mailbox::AbstractCache::MessageDataBundle bundle;
+    bundle.uid = uid;
+    bundle.size = 1234;
+    bundle.hdrReferences = {"a@example.org"};
+    bundle.hdrListPost = {QUrl(QStringLiteral("mailto:dev@lists.example.org"))};
+    bundle.hdrList = {{"list-id", "Developers <dev.lists.example.org>"},
+                      {"list-unsubscribe", "<mailto:dev-leave@lists.example.org>"}};
+    return bundle;
+}
+
+}
+
+void TestSqlCache::keepsListHeaders()
+{
+    const auto bundle = listMessage(7);
+    cache->setMessageMetadata(QStringLiteral("lists"), 7, bundle);
+    CHECK_CACHE_ERRORS;
+    QCOMPARE(cache->messageMetadata(QStringLiteral("lists"), 7), bundle);
+    QVERIFY(errorLog.empty());
+}
+
+void TestSqlCache::dropsMetadataWithoutListHeaders()
+{
+    // Metadata cached before List-Id was fetched would never get it, so opening an older cache forgets it
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString file = dir.filePath(QStringLiteral("cache.sqlite"));
+    std::vector<QString> errors;
+    {
+        Imap::Mailbox::SQLCache older;
+        older.setErrorHandler([&errors](const QString &e) { errors.push_back(e); });
+        QVERIFY(older.open(QStringLiteral("older"), file));
+        older.setMessageMetadata(QStringLiteral("lists"), 7, listMessage(7));
+        QCOMPARE(older.messageMetadata(QStringLiteral("lists"), 7).uid, 7u);
+    }
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), QStringLiteral("downgrade"));
+        db.setDatabaseName(file);
+        QVERIFY(db.open());
+        QSqlQuery q(db);
+        QVERIFY(q.exec(QStringLiteral("SELECT version FROM trojita")));
+        QVERIFY(q.first());
+        QCOMPARE(q.value(0).toUInt(), 8u);
+        QVERIFY(q.exec(QStringLiteral("UPDATE trojita SET version = 7")));
+        q = QSqlQuery();
+        db.close();
+    }
+    QSqlDatabase::removeDatabase(QStringLiteral("downgrade"));
+    {
+        Imap::Mailbox::SQLCache upgraded;
+        upgraded.setErrorHandler([&errors](const QString &e) { errors.push_back(e); });
+        QVERIFY(upgraded.open(QStringLiteral("upgraded"), file));
+        QCOMPARE(upgraded.messageMetadata(QStringLiteral("lists"), 7).uid, 0u);
+        upgraded.setMessageMetadata(QStringLiteral("lists"), 7, listMessage(7));
+        QCOMPARE(upgraded.messageMetadata(QStringLiteral("lists"), 7), listMessage(7));
+    }
+    QVERIFY(errors.empty());
 }
 
 QTEST_GUILESS_MAIN(TestSqlCache)
