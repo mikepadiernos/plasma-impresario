@@ -24,17 +24,22 @@
 #define MESSAGELISTWIDGET_H
 
 #include <QWidget>
+#include <functional>
 #include "Imap/Model/FavoriteTagsModel.h"
 #include "UiUtils/SearchQuery.h"
 #include "UiUtils/SearchScope.h"
+#include "UiUtils/SearchSuggestions.h"
 
 class LineEdit;
 class KConfigGroup;
 class QHBoxLayout;
 class QIcon;
 class QActionGroup;
+class QCompleter;
 class QLabel;
 class QMenu;
+class QModelIndex;
+class QStandardItemModel;
 class QTimer;
 class QToolButton;
 
@@ -93,6 +98,12 @@ public:
     /** @short Name the quick filters which narrow the list, such as "Unread", in the summary above it */
     void setActiveFilters(const QStringList &names);
 
+    using FolderSource = std::function<QList<UiUtils::SearchSuggestions::FolderCandidate>()>;
+    /** @short Offer the folders which @p source lists, without contacting the server, as places to search */
+    void setFolderSource(const FolderSource &source);
+    /** @short Queries run from the quick search, most recent first, as remembered for this profile */
+    QStringList searchHistory() const;
+
     // FIXME: consider making this private and moving the logic from Window with it
     MsgListView *tree;
 
@@ -103,6 +114,8 @@ public slots:
     void focusRawSearch();
     /** @short Build a query from conditions, starting with those of the quick search, and search for it */
     void openSearchBuilder();
+    /** @short Offer @p contacts of the address book for the word @p query, as asked by contactSuggestionsRequested() */
+    void showContactSuggestions(const QString &query, const QList<UiUtils::SearchSuggestions::Contact> &contacts);
 
 signals:
     void requestingSearch(const QStringList &conditions);
@@ -111,6 +124,11 @@ signals:
     void foldersChoiceRequested();
     /** @short The user wants the search, its date range and the quick filters cleared at once */
     void clearAllRequested();
+    /** @short Suggestions want the contacts matching @p query; answer with showContactSuggestions() */
+    void contactSuggestionsRequested(const QString &query);
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 protected slots:
     void slotApplySearch();
@@ -152,6 +170,22 @@ private:
     QStringList searchConditions(UiUtils::SearchQuery::Error *problem, bool *relativeDates) const;
     /** Explains below the quick search why its query cannot be used and selects the text it is about */
     void showSearchError(const UiUtils::SearchQuery::Error &problem);
+    /** Applies the quick search; false when its query cannot be used */
+    bool applySearch();
+    /** Applies the query typed in the quick search and remembers it */
+    void runTypedSearch();
+    /** Puts @p query first in the search history, unless searches are not remembered */
+    void rememberSearch(const QString &query);
+    void saveSearchHistory();
+    void updateHistoryActions();
+    /** Offers suggestions for the text being typed, unless they are turned off */
+    void updateSuggestions();
+    /** Asks for the contacts matching the word being typed, unless they have been asked for already */
+    void requestContacts();
+    /** Fills the list of suggestions for the quick search text */
+    void fillSuggestions();
+    /** Runs the search which the suggestion at @p index stands for */
+    void chooseSuggestion(const QModelIndex &index);
 
     LineEdit *m_quickSearchText;
     /** The quick search field and the buttons next to it */
@@ -200,6 +234,19 @@ private:
     /** The day on which the last search was applied */
     QDate m_searchDay;
     QString m_queryPlaceholder;
+    Imap::Mailbox::FavoriteTagsModel *m_favoriteTags;
+    QAction *m_rememberSearches;
+    QAction *m_suggestWhileTyping;
+    QAction *m_clearSearchHistory;
+    UiUtils::SearchHistory m_searchHistory;
+    QStandardItemModel *m_suggestions;
+    QCompleter *m_completer;
+    FolderSource m_folderSource;
+    /** The word which contacts were last asked for, and the answer */
+    QString m_contactQuery;
+    QList<UiUtils::SearchSuggestions::Contact> m_contacts;
+    /** Escape closed the suggestions, so its release must not leave the quick search */
+    bool m_suggestionsEscaped = false;
 
     friend class MainWindow; // needs access to our private slots
 };

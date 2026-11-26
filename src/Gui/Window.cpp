@@ -158,6 +158,7 @@
 #include "UiUtils/QaimDfsIterator.h"
 #include "UiUtils/RelatedMessages.h"
 #include "UiUtils/Relevance.h"
+#include "UiUtils/SearchSuggestions.h"
 #include "UiUtils/UnreadFolders.h"
 
 #include <QVBoxLayout>
@@ -264,6 +265,31 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     connect(mboxTree, &MailBoxTreeView::clicked, this, showChosenFolder);
     connect(mboxTree, &MailBoxTreeView::activated, this, showChosenFolder);
     connect(msgListWidget, &MessageListWidget::foldersChoiceRequested, this, &MainWindow::chooseSearchFolders);
+    connect(msgListWidget, &MessageListWidget::contactSuggestionsRequested, this, [this](const QString &query) {
+        Plugins::AddressbookPlugin *addressbook = m_pluginManager->addressbook();
+        if (!addressbook || !(addressbook->features() & Plugins::AddressbookPlugin::FeatureCompletion))
+            return;
+        Plugins::AddressbookCompletionJob *job = addressbook->requestCompletion(query, QStringList(), 5);
+        if (!job)
+            return;
+        connect(job, &Plugins::AddressbookCompletionJob::completionAvailable, msgListWidget,
+                [this, query](const Plugins::NameEmailList &completion) {
+                    QList<UiUtils::SearchSuggestions::Contact> contacts;
+                    for (const Plugins::NameEmail &entry : completion)
+                        contacts.append({entry.name, entry.email});
+                    msgListWidget->showContactSuggestions(query, contacts);
+                });
+        job->setAutoDelete(true);
+        job->start();
+    });
+    msgListWidget->setFolderSource([this]() {
+        // The shown account, whose folders are listed in the folder tree
+        for (const QString &accountId : m_accounts->accountIds()) {
+            if (m_accountAccess.value(accountId) == m_imapAccess)
+                return UiUtils::SearchSuggestions::knownFolders(prettyMboxModel, accountId);
+        }
+        return QList<UiUtils::SearchSuggestions::FolderCandidate>();
+    });
     if (KConfigGroup(KSharedConfig::openStateConfig(), unifiedInboxGroup()).readEntry("Enabled", false))
         m_actionUnifiedInbox->setChecked(true);
     connect(msgListWidget->tree->header(), &QHeaderView::sectionClicked, this, [this]() {

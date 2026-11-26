@@ -324,6 +324,7 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/SearchBuilder.cpp
     ${path_UiUtils}/SearchQuery.cpp
     ${path_UiUtils}/SearchScope.cpp
+    ${path_UiUtils}/SearchSuggestions.cpp
     ${path_UiUtils}/SelectionAfterRemoval.cpp
     ${path_UiUtils}/ShortcutOverview.cpp
     ${path_UiUtils}/UnreadFolders.cpp

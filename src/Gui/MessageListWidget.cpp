@@ -27,8 +27,10 @@
 #include <KSharedConfig>
 #include <QAction>
 #include <QActionGroup>
+#include <QAbstractItemView>
 #include <QApplication>
 #include <QCheckBox>
+#include <QCompleter>
 #include <QDateEdit>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -36,10 +38,12 @@
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QInputDialog>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLocale>
 #include <QMenu>
 #include <QMessageBox>
+#include <QStandardItemModel>
 #include <QStringView>
 #include <QStyle>
 #include <QTimer>
@@ -63,6 +67,50 @@ namespace {
 using UiUtils::SearchScope::DateRange;
 using UiUtils::SearchScope::Dates;
 using UiUtils::SearchScope::Places;
+using SuggestionKind = UiUtils::SearchSuggestions::Kind;
+
+constexpr int RoleSuggestionKind = Qt::UserRole + 1;
+constexpr int RoleSuggestionText = Qt::UserRole + 2;
+constexpr int RoleSuggestionFolder = Qt::UserRole + 3;
+
+/** @short Offers every suggestion as it is, without picking one which starts like the typed text
+
+In UnfilteredPopupCompletion, QCompleter makes the first entry which starts with the typed text current, and Return
+would then replace what the user typed with it. No entry starts with this path, so Return runs the typed text unless
+the user moves to a suggestion first.
+*/
+class SuggestionCompleter : public QCompleter
+{
+public:
+    using QCompleter::QCompleter;
+
+    QStringList splitPath(const QString &) const override
+    {
+        return {QString(QChar(0x1))};
+    }
+};
+
+QIcon suggestionIcon(const QString &name)
+{
+    return QIcon::fromTheme(name + QLatin1String("-symbolic"), QIcon::fromTheme(name));
+}
+
+/** @short Whether to remember searches and suggest while typing, as chosen in the search options */
+KConfigGroup quickSearchGroup()
+{
+    return KConfigGroup(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), QStringLiteral("QuickSearch"));
+}
+
+/** @short The searches of all profiles, in the state of the application rather than in its settings */
+KConfigGroup searchHistoryGroup()
+{
+    return KConfigGroup(KSharedConfig::openStateConfig(), QStringLiteral("SearchHistory"));
+}
+
+QString searchHistoryKey()
+{
+    return UiUtils::SearchHistory::profileKey(QString::fromUtf8(qgetenv("TROJITA_PROFILE")));
+}
 
 /** @short A short description of @p range, such as "Past Week" or "Since 3/5/26" */
 QString dateRangeText(const DateRange &range)
@@ -112,13 +160,12 @@ DateRange savedDateRange(const KConfigGroup &group)
 }
 
 MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTagsModel *m_favoriteTagsModel, const QString &accountId) :
-    QWidget(parent), m_accountId(accountId), m_supportsFuzzySearch(false)
+    QWidget(parent), m_accountId(accountId), m_supportsFuzzySearch(false), m_favoriteTags(m_favoriteTagsModel)
 {
     tree = new MsgListView(this, m_favoriteTagsModel);
 
     m_quickSearchText = new LineEdit(this);
     m_quickSearchText->setObjectName(QStringLiteral("quickSearch"));
-    m_quickSearchText->setHistoryEnabled(true);
     // Filter out newline. It will wreak havoc into the direct IMAP passthrough and could lead to data loss.
     QValidator *validator = new ReplaceCharValidator(QLatin1Char('\n'), QLatin1Char(' '), m_quickSearchText);
     m_quickSearchText->setValidator(validator);
@@ -140,7 +187,7 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     m_quickSearchText->setToolTip(m_searchToolTip);
     m_queryPlaceholder = tr("<query>");
 
-    connect(m_quickSearchText, &QLineEdit::returnPressed, this, &MessageListWidget::slotApplySearch);
+    connect(m_quickSearchText, &QLineEdit::returnPressed, this, &MessageListWidget::runTypedSearch);
     connect(m_quickSearchText, &QLineEdit::textChanged, this, &MessageListWidget::slotConditionalSearchReset);
     connect(m_quickSearchText, &QLineEdit::textChanged, this, [this]() {
         // The explanation is about text which is no longer there
@@ -148,6 +195,11 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     });
     connect(m_quickSearchText, &QLineEdit::cursorPositionChanged, this, &MessageListWidget::slotUpdateSearchCursor);
     connect(m_quickSearchText, &LineEdit::escapePressed, this, [this]() {
+        // Escape only closed the suggestions
+        if (m_suggestionsEscaped) {
+            m_suggestionsEscaped = false;
+            return;
+        }
         // A field filter, as set by Show Related, goes away at once
         if (UiUtils::parseFieldFilter(m_quickSearchText->text()).field != UiUtils::FieldFilter::None) {
             m_quickSearchText->clear();
@@ -175,6 +227,50 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     m_savedSearches = optionsMenu->addMenu(i18nc("@title:menu", "Saved Searches"));
     m_savedSearches->setObjectName(QStringLiteral("savedSearches"));
     connect(m_savedSearches, &QMenu::aboutToShow, this, &MessageListWidget::rebuildSavedSearchMenu);
+    optionsMenu->addSeparator();
+    optionsMenu->setToolTipsVisible(true);
+    const KConfigGroup quickSearch = quickSearchGroup();
+    m_rememberSearches = optionsMenu->addAction(i18nc("@option:check", "Remember Searches"));
+    m_rememberSearches->setObjectName(QStringLiteral("rememberSearches"));
+    m_rememberSearches->setCheckable(true);
+    m_rememberSearches->setChecked(quickSearch.readEntry("RememberSearches", true));
+    m_rememberSearches->setToolTip(i18nc("@info:tooltip", "Keep the searches you run on this computer to offer them "
+                                                          "again. Turning this off forgets the searches kept so far."));
+    m_suggestWhileTyping = optionsMenu->addAction(i18nc("@option:check", "Suggest While Typing"));
+    m_suggestWhileTyping->setObjectName(QStringLiteral("suggestWhileTyping"));
+    m_suggestWhileTyping->setCheckable(true);
+    m_suggestWhileTyping->setChecked(quickSearch.readEntry("SuggestWhileTyping", true));
+    m_suggestWhileTyping->setToolTip(i18nc("@info:tooltip", "Offer recent searches, contacts, tags and folders below the "
+                                                            "quick search as you type. The Down key offers them at any "
+                                                            "time."));
+    m_clearSearchHistory = optionsMenu->addAction(suggestionIcon(QStringLiteral("edit-clear-history")),
+                                                  i18nc("@action", "Clear Search History"));
+    m_clearSearchHistory->setObjectName(QStringLiteral("clearSearchHistory"));
+    if (m_rememberSearches->isChecked())
+        m_searchHistory = UiUtils::SearchHistory(searchHistoryGroup().readEntry(searchHistoryKey(), QStringList()));
+    else
+        saveSearchHistory();
+    updateHistoryActions();
+    connect(m_rememberSearches, &QAction::toggled, this, [this](bool remember) {
+        KConfigGroup group = quickSearchGroup();
+        group.writeEntry("RememberSearches", remember);
+        group.sync();
+        if (!remember) {
+            m_searchHistory.clear();
+            saveSearchHistory();
+        }
+        updateHistoryActions();
+    });
+    connect(m_suggestWhileTyping, &QAction::toggled, this, [this](bool suggest) {
+        KConfigGroup group = quickSearchGroup();
+        group.writeEntry("SuggestWhileTyping", suggest);
+        group.sync();
+    });
+    connect(m_clearSearchHistory, &QAction::triggered, this, [this]() {
+        m_searchHistory.clear();
+        saveSearchHistory();
+        updateHistoryActions();
+    });
     optionsMenu->addSeparator();
     m_searchInSubject = optionsMenu->addAction(tr("Subject"));
     m_searchInSubject->setObjectName(QStringLiteral("searchInSubject"));
@@ -354,6 +450,21 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     layout->addWidget(m_searchSummary);
     layout->addWidget(tree);
     layout->addWidget(m_statusRow);
+
+    m_suggestions = new QStandardItemModel(this);
+    m_completer = new SuggestionCompleter(m_suggestions, this);
+    m_completer->setObjectName(QStringLiteral("searchSuggestions"));
+    m_completer->setCompletionMode(QCompleter::UnfilteredPopupCompletion);
+    m_completer->setCompletionRole(RoleSuggestionText);
+    m_completer->setMaxVisibleItems(12);
+    m_quickSearchText->setCompleter(m_completer);
+    m_completer->popup()->setObjectName(QStringLiteral("searchSuggestionsPopup"));
+    m_completer->popup()->setAccessibleName(i18nc("@info:accessible", "Search suggestions"));
+    // After the completer, so that this filter sees the keys first
+    m_completer->popup()->installEventFilter(this);
+    m_quickSearchText->installEventFilter(this);
+    connect(m_completer, qOverload<const QModelIndex &>(&QCompleter::activated), this, &MessageListWidget::chooseSuggestion);
+    connect(m_quickSearchText, &QLineEdit::textEdited, this, &MessageListWidget::updateSuggestions);
 
     m_searchResetTimer = new QTimer(this);
     m_searchResetTimer->setSingleShot(true);
@@ -801,7 +912,8 @@ void MessageListWidget::openSearchBuilder()
     connect(dialog, &QDialog::accepted, this, [this, dialog]() {
         m_quickSearchText->setText(dialog->query());
         m_searchResetTimer->stop();
-        slotApplySearch();
+        if (applySearch())
+            rememberSearch(m_quickSearchText->text());
     });
     dialog->open();
 }
@@ -826,6 +938,11 @@ void MessageListWidget::showFieldFilter(const QString &text)
 
 void MessageListWidget::slotApplySearch()
 {
+    applySearch();
+}
+
+bool MessageListWidget::applySearch()
+{
     m_searchDay = QDate::currentDate();
     UiUtils::SearchQuery::Error problem;
     bool relativeQuery = false;
@@ -833,7 +950,7 @@ void MessageListWidget::slotApplySearch()
     if (!problem.isEmpty()) {
         // The list keeps showing the previous search rather than everything, or a server error for a typo
         showSearchError(problem);
-        return;
+        return false;
     }
     m_searchError->hide();
     m_searchDescription.clear();
@@ -852,6 +969,206 @@ void MessageListWidget::slotApplySearch()
     else
         m_dayChangeTimer->stop();
     emit requestingSearch(conditions);
+    return true;
+}
+
+void MessageListWidget::runTypedSearch()
+{
+    m_completer->popup()->hide();
+    if (applySearch())
+        rememberSearch(m_quickSearchText->text());
+}
+
+void MessageListWidget::rememberSearch(const QString &query)
+{
+    if (!m_rememberSearches->isChecked() || !m_searchHistory.add(query))
+        return;
+    saveSearchHistory();
+    updateHistoryActions();
+}
+
+void MessageListWidget::saveSearchHistory()
+{
+    // Only what the user typed is kept, and only here; queries are never logged
+    KConfigGroup group = searchHistoryGroup();
+    const QStringList entries = m_searchHistory.entries();
+    if (entries.isEmpty())
+        group.deleteEntry(searchHistoryKey());
+    else
+        group.writeEntry(searchHistoryKey(), entries);
+    group.sync();
+}
+
+void MessageListWidget::updateHistoryActions()
+{
+    m_clearSearchHistory->setEnabled(!m_searchHistory.entries().isEmpty());
+}
+
+QStringList MessageListWidget::searchHistory() const
+{
+    return m_searchHistory.entries();
+}
+
+void MessageListWidget::setFolderSource(const FolderSource &source)
+{
+    m_folderSource = source;
+}
+
+void MessageListWidget::updateSuggestions()
+{
+    if (!m_suggestWhileTyping->isChecked() || m_quickSearchText->text().trimmed().isEmpty()) {
+        m_suggestions->clear();
+        m_completer->popup()->hide();
+        return;
+    }
+    requestContacts();
+    fillSuggestions();
+    if (m_suggestions->rowCount() > 0)
+        m_completer->complete();
+    else
+        m_completer->popup()->hide();
+}
+
+void MessageListWidget::requestContacts()
+{
+    const QString query = UiUtils::SearchSuggestions::contactQuery(m_quickSearchText->text());
+    if (query.isEmpty() || query == m_contactQuery)
+        return;
+    m_contactQuery = query;
+    m_contacts.clear();
+    emit contactSuggestionsRequested(query);
+}
+
+void MessageListWidget::showContactSuggestions(const QString &query, const QList<UiUtils::SearchSuggestions::Contact> &contacts)
+{
+    // An answer about a word which is no longer typed
+    if (query != m_contactQuery)
+        return;
+    m_contacts = contacts;
+    if (UiUtils::SearchSuggestions::contactQuery(m_quickSearchText->text()) != query)
+        return;
+    const bool shown = m_completer->popup()->isVisible();
+    if (!shown && !m_suggestWhileTyping->isChecked())
+        return;
+    fillSuggestions();
+    if (m_suggestions->rowCount() > 0 && (shown || m_quickSearchText->hasFocus()))
+        m_completer->complete();
+}
+
+void MessageListWidget::fillSuggestions()
+{
+    using namespace UiUtils::SearchSuggestions;
+    const QString text = m_quickSearchText->text();
+    const Token token = currentToken(text);
+    QStringList tags;
+    if (m_favoriteTags) {
+        for (int row = 0; row < m_favoriteTags->rowCount(); ++row)
+            tags << m_favoriteTags->tagNameByIndex(row);
+    }
+    // Only a plain word can name a folder, which saves walking the folders for every other key
+    QList<FolderCandidate> folders;
+    if (m_folderSource && token.isValid() && token.field.isEmpty() && token.prefix.isEmpty() && token.value.size() >= 2)
+        folders = m_folderSource();
+    const QList<Contact> contacts = contactQuery(text) == m_contactQuery ? m_contacts : QList<Contact>();
+    const QStringList history = m_rememberSearches->isChecked() ? m_searchHistory.entries() : QStringList();
+
+    m_suggestions->clear();
+    const QList<Suggestion> suggestions = suggest(text, history, contacts, tags, folders);
+    for (const Suggestion &suggestion : suggestions) {
+        QString label;
+        QString icon;
+        QString toolTip;
+        switch (suggestion.kind) {
+        case Kind::RecentSearch:
+            label = suggestion.value;
+            icon = QStringLiteral("document-open-recent");
+            toolTip = i18nc("@info:tooltip", "A recent search");
+            break;
+        case Kind::Contact: {
+            const QString term = suggestion.text.mid(token.start);
+            label = suggestion.detail.isEmpty()
+                ? term
+                : i18nc("@item:inlistbox search suggestion, %1 is a term such as from:ann@example.org, %2 the name of the person",
+                        "%1 (%2)", term, suggestion.detail);
+            icon = QStringLiteral("im-user");
+            toolTip = i18nc("@info:tooltip", "A contact of the address book");
+            break;
+        }
+        case Kind::Tag:
+            label = suggestion.text.mid(token.start);
+            icon = QStringLiteral("tag");
+            toolTip = i18nc("@info:tooltip", "A tag");
+            break;
+        case Kind::Folder:
+            label = i18nc("@item:inlistbox search suggestion, %1 is a folder such as Archive / 2024", "Search in %1", suggestion.value);
+            icon = QStringLiteral("folder");
+            toolTip = i18nc("@info:tooltip", "Search this folder for the rest of the query, instead of searching for the word");
+            break;
+        }
+        auto *item = new QStandardItem(suggestionIcon(icon), label);
+        item->setToolTip(toolTip);
+        item->setEditable(false);
+        item->setData(static_cast<int>(suggestion.kind), RoleSuggestionKind);
+        item->setData(suggestion.text, RoleSuggestionText);
+        item->setData(suggestion.folderKey, RoleSuggestionFolder);
+        m_suggestions->appendRow(item);
+    }
+}
+
+void MessageListWidget::chooseSuggestion(const QModelIndex &index)
+{
+    if (!index.isValid())
+        return;
+    const auto kind = static_cast<SuggestionKind>(index.data(RoleSuggestionKind).toInt());
+    const QString text = index.data(RoleSuggestionText).toString();
+    const QString folder = index.data(RoleSuggestionFolder).toString();
+    m_completer->popup()->hide();
+    m_quickSearchText->setText(text);
+    // An empty text would start the timer which applies a cleared search
+    m_searchResetTimer->stop();
+    if (kind == SuggestionKind::Folder) {
+        m_selectedFolders = {folder};
+        m_places = Places::SelectedFolders;
+        showDateRange();
+    }
+    if (applySearch())
+        rememberSearch(text);
+}
+
+bool MessageListWidget::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() != QEvent::KeyPress)
+        return QWidget::eventFilter(watched, event);
+    const auto *key = static_cast<QKeyEvent *>(event);
+    QAbstractItemView *popup = m_completer->popup();
+    if (watched == m_quickSearchText)
+        m_suggestionsEscaped = false;
+    if (watched == popup && popup->isVisible()) {
+        switch (key->key()) {
+        case Qt::Key_Return:
+        case Qt::Key_Enter:
+            // The completer would only put the text in place, and the line edit ignores Return while suggestions are
+            // shown; the suggestion may stand for a folder as well
+            if (popup->currentIndex().isValid())
+                chooseSuggestion(popup->currentIndex());
+            else
+                runTypedSearch();
+            return true;
+        case Qt::Key_Escape:
+            m_suggestionsEscaped = true;
+            break;
+        default:
+            break;
+        }
+    } else if (watched == m_quickSearchText && key->key() == Qt::Key_Down && key->modifiers() == Qt::NoModifier) {
+        requestContacts();
+        fillSuggestions();
+        if (m_suggestions->rowCount() > 0) {
+            m_completer->complete();
+            return true;
+        }
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 void MessageListWidget::showSearchError(const UiUtils::SearchQuery::Error &problem)
