@@ -23,6 +23,7 @@ private slots:
   void keptVisibleMessageKeepsItsThread();
   void keptVisibleMessageIsRevealed();
   void visibleMessageCount();
+  void facetsNarrowTheList();
 };
 
 #endif

@@ -31,6 +31,7 @@ private slots:
   void sortsBySubject();
   void sortsByRelevance();
   void quickFilters();
+  void facetsNarrowAcrossAccounts();
   void keptVisibleMessageStaysShown();
   void tooltipNamesTheAccount();
   void passesTheModelTester();

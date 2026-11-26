@@ -1286,6 +1286,13 @@ private slots:
         QVERIFY(summaryText);
         QCOMPARE(clearAll->shortcut(), QKeySequence(QStringLiteral("Ctrl+Shift+Backspace")));
         QVERIFY(filterMenu->actions().contains(clearAll));
+        // The facets of search results are offered from the keyboard as well, once there are results
+        auto *listWidget = window.findChild<Gui::MessageListWidget *>();
+        QVERIFY(listWidget);
+        QVERIFY(filterMenu->actions().contains(listWidget->facetsMenu()->menuAction()));
+        QVERIFY(!listWidget->facetsMenu()->menuAction()->isEnabled());
+        QVERIFY(listWidget->facets().isEmpty());
+        QVERIFY(model()->facets().isEmpty());
         QVERIFY(summary->isHidden());
         QTRY_VERIFY(!clearAll->isEnabled());
         action(QStringLiteral("messageListFilterFlagged"))->trigger();

@@ -324,6 +324,53 @@ private slots:
         QVERIFY2(status->text().contains(QLatin1String("1 place could not be searched")), qPrintable(status->text()));
         QVERIFY2(scope->toolTip().contains(QLatin1String("Broken")), qPrintable(scope->toolTip()));
 
+        // Facets narrow the results by account and folder, counted among the other facets
+        QMenu *facets = searchWidget->facetsMenu();
+        const auto facetAction = [facets](const QString &kind, const QString &start) -> QAction * {
+            QMetaObject::invokeMethod(facets, "aboutToShow");
+            const auto *menu = facets->findChild<QMenu *>(kind);
+            for (QAction *action : menu ? menu->actions() : QList<QAction *>()) {
+                if (action->text().startsWith(start))
+                    return action;
+            }
+            return nullptr;
+        };
+        QVERIFY(!searchWidget->findChild<QToolButton *>(QStringLiteral("narrowResultsButton"))->isHidden());
+        QVERIFY(facetAction(QStringLiteral("searchFacetAccount"), QStringLiteral("Alpha (3)")));
+        QAction *beta = facetAction(QStringLiteral("searchFacetAccount"), QStringLiteral("Beta (2)"));
+        QVERIFY(beta);
+        beta->trigger();
+        QTRY_VERIFY2_WITH_TIMEOUT((rows = shownRows(messages->model())).size() == 2,
+                                  qPrintable(describe(rows, searchWidget)), 5000);
+        QVERIFY(rows.at(0).startsWith(QLatin1String("Synthetic invoice-beta")));
+        QVERIFY(rows.at(1).startsWith(QLatin1String("Synthetic invoice-beta")));
+        QAction *receipts = nullptr;
+        QMetaObject::invokeMethod(facets, "aboutToShow");
+        for (QAction *action : facets->findChild<QMenu *>(QStringLiteral("searchFacetFolder"))->actions()) {
+            if (action->text().contains(QLatin1String("Receipts")))
+                receipts = action;
+            // Only the folders of Beta are counted
+            QVERIFY2(!action->text().contains(QLatin1String("Archive")), qPrintable(action->text()));
+        }
+        QVERIFY(receipts);
+        QVERIFY2(receipts->text().endsWith(QLatin1String("(1)")), qPrintable(receipts->text()));
+        receipts->trigger();
+        QTRY_VERIFY2_WITH_TIMEOUT((rows = shownRows(messages->model())).size() == 1,
+                                  qPrintable(describe(rows, searchWidget)), 5000);
+        QVERIFY(rows.constFirst().startsWith(QLatin1String("Synthetic invoice-beta-receipt")));
+        QCOMPARE(searchWidget->findChild<QWidget *>(QStringLiteral("searchFacetChips"))->findChildren<QToolButton *>().size(), 2);
+        // Removing the account chip keeps the folder, which only Beta has
+        searchWidget->findChild<QWidget *>(QStringLiteral("searchFacetChips"))->findChildren<QToolButton *>().constFirst()->click();
+        QCOMPARE(searchWidget->facets().chosen().size(), 1);
+        QCOMPARE(shownRows(messages->model()).size(), 1);
+        QVERIFY(facets->findChild<QAction *>(QStringLiteral("clearSearchFacets")));
+        facets->findChild<QAction *>(QStringLiteral("clearSearchFacets"))->trigger();
+        QTRY_COMPARE_WITH_TIMEOUT(shownRows(messages->model()).size(), 5, 5000);
+        QVERIFY(searchWidget->facets().isEmpty());
+        // Searching elsewhere clears the facets
+        facetAction(QStringLiteral("searchFacetAccount"), QStringLiteral("Alpha"))->trigger();
+        QTRY_COMPARE_WITH_TIMEOUT(shownRows(messages->model()).size(), 3, 5000);
+
         // Folders of both accounts, chosen in the dialog
         searchWidget->findChild<QAction *>(QStringLiteral("searchPlaces-folders"))->trigger();
         Gui::SearchFoldersDialog *chooser = nullptr;
@@ -346,6 +393,7 @@ private slots:
         QCOMPARE(searchWidget->searchPlaces(), Places::SelectedFolders);
         QCOMPARE(searchWidget->selectedFolders(),
                  (QStringList{QStringLiteral("account-1/Archive/2024"), QStringLiteral("account-2/Receipts")}));
+        QVERIFY(searchWidget->facets().isEmpty());
         QTRY_VERIFY2_WITH_TIMEOUT((rows = shownRows(messages->model())).size() == 2 && status->text().contains(QLatin1String("2 messages found")),
                                   qPrintable(describe(rows, searchWidget)), 30000);
         QCOMPARE(rows, (QStringList{QStringLiteral("Synthetic invoice-alpha-old | Alpha \u00B7 Archive/2024"),

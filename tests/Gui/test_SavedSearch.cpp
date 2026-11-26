@@ -1010,6 +1010,166 @@ private slots:
         QVERIFY(summary->isHidden());
     }
 
+    void narrowsResultsByFacets()
+    {
+        using UiUtils::SearchFacets;
+        Imap::Mailbox::FavoriteTagsModel tags;
+        Gui::MessageListWidget widget(nullptr, &tags, QStringLiteral("account-f"));
+        QStandardItemModel model;
+        enableSearch(widget, model);
+        QStandardItemModel results;
+        const auto add = [&results](const QString &name, const QString &mailbox, bool attachments) {
+            auto *item = new QStandardItem(mailbox);
+            item->setData(uint(results.rowCount() + 1), Imap::Mailbox::RoleMessageUid);
+            item->setData(true, Imap::Mailbox::RoleIsFetched);
+            item->setData(QVariantList{QStringList{name, QString(), mailbox, QStringLiteral("example.org")}},
+                          Imap::Mailbox::RoleMessageFrom);
+            item->setData(QDateTime::currentDateTime(), Imap::Mailbox::RoleMessageDate);
+            item->setData(attachments, Imap::Mailbox::RoleMessageHasAttachments);
+            results.appendRow(item);
+        };
+        add(QStringLiteral("Ann"), QStringLiteral("ann"), true);
+        add(QStringLiteral("Ann"), QStringLiteral("ann"), false);
+        add(QStringLiteral("Bob"), QStringLiteral("bob"), false);
+        add(QStringLiteral("R&D"), QStringLiteral("rd"), false);
+        for (int i = 0; i < 30; ++i)
+            add(QStringLiteral("S%1").arg(i, 2, 10, QLatin1Char('0')), QStringLiteral("s%1").arg(i), false);
+        widget.setFacetSource([&results]() {
+            QModelIndexList messages;
+            for (int row = 0; row < results.rowCount(); ++row)
+                messages << results.index(row, 0);
+            return messages;
+        });
+        widget.setFacetContext({QStringLiteral("account-f"), QStringLiteral("Work"), QDate()});
+
+        auto *query = widget.findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        auto *summary = widget.findChild<QWidget *>(QStringLiteral("searchSummary"));
+        auto *narrow = widget.findChild<QToolButton *>(QStringLiteral("narrowResultsButton"));
+        auto *chips = widget.findChild<QWidget *>(QStringLiteral("searchFacetChips"));
+        QMenu *menu = widget.facetsMenu();
+        QVERIFY(query);
+        QVERIFY(narrow);
+        QVERIFY(chips);
+        QVERIFY(menu);
+        QCOMPARE(menu->objectName(), QStringLiteral("searchFacets"));
+        QCOMPARE(narrow->menu(), menu);
+        QVERIFY(!narrow->toolTip().isEmpty());
+        QVERIFY(!chips->accessibleName().isEmpty());
+        QSignalSpy changed(&widget, &Gui::MessageListWidget::facetsChanged);
+        const auto apply = [&widget]() { QMetaObject::invokeMethod(&widget, "slotApplySearch"); };
+        const auto open = [menu]() { QMetaObject::invokeMethod(menu, "aboutToShow"); };
+        const auto submenu = [menu](const QString &name) { return menu->findChild<QMenu *>(name); };
+        const auto texts = [](const QMenu *menu) {
+            QStringList out;
+            for (const QAction *action : menu->actions()) {
+                if (!action->isSeparator())
+                    out << action->text();
+            }
+            return out;
+        };
+        const auto chipButtons = [chips]() { return chips->findChildren<QToolButton *>(QStringLiteral("searchFacetChip")); };
+
+        // Facets narrow the results of a search
+        QVERIFY(narrow->isHidden());
+        QVERIFY(!menu->menuAction()->isEnabled());
+        query->setText(QStringLiteral("report"));
+        apply();
+        QVERIFY(!narrow->isHidden());
+        QVERIFY(menu->menuAction()->isEnabled());
+        QVERIFY(chips->isHidden());
+
+        open();
+        QStringList kinds;
+        for (const QAction *action : menu->actions()) {
+            if (action->menu())
+                kinds << action->menu()->objectName();
+        }
+        QCOMPARE(kinds, (QStringList{QStringLiteral("searchFacetAccount"), QStringLiteral("searchFacetFolder"),
+                                     QStringLiteral("searchFacetSender"), QStringLiteral("searchFacetDate"),
+                                     QStringLiteral("searchFacetAttachments"), QStringLiteral("searchFacetTag")}));
+        QCOMPARE(texts(submenu(QStringLiteral("searchFacetAccount"))), QStringList{QStringLiteral("Work (34)")});
+        QCOMPARE(texts(submenu(QStringLiteral("searchFacetAttachments"))),
+                 (QStringList{QStringLiteral("With Attachments (1)"), QStringLiteral("Without Attachments (33)")}));
+        // Values which no result has are not offered
+        QVERIFY(!submenu(QStringLiteral("searchFacetTag"))->actions().constFirst()->isEnabled());
+        QVERIFY(!submenu(QStringLiteral("searchFacetFolder"))->actions().constFirst()->isEnabled());
+        // The most frequent senders first; the others are counted
+        QMenu *senders = submenu(QStringLiteral("searchFacetSender"));
+        const QStringList senderTexts = texts(senders);
+        QCOMPARE(senderTexts.size(), 26);
+        QCOMPARE(senderTexts.at(0), QStringLiteral("Ann <ann@example.org> (2)"));
+        QCOMPARE(senderTexts.at(1), QStringLiteral("Bob <bob@example.org> (1)"));
+        QCOMPARE(senderTexts.at(2), QStringLiteral("R&&D <rd@example.org> (1)"));
+        QCOMPARE(senderTexts.last(), QStringLiteral("8 more values not listed"));
+        QVERIFY(!senders->findChild<QAction *>(QStringLiteral("searchFacetMore"))->isEnabled());
+        QVERIFY(!menu->findChild<QAction *>(QStringLiteral("clearSearchFacets"))->isEnabled());
+
+        // Choosing a value adds a chip and counts the other kinds among the messages it keeps
+        senders->actions().at(0)->trigger();
+        QCOMPARE(changed.size(), 1);
+        QCOMPARE(widget.facets().chosen().size(), 1);
+        QCOMPARE(widget.facets().chosen().constFirst().key, QStringLiteral("ann@example.org"));
+        QCOMPARE(widget.facets().context().accountName, QStringLiteral("Work"));
+        QVERIFY(!chips->isHidden());
+        QCOMPARE(chipButtons().size(), 1);
+        QCOMPARE(chipButtons().constFirst()->text(), QStringLiteral("Sender: Ann <ann@example.org>"));
+        QCOMPARE(chipButtons().constFirst()->accessibleName(), QStringLiteral("Remove Sender: Ann <ann@example.org>"));
+        open();
+        QCOMPARE(texts(submenu(QStringLiteral("searchFacetAccount"))), QStringList{QStringLiteral("Work (2)")});
+        QVERIFY(submenu(QStringLiteral("searchFacetSender"))->actions().at(0)->isChecked());
+        QVERIFY(menu->findChild<QAction *>(QStringLiteral("clearSearchFacets"))->isEnabled());
+        submenu(QStringLiteral("searchFacetAttachments"))->actions().at(0)->trigger();
+        QCOMPARE(changed.size(), 2);
+        QCOMPARE(chipButtons().size(), 2);
+        QCOMPARE(chipButtons().at(1)->text(), QStringLiteral("Attachments: With Attachments"));
+
+        // Removing a chip from the keyboard keeps the focus among the chips, then on the button
+        widget.show();
+        widget.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&widget));
+        chipButtons().at(0)->setFocus();
+        chipButtons().at(0)->click();
+        QCOMPARE(changed.size(), 3);
+        QCOMPARE(widget.facets().chosen().size(), 1);
+        QCOMPARE(widget.facets().chosen().constFirst().kind, SearchFacets::Kind::Attachments);
+        QTRY_COMPARE(chipButtons().size(), 1);
+        QCOMPARE(QApplication::focusWidget(), chipButtons().constFirst());
+        chipButtons().constFirst()->click();
+        QVERIFY(widget.facets().isEmpty());
+        QCOMPARE(QApplication::focusWidget(), narrow);
+        QVERIFY(chips->isHidden());
+
+        // Clear Facets in the menu
+        open();
+        submenu(QStringLiteral("searchFacetSender"))->actions().at(1)->trigger();
+        QCOMPARE(widget.facets().chosen().size(), 1);
+        open();
+        menu->findChild<QAction *>(QStringLiteral("clearSearchFacets"))->trigger();
+        QVERIFY(widget.facets().isEmpty());
+        QVERIFY(chips->isHidden());
+
+        // Another search has other results, so the facets are cleared
+        open();
+        submenu(QStringLiteral("searchFacetSender"))->actions().at(1)->trigger();
+        const int before = changed.size();
+        apply();
+        QCOMPARE(widget.facets().chosen().size(), 1);
+        query->setText(QStringLiteral("invoice"));
+        apply();
+        QVERIFY(widget.facets().isEmpty());
+        QCOMPARE(changed.size(), before + 1);
+
+        // So does clearing the search, which hides the button
+        open();
+        submenu(QStringLiteral("searchFacetSender"))->actions().at(1)->trigger();
+        QVERIFY(!widget.facets().isEmpty());
+        widget.clearSearch();
+        QVERIFY(widget.facets().isEmpty());
+        QVERIFY(narrow->isHidden());
+        QVERIFY(summary->isHidden());
+        QVERIFY(!menu->menuAction()->isEnabled());
+    }
+
     void remembersSearches()
     {
         Imap::Mailbox::FavoriteTagsModel tags;

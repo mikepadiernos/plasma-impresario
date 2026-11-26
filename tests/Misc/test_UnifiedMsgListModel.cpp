@@ -13,6 +13,7 @@
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/UnifiedMsgListModel.h"
+#include "UiUtils/SearchFacets.h"
 #include "test_UnifiedMsgListModel.h"
 
 using Imap::Mailbox::MsgListModel;
@@ -42,6 +43,7 @@ QList<QStandardItem *> row(const Message &message) {
   for (int column = 0; column < MsgListModel::COLUMN_COUNT; ++column) {
     auto *item = new QStandardItem(message.subject);
     item->setData(true, RoleIsFetched);
+    item->setData(1u, RoleMessageUid);
     item->setData(message.subject, RoleMessageSubject);
     item->setData(message.date, RoleMessageDate);
     item->setData(message.date, RoleMessageInternalDate);
@@ -539,6 +541,53 @@ void UnifiedMsgListModelTest::quickFilters() {
   QCOMPARE(pretty.filters(), PrettyMsgListModel::FilterUnread |
                                  PrettyMsgListModel::FilterFlagged);
   pretty.setFilters(PrettyMsgListModel::NoFilter);
+  QCOMPARE(pretty.rowCount(), 3);
+}
+
+void UnifiedMsgListModelTest::facetsNarrowAcrossAccounts() {
+  using UiUtils::SearchFacets;
+  Message flagged{QStringLiteral("flagged"), at(1)};
+  flagged.flagged = true;
+  auto work = inbox({flagged, {QStringLiteral("plain"), at(2)}});
+  auto home = inbox({{QStringLiteral("home"), at(3)}});
+  UnifiedMsgListModel unified;
+  unified.setAccountSource(QStringLiteral("work"), QStringLiteral("Work"),
+                           work.get());
+  unified.setAccountSource(QStringLiteral("home"), QStringLiteral("Home"),
+                           home.get());
+  PrettyUnifiedMsgListModel pretty;
+  pretty.setSourceModel(&unified);
+  pretty.sort(MsgListModel::DATE, Qt::AscendingOrder);
+
+  SearchFacets facets;
+  facets.toggle({SearchFacets::Kind::Account, QStringLiteral("work"), QString()});
+  pretty.setFacets(facets);
+  QCOMPARE(pretty.facets(), facets);
+  QCOMPARE(subjects(pretty),
+           (QStringList{QStringLiteral("flagged"), QStringLiteral("plain")}));
+  // Facets are counted among every result, whatever the chosen ones
+  QCOMPARE(pretty.facetCandidates().size(), 3);
+  QCOMPARE(facets.counts(pretty.facetCandidates(), SearchFacets::Kind::Folder)
+               .value(0)
+               .count,
+           2);
+
+  // The quick filters still apply, and narrow the candidates
+  pretty.setFilters(PrettyMsgListModel::FilterFlagged);
+  QCOMPARE(subjects(pretty), QStringList{QStringLiteral("flagged")});
+  QCOMPARE(pretty.facetCandidates().size(), 1);
+  pretty.setFilters(PrettyMsgListModel::NoFilter);
+
+  // Values of one kind are alternatives
+  facets.toggle({SearchFacets::Kind::Account, QStringLiteral("home"), QString()});
+  pretty.setFacets(facets);
+  QCOMPARE(pretty.rowCount(), 3);
+  facets.clear();
+  facets.toggle({SearchFacets::Kind::Folder,
+                 QStringLiteral("home\nINBOX"), QString()});
+  pretty.setFacets(facets);
+  QCOMPARE(subjects(pretty), QStringList{QStringLiteral("home")});
+  pretty.setFacets(SearchFacets());
   QCOMPARE(pretty.rowCount(), 3);
 }
 
