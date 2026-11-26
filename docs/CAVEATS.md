@@ -608,9 +608,9 @@ Plasma session; that check is
 
 ### Search
 
-| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                                                                                                                   |
-| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/454#issuecomment-7181065871) | The quick search's query syntax and builder, **Date** and **Search In** menus, saved searches with a date range or places, searches the server cannot run, **Clear All**, search history and suggestions, saved searches as virtual folders, mailing-list views, the offline search index, and search snippets and relevance |
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                                                                                                                                  |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/454#issuecomment-7181065871) | The quick search's query syntax and builder, **Date** and **Search In** menus, saved searches with a date range or places, searches the server cannot run, **Clear All**, search history and suggestions, saved searches as virtual folders, mailing-list views, the offline search index, search snippets and relevance, and search facets |
 
 **Current behavior:**
 
@@ -789,6 +789,17 @@ Plasma session; that check is
   choosing **Relevance** or another sort during a search is remembered for
   later searches
   ([#346](https://github.com/mikepadiernos/plasma-impresario/issues/346)).
+- ![Resolved][resolved] **Narrow**, above the results of a search, and **View
+  › Filter › Narrow Results** count the shown results by account, folder,
+  sender, date (**Today**, **Yesterday**, **Earlier This Week**, **Last
+  Week**, **Earlier This Month**, **Earlier This Year**, **Older**), with or
+  without attachments, and tag, and list the 25 most frequent values of each
+  with a note for the rest. Choosing values narrows the list within the quick
+  filters: values of one kind are alternatives, kinds combine, and each kind
+  is counted among the messages that the other kinds keep. Each chosen value
+  shows as a chip, such as **Sender: Ann**, that removes it; **Clear Facets**
+  and **Clear All** remove them all
+  ([#347](https://github.com/mikepadiernos/plasma-impresario/issues/347)).
 - ![Limitation][limitation] The server compares the calendar day in each
   message's Date header, in the sender's time zone, because IMAP's `SENTSINCE`
   and `SENTBEFORE` disregard the time and zone. The list shows local time, so a
@@ -881,6 +892,15 @@ Plasma session; that check is
   found only by its text ranks last among the matches. With **Descending**,
   the best matches come last
   ([#346](https://github.com/mikepadiernos/plasma-impresario/issues/346)).
+- ![Limitation][limitation] Facets apply in the application to the results
+  already loaded; they do not search the server again. The sender, date and
+  attachments of a message are known only once its headers are loaded, so
+  until then it is not counted for them and a facet of these kinds hides it.
+  Counts are taken when the menu opens and do not follow the list while it is
+  open. Facets reset when the search, its dates or places, or the shown list
+  change, and are not kept with saved searches. Dates are grouped by the
+  local day of the Date header
+  ([#347](https://github.com/mikepadiernos/plasma-impresario/issues/347)).
 - ![Limitation][limitation] Decrypted text is added only when a message is
   opened and decrypted in the reader with the option on; messages decrypted
   earlier are not added until they are opened again. Inline PGP is indexed as
@@ -1091,6 +1111,10 @@ Plasma session; that check is
   snippet at their usual height, score body matches from the index, and put
   the best matches first whatever the order
   ([#346](https://github.com/mikepadiernos/plasma-impresario/issues/346)).
+- Keep facets with saved searches, offer them in the search builder as query
+  terms, and count them over the whole result on the server where it can
+  return them
+  ([#347](https://github.com/mikepadiernos/plasma-impresario/issues/347)).
 
 ## Before reporting results
 
