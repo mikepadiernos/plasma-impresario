@@ -13,9 +13,11 @@
 #include <KSharedConfig>
 #include <KLocalizedString>
 #include <QAbstractButton>
+#include <QAbstractItemView>
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QCompleter>
 #include <QDateEdit>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -38,6 +40,11 @@ class SavedSearchTest : public QObject
 {
     Q_OBJECT
 private:
+    static KConfigGroup quickSearchGroup()
+    {
+        return KConfigGroup(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), QStringLiteral("QuickSearch"));
+    }
+
     static void enableSearch(Gui::MessageListWidget &widget, QStandardItemModel &model)
     {
         model.setRowCount(1);
@@ -80,6 +87,13 @@ private:
     }
 
 private slots:
+    void init()
+    {
+        // Searches run by one test must not show up in the history of the next
+        KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("SearchHistory"));
+        quickSearchGroup().deleteGroup();
+    }
+
     void persistsRunsAndDeletesPerAccount()
     {
         Imap::Mailbox::FavoriteTagsModel tags;
@@ -738,6 +752,254 @@ private slots:
         QVERIFY(!summary->isHidden());
         widget.setSearchAvailable(false);
         QVERIFY(summary->isHidden());
+    }
+
+    void remembersSearches()
+    {
+        Imap::Mailbox::FavoriteTagsModel tags;
+        const KConfigGroup history(KSharedConfig::openStateConfig(), QStringLiteral("SearchHistory"));
+        const auto run = [](Gui::MessageListWidget &widget, const QString &text) {
+            auto *query = widget.findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+            query->setText(text);
+            QTest::keyClick(query, Qt::Key_Return);
+        };
+        const QStringList remembered = {QStringLiteral("subject:report"), QStringLiteral("from:ann"), QStringLiteral("invoice")};
+        {
+            Gui::MessageListWidget widget(nullptr, &tags, QStringLiteral("account-h"));
+            QStandardItemModel model;
+            enableSearch(widget, model);
+            auto *clear = widget.findChild<QAction *>(QStringLiteral("clearSearchHistory"));
+            QVERIFY(clear);
+            QVERIFY(widget.searchHistory().isEmpty());
+            QVERIFY(!clear->isEnabled());
+
+            run(widget, QStringLiteral("invoice"));
+            run(widget, QStringLiteral("from:ann"));
+            run(widget, QStringLiteral("  invoice "));
+            QCOMPARE(widget.searchHistory(), (QStringList{QStringLiteral("invoice"), QStringLiteral("from:ann")}));
+            QVERIFY(clear->isEnabled());
+
+            // Invalid queries, field filters and searches applied for other reasons are not remembered
+            run(widget, QStringLiteral("foo:bar"));
+            widget.showFieldFilter(QStringLiteral("from:bob@example.org"));
+            widget.findChild<QLineEdit *>(QStringLiteral("quickSearch"))->setText(QStringLiteral("draft"));
+            QMetaObject::invokeMethod(&widget, "slotApplySearch");
+            widget.setDateRange(preset(UiUtils::SearchScope::Dates::PastWeek));
+            QCOMPARE(widget.searchHistory(), (QStringList{QStringLiteral("invoice"), QStringLiteral("from:ann")}));
+
+            // Running a query again makes it the most recent one
+            run(widget, QStringLiteral("from:ann"));
+            QCOMPARE(widget.searchHistory(), (QStringList{QStringLiteral("from:ann"), QStringLiteral("invoice")}));
+
+            // The builder remembers the query it built
+            widget.openSearchBuilder();
+            auto *builder = widget.findChild<Gui::SearchBuilderDialog *>();
+            QVERIFY(builder);
+            builder->setQuery(QStringLiteral("subject:report"));
+            builder->accept();
+            QCOMPARE(widget.searchHistory(), remembered);
+            QCOMPARE(history.readEntry("default", QStringList()), remembered);
+        }
+        {
+            // The history is there after a restart, for every account of the profile
+            Gui::MessageListWidget widget(nullptr, &tags, QStringLiteral("account-other"));
+            QStandardItemModel model;
+            enableSearch(widget, model);
+            QCOMPARE(widget.searchHistory(), remembered);
+
+            // Other profiles have their own history
+            qputenv("TROJITA_PROFILE", "work");
+            {
+                Gui::MessageListWidget work(nullptr, &tags, QStringLiteral("account-h"));
+                QStandardItemModel workModel;
+                enableSearch(work, workModel);
+                QVERIFY(work.searchHistory().isEmpty());
+                run(work, QStringLiteral("budget"));
+            }
+            qunsetenv("TROJITA_PROFILE");
+            QCOMPARE(history.readEntry("work", QStringList()), QStringList{QStringLiteral("budget")});
+            QCOMPARE(history.readEntry("default", QStringList()), remembered);
+
+            widget.findChild<QAction *>(QStringLiteral("clearSearchHistory"))->trigger();
+            QVERIFY(widget.searchHistory().isEmpty());
+            QVERIFY(!history.hasKey("default"));
+            QVERIFY(history.hasKey("work"));
+            QVERIFY(!widget.findChild<QAction *>(QStringLiteral("clearSearchHistory"))->isEnabled());
+
+            // Turning remembering off forgets the searches and keeps no more of them
+            run(widget, QStringLiteral("invoice"));
+            QVERIFY(history.hasKey("default"));
+            auto *remember = widget.findChild<QAction *>(QStringLiteral("rememberSearches"));
+            QVERIFY(remember);
+            QVERIFY(remember->isChecked());
+            QVERIFY(!remember->toolTip().isEmpty());
+            remember->setChecked(false);
+            QVERIFY(widget.searchHistory().isEmpty());
+            QVERIFY(!history.hasKey("default"));
+            run(widget, QStringLiteral("invoice"));
+            QVERIFY(widget.searchHistory().isEmpty());
+            QVERIFY(!history.hasKey("default"));
+        }
+        {
+            Gui::MessageListWidget widget(nullptr, &tags, QStringLiteral("account-h"));
+            auto *remember = widget.findChild<QAction *>(QStringLiteral("rememberSearches"));
+            QVERIFY(!remember->isChecked());
+            remember->setChecked(true);
+            QStandardItemModel model;
+            enableSearch(widget, model);
+            run(widget, QStringLiteral("invoice"));
+            QCOMPARE(widget.searchHistory(), QStringList{QStringLiteral("invoice")});
+            widget.findChild<QAction *>(QStringLiteral("clearSearchHistory"))->trigger();
+        }
+        qputenv("TROJITA_PROFILE", "work");
+        {
+            Gui::MessageListWidget work(nullptr, &tags, QStringLiteral("account-h"));
+            work.findChild<QAction *>(QStringLiteral("clearSearchHistory"))->trigger();
+        }
+        qunsetenv("TROJITA_PROFILE");
+        QVERIFY(history.keyList().isEmpty());
+    }
+
+    void suggestsWhileTyping()
+    {
+        using UiUtils::SearchSuggestions::FolderCandidate;
+        using Places = UiUtils::SearchScope::Places;
+        Imap::Mailbox::FavoriteTagsModel tags;
+        tags.appendTag(Imap::Mailbox::ItemFavoriteTagItem(QStringLiteral("work"), QStringLiteral("#ff0000")));
+        Gui::MessageListWidget widget(nullptr, &tags, QStringLiteral("account-t"));
+        QStandardItemModel model;
+        enableSearch(widget, model);
+        widget.setFolderSource([]() {
+            return QList<FolderCandidate>{{QStringLiteral("account-t/Work"), QStringLiteral("Work")}};
+        });
+        widget.show();
+        widget.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&widget));
+        auto *query = widget.findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        auto *completer = widget.findChild<QCompleter *>(QStringLiteral("searchSuggestions"));
+        QVERIFY(completer);
+        QCOMPARE(query->completer(), completer);
+        QAbstractItemModel *suggestions = completer->model();
+        QAbstractItemView *popup = completer->popup();
+        QVERIFY(!popup->accessibleName().isEmpty());
+        const auto texts = [completer, suggestions]() {
+            QStringList result;
+            for (int row = 0; row < suggestions->rowCount(); ++row)
+                result << suggestions->index(row, 0).data(completer->completionRole()).toString();
+            return result;
+        };
+        const auto labels = [suggestions]() {
+            QStringList result;
+            for (int row = 0; row < suggestions->rowCount(); ++row)
+                result << suggestions->index(row, 0).data(Qt::DisplayRole).toString();
+            return result;
+        };
+        const auto type = [query, popup](const QString &text) {
+            popup->hide();
+            query->clear();
+            query->setFocus();
+            QTest::keyClicks(query, text);
+        };
+        QSignalSpy search(&widget, &Gui::MessageListWidget::requestingSearch);
+        QSignalSpy contactsWanted(&widget, &Gui::MessageListWidget::contactSuggestionsRequested);
+
+        query->setText(QStringLiteral("invoice 2025"));
+        QTest::keyClick(query, Qt::Key_Return);
+        QCOMPARE(widget.searchHistory(), QStringList{QStringLiteral("invoice 2025")});
+
+        // A tag and a folder for a word; the address book is asked for contacts
+        type(QStringLiteral("wo"));
+        QTRY_VERIFY(popup->isVisible());
+        QCOMPARE(texts(), (QStringList{QStringLiteral("tag:work"), QString()}));
+        QCOMPARE(labels(), (QStringList{QStringLiteral("tag:work"), QStringLiteral("Search in Work")}));
+        QCOMPARE(contactsWanted.size(), 1);
+        QCOMPARE(contactsWanted.first().first().toString(), QStringLiteral("wo"));
+        // Contacts come later; answers about other words are ignored
+        widget.showContactSuggestions(QStringLiteral("w"), {{QStringLiteral("Walter"), QStringLiteral("walter@example.org")}});
+        QCOMPARE(texts().size(), 2);
+        widget.showContactSuggestions(QStringLiteral("wo"), {{QStringLiteral("Wolfgang"), QStringLiteral("wolf@example.org")}});
+        QCOMPARE(texts(), (QStringList{QStringLiteral("from:wolf@example.org"), QStringLiteral("tag:work"), QString()}));
+        QCOMPARE(labels().first(), QStringLiteral("from:wolf@example.org (Wolfgang)"));
+
+        // Return runs the typed text, even when a recent search starts like it
+        type(QStringLiteral("inv"));
+        QTRY_VERIFY(popup->isVisible());
+        QCOMPARE(texts(), QStringList{QStringLiteral("invoice 2025")});
+        search.clear();
+        QTest::keyClick(popup, Qt::Key_Return);
+        QCOMPARE(query->text(), QStringLiteral("inv"));
+        QCOMPARE(search.size(), 1);
+        QVERIFY(!popup->isVisible());
+        QCOMPARE(widget.searchHistory().first(), QStringLiteral("inv"));
+
+        // Moving to a suggestion and pressing Return runs it
+        type(QStringLiteral("invoice 2"));
+        QTRY_VERIFY(popup->isVisible());
+        QCOMPARE(texts(), QStringList{QStringLiteral("invoice 2025")});
+        search.clear();
+        QTest::keyClick(popup, Qt::Key_Down);
+        QTest::keyClick(popup, Qt::Key_Return);
+        QCOMPARE(query->text(), QStringLiteral("invoice 2025"));
+        QCOMPARE(search.size(), 1);
+        QCOMPARE(widget.searchHistory().first(), QStringLiteral("invoice 2025"));
+
+        // A click on a tag runs the search with it
+        type(QStringLiteral("is:unread wo"));
+        QTRY_VERIFY(popup->isVisible());
+        const int tagRow = texts().indexOf(QStringLiteral("is:unread tag:work"));
+        QVERIFY(tagRow >= 0);
+        search.clear();
+        const QRect tagRect = popup->visualRect(completer->completionModel()->index(tagRow, 0));
+        QTest::mouseClick(popup->viewport(), Qt::LeftButton, {}, tagRect.center());
+        QCOMPARE(query->text(), QStringLiteral("is:unread tag:work"));
+        QCOMPARE(search.size(), 1);
+        QCOMPARE(widget.searchHistory().first(), QStringLiteral("is:unread tag:work"));
+
+        // A folder becomes the place to search, instead of a word to search for
+        type(QStringLiteral("invoice wo"));
+        QTRY_VERIFY(popup->isVisible());
+        const int folderRow = texts().indexOf(QStringLiteral("invoice"));
+        QVERIFY(folderRow >= 0);
+        search.clear();
+        popup->setCurrentIndex(completer->completionModel()->index(folderRow, 0));
+        QTest::keyClick(popup, Qt::Key_Return);
+        QCOMPARE(query->text(), QStringLiteral("invoice"));
+        QCOMPARE(widget.searchPlaces(), Places::SelectedFolders);
+        QCOMPARE(widget.selectedFolders(), QStringList{QStringLiteral("account-t/Work")});
+        QCOMPARE(search.size(), 1);
+        QCOMPARE(widget.searchHistory().first(), QStringLiteral("invoice"));
+        widget.setSearchPlaces(Places::CurrentFolder);
+
+        // Without suggestions while typing, the Down key still offers them
+        auto *suggest = widget.findChild<QAction *>(QStringLiteral("suggestWhileTyping"));
+        QVERIFY(suggest);
+        QVERIFY(!suggest->toolTip().isEmpty());
+        suggest->setChecked(false);
+        QVERIFY(!quickSearchGroup().readEntry("SuggestWhileTyping", true));
+        type(QStringLiteral("wo"));
+        QTest::qWait(50);
+        QVERIFY(!popup->isVisible());
+        QTest::keyClick(query, Qt::Key_Down);
+        QTRY_VERIFY(popup->isVisible());
+        QVERIFY(texts().contains(QStringLiteral("tag:work")));
+
+        // Escape closes the suggestions and nothing else; a second one clears a field filter as before
+        popup->hide();
+        query->setText(QStringLiteral("from:ann invoice"));
+        QTest::keyClick(query, Qt::Key_Return);
+        widget.showFieldFilter(QStringLiteral("from:ann"));
+        query->setFocus();
+        QTest::keyClick(query, Qt::Key_Down);
+        QTRY_VERIFY(popup->isVisible());
+        QTest::keyPress(popup, Qt::Key_Escape);
+        QTest::keyRelease(query, Qt::Key_Escape);
+        QVERIFY(!popup->isVisible());
+        QCOMPARE(query->text(), QStringLiteral("from:ann"));
+        QTest::keyClick(query, Qt::Key_Escape);
+        QVERIFY(query->text().isEmpty());
+
+        suggest->setChecked(true);
+        widget.findChild<QAction *>(QStringLiteral("clearSearchHistory"))->trigger();
     }
 
     void choosesFoldersOfSeveralAccounts()
