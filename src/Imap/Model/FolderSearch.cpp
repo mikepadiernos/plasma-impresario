@@ -63,6 +63,17 @@ void FolderSearch::setTimeouts(int listingMs, int searchMs, int loadingMs)
     m_loadingMs = loadingMs;
 }
 
+void FolderSearch::setLimits(int folders, int perFolder)
+{
+    m_folderLimit = std::max(0, folders);
+    m_resultLimit = std::max(0, perFolder);
+}
+
+bool FolderSearch::isTruncated() const
+{
+    return m_truncated;
+}
+
 Model *FolderSearch::model() const
 {
     return m_model;
@@ -116,6 +127,7 @@ void FolderSearch::begin(const QStringList &mailboxes, bool allFolders, bool kee
         m_results->clear();
     m_failures.clear();
     m_searchedAgain.clear();
+    m_truncated = false;
     m_requested = UiUtils::SearchScope::searchOrder(mailboxes);
     m_allFolders = allFolders;
     m_queue.clear();
@@ -251,7 +263,7 @@ void FolderSearch::list()
     m_walkTimer.stop();
     disconnectModel();
     m_queue = m_allFolders ? UiUtils::SearchScope::searchOrder(found) : m_requested;
-    m_folderCount = int(m_queue.size());
+    limitQueue();
     if (m_allFolders && m_queue.isEmpty())
         fail(QString(), tr("The account has no folders which can be searched"));
     m_phase = Phase::Searching;
@@ -270,12 +282,21 @@ void FolderSearch::listingTimedOut()
     m_walkTimer.stop();
     disconnectModel();
     m_queue = m_allFolders ? UiUtils::SearchScope::searchOrder(found) : m_requested;
-    m_folderCount = int(m_queue.size());
+    limitQueue();
     if (m_allFolders)
         fail(QString(), tr("Not all folders could be listed in time; only the listed ones were searched"));
     m_phase = Phase::Searching;
     emit progressChanged();
     searchNext();
+}
+
+void FolderSearch::limitQueue()
+{
+    if (m_folderLimit > 0 && m_queue.size() > m_folderLimit) {
+        m_queue = m_queue.mid(0, m_folderLimit);
+        m_truncated = true;
+    }
+    m_folderCount = int(m_queue.size());
 }
 
 void FolderSearch::searchNext()
@@ -337,6 +358,10 @@ void FolderSearch::searchAnswered(quint64 generation, const Imap::Uids &uids)
     ++m_searchedCount;
     Imap::Uids sorted = uids;
     std::sort(sorted.begin(), sorted.end());
+    if (m_resultLimit > 0 && sorted.size() > m_resultLimit) {
+        sorted = sorted.mid(sorted.size() - m_resultLimit);
+        m_truncated = true;
+    }
     QModelIndexList messages;
     const QList<TreeItemMessage *> items = m_model->findMessagesByUids(mailbox, sorted);
     for (TreeItemMessage *item : items)

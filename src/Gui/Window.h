@@ -650,6 +650,10 @@ private:
     void folderSearchFinished(const QString &accountId);
     /** @short Ask which folders the quick search looks at */
     void chooseSearchFolders();
+    /** @short Ask which folders of @arg accountId the related messages panel searches on the server */
+    void chooseRelatedFolders(const QString &accountId);
+    /** @short Let the related messages panel search the server again once the search across folders is done */
+    void resumeRelatedSearch();
 
     Common::AccountRegistry *m_accounts = nullptr;
     Common::AccountStatusTracker *m_accountStatus = nullptr;

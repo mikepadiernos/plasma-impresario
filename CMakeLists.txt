@@ -319,6 +319,7 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/QuickFilters.cpp
     ${path_UiUtils}/RecentFolders.cpp
     ${path_UiUtils}/RelatedMessages.cpp
+    ${path_UiUtils}/RelatedSearch.cpp
     ${path_UiUtils}/Relevance.cpp
     ${path_UiUtils}/SearchScope.cpp
     ${path_UiUtils}/SelectionAfterRemoval.cpp

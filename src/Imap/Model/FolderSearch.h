@@ -79,6 +79,13 @@ public:
 
     /** @short Limits for listing the folders, for an answer to a search and for loading envelopes; for tests */
     void setTimeouts(int listingMs, int searchMs, int loadingMs);
+    /** @short Search at most @p folders folders, in search order, and keep at most @p perFolder matches of each
+
+    The matches kept are those with the highest UIDs, which arrived last. Zero means no limit, the default.
+    */
+    void setLimits(int folders, int perFolder);
+    /** @short Whether the last search skipped folders or matches because of setLimits() */
+    bool isTruncated() const;
 
 signals:
     void progressChanged();
@@ -104,6 +111,7 @@ private:
     void checkLoaded();
     void fail(const QString &mailbox, const QString &reason);
     void finish();
+    void limitQueue();
     void stopTask();
     void disconnectModel();
 
@@ -129,6 +137,9 @@ private:
     QTimer m_walkTimer;
     QTimer m_deadline;
     QTimer m_loadPoll;
+    int m_folderLimit = 0;
+    int m_resultLimit = 0;
+    bool m_truncated = false;
     int m_listingMs = 30000;
     int m_searchMs = 60000;
     int m_loadingMs = 30000;

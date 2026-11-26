@@ -180,6 +180,8 @@ QString unifiedInboxGroup()
 {
     return QStringLiteral("UnifiedInbox");
 }
+
+void reselectShownFolder(Imap::ImapAccess *access);
 }
 
 MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr),
@@ -1754,6 +1756,22 @@ void MainWindow::createWidgets()
     connect(m_contactPanel, &ContactPanel::composeRequested, this, &MainWindow::slotComposeMailUrl);
     connect(m_contactPanel, &ContactPanel::manageContactRequested, this, &MainWindow::slotManageContact);
     connect(m_relatedMessagesPanel, &RelatedMessagesPanel::messageActivated, this, &MainWindow::activateRelatedMessage);
+    const auto messageAccount = [this](const QModelIndex &message) {
+        return accountOfModel(qobject_cast<const Imap::Mailbox::Model *>(Imap::deproxifiedIndex(message).model()));
+    };
+    m_relatedMessagesPanel->setAccountResolver(messageAccount);
+    m_relatedMessagesPanel->setServerSearchGuard([this, messageAccount](const QModelIndex &message) {
+        const QString accountId = messageAccount(message);
+        if (accountId.isEmpty())
+            return i18nc("@info", "The account of the message is not known");
+        if (const Imap::Mailbox::FolderSearch *search = m_folderSearches.value(accountId); search && search->isRunning())
+            return i18nc("@info", "The server is searched once the search across folders is done");
+        return QString();
+    });
+    m_relatedMessagesPanel->setConfig(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")));
+    connect(m_relatedMessagesPanel->serverSearch(), &UiUtils::RelatedSearch::selectionChanged, this,
+            [this](Imap::Mailbox::Model *model) { reselectShownFolder(m_accountAccess.value(accountOfModel(model))); });
+    connect(m_relatedMessagesPanel, &RelatedMessagesPanel::chooseFoldersRequested, this, &MainWindow::chooseRelatedFolders);
     m_embeddedPanels = {m_attachmentPanel, m_messageDetailsPanel, m_contactPanel, m_relatedMessagesPanel};
 #else
    m_messageWidget = new QLabel(QStringLiteral("Message Widget placeholder"));
@@ -6890,15 +6908,19 @@ void MainWindow::activateRelatedMessage(const QModelIndex &message)
     const QModelIndex deproxified = Imap::deproxifiedIndex(message);
     if (!deproxified.isValid())
         return;
+    // UIDs repeat across folders and accounts, so only a row of the very same message is selected; a message which the
+    // list does not show, such as one of another folder, opens in the reader and leaves the list as it is.
     QAbstractItemModel *model = msgListWidget->tree->model();
-    const QModelIndexList matches = model && model->rowCount() > 0
-        ? model->match(model->index(0, 0), Imap::Mailbox::RoleMessageUid, deproxified.data(Imap::Mailbox::RoleMessageUid), 1,
+    const QModelIndexList candidates = model && model->rowCount() > 0
+        ? model->match(model->index(0, 0), Imap::Mailbox::RoleMessageUid, deproxified.data(Imap::Mailbox::RoleMessageUid), -1,
                        Qt::MatchExactly | Qt::MatchRecursive)
         : QModelIndexList();
-    if (!matches.isEmpty()) {
-        msgListWidget->tree->setCurrentIndex(matches.constFirst());
-        msgListWidget->tree->scrollTo(matches.constFirst());
-        msgListClicked(matches.constFirst());
+    const auto match = std::find_if(candidates.cbegin(), candidates.cend(),
+                                    [&](const QModelIndex &row) { return Imap::deproxifiedIndex(row) == deproxified; });
+    if (match != candidates.cend()) {
+        msgListWidget->tree->setCurrentIndex(*match);
+        msgListWidget->tree->scrollTo(*match);
+        msgListClicked(*match);
         return;
     }
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -7476,6 +7498,10 @@ void MainWindow::searchAccount(const QString &accountId, const QStringList &mail
         addSearchProblem(accountId, QString(), problem);
         return;
     }
+    // Both searches would select folders on the same connection
+    if (m_relatedMessagesPanel && m_relatedMessagesPanel->serverSearch()->isRunning()
+        && m_relatedMessagesPanel->serverSearch()->message().model() == model)
+        m_relatedMessagesPanel->restartServerSearch();
     if (FolderSearch *search = m_folderSearches.value(accountId); search && search->model() == model) {
         search->retry(mailboxes, allFolders);
         return;
@@ -7597,6 +7623,7 @@ void MainWindow::folderSearchFinished(const QString &accountId)
     if (!accountId.isEmpty())
         reselectShownFolder(m_accountAccess.value(accountId));
     scheduleMessageListStatus();
+    resumeRelatedSearch();
     if (isSearchAcrossRunning() || m_searchProblems.isEmpty() || !m_notificationBar)
         return;
     // A long list of folders would fill the window
@@ -7622,6 +7649,7 @@ void MainWindow::leaveSearchAcross()
     if (!m_searchAcross)
         return;
     cancelFolderSearches();
+    resumeRelatedSearch();
     m_searchAcross = false;
     m_searchProblems.clear();
     m_searchedPlaces.clear();
@@ -7666,6 +7694,36 @@ void MainWindow::chooseSearchFolders()
     dialog->setSelectedFolders(msgListWidget->selectedFolders());
     connect(dialog, &QDialog::accepted, this, [this, dialog]() { msgListWidget->setSelectedFolders(dialog->selectedFolders()); });
     dialog->open();
+}
+
+void MainWindow::chooseRelatedFolders(const QString &accountId)
+{
+    if (!m_relatedMessagesPanel)
+        return;
+    const QString shownAccount = accountId.isEmpty() ? m_accounts->activeAccount() : accountId;
+    auto *dialog = new SearchFoldersDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setWindowTitle(i18nc("@title:window", "Search Related Messages In"));
+    Imap::ImapAccess *access = m_accountAccess.value(shownAccount);
+    QAbstractItemModel *mailboxes = nullptr;
+    if (access == m_imapAccess)
+        mailboxes = prettyMboxModel;
+    else if (access && access->mailboxModel())
+        mailboxes = new Imap::Mailbox::PrettyMailboxModel(dialog, access->mailboxModel());
+    dialog->addAccount(shownAccount, m_accounts->displayName(shownAccount), mailboxes);
+    // Folders of the other accounts are kept as they are
+    dialog->setSelectedFolders(m_relatedMessagesPanel->chosenFolders());
+    connect(dialog, &QDialog::accepted, this, [this, dialog]() {
+        m_relatedMessagesPanel->setChosenFolders(dialog->selectedFolders());
+        m_relatedMessagesPanel->setServerScope(UiUtils::RelatedSearch::Scope::ChosenFolders);
+    });
+    dialog->open();
+}
+
+void MainWindow::resumeRelatedSearch()
+{
+    if (m_relatedMessagesPanel && m_relatedMessagesPanel->isServerSearchBlocked() && !isSearchAcrossRunning())
+        m_relatedMessagesPanel->restartServerSearch();
 }
 
 void MainWindow::desktopGeometryChanged()
