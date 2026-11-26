@@ -585,6 +585,15 @@ private:
     void applyGroupExpansion();
     /** @short Sort by relevance while @p searchConditions look for text, otherwise go back to the previous sorting */
     void updateRelevanceSorting(const QStringList &searchConditions);
+    /** @short Offer sorting by relevance in a unified list while a search across looks for text */
+    void updateUnifiedRelevance();
+    /** @short Show the snippets of the shown search in the message list, or hide them */
+    void updateSearchSnippets();
+    /** @short What the shown search looks for in text, as from UiUtils::relevanceTerms(); empty without a search */
+    QStringList currentSearchTerms() const;
+    /** @short Whether the last choice of sorting during a search was relevance */
+    bool remembersRelevanceSorting() const;
+    void rememberRelevanceSorting(bool relevance);
     /** @short Map an index of the message list view to the PrettyMsgListModel, an invalid index for a group's header */
     QModelIndex toPrettyIndex(const QModelIndex &viewIndex) const;
     QModelIndex fromPrettyIndex(const QModelIndex &prettyIndex) const;
@@ -1015,6 +1024,8 @@ private:
     QList<SearchProblem> m_searchProblems;
     /** The conditions and the places of the shown results, for searching places again */
     QStringList m_searchConditions;
+    /** What the search of the shown folder looks for in text; its model knows only a search which it could run */
+    QStringList m_folderSearchTerms;
     QList<UiUtils::SearchScope::AccountFolders> m_searchPlan;
     /** The user stopped the search before all places were searched */
     bool m_searchStopped = false;

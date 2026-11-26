@@ -70,6 +70,8 @@ public:
     bool multiLineRows() const { return m_multiLineRows; }
     /** @short Show the initials of the sender in multi-line rows */
     void setSenderInitials(bool shown);
+    /** @short Add the snippet of a search to multi-line rows, from the RoleMessageSearchSnippet of the messages */
+    void setSearchSnippets(bool shown);
 signals:
     /** @short Messages left the list, and @arg index became current and the only selected message
 

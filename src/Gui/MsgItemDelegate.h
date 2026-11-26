@@ -53,6 +53,9 @@ public:
     /** @short Show a badge with the initials of the sender in multi-line rows; nothing is fetched for it */
     void setSenderInitials(bool shown);
     bool showsSenderInitials() const { return m_senderInitials; }
+    /** @short Add a third line to multi-line rows for the snippet of a search, with the matches in bold */
+    void setSnippetLine(bool shown);
+    bool showsSnippetLine() const { return m_snippetLine; }
 
     /** @short Paint the whole multi-line row of the message @arg index into option.rect */
     void paintMultiLineRow(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const;
@@ -77,6 +80,8 @@ private:
         QRect secondLine;
         /** The account of a message in a list which shows several accounts */
         QRect source;
+        /** The snippet of a search, when the rows show it */
+        QRect snippet;
     };
     RowLayout multiLineLayout(const QStyleOptionViewItem &option, const QModelIndex &index) const;
     QColor itemColor(const QModelIndex &index) const;
@@ -86,6 +91,7 @@ private:
     Imap::Mailbox::FavoriteTagsModel *m_favoriteTagsModel;
     bool m_multiLine = false;
     bool m_senderInitials = true;
+    bool m_snippetLine = false;
     mutable QHash<QString, QIcon> m_icons;
 };
 

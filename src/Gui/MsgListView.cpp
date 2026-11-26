@@ -119,6 +119,17 @@ void MsgListView::setSenderInitials(bool shown)
     }
 }
 
+void MsgListView::setSearchSnippets(bool shown)
+{
+    auto *delegate = qobject_cast<MsgItemDelegate *>(itemDelegate());
+    if (!delegate || delegate->showsSnippetLine() == shown)
+        return;
+    delegate->setSnippetLine(shown);
+    // The rows have one height, which changes with the extra line
+    doItemsLayout();
+    viewport()->update();
+}
+
 QModelIndex MsgListView::rowAt(int y) const
 {
     for (int visual = 0; visual < header()->count(); ++visual) {

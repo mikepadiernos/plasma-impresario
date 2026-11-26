@@ -102,6 +102,7 @@
 #include "Imap/Model/SearchIndexer.h"
 #include "Imap/Model/SearchTextFetcher.h"
 #include "Imap/Model/SearchResultsModel.h"
+#include "Imap/Model/SearchSnippets.h"
 #include "Imap/Model/FavoriteTagsModel.h"
 #include "Imap/Model/GroupingMsgListModel.h"
 #include "Imap/Model/Utils.h"
@@ -304,7 +305,9 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     if (KConfigGroup(KSharedConfig::openStateConfig(), unifiedInboxGroup()).readEntry("Enabled", false))
         m_actionUnifiedInbox->setChecked(true);
     connect(msgListWidget->tree->header(), &QHeaderView::sectionClicked, this, [this]() {
-        // Sorting by relevance is never remembered
+        if (!currentSearchTerms().isEmpty())
+            rememberRelevanceSorting(false);
+        // Sorting by relevance is never remembered for a folder
         if (m_actionSortByRelevance && m_actionSortByRelevance->isChecked())
             return;
         const QHeaderView *header = msgListWidget->tree->header();
@@ -1060,6 +1063,11 @@ void MainWindow::createActions()
     m_actionSortByRelevance->setEnabled(false);
     m_actionSortByRelevance->setToolTip(
         i18nc("@info:tooltip", "Relevance sorting needs an active quick search or Show Related filter"));
+    // The next search sorts as the last one was sorted by choice
+    connect(sortColumnGroup, &QActionGroup::triggered, this, [this](QAction *action) {
+        if (!currentSearchTerms().isEmpty())
+            rememberRelevanceSorting(action == m_actionSortByRelevance);
+    });
     connect(sortColumnGroup, &QActionGroup::triggered, this, &MainWindow::slotSortingPreferenceChanged);
     slotSortingConfirmed(-1, Qt::AscendingOrder);
 
@@ -5916,8 +5924,11 @@ void MainWindow::slotSortingPreferenceChanged()
 
     // Sorted here rather than by the server, so the header keeps showing the previous sorting to go back to
     if (m_actionSortByRelevance && m_actionSortByRelevance->isChecked()) {
-        const QStringList terms = UiUtils::relevanceTerms(
-            qobject_cast<ThreadingMsgListModel *>(m_imapAccess->threadingMsgListModel())->currentSearchCondition());
+        if (showsUnifiedList()) {
+            updateUnifiedRelevance();
+            return;
+        }
+        const QStringList terms = m_folderSearchTerms;
         if (!terms.isEmpty()) {
             prettyMsgListModel->setRelevanceTerms(terms, order);
         } else {
@@ -5928,6 +5939,9 @@ void MainWindow::slotSortingPreferenceChanged()
     }
     if (prettyMsgListModel && prettyMsgListModel->isSortingByRelevance())
         prettyMsgListModel->setRelevanceTerms(QStringList(), order);
+    const bool unifiedRelevance = m_prettyUnifiedModel && m_prettyUnifiedModel->isSortingByRelevance();
+    if (unifiedRelevance)
+        m_prettyUnifiedModel->setRelevanceTerms(QStringList(), order);
 
     int column = -1;
     if (m_actionSortByArrival->isChecked()) {
@@ -5949,7 +5963,12 @@ void MainWindow::slotSortingPreferenceChanged()
     }
 
     rememberMessageListSort(column, order);
-    msgListWidget->tree->header()->setSortIndicator(column, order);
+    QHeaderView *header = msgListWidget->tree->header();
+    // The header may show this sorting already, from before relevance, and would not sort again
+    const bool sorted = header->sortIndicatorSection() == column && header->sortIndicatorOrder() == order;
+    header->setSortIndicator(column, order);
+    if (unifiedRelevance && sorted && showsUnifiedList())
+        m_prettyUnifiedModel->sort(column, order);
 }
 
 void MainWindow::slotSortingConfirmed(int column, Qt::SortOrder order)
@@ -6002,6 +6021,10 @@ void MainWindow::slotSortingConfirmed(int column, Qt::SortOrder order)
     // The server sorts again, which ends sorting by relevance
     if (prettyMsgListModel && prettyMsgListModel->isSortingByRelevance())
         prettyMsgListModel->setRelevanceTerms(QStringList(), order);
+    if (m_prettyUnifiedModel && m_prettyUnifiedModel->isSortingByRelevance() && showsUnifiedList()) {
+        m_prettyUnifiedModel->setRelevanceTerms(QStringList(), order);
+        m_prettyUnifiedModel->sort(column, order);
+    }
     if (order == Qt::DescendingOrder)
         m_actionSortDescending->setChecked(true);
     else
@@ -6041,11 +6064,22 @@ void MainWindow::updateRelevanceSorting(const QStringList &searchConditions)
 {
     if (!m_actionSortByRelevance || !prettyMsgListModel)
         return;
+    if (showsUnifiedList()) {
+        // A unified list has its own relevance
+        updateUnifiedRelevance();
+        return;
+    }
     const QStringList terms = UiUtils::relevanceTerms(searchConditions);
+    m_folderSearchTerms = terms;
     m_actionSortByRelevance->setEnabled(!terms.isEmpty());
     m_actionSortByRelevance->setToolTip(
         terms.isEmpty() ? i18nc("@info:tooltip", "Relevance sorting needs an active quick search or Show Related filter")
                         : i18nc("@info:tooltip", "Show the messages which match the search best first"));
+    if (!terms.isEmpty() && !m_actionSortByRelevance->isChecked() && remembersRelevanceSorting()) {
+        // Best matches first, as relevance was chosen during the last search
+        m_actionSortAscending->setChecked(true);
+        m_actionSortByRelevance->setChecked(true);
+    }
     const Qt::SortOrder order = m_actionSortDescending->isChecked() ? Qt::DescendingOrder : Qt::AscendingOrder;
     if (m_actionSortByRelevance->isChecked()) {
         if (!terms.isEmpty()) {
@@ -6060,6 +6094,78 @@ void MainWindow::updateRelevanceSorting(const QStringList &searchConditions)
     } else if (prettyMsgListModel->isSortingByRelevance()) {
         prettyMsgListModel->setRelevanceTerms(QStringList(), order);
     }
+    updateSearchSnippets();
+}
+
+void MainWindow::updateUnifiedRelevance()
+{
+    if (!m_actionSortByRelevance || !m_prettyUnifiedModel)
+        return;
+    QHeaderView *header = msgListWidget->tree->header();
+    if (!showsUnifiedList()) {
+        if (m_prettyUnifiedModel->isSortingByRelevance())
+            m_prettyUnifiedModel->setRelevanceTerms(QStringList(), header->sortIndicatorOrder());
+        updateSearchSnippets();
+        return;
+    }
+    const QStringList terms = m_searchAcross ? UiUtils::relevanceTerms(m_searchConditions) : QStringList();
+    m_actionSortByRelevance->setEnabled(!terms.isEmpty());
+    m_actionSortByRelevance->setToolTip(
+        terms.isEmpty() ? i18nc("@info:tooltip", "Relevance sorting needs an active quick search or Show Related filter")
+                        : i18nc("@info:tooltip", "Show the messages which match the search best first"));
+    if (!terms.isEmpty() && !m_actionSortByRelevance->isChecked() && remembersRelevanceSorting()) {
+        m_actionSortAscending->setChecked(true);
+        m_actionSortByRelevance->setChecked(true);
+    }
+    const Qt::SortOrder order = m_actionSortDescending->isChecked() ? Qt::DescendingOrder : Qt::AscendingOrder;
+    if (m_actionSortByRelevance->isChecked() && !terms.isEmpty()) {
+        if (m_prettyUnifiedModel->relevanceTerms() != terms || m_prettyUnifiedModel->sortOrder() != order)
+            m_prettyUnifiedModel->setRelevanceTerms(terms, order);
+    } else {
+        if (m_prettyUnifiedModel->isSortingByRelevance()) {
+            // Back to the sorting from before, which the header still shows
+            m_prettyUnifiedModel->setRelevanceTerms(QStringList(), header->sortIndicatorOrder());
+            m_prettyUnifiedModel->sort(header->sortIndicatorSection(), header->sortIndicatorOrder());
+        }
+        if (m_actionSortByRelevance->isChecked())
+            slotSortingConfirmed(header->sortIndicatorSection(), header->sortIndicatorOrder());
+    }
+    updateSearchSnippets();
+}
+
+void MainWindow::updateSearchSnippets()
+{
+    if (!prettyMsgListModel)
+        return;
+    Imap::Mailbox::SearchSnippets *snippets = prettyMsgListModel->snippets();
+    snippets->setModel(imapModel());
+    const QStringList terms = currentSearchTerms();
+    // The results of a search across have snippets of their own
+    snippets->setTerms(showsUnifiedList() ? QStringList() : terms);
+    msgListWidget->tree->setSearchSnippets(!terms.isEmpty());
+}
+
+QStringList MainWindow::currentSearchTerms() const
+{
+    if (m_searchAcross)
+        return UiUtils::relevanceTerms(m_searchConditions);
+    if (m_unifiedInbox)
+        return QStringList();
+    return m_folderSearchTerms;
+}
+
+bool MainWindow::remembersRelevanceSorting() const
+{
+    return KConfigGroup(KSharedConfig::openStateConfig(), QStringLiteral("SearchResults")).readEntry("SortByRelevance", false);
+}
+
+void MainWindow::rememberRelevanceSorting(bool relevance)
+{
+    KConfigGroup group(KSharedConfig::openStateConfig(), QStringLiteral("SearchResults"));
+    if (group.readEntry("SortByRelevance", false) == relevance)
+        return;
+    group.writeEntry("SortByRelevance", relevance);
+    group.sync();
 }
 
 QModelIndex MainWindow::toPrettyIndex(const QModelIndex &viewIndex) const
@@ -8061,6 +8167,7 @@ void MainWindow::startSearchAcross(const QStringList &conditions)
     updateUnifiedStates();
     if (entering && !m_unifiedInbox)
         showUnifiedListModel();
+    updateUnifiedRelevance();
     updateMessageListScope();
     updateMessageFlags();
     scheduleMessageListStatus();
@@ -8131,6 +8238,8 @@ void MainWindow::searchAccount(const QString &accountId, const QStringList &mail
     }
     auto *search = new FolderSearch(model, this);
     search->setSearchIndex(indexer);
+    search->results()->snippets()->setModel(model);
+    search->results()->snippets()->setTerms(UiUtils::relevanceTerms(m_searchConditions));
     m_folderSearches.insert(accountId, search);
     connect(search, &FolderSearch::progressChanged, this, &MainWindow::scheduleMessageListStatus);
     connect(search, &FolderSearch::folderFailed, this, [this, accountId, name](const QString &mailbox, const QString &reason) {
@@ -8367,7 +8476,9 @@ void MainWindow::leaveSearchAcross()
     }
     if (m_unifiedInbox) {
         syncUnifiedSources();
+        updateUnifiedRelevance();
     } else {
+        updateUnifiedRelevance();
         showFolderListModel();
         applyMessageListView();
         if (auto *threading = qobject_cast<Imap::Mailbox::ThreadingMsgListModel *>(m_imapAccess->threadingMsgListModel()))
