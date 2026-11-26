@@ -324,6 +324,7 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/SearchBuilder.cpp
     ${path_UiUtils}/SearchQuery.cpp
     ${path_UiUtils}/SearchScope.cpp
+    ${path_UiUtils}/SavedSearches.cpp
     ${path_UiUtils}/SearchSuggestions.cpp
     ${path_UiUtils}/SelectionAfterRemoval.cpp
     ${path_UiUtils}/ShortcutOverview.cpp
@@ -443,6 +444,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/MailBoxTreeView.cpp
     ${path_DesktopGui}/MailboxPickerDialog.cpp
     ${path_DesktopGui}/SearchBuilderDialog.cpp
+    ${path_DesktopGui}/SavedSearchFolders.cpp
     ${path_DesktopGui}/SearchFoldersDialog.cpp
     ${path_DesktopGui}/MessageActionHandler.cpp
     ${path_DesktopGui}/MessageDetailsPanel.cpp

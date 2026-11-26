@@ -130,7 +130,23 @@ void AccountSidebar::refresh(const Common::AccountRegistry &accounts,
     m_layout->addWidget(m_folders, 1);
   // Keeps the headers together at the top while the folders are collapsed
   m_layout->addStretch(0);
+  m_stretchIndex = m_layout->count() - 1;
+  if (m_footer)
+    m_layout->addWidget(m_footer);
   setFoldersExpanded(grouped ? m_expanded : true);
+}
+
+void AccountSidebar::setFooter(QWidget *footer) {
+  if (footer == m_footer)
+    return;
+  if (m_footer) {
+    m_layout->removeWidget(m_footer);
+    m_footer->deleteLater();
+  }
+  m_footer = footer;
+  // The layout takes the footer over, keeping it hidden if it hid itself
+  if (m_footer)
+    m_layout->addWidget(m_footer);
 }
 
 void AccountSidebar::setUnreadCount(const QString &accountId, int count) {
@@ -179,7 +195,8 @@ void AccountSidebar::activateHeader(QToolButton *header) {
 void AccountSidebar::setFoldersExpanded(bool expanded) {
   m_expanded = expanded;
   m_folders->setVisible(expanded);
-  m_layout->setStretch(m_layout->count() - 1, expanded ? 0 : 1);
+  if (m_stretchIndex >= 0)
+    m_layout->setStretch(m_stretchIndex, expanded ? 0 : 1);
   updateHeaderStates();
 }
 

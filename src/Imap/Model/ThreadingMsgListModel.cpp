@@ -1625,6 +1625,11 @@ QString ThreadingMsgListModel::searchFailure() const
     return m_searchFailure;
 }
 
+bool ThreadingMsgListModel::isUpdatePending() const
+{
+    return (m_filteredBySearch && m_searchValidity == RESULT_ASKED) || threadingInFlight;
+}
+
 ThreadingMsgListModel::SortCriterium ThreadingMsgListModel::currentSortCriterium() const
 {
     return m_currentSortingCriteria;

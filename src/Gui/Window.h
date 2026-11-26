@@ -112,6 +112,7 @@ namespace Gui
 {
 
 class AccountSidebar;
+class SavedSearchFolders;
 class CapabilityActionGate;
 class ShellHeader;
 class AttachmentPanel;
@@ -414,6 +415,17 @@ private:
 
     /** Rebuild the account selector from the account list. */
     void refreshAccountSwitcher();
+
+    /** @short The key under which the account @p accountId keeps its saved searches, as ImapAccess::credentialAccountId() */
+    QString savedSearchOwner(const QString &accountId) const;
+    /** @short Show the saved searches of every account in the sidebar, with the counts from when they last ran */
+    void reloadSavedSearchFolders();
+    /** @short Show the virtual folder of the search @p id of @p owner, switching to the owner when the search needs it */
+    void activateSavedSearch(const QString &owner, const QString &id);
+    /** @short Count the messages of the shown virtual folder soon, coalescing repeated requests */
+    void scheduleSavedSearchCount();
+    /** @short Count the messages which the shown virtual folder lists, and remember them once the search is done */
+    void countActiveSavedSearch();
 
     /** Show the other accounts that need attention in the footer. */
     void updateBackgroundAlerts();
@@ -750,6 +762,9 @@ private:
     QSet<QSplitter *> m_panelRegionsPending;
     /** The folder tree grouped by account, in the column chosen for the mailbox sidebar */
     AccountSidebar *m_accountSidebar = nullptr;
+    /** The saved searches of every account, as virtual folders below the folder tree */
+    SavedSearchFolders *m_savedSearchFolders = nullptr;
+    QTimer *m_savedSearchCountTimer = nullptr;
     /** The header region above the columns, off by default */
     ShellHeader *m_shellHeader = nullptr;
     /** Hides the actions which the active account's protocol does not support */

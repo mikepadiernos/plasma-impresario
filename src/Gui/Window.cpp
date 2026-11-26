@@ -158,6 +158,7 @@
 #include "UiUtils/QaimDfsIterator.h"
 #include "UiUtils/RelatedMessages.h"
 #include "UiUtils/Relevance.h"
+#include "UiUtils/SavedSearches.h"
 #include "UiUtils/SearchSuggestions.h"
 #include "UiUtils/UnreadFolders.h"
 
@@ -167,6 +168,7 @@
 #include "OAuth/Session.h"
 #include "AccountSidebar.h"
 #include "CapabilityActionGate.h"
+#include "SavedSearchFolders.h"
 #include "ShellHeader.h"
 
 /** @short All user-facing widgets and related classes */
@@ -256,8 +258,13 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     applyMessageListView();
     // Choosing a folder leaves the Unified Inbox and the search results for it
     const auto showChosenFolder = [this]() {
+        // A folder shows all of its messages, not what the saved search found
+        const bool savedSearch = !msgListWidget->activeSavedSearchOwner().isEmpty();
+        msgListWidget->forgetActiveSavedSearch();
         if (m_searchAcross) {
             leaveSearchAcross();
+            msgListWidget->clearSearch();
+        } else if (savedSearch) {
             msgListWidget->clearSearch();
         }
         setUnifiedInbox(false, false);
@@ -1220,6 +1227,7 @@ void MainWindow::createActions()
     connect(m_prettyUnifiedModel, &QAbstractItemModel::rowsRemoved, this, &MainWindow::scheduleMessageListStatus);
     connect(m_prettyUnifiedModel, &QAbstractItemModel::modelReset, this, &MainWindow::scheduleMessageListStatus);
     connect(m_prettyUnifiedModel, &QAbstractItemModel::layoutChanged, this, &MainWindow::scheduleMessageListStatus);
+    connect(m_prettyUnifiedModel, &QAbstractItemModel::dataChanged, this, &MainWindow::scheduleSavedSearchCount);
     connect(m_unifiedModel, &Imap::Mailbox::UnifiedMsgListModel::accountsChanged, this, [this]() {
         if (showsUnifiedList()) {
             updateMessageListScope();
@@ -1932,6 +1940,7 @@ void MainWindow::setupModels(bool reconnect)
     connect(prettyMsgListModel, &QAbstractItemModel::rowsRemoved, this, &MainWindow::scheduleMessageListStatus);
     connect(prettyMsgListModel, &QAbstractItemModel::modelReset, this, &MainWindow::scheduleMessageListStatus);
     connect(prettyMsgListModel, &QAbstractItemModel::layoutChanged, this, &MainWindow::scheduleMessageListStatus);
+    connect(prettyMsgListModel, &QAbstractItemModel::dataChanged, this, &MainWindow::scheduleSavedSearchCount);
     m_groupingMsgListModel = new Imap::Mailbox::GroupingMsgListModel(this);
     m_groupingMsgListModel->setObjectName(QStringLiteral("groupingMsgListModel"));
     m_groupingMsgListModel->setFavoriteTags(m_favoriteTags);
@@ -3063,6 +3072,118 @@ Imap::ImapAccess *MainWindow::accountAccess(const QString &accountId)
             Qt::QueuedConnection);
     m_accountAccess.insert(accountId, access);
     return access;
+}
+
+QString MainWindow::savedSearchOwner(const QString &accountId) const
+{
+    // As ImapAccess::credentialAccountId(), without creating the access of an account which is not running
+    if (accountId != m_settings->value(legacyAccountKey).toString())
+        return accountId;
+    const QString profile = QString::fromUtf8(qgetenv("TROJITA_PROFILE"));
+    return profile.isEmpty() ? QStringLiteral("account-0") : profile;
+}
+
+void MainWindow::reloadSavedSearchFolders()
+{
+    if (!m_savedSearchFolders)
+        return;
+    QStringList owners;
+    QHash<QString, QString> names;
+    for (const QString &accountId : m_accounts->accountIds()) {
+        const QString owner = savedSearchOwner(accountId);
+        owners << owner;
+        names.insert(owner, m_accounts->displayName(accountId));
+    }
+    const KConfigGroup root(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), QStringLiteral("SavedSearches"));
+    const QList<UiUtils::SavedSearch> searches = UiUtils::SavedSearches::load(root, owners);
+    m_savedSearchFolders->setSearches(searches, names);
+    KConfigGroup counts(KSharedConfig::openStateConfig(), QStringLiteral("SavedSearchCounts"));
+    UiUtils::SavedSearches::pruneCounts(counts, searches);
+    for (const UiUtils::SavedSearch &search : searches)
+        m_savedSearchFolders->setCounts(search.owner, search.id, UiUtils::SavedSearches::readCounts(counts, search.owner, search.id));
+    m_savedSearchFolders->setActive(msgListWidget->activeSavedSearchOwner(), msgListWidget->activeSavedSearchId());
+    scheduleSavedSearchCount();
+}
+
+void MainWindow::activateSavedSearch(const QString &owner, const QString &id)
+{
+    const KConfigGroup searches(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), QStringLiteral("SavedSearches"));
+    const KConfigGroup group = searches.group(owner);
+    const UiUtils::SavedSearch search = group.hasGroup(id) ? UiUtils::SavedSearches::read(group.group(id), owner)
+                                                           : UiUtils::SavedSearch();
+    if (!search.isValid()) {
+        // Deleted or changed meanwhile, such as by another window
+        reloadSavedSearchFolders();
+        return;
+    }
+    if (search.dependsOnOwner()) {
+        const QStringList accountIds = m_accounts->accountIds();
+        const auto account = std::find_if(accountIds.cbegin(), accountIds.cend(),
+                                          [this, &owner](const QString &accountId) { return savedSearchOwner(accountId) == owner; });
+        if (account == accountIds.cend())
+            return;
+        // Choosing the shown account in the Unified Inbox goes back to its folder
+        if (*account != m_accounts->activeAccount() || m_unifiedInbox)
+            switchAccount(*account);
+        if (*account != m_accounts->activeAccount() || m_unifiedInbox)
+            return;
+    }
+    msgListWidget->runSavedSearch(owner, id);
+}
+
+void MainWindow::scheduleSavedSearchCount()
+{
+    if (m_savedSearchCountTimer && msgListWidget && !msgListWidget->activeSavedSearchOwner().isEmpty())
+        m_savedSearchCountTimer->start();
+}
+
+void MainWindow::countActiveSavedSearch()
+{
+    using namespace Imap::Mailbox;
+    const QString owner = msgListWidget->activeSavedSearchOwner();
+    const QString id = msgListWidget->activeSavedSearchId();
+    if (owner.isEmpty() || !m_savedSearchFolders)
+        return;
+    UiUtils::SavedSearches::Counts counts;
+    bool done = true;
+    if (m_searchAcross) {
+        if (!m_unifiedModel)
+            return;
+        counts = {m_unifiedModel->messageCount(), m_unifiedModel->unreadCount()};
+        // The folders searched so far; the count is kept once every folder was searched
+        done = !isSearchAcrossRunning() && !m_searchStopped;
+    } else {
+        if (showsUnifiedList())
+            return;
+        auto *threading = qobject_cast<ThreadingMsgListModel *>(m_imapAccess->threadingMsgListModel());
+        const auto *msgList = qobject_cast<MsgListModel *>(m_imapAccess->msgListModel());
+        if (!threading || !msgList || !msgList->currentMailbox().isValid() || threading->isUpdatePending()
+            || !threading->searchFailure().isEmpty())
+            return;
+        counts = {0, 0};
+        // Every message found, whichever filters of the list hide some of them
+        std::function<void(const QModelIndex &)> countRows = [&](const QModelIndex &parent) {
+            for (int row = 0, rows = threading->rowCount(parent); row < rows; ++row) {
+                const QModelIndex index = threading->index(row, 0, parent);
+                // A thread may hold a placeholder for a message which is not in the folder
+                if (threading->mapToSource(index).isValid()) {
+                    ++counts.total;
+                    const QVariant read = index.data(RoleMessageIsMarkedRead);
+                    if (read.isValid() && !read.toBool())
+                        ++counts.unread;
+                }
+                countRows(index);
+            }
+        };
+        countRows(QModelIndex());
+    }
+    if (counts != m_savedSearchFolders->counts(owner, id))
+        m_savedSearchFolders->setCounts(owner, id, counts);
+    KConfigGroup state(KSharedConfig::openStateConfig(), QStringLiteral("SavedSearchCounts"));
+    if (done && counts != UiUtils::SavedSearches::readCounts(state, owner, id)) {
+        UiUtils::SavedSearches::writeCounts(state, owner, id, counts);
+        state.sync();
+    }
 }
 
 void MainWindow::refreshAccountSwitcher()
@@ -6304,6 +6425,7 @@ void MainWindow::updateMessageListStatus()
         m_clearSearchAndFilters->setEnabled(messageListNarrowed());
     msgListWidget->setListStatus(parts.join(QStringLiteral(" \u00B7 ")), statusDetails);
     updateSelectionActions();
+    scheduleSavedSearchCount();
 }
 
 void MainWindow::updateSelectionActions()
@@ -6684,6 +6806,20 @@ void MainWindow::createShell()
     m_accountSidebar = new AccountSidebar(mboxTree);
     connect(m_accountSidebar, &AccountSidebar::accountActivated, this, &MainWindow::switchAccount);
     connect(m_accountSidebar, &AccountSidebar::accountMenuRequested, this, &MainWindow::showAccountMenu);
+    m_savedSearchFolders = new SavedSearchFolders;
+    m_accountSidebar->setFooter(m_savedSearchFolders);
+    connect(m_savedSearchFolders, &SavedSearchFolders::searchActivated, this, &MainWindow::activateSavedSearch);
+    m_savedSearchCountTimer = new QTimer(this);
+    m_savedSearchCountTimer->setInterval(300);
+    m_savedSearchCountTimer->setSingleShot(true);
+    connect(m_savedSearchCountTimer, &QTimer::timeout, this, &MainWindow::countActiveSavedSearch);
+    connect(msgListWidget, &MessageListWidget::savedSearchesChanged, this, &MainWindow::reloadSavedSearchFolders);
+    connect(msgListWidget, &MessageListWidget::activeSavedSearchChanged, this, [this](const QString &owner, const QString &id) {
+        m_savedSearchFolders->setActive(owner, id);
+        scheduleSavedSearchCount();
+    });
+    connect(this, &MainWindow::accountsChanged, this, &MainWindow::reloadSavedSearchFolders);
+    reloadSavedSearchFolders();
 
     // The header region sits above the columns and the footer; it is not resizable
     m_shellHeader = new ShellHeader(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")));

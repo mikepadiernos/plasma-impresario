@@ -27,6 +27,7 @@
 #include <functional>
 #include "Imap/Model/FavoriteTagsModel.h"
 #include "UiUtils/SearchQuery.h"
+#include "UiUtils/SavedSearches.h"
 #include "UiUtils/SearchScope.h"
 #include "UiUtils/SearchSuggestions.h"
 
@@ -104,6 +105,18 @@ public:
     /** @short Queries run from the quick search, most recent first, as remembered for this profile */
     QStringList searchHistory() const;
 
+    /** @short Run the search which the account with the key @p owner saved as @p id; false when there is none
+    The search looks where it was saved to look; for the shown folder or account, the caller shows the owner first.
+    */
+    bool runSavedSearch(const QString &owner, const QString &id);
+    /** @short The owner and the ID of the saved search shown in the list, or empty strings
+    A saved search stays shown until the search changes, is cleared or another account is shown.
+    */
+    QString activeSavedSearchOwner() const;
+    QString activeSavedSearchId() const;
+    /** @short Treat the list as an ordinary search from now on, such as after another folder is chosen */
+    void forgetActiveSavedSearch();
+
     // FIXME: consider making this private and moving the logic from Window with it
     MsgListView *tree;
 
@@ -126,6 +139,10 @@ signals:
     void clearAllRequested();
     /** @short Suggestions want the contacts matching @p query; answer with showContactSuggestions() */
     void contactSuggestionsRequested(const QString &query);
+    /** @short A search was saved or deleted */
+    void savedSearchesChanged();
+    /** @short The saved search shown in the list changed; empty strings when none is shown */
+    void activeSavedSearchChanged(const QString &owner, const QString &id);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -151,8 +168,11 @@ private:
     KConfigGroup savedSearchGroup() const;
     /** Adds the saved search identified by @p id to the menu. */
     void addSavedSearch(const QString &id);
-    /** Applies the saved search identified by @p id to the current mailbox. */
-    void runSavedSearch(const QString &id);
+    /** Applies @p search, with its fields, date range and places */
+    void applySavedSearch(const UiUtils::SavedSearch &search);
+    /** Whether the quick search is set up as @p search is */
+    bool matchesSavedSearch(const UiUtils::SavedSearch &search) const;
+    void setActiveSavedSearch(const UiUtils::SavedSearch &search);
     /** Deletes the saved search identified by @p id after confirmation. */
     void deleteSavedSearch(const QString &id);
     /** Asks for the first and last day of a custom date range. */
@@ -247,6 +267,10 @@ private:
     QList<UiUtils::SearchSuggestions::Contact> m_contacts;
     /** Escape closed the suggestions, so its release must not leave the quick search */
     bool m_suggestionsEscaped = false;
+    /** The saved search shown in the list; its owner is empty when none is */
+    UiUtils::SavedSearch m_activeSavedSearch;
+    /** A saved search is being set up, so the searches applied meanwhile do not end it */
+    bool m_applyingSavedSearch = false;
 
     friend class MainWindow; // needs access to our private slots
 };

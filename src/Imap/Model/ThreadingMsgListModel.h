@@ -152,6 +152,8 @@ public:
     QStringList currentSearchCondition() const;
     /** @short Why the current search could not run, or an empty string */
     QString searchFailure() const;
+    /** @short Whether a search or threading request is still out, so the rows shown may change soon */
+    bool isUpdatePending() const;
     SortCriterium currentSortCriterium() const;
     Q_INVOKABLE Qt::SortOrder currentSortOrder() const;
 
