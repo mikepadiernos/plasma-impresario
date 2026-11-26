@@ -46,26 +46,26 @@ The overview lists each area once; the sections below hold the details. Each
 section starts with its `[caveat]` issue, the issue's board status and the
 issue comment that holds the current recommendation.
 
-| Kind                      | Area              | Current constraint                                                                                                                                                                                                            | Caveat                                                                                                                                       |
-| ------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| ![Resolved][resolved]     | Accounts          | One window holds several IMAP accounts, grouped by account in the folder sidebar; the limitations recorded for them are resolved ([details](#multiple-accounts))                                                              | [#262](https://github.com/mikepadiernos/plasma-impresario/issues/262)                                                                        |
-| ![Limitation][limitation] | Embedded panels   | Related messages search only loaded messages unless the bounded server search is turned on ([details](#related-messages-and-message-details-panels)); message details do not verify inline PGP ([details](#message-security)) | [#264](https://github.com/mikepadiernos/plasma-impresario/issues/264), [#442](https://github.com/mikepadiernos/plasma-impresario/issues/442) |
-| ![Limitation][limitation] | Reading privacy   | Link warnings are heuristic and remote content consent applies to the open message only ([details](#reading-privacy))                                                                                                         | [#443](https://github.com/mikepadiernos/plasma-impresario/issues/443)                                                                        |
-| ![Limitation][limitation] | Loading on demand | Parts that failed after a server error load again only on Try Again; the unavailable-message page is not verified live ([details](#loading-on-demand))                                                                        | [#444](https://github.com/mikepadiernos/plasma-impresario/issues/444)                                                                        |
-| ![Limitation][limitation] | Reader actions    | The action bar is in the main window only, zoom is not saved, and Archive and Trash from the bar are not verified live ([details](#reader-actions))                                                                           | [#445](https://github.com/mikepadiernos/plasma-impresario/issues/445)                                                                        |
-| ![Limitation][limitation] | Conversations     | A search in a threaded list splits threads, conversations cover the loaded messages of the current folder only, and the Unified Inbox has no conversation steps ([details](#conversations))                                   | [#449](https://github.com/mikepadiernos/plasma-impresario/issues/449)                                                                        |
-| ![Limitation][limitation] | OAuth sign-in     | Microsoft uses the `common` tenant only and cannot revoke grants from the app, IMAP and SMTP refresh tokens independently, and switching provider replaces a grant without revoking it ([details](#oauth-sign-in))            | [#362](https://github.com/mikepadiernos/plasma-impresario/issues/362)                                                                        |
-| ![Limitation][limitation] | Mail operations   | Special folders need server attributes or English names, Go to Folder and related searches use loaded data only, and Undo after a move needs server COPYUID support ([details](#mail-operations))                             | [#312](https://github.com/mikepadiernos/plasma-impresario/issues/312)                                                                        |
-| ![Limitation][limitation] | Composing         | Each refused send files another copy in Sent, a forward sent before its message downloads is refused, forwards are attachment-only and drafts are local without attachments ([details](#composing-and-sending))               | [#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)                                                                        |
-| ![Limitation][limitation] | Search            | Date ranges follow the day in each message's Date header, in the sender's time zone, and a search of several folders selects each folder of the account in turn and loads every result's headers ([details](#search))         | [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454)                                                                        |
-| ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                    | —                                                                                                                                            |
-| ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                        | —                                                                                                                                            |
-| ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                     | —                                                                                                                                            |
-| ![Security][security]     | Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used ([details](#security-and-data-protection))                                                                                            | —                                                                                                                                            |
-| ![Security][security]     | Local data        | Persistent SQL cache stores message metadata and fetched parts; the application does not encrypt cache contents ([details](#security-and-data-protection))                                                                    | —                                                                                                                                            |
-| ![Planned][planned]       | Integrations      | Plasma new-mail notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                                                               | —                                                                                                                                            |
-| ![Limitation][limitation] | Compatibility     | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                                  | —                                                                                                                                            |
-| ![Limitation][limitation] | Quality evidence  | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded; nothing has been checked in a real Plasma session yet                                                        | —                                                                                                                                            |
+| Kind                      | Area              | Current constraint                                                                                                                                                                                                                                                   | Caveat                                                                                                                                       |
+| ------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| ![Resolved][resolved]     | Accounts          | One window holds several IMAP accounts, grouped by account in the folder sidebar; the limitations recorded for them are resolved ([details](#multiple-accounts))                                                                                                     | [#262](https://github.com/mikepadiernos/plasma-impresario/issues/262)                                                                        |
+| ![Limitation][limitation] | Embedded panels   | Related messages search only loaded messages unless the bounded server search is turned on ([details](#related-messages-and-message-details-panels)); message details do not verify inline PGP ([details](#message-security))                                        | [#264](https://github.com/mikepadiernos/plasma-impresario/issues/264), [#442](https://github.com/mikepadiernos/plasma-impresario/issues/442) |
+| ![Limitation][limitation] | Reading privacy   | Link warnings are heuristic and remote content consent applies to the open message only ([details](#reading-privacy))                                                                                                                                                | [#443](https://github.com/mikepadiernos/plasma-impresario/issues/443)                                                                        |
+| ![Limitation][limitation] | Loading on demand | Parts that failed after a server error load again only on Try Again; the unavailable-message page is not verified live ([details](#loading-on-demand))                                                                                                               | [#444](https://github.com/mikepadiernos/plasma-impresario/issues/444)                                                                        |
+| ![Limitation][limitation] | Reader actions    | The action bar is in the main window only, zoom is not saved, and Archive and Trash from the bar are not verified live ([details](#reader-actions))                                                                                                                  | [#445](https://github.com/mikepadiernos/plasma-impresario/issues/445)                                                                        |
+| ![Limitation][limitation] | Conversations     | A search in a threaded list splits threads, conversations cover the loaded messages of the current folder only, and the Unified Inbox has no conversation steps ([details](#conversations))                                                                          | [#449](https://github.com/mikepadiernos/plasma-impresario/issues/449)                                                                        |
+| ![Limitation][limitation] | OAuth sign-in     | Microsoft uses the `common` tenant only and cannot revoke grants from the app, IMAP and SMTP refresh tokens independently, and switching provider replaces a grant without revoking it ([details](#oauth-sign-in))                                                   | [#362](https://github.com/mikepadiernos/plasma-impresario/issues/362)                                                                        |
+| ![Limitation][limitation] | Mail operations   | Special folders need server attributes or English names, Go to Folder and related searches use loaded data only, and Undo after a move needs server COPYUID support ([details](#mail-operations))                                                                    | [#312](https://github.com/mikepadiernos/plasma-impresario/issues/312)                                                                        |
+| ![Limitation][limitation] | Composing         | Each refused send files another copy in Sent, a forward sent before its message downloads is refused, forwards are attachment-only and drafts are local without attachments ([details](#composing-and-sending))                                                      | [#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)                                                                        |
+| ![Limitation][limitation] | Search            | Date ranges follow the day in each message's Date header, in the sender's time zone, and a search of several folders selects each folder of the account in turn and loads every result's headers; `has:attachment` approximates by message type ([details](#search)) | [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454)                                                                        |
+| ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                           | —                                                                                                                                            |
+| ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                               | —                                                                                                                                            |
+| ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                            | —                                                                                                                                            |
+| ![Security][security]     | Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used ([details](#security-and-data-protection))                                                                                                                                   | —                                                                                                                                            |
+| ![Security][security]     | Local data        | Persistent SQL cache stores message metadata and fetched parts; the application does not encrypt cache contents ([details](#security-and-data-protection))                                                                                                           | —                                                                                                                                            |
+| ![Planned][planned]       | Integrations      | Plasma new-mail notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                                                                                                      | —                                                                                                                                            |
+| ![Limitation][limitation] | Compatibility     | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                                                                         | —                                                                                                                                            |
+| ![Limitation][limitation] | Quality evidence  | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded; nothing has been checked in a real Plasma session yet                                                                                               | —                                                                                                                                            |
 
 ### Multiple accounts
 
@@ -608,9 +608,9 @@ Plasma session; that check is
 
 ### Search
 
-| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                          |
-| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/454#issuecomment-7181065871) | The quick search's **Date** and **Search In** menus, saved searches with a date range or places, and searches the server cannot run |
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                        |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/454#issuecomment-7181065871) | The quick search's query syntax, **Date** and **Search In** menus, saved searches with a date range or places, and searches the server cannot run |
 
 **Current behavior:**
 
@@ -639,6 +639,13 @@ Plasma session; that check is
   list: a key that needs a capability the server does not advertise is named
   before anything is sent, and a refused search repeats the server's own
   explanation ([#333](https://github.com/mikepadiernos/plasma-impresario/issues/333)).
+- ![Resolved][resolved] The quick search reads a query syntax: fields such
+  as `from:`, `subject:`, `list:`, `tag:`, `is:unread` and `has:attachment`,
+  `date:` and `size:` with `<`, `<=`, `>` and `>=`, quoted phrases, `-` or
+  `NOT`, `OR` and parentheses. The whole query is checked before anything is
+  sent; an invalid one is explained below the search field, with the faulty
+  text selected, and the list keeps the previous results
+  ([#334](https://github.com/mikepadiernos/plasma-impresario/issues/334)).
 - ![Limitation][limitation] The server compares the calendar day in each
   message's Date header, in the sender's time zone, because IMAP's `SENTSINCE`
   and `SENTBEFORE` disregard the time and zone. The list shows local time, so a
@@ -667,6 +674,21 @@ Plasma session; that check is
   Dovecot accepts `FUZZY` without advertising `SEARCH=FUZZY`, so the fuzzy
   option stays off there and a raw `FUZZY` query is explained as unsupported.
   A server that advertises `SEARCH=FUZZY` is covered by offline tests only.
+- ![Limitation][limitation] IMAP cannot ask for attachments, so
+  `has:attachment` finds messages whose top-level type is `multipart/mixed`.
+  It misses an attachment inside a signed or encrypted message or a
+  `multipart/related` one, and finds a `multipart/mixed` message without a
+  real attachment.
+- ![Limitation][limitation] Words without quotes must all match, each
+  anywhere in the chosen fields; `shared inbox` no longer means the phrase.
+  The find bar of an opened message shows only the first subject or body term.
+- ![Limitation][limitation] Text before a colon is read as a field name, so
+  an unknown one such as in `https://example.org` or `ticket:42` is refused
+  instead of searched; `Re:` or `Note:` followed by a space is still text.
+  Field names, `is:` values and the upper-case operators `AND`, `OR` and `NOT`
+  are English in every language.
+- ![Limitation][limitation] Every query is run by the server; there is no
+  local index yet (M05.04), so searches need a connection.
 
 **Workarounds:**
 
@@ -682,6 +704,10 @@ Plasma session; that check is
   **Retry** or **Enter** in the search field.
 - When a search is explained as unsupported, leave out the named key or use
   the field search, which every server supports.
+- Put a phrase, an address with a colon or a web address in quotation marks,
+  such as `"shared inbox"` or `"https://example.org"`.
+- To find attachments the `has:` term misses, combine a sender or subject
+  with `size>100K`.
 
 **Proposed improvements:**
 
@@ -698,6 +724,10 @@ Plasma session; that check is
   in **Selected Folders** on demand.
 - Ask for the password again when **Retry** meets a rejected password, and
   offer **Continue** after **Stop** to search the remaining folders.
+- Confirm `has:attachment` against each result's body structure, once loaded
+  or in the local index.
+- Highlight every searched word in the find bar, not only the first.
+- Accept translated field names next to the English ones.
 
 ## Before reporting results
 
