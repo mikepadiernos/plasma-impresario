@@ -484,8 +484,8 @@ Plasma session; that check is
   layout, and the shortcut overview may list stale shortcuts for windows not
   yet opened.
 - ![Limitation][limitation] Select Similar and Show Related use loaded
-  envelopes only. Mailing-list matches use `List-Post`, because the message
-  model exposes no `List-Id`.
+  envelopes only. Mailing-list matches use the list's `List-Id`, or its
+  `List-Post` address when it has none.
 - ![Limitation][limitation] While the dense layout is on, its compact density
   and hidden panels are written to the normal preferences, so they persist
   after a restart.
@@ -608,9 +608,9 @@ Plasma session; that check is
 
 ### Search
 
-| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                                      |
-| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/454#issuecomment-7181065871) | The quick search's query syntax and builder, **Date** and **Search In** menus, saved searches with a date range or places, searches the server cannot run, **Clear All**, search history and suggestions, and saved searches as virtual folders |
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                                                          |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/454#issuecomment-7181065871) | The quick search's query syntax and builder, **Date** and **Search In** menus, saved searches with a date range or places, searches the server cannot run, **Clear All**, search history and suggestions, saved searches as virtual folders, and mailing-list views |
 
 **Current behavior:**
 
@@ -694,6 +694,18 @@ Plasma session; that check is
   kept and marked with a warning; **Move to Account**, **Choose Folders...**
   and **Leave Out Missing Folders** update them
   ([#339](https://github.com/mikepadiernos/plasma-impresario/issues/339)).
+- ![Resolved][resolved] Messages are read with their `List-Id`,
+  `List-Subscribe`, `List-Unsubscribe`, `List-Help`, `List-Archive` and
+  `List-Owner` headers. The reader names a message's list and offers its
+  actions as links; each asks first, says whether it writes a message in
+  Plasma Impresario's composer or opens a web page, and defaults to
+  **Cancel**. **Mailing Lists** in the search options lists the lists of the
+  loaded messages with their counts and shows one's messages, and **Pin Shown
+  List as Saved Search** saves that view as a search of every folder of every
+  account, named after the list; pinning it again runs the saved one. `list:`,
+  Show Related and grouping by mailing list use the `List-Id`, or the posting
+  address of a list without one
+  ([#340](https://github.com/mikepadiernos/plasma-impresario/issues/340)).
 - ![Limitation][limitation] The server compares the calendar day in each
   message's Date header, in the sender's time zone, because IMAP's `SENTSINCE`
   and `SENTBEFORE` disregard the time and zone. The list shows local time, so a
@@ -782,6 +794,20 @@ Plasma session; that check is
   list. **Remember Searches** and **Suggest While Typing** apply to every
   profile; the history itself is kept per profile, and turning **Remember
   Searches** off clears it.
+- ![Limitation][limitation] IMAP's `HEADER` key matches part of a header, so
+  `list:dev.example.org` also finds a list such as `old-dev.example.org`, and
+  a list whose `List-Post` holds the ID of another list.
+- ![Limitation][limitation] **Mailing Lists** offers only the lists of
+  messages loaded in the shown list. A list without loaded messages there has
+  to be typed as `list:`.
+- ![Limitation][limitation] The first start after this change empties the
+  message header cache once, so each folder downloads its message headers
+  again when it is next opened. Every message then fetches its `List-*`
+  headers too, a few hundred bytes more for mail from a list.
+- ![Limitation][limitation] Unsubscribing opens a message to send or a web
+  page; one-click unsubscribing (`List-Unsubscribe-Post`, RFC 8058) is not
+  offered. Each action follows the first address of its header that is a
+  `mailto:`, `http:` or `https:` link; other links are not shown.
 
 **Workarounds:**
 
@@ -814,6 +840,11 @@ Plasma session; that check is
   same place each time.
 - Expand an account's folders in the sidebar to have missing chosen folders
   reported, and press **Save** before choosing a folder while editing a search.
+- When list IDs overlap, leave the other list out, as in
+  `list:dev.example.org -list:old-dev.example.org`, or edit a pinned search to
+  add a sender or subject.
+- To view a list not offered in **Mailing Lists**, open a folder that holds
+  its messages, or type `list:` followed by its ID.
 
 **Proposed improvements:**
 
@@ -848,6 +879,10 @@ Plasma session; that check is
 - Ask before leaving an unsaved edit, list each account's folders in the
   background to report missing folders early, and offer a new name when a
   moved search's name is taken.
+- Keep only results whose `List-Id` equals the searched ID once their headers
+  load, and list the lists of every folder from the local index (M05.04).
+- Offer one-click unsubscribing where the list supports RFC 8058, after the
+  same confirmation.
 
 ## Before reporting results
 

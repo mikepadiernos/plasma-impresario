@@ -290,7 +290,7 @@ other results are covered offscreen.
 The quick search above the message list searches the selected folder on the
 server. Words search the fields chosen in its options menu and must all match;
 quote a phrase. Fields narrow a term, such as `from:ann`, `subject:"release
-plan"`, `list:dev@example.org`, `tag:$label1`, `is:unread`, `has:attachment`,
+plan"`, `list:dev.lists.example.org`, `tag:$label1`, `is:unread`, `has:attachment`,
 `date>=2026-01` or `size>2M`, and `-` or `NOT`, `OR` and parentheses combine
 them. An invalid query is explained below the field instead of being sent.
 **Search Builder...** in the options menu or the **Mailbox** menu
@@ -329,7 +329,16 @@ messages each found when it last ran. Choosing one runs it, switching to its
 account first when it searches the shown folder or account; choosing a folder
 returns to that folder. Its context menu edits a search with a preview of what
 it finds, renames, reorders, moves or deletes it, and updates a search whose
-account or chosen folders are gone. An optional offline index is planned in
+account or chosen folders are gone.
+
+Messages from a mailing list name the list in the reader's header, with its
+**Post**, **Subscribe**, **Unsubscribe**, **Help**, **Archive** and **Owner**
+links from the message's `List-*` headers. Each link asks first and says
+whether it writes a message or opens a web page. **Mailing Lists** in the
+search options shows the messages of any list among the loaded messages, and
+**Pin Shown List as Saved Search** keeps that view as a saved search of every
+folder of every account. `list:` matches a list's `List-Id`, or its posting
+address when it has none. An optional offline index is planned in
 [M05](docs/ROADMAP.md#m05-search-and-indexing).
 
 ### Command line
