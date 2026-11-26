@@ -304,8 +304,6 @@ read, search or act on real mailboxes, are blocked by
 [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5). Apply the
 same gate when starting their feature issues.
 
-Pending: [M03 handoff](TODO.md#m03-mail-operations).
-
 **Caveats:**
 
 - [Mail operations](CAVEATS.md#mail-operations)
