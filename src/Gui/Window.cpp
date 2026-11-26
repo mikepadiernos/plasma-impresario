@@ -1839,6 +1839,8 @@ void MainWindow::setupModels(bool reconnect)
     prettyMboxModel->setObjectName(QStringLiteral("prettyMboxModel"));
     connect(realThreadingModel, &Imap::Mailbox::ThreadingMsgListModel::sortingFailed,
             msgListWidget, &MessageListWidget::slotSortingFailed);
+    connect(realThreadingModel, &Imap::Mailbox::ThreadingMsgListModel::sortingFailed,
+            this, &MainWindow::scheduleMessageListStatus);
     prettyMsgListModel = new Imap::Mailbox::PrettyMsgListModel(this);
     prettyMsgListModel->setSourceModel(m_imapAccess->threadingMsgListModel());
     prettyMsgListModel->setObjectName(QStringLiteral("prettyMsgListModel"));
@@ -5494,6 +5496,7 @@ void MainWindow::slotSearchRequested(const QStringList &searchConditions)
     threadingMsgListModel->setUserSearchingSortingPreference(searchConditions, threadingMsgListModel->currentSortCriterium(),
                                                              threadingMsgListModel->currentSortOrder());
     updateRelevanceSorting(searchConditions);
+    scheduleMessageListStatus();
 #ifdef TROJITA_HAVE_WEBENGINE
     m_messageWidget->messageView->setHighlightTerm(UiUtils::searchHighlightTerm(searchConditions));
 #endif
@@ -6147,6 +6150,13 @@ void MainWindow::updateMessageListStatus()
         if (!unavailable.isEmpty())
             parts << i18nc("@info:status list of account names", "unavailable: %1", unavailable.join(separator));
     } else if (mailbox.isValid()) {
+        const auto *threading = qobject_cast<ThreadingMsgListModel *>(m_imapAccess->threadingMsgListModel());
+        const QString failure = threading ? threading->searchFailure() : QString();
+        if (!failure.isEmpty()) {
+            // The list is empty because the search could not run, not because nothing matched
+            parts << i18nc("@info:status", "Search failed: %1", failure);
+            statusDetails = failure;
+        }
         const QVariant total = mailbox.data(RoleTotalMessageCount);
         const QVariant unread = mailbox.data(RoleUnreadMessageCount);
         if (total.isValid()) {

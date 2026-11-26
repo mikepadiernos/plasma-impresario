@@ -150,6 +150,8 @@ public:
     static QStringList supportedCapabilities();
 
     QStringList currentSearchCondition() const;
+    /** @short Why the current search could not run, or an empty string */
+    QString searchFailure() const;
     SortCriterium currentSortCriterium() const;
     Q_INVOKABLE Qt::SortOrder currentSortOrder() const;
 
@@ -170,8 +172,8 @@ public slots:
     /** @short SORT response has arrived */
     void slotSortingAvailable(const Imap::Uids &uids);
 
-    /** @short SORT has failed */
-    void slotSortingFailed();
+    /** @short SORT or SEARCH has failed */
+    void slotSortingFailed(const QString &reason);
 
     /** @short Dynamic update to the current SORT order */
     void slotSortingIncrementalUpdate(const Imap::Responses::ESearch::IncrementalContextData_t &updates);
@@ -190,7 +192,7 @@ public slots:
     void delayedPrune();
 
 signals:
-    void sortingFailed();
+    void sortingFailed(const QString &reason);
 
 private:
     /** @short Display messages without any threading at all, as a liner list */
@@ -312,6 +314,7 @@ private:
 
     /** @short Search criteria of the current copy of the search/sort result */
     QStringList m_currentSearchConditions;
+    QString m_searchFailure;
 
     /** @short The current result of the SORT operation
 

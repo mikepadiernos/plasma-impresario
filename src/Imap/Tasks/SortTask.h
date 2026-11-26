@@ -56,8 +56,8 @@ signals:
     /** @short Sort result has arrived */
     void sortingAvailable(const Imap::Uids &uids);
 
-    /** @short Sort operation has failed */
-    void sortingFailed();
+    /** @short The search or sort could not run; @arg reason says why, for the user */
+    void sortingFailed(const QString &reason);
 
     /** @short An incremental update to the sorting criteria according to CONTEXT=SORT */
     void incrementalSortUpdate(const Imap::Responses::ESearch::IncrementalContextData_t &updates);

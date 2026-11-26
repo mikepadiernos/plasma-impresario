@@ -559,6 +559,7 @@ set(libImap_SOURCES
     ${path_Imap}/Model/UnifiedMsgListModel.cpp
     ${path_Imap}/Model/SearchResultsModel.cpp
     ${path_Imap}/Model/FolderSearch.cpp
+    ${path_Imap}/Model/SearchSupport.cpp
     ${path_Imap}/Model/Utils.cpp
     ${path_Imap}/Model/VisibleTasksModel.cpp
 

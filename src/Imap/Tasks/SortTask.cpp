@@ -25,6 +25,7 @@
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/Model.h"
 #include "Imap/Model/MailboxTree.h"
+#include "Imap/Model/SearchSupport.h"
 #include "Imap/Model/TaskPresentationModel.h"
 #include "KeepMailboxOpenTask.h"
 
@@ -56,6 +57,15 @@ void SortTask::perform()
         return;
     }
 
+    // A key which the server does not advertise would only earn a BAD, so say which one it is instead
+    if (model->accessParser(parser).capabilitiesFresh) {
+        const auto missing = SearchSupport::unsupportedKeys(searchConditions, model->accessParser(parser).capabilities);
+        if (!missing.isEmpty()) {
+            _failed(SearchSupport::explainUnsupported(missing));
+            return;
+        }
+    }
+
     // We can be killed when appropriate
     KeepMailboxOpenTask *keepTask = dynamic_cast<KeepMailboxOpenTask*>(conn);
     Q_ASSERT(keepTask);
@@ -76,11 +86,14 @@ void SortTask::perform()
             }
         } else {
             // Plain "old" SORT
-            sortTag = parser->uidSearch(searchConditions,
-                                        // It looks that Exchange 2003 does not support the UTF-8 charset in searches.
-                                        // That is, of course, insane, and only illustrates how useless its support of IMAP really is.
-                                        model->m_capabilitiesBlacklist.contains(QStringLiteral("X-NO-UTF8-SEARCH")) ? QByteArray() : "utf-8"
-                                        );
+            // It looks that Exchange 2003 does not support the UTF-8 charset in searches.
+            // That is, of course, insane, and only illustrates how useless its support of IMAP really is.
+            const bool asciiOnly = model->m_capabilitiesBlacklist.contains(QStringLiteral("X-NO-UTF8-SEARCH"));
+            if (asciiOnly && SearchSupport::needsUnicode(searchConditions)) {
+                _failed(SearchSupport::explainAsciiOnly());
+                return;
+            }
+            sortTag = parser->uidSearch(searchConditions, asciiOnly ? QByteArray() : "utf-8");
         }
     } else {
         // SEARCH and SORT combined
@@ -146,8 +159,17 @@ bool SortTask::handleStateHelper(const Imap::Responses::State *const resp)
                 Q_ASSERT(keepTask);
                 keepTask->activateTasks();
             }
-        } else {
+        } else if (searchConditions == QStringList{QStringLiteral("ALL")}) {
             _failed(tr("Sorting command has failed"));
+        } else {
+            QStringList charsets;
+            if (resp->respCode == Responses::BADCHARSET) {
+                if (const auto *data = dynamic_cast<const Responses::RespData<QStringList> *>(resp->respCodeData.data()))
+                    charsets = data->data;
+            }
+            // A single condition is a query which the user typed in IMAP syntax
+            _failed(SearchSupport::explainRejection(resp->kind, resp->respCode, charsets, resp->message,
+                                                    searchConditions.size() == 1));
         }
         return true;
     } else if (resp->tag == cancelUpdateTag) {
@@ -245,8 +267,7 @@ QVariant SortTask::taskData(const int role) const
 
 void SortTask::_failed(const QString &errorMessage)
 {
-    // FIXME: show this in the GUI
-    emit sortingFailed();
+    emit sortingFailed(errorMessage);
     ImapTask::_failed(errorMessage);
 }
 
