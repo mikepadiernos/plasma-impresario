@@ -7,6 +7,8 @@
 # without it, so that plain SEARCH is used. The query syntax is checked against
 # a third user whose messages have flags, a keyword, an attachment and the
 # headers of a mailing list, which is also offered as a view and in the reader.
+# The same messages are then kept offline, indexed and searched without a
+# connection.
 #
 # Usage: tools/dev-container/run.sh sh tools/dev-container/live-imap-search.sh [build-dir]
 #

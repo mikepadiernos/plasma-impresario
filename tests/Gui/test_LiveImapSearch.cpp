@@ -15,7 +15,10 @@
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/Model.h"
+#include "Imap/Model/SearchIndex.h"
+#include "Imap/Model/SearchIndexer.h"
 #include "Imap/Model/MsgListModel.h"
+#include "Imap/Model/NetworkWatcher.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "UiUtils/MailingLists.h"
 #include "UiUtils/SavedSearches.h"
@@ -762,6 +765,124 @@ private slots:
         search(QString());
         QTRY_VERIFY2_WITH_TIMEOUT(messages->model()->rowCount() == 4 && !failed(),
                                   qPrintable(describe(subjects(), searchWidget)), 10000);
+    }
+
+    /**
+     * gamma@example.test with the messages of searchesWithQuerySyntax, kept offline and indexed. The index first holds
+     * only headers; the text of the messages is downloaded on request, after which the account goes offline and the
+     * index answers searches of words in the text as well as of headers and flags.
+     */
+    void searchesIndexedMailOffline()
+    {
+        bool ok = false;
+        const int port = qEnvironmentVariableIntValue("PLASMA_TEST_IMAPS_PORT", &ok);
+        QVERIFY(ok && port > 0 && port <= 65535);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        settings.setValue(Common::SettingsNames::guiShowSystray, false);
+        settings.setValue(Common::SettingsNames::autoMarkReadEnabled, false);
+        settings.setValue(Common::SettingsNames::passwordPlugin, QStringLiteral("cleartextpassword"));
+        settings.setValue(QStringLiteral("accounts/ids"), QStringList{QStringLiteral("account-1")});
+        settings.setValue(QStringLiteral("accounts/active"), QStringLiteral("account-1"));
+        settings.setValue(QStringLiteral("accounts/next"), 2);
+        settings.setValue(QStringLiteral("accounts/names/account-1"), QStringLiteral("Gamma"));
+        settings.setValue(QStringLiteral("accountPasswords/account-1/imap"), syntheticPassword);
+        settings.sync();
+        const QString accountFile = directory.filePath(QStringLiteral("main-account-1.conf"));
+        configureAccount(accountFile, port, QStringLiteral("gamma@example.test"));
+        {
+            QSettings account(accountFile, QSettings::IniFormat);
+            account.setValue(Common::SettingsNames::cacheOfflineKey, Common::SettingsNames::cacheOfflineAll);
+            account.setValue(Common::SettingsNames::searchIndexKey, true);
+            account.sync();
+        }
+
+        QTimer dialogs;
+        connect(&dialogs, &QTimer::timeout, this, &answerDialogs);
+        dialogs.start(20);
+
+        Gui::MainWindow window(&settings);
+        window.resize(1000, 700);
+        window.show();
+        auto *tree = window.findChild<Gui::MailBoxTreeView *>();
+        auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
+        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *download = window.findChild<QAction *>(QStringLiteral("action_download_search_text"));
+        QVERIFY(tree && searchWidget && messages && download);
+        auto *query = searchWidget->findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        auto *status = searchWidget->findChild<QLabel *>(QStringLiteral("messageListStatus"));
+        QVERIFY(query && status);
+        Imap::Mailbox::SearchIndexer *indexer = window.imapAccess()->searchIndexer();
+        QVERIFY(indexer);
+        QVERIFY2(indexer->isAvailable(), qPrintable(indexer->unavailableReason()));
+        // Rather than the usual pause, which gathers a burst of changes into one pass
+        indexer->setTimings(200, 20, 200);
+
+        QModelIndex inbox;
+        QTRY_VERIFY_WITH_TIMEOUT((inbox = findMailbox(tree->model(), QStringLiteral("INBOX"))).isValid(), 20000);
+        tree->scrollTo(inbox);
+        QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(inbox).center());
+        QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(), 4, 10000);
+
+        const auto withText = [&]() {
+            int count = 0;
+            for (const auto &entry : indexer->index()->entries(QStringLiteral("INBOX")))
+                count += entry.hasText ? 1 : 0;
+            return count;
+        };
+        // Headers are indexed as they arrive; nothing extra is downloaded for the index
+        QTRY_COMPARE_WITH_TIMEOUT(indexer->index()->entries(QStringLiteral("INBOX")).size(), 4, 20000);
+        QTRY_VERIFY_WITH_TIMEOUT(!indexer->isRunning(), 20000);
+        QVERIFY(withText() < 4);
+
+        // On request, after a question, the text of the rest is downloaded and indexed
+        download->setData(QStringLiteral("INBOX"));
+        download->setEnabled(true);
+        download->trigger();
+        QTRY_COMPARE_WITH_TIMEOUT(withText(), 4, 30000);
+
+        auto *watcher = qobject_cast<Imap::Mailbox::NetworkWatcher *>(window.imapAccess()->networkWatcher());
+        QVERIFY(watcher);
+        watcher->setNetworkOffline();
+        QTRY_VERIFY_WITH_TIMEOUT(!window.imapModel()->isNetworkAvailable(), 10000);
+
+        const auto subjects = [&]() {
+            QStringList result;
+            for (int row = 0; row < messages->model()->rowCount(); ++row) {
+                const QString subject = messages->model()->index(row, 0).data(Imap::Mailbox::RoleMessageSubject).toString();
+                if (subject.isEmpty())
+                    return QStringList{QStringLiteral("(not loaded)")};
+                result << subject;
+            }
+            result.sort();
+            return result;
+        };
+        const auto expectFound = [&](const QString &text, QStringList expected) {
+            query->setText(text);
+            emit query->returnPressed();
+            expected.sort();
+            QTRY_VERIFY2_WITH_TIMEOUT(subjects() == expected
+                                          && status->text().contains(QLatin1String("indexed on this computer")),
+                                      qPrintable(text + QStringLiteral(" -> ") + describe(subjects(), searchWidget)), 15000);
+        };
+        const QString plan = QStringLiteral("Release plan");
+        const QString lunch = QStringLiteral("Lunch on Friday");
+        const QString report = QStringLiteral("Quarterly report");
+        const QString notes = QStringLiteral("[dev] Release notes");
+        // Words of the text, headers and flags, all without a connection
+        expectFound(QStringLiteral("body:noon"), {lunch});
+        expectFound(QStringLiteral("text:attached"), {report});
+        expectFound(QStringLiteral("from:ann"), {plan, report});
+        expectFound(QStringLiteral("is:flagged"), {lunch});
+        expectFound(QStringLiteral("release -from:ann"), {notes});
+        expectFound(QStringLiteral("text:nothing-like-this"), {});
+        QVERIFY(!status->text().contains(QLatin1String("could not be searched")));
+
+        query->setText(QString());
+        emit query->returnPressed();
+        watcher->setNetworkOnline();
+        QTRY_VERIFY_WITH_TIMEOUT(window.imapModel()->isNetworkAvailable(), 10000);
     }
 
     /**

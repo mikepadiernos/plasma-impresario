@@ -8,6 +8,7 @@
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/Model.h"
+#include "Imap/Model/SearchIndexer.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "OAuth/TokenSource.h"
 #include "configure.cmake.h"
@@ -19,14 +20,17 @@
 #include <KLocalizedString>
 #include <QAction>
 #include <QApplication>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QFile>
 #include <QInputDialog>
+#include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QRadioButton>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTabWidget>
@@ -223,6 +227,48 @@ private slots:
             QVERIFY(!settings.contains(key));
         }
         QVERIFY(OAuth::TokenSource::find(window.imapModel()));
+    }
+
+    void searchIndexIsChosenPerAccount()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        Gui::MainWindow window(&settings);
+        QVERIFY(!window.imapAccess()->searchIndexer());
+
+        bool shownOff = false;
+        bool followsCache = false;
+        QVERIFY(
+            handleDialog([&]() { window.findChild<QAction *>(QStringLiteral("action_account_settings"))->trigger(); },
+                [&](QDialog *dialog) {
+                    auto *index = dialog->findChild<QCheckBox *>(QStringLiteral("searchIndex"));
+                    auto *none = dialog->findChild<QRadioButton *>(QStringLiteral("offlineNope"));
+                    auto *all = dialog->findChild<QRadioButton *>(QStringLiteral("offlineEverything"));
+                    QVERIFY(index && none && all && dialog->findChild<QLabel *>(QStringLiteral("searchIndexNote")));
+                    shownOff = !index->isChecked() && index->isEnabled();
+                    // Without an offline cache there is nothing to index
+                    none->click();
+                    followsCache = !index->isEnabled();
+                    all->click();
+                    followsCache = followsCache && index->isEnabled();
+                    index->setChecked(true);
+                    auto *smtpHost = dialog->findChild<QLineEdit *>(QStringLiteral("smtpHost"));
+                    QVERIFY(smtpHost);
+                    smtpHost->setText(QStringLiteral("smtp.work.example.test"));
+                    save(dialog);
+                }));
+        QVERIFY(shownOff);
+        QVERIFY(followsCache);
+        QSettings work(directory.filePath(QStringLiteral("main-account-1.conf")), QSettings::IniFormat);
+        QCOMPARE(work.value(Common::SettingsNames::searchIndexKey).toBool(), true);
+        QSettings home(directory.filePath(QStringLiteral("main-account-2.conf")), QSettings::IniFormat);
+        QVERIFY(!home.contains(Common::SettingsNames::searchIndexKey));
+        QVERIFY(!settings.contains(Common::SettingsNames::searchIndexKey));
+        QTRY_VERIFY(window.imapAccess()->searchIndexer());
+        QVERIFY2(window.imapAccess()->searchIndexer()->isAvailable(),
+            qPrintable(window.imapAccess()->searchIndexer()->unavailableReason()));
     }
 
     void cancellingAccountSettingsKeepsTheAccount()
