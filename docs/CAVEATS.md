@@ -608,9 +608,9 @@ Plasma session; that check is
 
 ### Search
 
-| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                                                                                                                                  |
-| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/454#issuecomment-7181065871) | The quick search's query syntax and builder, **Date** and **Search In** menus, saved searches with a date range or places, searches the server cannot run, **Clear All**, search history and suggestions, saved searches as virtual folders, mailing-list views, the offline search index, search snippets and relevance, and search facets |
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                                                                                                                                                            |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/454#issuecomment-7181065871) | The quick search's query syntax and builder, **Date** and **Search In** menus, saved searches with a date range or places, searches the server cannot run, **Clear All**, search history and suggestions, saved searches as virtual folders, mailing-list views, the offline search index, search snippets and relevance, search facets, and the Search Results panel |
 
 **Current behavior:**
 
@@ -800,6 +800,19 @@ Plasma session; that check is
   shows as a chip, such as **Sender: Ann**, that removes it; **Clear Facets**
   and **Clear All** remove them all
   ([#347](https://github.com/mikepadiernos/plasma-impresario/issues/347)).
+- ![Resolved][resolved] **View › Embedded Panels › Search Results**, off by
+  default, lists the results of the quick search in a panel, and the message
+  list keeps showing its folder; every search is then run as a search of the
+  chosen places, the current folder included. Opening a result shows it in
+  the reader and selects it in the list only when the list shows it. **Show
+  in Folder**, in the panel's header and context menu and in the message
+  list's context menu while it shows results of several places, switches to
+  the result's account and folder and selects it there; the panel keeps its
+  results. The panel sorts by relevance (equal matches newest first) or date,
+  remembered across restarts, and offers **Stop**, **Retry** and **Search
+  Server**. Turning the panel off moves the results to the message list, and
+  turning it on moves them back
+  ([#348](https://github.com/mikepadiernos/plasma-impresario/issues/348)).
 - ![Limitation][limitation] The server compares the calendar day in each
   message's Date header, in the sender's time zone, because IMAP's `SENTSINCE`
   and `SENTBEFORE` disregard the time and zone. The list shows local time, so a
@@ -901,6 +914,17 @@ Plasma session; that check is
   change, and are not kept with saved searches. Dates are grouped by the
   local day of the Date header
   ([#347](https://github.com/mikepadiernos/plasma-impresario/issues/347)).
+- ![Limitation][limitation] While a result outside the shown folder is open
+  from the Search Results panel, the message list keeps its own selection, so
+  the list's actions, such as **Archive** or **Move to Trash**, apply to the
+  message selected there and not to the result in the reader. **Show in
+  Folder** of a result of another account switches the shown account. The
+  quick filters and the facets above the message list narrow the panel while
+  it holds the results, and **Mailbox › Sorting** does not sort it. A saved
+  search chosen in the sidebar still shows in the message list. A search
+  selects each searched folder on the account's connection, so changes to the
+  shown folder arrive once the search is over
+  ([#348](https://github.com/mikepadiernos/plasma-impresario/issues/348)).
 - ![Limitation][limitation] Decrypted text is added only when a message is
   opened and decrypted in the reader with the option on; messages decrypted
   earlier are not added until they are opened again. Inline PGP is indexed as
@@ -1047,6 +1071,9 @@ Plasma session; that check is
   online, or download the text of its folder for offline search, so that its
   text is on this computer. Choose **Ascending** with **Relevance** to see the
   best matches first.
+- To act on a result found by the Search Results panel, press **Show in
+  Folder** first, so that the message list selects it, or turn the panel off
+  to act on the results in the message list.
 - Leave decrypted indexing off unless the disk is encrypted, and exclude
   folders whose text should not be copied into the index. To free the space
   as well, remove the account, which deletes its cache files, and add it
@@ -1115,6 +1142,11 @@ Plasma session; that check is
   terms, and count them over the whole result on the server where it can
   return them
   ([#347](https://github.com/mikepadiernos/plasma-impresario/issues/347)).
+- Offer the reader's actions for a result opened from the Search Results
+  panel, open a result of another account without switching accounts, give
+  the panel its own filters and facets, and search on a separate connection
+  so that the shown folder keeps updating
+  ([#348](https://github.com/mikepadiernos/plasma-impresario/issues/348)).
 
 ## Before reporting results
 
