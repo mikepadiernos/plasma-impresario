@@ -3,11 +3,16 @@
 */
 #include "Gui/MessageListWidget.h"
 #include "Gui/MsgListView.h"
+#include "UiUtils/SearchScope.h"
 
+#include <KConfigGroup>
 #include <KSharedConfig>
 #include <KLocalizedString>
 #include <QAbstractButton>
 #include <QApplication>
+#include <QCheckBox>
+#include <QDateEdit>
+#include <QDialog>
 #include <QInputDialog>
 #include <QLineEdit>
 #include <QMenu>
@@ -40,6 +45,21 @@ private:
             }
         });
         widget.findChild<QAction *>(QStringLiteral("saveSearch"))->trigger();
+    }
+
+    static void chooseDates(Gui::MessageListWidget &widget, UiUtils::SearchScope::Dates dates)
+    {
+        widget.findChild<QAction *>(QLatin1String("searchDates-") + UiUtils::SearchScope::configName(dates))->trigger();
+    }
+
+    static UiUtils::SearchScope::DateRange preset(UiUtils::SearchScope::Dates dates)
+    {
+        return {dates, {}, {}};
+    }
+
+    static QStringList dateKeys(const UiUtils::SearchScope::DateRange &range)
+    {
+        return UiUtils::SearchScope::dateConditions(range, QDate::currentDate());
     }
 
     static QMenu *savedSearches(Gui::MessageListWidget &widget)
@@ -160,6 +180,166 @@ private slots:
         QSignalSpy search(&widget, &Gui::MessageListWidget::requestingSearch);
         savedSearches(widget)->actions().first()->menu()->findChild<QAction *>(QStringLiteral("runSavedSearch"))->trigger();
         QVERIFY(search.takeFirst().at(0).toStringList().contains(QStringLiteral("first")));
+    }
+
+    void datesLimitEveryKindOfSearch()
+    {
+        using UiUtils::SearchScope::Dates;
+        Imap::Mailbox::FavoriteTagsModel tags;
+        Gui::MessageListWidget widget(nullptr, &tags, QStringLiteral("account-e"));
+        QStandardItemModel model;
+        enableSearch(widget, model);
+        auto *query = widget.findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        query->setText(QStringLiteral("plan"));
+        QSignalSpy search(&widget, &Gui::MessageListWidget::requestingSearch);
+
+        // Choosing a range applies the search at once
+        chooseDates(widget, Dates::PastWeek);
+        QCOMPARE(search.size(), 1);
+        const QStringList week = dateKeys(preset(Dates::PastWeek));
+        QCOMPARE(search.takeFirst().at(0).toStringList(),
+                 QStringList({QStringLiteral("OR"), QStringLiteral("SUBJECT"), QStringLiteral("plan"), QStringLiteral("FROM"),
+                              QStringLiteral("plan")}) + week);
+        QVERIFY(query->placeholderText().contains(QStringLiteral("Past Week")));
+        QVERIFY(query->toolTip().contains(QStringLiteral("Past Week")));
+        QCOMPARE(widget.dateRange(), preset(Dates::PastWeek));
+
+        // The range alone is a search, and keeps the field enabled when nothing matches
+        query->clear();
+        QCOMPARE(widget.searchConditions(), week);
+        model.setRowCount(0);
+        QMetaObject::invokeMethod(&widget, "slotAutoEnableDisableSearch");
+        QVERIFY(query->isEnabled());
+        model.setRowCount(1);
+
+        // Field filters and raw queries are narrowed too
+        query->setText(QStringLiteral("from:ann@example.org"));
+        QCOMPARE(widget.searchConditions(), QStringList({QStringLiteral("FROM"), QStringLiteral("ann@example.org")}) + week);
+        widget.findChild<QAction *>(QStringLiteral("searchRaw"))->setChecked(true);
+        query->setText(QStringLiteral(":=UNSEEN"));
+        QCOMPARE(widget.searchConditions(), QStringList({QStringLiteral("UNSEEN ") + week.join(QLatin1Char(' '))}));
+        query->setText(QStringLiteral(":="));
+        QCOMPARE(widget.searchConditions(), week);
+
+        chooseDates(widget, Dates::AnyTime);
+        QCOMPARE(widget.searchConditions(), QStringList({QString()}));
+        QCOMPARE(query->placeholderText(), QStringLiteral("Quick Search"));
+
+        // Leaving for a list which cannot be searched drops the range with the text
+        chooseDates(widget, Dates::Today);
+        widget.setSearchAvailable(false);
+        QCOMPARE(widget.dateRange(), preset(Dates::AnyTime));
+        widget.setSearchAvailable(true);
+        QVERIFY(widget.searchConditions().isEmpty());
+    }
+
+    void choosesCustomRanges()
+    {
+        using UiUtils::SearchScope::Dates;
+        Imap::Mailbox::FavoriteTagsModel tags;
+        Gui::MessageListWidget widget(nullptr, &tags, QStringLiteral("account-f"));
+        QStandardItemModel model;
+        enableSearch(widget, model);
+        chooseDates(widget, Dates::PastMonth);
+
+        // Only a start: everything since that day
+        QTimer::singleShot(0, []() {
+            auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            dialog->findChild<QDateEdit *>(QStringLiteral("dateFrom"))->setDate(QDate(2026, 1, 10));
+            dialog->findChild<QCheckBox *>(QStringLiteral("dateToEnabled"))->setChecked(false);
+            dialog->accept();
+        });
+        chooseDates(widget, Dates::Custom);
+        QCOMPARE(widget.dateRange(), (UiUtils::SearchScope::DateRange{Dates::Custom, QDate(2026, 1, 10), QDate()}));
+        QCOMPARE(widget.searchConditions(), QStringList({QStringLiteral("SENTSINCE"), QStringLiteral("10-Jan-2026")}));
+
+        // Cancelling keeps the range in effect
+        QTimer::singleShot(0, []() {
+            if (auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget()))
+                dialog->reject();
+        });
+        chooseDates(widget, Dates::Custom);
+        QCOMPARE(widget.dateRange().from, QDate(2026, 1, 10));
+        QVERIFY(widget.findChild<QAction *>(QStringLiteral("searchDates-custom"))->isChecked());
+
+        // Neither end means any time
+        QTimer::singleShot(0, []() {
+            auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            dialog->findChild<QCheckBox *>(QStringLiteral("dateFromEnabled"))->setChecked(false);
+            dialog->findChild<QCheckBox *>(QStringLiteral("dateToEnabled"))->setChecked(false);
+            dialog->accept();
+        });
+        chooseDates(widget, Dates::Custom);
+        QCOMPARE(widget.dateRange(), preset(Dates::AnyTime));
+        QVERIFY(widget.findChild<QAction *>(QStringLiteral("searchDates-any"))->isChecked());
+    }
+
+    void savesDateRanges()
+    {
+        using UiUtils::SearchScope::Dates;
+        Imap::Mailbox::FavoriteTagsModel tags;
+        Gui::MessageListWidget widget(nullptr, &tags, QStringLiteral("account-g"));
+        QStandardItemModel model;
+        enableSearch(widget, model);
+        auto *query = widget.findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+
+        // A range without text can be saved, and presets stay relative
+        chooseDates(widget, Dates::PastMonth);
+        saveSearch(widget, QStringLiteral("Recent"));
+        query->setText(QStringLiteral("plan"));
+        widget.setDateRange({Dates::Custom, QDate(2026, 1, 10), QDate(2026, 1, 20)});
+        saveSearch(widget, QStringLiteral("January"));
+        widget.setDateRange({});
+        query->clear();
+
+        KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"))->reparseConfiguration();
+        QMenu *recent = nullptr;
+        QMenu *january = nullptr;
+        for (auto *action : savedSearches(widget)->actions()) {
+            if (action->text() == QStringLiteral("Recent"))
+                recent = action->menu();
+            if (action->text() == QStringLiteral("January"))
+                january = action->menu();
+        }
+        QVERIFY(recent);
+        QVERIFY(january);
+        QSignalSpy search(&widget, &Gui::MessageListWidget::requestingSearch);
+        recent->findChild<QAction *>(QStringLiteral("runSavedSearch"))->trigger();
+        QCOMPARE(search.takeLast().at(0).toStringList(), dateKeys(preset(Dates::PastMonth)));
+        QCOMPARE(widget.dateRange(), preset(Dates::PastMonth));
+        january->findChild<QAction *>(QStringLiteral("runSavedSearch"))->trigger();
+        QCOMPARE(search.takeLast().at(0).toStringList(),
+                 QStringList({QStringLiteral("OR"), QStringLiteral("SUBJECT"), QStringLiteral("plan"), QStringLiteral("FROM"),
+                              QStringLiteral("plan"), QStringLiteral("SENTSINCE"), QStringLiteral("10-Jan-2026"),
+                              QStringLiteral("SENTBEFORE"), QStringLiteral("21-Jan-2026")}));
+        QCOMPARE(query->text(), QStringLiteral("plan"));
+
+        // Searches saved before dates existed run over any time
+        Gui::MessageListWidget older(nullptr, &tags, QStringLiteral("account-h"));
+        QStandardItemModel olderModel;
+        enableSearch(older, olderModel);
+        older.findChild<QLineEdit *>(QStringLiteral("quickSearch"))->setText(QStringLiteral("old"));
+        saveSearch(older, QStringLiteral("Old"));
+        {
+            KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), QStringLiteral("SavedSearches"));
+            group = group.group(QStringLiteral("account-h"));
+            for (const QString &id : group.groupList()) {
+                KConfigGroup entry = group.group(id);
+                entry.deleteEntry("Dates");
+                entry.deleteEntry("DateFrom");
+                entry.deleteEntry("DateTo");
+            }
+            group.sync();
+        }
+        older.setDateRange(preset(Dates::Today));
+        QSignalSpy olderSearch(&older, &Gui::MessageListWidget::requestingSearch);
+        savedSearches(older)->actions().first()->menu()->findChild<QAction *>(QStringLiteral("runSavedSearch"))->trigger();
+        QCOMPARE(older.dateRange(), preset(Dates::AnyTime));
+        QCOMPARE(olderSearch.takeLast().at(0).toStringList(),
+                 QStringList({QStringLiteral("OR"), QStringLiteral("SUBJECT"), QStringLiteral("old"), QStringLiteral("FROM"),
+                              QStringLiteral("old")}));
     }
 };
 

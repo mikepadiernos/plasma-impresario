@@ -25,12 +25,18 @@
 #include <KLocalizedString>
 #include <KSharedConfig>
 #include <QAction>
+#include <QActionGroup>
 #include <QApplication>
 #include <QCheckBox>
+#include <QDateEdit>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QFormLayout>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QLabel>
+#include <QLocale>
 #include <QMenu>
 #include <QMessageBox>
 #include <QStringView>
@@ -49,6 +55,58 @@
 
 namespace Gui {
 
+namespace {
+
+using UiUtils::SearchScope::DateRange;
+using UiUtils::SearchScope::Dates;
+
+/** @short A short description of @p range, such as "Past Week" or "Since 3/5/26" */
+QString dateRangeText(const DateRange &range)
+{
+    switch (range.dates) {
+    case Dates::AnyTime:
+        return i18nc("@item search date range", "Any Time");
+    case Dates::Today:
+        return i18nc("@item search date range", "Today");
+    case Dates::PastWeek:
+        return i18nc("@item search date range", "Past Week");
+    case Dates::PastMonth:
+        return i18nc("@item search date range", "Past Month");
+    case Dates::PastYear:
+        return i18nc("@item search date range", "Past Year");
+    case Dates::Custom:
+        break;
+    }
+    const UiUtils::SearchScope::Days days = UiUtils::SearchScope::resolve(range, QDate::currentDate());
+    const QLocale locale;
+    const QString first = locale.toString(days.first, QLocale::ShortFormat);
+    const QString last = locale.toString(days.last, QLocale::ShortFormat);
+    if (days.first.isValid() && days.last.isValid()) {
+        if (days.first == days.last)
+            return first;
+        return i18nc("@item search date range, from the first to the last day", "%1 to %2", first, last);
+    }
+    if (days.first.isValid())
+        return i18nc("@item search date range without an end", "Since %1", first);
+    if (days.last.isValid())
+        return i18nc("@item search date range without a start", "Until %1", last);
+    return i18nc("@item search date range", "Any Time");
+}
+
+/** @short The date range stored with a saved search; searches saved without one use any time */
+DateRange savedDateRange(const KConfigGroup &group)
+{
+    DateRange range;
+    range.dates = UiUtils::SearchScope::datesFromConfigName(group.readEntry("Dates", QString()));
+    if (range.dates == Dates::Custom) {
+        range.from = QDate::fromString(group.readEntry("DateFrom", QString()), Qt::ISODate);
+        range.to = QDate::fromString(group.readEntry("DateTo", QString()), Qt::ISODate);
+    }
+    return range;
+}
+
+}
+
 MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTagsModel *m_favoriteTagsModel, const QString &accountId) :
     QWidget(parent), m_accountId(accountId), m_supportsFuzzySearch(false)
 {
@@ -61,11 +119,12 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     QValidator *validator = new ReplaceCharValidator(QLatin1Char('\n'), QLatin1Char(' '), m_quickSearchText);
     m_quickSearchText->setValidator(validator);
     m_quickSearchText->setPlaceholderText(tr("Quick Search"));
-    m_quickSearchText->setToolTip(tr("Type in a text to search for within this mailbox. "
-                                     "The icon on the left can be used to limit the search options "
-                                     "(like whether to include addresses or message bodies, etc)."
-                                     "<br/><hr/>"
-                                     "Experts who have read RFC3501 can use the <code>:=</code> prefix and switch to a raw IMAP mode."));
+    m_searchToolTip = tr("Type in a text to search for within this mailbox. "
+                         "The icon on the left can be used to limit the search options "
+                         "(like whether to include addresses or message bodies, etc)."
+                         "<br/><hr/>"
+                         "Experts who have read RFC3501 can use the <code>:=</code> prefix and switch to a raw IMAP mode.");
+    m_quickSearchText->setToolTip(m_searchToolTip);
     m_queryPlaceholder = tr("<query>");
 
     connect(m_quickSearchText, &QLineEdit::returnPressed, this, &MessageListWidget::slotApplySearch);
@@ -107,7 +166,36 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     m_searchInSenders->setCheckable(true);
     m_searchInSenders->setChecked(true);
     m_searchInRecipients = optionsMenu->addAction(tr("Recipients"));
+    m_searchInRecipients->setObjectName(QStringLiteral("searchInRecipients"));
     m_searchInRecipients->setCheckable(true);
+
+    // The dates apply to every kind of search, so the menu stays enabled for raw queries
+    m_dateMenu = optionsMenu->addMenu(i18nc("@title:menu", "Date"));
+    m_dateMenu->setObjectName(QStringLiteral("searchDates"));
+    m_dateActions = new QActionGroup(this);
+    m_dateActions->setExclusive(true);
+    const auto addDates = [this](Dates dates, const QString &text) {
+        QAction *action = m_dateMenu->addAction(text);
+        action->setObjectName(QLatin1String("searchDates-") + UiUtils::SearchScope::configName(dates));
+        action->setCheckable(true);
+        action->setData(static_cast<int>(dates));
+        m_dateActions->addAction(action);
+        return action;
+    };
+    addDates(Dates::AnyTime, i18nc("@option:radio search date range", "Any Time"))->setChecked(true);
+    addDates(Dates::Today, i18nc("@option:radio search date range", "Today"));
+    addDates(Dates::PastWeek, i18nc("@option:radio search date range", "Past Week"));
+    addDates(Dates::PastMonth, i18nc("@option:radio search date range", "Past Month"));
+    addDates(Dates::PastYear, i18nc("@option:radio search date range", "Past Year"));
+    m_dateMenu->addSeparator();
+    addDates(Dates::Custom, i18nc("@option:radio search date range", "Custom Range..."));
+    connect(m_dateActions, &QActionGroup::triggered, this, [this](QAction *action) {
+        const auto dates = static_cast<Dates>(action->data().toInt());
+        if (dates == Dates::Custom)
+            chooseCustomDateRange();
+        else
+            setDateRange({dates, {}, {}});
+    });
 
     optionsMenu->addSeparator();
 
@@ -193,7 +281,7 @@ void MessageListWidget::saveCurrentSearch()
 {
     if (searchConditions().isEmpty()) {
         Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Save Search"),
-                                     i18nc("@info", "Enter a search and select at least one search field."));
+                                     i18nc("@info", "Enter a search and select at least one search field, or choose a date range."));
         return;
     }
     bool accepted = false;
@@ -226,6 +314,10 @@ void MessageListWidget::saveCurrentSearch()
     const bool rawQuery = m_rawSearch->isChecked() && m_quickSearchText->text().startsWith(QLatin1String(":="));
     group.writeEntry("Fuzzy", !rawQuery && m_supportsFuzzySearch && m_searchFuzzy->isChecked());
     group.writeEntry("Raw", m_rawSearch->isChecked());
+    // Presets stay relative, so a search for the past week keeps finding the latest week
+    group.writeEntry("Dates", UiUtils::SearchScope::configName(m_dateRange.dates));
+    group.writeEntry("DateFrom", m_dateRange.from.toString(Qt::ISODate));
+    group.writeEntry("DateTo", m_dateRange.to.toString(Qt::ISODate));
     if (!group.sync())
         Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Save Search"),
                                      i18nc("@info", "The search could not be saved."));
@@ -308,8 +400,10 @@ void MessageListWidget::setSearchAvailable(bool available)
         return;
     m_searchAvailable = available;
     // A search which still filters a single folder would look like it applies to the shown list
-    if (!available && !m_quickSearchText->text().isEmpty()) {
+    if (!available && (!m_quickSearchText->text().isEmpty() || UiUtils::SearchScope::isLimited(m_dateRange))) {
         m_quickSearchText->clear();
+        m_dateRange = {};
+        showDateRange();
         m_searchResetTimer->stop();
         slotApplySearch();
     }
@@ -326,7 +420,7 @@ void MessageListWidget::addSavedSearch(const QString &id)
 {
     const KConfigGroup group = savedSearchGroup().group(id);
     const QString name = group.readEntry("Name", QString());
-    if (name.isEmpty() || group.readEntry("Query", QString()).isEmpty()) {
+    if (name.isEmpty() || (group.readEntry("Query", QString()).isEmpty() && !UiUtils::SearchScope::isLimited(savedDateRange(group)))) {
         qWarning() << "Ignoring invalid saved search" << id;
         return;
     }
@@ -357,6 +451,9 @@ void MessageListWidget::runSavedSearch(const QString &id)
     m_searchInRecipients->setChecked(group.readEntry("Recipients", false));
     m_searchFuzzy->setChecked(fuzzy);
     m_quickSearchText->setText(group.readEntry("Query", QString()));
+    m_dateRange = savedDateRange(group);
+    showDateRange();
+    m_searchResetTimer->stop();
     slotApplySearch();
 }
 
@@ -371,6 +468,85 @@ void MessageListWidget::deleteSavedSearch(const QString &id)
     if (!group.sync())
         Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Delete Search"),
                                      i18nc("@info", "The search could not be deleted."));
+}
+
+UiUtils::SearchScope::DateRange MessageListWidget::dateRange() const
+{
+    return m_dateRange;
+}
+
+void MessageListWidget::setDateRange(const DateRange &range)
+{
+    m_dateRange = UiUtils::SearchScope::isLimited(range) ? range : DateRange();
+    if (m_dateRange.dates != Dates::Custom) {
+        m_dateRange.from = QDate();
+        m_dateRange.to = QDate();
+    }
+    showDateRange();
+    slotAutoEnableDisableSearch();
+    m_searchResetTimer->stop();
+    slotApplySearch();
+}
+
+void MessageListWidget::chooseCustomDateRange()
+{
+    const QDate today = QDate::currentDate();
+    const UiUtils::SearchScope::Days current = UiUtils::SearchScope::resolve(m_dateRange, today);
+    const bool limited = UiUtils::SearchScope::isLimited(m_dateRange);
+
+    QDialog dialog(this);
+    dialog.setWindowTitle(i18nc("@title:window", "Custom Date Range"));
+    auto *layout = new QFormLayout(&dialog);
+    const auto addDay = [&dialog, layout](const QString &name, const QString &label, const QDate &day, bool enabled) {
+        auto *check = new QCheckBox(label, &dialog);
+        check->setObjectName(name + QLatin1String("Enabled"));
+        check->setChecked(enabled);
+        auto *edit = new QDateEdit(day, &dialog);
+        edit->setObjectName(name);
+        edit->setCalendarPopup(true);
+        edit->setEnabled(enabled);
+        connect(check, &QCheckBox::toggled, edit, &QWidget::setEnabled);
+        layout->addRow(check, edit);
+        return std::make_pair(check, edit);
+    };
+    // Without a range yet, offer the past month, which the user can then narrow
+    const auto [fromCheck, fromEdit] = addDay(QStringLiteral("dateFrom"), i18nc("@option:check first day of a date range", "From:"),
+                                              current.first.isValid() ? current.first : today.addMonths(-1),
+                                              current.first.isValid() || !limited);
+    const auto [toCheck, toEdit] = addDay(QStringLiteral("dateTo"), i18nc("@option:check last day of a date range", "To:"),
+                                          current.last.isValid() ? current.last : today, current.last.isValid() || !limited);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    layout->addRow(buttons);
+
+    if (dialog.exec() != QDialog::Accepted) {
+        // The menu has already checked Custom Range, so put back the range in effect
+        showDateRange();
+        return;
+    }
+    setDateRange({Dates::Custom, fromCheck->isChecked() ? fromEdit->date() : QDate(), toCheck->isChecked() ? toEdit->date() : QDate()});
+}
+
+void MessageListWidget::showDateRange()
+{
+    const auto actions = m_dateActions->actions();
+    for (QAction *action : actions) {
+        if (static_cast<Dates>(action->data().toInt()) == m_dateRange.dates)
+            action->setChecked(true);
+    }
+    if (!UiUtils::SearchScope::isLimited(m_dateRange)) {
+        m_dateMenu->setTitle(i18nc("@title:menu", "Date"));
+        m_quickSearchText->setPlaceholderText(tr("Quick Search"));
+        m_quickSearchText->setToolTip(m_searchToolTip);
+        return;
+    }
+    const QString text = dateRangeText(m_dateRange);
+    m_dateMenu->setTitle(i18nc("@title:menu %1 is a date range such as Past Week", "Date: %1", text));
+    m_quickSearchText->setPlaceholderText(i18nc("@info:placeholder %1 is a date range such as Past Week", "Quick Search (%1)", text));
+    m_quickSearchText->setToolTip(m_searchToolTip + QLatin1String("<br/><hr/>")
+                                  + i18nc("@info:tooltip %1 is a date range such as Past Week", "Only messages sent in this date range are shown: %1",
+                                          text.toHtmlEscaped()));
 }
 
 void MessageListWidget::focusSearch()
@@ -408,7 +584,7 @@ void MessageListWidget::slotAutoEnableDisableSearch()
     bool isEnabled;
     if (!m_searchAvailable) {
         isEnabled = false;
-    } else if (!m_quickSearchText->text().isEmpty()) {
+    } else if (!m_quickSearchText->text().isEmpty() || UiUtils::SearchScope::isLimited(m_dateRange)) {
         // Some search criteria are in effect and suddenly all matching messages
         // disappear. We have to make sure that the search bar remains enabled.
         isEnabled = true;
@@ -500,49 +676,39 @@ void MessageListWidget::slotDeActivateSimpleSearch()
 
 QStringList MessageListWidget::searchConditions() const
 {
-    if (!m_quickSearchText->isEnabled() || m_quickSearchText->text().isEmpty())
+    using namespace UiUtils::SearchScope;
+    const QString text = m_quickSearchText->text();
+    if (!m_quickSearchText->isEnabled() || (text.isEmpty() && !isLimited(m_dateRange)))
         return QStringList();
 
     static QString rawPrefix = QStringLiteral(":=");
+    const QDate today = QDate::currentDate();
 
-    if (m_rawSearch->isChecked() && m_quickSearchText->text().startsWith(rawPrefix)) {
-        // It's a "raw" IMAP search, let's simply pass it through
-        return QStringList() << m_quickSearchText->text().mid(rawPrefix.size());
+    if (m_rawSearch->isChecked() && text.startsWith(rawPrefix)) {
+        // It's a "raw" IMAP search, let's pass it through as a single item, which the parser sends verbatim
+        const QString rawQuery = text.mid(rawPrefix.size());
+        if (rawQuery.trimmed().isEmpty() && isLimited(m_dateRange))
+            return dateConditions(m_dateRange, today);
+        return QStringList() << withDateConditions(rawQuery, m_dateRange, today);
     }
 
     // "from:", "to:", "subject:" and "list:" search that field only, whatever the options say
-    const UiUtils::ParsedFieldFilter fieldFilter = UiUtils::parseFieldFilter(m_quickSearchText->text());
-    if (fieldFilter.field != UiUtils::FieldFilter::None)
-        return UiUtils::fieldFilterConditions(fieldFilter);
+    const UiUtils::ParsedFieldFilter fieldFilter = UiUtils::parseFieldFilter(text);
+    if (fieldFilter.field != UiUtils::FieldFilter::None) {
+        const QStringList keys = UiUtils::fieldFilterConditions(fieldFilter);
+        return keys.isEmpty() ? keys : keys + dateConditions(m_dateRange, today);
+    }
 
-    QStringList keys;
+    Fields fields;
     if (m_searchInSubject->isChecked())
-        keys << QStringLiteral("SUBJECT");
+        fields |= Field::Subject;
     if (m_searchInBody->isChecked())
-        keys << QStringLiteral("BODY");
+        fields |= Field::Body;
     if (m_searchInRecipients->isChecked())
-        keys << QStringLiteral("TO") << QStringLiteral("CC") << QStringLiteral("BCC");
+        fields |= Field::Recipients;
     if (m_searchInSenders->isChecked())
-        keys << QStringLiteral("FROM");
-
-    if (keys.isEmpty())
-        return keys;
-
-    QStringList res;
-    Q_FOREACH(const QString &key, keys) {
-        if (m_searchFuzzy->isChecked() && m_supportsFuzzySearch)
-            res << QStringLiteral("FUZZY");
-        res << key << m_quickSearchText->text();
-    }
-    if (keys.size() > 1) {
-        // Got to make this a conjunction. The OR operator's reverse-polish-notation accepts just two operands, though.
-        int num = keys.size() - 1;
-        for (int i = 0; i < num; ++i) {
-            res.prepend(QStringLiteral("OR"));
-        }
-    }
-
-    return res;
+        fields |= Field::Senders;
+    return conditions(text, fields, m_searchFuzzy->isChecked() && m_supportsFuzzySearch, m_dateRange, today);
 }
 
 void MessageListWidget::setFuzzySearchSupported(bool supported)

@@ -25,11 +25,13 @@
 
 #include <QWidget>
 #include "Imap/Model/FavoriteTagsModel.h"
+#include "UiUtils/SearchScope.h"
 
 class LineEdit;
 class KConfigGroup;
 class QHBoxLayout;
 class QIcon;
+class QActionGroup;
 class QLabel;
 class QMenu;
 class QTimer;
@@ -50,6 +52,11 @@ public:
     void setRawSearchEnabled(bool enabled);
 
     QStringList searchConditions() const;
+
+    /** @short The dates which the quick search is limited to */
+    UiUtils::SearchScope::DateRange dateRange() const;
+    /** @short Limit the quick search to @p range and apply it */
+    void setDateRange(const UiUtils::SearchScope::DateRange &range);
 
     /** Key saved searches to another account, for example after switching accounts. */
     void setAccountId(const QString &accountId);
@@ -105,6 +112,10 @@ private:
     void runSavedSearch(const QString &id);
     /** Deletes the saved search identified by @p id after confirmation. */
     void deleteSavedSearch(const QString &id);
+    /** Asks for the first and last day of a custom date range. */
+    void chooseCustomDateRange();
+    /** Shows the date range in the menu, the placeholder and the tooltip of the quick search. */
+    void showDateRange();
 
     LineEdit *m_quickSearchText;
     /** The quick search field and the buttons next to it */
@@ -120,6 +131,10 @@ private:
     QAction *m_searchInRecipients;
     QAction *m_searchFuzzy;
     QAction *m_rawSearch;
+    QMenu *m_dateMenu;
+    QActionGroup *m_dateActions;
+    UiUtils::SearchScope::DateRange m_dateRange;
+    QString m_searchToolTip;
     QMenu *m_savedSearches;
     QString m_accountId;
     bool m_supportsFuzzySearch;
