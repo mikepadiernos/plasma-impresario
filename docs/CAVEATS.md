@@ -46,7 +46,7 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned · ✅ resolved
 | ⚠️ Reading privacy   | Link warnings are heuristic and remote content consent applies to the open message only ([details](#reading-privacy))                                                                                              |
 | ⚠️ Loading on demand | Parts that failed after a server error load again only on Try Again; the unavailable-message page is not verified live ([details](#loading-on-demand))                                                             |
 | ⚠️ Reader actions    | The action bar is in the main window only, zoom is not saved, and Archive and Trash from the bar are not verified live ([details](#reader-actions))                                                                |
-| ⚠️ Conversations     | A search in a threaded list splits threads, flat-list conversations cover the current folder only, and the Unified Inbox has no conversation steps ([details](#conversations))                                     |
+| ⚠️ Conversations     | A search in a threaded list splits threads, conversations cover the loaded messages of the current folder only, and the Unified Inbox has no conversation steps ([details](#conversations))                        |
 | ⚠️ Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                             |
 | 🔒 Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings`                                                     |
 | 🔒 Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used                                                                                                                            |
@@ -259,9 +259,9 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
 
 ### Conversations
 
-| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                                                               |
-| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| [#449](https://github.com/mikepadiernos/plasma-impresario/issues/449) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/449#issuecomment-7178393442) | Message list filters, quick search and the conversation steps (#40, #96) |
+| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                                                                     |
+| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| [#449](https://github.com/mikepadiernos/plasma-impresario/issues/449) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/449#issuecomment-7178393442) | Message list filters, quick search and the conversation steps (#40, #96, #369) |
 
 **Current behavior:**
 
@@ -274,9 +274,19 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
 - ⚠️ A quick search, or **Show Related**, in a threaded list threads only the
   matching messages, because the server is asked to thread the search results.
   Replies that don't match are not shown with their thread.
-- ⚠️ In a flat list, a conversation is built from the messages loaded in the
-  current folder. Your replies in Sent and messages in other folders are not
-  included, and a common subject, such as "Hello", can join unrelated mail.
+- ✅ Replies without In-Reply-To or References join their conversation by
+  subject, ignoring localized prefixes and list tags, within 30 days. Two
+  messages without reply prefixes never join by subject, and a message that
+  references two conversations merges them, in threads as in flat lists
+  ([#369](https://github.com/mikepadiernos/plasma-impresario/issues/369)).
+- ⚠️ A conversation is built from the messages loaded in the current folder.
+  Your replies in Sent and messages in other folders are not included.
+- ⚠️ A threaded list merges conversations only among messages whose envelopes
+  are loaded, so a merge may appear only after scrolling. It does not merge
+  again during a search or after the server reports threads incrementally,
+  until the folder is threaded again.
+- ⚠️ A reply that has a reply prefix but no links can still join an unrelated
+  message of the same subject sent within 30 days.
 - ⚠️ The conversation steps do nothing in the Unified Inbox.
 
 **Workarounds:**
@@ -284,6 +294,8 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
 - To see a whole thread that a search split, clear the search, open the
   message, and use the conversation steps.
 - Open the Sent folder to read your own replies.
+- To see a merge that has not appeared yet, scroll through the folder, or
+  switch Group By to None and back to Conversation.
 
 **Proposed improvements:**
 
@@ -291,8 +303,6 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
   client, so that threads stay whole during a search.
 - 📋 Search related mail on the server and across folders (M04,
   [#302](https://github.com/mikepadiernos/plasma-impresario/issues/302)).
-- 📋 Match subjects within a time window, ignoring reply prefixes and list tags
-  (M04, [#369](https://github.com/mikepadiernos/plasma-impresario/issues/369)).
 - 📋 Step through conversations in the Unified Inbox within each account.
 
 ### OAuth sign-in

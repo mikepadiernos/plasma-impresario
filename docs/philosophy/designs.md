@@ -179,12 +179,12 @@ the mailbox's UIDVALIDITY before selecting a saved UID.
 Four embedded panels are available. Only Attachments is shown by default, so the
 default look matches the classic layout.
 
-| Panel            | Default             | Content                                                                                                                                                                                                                  | Actions                                                                                  |
-| ---------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| Attachments      | Shown, below reader | The current message's attachments with type icons, names and sizes. Attachments that arrive late, such as after decryption, are added as they appear.                                                                    | Open, Save As, context menu, drag into the composer                                      |
-| Message Details  | Off, right column   | Subject, From, To, Cc, date, size, folder, read/flagged/replied/forwarded state and the reader's signature and decryption result. Rows without a value are hidden.                                                       | None                                                                                     |
-| Contacts         | Off, right column   | The From, Reply-To, To and Cc addresses, each listed once with all its roles. Reply-To is listed only when it names other addresses than From.                                                                           | Write Email, Copy Address, Open in Address Book (only when an address-book plugin loads) |
-| Related Messages | Off, right column   | Messages of the current folder in the same conversation (same subject without reply prefixes, or linked through Message-ID and In-Reply-To) and other messages from the same sender, newest first, at most 25 per group. | Activating a message selects it in the message list                                      |
+| Panel            | Default             | Content                                                                                                                                                                                       | Actions                                                                                  |
+| ---------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Attachments      | Shown, below reader | The current message's attachments with type icons, names and sizes. Attachments that arrive late, such as after decryption, are added as they appear.                                         | Open, Save As, context menu, drag into the composer                                      |
+| Message Details  | Off, right column   | Subject, From, To, Cc, date, size, folder, read/flagged/replied/forwarded state and the reader's signature and decryption result. Rows without a value are hidden.                            | None                                                                                     |
+| Contacts         | Off, right column   | The From, Reply-To, To and Cc addresses, each listed once with all its roles. Reply-To is listed only when it names other addresses than From.                                                | Write Email, Copy Address, Open in Address Book (only when an address-book plugin loads) |
+| Related Messages | Off, right column   | Messages of the current folder in the same conversation (see [Conversations](#conversations-and-their-subjects)) and other messages from the same sender, newest first, at most 25 per group. | Activating a message selects it in the message list                                      |
 
 Each panel has a submenu in **View › Embedded Panels**. Preferences are saved in
 the `Appearance` group of `plasma-impresariorc`, where `<Panel>` is
@@ -625,14 +625,38 @@ without the mouse ([#91](https://github.com/mikepadiernos/plasma-impresario/issu
   whatever the list's sorting, and stop at either end
   ([#40](https://github.com/mikepadiernos/plasma-impresario/issues/40)). In a
   threaded list the conversation is the thread, and a collapsed thread opens
-  on the way. In a flat or grouped list it follows the loaded messages linked
-  to the current one by subject, In-Reply-To or Message-ID, and through them
-  to further replies, so a reply under a new subject is included. A message
+  on the way. In a flat or grouped list it is the conversation of the current
+  message among the loaded messages (see
+  [Conversations](#conversations-and-their-subjects)), so a reply under a new
+  subject is included. A message
   that a filter hides is shown while it is current, so the steps reach the
   whole conversation
   ([#96](https://github.com/mikepadiernos/plasma-impresario/issues/96)). The
   steps do nothing in the Unified Inbox; see
   [Conversations](../CAVEATS.md#conversations).
+
+#### Conversations and their subjects
+
+Threads, Related Messages and the conversation steps share one notion of a
+conversation ([#369](https://github.com/mikepadiernos/plasma-impresario/issues/369)):
+
+- Messages that share a Message-ID, as their own, in In-Reply-To or in
+  References, belong together. A message whose References name two
+  conversations merges them.
+- Only a reply that has neither In-Reply-To nor References joins by subject.
+  Its subject must start with a reply or forward prefix, and it joins the
+  closest earlier message with the same normalized subject, or else the closest
+  later one, at most 30 days apart. Two messages without prefixes, such as two
+  unrelated "Hello" mails, never join.
+- The normalized subject ignores case, spacing, leading list tags such as
+  `[team]`, and repeated or counted prefixes in common languages: Re:, Fw:,
+  Fwd:, AW:, WG:, SV:, VS:, VB:, Antw:, Doorst:, TR:, RIF:, R:, RES:, ENC:,
+  RV:, Odp:, PD:, YNT:, ILT:, VL:, VÁ:, 回复:, 转发:, 회신:, Отв:, ΑΠ: and others,
+  with `[2]` or `(2)` counters and a full-width colon.
+- In a threaded list, the server's threads that hold one conversation are shown
+  as one: the thread with the earliest message keeps its place and takes the
+  others in as replies to its first message. Only messages whose envelopes are
+  loaded count, and the list merges again as more envelopes load.
 
 ### Status bar
 
