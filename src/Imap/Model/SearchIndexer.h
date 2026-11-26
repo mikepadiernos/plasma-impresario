@@ -13,6 +13,7 @@
 #include <QStringList>
 #include <QTimer>
 
+#include "Imap/Model/AttachmentTextExtractor.h"
 #include "Imap/Model/SearchIndex.h"
 
 namespace Imap
@@ -124,6 +125,19 @@ public:
     */
     bool addDecryptedText(const QString &mailbox, uint uid, const QString &text);
 
+    /** @short Whether the text of downloaded attachments up to @arg limit bytes is indexed; off by default
+
+    Attachments are never downloaded for the index: one is read once the user has downloaded it, such as by opening
+    or saving it. Turning this off, or changing the limit, indexes the messages whose attachments were read again.
+    */
+    void setAttachmentIndexing(bool enabled, quint64 limit);
+    bool indexesAttachments() const;
+    quint64 attachmentLimit() const;
+    /** @short Read attachments with @arg extractor instead of the default one; for tests */
+    void setAttachmentExtractor(const std::shared_ptr<AttachmentTextExtractor> &extractor);
+    /** @short The extractor which reads attachments, created when first needed */
+    const AttachmentTextExtractor *attachmentExtractor() const;
+
     /** @short Delete the index from the cache, leaving the indexer unavailable; @arg problem says what failed */
     bool deleteIndex(QString *problem = nullptr);
 
@@ -134,8 +148,8 @@ public:
     void setTimings(int scheduleMs, int batchMs, int batchSize);
 
     /** @short What the index keeps of a message in the cache; false when its headers are not in the cache */
-    static bool document(const AbstractCache &cache, const QString &mailbox, uint uid, const QStringList &flags,
-                         SearchIndex::Document *document);
+    bool document(const AbstractCache &cache, const QString &mailbox, uint uid, const QStringList &flags,
+                  SearchIndex::Document *document) const;
 
 signals:
     void progressChanged();
@@ -169,6 +183,9 @@ private:
     int m_batchSize = 200;
     QSet<QString> m_excluded;
     bool m_indexDecrypted = false;
+    bool m_indexAttachments = false;
+    quint64 m_attachmentLimit = 10 * 1024 * 1024;
+    mutable std::shared_ptr<AttachmentTextExtractor> m_extractor;
 
     QStringList m_queue;
     QString m_mailbox;

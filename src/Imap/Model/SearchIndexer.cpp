@@ -5,7 +5,9 @@
 
 #include <algorithm>
 #include <QDataStream>
+#include <QElapsedTimer>
 #include <QIODevice>
+#include <QMimeDatabase>
 #include <QSet>
 
 #include "Imap/Encoders.h"
@@ -24,6 +26,9 @@ namespace
 
 /** Text kept of one message; longer text is cut, as it rarely adds anything to a search */
 const int maximumText = 512 * 1024;
+
+/** A batch which reads attachments ends after this long, so that the window stays responsive */
+const int batchBudgetMs = 100;
 
 QString addresses(const QList<Message::MailAddress> &list)
 {
@@ -70,9 +75,16 @@ struct PartWalker {
     const AbstractCache &cache;
     const QString &mailbox;
     uint uid;
+    /** Whether the text of downloaded attachments is read, up to @short limit bytes each */
+    bool readAttachments = false;
+    quint64 limit = 0;
+    const AttachmentTextExtractor *extractor = nullptr;
     QStringList textParts;
     QStringList texts;
     QStringList attachments;
+    QStringList attachmentTexts;
+    QStringList attachmentParts;
+    QStringList attachmentReport;
     bool hasAttachment = false;
     bool foundText = false;
 
@@ -126,6 +138,67 @@ struct PartWalker {
             hasAttachment = true;
             if (!fileName.isEmpty())
                 attachments << fileName;
+            attachment(one, id, fileName);
+        }
+    }
+
+    void attachment(const Message::OneMessage *one, const QByteArray &id, const QString &fileName)
+    {
+        const QByteArray type = one->mediaType.toLower();
+        const QByteArray subType = one->mediaSubType.toLower();
+        // Pictures, sound and video have no text to read, and keys and encrypted data none worth searching
+        if (type == "image" || type == "audio" || type == "video")
+            return;
+        if (type == "application" && (subType.startsWith("pgp") || subType.contains("pkcs7") || subType == "pkcs10"))
+            return;
+        const QString partId = QString::fromLatin1(id);
+        if (!readAttachments) {
+            // Kept, so that the attachment is read once that is turned on
+            attachmentParts << partId;
+            return;
+        }
+        const QString declared = QString::fromLatin1(type + '/' + subType);
+        // The size on the server is that of the encoded part, a third more than the file in base64
+        const quint64 size = one->bodyFldEnc.toLower() == "base64" ? one->bodyFldOctets / 4 * 3 : one->bodyFldOctets;
+        if (size > limit) {
+            attachmentReport << QLatin1String("large ") + declared;
+            return;
+        }
+        const QByteArray data = partData(cache, mailbox, uid, id, one->bodyFldEnc);
+        if (data.isNull()) {
+            // Never downloaded for the index; it is read once the user downloads it
+            attachmentParts << partId;
+            return;
+        }
+        const QString mimeType = AttachmentTextExtractor::effectiveMimeType(data, declared, fileName);
+        if (quint64(data.size()) > limit) {
+            attachmentReport << QLatin1String("large ") + mimeType;
+            return;
+        }
+        QString text;
+        AttachmentTextExtractor::Outcome outcome = AttachmentTextExtractor::Outcome::NoExtractor;
+        const QMimeType mime = QMimeDatabase().mimeTypeForName(mimeType);
+        if (mime.isValid() && (mime.inherits(QStringLiteral("text/plain")) || mime.inherits(QStringLiteral("text/html")))) {
+            // Text needs no extractor
+            text = decodeByteArray(data, one->bodyFldParam.value("CHARSET"));
+            if (mime.inherits(QStringLiteral("text/html")))
+                text = SearchIndex::plainTextOfHtml(text);
+            outcome = AttachmentTextExtractor::Outcome::Extracted;
+        } else if (extractor) {
+            outcome = extractor->extract(data, mimeType, fileName, &text);
+        }
+        switch (outcome) {
+        case AttachmentTextExtractor::Outcome::Extracted:
+            attachmentReport << QLatin1String("read ") + mimeType;
+            if (!text.trimmed().isEmpty())
+                attachmentTexts << text;
+            break;
+        case AttachmentTextExtractor::Outcome::NoExtractor:
+            attachmentReport << QLatin1String("none ") + mimeType;
+            break;
+        case AttachmentTextExtractor::Outcome::Failed:
+            attachmentReport << QLatin1String("failed ") + mimeType;
+            break;
         }
     }
 };
@@ -379,7 +452,7 @@ bool SearchIndexer::addDecryptedText(const QString &mailbox, uint uid, const QSt
         if (!cache)
             return false;
         SearchIndex::Document document;
-        if (!SearchIndexer::document(*cache, mailbox, uid, normalizedFlags(cache->msgFlags(mailbox, uid)), &document)
+        if (!this->document(*cache, mailbox, uid, normalizedFlags(cache->msgFlags(mailbox, uid)), &document)
             || !m_index->store({document}))
             return false;
     }
@@ -387,6 +460,56 @@ bool SearchIndexer::addDecryptedText(const QString &mailbox, uint uid, const QSt
         return false;
     emit progressChanged();
     return true;
+}
+
+void SearchIndexer::setAttachmentIndexing(bool enabled, quint64 limit)
+{
+    m_indexAttachments = enabled;
+    m_attachmentLimit = limit;
+    if (!m_index || !m_index->isOpen())
+        return;
+    // The index remembers how its attachments were read, so that a change is noticed after a restart as well
+    const QString key = QStringLiteral("attachments");
+    const QString wanted = enabled ? QString::number(limit) : QString();
+    const QString built = m_index->setting(key);
+    if (built == wanted)
+        return;
+    if (!m_index->setSetting(key, wanted))
+        return;
+    if (!built.isEmpty()) {
+        // Turned off, or a different limit: the messages whose attachments were read or tried are indexed again
+        m_scheduled.stop();
+        abandonPass();
+        m_index->forgetAttachmentText();
+    }
+    // Turned on: the next pass reads the attachments which are already downloaded
+    if (m_paused)
+        m_pending = true;
+    else
+        update();
+    emit progressChanged();
+}
+
+bool SearchIndexer::indexesAttachments() const
+{
+    return m_indexAttachments;
+}
+
+quint64 SearchIndexer::attachmentLimit() const
+{
+    return m_attachmentLimit;
+}
+
+void SearchIndexer::setAttachmentExtractor(const std::shared_ptr<AttachmentTextExtractor> &extractor)
+{
+    m_extractor = extractor;
+}
+
+const AttachmentTextExtractor *SearchIndexer::attachmentExtractor() const
+{
+    if (!m_extractor)
+        m_extractor = AttachmentTextExtractor::createDefault();
+    return m_extractor.get();
 }
 
 bool SearchIndexer::deleteIndex(QString *problem)
@@ -522,24 +645,32 @@ void SearchIndexer::indexBatch(const AbstractCache &cache)
 {
     QList<SearchIndex::Document> documents;
     QHash<uint, QStringList> flagChanges;
+    QElapsedTimer elapsed;
+    elapsed.start();
+    const int start = m_position;
     const int end = std::min(int(m_uids.size()), m_position + m_batchSize);
     for (; m_position < end; ++m_position) {
+        // Reading attachments can take a while, so a slow batch stops early and goes on after a pause
+        if (m_position > start && elapsed.elapsed() > batchBudgetMs)
+            break;
         const uint uid = m_uids.at(m_position);
         if (uid == 0)
             continue;
         const QStringList flags = normalizedFlags(cache.msgFlags(m_mailbox, uid));
         const auto entry = m_entries.constFind(uid);
+        const auto downloaded = [&](const QString &part) {
+            const QByteArray id = part.toLatin1();
+            return !cache.messagePart(m_mailbox, uid, id).isNull()
+                || !cache.messagePart(m_mailbox, uid, id + ".X-RAW").isNull();
+        };
         bool textArrived = false;
-        if (entry != m_entries.constEnd() && !entry->hasText) {
-            textArrived = std::any_of(entry->textParts.cbegin(), entry->textParts.cend(), [&](const QString &part) {
-                const QByteArray id = part.toLatin1();
-                return !cache.messagePart(m_mailbox, uid, id).isNull()
-                    || !cache.messagePart(m_mailbox, uid, id + ".X-RAW").isNull();
-            });
-        }
+        if (entry != m_entries.constEnd() && !entry->hasText)
+            textArrived = std::any_of(entry->textParts.cbegin(), entry->textParts.cend(), downloaded);
+        if (entry != m_entries.constEnd() && !textArrived && m_indexAttachments)
+            textArrived = std::any_of(entry->attachmentParts.cbegin(), entry->attachmentParts.cend(), downloaded);
         if (entry == m_entries.constEnd() || textArrived) {
             SearchIndex::Document document;
-            if (!SearchIndexer::document(cache, m_mailbox, uid, flags, &document))
+            if (!this->document(cache, m_mailbox, uid, flags, &document))
                 continue;
             ++m_folder.indexed;
             if (document.hasText)
@@ -607,7 +738,7 @@ void SearchIndexer::step()
 }
 
 bool SearchIndexer::document(const AbstractCache &cache, const QString &mailbox, uint uid, const QStringList &flags,
-                             SearchIndex::Document *document)
+                             SearchIndex::Document *document) const
 {
     AbstractCache::MessageDataBundle data = cache.messageMetadata(mailbox, uid);
     if (data.uid != uid)
@@ -657,7 +788,11 @@ bool SearchIndexer::document(const AbstractCache &cache, const QString &mailbox,
         return true;
     }
     d.contentType = QString::fromLatin1(structure->mediaType + '/' + structure->mediaSubType).toLower();
-    PartWalker walker{cache, mailbox, uid, {}, {}, {}};
+    PartWalker walker{cache, mailbox, uid};
+    walker.readAttachments = m_indexAttachments;
+    walker.limit = m_attachmentLimit;
+    if (m_indexAttachments)
+        walker.extractor = attachmentExtractor();
     if (const auto *multi = dynamic_cast<const Message::MultiMessage *>(structure.data()))
         walker.children(multi, QByteArray());
     else
@@ -669,6 +804,11 @@ bool SearchIndexer::document(const AbstractCache &cache, const QString &mailbox,
         d.body.truncate(maximumText);
     d.hasAttachment = walker.hasAttachment;
     d.attachments = walker.attachments.join(QLatin1Char('\n'));
+    d.attachmentText = walker.attachmentTexts.join(QLatin1Char('\n'));
+    if (d.attachmentText.size() > maximumText)
+        d.attachmentText.truncate(maximumText);
+    d.attachmentParts = walker.attachmentParts;
+    d.attachmentReport = walker.attachmentReport;
     return true;
 }
 

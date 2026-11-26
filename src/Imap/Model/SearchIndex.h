@@ -66,6 +66,13 @@ public:
         QString body;
         /** Names of the attached files and messages */
         QString attachments;
+        /** Text read from the attached files */
+        QString attachmentText;
+        /** Ids of attached files whose text could be read once they are downloaded */
+        QStringList attachmentParts;
+        /** One line per attached file which was read or tried: its state (read, none, large or failed), a space and
+            its MIME type */
+        QStringList attachmentReport;
     };
 
     /** @short What is known about an indexed message without reading its text */
@@ -73,6 +80,20 @@ public:
         bool hasText = false;
         QStringList flags;
         QStringList textParts;
+        QStringList attachmentParts;
+    };
+
+    /** @short What became of the attached files of the indexed messages */
+    struct AttachmentSummary {
+        /** Files whose text is in the index */
+        int read = 0;
+        /** Files waiting to be downloaded, whose text is not in the index */
+        int notDownloaded = 0;
+        /** Files larger than the limit, and files the extractor could not read */
+        int tooLarge = 0;
+        int failed = 0;
+        /** Files of each MIME type for which no text extractor is installed */
+        QHash<QString, int> withoutExtractor;
     };
 
     /** @short State of one folder in the index */
@@ -138,6 +159,13 @@ public:
     int decryptedMessages() const;
     /** @short Forget the messages holding decrypted text, so that they are indexed again without it */
     bool removeDecrypted();
+    /** @short Counts of the attached files which were read, tried or are waiting */
+    AttachmentSummary attachmentSummary() const;
+    /** @short Forget the messages with attached files which were read or tried, so that they are indexed again */
+    bool forgetAttachmentText();
+    /** @short A value which the index keeps about how it was built, or an empty string */
+    QString setting(const QString &key) const;
+    bool setSetting(const QString &key, const QString &value);
     bool setFlags(const QString &mailbox, const QHash<uint, QStringList> &flags);
     bool remove(const QString &mailbox, const QList<uint> &uids);
 

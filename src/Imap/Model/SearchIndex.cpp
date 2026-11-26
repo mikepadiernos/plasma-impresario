@@ -16,7 +16,7 @@ namespace Mailbox
 namespace
 {
 
-const int indexVersion = 2;
+const int indexVersion = 3;
 
 /** Text kept of one message; longer text is cut, as it rarely adds anything to a search */
 const int maximumBody = 512 * 1024;
@@ -24,6 +24,7 @@ const int maximumBody = 512 * 1024;
 const QString textColumns[] = {
     QStringLiteral("subject"), QStringLiteral("sender"), QStringLiteral("recipient_to"), QStringLiteral("recipient_cc"),
     QStringLiteral("recipient_bcc"), QStringLiteral("body"), QStringLiteral("attachments"),
+    QStringLiteral("attachment_text"),
 };
 
 /** @short Groups writes; inside the cache's own delayed transaction it only nests, otherwise it commits */
@@ -302,7 +303,7 @@ struct Translator {
             {QStringLiteral("TO"), {QStringLiteral("recipient_to")}},
             {QStringLiteral("CC"), {QStringLiteral("recipient_cc")}},
             {QStringLiteral("BCC"), {QStringLiteral("recipient_bcc")}},
-            {QStringLiteral("BODY"), {QStringLiteral("body")}},
+            {QStringLiteral("BODY"), {QStringLiteral("body"), QStringLiteral("attachment_text")}},
         };
         if (const auto columns = textKeys.constFind(key); columns != textKeys.constEnd()) {
             if (!argument(key, &value))
@@ -424,9 +425,10 @@ bool SearchIndex::open()
                        "uid INTEGER NOT NULL, sent INTEGER, received INTEGER, size INTEGER, flags TEXT, "
                        "content_type TEXT, has_attachment INTEGER, message_id TEXT, in_reply_to TEXT, refs TEXT, "
                        "list_id TEXT, list_post TEXT, has_text INTEGER, text_parts TEXT, "
-                       "decrypted INTEGER NOT NULL DEFAULT 0, UNIQUE (mailbox, uid))"),
+                       "decrypted INTEGER NOT NULL DEFAULT 0, attachment_parts TEXT, attachment_report TEXT, "
+                       "UNIQUE (mailbox, uid))"),
         QStringLiteral("CREATE VIRTUAL TABLE IF NOT EXISTS search_text USING fts5(subject, sender, recipient_to, "
-                       "recipient_cc, recipient_bcc, body, attachments, tokenize='trigram')"),
+                       "recipient_cc, recipient_bcc, body, attachments, attachment_text, tokenize='trigram')"),
     };
     for (const QString &statement : statements) {
         if (!q.exec(statement))
@@ -599,7 +601,8 @@ QHash<uint, SearchIndex::Entry> SearchIndex::entries(const QString &mailbox) con
     QHash<uint, Entry> result;
     QSqlQuery q(database());
     q.setForwardOnly(true);
-    q.prepare(QStringLiteral("SELECT uid, has_text, flags, text_parts FROM search_docs WHERE mailbox = ?"));
+    q.prepare(QStringLiteral("SELECT uid, has_text, flags, text_parts, attachment_parts FROM search_docs "
+                             "WHERE mailbox = ?"));
     q.addBindValue(mailbox);
     if (!q.exec()) {
         fail(tr("Cannot read the search index"), q.lastError().text());
@@ -610,6 +613,7 @@ QHash<uint, SearchIndex::Entry> SearchIndex::entries(const QString &mailbox) con
         entry.hasText = q.value(1).toBool();
         entry.flags = flagList(q.value(2).toString());
         entry.textParts = q.value(3).toString().split(QLatin1Char(' '), Qt::SkipEmptyParts);
+        entry.attachmentParts = q.value(4).toString().split(QLatin1Char(' '), Qt::SkipEmptyParts);
         result.insert(q.value(0).toUInt(), entry);
     }
     return result;
@@ -628,14 +632,17 @@ bool SearchIndex::store(const QList<Document> &documents)
     QSqlQuery update(db);
     update.prepare(QStringLiteral("UPDATE search_docs SET sent = ?, received = ?, size = ?, flags = ?, content_type = ?, "
                                   "has_attachment = ?, message_id = ?, in_reply_to = ?, refs = ?, list_id = ?, "
-                                  "list_post = ?, has_text = ?, text_parts = ?, decrypted = 0 WHERE id = ?"));
+                                  "list_post = ?, has_text = ?, text_parts = ?, attachment_parts = ?, "
+                                  "attachment_report = ?, decrypted = 0 WHERE id = ?"));
     QSqlQuery insert(db);
     insert.prepare(QStringLiteral("INSERT INTO search_docs (sent, received, size, flags, content_type, has_attachment, "
-                                  "message_id, in_reply_to, refs, list_id, list_post, has_text, text_parts, mailbox, uid) "
-                                  "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
+                                  "message_id, in_reply_to, refs, list_id, list_post, has_text, text_parts, "
+                                  "attachment_parts, attachment_report, mailbox, uid) "
+                                  "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
     QSqlQuery insertText(db);
     insertText.prepare(QStringLiteral("INSERT INTO search_text (rowid, subject, sender, recipient_to, recipient_cc, "
-                                      "recipient_bcc, body, attachments) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"));
+                                      "recipient_bcc, body, attachments, attachment_text) "
+                                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"));
     for (const Document &document : documents) {
         find.addBindValue(document.mailbox);
         find.addBindValue(document.uid);
@@ -658,6 +665,8 @@ bool SearchIndex::store(const QList<Document> &documents)
         row.addBindValue(document.listPost);
         row.addBindValue(document.hasText);
         row.addBindValue(document.textParts.join(QLatin1Char(' ')));
+        row.addBindValue(document.attachmentParts.join(QLatin1Char(' ')));
+        row.addBindValue(document.attachmentReport.join(QLatin1Char('\n')));
         if (exists) {
             row.addBindValue(existing);
         } else {
@@ -676,7 +685,7 @@ bool SearchIndex::store(const QList<Document> &documents)
         }
         insertText.addBindValue(id);
         for (const QString &text : {document.subject, document.from, document.to, document.cc, document.bcc,
-                                    document.body, document.attachments})
+                                    document.body, document.attachments, document.attachmentText})
             insertText.addBindValue(text);
         if (!insertText.exec())
             return fail(tr("Cannot update the search index"), insertText.lastError().text());
@@ -758,6 +767,72 @@ bool SearchIndex::removeDecrypted()
         return fail(tr("Cannot update the search index"), q.lastError().text());
     if (!savepoint.release())
         return fail(tr("Cannot update the search index"), db.lastError().text());
+    return true;
+}
+
+SearchIndex::AttachmentSummary SearchIndex::attachmentSummary() const
+{
+    AttachmentSummary summary;
+    QSqlQuery q(database());
+    q.setForwardOnly(true);
+    if (!q.exec(QStringLiteral("SELECT attachment_parts, attachment_report FROM search_docs "
+                               "WHERE coalesce(attachment_parts, '') <> '' OR coalesce(attachment_report, '') <> ''"))) {
+        fail(tr("Cannot read the search index"), q.lastError().text());
+        return summary;
+    }
+    while (q.next()) {
+        summary.notDownloaded += int(q.value(0).toString().split(QLatin1Char(' '), Qt::SkipEmptyParts).size());
+        const QStringList report = q.value(1).toString().split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        for (const QString &line : report) {
+            const QString state = line.section(QLatin1Char(' '), 0, 0);
+            const QString mimeType = line.section(QLatin1Char(' '), 1);
+            if (state == QLatin1String("read"))
+                ++summary.read;
+            else if (state == QLatin1String("large"))
+                ++summary.tooLarge;
+            else if (state == QLatin1String("failed"))
+                ++summary.failed;
+            else if (state == QLatin1String("none"))
+                ++summary.withoutExtractor[mimeType];
+        }
+    }
+    return summary;
+}
+
+bool SearchIndex::forgetAttachmentText()
+{
+    QSqlDatabase db = database();
+    Savepoint savepoint(db);
+    QSqlQuery q(db);
+    const QString tried = QStringLiteral("coalesce(attachment_report, '') <> ''");
+    if (!q.exec(QStringLiteral("DELETE FROM search_text WHERE rowid IN (SELECT id FROM search_docs WHERE %1)").arg(tried))
+        || !q.exec(QStringLiteral("DELETE FROM search_docs WHERE %1").arg(tried)))
+        return fail(tr("Cannot update the search index"), q.lastError().text());
+    if (!savepoint.release())
+        return fail(tr("Cannot update the search index"), db.lastError().text());
+    return true;
+}
+
+QString SearchIndex::setting(const QString &key) const
+{
+    QSqlQuery q(database());
+    q.prepare(QStringLiteral("SELECT value FROM search_meta WHERE key = ?"));
+    q.addBindValue(QString(QLatin1String("setting:") + key));
+    if (!q.exec()) {
+        fail(tr("Cannot read the search index"), q.lastError().text());
+        return QString();
+    }
+    return q.next() ? q.value(0).toString() : QString();
+}
+
+bool SearchIndex::setSetting(const QString &key, const QString &value)
+{
+    QSqlQuery q(database());
+    q.prepare(QStringLiteral("INSERT OR REPLACE INTO search_meta (key, value) VALUES (?, ?)"));
+    q.addBindValue(QString(QLatin1String("setting:") + key));
+    q.addBindValue(value);
+    if (!q.exec())
+        return fail(tr("Cannot update the search index"), q.lastError().text());
     return true;
 }
 

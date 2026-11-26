@@ -99,6 +99,7 @@ trojita_plugin_option(WITH_CLEARTEXT_PLUGIN "Build Cleartext password plugin" ST
 trojita_plugin_option(WITH_QTKEYCHAIN_PLUGIN "Build Qtkeychain password plugin" "${QTKEYCHAIN_DEPENDS}")
 trojita_plugin_option(WITH_SONNET_PLUGIN "Build a plugin for spellchecking via KDE's Sonnet" "WITH_DESKTOP")
 trojita_option(WITH_KNOTIFICATIONS "Report background account errors as desktop notifications" AUTO "WITH_DESKTOP")
+trojita_option(WITH_KFILEMETADATA "Index the text of downloaded attachments through KFileMetaData" AUTO)
 
 trojita_find_package(Git "" "" "" "")
 
@@ -133,6 +134,7 @@ endif()
 trojita_find_package(Qt6Keychain QUIET "https://github.com/frankosterfeld/qtkeychain" "QtKeychain library (Qt6 version)" "Needed for QtKeychain password plugin" WITH_QTKEYCHAIN_PLUGIN)
 trojita_find_package(KF6Sonnet ${SONNET_LIB_VERSION} "https://projects.kde.org/projects/frameworks/sonnet" "Qt6 Spell Checking Library from KDE" "Spell checking support" WITH_SONNET_PLUGIN)
 trojita_find_package(KF6Notifications "" "https://invent.kde.org/frameworks/knotifications" "KDE desktop notifications" "Report background account errors as desktop notifications" WITH_KNOTIFICATIONS)
+trojita_find_package(KF6FileMetaData "" "https://invent.kde.org/frameworks/kfilemetadata" "KDE file metadata and text extraction" "Index the text of downloaded attachments" WITH_KFILEMETADATA)
 if(Qt6Keychain_FOUND OR QtKeychain_FOUND)
     message(STATUS "Found QtKeychain library (includes at ${QTKEYCHAIN_INCLUDE_DIRS}, lib at ${QTKEYCHAIN_LIBRARIES})")
 else()
@@ -256,6 +258,12 @@ if(WITH_KNOTIFICATIONS)
     set(TROJITA_HAVE_KNOTIFICATIONS True)
 else()
     set(TROJITA_HAVE_KNOTIFICATIONS False)
+endif()
+
+if(WITH_KFILEMETADATA)
+    set(TROJITA_HAVE_KFILEMETADATA True)
+else()
+    set(TROJITA_HAVE_KFILEMETADATA False)
 endif()
 
 if (WITH_WEBENGINE)
@@ -569,6 +577,7 @@ set(libImap_SOURCES
     ${path_Imap}/Model/UnifiedMsgListModel.cpp
     ${path_Imap}/Model/SearchResultsModel.cpp
     ${path_Imap}/Model/FolderSearch.cpp
+    ${path_Imap}/Model/AttachmentTextExtractor.cpp
     ${path_Imap}/Model/DecryptedTextIndexer.cpp
     ${path_Imap}/Model/SearchIndex.cpp
     ${path_Imap}/Model/SearchIndexer.cpp
@@ -802,6 +811,9 @@ target_link_libraries(Imap
         OAuth
         Streams
 )
+if(WITH_KFILEMETADATA)
+    target_link_libraries(Imap PRIVATE KF6::FileMetaData)
+endif()
 
 add_library(Cryptography STATIC ${libCryptography_SOURCES})
 set_property(TARGET Cryptography APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
