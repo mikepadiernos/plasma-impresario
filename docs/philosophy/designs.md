@@ -1111,14 +1111,21 @@ otherwise.
   <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>PgUp</kbd> switch to the next or previous
   account without reconnecting.
 - <kbd>F6</kbd> and <kbd>Shift</kbd>+<kbd>F6</kbd> cycle focus between the
-  account switcher, folder tree, message list, reader and each shown embedded
-  panel, skipping hidden panes. The order follows the screen: the header first,
+  account switcher, folder tree, quick search, message list, reader and each
+  shown embedded panel, skipping hidden panes. The quick search comes just
+  before the message list
+  ([#349](https://github.com/mikepadiernos/plasma-impresario/issues/349)). The order follows the screen: the header first,
   then each column from the leading side, top to bottom, then the footer. It
   mirrors in right-to-left layouts and follows the folder tree and panel
   placement.
 - <kbd>Escape</kbd> in the reader, the reader's action bar or an embedded panel
   returns focus to the message list; in One At a Time it first goes back to the
   list. The find bar and the quick search keep their own <kbd>Escape</kbd>.
+- **Mailbox › Find...** (<kbd>Ctrl</kbd>+<kbd>F</kbd>) moves to the quick
+  search with its query selected. While the reader or its action bar has focus
+  and a message is shown, the same key opens the reader's find bar instead; a
+  message window of its own keeps <kbd>Ctrl</kbd>+<kbd>F</kbd> for its find bar
+  ([#349](https://github.com/mikepadiernos/plasma-impresario/issues/349)).
 - Folder expansion is remembered per account, so switching accounts restores
   each account's tree.
 
