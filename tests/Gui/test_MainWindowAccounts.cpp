@@ -51,6 +51,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
@@ -1997,6 +1998,167 @@ private slots:
         QTest::qWait(200);
         QVERIFY(!QFile::exists(directory.filePath(QStringLiteral("work.eml"))));
         delete composer;
+    }
+
+    void composerChoosesItsAccount()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        sendThroughScript(directory, QStringLiteral("main-account-1.conf"), QStringLiteral("work.eml"));
+
+        Gui::MainWindow window(&settings);
+        const QList<std::pair<QString, QString>> identities{{QStringLiteral("account-1"), QStringLiteral("pat@work.test")},
+                                                            {QStringLiteral("account-2"), QStringLiteral("pat@home.test")}};
+        for (const auto &[accountId, address] : identities) {
+            QVERIFY(window.withAccount(accountId, [&]() {
+                Composer::AccountIdentities::setSource(*window.accountSettings(), Composer::AccountIdentities::Source::Own);
+                window.senderIdentitiesModel()->appendIdentity(
+                    Composer::ItemSenderIdentity(QStringLiteral("Pat"), address, QString(), QString()));
+            }));
+        }
+        QCOMPARE(window.accountIds(), (QStringList{QStringLiteral("account-1"), QStringLiteral("account-2")}));
+
+        QStringList errors;
+        QTimer dialogs;
+        connect(&dialogs, &QTimer::timeout, this, [&errors] {
+            if (auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+                errors << box->text();
+                box->reject();
+            }
+        });
+        dialogs.start(20);
+        auto open = [&window]() {
+            return Gui::ComposeWidget::createFromUrl(
+                &window, QUrl(QStringLiteral("mailto:bob@example.test?subject=Synthetic&body=Synthetic%20body")));
+        };
+
+        // A composer starts with the active account and its identity
+        QPointer<Gui::ComposeWidget> composer = open();
+        QVERIFY(composer);
+        auto *account = composer->findChild<QComboBox *>(QStringLiteral("composerAccount"));
+        auto *sender = composer->findChild<QComboBox *>(QStringLiteral("sender"));
+        auto *warning = composer->findChild<QLabel *>(QStringLiteral("composerAccountWarning"));
+        QVERIFY(account && sender && warning);
+        QCOMPARE(composer->accountId(), QStringLiteral("account-1"));
+        QCOMPARE(account->count(), 2);
+        QVERIFY(!account->isHidden());
+        QCOMPARE(account->currentText(), QStringLiteral("Work"));
+        QVERIFY2(sender->currentText().contains(QLatin1String("pat@work.test")), qPrintable(sender->currentText()));
+        QVERIFY2(warning->isHidden(), qPrintable(warning->text()));
+
+        // Switching offers the other account's identity and tells that it cannot send
+        account->setCurrentIndex(1);
+        emit account->activated(1);
+        QCOMPARE(composer->accountId(), QStringLiteral("account-2"));
+        QVERIFY2(sender->currentText().contains(QLatin1String("pat@home.test")), qPrintable(sender->currentText()));
+        QVERIFY(!warning->isHidden());
+        QVERIFY2(warning->text().contains(QLatin1String("outgoing")), qPrintable(warning->text()));
+        QVERIFY(QMetaObject::invokeMethod(composer, "send"));
+        QTRY_COMPARE(errors.size(), 1);
+        QVERIFY2(errors.first().contains(QLatin1String("outgoing")), qPrintable(errors.first()));
+        QVERIFY(composer);
+
+        // An identity of another account is pointed out
+        sender->setEditText(QStringLiteral("Pat <pat@work.test>"));
+        QVERIFY2(warning->text().contains(QLatin1String("identity of Work")), qPrintable(warning->text()));
+
+        // Switching back sends from the first account
+        account->setCurrentIndex(0);
+        emit account->activated(0);
+        QCOMPARE(composer->accountId(), QStringLiteral("account-1"));
+        QVERIFY2(warning->isHidden(), qPrintable(warning->text()));
+        errors.clear();
+        QVERIFY(QMetaObject::invokeMethod(composer, "send"));
+        QTRY_VERIFY2_WITH_TIMEOUT(QFile::exists(directory.filePath(QStringLiteral("work.eml"))),
+                                  qPrintable(errors.join(QLatin1Char('\n'))), 10000);
+        QTRY_VERIFY2_WITH_TIMEOUT(!composer, qPrintable(errors.join(QLatin1Char('\n'))), 10000);
+        QVERIFY2(errors.isEmpty(), qPrintable(errors.join(QLatin1Char('\n'))));
+        {
+            QFile sent(directory.filePath(QStringLiteral("work.eml")));
+            QVERIFY(sent.open(QIODevice::ReadOnly));
+            QVERIFY(sent.readAll().contains("pat@work.test"));
+        }
+
+        // A failed send keeps the composer and its account, and its draft remembers the account
+        QVERIFY(window.withAccount(QStringLiteral("account-2"), [&]() {
+            window.accountSettings()->setValue(Common::SettingsNames::msaMethodKey, Common::SettingsNames::methodSENDMAIL);
+            window.accountSettings()->setValue(Common::SettingsNames::sendmailKey, QStringLiteral("/bin/false"));
+            window.accountSettings()->setValue(Common::SettingsNames::composerSaveToImapKey, false);
+        }));
+        const QString drafts = Common::writablePath(Common::LOCATION_CACHE) + QLatin1String("Drafts/");
+        const QStringList before = QDir(drafts).entryList({QStringLiteral("*.draft")}, QDir::Files);
+        composer = open();
+        QVERIFY(composer);
+        account = composer->findChild<QComboBox *>(QStringLiteral("composerAccount"));
+        account->setCurrentIndex(1);
+        emit account->activated(1);
+        QCOMPARE(composer->accountId(), QStringLiteral("account-2"));
+        QVERIFY(composer->findChild<QLabel *>(QStringLiteral("composerAccountWarning"))->isHidden());
+        QVERIFY(QMetaObject::invokeMethod(composer, "send"));
+        QTRY_COMPARE_WITH_TIMEOUT(errors.size(), 1, 10000);
+        QTest::qWait(100);
+        QVERIFY(composer);
+        QCOMPARE(composer->accountId(), QStringLiteral("account-2"));
+        QStringList saved = QDir(drafts).entryList({QStringLiteral("*.draft")}, QDir::Files);
+        for (const QString &old : before)
+            saved.removeAll(old);
+        QCOMPARE(saved.size(), 1);
+        const QString draft = drafts + saved.first();
+        QCOMPARE(Gui::ComposeWidget::draftAccountId(draft), QStringLiteral("account-2"));
+        delete composer;
+
+        // The draft opens with its account even though another one is active
+        QCOMPARE(window.composerAccountId(), QStringLiteral("account-1"));
+        composer = Gui::ComposeWidget::createDraft(&window, draft);
+        QVERIFY(composer);
+        QCOMPARE(composer->accountId(), QStringLiteral("account-2"));
+        sender = composer->findChild<QComboBox *>(QStringLiteral("sender"));
+        QVERIFY2(sender->currentText().contains(QLatin1String("pat@home.test")), qPrintable(sender->currentText()));
+        QVERIFY(composer->findChild<QLabel *>(QStringLiteral("composerAccountWarning"))->isHidden());
+        delete composer;
+
+        // An open composer lists renamed accounts and says when its own account is removed
+        composer = Gui::ComposeWidget::createDraft(&window, draft);
+        QVERIFY(composer);
+        account = composer->findChild<QComboBox *>(QStringLiteral("composerAccount"));
+        warning = composer->findChild<QLabel *>(QStringLiteral("composerAccountWarning"));
+        QCOMPARE(account->currentText(), QStringLiteral("Home"));
+        QTimer rename;
+        connect(&rename, &QTimer::timeout, this, [&rename] {
+            if (auto *input = qobject_cast<QInputDialog *>(QApplication::activeModalWidget())) {
+                rename.stop();
+                input->setTextValue(QStringLiteral("Office"));
+                input->accept();
+            }
+        });
+        rename.start(20);
+        QVERIFY(QMetaObject::invokeMethod(&window, "slotRenameAccount"));
+        QCOMPARE(account->itemText(0), QStringLiteral("Office"));
+        QCOMPARE(account->currentText(), QStringLiteral("Home"));
+        QVERIFY(QMetaObject::invokeMethod(&window, "removeAccountNow", Q_ARG(QString, QStringLiteral("account-2"))));
+        QCOMPARE(account->count(), 1);
+        QCOMPARE(account->currentIndex(), -1);
+        QVERIFY(!account->isHidden());
+        QVERIFY(!warning->isHidden());
+        QVERIFY2(warning->text().contains(QLatin1String("removed")), qPrintable(warning->text()));
+        account->setCurrentIndex(0);
+        emit account->activated(0);
+        QCOMPARE(composer->accountId(), QStringLiteral("account-1"));
+        QVERIFY2(warning->isHidden(), qPrintable(warning->text()));
+        delete composer;
+
+        // Without its account, the draft opens with the active one and says so
+        composer = Gui::ComposeWidget::createDraft(&window, draft);
+        QVERIFY(composer);
+        QCOMPARE(composer->accountId(), QStringLiteral("account-1"));
+        warning = composer->findChild<QLabel *>(QStringLiteral("composerAccountWarning"));
+        QVERIFY(!warning->isHidden());
+        QVERIFY2(warning->text().contains(QLatin1String("no longer exists")), qPrintable(warning->text()));
+        QVERIFY(composer->findChild<QComboBox *>(QStringLiteral("composerAccount"))->isHidden());
+        delete composer;
+        QFile::remove(draft);
     }
 
     void oauthAccountsOfferSignIn()

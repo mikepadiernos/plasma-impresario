@@ -152,6 +152,14 @@ private slots:
         QVERIFY(panel->fieldText(QStringLiteral("To")).contains(QStringLiteral("CAROL")));
         QVERIFY(panel->fieldText(QStringLiteral("Cc")).isEmpty());
         QCOMPARE(panel->fieldText(QStringLiteral("Folder")), QStringLiteral("INBOX"));
+        // Only a window with several accounts names the message's account
+        QVERIFY(panel->fieldText(QStringLiteral("Account")).isEmpty());
+        panel->setAccountResolver([](const QModelIndex &message) {
+            return message.isValid() ? QStringLiteral("Home") : QString();
+        });
+        QTRY_COMPARE(panel->fieldText(QStringLiteral("Account")), QStringLiteral("Home"));
+        panel->setAccountResolver([](const QModelIndex &) { return QString(); });
+        QTRY_VERIFY(panel->fieldText(QStringLiteral("Account")).isEmpty());
         QVERIFY(!panel->fieldText(QStringLiteral("Size")).isEmpty());
         QCOMPARE(panel->fieldText(QStringLiteral("Status")),
                  i18nc("@info message status", "Unread") + i18nc("@info separator of message status", ", ")

@@ -3,8 +3,12 @@
 */
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
+#include "Composer/AccountIdentities.h"
+#include "Composer/SenderIdentitiesModel.h"
 #include "Gui/AccountSidebar.h"
+#include "Gui/ComposeWidget.h"
 #include "Gui/MailBoxTreeView.h"
+#include "Gui/MessageDetailsPanel.h"
 #include "Gui/MessageListWidget.h"
 #include "Gui/MsgListView.h"
 #include "Gui/Window.h"
@@ -13,6 +17,7 @@
 #include "Imap/Model/Model.h"
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
+#include "Imap/Model/Utils.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
 #include "Gui/WebEngineMessageProfile.h"
@@ -30,6 +35,8 @@
 #include <QComboBox>
 #include <QDialog>
 #include <QInputDialog>
+#include <QLabel>
+#include <QPointer>
 #include <QLineEdit>
 #include <QMenu>
 #include <QMessageBox>
@@ -410,6 +417,165 @@ private slots:
         window.accountSettings()->sync();
         QVERIFY(!settings.contains(QStringLiteral("accountPasswords")));
         QVERIFY(!settingsContain(directory, syntheticPassword));
+    }
+
+    /**
+     * A reply from the Unified Inbox is sent from the account which received the message, unless the composer switches
+     * to another one; either way the original message is marked as answered on its own account.
+     * Expects the same server as accountsConnectAndSwitchIndependently.
+     */
+    void repliesSendFromTheMessagesAccount()
+    {
+        bool ok = false;
+        const int port = qEnvironmentVariableIntValue("PLASMA_TEST_IMAPS_PORT", &ok);
+        QVERIFY(ok && port > 0 && port <= 65535);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        settings.setValue(Common::SettingsNames::guiShowSystray, false);
+        settings.setValue(Common::SettingsNames::passwordPlugin, QStringLiteral("cleartextpassword"));
+        settings.setValue(QStringLiteral("accounts/ids"), QStringList{QStringLiteral("account-1"), QStringLiteral("account-2")});
+        settings.setValue(QStringLiteral("accounts/active"), QStringLiteral("account-1"));
+        settings.setValue(QStringLiteral("accounts/next"), 3);
+        settings.setValue(QStringLiteral("accounts/names/account-1"), QStringLiteral("Work"));
+        settings.setValue(QStringLiteral("accounts/names/account-2"), QStringLiteral("Home"));
+        settings.setValue(QStringLiteral("accountPasswords/account-1/imap"), syntheticPassword);
+        settings.setValue(QStringLiteral("accountPasswords/account-2/imap"), syntheticPassword);
+        settings.sync();
+        const QList<std::pair<QString, QString>> accounts{{QStringLiteral("account-1"), QStringLiteral("work")},
+                                                          {QStringLiteral("account-2"), QStringLiteral("home")}};
+        for (const auto &[accountId, user] : accounts) {
+            const QString fileName = directory.filePath(QStringLiteral("main-%1.conf").arg(accountId));
+            configureAccount(fileName, port, user + QStringLiteral("@example.test"));
+            // Each account sends through a script which keeps what it sent
+            const QString script = directory.filePath(user + QStringLiteral(".sh"));
+            QFile file(script);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write("cat > '" + directory.filePath(user + QStringLiteral(".eml")).toUtf8() + "'\n");
+            file.close();
+            QSettings account(fileName, QSettings::IniFormat);
+            account.setValue(Common::SettingsNames::sendmailKey, QString(QStringLiteral("/bin/sh ") + script));
+            account.setValue(Common::SettingsNames::composerSaveToImapKey, false);
+            account.sync();
+        }
+
+        QStringList errors;
+        QTimer dialogs;
+        connect(&dialogs, &QTimer::timeout, this, [&] {
+            for (QWidget *widget : QApplication::topLevelWidgets()) {
+                if (!widget->isVisible())
+                    continue;
+                if (auto *message = qobject_cast<QMessageBox *>(widget);
+                    message && message->standardButtons() == (QMessageBox::Yes | QMessageBox::No)) {
+                    message->button(QMessageBox::Yes)->click();
+                } else if (message) {
+                    errors << message->text();
+                    message->reject();
+                } else if (auto *dialog = qobject_cast<QDialog *>(widget);
+                           dialog && dialog->findChild<QLineEdit *>(QStringLiteral("passwordLineEdit"))) {
+                    errors << QStringLiteral("password prompt");
+                    dialog->reject();
+                }
+            }
+        });
+        dialogs.start(20);
+
+        Gui::MainWindow window(&settings);
+        window.resize(1400, 900);
+        window.show();
+        for (const auto &[accountId, user] : accounts) {
+            QVERIFY(window.withAccount(accountId, [&, user = user]() {
+                Composer::AccountIdentities::setSource(*window.accountSettings(), Composer::AccountIdentities::Source::Own);
+                window.senderIdentitiesModel()->appendIdentity(Composer::ItemSenderIdentity(
+                    QStringLiteral("Pat"), user + QStringLiteral("@example.test"), QString(), QString()));
+            }));
+        }
+        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *details = window.findChild<Gui::MessageDetailsPanel *>();
+        QVERIFY(messages && details);
+        if (auto *panel = window.findChild<QAction *>(QStringLiteral("embeddedPanelMessageDetails")); panel && !panel->isChecked())
+            panel->trigger();
+        auto *unified = window.findChild<QAction *>(QStringLiteral("action_unified_inbox"));
+        QVERIFY(unified);
+        unified->trigger();
+        QVERIFY(unified->isChecked());
+
+        // Open a message of the background account in the Unified Inbox
+        QModelIndex home;
+        QTRY_VERIFY_WITH_TIMEOUT(messages->model()->rowCount() >= 3, 20000);
+        const auto findHome = [&]() {
+            const auto matches = messages->model()->match(messages->model()->index(0, 0), Imap::Mailbox::RoleMessageAccountId,
+                                                          QStringLiteral("account-2"), 1, Qt::MatchExactly | Qt::MatchRecursive);
+            home = matches.isEmpty() ? QModelIndex() : matches.first();
+            return home.isValid() && home.data(Imap::Mailbox::RoleMessageUid).toUInt() > 0;
+        };
+        QTRY_VERIFY_WITH_TIMEOUT(findHome(), 20000);
+        messages->scrollTo(home);
+        QTest::mouseClick(messages->viewport(), Qt::LeftButton, Qt::NoModifier,
+                          messages->visualRect(home).intersected(messages->viewport()->rect()).center());
+        QTRY_COMPARE_WITH_TIMEOUT(details->fieldText(QStringLiteral("Account")), QStringLiteral("Home"), 10000);
+        const QPersistentModelIndex original = Imap::deproxifiedIndex(details->message());
+        QVERIFY(original.isValid());
+        QVERIFY(!original.data(Imap::Mailbox::RoleMessageIsMarkedReplied).toBool());
+        QLabel *envelopeAccount = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((envelopeAccount = window.findChild<QLabel *>(QStringLiteral("envelopeAccount"))) &&
+                                     envelopeAccount->text().contains(QLatin1String("Home")),
+                                 10000);
+
+        auto *replyAction = window.findChild<QAction *>(QStringLiteral("action_reply_private"));
+        QVERIFY(replyAction);
+        QPointer<Gui::ComposeWidget> composer;
+        const auto findComposer = [&]() {
+            for (QWidget *widget : QApplication::topLevelWidgets()) {
+                if (auto *candidate = qobject_cast<Gui::ComposeWidget *>(widget); candidate && candidate->isVisible())
+                    composer = candidate;
+            }
+            return !composer.isNull();
+        };
+        auto sentFile = [&directory](const QString &user) {
+            QFile file(directory.filePath(user + QStringLiteral(".eml")));
+            return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+        };
+
+        // The reply comes from the message's account and its identity
+        QTRY_VERIFY_WITH_TIMEOUT(replyAction->isEnabled(), 10000);
+        replyAction->trigger();
+        QTRY_VERIFY_WITH_TIMEOUT(findComposer(), 15000);
+        QCOMPARE(composer->accountId(), QStringLiteral("account-2"));
+        auto *sender = composer->findChild<QComboBox *>(QStringLiteral("sender"));
+        QVERIFY2(sender->currentText().contains(QLatin1String("home@example.test")), qPrintable(sender->currentText()));
+        QVERIFY(composer->findChild<QLabel *>(QStringLiteral("composerAccountWarning"))->isHidden());
+        QVERIFY(QMetaObject::invokeMethod(composer, "send"));
+        QTRY_VERIFY2_WITH_TIMEOUT(!composer, qPrintable(errors.join(QLatin1Char('\n'))), 20000);
+        QVERIFY2(errors.isEmpty(), qPrintable(errors.join(QLatin1Char('\n'))));
+        QByteArray sent = sentFile(QStringLiteral("home"));
+        QVERIFY2(sent.contains("From: Pat <home@example.test>"), sent.constData());
+        QVERIFY2(sent.contains("In-Reply-To: <home-first@example.test>") || sent.contains("In-Reply-To: <home-late@example.test>"),
+                 sent.constData());
+        QVERIFY(sentFile(QStringLiteral("work")).isEmpty());
+        QTRY_VERIFY_WITH_TIMEOUT(original.data(Imap::Mailbox::RoleMessageIsMarkedReplied).toBool(), 10000);
+
+        // Switched to another account, the reply is sent from that one and still answers the original message
+        replyAction->trigger();
+        QTRY_VERIFY_WITH_TIMEOUT(findComposer(), 15000);
+        QCOMPARE(composer->accountId(), QStringLiteral("account-2"));
+        auto *account = composer->findChild<QComboBox *>(QStringLiteral("composerAccount"));
+        QVERIFY(account && !account->isHidden());
+        const int work = account->findData(QStringLiteral("account-1"));
+        QVERIFY(work >= 0);
+        account->setCurrentIndex(work);
+        emit account->activated(work);
+        QCOMPARE(composer->accountId(), QStringLiteral("account-1"));
+        sender = composer->findChild<QComboBox *>(QStringLiteral("sender"));
+        QVERIFY2(sender->currentText().contains(QLatin1String("work@example.test")), qPrintable(sender->currentText()));
+        QVERIFY(QMetaObject::invokeMethod(composer, "send"));
+        QTRY_VERIFY2_WITH_TIMEOUT(!composer, qPrintable(errors.join(QLatin1Char('\n'))), 20000);
+        QVERIFY2(errors.isEmpty(), qPrintable(errors.join(QLatin1Char('\n'))));
+        sent = sentFile(QStringLiteral("work"));
+        QVERIFY2(sent.contains("From: Pat <work@example.test>"), sent.constData());
+        QVERIFY2(sent.contains("In-Reply-To: <home-"), sent.constData());
+        QVERIFY(original.isValid());
+        QVERIFY(original.data(Imap::Mailbox::RoleMessageIsMarkedReplied).toBool());
     }
 };
 

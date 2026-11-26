@@ -1171,7 +1171,8 @@ if(BUILD_TESTING)
                     goToFolderActionsWithoutFolders checkMailAndNextUnreadFolder destructiveActionsOffline quickActionsOffline
                     messageListFiltersOffline shortcutOverviewAndSelectionOffline powerUserProcessingOffline
                     groupingAndRelevanceOffline folderViewStateOffline unifiedInboxOffline unifiedInboxIsRestored
-                    identitiesFollowTheAccount composerSendsWithItsOwnAccount newAccountsStartWithoutIdentities
+                    identitiesFollowTheAccount composerSendsWithItsOwnAccount composerChoosesItsAccount
+                    newAccountsStartWithoutIdentities
                     oauthAccountsOfferSignIn)
                 add_test(NAME test_MainWindowAccounts_${account_case} COMMAND test_MainWindowAccounts ${account_case})
                 set_tests_properties(test_MainWindowAccounts_${account_case} PROPERTIES
