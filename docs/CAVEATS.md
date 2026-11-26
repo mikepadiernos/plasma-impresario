@@ -739,6 +739,16 @@ Plasma session; that check is
   indexed, indexing is paused or an update is under way, and its tooltip says
   which
   ([#342](https://github.com/mikepadiernos/plasma-impresario/issues/342)).
+- ![Resolved][resolved] With the index on, a search of several places or of
+  the Unified Inbox is answered from the index first while the account is
+  online too; the status line ends with **in mail indexed on this computer**.
+  Folders without indexed matches are not opened on the server. **Search
+  Server**, next to the status line, then searches the same places on the
+  server and adds the messages it finds there, without listing a message
+  twice. When a folder was renumbered on the server (a new UIDVALIDITY), its
+  indexed matches are dropped, the results are marked as possibly incomplete,
+  and the tooltip names the folder
+  ([#343](https://github.com/mikepadiernos/plasma-impresario/issues/343)).
 - ![Limitation][limitation] The server compares the calendar day in each
   message's Date header, in the sender's time zone, because IMAP's `SENTSINCE`
   and `SENTBEFORE` disregard the time and zone. The list shows local time, so a
@@ -786,12 +796,20 @@ Plasma session; that check is
   only, and the builder is unavailable while the quick search is disabled.
 - ![Limitation][limitation] A builder value with spaces is searched as a
   phrase, unlike the same words typed without quotes in the search field.
-- ![Limitation][limitation] Online, every query is still run by the server.
-  The index answers only while the account is offline, and only from the
-  messages its offline cache keeps; mail that was never downloaded, or is
-  older than the days the cache remembers, is not found. Offline, a search of the shown
-  folder runs as a search of the account's indexed folders, with each result
-  labelled by its folder.
+- ![Limitation][limitation] Online, a search of the shown folder alone is
+  still run by the server; only searches of several places and of the Unified
+  Inbox use the index first. The index holds only the messages the offline
+  cache keeps, so mail that was never downloaded, or is older than the days
+  the cache remembers, is found only after **Search Server**, which is not
+  pressed automatically. Offline, a search of the shown folder runs as a
+  search of the account's indexed folders, with each result labelled by its
+  folder.
+- ![Limitation][limitation] Online, each folder with indexed matches is still
+  selected on the server to show its results, so the account's selected folder
+  changes as described above. A folder that the server lists again during the
+  search, such as after a reconnect, can drop the indexed results found in it
+  so far; run the search again, or press **Search Server**
+  ([#343](https://github.com/mikepadiernos/plasma-impresario/issues/343)).
 - ![Limitation][limitation] Terms shorter than three characters have no
   trigram, so the index reads every message for them and folds the case of
   ASCII letters only. Each message's text is cut at 512K characters.
@@ -921,6 +939,8 @@ Plasma session; that check is
   that the folders you need are **Indexed**; open and scroll through a
   **Partly indexed** folder online, and wait for **Changed since indexed** to
   clear.
+- Online, press **Search Server** when an indexed search misses older or
+  undownloaded mail, or reports a renumbered folder.
 
 **Proposed improvements:**
 
@@ -959,9 +979,9 @@ Plasma session; that check is
   load, and list the lists of every folder from the local index (M05.04).
 - Offer one-click unsubscribing where the list supports RFC 8058, after the
   same confirmation.
-- Answer searches from the index first while online too, and merge the
-  server's results beyond its coverage
-  ([#343](https://github.com/mikepadiernos/plasma-impresario/issues/343)).
+- Offer a setting that continues every indexed search on the server
+  automatically, and answer searches of the shown folder from the index first
+  as well ([#343](https://github.com/mikepadiernos/plasma-impresario/issues/343)).
 - Search the shown folder alone when offline, and refresh the index right
   after a sync rather than after a pause.
 - Show the index of every account in one place, offer to load the missing

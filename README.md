@@ -351,6 +351,11 @@ Offline Search Index…** shows which folders are confirmed as indexed, the
 progress of an update, and lets you pause, resume or rebuild the index.
 Turning the option off deletes the index.
 
+Online, a search of several places or of the Unified Inbox is answered from
+the index first. **Search Server**, next to the status line, then adds the
+messages found on the server, such as older mail the account does not keep
+offline, without listing any message twice.
+
 ### Command line
 
 | Option                | Effect                                                  |
