@@ -346,7 +346,10 @@ mail the account keeps offline. It is off by default, and nothing is
 downloaded for it; **Download Message Text for Offline Search...** in a
 folder's context menu asks before fetching the text of messages that lack it.
 While the account is offline, searches are answered from the index and the
-status line says so. Turning the option off deletes the index.
+status line says so, warning when results may be incomplete. **Application ›
+Offline Search Index…** shows which folders are confirmed as indexed, the
+progress of an update, and lets you pause, resume or rebuild the index.
+Turning the option off deletes the index.
 
 ### Command line
 

@@ -726,6 +726,19 @@ Plasma session; that check is
   connects; without it the index is reported as unavailable and searches use
   the server as before
   ([#341](https://github.com/mikepadiernos/plasma-impresario/issues/341)).
+- ![Resolved][resolved] **Application › Offline Search Index…** shows the
+  shown account's index: each folder of its offline cache with its state
+  (**Indexed**, **Partly indexed**, **Changed since indexed**, **Not indexed
+  yet** or **Not on this computer**), its offline, indexed and with-text
+  message counts and when it was last indexed, how many folders are confirmed
+  as indexed, the progress of a running update, and a warning when some
+  folders are not fully indexed. **Pause** stops updates until **Resume** and
+  is remembered for the account; **Rebuild…** asks first, then empties the
+  index and builds it again. An offline search adds **results may be
+  incomplete** to the status line when a searched folder is not fully
+  indexed, indexing is paused or an update is under way, and its tooltip says
+  which
+  ([#342](https://github.com/mikepadiernos/plasma-impresario/issues/342)).
 - ![Limitation][limitation] The server compares the calendar day in each
   message's Date header, in the sender's time zone, because IMAP's `SENTSINCE`
   and `SENTBEFORE` disregard the time and zone. The list shows local time, so a
@@ -797,11 +810,18 @@ Plasma session; that check is
   online once first. The index catches up about half a minute after new mail
   or flag changes arrive, or a message is read.
 - ![Limitation][limitation] Turning the index off empties its tables; their
-  empty definitions can stay in the cache until it is cleared. Coverage,
-  progress, pause and rebuild controls follow in
-  [#342](https://github.com/mikepadiernos/plasma-impresario/issues/342), and
-  folder exclusions in
+  empty definitions can stay in the cache until it is cleared. Folder
+  exclusions follow in
   [#344](https://github.com/mikepadiernos/plasma-impresario/issues/344).
+- ![Limitation][limitation] **Offline Search Index…** shows the shown account
+  only, and lists only the folders its offline cache knows. A folder is
+  **Partly indexed** while some of its cached messages have no headers on this
+  computer; headers load as messages are listed, so a large folder may need to
+  be scrolled through online first. Pausing during an update keeps the
+  messages indexed so far, but the folder under way is not confirmed until a
+  later update finishes it. A search started while an update runs is answered
+  from what is indexed at that moment
+  ([#342](https://github.com/mikepadiernos/plasma-impresario/issues/342)).
 - ![Limitation][limitation] **Clear All** restores the selection only in a
   single folder. In the Unified Inbox it clears the search and filters but
   leaves the selection as it is. After a search of several places, the list
@@ -897,6 +917,10 @@ Plasma session; that check is
   Offline Search...** on them, so that their text can be searched.
 - Search offline for words of three letters or more, and search for an
   attached message by its subject or file name.
+- Before going offline, open **Application › Offline Search Index…** and check
+  that the folders you need are **Indexed**; open and scroll through a
+  **Partly indexed** folder online, and wait for **Changed since indexed** to
+  clear.
 
 **Proposed improvements:**
 
@@ -940,6 +964,9 @@ Plasma session; that check is
   ([#343](https://github.com/mikepadiernos/plasma-impresario/issues/343)).
 - Search the shown folder alone when offline, and refresh the index right
   after a sync rather than after a pause.
+- Show the index of every account in one place, offer to load the missing
+  headers of a **Partly indexed** folder, and show the index state in the
+  folder tree.
 - Fold the case of non-ASCII letters in short terms, index the text of
   attached messages, and fetch every text part on request.
 
