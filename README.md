@@ -321,10 +321,13 @@ in the search options control this.
 
 Enter a query and choose **Save Current Search** from the search options menu.
 **Saved Searches** in the same menu runs or deletes the active account's saved
-queries; a query runs in the selected folder, with its date range. Preset
+queries. A saved search keeps its date range and where it searches; preset
 ranges stay relative, so a saved "Past Week" search always covers the latest
-week. A saved search also keeps where it searches. Virtual folders and an
-optional offline index are planned in
+week. The **Saved Searches** section below the folders shows the saved
+searches of every account as virtual folders, with the unread and total
+messages each found when it last ran. Choosing one runs it, switching to its
+account first when it searches the shown folder or account; choosing a folder
+returns to that folder. An optional offline index is planned in
 [M05](docs/ROADMAP.md#m05-search-and-indexing).
 
 ### Command line
