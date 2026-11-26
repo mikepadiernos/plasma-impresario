@@ -10,6 +10,7 @@
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/ItemRoles.h"
+#include "Imap/Model/Model.h"
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "UiUtils/SearchScope.h"
@@ -22,6 +23,7 @@
 #include "Plugins/PluginManager.h"
 
 #include <KLocalizedString>
+#include <QAction>
 #include <QApplication>
 #include <QComboBox>
 #include <QDialog>
@@ -497,6 +499,116 @@ private slots:
                                   qPrintable(describe(rows, searchWidget)), 60000);
         QVERIFY(retry->isHidden());
         QVERIFY(stop->isHidden());
+    }
+
+    /**
+     * The same server and alpha user as searchesAcrossFoldersAndAccounts(): searches the server cannot run are
+     * explained in the status instead of looking like an empty result, while the field search and raw IMAP search
+     * still work. PLASMA_TEST_EXPECT_ESEARCH says whether the server advertises ESEARCH (1) or only SEARCH (0); the
+     * account claims X-NO-UTF8-SEARCH, so plain SEARCH sends ASCII only. Pass the slot name to run only this test.
+     */
+    void explainsSearchesTheServerCannotRun()
+    {
+        bool ok = false;
+        const int port = qEnvironmentVariableIntValue("PLASMA_TEST_IMAPS_PORT", &ok);
+        QVERIFY(ok && port > 0 && port <= 65535);
+        const bool expectEsearch = qEnvironmentVariable("PLASMA_TEST_EXPECT_ESEARCH", QStringLiteral("1")) != QLatin1String("0");
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        settings.setValue(Common::SettingsNames::guiShowSystray, false);
+        settings.setValue(Common::SettingsNames::passwordPlugin, QStringLiteral("cleartextpassword"));
+        settings.setValue(QStringLiteral("accounts/ids"), QStringList{QStringLiteral("account-1")});
+        settings.setValue(QStringLiteral("accounts/active"), QStringLiteral("account-1"));
+        settings.setValue(QStringLiteral("accounts/next"), 2);
+        settings.setValue(QStringLiteral("accounts/names/account-1"), QStringLiteral("Alpha"));
+        settings.setValue(QStringLiteral("accountPasswords/account-1/imap"), syntheticPassword);
+        settings.sync();
+        const QString accountFile = directory.filePath(QStringLiteral("main-account-1.conf"));
+        configureAccount(accountFile, port, QStringLiteral("alpha@example.test"));
+        {
+            QSettings account(accountFile, QSettings::IniFormat);
+            account.setValue(Common::SettingsNames::imapBlacklistedCapabilities, QStringList{QStringLiteral("X-NO-UTF8-SEARCH")});
+            account.sync();
+        }
+
+        QTimer dialogs;
+        connect(&dialogs, &QTimer::timeout, this, &answerDialogs);
+        dialogs.start(20);
+
+        Gui::MainWindow window(&settings);
+        window.resize(1000, 700);
+        window.show();
+        auto *tree = window.findChild<Gui::MailBoxTreeView *>();
+        auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
+        auto *messages = window.findChild<Gui::MsgListView *>();
+        QVERIFY(tree && searchWidget && messages);
+        auto *query = searchWidget->findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        auto *status = searchWidget->findChild<QLabel *>(QStringLiteral("messageListStatus"));
+        auto *raw = searchWidget->findChild<QAction *>(QStringLiteral("searchRaw"));
+        QVERIFY(query && status && raw);
+
+        QModelIndex inbox;
+        QTRY_VERIFY_WITH_TIMEOUT((inbox = findMailbox(tree->model(), QStringLiteral("INBOX"))).isValid(), 20000);
+        tree->scrollTo(inbox);
+        QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(inbox).center());
+        // searchesAcrossFoldersAndAccounts() may have added a message to INBOX
+        QTRY_VERIFY_WITH_TIMEOUT(messages->model()->rowCount() >= 2, 10000);
+        const int inboxSize = messages->model()->rowCount();
+        Imap::Mailbox::Model *model = window.imapModel();
+        QVERIFY(model);
+        QTRY_VERIFY_WITH_TIMEOUT(model->capabilities().contains(QLatin1String("IMAP4rev1"), Qt::CaseInsensitive), 10000);
+        QVERIFY2(model->capabilities().contains(QLatin1String("ESEARCH"), Qt::CaseInsensitive) == expectEsearch, qPrintable(model->capabilities().join(u' ')));
+
+        const auto search = [&](const QString &text) {
+            query->setText(text);
+            emit query->returnPressed();
+        };
+        const auto failed = [&]() { return status->text().contains(QLatin1String("Search failed")); };
+
+        // The field search finds the message as before
+        search(QStringLiteral("invoice"));
+        QTRY_VERIFY2_WITH_TIMEOUT(messages->model()->rowCount() == 1 && !failed(),
+                                  qPrintable(describe(shownRows(messages->model()), searchWidget)), 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(messages->model()->index(0, 0).data(Imap::Mailbox::RoleMessageSubject).toString(),
+                                  QStringLiteral("Synthetic invoice-alpha-inbox"), 10000);
+
+        // A raw query with a key the server does not know shows the server's reason instead of an empty list
+        raw->setChecked(true);
+        search(QStringLiteral(":=XFOO bar"));
+        QTRY_VERIFY2_WITH_TIMEOUT(failed() && status->toolTip().contains(QLatin1String("Unknown argument XFOO")),
+                                  qPrintable(describe(shownRows(messages->model()), searchWidget)), 10000);
+        QCOMPARE(messages->model()->rowCount(), 0);
+        QVERIFY2(status->text().contains(QLatin1String("did not understand the IMAP search query")), qPrintable(status->text()));
+
+        // A key which needs a capability the server does not advertise is named before anything is sent
+        search(QStringLiteral(":=FUZZY SUBJECT invoice"));
+        QTRY_VERIFY2_WITH_TIMEOUT(failed() && status->text().contains(QLatin1String("SEARCH=FUZZY")),
+                                  qPrintable(describe(shownRows(messages->model()), searchWidget)), 10000);
+        QCOMPARE(messages->model()->rowCount(), 0);
+
+        // A valid raw query works again and clears the explanation
+        search(QStringLiteral(":=SUBJECT invoice"));
+        QTRY_VERIFY2_WITH_TIMEOUT(messages->model()->rowCount() == 1 && !failed(),
+                                  qPrintable(describe(shownRows(messages->model()), searchWidget)), 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(messages->model()->index(0, 0).data(Imap::Mailbox::RoleMessageSubject).toString(),
+                                  QStringLiteral("Synthetic invoice-alpha-inbox"), 10000);
+
+        // Text beyond ASCII: ESEARCH always searches in UTF-8; plain SEARCH on an ASCII-only account explains why not
+        search(QStringLiteral("caf\u00E9"));
+        if (expectEsearch) {
+            QTest::qWait(1500);
+            QVERIFY2(!failed(), qPrintable(describe(shownRows(messages->model()), searchWidget)));
+            QCOMPARE(messages->model()->rowCount(), 0);
+        } else {
+            QTRY_VERIFY2_WITH_TIMEOUT(failed() && status->text().contains(QLatin1String("plain ASCII")),
+                                      qPrintable(describe(shownRows(messages->model()), searchWidget)), 10000);
+        }
+
+        // Clearing the search shows the whole folder again
+        search(QString());
+        QTRY_VERIFY2_WITH_TIMEOUT(messages->model()->rowCount() == inboxSize && !failed(),
+                                  qPrintable(describe(shownRows(messages->model()), searchWidget)), 10000);
     }
 };
 

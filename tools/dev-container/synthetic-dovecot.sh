@@ -69,6 +69,19 @@ synthetic_message() {
         "$2" "$3" "$3" >"$1/new/$3.synthetic"
 }
 
+# synthetic_dovecot_restart: stops the server and starts it again with the current
+# synthetic_extra_config (extra settings appended to the generated configuration)
+synthetic_dovecot_restart() {
+    dovecot -c "$work/dovecot.conf" stop >/dev/null 2>&1 || true
+    for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+        if ! openssl s_client -connect "127.0.0.1:$port" </dev/null >/dev/null 2>&1; then
+            break
+        fi
+        sleep 0.5
+    done
+    synthetic_dovecot_start
+}
+
 synthetic_dovecot_log() {
     cat "$work/dovecot.log" >&2 || true
 }
@@ -108,6 +121,7 @@ namespace inbox {
   inbox = yes
   separator = /
 }
+${synthetic_extra_config-}
 EOF
 
     dovecot -c "$work/dovecot.conf"

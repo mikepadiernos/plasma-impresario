@@ -2,7 +2,9 @@
 # Run the opt-in live IMAP test of searching several folders and accounts
 # against a disposable Dovecot: the shown folder, every folder of the account,
 # all accounts, chosen folders and the Unified Inbox, with an account whose
-# password is rejected and a folder which does not exist.
+# password is rejected and a folder which does not exist. Searches the server
+# cannot run are checked twice: with ESEARCH, then after restarting the server
+# without it, so that plain SEARCH is used.
 #
 # Usage: tools/dev-container/run.sh sh tools/dev-container/live-imap-search.sh [build-dir]
 #
@@ -43,7 +45,22 @@ QT_QPA_PLATFORM=offscreen \
     QTWEBENGINE_DISABLE_SANDBOX=1 \
     PLASMA_TEST_IMAPS_PORT=$port \
     PLASMA_TEST_ALPHA_MAILDIR=$alpha \
+    PLASMA_TEST_EXPECT_ESEARCH=1 \
     "$build/test_LiveImapSearch" || status=$?
+
+if [ "$status" = 0 ]; then
+    synthetic_extra_config='imap_capability {
+  ESEARCH = no
+}'
+    synthetic_dovecot_restart
+    QT_QPA_PLATFORM=offscreen \
+        QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu \
+        QTWEBENGINE_DISABLE_SANDBOX=1 \
+        PLASMA_TEST_IMAPS_PORT=$port \
+        PLASMA_TEST_ALPHA_MAILDIR=$alpha \
+        PLASMA_TEST_EXPECT_ESEARCH=0 \
+        "$build/test_LiveImapSearch" explainsSearchesTheServerCannotRun || status=$?
+fi
 if [ "$status" != 0 ]; then
     echo "Dovecot log:" >&2
     synthetic_dovecot_log

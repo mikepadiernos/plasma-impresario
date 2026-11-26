@@ -1726,4 +1726,83 @@ void ImapModelThreadingTest::testESearchResults()
     QCOMPARE(threadingModel->rowCount(), 0);
 }
 
+/** @short A search which cannot run is explained instead of looking like one without matches, and can be asked again */
+void ImapModelThreadingTest::testSearchFailures()
+{
+    using namespace Imap::Mailbox;
+    threadingModel->setUserWantsThreading(false);
+    initialMessages(3);
+    QCOMPARE(threadingModel->rowCount(), 3);
+    QSignalSpy failed(threadingModel, &ThreadingMsgListModel::sortingFailed);
+    const auto search = [this](const QStringList &conditions) {
+        threadingModel->setUserSearchingSortingPreference(conditions, ThreadingMsgListModel::SortCriterium::SORT_NONE, Qt::AscendingOrder);
+    };
+    const auto lastReason = [&failed]() { return failed.isEmpty() ? QString() : failed.last().front().toString(); };
+
+    // Plain SEARCH: a NO keeps the server's words
+    search({QStringLiteral("SUBJECT"), QStringLiteral("x")});
+    cClient(t.mk("UID SEARCH CHARSET utf-8 SUBJECT x\r\n"));
+    cServer(t.last("NO Search backend is offline\r\n"));
+    QCOMPARE(failed.size(), 1);
+    QVERIFY2(lastReason().contains(QLatin1String("refused")) && lastReason().contains(QLatin1String("Search backend is offline")),
+             qPrintable(lastReason()));
+    QCOMPARE(threadingModel->searchFailure(), lastReason());
+    QCOMPARE(threadingModel->rowCount(), 0);
+
+    FakeCapabilitiesInjector injector(model);
+    injector.injectCapability(QStringLiteral("ESEARCH"));
+
+    // A raw query which the server does not understand, then the same query asked again
+    const QStringList raw{QStringLiteral("XFOO bar")};
+    search(raw);
+    cClient(t.mk("UID SEARCH RETURN (ALL) CHARSET utf-8 XFOO bar\r\n"));
+    cServer(t.last("BAD Error in IMAP command UID SEARCH: Unknown argument XFOO\r\n"));
+    QCOMPARE(failed.size(), 2);
+    QVERIFY2(lastReason().contains(QLatin1String("IMAP search query")) && lastReason().contains(QLatin1String("Unknown argument XFOO")),
+             qPrintable(lastReason()));
+    QCOMPARE(threadingModel->rowCount(), 0);
+    search(raw);
+    cClient(t.mk("UID SEARCH RETURN (ALL) CHARSET utf-8 XFOO bar\r\n"));
+    cServer("* ESEARCH (TAG \"" + t.last() + "\") UID ALL 2\r\n" + t.last("OK searched\r\n"));
+    QCOMPARE(threadingModel->searchFailure(), QString());
+    QCOMPARE(threadingModel->rowCount(), 1);
+
+    // BADCHARSET names the charsets which the server accepts
+    search({QStringLiteral("SUBJECT"), QStringLiteral("y")});
+    cClient(t.mk("UID SEARCH RETURN (ALL) CHARSET utf-8 SUBJECT y\r\n"));
+    cServer(t.last("NO [BADCHARSET (US-ASCII ISO-8859-1)] Unsupported charset\r\n"));
+    QCOMPARE(failed.size(), 3);
+    QVERIFY2(lastReason().contains(QLatin1String("UTF-8")) && lastReason().contains(QLatin1String("US-ASCII, ISO-8859-1")),
+             qPrintable(lastReason()));
+    QCOMPARE(threadingModel->rowCount(), 0);
+
+    // A key which the server does not advertise is not sent at all
+    const QStringList fuzzy{QStringLiteral("FUZZY"), QStringLiteral("SUBJECT"), QStringLiteral("z")};
+    search(fuzzy);
+    QCoreApplication::processEvents();
+    QCoreApplication::processEvents();
+    cEmpty();
+    QCOMPARE(failed.size(), 4);
+    QVERIFY2(lastReason().contains(QLatin1String("SEARCH=FUZZY")), qPrintable(lastReason()));
+    QCOMPARE(threadingModel->rowCount(), 0);
+    injector.injectCapability(QStringLiteral("SEARCH=FUZZY"));
+    search(fuzzy);
+    cClient(t.mk("UID SEARCH RETURN (ALL) CHARSET utf-8 FUZZY SUBJECT z\r\n"));
+    cServer("* ESEARCH (TAG \"" + t.last() + "\") UID ALL 1,3\r\n" + t.last("OK searched\r\n"));
+    QCOMPARE(threadingModel->searchFailure(), QString());
+    QCOMPARE(threadingModel->rowCount(), 2);
+
+    // After a failure, clearing the search shows the whole folder again
+    search({QStringLiteral("SUBJECT"), QStringLiteral("w")});
+    cClient(t.mk("UID SEARCH RETURN (ALL) CHARSET utf-8 SUBJECT w\r\n"));
+    cServer(t.last("NO [CANNOT] Too complex\r\n"));
+    QCOMPARE(failed.size(), 5);
+    QVERIFY2(lastReason().contains(QLatin1String("cannot run this search")), qPrintable(lastReason()));
+    QCOMPARE(threadingModel->rowCount(), 0);
+    search({});
+    QCOMPARE(threadingModel->searchFailure(), QString());
+    QCOMPARE(threadingModel->rowCount(), 3);
+    cEmpty();
+}
+
 QTEST_GUILESS_MAIN( ImapModelThreadingTest )
