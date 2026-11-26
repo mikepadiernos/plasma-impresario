@@ -471,6 +471,8 @@ private:
     void saveMessageListFilters();
     /** @short Show the state of the quick filters on their actions and buttons */
     void syncMessageListFilterUi();
+    /** Narrows both message lists by the facets chosen above them */
+    void applySearchFacets();
     /** @short Whether a search or a quick filter hides messages of the list */
     bool messageListNarrowed() const;
     /** @short Note where the folder's list is before a search or a filter narrows it, for clearSearchAndFilters() */
@@ -733,6 +735,8 @@ private:
     QHash<QString, UiUtils::FolderPositionStore> m_folderPositions;
     /** Folder which the message list shows, and where in it the list is */
     QString m_positionMailbox;
+    /** The list which the facets were chosen for; they are cleared when another one is shown */
+    QString m_facetScope;
     UiUtils::FolderPosition m_livePosition;
     /** Folder whose list was narrowed by a search or a filter, and where in it the list was before */
     QString m_unnarrowedMailbox;

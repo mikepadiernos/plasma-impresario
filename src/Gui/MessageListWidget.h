@@ -29,6 +29,7 @@
 #include "UiUtils/MailingLists.h"
 #include "UiUtils/SearchQuery.h"
 #include "UiUtils/SavedSearches.h"
+#include "UiUtils/SearchFacets.h"
 #include "UiUtils/SearchScope.h"
 #include "UiUtils/SearchSuggestions.h"
 
@@ -47,6 +48,7 @@ class QToolButton;
 
 namespace Gui {
 
+class FlowLayout;
 class InlineNotificationBar;
 class MsgListView;
 
@@ -102,6 +104,18 @@ public:
     void setSearchAvailable(bool available);
     /** @short Name the quick filters which narrow the list, such as "Unread", in the summary above it */
     void setActiveFilters(const QStringList &names);
+
+    using FacetSource = std::function<QModelIndexList()>;
+    /** @short Count the facets among the messages which @p source lists, those of the results before any facet */
+    void setFacetSource(const FacetSource &source);
+    /** @short The account of a list of one folder, and the day which dates are relative to, for the facets */
+    void setFacetContext(const UiUtils::SearchFacets::Context &context);
+    /** @short The facets chosen to narrow the results of the search, with their context */
+    UiUtils::SearchFacets facets() const;
+    /** @short Stop narrowing the results by facets */
+    void clearFacets();
+    /** @short The menu which offers the facets of the results with their counts */
+    QMenu *facetsMenu() const;
 
     using FolderSource = std::function<QList<UiUtils::SearchSuggestions::FolderCandidate>()>;
     /** @short Offer the folders which @p source lists, without contacting the server, as places to search */
@@ -164,6 +178,8 @@ signals:
     void rawSearchSettingChanged(bool enabled);
     /** @short The user wants to pick the folders to search; answer with setSelectedFolders() */
     void foldersChoiceRequested();
+    /** @short Facets were chosen or removed; facets() has the new ones */
+    void facetsChanged();
     /** @short The user wants the search, its date range and the quick filters cleared at once */
     void clearAllRequested();
     /** @short Suggestions want the contacts matching @p query; answer with showContactSuggestions() */
@@ -210,6 +226,11 @@ private:
     /** Whether the quick search is set up as @p search is */
     bool matchesSavedSearch(const UiUtils::SavedSearch &search) const;
     void setActiveSavedSearch(const UiUtils::SavedSearch &search);
+    /** Fills the facets menu with the values of the shown results and their counts */
+    void rebuildFacetsMenu();
+    /** Shows a button to remove each chosen facet above the list */
+    void updateFacetChips();
+    void setFacets(const UiUtils::SearchFacets &facets);
     /** Asks for the first and last day of a custom date range. */
     void chooseCustomDateRange();
     /** Shows the date range and the places in the menus, the placeholder and the tooltip of the quick search. */
@@ -251,6 +272,13 @@ private:
     QWidget *m_searchSummary;
     QLabel *m_searchSummaryText;
     QAction *m_clearAll;
+    UiUtils::SearchFacets m_facets;
+    FacetSource m_facetSource;
+    QMenu *m_facetsMenu;
+    QToolButton *m_narrowButton;
+    /** A button for each chosen facet, which removes it */
+    QWidget *m_facetChips;
+    FlowLayout *m_facetChipsLayout;
     /** The query, dates and places of the search in effect, as the summary shows them; an invalid query typed
     later does not change them */
     QStringList m_searchDescription;

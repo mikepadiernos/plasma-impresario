@@ -302,6 +302,11 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
         }
         return QList<UiUtils::SearchSuggestions::FolderCandidate>();
     });
+    msgListWidget->setFacetSource([this]() {
+        if (showsUnifiedList())
+            return m_prettyUnifiedModel ? m_prettyUnifiedModel->facetCandidates() : QModelIndexList();
+        return prettyMsgListModel ? prettyMsgListModel->facetCandidates() : QModelIndexList();
+    });
     if (KConfigGroup(KSharedConfig::openStateConfig(), unifiedInboxGroup()).readEntry("Enabled", false))
         m_actionUnifiedInbox->setChecked(true);
     connect(msgListWidget->tree->header(), &QHeaderView::sectionClicked, this, [this]() {
@@ -1557,6 +1562,8 @@ void MainWindow::createMenus()
             filterMenu->addSeparator();
             ADD_ACTION(filterMenu, m_actionClearFilters);
             ADD_ACTION(filterMenu, m_clearSearchAndFilters);
+            filterMenu->addSeparator();
+            filterMenu->addMenu(msgListWidget->facetsMenu());
         m_groupByMenu = viewMenu->addMenu(quickActionIcon(QStringLiteral("view-group")), i18nc("@title:menu", "&Group By"));
         m_groupByMenu->setObjectName(QStringLiteral("messageListGroupByMenu"));
             for (QAction *action : m_groupByActions->actions()) {
@@ -1793,6 +1800,7 @@ void MainWindow::createWidgets()
     connect(msgListWidget->tree, &MsgListView::currentReplacedAfterRemoval, this, &MainWindow::slotMessageReplacedAfterRemoval);
     connect(msgListWidget, &MessageListWidget::requestingSearch, this, &MainWindow::slotSearchRequested);
     connect(msgListWidget, &MessageListWidget::clearAllRequested, this, &MainWindow::clearSearchAndFilters);
+    connect(msgListWidget, &MessageListWidget::facetsChanged, this, &MainWindow::applySearchFacets);
     connect(msgListWidget->tree->header(), &QHeaderView::sectionMoved, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
     connect(msgListWidget->tree->header(), &QHeaderView::sectionResized, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
 
@@ -1965,6 +1973,8 @@ void MainWindow::setupModels(bool reconnect)
         m_pickedWhileNarrowed = false;
     }
     applyMessageListFilters();
+    if (msgListWidget)
+        prettyMsgListModel->setFacets(msgListWidget->facets());
     connect(prettyMsgListModel, &Imap::Mailbox::PrettyMsgListModel::filtersChanged, this, &MainWindow::syncMessageListFilterUi);
     connect(prettyMsgListModel, &QAbstractItemModel::rowsInserted, this, &MainWindow::scheduleMessageListStatus);
     connect(prettyMsgListModel, &QAbstractItemModel::rowsRemoved, this, &MainWindow::scheduleMessageListStatus);
@@ -6573,6 +6583,16 @@ void MainWindow::updateMessageListScope()
 {
     if (!m_imapAccess || !msgListWidget)
         return;
+    {
+        const QString accountId = m_accounts->activeAccount();
+        msgListWidget->setFacetContext({accountId, m_accounts->displayName(accountId), QDate()});
+        const QString scope = m_searchAcross                      ? QStringLiteral("search")
+                              : (m_unifiedInbox && m_unifiedModel) ? QStringLiteral("unified")
+                                                                   : accountId + QLatin1Char('\n') + currentMailboxName();
+        // The facets were chosen among the messages of another list
+        if (std::exchange(m_facetScope, scope) != scope)
+            msgListWidget->clearFacets();
+    }
     if (m_searchAcross) {
         msgListWidget->setCustomScope(i18nc("@label", "Search Results"),
                                       i18nc("@info:tooltip list of accounts and folders, one per line", "Searched in:\n%1",
@@ -6714,6 +6734,16 @@ void MainWindow::syncMessageListFilterUi()
             names << KLocalizedString::removeAcceleratorMarker(action->text());
     }
     msgListWidget->setActiveFilters(names);
+    scheduleMessageListStatus();
+}
+
+void MainWindow::applySearchFacets()
+{
+    const UiUtils::SearchFacets facets = msgListWidget->facets();
+    if (prettyMsgListModel)
+        prettyMsgListModel->setFacets(facets);
+    if (m_prettyUnifiedModel)
+        m_prettyUnifiedModel->setFacets(facets);
     scheduleMessageListStatus();
 }
 

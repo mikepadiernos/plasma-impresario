@@ -22,6 +22,7 @@
 
 #include "MessageListWidget.h"
 #include <algorithm>
+#include <utility>
 #include <KConfigGroup>
 #include <KLocalizedString>
 #include <KSharedConfig>
@@ -51,6 +52,7 @@
 #include <QUuid>
 #include <QVBoxLayout>
 #include <QWidgetAction>
+#include "FlowLayout.h"
 #include "InlineNotificationBar.h"
 #include "LineEdit.h"
 #include "MsgListView.h"
@@ -73,6 +75,49 @@ using SuggestionKind = UiUtils::SearchSuggestions::Kind;
 constexpr int RoleSuggestionKind = Qt::UserRole + 1;
 constexpr int RoleSuggestionText = Qt::UserRole + 2;
 constexpr int RoleSuggestionFolder = Qt::UserRole + 3;
+
+/** How many values of one kind the facets menu lists; chosen values are always listed */
+constexpr int FacetMenuValues = 25;
+
+QString facetMenuTitle(const UiUtils::SearchFacets::Kind kind)
+{
+    using Kind = UiUtils::SearchFacets::Kind;
+    switch (kind) {
+    case Kind::Account:
+        return i18nc("@title:menu search facet", "&Account");
+    case Kind::Folder:
+        return i18nc("@title:menu search facet", "F&older");
+    case Kind::Sender:
+        return i18nc("@title:menu search facet", "&Sender");
+    case Kind::Date:
+        return i18nc("@title:menu search facet", "&Date");
+    case Kind::Attachments:
+        return i18nc("@title:menu search facet", "A&ttachments");
+    case Kind::Tag:
+        return i18nc("@title:menu search facet", "Ta&g");
+    }
+    return QString();
+}
+
+QString facetObjectName(const UiUtils::SearchFacets::Kind kind)
+{
+    using Kind = UiUtils::SearchFacets::Kind;
+    switch (kind) {
+    case Kind::Account:
+        return QStringLiteral("searchFacetAccount");
+    case Kind::Folder:
+        return QStringLiteral("searchFacetFolder");
+    case Kind::Sender:
+        return QStringLiteral("searchFacetSender");
+    case Kind::Date:
+        return QStringLiteral("searchFacetDate");
+    case Kind::Attachments:
+        return QStringLiteral("searchFacetAttachments");
+    case Kind::Tag:
+        return QStringLiteral("searchFacetTag");
+    }
+    return QString();
+}
 
 /** @short Offers every suggestion as it is, without picking one which starts like the typed text
 
@@ -421,11 +466,40 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     clearAllButton->setAutoRaise(true);
     clearAllButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     clearAllButton->setAccessibleDescription(m_clearAll->toolTip());
-    auto *summaryLayout = new QHBoxLayout(m_searchSummary);
+    m_facetsMenu = new QMenu(i18nc("@title:menu", "&Narrow Results"), this);
+    m_facetsMenu->setObjectName(QStringLiteral("searchFacets"));
+    m_facetsMenu->setIcon(UiUtils::loadIcon(QStringLiteral("view-filter")));
+    m_facetsMenu->menuAction()->setEnabled(false);
+    // The counts follow the results as they load
+    connect(m_facetsMenu, &QMenu::aboutToShow, this, &MessageListWidget::rebuildFacetsMenu);
+    m_narrowButton = new QToolButton(m_searchSummary);
+    m_narrowButton->setObjectName(QStringLiteral("narrowResultsButton"));
+    m_narrowButton->setIcon(m_facetsMenu->icon());
+    m_narrowButton->setText(i18nc("@action:button narrow the search results by account, folder, sender and more", "Narrow"));
+    m_narrowButton->setToolTip(i18nc("@info:tooltip", "Narrow the results by account, folder, sender, date, attachments or tag"));
+    m_narrowButton->setAccessibleDescription(m_narrowButton->toolTip());
+    m_narrowButton->setAutoRaise(true);
+    m_narrowButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    m_narrowButton->setPopupMode(QToolButton::InstantPopup);
+    m_narrowButton->setMenu(m_facetsMenu);
+    m_narrowButton->hide();
+    rebuildFacetsMenu();
+    m_facetChips = new QWidget(m_searchSummary);
+    m_facetChips->setObjectName(QStringLiteral("searchFacetChips"));
+    m_facetChips->setAccessibleName(i18nc("@label", "Facets narrowing the results"));
+    m_facetChipsLayout = new FlowLayout(m_facetChips, margin / 2, 0, 0);
+    m_facetChips->hide();
+    auto *summaryRow = new QHBoxLayout();
+    summaryRow->setSpacing(0);
+    summaryRow->setContentsMargins(0, 0, 0, 0);
+    summaryRow->addWidget(m_searchSummaryText, 1);
+    summaryRow->addWidget(m_narrowButton);
+    summaryRow->addWidget(clearAllButton);
+    auto *summaryLayout = new QVBoxLayout(m_searchSummary);
     summaryLayout->setSpacing(0);
     summaryLayout->setContentsMargins(0, 0, 0, 0);
-    summaryLayout->addWidget(m_searchSummaryText, 1);
-    summaryLayout->addWidget(clearAllButton);
+    summaryLayout->addLayout(summaryRow);
+    summaryLayout->addWidget(m_facetChips);
     m_searchSummary->hide();
 
     m_statusRow = new QWidget(this);
@@ -737,8 +811,155 @@ void MessageListWidget::updateSearchSummary()
     const QString text = parts.join(QStringLiteral(" \u00B7 "));
     m_searchSummaryText->setText(text);
     m_searchSummaryText->setToolTip(text);
-    m_clearAll->setEnabled(!parts.isEmpty());
-    m_searchSummary->setVisible(!parts.isEmpty());
+    const bool narrowing = !m_searchDescription.isEmpty() || !m_facets.isEmpty();
+    m_narrowButton->setVisible(narrowing);
+    m_facetsMenu->menuAction()->setEnabled(narrowing);
+    const bool shown = !parts.isEmpty() || !m_facets.isEmpty();
+    m_clearAll->setEnabled(shown);
+    m_searchSummary->setVisible(shown);
+}
+
+void MessageListWidget::setFacetSource(const FacetSource &source)
+{
+    m_facetSource = source;
+}
+
+void MessageListWidget::setFacetContext(const UiUtils::SearchFacets::Context &context)
+{
+    const UiUtils::SearchFacets::Context previous = m_facets.context();
+    if (previous.accountId == context.accountId && previous.accountName == context.accountName && previous.today == context.today)
+        return;
+    m_facets.setContext(context);
+    // The account of the messages which do not name their own may now be another one
+    if (!m_facets.isEmpty())
+        emit facetsChanged();
+}
+
+UiUtils::SearchFacets MessageListWidget::facets() const
+{
+    return m_facets;
+}
+
+void MessageListWidget::clearFacets()
+{
+    if (m_facets.isEmpty())
+        return;
+    UiUtils::SearchFacets facets = m_facets;
+    facets.clear();
+    setFacets(facets);
+}
+
+QMenu *MessageListWidget::facetsMenu() const
+{
+    return m_facetsMenu;
+}
+
+void MessageListWidget::setFacets(const UiUtils::SearchFacets &facets)
+{
+    if (facets == m_facets)
+        return;
+    m_facets = facets;
+    updateFacetChips();
+    updateSearchSummary();
+    emit facetsChanged();
+}
+
+void MessageListWidget::rebuildFacetsMenu()
+{
+    using UiUtils::SearchFacets;
+    // Clearing the menu leaves its submenus behind
+    qDeleteAll(m_facetsMenu->findChildren<QMenu *>(QString(), Qt::FindDirectChildrenOnly));
+    m_facetsMenu->clear();
+    const QModelIndexList messages = m_facetSource ? m_facetSource() : QModelIndexList();
+    for (const SearchFacets::Kind kind : SearchFacets::kinds()) {
+        QMenu *menu = m_facetsMenu->addMenu(facetMenuTitle(kind));
+        menu->setObjectName(facetObjectName(kind));
+        const QList<SearchFacets::Count> counts = m_facets.counts(messages, kind);
+        if (counts.isEmpty()) {
+            QAction *none = menu->addAction(i18nc("@item:inmenu", "No Values Among the Results"));
+            none->setEnabled(false);
+            continue;
+        }
+        int listed = 0;
+        for (const SearchFacets::Count &count : counts) {
+            const bool chosen = m_facets.contains(count.value);
+            if (listed >= FacetMenuValues && !chosen)
+                continue;
+            ++listed;
+            QString label = count.value.label;
+            label.replace(QLatin1Char('&'), QStringLiteral("&&"));
+            QAction *action = menu->addAction(i18nc("@item:inmenu %1 is a facet value such as a sender, %2 how many results "
+                                                    "have it", "%1 (%2)", label, count.count));
+            action->setCheckable(true);
+            action->setChecked(chosen);
+            const SearchFacets::Value value = count.value;
+            connect(action, &QAction::triggered, this, [this, value]() {
+                UiUtils::SearchFacets facets = m_facets;
+                facets.toggle(value);
+                setFacets(facets);
+            });
+        }
+        if (listed < counts.size()) {
+            menu->addSeparator();
+            QAction *more = menu->addAction(i18ncp("@item:inmenu", "%1 more value not listed", "%1 more values not listed",
+                                                   counts.size() - listed));
+            more->setObjectName(QStringLiteral("searchFacetMore"));
+            more->setEnabled(false);
+        }
+    }
+    m_facetsMenu->addSeparator();
+    QAction *clear = m_facetsMenu->addAction(UiUtils::loadIcon(QStringLiteral("edit-clear")), i18nc("@action:inmenu", "&Clear Facets"));
+    clear->setObjectName(QStringLiteral("clearSearchFacets"));
+    clear->setEnabled(!m_facets.isEmpty());
+    connect(clear, &QAction::triggered, this, &MessageListWidget::clearFacets);
+}
+
+void MessageListWidget::updateFacetChips()
+{
+    using UiUtils::SearchFacets;
+    while (QLayoutItem *item = m_facetChipsLayout->takeAt(0)) {
+        if (QWidget *chip = item->widget()) {
+            // A chip may be removing itself, so it is deleted later, but it is no longer one of the chips
+            chip->hide();
+            chip->setParent(nullptr);
+            chip->deleteLater();
+        }
+        delete item;
+    }
+    const QList<SearchFacets::Value> chosen = m_facets.chosen();
+    for (int i = 0; i < chosen.size(); ++i) {
+        const SearchFacets::Value value = chosen[i];
+        auto *chip = new QToolButton(m_facetChips);
+        chip->setObjectName(QStringLiteral("searchFacetChip"));
+        QString label = i18nc("@action:button %1 is a kind of facet such as Sender, %2 its value", "%1: %2",
+                              SearchFacets::kindName(value.kind), value.label);
+        const QString remove = i18nc("@info:tooltip %1 is a facet such as Sender: Alice", "Remove %1", label);
+        label.replace(QLatin1Char('&'), QStringLiteral("&&"));
+        chip->setText(label);
+        chip->setIcon(UiUtils::loadIcon(QStringLiteral("tab-close")));
+        chip->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        chip->setAutoRaise(true);
+        chip->setToolTip(remove);
+        chip->setAccessibleName(remove);
+        connect(chip, &QToolButton::clicked, this, [this, value, i]() {
+            const bool hadFocus = m_facetChips->isAncestorOf(QApplication::focusWidget());
+            UiUtils::SearchFacets facets = m_facets;
+            facets.remove(value);
+            setFacets(facets);
+            if (!hadFocus)
+                return;
+            // Focus stays among the chips, on the one which took the place of the removed one
+            const int count = m_facetChipsLayout->count();
+            if (count)
+                m_facetChipsLayout->itemAt(std::min(i, count - 1))->widget()->setFocus(Qt::OtherFocusReason);
+            else
+                m_narrowButton->setFocus(Qt::OtherFocusReason);
+        });
+        m_facetChipsLayout->addWidget(chip);
+        // Shown at once, to take the focus of a removed chip
+        chip->show();
+    }
+    m_facetChips->setVisible(!chosen.isEmpty());
 }
 
 void MessageListWidget::setSearchAvailable(bool available)
@@ -754,6 +975,7 @@ void MessageListWidget::setSearchAvailable(bool available)
 
 void MessageListWidget::clearSearch()
 {
+    clearFacets();
     if (m_quickSearchText->text().isEmpty() && !UiUtils::SearchScope::isLimited(m_dateRange))
         return;
     m_quickSearchText->clear();
@@ -1256,7 +1478,7 @@ bool MessageListWidget::applySearch()
         return false;
     }
     m_searchError->hide();
-    m_searchDescription.clear();
+    const QStringList previousDescription = std::exchange(m_searchDescription, QStringList());
     if (!conditions.isEmpty()) {
         if (const QString query = m_quickSearchText->text().trimmed(); !query.isEmpty())
             m_searchDescription << i18nc("@info:status %1 is the search query", "Search: %1", query);
@@ -1264,6 +1486,9 @@ bool MessageListWidget::applySearch()
             m_searchDescription << dateRangeText(m_dateRange);
         m_searchDescription << i18nc("@info:status %1 is where the search looks, such as All Accounts", "In: %1", placesText());
     }
+    // The values of the facets were those of the previous results
+    if (m_searchDescription != previousDescription)
+        clearFacets();
     updateSearchSummary();
     // Custom ranges are fixed days; the presets end today
     const bool relative = relativeQuery || (m_dateRange.dates != Dates::AnyTime && m_dateRange.dates != Dates::Custom);
