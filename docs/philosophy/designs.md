@@ -376,7 +376,10 @@ Flagged until they arrive. A message whose structure is not loaded yet is
 shown by With Attachments, so that rows do not disappear while scrolling. The
 current message stays listed while it is current, even after it stops
 matching (for example, when reading marks it read under Unread). It is hidden
-once another message becomes current.
+once another message becomes current. Turning a filter on or off, or changing
+the grouping, keeps the current message current, listed and, in a threaded
+list, inside its expanded thread
+([#96](https://github.com/mikepadiernos/plasma-impresario/issues/96)).
 
 **View › Group By** and the Sort button's menu offer **None**,
 **Conversation**, **Date**, **Sender**, **Subject**, **Tag**, **Read State**
@@ -624,7 +627,12 @@ without the mouse ([#91](https://github.com/mikepadiernos/plasma-impresario/issu
   threaded list the conversation is the thread, and a collapsed thread opens
   on the way. In a flat or grouped list it follows the loaded messages linked
   to the current one by subject, In-Reply-To or Message-ID, and through them
-  to further replies, so a reply under a new subject is included.
+  to further replies, so a reply under a new subject is included. A message
+  that a filter hides is shown while it is current, so the steps reach the
+  whole conversation
+  ([#96](https://github.com/mikepadiernos/plasma-impresario/issues/96)). The
+  steps do nothing in the Unified Inbox; see
+  [Conversations](../CAVEATS.md#conversations).
 
 ### Status bar
 

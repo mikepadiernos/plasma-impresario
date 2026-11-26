@@ -294,6 +294,17 @@ Caveats: [mail operations](CAVEATS.md#mail-operations)
   [E-Mail](philosophy/inspirations.md#e-mail).
   [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=318073669)
 
+Caveats: [message security](CAVEATS.md#message-security)
+([#442](https://github.com/mikepadiernos/plasma-impresario/issues/442));
+[reading privacy](CAVEATS.md#reading-privacy)
+([#443](https://github.com/mikepadiernos/plasma-impresario/issues/443));
+[loading on demand](CAVEATS.md#loading-on-demand)
+([#444](https://github.com/mikepadiernos/plasma-impresario/issues/444));
+[reader actions](CAVEATS.md#reader-actions)
+([#445](https://github.com/mikepadiernos/plasma-impresario/issues/445));
+[conversations](CAVEATS.md#conversations)
+([#449](https://github.com/mikepadiernos/plasma-impresario/issues/449)).
+
 ### M05: Search and indexing
 
 **Project:** [M05 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317845712)

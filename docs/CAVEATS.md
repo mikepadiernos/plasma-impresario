@@ -26,6 +26,7 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned · ✅ resolved
   - [Reading privacy](#reading-privacy)
   - [Loading on demand](#loading-on-demand)
   - [Reader actions](#reader-actions)
+  - [Conversations](#conversations)
   - [OAuth sign-in](#oauth-sign-in)
   - [Mail operations](#mail-operations)
 - [Before reporting results](#before-reporting-results)
@@ -45,6 +46,7 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned · ✅ resolved
 | ⚠️ Reading privacy   | Link warnings are heuristic and remote content consent applies to the open message only ([details](#reading-privacy))                                                                                              |
 | ⚠️ Loading on demand | Parts that failed after a server error load again only on Try Again; the unavailable-message page is not verified live ([details](#loading-on-demand))                                                             |
 | ⚠️ Reader actions    | The action bar is in the main window only, zoom is not saved, and Archive and Trash from the bar are not verified live ([details](#reader-actions))                                                                |
+| ⚠️ Conversations     | A search in a threaded list splits threads, flat-list conversations cover the current folder only, and the Unified Inbox has no conversation steps ([details](#conversations))                                     |
 | ⚠️ Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                             |
 | 🔒 Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings`                                                     |
 | 🔒 Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used                                                                                                                            |
@@ -254,6 +256,44 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
 - 📋 Remember the zoom level.
 - 📋 Cover Archive and Trash from the bar, with Undo for a message opened from
   Related Messages, in the live test.
+
+### Conversations
+
+| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                                                               |
+| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| [#449](https://github.com/mikepadiernos/plasma-impresario/issues/449) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/449#issuecomment-7178393442) | Message list filters, quick search and the conversation steps (#40, #96) |
+
+**Current behavior:**
+
+- ✅ In a threaded list, the Unread, Flagged and Attachments filters keep a
+  matching message's whole thread. The open message stays in the list when a
+  filter or the grouping changes (#96).
+- ✅ **Next in Conversation** and **Previous in Conversation** follow the
+  thread in a threaded list. In a flat list they step through the conversation
+  by date and show messages hidden by a filter (#40, #96).
+- ⚠️ A quick search, or **Show Related**, in a threaded list threads only the
+  matching messages, because the server is asked to thread the search results.
+  Replies that don't match are not shown with their thread.
+- ⚠️ In a flat list, a conversation is built from the messages loaded in the
+  current folder. Your replies in Sent and messages in other folders are not
+  included, and a common subject, such as "Hello", can join unrelated mail.
+- ⚠️ The conversation steps do nothing in the Unified Inbox.
+
+**Workarounds:**
+
+- To see a whole thread that a search split, clear the search, open the
+  message, and use the conversation steps.
+- Open the Sent folder to read your own replies.
+
+**Proposed improvements:**
+
+- 📋 Thread all messages on the server and filter by the search's results on the
+  client, so that threads stay whole during a search.
+- 📋 Search related mail on the server and across folders (M04,
+  [#302](https://github.com/mikepadiernos/plasma-impresario/issues/302)).
+- 📋 Match subjects within a time window, ignoring reply prefixes and list tags
+  (M04, [#369](https://github.com/mikepadiernos/plasma-impresario/issues/369)).
+- 📋 Step through conversations in the Unified Inbox within each account.
 
 ### OAuth sign-in
 

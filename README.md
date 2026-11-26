@@ -172,10 +172,12 @@ M04 is in progress on `feature/m04-reading-flow`
 | Reader actions   | A bar above the reader replies, forwards, archives, trashes, flags, marks read, shows attachments, zooms and switches to plain text for the open message | ![Needs verification][needs-verification] |
 | Reading, triage  | Plain text wraps at a readable width; Space pages through the open message and then opens the next unread one                                            | ![Needs verification][needs-verification] |
 | Conversations    | Alt+Down and Alt+Up step through a conversation from oldest to newest, threaded or not; Ctrl+. and Ctrl+, expand and collapse every thread               | ![Needs verification][needs-verification] |
+| Filters          | Filters keep whole threads and the open message; conversation steps show replies a filter hides                                                          | ![Needs verification][needs-verification] |
 | Keyboard         | F6 follows the screen order of panes and panels, also in right-to-left layouts; Escape returns from the reader or a panel to the message list            | ![Needs verification][needs-verification] |
 
 Inline PGP is detected but not verified; see
-[caveats](docs/CAVEATS.md#message-security).
+[caveats](docs/CAVEATS.md#message-security). A search in a threaded list
+splits threads; see [caveats](docs/CAVEATS.md#conversations).
 
 ### Accounts
 
