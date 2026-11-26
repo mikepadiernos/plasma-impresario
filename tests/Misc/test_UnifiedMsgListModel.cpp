@@ -471,6 +471,47 @@ void UnifiedMsgListModelTest::sortsBySubject() {
       QStringLiteral("work"));
 }
 
+void UnifiedMsgListModelTest::sortsByRelevance() {
+  auto work = inbox(
+      {{QStringLiteral("budget"), at(1)}, {QStringLiteral("lunch"), at(4)}});
+  auto home = inbox(
+      {{QStringLiteral("budget"), at(3)}, {QStringLiteral("news"), at(2)}});
+  // Relevance is only known for messages with a UID
+  for (QStandardItemModel *model : {work.get(), home.get()}) {
+    for (int message = 0; message < model->rowCount(); ++message) {
+      for (int column = 0; column < model->columnCount(); ++column)
+        model->item(message, column)
+            ->setData(message + 1, Imap::Mailbox::RoleMessageUid);
+    }
+  }
+  UnifiedMsgListModel unified;
+  unified.setAccountSource(QStringLiteral("work"), QStringLiteral("Work"),
+                           work.get());
+  unified.setAccountSource(QStringLiteral("home"), QStringLiteral("Home"),
+                           home.get());
+  PrettyUnifiedMsgListModel pretty;
+  pretty.setSourceModel(&unified);
+  pretty.sort(MsgListModel::DATE, Qt::DescendingOrder);
+
+  pretty.setRelevanceTerms({QStringLiteral("budget")}, Qt::AscendingOrder);
+  QVERIFY(pretty.isSortingByRelevance());
+  QCOMPARE(pretty.relevanceTerms(), QStringList{QStringLiteral("budget")});
+  // The best matches first; equal ones and the rest newest first
+  QCOMPARE(subjects(pretty),
+           (QStringList{QStringLiteral("budget"), QStringLiteral("budget"),
+                        QStringLiteral("lunch"), QStringLiteral("news")}));
+  QCOMPARE(
+      pretty.index(0, 0).data(Imap::Mailbox::RoleMessageAccountId).toString(),
+      QStringLiteral("home"));
+
+  pretty.setRelevanceTerms({}, Qt::DescendingOrder);
+  QVERIFY(!pretty.isSortingByRelevance());
+  pretty.sort(MsgListModel::DATE, Qt::DescendingOrder);
+  QCOMPARE(subjects(pretty),
+           (QStringList{QStringLiteral("lunch"), QStringLiteral("budget"),
+                        QStringLiteral("news"), QStringLiteral("budget")}));
+}
+
 void UnifiedMsgListModelTest::quickFilters() {
   Message flagged{QStringLiteral("flagged"), at(1)};
   flagged.flagged = true;

@@ -7,6 +7,7 @@
 #include "Gui/InlineNotificationBar.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MessageListWidget.h"
+#include "Gui/MsgItemDelegate.h"
 #include "Gui/MsgListView.h"
 #include "Gui/SavedSearchFolders.h"
 #include "Gui/SearchBuilderDialog.h"
@@ -19,6 +20,8 @@
 #include "Imap/Model/Model.h"
 #include "Imap/Model/SearchIndex.h"
 #include "Imap/Model/SearchIndexer.h"
+#include "Imap/Model/SearchSnippets.h"
+#include "Imap/Model/UnifiedMsgListModel.h"
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/NetworkWatcher.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
@@ -907,6 +910,31 @@ private slots:
         const QString notes = QStringLiteral("[dev] Release notes");
         // Words of the text, headers and flags, all without a connection
         expectFound(QStringLiteral("body:noon"), {lunch});
+        // The result shows where its text matches, and can be sorted by relevance
+        QTRY_VERIFY_WITH_TIMEOUT(messages->model()->rowCount() == 1
+                                     && messages->model()->index(0, 0).data(Imap::Mailbox::RoleMessageSearchSnippet).isValid(),
+                                 10000);
+        const auto snippet = messages->model()->index(0, 0).data(Imap::Mailbox::RoleMessageSearchSnippet).value<Imap::Mailbox::SearchSnippet>();
+        QVERIFY2(snippet.text.contains(QLatin1String("noon"), Qt::CaseInsensitive), qPrintable(snippet.text));
+        QVERIFY(!snippet.matches.isEmpty());
+        QCOMPARE(snippet.text.mid(snippet.matches.first().first, snippet.matches.first().second).toCaseFolded(),
+                 QStringLiteral("noon"));
+        auto *delegate = qobject_cast<Gui::MsgItemDelegate *>(messages->itemDelegate());
+        QVERIFY(delegate);
+        QVERIFY(delegate->showsSnippetLine());
+        auto *byRelevance = window.findChild<QAction *>(QStringLiteral("messageListSortByRelevance"));
+        QVERIFY(byRelevance);
+        QVERIFY(byRelevance->isEnabled());
+        byRelevance->trigger();
+        auto *unified = window.findChild<Imap::Mailbox::PrettyUnifiedMsgListModel *>(QStringLiteral("prettyUnifiedMsgListModel"));
+        QVERIFY(unified);
+        QTRY_VERIFY(unified->isSortingByRelevance());
+        // The remembered choice must not reach other tests
+        {
+            KConfigGroup group(KSharedConfig::openStateConfig(), QStringLiteral("SearchResults"));
+            group.deleteEntry("SortByRelevance");
+            group.sync();
+        }
         expectFound(QStringLiteral("text:attached"), {report});
         expectFound(QStringLiteral("from:ann"), {plan, report});
         expectFound(QStringLiteral("is:flagged"), {lunch});

@@ -17,6 +17,7 @@ private slots:
     void mapsToTheMessages();
     void presentsMessageListColumns();
     void forwardsChangedData();
+    void providesSearchSnippets();
     void dropsRemovedMessages();
     void dropsMessagesOfRemovedFolders();
     void sourceResetAndDestructionEmptyTheList();

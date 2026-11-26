@@ -9,6 +9,7 @@
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/SearchResultsModel.h"
+#include "Imap/Model/SearchSnippets.h"
 
 using namespace Imap::Mailbox;
 
@@ -122,6 +123,30 @@ void SearchResultsModelTest::forwardsChangedData()
     account.message(archive, QStringLiteral("p"), 3);
     account.model.setData(other.siblingAtRow(1), QStringLiteral("changed"), RoleMessageSubject);
     QCOMPARE(changed.count(), 1);
+}
+
+void SearchResultsModelTest::providesSearchSnippets()
+{
+    Account account;
+    QStandardItem *inbox = account.folder(QStringLiteral("INBOX"));
+    inbox->setData(QStringLiteral("INBOX"), RoleMailboxName);
+    const QModelIndex a = account.message(inbox, QStringLiteral("a"), 4);
+    SearchResultsModel results;
+    results.setSourceModel(&account.model);
+    results.addMessages({a});
+    // No terms, no snippets
+    QVERIFY(!results.index(0, 0).data(RoleMessageSearchSnippet).isValid());
+
+    results.snippets()->setTextSource([](const QString &, uint uid) {
+        return uid == 4 ? QStringLiteral("See you at noon") : QString();
+    });
+    QSignalSpy changed(&results, &QAbstractItemModel::dataChanged);
+    results.snippets()->setTerms({QStringLiteral("noon")});
+    QCOMPARE(changed.count(), 1);
+    QCOMPARE(changed.at(0).at(2).value<QList<int>>(), QList<int>{RoleMessageSearchSnippet});
+    const auto snippet = results.index(0, MsgListModel::SUBJECT).data(RoleMessageSearchSnippet).value<SearchSnippet>();
+    QCOMPARE(snippet.text, QStringLiteral("See you at noon"));
+    QCOMPARE(snippet.matches, (QList<std::pair<int, int>>{{11, 4}}));
 }
 
 void SearchResultsModelTest::dropsRemovedMessages()

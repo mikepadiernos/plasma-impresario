@@ -496,6 +496,26 @@ void SearchIndexTest::testPlainTextOfHtml()
              QString::fromUtf8("One <two>\nCafé \u263a\nnext"));
 }
 
+void SearchIndexTest::testDownloadedText()
+{
+    QCOMPARE(SearchIndexer::downloadedText(*m_cache, inbox, 1), QStringLiteral("Meet at the Caf\u00E9 in Z\u00FCrich"));
+    // Decoded from its transfer encoding
+    QCOMPARE(SearchIndexer::downloadedText(*m_cache, inbox, 2), QStringLiteral("Noon at the caf\u00E9, bring the numbers"));
+    // Never downloaded, or not in the cache
+    QVERIFY(SearchIndexer::downloadedText(*m_cache, inbox, 3).isEmpty());
+    QVERIFY(SearchIndexer::downloadedText(*m_cache, inbox, 99).isEmpty());
+    QVERIFY(SearchIndexer::downloadedText(*m_cache, QStringLiteral("Nowhere"), 1).isEmpty());
+    // The text of HTML
+    QVERIFY(SearchIndexer::downloadedText(*m_cache, archive, 5).contains(QLatin1String("Budget")));
+
+    // Attachments are left out, even when the index reads them
+    addFilesFolder("((\"text\" \"plain\" (\"charset\" \"utf-8\") NIL NIL \"7bit\" 30 1 NIL NIL NIL NIL)"
+                   + attachedFile("text", "plain", "notes.txt", 30, "7bit") + " \"mixed\" (\"boundary\" \"b9\") NIL NIL NIL)");
+    m_cache->setMsgPart(files, 1, "2", "Harbour inventory list");
+    m_indexer->setAttachmentIndexing(true, 1024 * 1024);
+    QCOMPARE(SearchIndexer::downloadedText(*m_cache, files, 1), QStringLiteral("Cover note for the trip"));
+}
+
 void SearchIndexTest::testClear()
 {
     QVERIFY(!m_indexer->index()->folders().isEmpty());

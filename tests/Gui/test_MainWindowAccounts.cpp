@@ -19,6 +19,7 @@
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MessageListWidget.h"
 #include "Gui/MessageRowsMenu.h"
+#include "Gui/MsgItemDelegate.h"
 #include "Gui/MsgListView.h"
 #include "Gui/SavedSearchFolders.h"
 #include "Gui/ShortcutHandler/ShortcutHandler.h"
@@ -31,6 +32,7 @@
 #include "Imap/Model/Model.h"
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/PrettyMsgListModel.h"
+#include "Imap/Model/SearchSnippets.h"
 #include "OAuth/Session.h"
 #include "Plugins/PasswordPlugin.h"
 #include "Plugins/PluginManager.h"
@@ -1781,6 +1783,44 @@ private slots:
         QVERIFY(relevance->isEnabled());
         list->showFieldFilter(QString());
         QVERIFY(!relevance->isEnabled());
+
+        // A search adds snippets to the rows, and sorting by relevance is remembered for the next search
+        auto *delegate = qobject_cast<Gui::MsgItemDelegate *>(tree->itemDelegate());
+        QVERIFY(delegate);
+        QVERIFY(!delegate->showsSnippetLine());
+        auto remembered = []() {
+            return KConfigGroup(KSharedConfig::openStateConfig(), QStringLiteral("SearchResults"))
+                .readEntry("SortByRelevance", false);
+        };
+        QVERIFY(!remembered());
+        list->showFieldFilter(QStringLiteral("body:kestrel"));
+        QVERIFY(delegate->showsSnippetLine());
+        if (tree->model() == prettyModel())
+            QCOMPARE(prettyModel()->snippets()->terms(), QStringList{QStringLiteral("kestrel")});
+        QVERIFY(!relevance->isChecked());
+        relevance->trigger();
+        QVERIFY(relevance->isChecked());
+        QVERIFY(remembered());
+        list->showFieldFilter(QString());
+        QVERIFY(!delegate->showsSnippetLine());
+        QVERIFY(!relevance->isChecked());
+        QVERIFY(prettyModel()->snippets()->terms().isEmpty());
+        list->showFieldFilter(QStringLiteral("body:kestrel"));
+        QVERIFY(relevance->isChecked());
+        // Choosing another sorting during a search is remembered too
+        const auto sortActions = relevance->actionGroup()->actions();
+        for (QAction *other : sortActions) {
+            if (other != relevance && other->isEnabled() && other->isVisible()) {
+                other->trigger();
+                break;
+            }
+        }
+        QVERIFY(!relevance->isChecked());
+        QVERIFY(!remembered());
+        list->showFieldFilter(QString());
+        list->showFieldFilter(QStringLiteral("body:kestrel"));
+        QVERIFY(!relevance->isChecked());
+        list->showFieldFilter(QString());
 
         // The headers of groups are not messages
         QStandardItemModel messages;

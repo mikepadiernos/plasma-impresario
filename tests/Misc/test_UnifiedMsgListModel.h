@@ -29,6 +29,7 @@ private slots:
   void messagesCannotBeDragged();
   void sortsAllAccountsByDate();
   void sortsBySubject();
+  void sortsByRelevance();
   void quickFilters();
   void keptVisibleMessageStaysShown();
   void tooltipNamesTheAccount();
