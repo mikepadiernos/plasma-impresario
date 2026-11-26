@@ -39,6 +39,7 @@ RUN dnf -y install --setopt=install_weak_deps=False \
         kf6-kdoctools-devel \
         kf6-sonnet-devel \
         kf6-knotifications-devel \
+        kf6-kfilemetadata-devel \
         akonadi-contacts-devel \
         qtkeychain-qt6-devel \
         gpgmepp-devel \
