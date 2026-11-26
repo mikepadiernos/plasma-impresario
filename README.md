@@ -313,6 +313,12 @@ query, date range, places and filters in effect. Its **Clear All** button, or
 returns to the message that was current before, or keeps the one you opened
 among the results.
 
+The search field remembers the last 20 searches you ran, and while you type it
+offers matching recent searches, favorite tags, address book contacts and the
+shown account's folders; press <kbd>Down</kbd> to open the list at any time.
+**Remember Searches**, **Suggest While Typing** and **Clear Search History**
+in the search options control this.
+
 Enter a query and choose **Save Current Search** from the search options menu.
 **Saved Searches** in the same menu runs or deletes the active account's saved
 queries; a query runs in the selected folder, with its date range. Preset
