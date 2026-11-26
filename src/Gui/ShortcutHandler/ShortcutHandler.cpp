@@ -56,6 +56,8 @@ ShortcutHandler::~ShortcutHandler()
     if (m_shortcutConfigWidget)
         delete m_shortcutConfigWidget;
     m_actionDescriptions.clear();
+    if (self == this)
+        self = nullptr;
 }
 
 void ShortcutHandler::setSettingsObject(QSettings *settings)
