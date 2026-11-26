@@ -22,6 +22,7 @@
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/NetworkWatcher.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
+#include "Imap/Model/Utils.h"
 #include "UiUtils/MailingLists.h"
 #include "UiUtils/SavedSearches.h"
 #include "UiUtils/SearchScope.h"
@@ -797,6 +798,7 @@ private slots:
             QSettings account(accountFile, QSettings::IniFormat);
             account.setValue(Common::SettingsNames::cacheOfflineKey, Common::SettingsNames::cacheOfflineAll);
             account.setValue(Common::SettingsNames::searchIndexKey, true);
+            account.setValue(Common::SettingsNames::searchIndexAttachmentsKey, true);
             account.sync();
         }
 
@@ -843,6 +845,37 @@ private slots:
         download->setEnabled(true);
         download->trigger();
         QTRY_COMPARE_WITH_TIMEOUT(withText(), 4, 30000);
+
+        // The attachment waits until it is downloaded, as by opening it, and is then read for the index
+        QVERIFY(indexer->indexesAttachments());
+        QTRY_VERIFY_WITH_TIMEOUT(!indexer->isRunning(), 20000);
+        QCOMPARE(indexer->index()->attachmentSummary().notDownloaded, 1);
+        QModelIndex attachment;
+        const std::function<void(const QModelIndex &)> findAttachment = [&](const QModelIndex &parent) {
+            for (int row = 0; row < parent.model()->rowCount(parent) && !attachment.isValid(); ++row) {
+                const QModelIndex child = parent.model()->index(row, 0, parent);
+                if (child.data(Imap::Mailbox::RolePartFileName).toString() == QLatin1String("report.bin"))
+                    attachment = child;
+                else
+                    findAttachment(child);
+            }
+        };
+        for (int row = 0; row < messages->model()->rowCount() && !attachment.isValid(); ++row) {
+            const QModelIndex message = messages->model()->index(row, 0);
+            if (message.data(Imap::Mailbox::RoleMessageSubject).toString() == QLatin1String("Quarterly report"))
+                findAttachment(Imap::deproxifiedIndex(message));
+        }
+        QVERIFY(attachment.isValid());
+        attachment.data(Imap::Mailbox::RolePartData);
+        QTRY_VERIFY_WITH_TIMEOUT(attachment.data(Imap::Mailbox::RoleIsFetched).toBool(), 15000);
+        const auto triedAttachments = [&]() {
+            const Imap::Mailbox::SearchIndex::AttachmentSummary summary = indexer->index()->attachmentSummary();
+            int tried = summary.read + summary.failed + summary.tooLarge;
+            for (const int count : summary.withoutExtractor)
+                tried += count;
+            return summary.notDownloaded == 0 && tried == 1;
+        };
+        QTRY_VERIFY_WITH_TIMEOUT(triedAttachments(), 20000);
 
         auto *watcher = qobject_cast<Imap::Mailbox::NetworkWatcher *>(window.imapAccess()->networkWatcher());
         QVERIFY(watcher);
