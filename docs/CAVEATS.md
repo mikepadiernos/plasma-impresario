@@ -608,9 +608,9 @@ Plasma session; that check is
 
 ### Search
 
-| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                                                                                    |
-| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/454#issuecomment-7181065871) | The quick search's query syntax and builder, **Date** and **Search In** menus, saved searches with a date range or places, searches the server cannot run, **Clear All**, search history and suggestions, saved searches as virtual folders, mailing-list views, and the offline search index |
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                                                                                                                   |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/454#issuecomment-7181065871) | The quick search's query syntax and builder, **Date** and **Search In** menus, saved searches with a date range or places, searches the server cannot run, **Clear All**, search history and suggestions, saved searches as virtual folders, mailing-list views, the offline search index, and search snippets and relevance |
 
 **Current behavior:**
 
@@ -780,6 +780,15 @@ Plasma session; that check is
   installed extractor reads. Turning the option off or changing the limit
   indexes the affected messages again
   ([#345](https://github.com/mikepadiernos/plasma-impresario/issues/345)).
+- ![Resolved][resolved] While a search is shown, each row of the message list
+  gains a line with a snippet of the message's text around the first match,
+  with the matched words in bold and the highlight color. Rows already name
+  the sender and date, and in results of several places or of the Unified
+  Inbox, the account and folder. **Mailbox › Sorting › Relevance** now orders
+  those results too: best match first, then newest. Date stays the default;
+  choosing **Relevance** or another sort during a search is remembered for
+  later searches
+  ([#346](https://github.com/mikepadiernos/plasma-impresario/issues/346)).
 - ![Limitation][limitation] The server compares the calendar day in each
   message's Date header, in the sender's time zone, because IMAP's `SENTSINCE`
   and `SENTBEFORE` disregard the time and zone. The list shows local time, so a
@@ -858,6 +867,20 @@ Plasma session; that check is
   read, even with decrypted indexing on, and the read text is stored
   unencrypted with the rest of the index
   ([#345](https://github.com/mikepadiernos/plasma-impresario/issues/345)).
+- ![Limitation][limitation] Snippets appear only in rows of several lines,
+  not in the column layout, and while a search is shown every row grows to
+  three lines, also rows without a snippet. A snippet uses only text parts
+  already downloaded, never the text of attachments, and nothing is fetched
+  for it: a message whose text was not downloaded has none, and one found by
+  its headers alone shows the start of its text. In a conversation, replies
+  show a snippet that arrives later only once they are drawn again, such as
+  by scrolling
+  ([#346](https://github.com/mikepadiernos/plasma-impresario/issues/346)).
+- ![Limitation][limitation] Relevance scores matches in the subject, senders
+  and recipients of loaded messages; body text is not scored, so a message
+  found only by its text ranks last among the matches. With **Descending**,
+  the best matches come last
+  ([#346](https://github.com/mikepadiernos/plasma-impresario/issues/346)).
 - ![Limitation][limitation] Decrypted text is added only when a message is
   opened and decrypted in the reader with the option on; messages decrypted
   earlier are not added until they are opened again. Inline PGP is indexed as
@@ -1000,6 +1023,10 @@ Plasma session; that check is
   online; the index reads it shortly after. For a format the index dialog
   lists as unreadable, install the distribution's KFileMetaData extractors,
   which Plasma's file search uses as well.
+- To see snippets, use a layout of several lines, and open a message once
+  online, or download the text of its folder for offline search, so that its
+  text is on this computer. Choose **Ascending** with **Relevance** to see the
+  best matches first.
 - Leave decrypted indexing off unless the disk is encrypted, and exclude
   folders whose text should not be copied into the index. To free the space
   as well, remove the account, which deletes its cache files, and add it
@@ -1060,6 +1087,10 @@ Plasma session; that check is
   search does, and offer **Download Attachments for Offline Search...** next
   to the text download, asking first and respecting the limit
   ([#345](https://github.com/mikepadiernos/plasma-impresario/issues/345)).
+- Show a short snippet in the column layout's tooltip, keep rows without a
+  snippet at their usual height, score body matches from the index, and put
+  the best matches first whatever the order
+  ([#346](https://github.com/mikepadiernos/plasma-impresario/issues/346)).
 
 ## Before reporting results
 
