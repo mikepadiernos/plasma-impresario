@@ -1,8 +1,10 @@
 # Contributing
 
 **[Documentation](docs/README.md)** · **[Roadmap](docs/ROADMAP.md)** ·
-**[Pending tasks](docs/TODO.md)** · **[Installation](docs/INSTALL.md)** ·
-**[Project instructions](CLAUDE.md)**
+**[Pending tasks](docs/TODO.md)** · **[Bugs](docs/BUGS.md)** ·
+**[Caveats](docs/CAVEATS.md)** · **[Installation](docs/INSTALL.md)** ·
+**[Project instructions](CLAUDE.md)** ·
+**[Project board](https://github.com/users/mikepadiernos/projects/4)**
 
 Contributions are welcome for application code, tests, documentation and bug
 reports. This guide summarizes the development workflow and the headless dev
@@ -13,6 +15,7 @@ container; [`CLAUDE.md`](CLAUDE.md) holds the full project rules.
 - [Development workflow](#development-workflow)
 - [Building and testing](#building-and-testing)
 - [Building outside Plasma](#building-outside-plasma)
+- [Documentation style](#documentation-style)
 - [Submitting changes](#submitting-changes)
 
 ## Development workflow
@@ -29,6 +32,10 @@ container; [`CLAUDE.md`](CLAUDE.md) holds the full project rules.
 
 ### Board statuses
 
+Legend: ![Backlog][backlog] · ![Defined][defined] ·
+![Development][development] · ![Review][review] · ![Completed][completed] ·
+![Merged][merged]
+
 Issues move forward only, never back:
 
 ```mermaid
@@ -40,9 +47,9 @@ flowchart TD
     E --> F[Merged]
 ```
 
-$\color{#2f81f7}\textbf{Review}$ means implemented, not done: a feature's
-roadmap item is checked only after its issue reaches
-$\color{#2da44e}\textbf{Completed}$ or $\color{#8957e5}\textbf{Merged}$. See
+![Review][review] means implemented, not done: a feature's roadmap item is
+checked only after its issue reaches ![Completed][completed] or
+![Merged][merged]. See
 [project workflow](CLAUDE.md#project-workflow) for when each move happens and
 [roadmap](CLAUDE.md#roadmap) for checkbox rules.
 
@@ -158,6 +165,42 @@ a newly opened dialog or tooltip can stay black until it is moved; press
 its own synthetic server certificate in advance, so no certificate prompt
 appears.
 
+## Documentation style
+
+The Markdown in `README.md`, `CONTRIBUTING.md` and `docs/` (except the
+[`docs/old`](docs/old/README.md) archive) shares one look. Keep new and edited
+pages consistent with it.
+
+| Element         | Convention                                                                                                                                                                                                |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Page layout** | Title, a nav bar of bold links joined by " · ", one or two sentences on what the page is the source of truth for (with an "as of" date when it shows statuses), a legend, and Contents for long pages     |
+| **Color**       | [shields.io](https://shields.io) badges, GitHub alerts and Mermaid diagrams. No emoji, and no LaTeX `$\color{…}$` text, which many viewers cannot render                                                  |
+| **Badges**      | Reference style, such as `![Merged][merged]`, with the definitions at the end of the file in alphabetical order. Use the shared palette below                                                             |
+| **Alerts**      | `NOTE` for context, `TIP` for shortcuts, `IMPORTANT` for rules, `WARNING` for risk of wrong results or data exposure, `CAUTION` for destructive or security-sensitive actions. Use a few per page at most |
+| **Diagrams**    | `flowchart TD`, with no `%%{init}%%`, `classDef`, inline HTML or hex colors; the viewer applies its theme                                                                                                 |
+| **Text**        | Sentence-case headings, American spelling and prose wrapped at about 80 columns. Menu paths in bold with " › ", such as **View › Layout**; keys in `<kbd>`; code, paths and settings keys in backticks    |
+| **Issues**      | Link `#123` as `[#123](https://github.com/mikepadiernos/plasma-impresario/issues/123)` in tables and on first mention in a section; a bare `#123` does not link in repository files                       |
+| **Anchors**     | Other pages link to many headings. When renaming one, fix every inbound link                                                                                                                              |
+
+<details>
+<summary>Shared badge palette</summary>
+
+| Kind         | Badges                                                                                                                                                                                               |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Board status | ![Backlog][backlog] ![Defined][defined] ![Development][development] ![Review][review] ![Completed][completed] ![Merged][merged]                                                                      |
+| Verification | ![Verified][verified] ![Offscreen tests][offscreen] ![Needs verification][needs-verification] ![Not validated][not-validated]                                                                        |
+| Work state   | ![Done][done] ![In progress][in-progress] ![Planned][planned] ![Blocked][blocked]                                                                                                                    |
+| Bugs         | ![Open][open] ![Fix in progress][fix-in-progress] ![Fixed][fixed]                                                                                                                                    |
+| Caveats      | ![Limitation][limitation] ![Security][security] ![Resolved][resolved]                                                                                                                                |
+| Design       | ![Exists][exists] ![Decided][decided] ![Recommended][recommended]                                                                                                                                    |
+| Progress     | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700) ![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781) |
+
+Progress badges are green when complete, amber once work starts and gray
+before. Copy a badge's URL from the end of this file or from any page that
+already uses it.
+
+</details>
+
 ## Submitting changes
 
 Push the branch to
@@ -169,3 +212,27 @@ Plasma Impresario is a fork of KDE's
 [Trojitá](https://invent.kde.org/pim/trojita), whose merge requests are reviewed
 in KDE Invent. Plasma Impresario changes go through pull requests in this
 repository.
+
+[backlog]: https://img.shields.io/badge/Backlog-6e7781
+[blocked]: https://img.shields.io/badge/Blocked-cf222e
+[completed]: https://img.shields.io/badge/Completed-2da44e
+[decided]: https://img.shields.io/badge/Decided-1a7f37
+[defined]: https://img.shields.io/badge/Defined-57606a
+[development]: https://img.shields.io/badge/Development-9a6700
+[done]: https://img.shields.io/badge/Done-1a7f37
+[exists]: https://img.shields.io/badge/Exists-1a7f37
+[fix-in-progress]: https://img.shields.io/badge/Fix_in_progress-9a6700
+[fixed]: https://img.shields.io/badge/Fixed-1a7f37
+[in-progress]: https://img.shields.io/badge/In_progress-9a6700
+[limitation]: https://img.shields.io/badge/Limitation-bc4c00
+[merged]: https://img.shields.io/badge/Merged-8250df
+[needs-verification]: https://img.shields.io/badge/Needs_verification-0969da
+[not-validated]: https://img.shields.io/badge/Not_validated-6e7781
+[offscreen]: https://img.shields.io/badge/Offscreen_tests-0969da
+[open]: https://img.shields.io/badge/Open-cf222e
+[planned]: https://img.shields.io/badge/Planned-6e7781
+[recommended]: https://img.shields.io/badge/Recommended-1b7c83
+[resolved]: https://img.shields.io/badge/Resolved-1a7f37
+[review]: https://img.shields.io/badge/Review-2f81f7
+[security]: https://img.shields.io/badge/Security-bf3989
+[verified]: https://img.shields.io/badge/Verified-1a7f37
