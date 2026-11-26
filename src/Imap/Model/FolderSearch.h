@@ -8,6 +8,7 @@
 #include <QObject>
 #include <QPersistentModelIndex>
 #include <QPointer>
+#include <QSet>
 #include <QStringList>
 #include <QTimer>
 
@@ -56,6 +57,12 @@ public:
     with INBOX.
     */
     void start(const QStringList &mailboxes, bool allFolders, const QStringList &conditions);
+    /** @short Search @p mailboxes, or every folder for @p allFolders, again with the conditions of start()
+
+    The results found so far stay, and those found again are not repeated; the failures and the progress cover only
+    this search. Meant for the places which could not be searched before.
+    */
+    void retry(const QStringList &mailboxes, bool allFolders);
     /** @short Stop without emitting finished(); the results found so far stay */
     void cancel();
     bool isRunning() const;
@@ -86,6 +93,7 @@ private:
         Loading,
     };
 
+    void begin(const QStringList &mailboxes, bool allFolders, bool keepResults);
     void list();
     /** @short Walk the folders below @p mailbox, asking the server for those not listed yet; true when all are known */
     bool walk(TreeItemMailbox *mailbox, QStringList &found, bool everything);
@@ -108,6 +116,10 @@ private:
     QStringList m_conditions;
     QStringList m_queue;
     QString m_current;
+    /** The folder being searched; invalid once a new listing of the folders replaced it */
+    QPersistentModelIndex m_currentMailbox;
+    /** Folders searched once more because a new listing replaced them during their search */
+    QSet<QString> m_searchedAgain;
     int m_folderCount = 0;
     int m_searchedCount = 0;
     QList<Failure> m_failures;

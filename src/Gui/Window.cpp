@@ -1685,6 +1685,18 @@ void MainWindow::createWidgets()
     // Between the quick search field and the list, so that it does not cover any message
     if (auto *listLayout = qobject_cast<QVBoxLayout *>(msgListWidget->layout()))
         listLayout->insertWidget(1, m_notificationBar);
+    m_actionStopSearch = new QAction(quickActionIcon(QStringLiteral("process-stop")), i18nc("@action:button", "Stop"), this);
+    m_actionStopSearch->setObjectName(QStringLiteral("action_stop_search"));
+    m_actionStopSearch->setToolTip(i18nc("@info:tooltip", "Stop searching and keep the messages found so far"));
+    m_actionStopSearch->setVisible(false);
+    connect(m_actionStopSearch, &QAction::triggered, this, &MainWindow::stopSearchAcross);
+    msgListWidget->addStatusButton(m_actionStopSearch)->setObjectName(QStringLiteral("stopSearchButton"));
+    m_actionRetrySearch = new QAction(quickActionIcon(QStringLiteral("view-refresh")), i18nc("@action:button", "Retry"), this);
+    m_actionRetrySearch->setObjectName(QStringLiteral("action_retry_search"));
+    m_actionRetrySearch->setToolTip(i18nc("@info:tooltip", "Search the places which could not be searched again"));
+    m_actionRetrySearch->setVisible(false);
+    connect(m_actionRetrySearch, &QAction::triggered, this, &MainWindow::retrySearchAcross);
+    msgListWidget->addStatusButton(m_actionRetrySearch)->setObjectName(QStringLiteral("retrySearchButton"));
     msgListWidget->tree->setContextMenuPolicy(Qt::CustomContextMenu);
     msgListWidget->tree->setAlternatingRowColors(true);
     msgListWidget->setRawSearchEnabled(m_settings->value(Common::SettingsNames::guiAllowRawSearch).toBool());
@@ -6067,21 +6079,30 @@ void MainWindow::updateMessageListStatus()
     QStringList parts;
     const auto *msgList = qobject_cast<MsgListModel *>(m_imapAccess->msgListModel());
     const QModelIndex mailbox = msgList ? msgList->currentMailbox() : QModelIndex();
+    QString statusDetails;
+    const bool searchRunning = m_searchAcross && isSearchAcrossRunning();
+    if (m_actionStopSearch)
+        m_actionStopSearch->setVisible(searchRunning);
+    if (m_actionRetrySearch)
+        m_actionRetrySearch->setVisible(m_searchAcross && !searchRunning && !m_searchProblems.isEmpty());
     if (m_searchAcross && m_unifiedModel) {
         int folders = 0;
         int searched = 0;
-        bool running = false;
         for (const QPointer<FolderSearch> &search : std::as_const(m_folderSearches)) {
             if (!search)
                 continue;
             folders += search->folderCount();
             searched += search->searchedCount();
-            running = running || search->isRunning();
         }
         const int found = m_unifiedModel->messageCount();
-        if (running) {
+        statusDetails = searchProgressDetails();
+        if (searchRunning) {
             parts << i18nc("@info:status %1 is a count of folders done, %2 of all folders", "Searching %1 of %2 folders",
                            std::min(searched + 1, std::max(folders, 1)), std::max(folders, 1));
+            parts << i18ncp("@info:status", "%1 found", "%1 found", found);
+        } else if (m_searchStopped) {
+            parts << i18nc("@info:status %1 is a count of folders done, %2 of all folders",
+                           "Search stopped after %1 of %2 folders", searched, folders);
             parts << i18ncp("@info:status", "%1 found", "%1 found", found);
         } else {
             parts << i18ncp("@info:status", "%1 message found", "%1 messages found", found);
@@ -6145,7 +6166,7 @@ void MainWindow::updateMessageListStatus()
     const int selected = msgListWidget->tree->selectedTree().size();
     if (selected > 1)
         parts << i18ncp("@info:status", "%1 selected", "%1 selected", selected);
-    msgListWidget->setListStatus(parts.join(QStringLiteral(" \u00B7 ")));
+    msgListWidget->setListStatus(parts.join(QStringLiteral(" \u00B7 ")), statusDetails);
     updateSelectionActions();
 }
 
@@ -7367,49 +7388,25 @@ void MainWindow::startSearchAcross(const QStringList &conditions)
     cancelFolderSearches();
     m_searchAcross = true;
     m_searchProblems.clear();
+    if (m_notificationBar && m_notificationBar->isVisible() && m_notificationBar->text() == m_searchProblemsNotice)
+        m_notificationBar->dismiss();
     m_searchedPlaces.clear();
     m_unifiedModel->setShowsFolders(true);
     const QStringList listed = m_unifiedModel->accountIds();
     for (const QString &accountId : listed)
         m_unifiedModel->removeAccount(accountId);
 
-    using Common::AccountStatusKind;
+    m_searchConditions = conditions;
+    m_searchPlan = plan;
+    m_searchStopped = false;
     const QString separator = i18nc("@info:tooltip separator of folder names", ", ");
     for (const AccountFolders &folders : plan) {
-        const QString accountId = folders.accountId;
-        const QString name = m_accounts->displayName(accountId);
+        const QString name = m_accounts->displayName(folders.accountId);
         m_searchedPlaces << (folders.allFolders
                                  ? i18nc("@info:tooltip account name", "%1: all folders", name)
                                  : i18nc("@info:tooltip account name, list of folders", "%1: %2", name,
                                          folders.mailboxes.join(separator)));
-        Imap::ImapAccess *access = m_accountAccess.value(accountId);
-        auto *model = access && access->isConfigured() ? qobject_cast<Imap::Mailbox::Model *>(access->imapModel()) : nullptr;
-        const Common::AccountStatus status = m_accountStatus->status(accountId);
-        QString problem;
-        if (!model) {
-            problem = i18nc("@info account name", "%1 is not set up", name);
-        } else if (status.kind == AccountStatusKind::Offline || !model->isNetworkAvailable()) {
-            problem = i18nc("@info account name", "%1 is offline", name);
-        } else if (status.kind == AccountStatusKind::NetworkError || status.kind == AccountStatusKind::AuthRequired
-                   || status.kind == AccountStatusKind::AuthFailed) {
-            problem = i18nc("@info account name, reason", "%1: %2", name,
-                            status.detail.isEmpty() ? Common::AccountStatusTracker::label(status.kind) : status.detail);
-        }
-        if (!problem.isEmpty()) {
-            m_searchProblems << problem;
-            continue;
-        }
-        auto *search = new FolderSearch(model, this);
-        m_folderSearches.insert(accountId, search);
-        connect(search, &FolderSearch::progressChanged, this, &MainWindow::scheduleMessageListStatus);
-        connect(search, &FolderSearch::folderFailed, this, [this, name](const QString &mailbox, const QString &reason) {
-            m_searchProblems << (mailbox.isEmpty() ? i18nc("@info account name, reason", "%1: %2", name, reason)
-                                                   : i18nc("@info account name, folder, reason", "%1, %2: %3", name, mailbox, reason));
-            scheduleMessageListStatus();
-        });
-        connect(search, &FolderSearch::finished, this, [this, accountId]() { folderSearchFinished(accountId); });
-        m_unifiedModel->setAccountSource(accountId, name, search->results());
-        search->start(folders.mailboxes, folders.allFolders, conditions);
+        searchAccount(folders.accountId, folders.mailboxes, folders.allFolders, false);
     }
     updateUnifiedStates();
     if (entering && !m_unifiedInbox)
@@ -7417,7 +7414,7 @@ void MainWindow::startSearchAcross(const QStringList &conditions)
     updateMessageListScope();
     updateMessageFlags();
     scheduleMessageListStatus();
-    if (m_folderSearches.isEmpty())
+    if (!isSearchAcrossRunning())
         folderSearchFinished(QString());
 }
 
@@ -7438,19 +7435,176 @@ void MainWindow::cancelFolderSearches()
     }
 }
 
+void MainWindow::searchAccount(const QString &accountId, const QStringList &mailboxes, bool allFolders, bool retrying)
+{
+    using Common::AccountStatusKind;
+    using Imap::Mailbox::FolderSearch;
+    const QString name = m_accounts->displayName(accountId);
+    Imap::ImapAccess *access = m_accountAccess.value(accountId);
+    auto *model = access && access->isConfigured() ? qobject_cast<Imap::Mailbox::Model *>(access->imapModel()) : nullptr;
+    Common::AccountStatus status = m_accountStatus->status(accountId);
+    if (retrying && model && !model->isNetworkAvailable() && status.kind == AccountStatusKind::NetworkError) {
+        // Connect now instead of waiting for the next attempt to reconnect
+        auto *watcher = qobject_cast<Imap::Mailbox::NetworkWatcher *>(access->networkWatcher());
+        if (watcher && watcher->desiredNetworkPolicy() == Imap::Mailbox::NETWORK_ONLINE)
+            watcher->setNetworkOnline();
+        else if (watcher && watcher->desiredNetworkPolicy() == Imap::Mailbox::NETWORK_EXPENSIVE)
+            watcher->setNetworkExpensive();
+        status = m_accountStatus->status(accountId);
+    }
+    QString problem;
+    if (!model) {
+        problem = i18nc("@info account name", "%1 is not set up", name);
+    } else if (status.kind == AccountStatusKind::Offline || !model->isNetworkAvailable()) {
+        problem = i18nc("@info account name", "%1 is offline", name);
+    } else if ((status.kind == AccountStatusKind::NetworkError && !retrying) || status.kind == AccountStatusKind::AuthRequired
+               || status.kind == AccountStatusKind::AuthFailed) {
+        problem = i18nc("@info account name, reason", "%1: %2", name,
+                        status.detail.isEmpty() ? Common::AccountStatusTracker::label(status.kind) : status.detail);
+    }
+    if (!problem.isEmpty()) {
+        addSearchProblem(accountId, QString(), problem);
+        return;
+    }
+    if (FolderSearch *search = m_folderSearches.value(accountId); search && search->model() == model) {
+        search->retry(mailboxes, allFolders);
+        return;
+    }
+    auto *search = new FolderSearch(model, this);
+    m_folderSearches.insert(accountId, search);
+    connect(search, &FolderSearch::progressChanged, this, &MainWindow::scheduleMessageListStatus);
+    connect(search, &FolderSearch::folderFailed, this, [this, accountId, name](const QString &mailbox, const QString &reason) {
+        addSearchProblem(accountId, mailbox,
+                         mailbox.isEmpty() ? i18nc("@info account name, reason", "%1: %2", name, reason)
+                                           : i18nc("@info account name, folder, reason", "%1, %2: %3", name, mailbox, reason));
+    });
+    connect(search, &FolderSearch::finished, this, [this, accountId]() { folderSearchFinished(accountId); });
+    m_unifiedModel->setAccountSource(accountId, name, search->results());
+    search->start(mailboxes, allFolders, m_searchConditions);
+}
+
+void MainWindow::addSearchProblem(const QString &accountId, const QString &mailbox, const QString &text)
+{
+    m_searchProblems.append({accountId, mailbox, text});
+    scheduleMessageListStatus();
+}
+
+bool MainWindow::isSearchAcrossRunning() const
+{
+    return std::any_of(m_folderSearches.cbegin(), m_folderSearches.cend(),
+                       [](const QPointer<Imap::Mailbox::FolderSearch> &search) { return search && search->isRunning(); });
+}
+
+void MainWindow::stopSearchAcross()
+{
+    if (!m_searchAcross || !isSearchAcrossRunning())
+        return;
+    for (auto it = m_folderSearches.cbegin(); it != m_folderSearches.cend(); ++it) {
+        Imap::Mailbox::FolderSearch *search = it.value();
+        if (!search || !search->isRunning())
+            continue;
+        search->cancel();
+        reselectShownFolder(m_accountAccess.value(it.key()));
+    }
+    m_searchStopped = true;
+    folderSearchFinished(QString());
+}
+
+void MainWindow::retrySearchAcross()
+{
+    if (!m_searchAcross || isSearchAcrossRunning() || m_searchProblems.isEmpty())
+        return;
+    const QList<SearchProblem> problems = std::exchange(m_searchProblems, {});
+    if (m_notificationBar && m_notificationBar->isVisible() && m_notificationBar->text() == m_searchProblemsNotice)
+        m_notificationBar->dismiss();
+    m_searchStopped = false;
+    for (const UiUtils::SearchScope::AccountFolders &planned : std::as_const(m_searchPlan)) {
+        bool whole = false;
+        QStringList mailboxes;
+        for (const SearchProblem &problem : problems) {
+            if (problem.accountId != planned.accountId)
+                continue;
+            if (problem.mailbox.isEmpty())
+                whole = true;
+            else if (!mailboxes.contains(problem.mailbox))
+                mailboxes << problem.mailbox;
+        }
+        if (whole)
+            searchAccount(planned.accountId, planned.mailboxes, planned.allFolders, true);
+        else if (!mailboxes.isEmpty())
+            searchAccount(planned.accountId, mailboxes, false, true);
+    }
+    updateUnifiedStates();
+    updateMessageListScope();
+    scheduleMessageListStatus();
+    if (!isSearchAcrossRunning())
+        folderSearchFinished(QString());
+}
+
+QString MainWindow::searchProgressDetails() const
+{
+    QStringList lines;
+    for (const UiUtils::SearchScope::AccountFolders &planned : std::as_const(m_searchPlan)) {
+        const QString name = m_accounts->displayName(planned.accountId);
+        const Imap::Mailbox::FolderSearch *search = m_folderSearches.value(planned.accountId);
+        const bool failed = std::any_of(m_searchProblems.cbegin(), m_searchProblems.cend(), [&](const SearchProblem &problem) {
+            return problem.accountId == planned.accountId && problem.mailbox.isEmpty();
+        });
+        if (!search) {
+            lines << i18nc("@info:tooltip account name", "%1: could not be searched", name);
+            continue;
+        }
+        const int found = search->results()->rowCount();
+        const int folders = search->folderCount();
+        const int searched = search->searchedCount();
+        if (search->isRunning()) {
+            const QString folder = search->currentFolder();
+            lines << (folder.isEmpty()
+                          ? i18nc("@info:tooltip account name", "%1: listing folders", name)
+                          : i18nc("@info:tooltip account name, folder name, folders done, all folders, messages found",
+                                  "%1: searching %2, %3 of %4 folders, %5 found", name, folder,
+                                  std::min(searched + 1, std::max(folders, 1)), std::max(folders, 1), found));
+        } else if (failed && found == 0 && searched == 0) {
+            lines << i18nc("@info:tooltip account name", "%1: could not be searched", name);
+        } else if (m_searchStopped && searched < folders) {
+            lines << i18nc("@info:tooltip account name, folders done, all folders, messages found",
+                           "%1: stopped after %2 of %3 folders, %4 found", name, searched, folders, found);
+        } else {
+            lines << i18ncp("@info:tooltip %2 is an account name, %1 the messages found",
+                            "%2: %1 found", "%2: %1 found", found, name);
+        }
+    }
+    if (!m_searchProblems.isEmpty()) {
+        lines << i18nc("@info:tooltip followed by places and reasons, one per line", "Could not be searched:");
+        for (const SearchProblem &problem : std::as_const(m_searchProblems))
+            lines << problem.text;
+    }
+    return lines.join(QLatin1Char('\n'));
+}
+
 void MainWindow::folderSearchFinished(const QString &accountId)
 {
     if (!accountId.isEmpty())
         reselectShownFolder(m_accountAccess.value(accountId));
     scheduleMessageListStatus();
-    const bool running = std::any_of(m_folderSearches.cbegin(), m_folderSearches.cend(),
-                                     [](const QPointer<Imap::Mailbox::FolderSearch> &search) { return search && search->isRunning(); });
-    if (running || m_searchProblems.isEmpty() || !m_notificationBar)
+    if (isSearchAcrossRunning() || m_searchProblems.isEmpty() || !m_notificationBar)
         return;
-    m_notificationBar->showError(i18ncp("@info %2 is a list of places and reasons, one per line",
-                                        "This place could not be searched:\n%2",
-                                        "These places could not be searched:\n%2", m_searchProblems.size(),
-                                        m_searchProblems.join(QLatin1Char('\n'))));
+    // A long list of folders would fill the window
+    constexpr int shownProblems = 5;
+    QStringList lines;
+    for (const SearchProblem &problem : std::as_const(m_searchProblems)) {
+        if (lines.size() == shownProblems && m_searchProblems.size() > shownProblems + 1) {
+            lines << i18ncp("@info", "and %1 more", "and %1 more", int(m_searchProblems.size()) - shownProblems);
+            break;
+        }
+        lines << problem.text;
+    }
+    m_searchProblemsNotice = i18ncp("@info %2 is a list of places and reasons, one per line",
+                                    "This place could not be searched:\n%2", "These places could not be searched:\n%2",
+                                    int(m_searchProblems.size()), lines.join(QLatin1Char('\n')));
+    m_notificationBar->showError(m_searchProblemsNotice,
+                                 {{i18nc("@action:button", "Retry"), QStringLiteral("view-refresh"),
+                                   QStringLiteral("searchRetry"), [this]() { retrySearchAcross(); }}});
 }
 
 void MainWindow::leaveSearchAcross()
@@ -7461,6 +7615,11 @@ void MainWindow::leaveSearchAcross()
     m_searchAcross = false;
     m_searchProblems.clear();
     m_searchedPlaces.clear();
+    m_searchConditions.clear();
+    m_searchPlan.clear();
+    m_searchStopped = false;
+    if (m_notificationBar && m_notificationBar->isVisible() && m_notificationBar->text() == m_searchProblemsNotice)
+        m_notificationBar->dismiss();
     if (m_unifiedModel) {
         m_unifiedModel->setShowsFolders(false);
         const QStringList listed = m_unifiedModel->accountIds();

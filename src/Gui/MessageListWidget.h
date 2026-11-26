@@ -78,8 +78,10 @@ public:
     QToolButton *addToolButton(QAction *action);
     /** @short Add a button which opens @p menu next to the quick search field */
     QToolButton *addToolMenuButton(QMenu *menu, const QIcon &icon, const QString &text);
-    /** @short Show @p text below the list, for example message counts; an empty text hides it */
-    void setListStatus(const QString &text);
+    /** @short Show @p text below the list, for example message counts, with details in @p toolTip; an empty text hides it */
+    void setListStatus(const QString &text, const QString &toolTip = QString());
+    /** @short Add a button for @p action after the status below the list; it is shown while the action is visible */
+    QToolButton *addStatusButton(QAction *action);
     /** @short Show which account and folder the list belongs to next to the status; an empty folder hides it */
     void setScope(const QString &account, const QString &folder, const QString &fullFolderName);
     /** @short Show @p text as the scope instead of an account and a folder, with @p toolTip describing it */
@@ -133,6 +135,8 @@ private:
     void showDateRange();
     /** A short description of where the search looks, such as "All Accounts" */
     QString placesText() const;
+    /** Shows the row below the list while it has anything to show */
+    void updateStatusRow();
 
     LineEdit *m_quickSearchText;
     /** The quick search field and the buttons next to it */
@@ -141,6 +145,8 @@ private:
     /** Account and folder of the list, in the row of the status */
     QLabel *m_scope;
     QWidget *m_statusRow;
+    QHBoxLayout *m_statusLayout;
+    QList<QToolButton *> m_statusButtons;
     QAction *m_searchOptions;
     QAction *m_searchInSubject;
     QAction *m_searchInBody;

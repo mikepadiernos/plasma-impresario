@@ -21,6 +21,7 @@
 */
 
 #include "MessageListWidget.h"
+#include <algorithm>
 #include <KConfigGroup>
 #include <KLocalizedString>
 #include <KSharedConfig>
@@ -287,11 +288,11 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     m_scope->setContentsMargins(margin, margin / 2, 0, margin / 2);
     m_scope->hide();
     m_listStatus->setParent(m_statusRow);
-    auto *statusLayout = new QHBoxLayout(m_statusRow);
-    statusLayout->setSpacing(0);
-    statusLayout->setContentsMargins(0, 0, 0, 0);
-    statusLayout->addWidget(m_scope);
-    statusLayout->addWidget(m_listStatus, 1);
+    m_statusLayout = new QHBoxLayout(m_statusRow);
+    m_statusLayout->setSpacing(0);
+    m_statusLayout->setContentsMargins(0, 0, 0, 0);
+    m_statusLayout->addWidget(m_scope);
+    m_statusLayout->addWidget(m_listStatus, 1);
     m_statusRow->hide();
 
     QVBoxLayout *layout = new QVBoxLayout(this);
@@ -403,11 +404,40 @@ QToolButton *MessageListWidget::addToolMenuButton(QMenu *menu, const QIcon &icon
     return button;
 }
 
-void MessageListWidget::setListStatus(const QString &text)
+QToolButton *MessageListWidget::addStatusButton(QAction *action)
+{
+    auto *button = new QToolButton(m_statusRow);
+    button->setDefaultAction(action);
+    button->setAutoRaise(true);
+    button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    button->setAccessibleName(KLocalizedString::removeAcceleratorMarker(action->text()));
+    button->setAccessibleDescription(action->toolTip());
+    button->setVisible(action->isVisible());
+    connect(action, &QAction::changed, button, [this, button, action]() {
+        if (button->isHidden() == action->isVisible()) {
+            button->setVisible(action->isVisible());
+            updateStatusRow();
+        }
+    });
+    m_statusLayout->addWidget(button);
+    m_statusButtons << button;
+    updateStatusRow();
+    return button;
+}
+
+void MessageListWidget::updateStatusRow()
+{
+    const bool buttons = std::any_of(m_statusButtons.cbegin(), m_statusButtons.cend(),
+                                     [](const QToolButton *button) { return !button->isHidden(); });
+    m_statusRow->setVisible(!m_scope->isHidden() || !m_listStatus->isHidden() || buttons);
+}
+
+void MessageListWidget::setListStatus(const QString &text, const QString &toolTip)
 {
     m_listStatus->setText(text);
+    m_listStatus->setToolTip(toolTip);
     m_listStatus->setVisible(!text.isEmpty());
-    m_statusRow->setVisible(!m_scope->isHidden() || !m_listStatus->isHidden());
+    updateStatusRow();
 }
 
 void MessageListWidget::setScope(const QString &account, const QString &folder, const QString &fullFolderName)
@@ -423,7 +453,7 @@ void MessageListWidget::setScope(const QString &account, const QString &folder, 
         m_scope->setAccessibleName(i18nc("@info:accessible", "Showing folder %1 of account %2", folder, account));
         m_scope->show();
     }
-    m_statusRow->setVisible(!m_scope->isHidden() || !m_listStatus->isHidden());
+    updateStatusRow();
 }
 
 void MessageListWidget::setCustomScope(const QString &text, const QString &toolTip)
@@ -432,7 +462,7 @@ void MessageListWidget::setCustomScope(const QString &text, const QString &toolT
     m_scope->setToolTip(toolTip);
     m_scope->setAccessibleName(text);
     m_scope->setVisible(!text.isEmpty());
-    m_statusRow->setVisible(!m_scope->isHidden() || !m_listStatus->isHidden());
+    updateStatusRow();
 }
 
 void MessageListWidget::setSearchAvailable(bool available)

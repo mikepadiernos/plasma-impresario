@@ -100,12 +100,24 @@ bool FolderSearch::isRunning() const
 
 void FolderSearch::start(const QStringList &mailboxes, bool allFolders, const QStringList &conditions)
 {
+    m_conditions = conditions;
+    begin(mailboxes, allFolders, false);
+}
+
+void FolderSearch::retry(const QStringList &mailboxes, bool allFolders)
+{
+    begin(mailboxes, allFolders, true);
+}
+
+void FolderSearch::begin(const QStringList &mailboxes, bool allFolders, bool keepResults)
+{
     cancel();
-    m_results->clear();
+    if (!keepResults)
+        m_results->clear();
     m_failures.clear();
+    m_searchedAgain.clear();
     m_requested = UiUtils::SearchScope::searchOrder(mailboxes);
     m_allFolders = allFolders;
-    m_conditions = conditions;
     m_queue.clear();
     m_current.clear();
     m_folderCount = allFolders ? 0 : int(m_requested.size());
@@ -291,6 +303,7 @@ void FolderSearch::searchNext()
             continue;
         }
         const quint64 generation = m_generation;
+        m_currentMailbox = mailbox->toIndex(m_model);
         m_task = m_model->m_taskFactory->createSortTask(m_model, mailbox->toIndex(m_model), m_conditions, QStringList());
         connect(m_task.data(), &SortTask::sortingAvailable, this, [this, generation](const Imap::Uids &uids) {
             searchAnswered(generation, uids);
@@ -367,7 +380,13 @@ void FolderSearch::searchFailed(quint64 generation, const QString &reason)
         return;
     m_deadline.stop();
     stopTask();
-    fail(m_current, reason.isEmpty() ? tr("The server refused the search") : reason);
+    if (!m_currentMailbox.isValid() && !m_searchedAgain.contains(m_current)) {
+        // The folders were listed again while this one was opened, for example after reconnecting, which replaced it
+        m_searchedAgain.insert(m_current);
+        m_queue.prepend(m_current);
+    } else {
+        fail(m_current, reason.isEmpty() ? tr("The server refused the search") : reason);
+    }
     const quint64 current = m_generation;
     QMetaObject::invokeMethod(this, [this, current]() {
         if (current == m_generation)

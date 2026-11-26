@@ -44,6 +44,7 @@
 #include "UiUtils/DestructiveActions.h"
 #include "UiUtils/QuickFilters.h"
 #include "UiUtils/RecentFolders.h"
+#include "UiUtils/SearchScope.h"
 #include "UiUtils/ShortcutOverview.h"
 #include "UiUtils/ViewStateStore.h"
 #include "MessageActionHandler.h"
@@ -632,6 +633,20 @@ private:
     /** @short Stop searching several folders and show the list from before the search */
     void leaveSearchAcross();
     void cancelFolderSearches();
+    /** @short Search @p mailboxes, or all folders, of @p accountId for the shown results, or report why it cannot be
+
+    With @p retrying, the places are searched again and the results found before stay; an account which lost its
+    connection is asked to connect first.
+    */
+    void searchAccount(const QString &accountId, const QStringList &mailboxes, bool allFolders, bool retrying);
+    void addSearchProblem(const QString &accountId, const QString &mailbox, const QString &text);
+    bool isSearchAcrossRunning() const;
+    /** @short Stop the running searches and keep the results found so far */
+    void stopSearchAcross();
+    /** @short Search the places which could not be searched again */
+    void retrySearchAcross();
+    /** @short Progress of each account, for the tooltip of the status */
+    QString searchProgressDetails() const;
     void folderSearchFinished(const QString &accountId);
     /** @short Ask which folders the quick search looks at */
     void chooseSearchFolders();
@@ -923,8 +938,23 @@ private:
     QHash<QString, QPointer<Imap::Mailbox::FolderSearch>> m_folderSearches;
     /** The searched places, for the tooltip of the list */
     QStringList m_searchedPlaces;
-    /** Accounts and folders which could not be searched, one description each */
-    QStringList m_searchProblems;
+    struct SearchProblem {
+        QString accountId;
+        /** Full mailbox name, or empty when the account could not be searched at all */
+        QString mailbox;
+        QString text;
+    };
+    /** Accounts and folders which could not be searched */
+    QList<SearchProblem> m_searchProblems;
+    /** The conditions and the places of the shown results, for searching places again */
+    QStringList m_searchConditions;
+    QList<UiUtils::SearchScope::AccountFolders> m_searchPlan;
+    /** The user stopped the search before all places were searched */
+    bool m_searchStopped = false;
+    /** The notification which lists the places which could not be searched */
+    QString m_searchProblemsNotice;
+    QAction *m_actionStopSearch = nullptr;
+    QAction *m_actionRetrySearch = nullptr;
     /** While an action works on messages of another account than the shown one */
     Imap::ImapAccess *m_actingAccess = nullptr;
     QString m_actingAccountId;
