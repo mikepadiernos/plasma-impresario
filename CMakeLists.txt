@@ -332,6 +332,7 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/Relevance.cpp
     ${path_UiUtils}/SearchBuilder.cpp
     ${path_UiUtils}/SearchQuery.cpp
+    ${path_UiUtils}/SearchFacets.cpp
     ${path_UiUtils}/SearchScope.cpp
     ${path_UiUtils}/SavedSearches.cpp
     ${path_UiUtils}/SearchSuggestions.cpp

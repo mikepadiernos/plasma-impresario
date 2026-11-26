@@ -29,6 +29,7 @@
 #include <optional>
 #include "Imap/Model/MailboxModel.h"
 #include "Imap/Model/FavoriteTagsModel.h"
+#include "UiUtils/SearchFacets.h"
 
 namespace Imap
 {
@@ -48,6 +49,8 @@ when the data arrive:
   mailbox was opened stays shown after it has been read, until another mailbox is opened.
 - Flagged: a message without known flags is not flagged, so it is hidden until its flags say otherwise.
 - With attachments: a message whose structure has not been fetched yet is shown.
+
+The facets set by setFacets() narrow the list further, in the same way as the quick filters.
 
 When the messages are shown in threads, a thread is shown as a whole when any of its messages matches.
 
@@ -84,6 +87,14 @@ public:
     Filters filters() const;
     void setFilters(Filters filters);
     void setFilterEnabled(Filter filter, bool enabled);
+    /** @short Narrow the list to the messages which @p facets keep */
+    void setFacets(const UiUtils::SearchFacets &facets);
+    UiUtils::SearchFacets facets() const;
+    /** @short Messages which the quick filters keep, as indexes of the source model, whatever the facets
+
+    These are what the facets are counted among, including every message of a thread.
+    */
+    QModelIndexList facetCandidates() const;
     /** @short Keep @p index shown even if it stops matching the filters; accepts an index of this or the source model */
     void setKeptVisibleIndex(const QModelIndex &index);
     /** @short The message kept visible, as an index of the source model */
@@ -111,8 +122,11 @@ private:
     bool messageMatches(const QModelIndex &sourceIndex) const;
     bool subtreeMatches(const QModelIndex &sourceIndex) const;
     void refilter(Filters filters);
+    /** @short Whether the quick filters or the facets hide anything */
+    bool isFiltering() const;
 
     Filters m_filters;
+    UiUtils::SearchFacets m_facets;
     QPersistentModelIndex m_keptVisible;
     QStringList m_relevanceTerms;
     /** Scores of loaded messages by UID; their envelope does not change */

@@ -513,6 +513,50 @@ PrettyMsgListModel::Filters PrettyUnifiedMsgListModel::filters() const
     return m_filters;
 }
 
+void PrettyUnifiedMsgListModel::setFacets(const UiUtils::SearchFacets &facets)
+{
+    if (facets == m_facets) {
+        m_facets.setContext(facets.context());
+        return;
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    beginFilterChange();
+    m_facets = facets;
+    endFilterChange(QSortFilterProxyModel::Direction::Rows);
+#else
+    m_facets = facets;
+    invalidateFilter();
+#endif
+}
+
+UiUtils::SearchFacets PrettyUnifiedMsgListModel::facets() const
+{
+    return m_facets;
+}
+
+QModelIndexList PrettyUnifiedMsgListModel::facetCandidates() const
+{
+    QModelIndexList result;
+    if (!sourceModel())
+        return result;
+    for (int row = 0, rows = sourceModel()->rowCount(); row < rows; ++row) {
+        const QModelIndex message = sourceModel()->index(row, 0);
+        if (PrettyMsgListModel::matchesFilters(message, m_filters) || (m_keptVisible.isValid() && m_keptVisible == message))
+            result.append(message);
+    }
+    return result;
+}
+
+bool PrettyUnifiedMsgListModel::isFiltering() const
+{
+    return m_filters != PrettyMsgListModel::NoFilter || !m_facets.isEmpty();
+}
+
+bool PrettyUnifiedMsgListModel::matches(const QModelIndex &message) const
+{
+    return PrettyMsgListModel::matchesFilters(message, m_filters) && (m_facets.isEmpty() || m_facets.matches(message));
+}
+
 void PrettyUnifiedMsgListModel::setKeptVisibleIndex(const QModelIndex &index)
 {
     QModelIndex source = index.model() == this ? mapToSource(index) : index;
@@ -525,8 +569,7 @@ void PrettyUnifiedMsgListModel::setKeptVisibleIndex(const QModelIndex &index)
     const QPersistentModelIndex previous = m_keptVisible;
     m_keptVisible = source;
     // The message shown before may stop matching once it is no longer kept
-    if (previous.isValid() && m_filters != PrettyMsgListModel::NoFilter
-        && !PrettyMsgListModel::matchesFilters(previous, m_filters))
+    if (previous.isValid() && isFiltering() && !matches(previous))
         refilter(m_filters);
 }
 
@@ -584,12 +627,12 @@ QVariant PrettyUnifiedMsgListModel::data(const QModelIndex &index, int role) con
 
 bool PrettyUnifiedMsgListModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const
 {
-    if (m_filters == PrettyMsgListModel::NoFilter)
+    if (!isFiltering())
         return true;
     const QModelIndex message = sourceModel()->index(sourceRow, 0, sourceParent);
     if (m_keptVisible.isValid() && m_keptVisible.row() == message.row() && m_keptVisible.model() == message.model())
         return true;
-    return PrettyMsgListModel::matchesFilters(message, m_filters);
+    return matches(message);
 }
 
 bool PrettyUnifiedMsgListModel::lessThan(const QModelIndex &left, const QModelIndex &right) const

@@ -238,6 +238,50 @@ void PrettyMsgListModel::setFilterEnabled(Filter filter, bool enabled)
     setFilters(enabled ? m_filters | filter : m_filters & ~Filters(filter));
 }
 
+void PrettyMsgListModel::setFacets(const UiUtils::SearchFacets &facets)
+{
+    if (facets == m_facets) {
+        m_facets.setContext(facets.context());
+        return;
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    beginFilterChange();
+    m_facets = facets;
+    endFilterChange(QSortFilterProxyModel::Direction::Rows);
+#else
+    m_facets = facets;
+    invalidateFilter();
+#endif
+}
+
+UiUtils::SearchFacets PrettyMsgListModel::facets() const
+{
+    return m_facets;
+}
+
+QModelIndexList PrettyMsgListModel::facetCandidates() const
+{
+    QModelIndexList result;
+    if (!sourceModel())
+        return result;
+    QModelIndexList pending;
+    for (int row = sourceModel()->rowCount() - 1; row >= 0; --row)
+        pending.append(sourceModel()->index(row, 0));
+    while (!pending.isEmpty()) {
+        const QModelIndex item = pending.takeLast();
+        if (matchesFilters(item, m_filters) || (m_keptVisible == item && item.data(RoleIsFetched).isValid()))
+            result.append(item);
+        for (int row = sourceModel()->rowCount(item) - 1; row >= 0; --row)
+            pending.append(sourceModel()->index(row, 0, item));
+    }
+    return result;
+}
+
+bool PrettyMsgListModel::isFiltering() const
+{
+    return m_filters != NoFilter || !m_facets.isEmpty();
+}
+
 void PrettyMsgListModel::refilter(Filters filters)
 {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
@@ -262,7 +306,7 @@ void PrettyMsgListModel::setKeptVisibleIndex(const QModelIndex &index)
 
     const QModelIndex previous = m_keptVisible;
     m_keptVisible = source;
-    if (m_filters == NoFilter)
+    if (!isFiltering())
         return;
 
     const auto topOf = [](QModelIndex index) {
@@ -283,7 +327,7 @@ QModelIndex PrettyMsgListModel::keptVisibleIndex() const
 
 bool PrettyMsgListModel::messageMatches(const QModelIndex &sourceIndex) const
 {
-    return matchesFilters(sourceIndex, m_filters);
+    return matchesFilters(sourceIndex, m_filters) && (m_facets.isEmpty() || m_facets.matches(sourceIndex));
 }
 
 bool PrettyMsgListModel::matchesFilters(const QModelIndex &sourceIndex, const Filters filters)
@@ -339,7 +383,7 @@ int PrettyMsgListModel::visibleMessageCount() const
 
 bool PrettyMsgListModel::filterAcceptsRow(int source_row, const QModelIndex &source_parent) const
 {
-    if (m_filters == NoFilter)
+    if (!isFiltering())
         return true;
 
     // A thread is shown as a whole once its root has been accepted

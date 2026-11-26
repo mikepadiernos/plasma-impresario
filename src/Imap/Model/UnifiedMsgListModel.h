@@ -157,6 +157,11 @@ public:
 
     void setFilters(PrettyMsgListModel::Filters filters);
     PrettyMsgListModel::Filters filters() const;
+    /** @short Narrow the list to the messages which @p facets keep, as PrettyMsgListModel does */
+    void setFacets(const UiUtils::SearchFacets &facets);
+    UiUtils::SearchFacets facets() const;
+    /** @short Messages which the quick filters keep, as indexes of the source model, whatever the facets */
+    QModelIndexList facetCandidates() const;
     /** @short Keep @p index shown even if it stops matching the filters; accepts an index of this or the source model */
     void setKeptVisibleIndex(const QModelIndex &index);
     /** @short Number of messages shown, not counting rows of messages which are not known yet */
@@ -175,7 +180,11 @@ protected:
 private:
     void refilter(PrettyMsgListModel::Filters filters);
 
+    bool isFiltering() const;
+    bool matches(const QModelIndex &message) const;
+
     PrettyMsgListModel::Filters m_filters = PrettyMsgListModel::NoFilter;
+    UiUtils::SearchFacets m_facets;
     QPersistentModelIndex m_keptVisible;
     QStringList m_relevanceTerms;
 };
