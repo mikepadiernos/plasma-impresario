@@ -749,6 +749,25 @@ Plasma session; that check is
   indexed matches are dropped, the results are marked as possibly incomplete,
   and the tooltip names the folder
   ([#343](https://github.com/mikepadiernos/plasma-impresario/issues/343)).
+- ![Resolved][resolved] Unchecking a folder in **Application › Offline Search
+  Index…** keeps it out of the index: its indexed text is removed at once, it
+  is shown as **Excluded**, and the choice is kept for the account. Offline
+  searches skip it and say so in the tooltip; online, **Search Server**
+  searches it on the server
+  ([#344](https://github.com/mikepadiernos/plasma-impresario/issues/344)).
+- ![Resolved][resolved] Decrypted text is indexed only after **Also index the
+  decrypted text of encrypted messages I open**, in the account's **Offline**
+  settings, is turned on; it is off by default. The text and HTML parts of an
+  opened message are added once it is decrypted, never its attachments, and
+  turning the option off removes them from the index. The index dialog counts
+  the messages that hold decrypted text
+  ([#344](https://github.com/mikepadiernos/plasma-impresario/issues/344)).
+- ![Resolved][resolved] **Delete Index…** in the index dialog asks first,
+  then deletes the account's index from the offline cache and turns offline
+  search off, keeping the mail. Turning the option off, choosing **Don't use
+  cache**, or removing the account also deletes the index; removing an
+  account says so and warns when its files cannot be deleted
+  ([#344](https://github.com/mikepadiernos/plasma-impresario/issues/344)).
 - ![Limitation][limitation] The server compares the calendar day in each
   message's Date header, in the sender's time zone, because IMAP's `SENTSINCE`
   and `SENTBEFORE` disregard the time and zone. The list shows local time, so a
@@ -815,9 +834,18 @@ Plasma session; that check is
   ASCII letters only. Each message's text is cut at 512K characters.
 - ![Limitation][limitation] The index keeps the text of a message's text
   parts only. The text of attached messages and files is not indexed, only
-  their names; inline PGP text is indexed as the encrypted text it is, and
-  decrypted text is never indexed. `has:attachment` follows the top-level
-  type, as on the server.
+  their names. `has:attachment` follows the top-level type, as on the server.
+- ![Limitation][limitation] Decrypted text is added only when a message is
+  opened and decrypted in the reader with the option on; messages decrypted
+  earlier are not added until they are opened again. Inline PGP is indexed as
+  the encrypted text it is, because the reader does not decrypt it for the
+  index. A message whose decryption fails adds nothing
+  ([#344](https://github.com/mikepadiernos/plasma-impresario/issues/344)).
+- ![Limitation][limitation] The index is not encrypted. Its text, including
+  decrypted text when that option is on, can be read by anyone who can read
+  the account's cache files, as the cached mail can. The connection log, when
+  turned on, records what the server sends, whatever is excluded from the
+  index ([#344](https://github.com/mikepadiernos/plasma-impresario/issues/344)).
 - ![Limitation][limitation] Flags are as of the last time the account was
   online. A search key the index does not keep, such as `FUZZY`, a raw
   header other than the list and type headers, or a modification sequence,
@@ -827,10 +855,14 @@ Plasma session; that check is
   covers the messages the index already holds, so a folder has to be opened
   online once first. The index catches up about half a minute after new mail
   or flag changes arrive, or a message is read.
-- ![Limitation][limitation] Turning the index off empties its tables; their
-  empty definitions can stay in the cache until it is cleared. Folder
-  exclusions follow in
-  [#344](https://github.com/mikepadiernos/plasma-impresario/issues/344).
+- ![Limitation][limitation] Deleting the index removes its text from the
+  cache database but does not overwrite the freed space, and the database file
+  stays the same size until SQLite reuses it. Should SQLite refuse to remove
+  the emptied tables, their definitions stay until the next deletion. Online,
+  a search of several places skips an excluded folder until **Search Server**
+  is pressed. Turning decrypted indexing off while indexing is paused leaves
+  those messages out of the index until **Resume**
+  ([#344](https://github.com/mikepadiernos/plasma-impresario/issues/344)).
 - ![Limitation][limitation] **Offline Search Index…** shows the shown account
   only, and lists only the folders its offline cache knows. A folder is
   **Partly indexed** while some of its cached messages have no headers on this
@@ -941,6 +973,10 @@ Plasma session; that check is
   clear.
 - Online, press **Search Server** when an indexed search misses older or
   undownloaded mail, or reports a renumbered folder.
+- Leave decrypted indexing off unless the disk is encrypted, and exclude
+  folders whose text should not be copied into the index. To free the space
+  as well, remove the account, which deletes its cache files, and add it
+  again.
 
 **Proposed improvements:**
 
@@ -989,6 +1025,10 @@ Plasma session; that check is
   folder tree.
 - Fold the case of non-ASCII letters in short terms, index the text of
   attached messages, and fetch every text part on request.
+- Offer **Clear Offline Cache** to remove an account's cached mail and index
+  together and shrink the file, encrypt the index with a key kept in KWallet,
+  and decrypt inline PGP for the index when the option is on
+  ([#344](https://github.com/mikepadiernos/plasma-impresario/issues/344)).
 
 ## Before reporting results
 
@@ -1013,7 +1053,7 @@ Plasma session; that check is
 | SMTP transport    | Supports cleartext, STARTTLS and dedicated TLS. Certificate errors prompt the user in the composer; an accepted public key is remembered per account and forgotten when the SMTP host changes. A key accepted for the same host by any account, over IMAP or SMTP, is accepted without asking.                                                     | Cleartext is selectable. Certificates the system trusts are accepted without remembering their key, so only the system's policy applies to them. There is no way yet to review or forget accepted keys.                  |
 | Credentials       | The password-plugin interface supports retrieval, storage and deletion. QtKeychain can provide encrypted storage when built and selected, and is the default for new profiles. Each account keeps its own stored passwords, which are deleted when the account is removed.                                                                         | QtKeychain is optional. Profiles that already have saved cleartext passwords keep the cleartext plugin, which stores IMAP/SMTP secrets in `QSettings`.                                                                   |
 | Message rendering | The reader uses a private profile per message, disables scripts, plugins and persistent storage, blocks local-file and remote requests by default, and delegates permitted external links. Remote images require explicit per-message consent. Switching messages destroys the profile, discarding loaded content and cancelling pending requests. | Renderer behavior has not been smoke-tested in a live Plasma session or across the documented distribution matrix.                                                                                                       |
-| Cached data       | Persistent SQL cache can hold message metadata and fetched parts; cache directory permissions are restricted on supported Unix systems.                                                                                                                                                                                                            | Application-level cache encryption is not present. Directory permissions do not protect mail from a compromised account or unencrypted disk. Removing an account deletes its cache files without overwriting them first. |
+| Cached data       | Persistent SQL cache can hold message metadata and fetched parts; cache directory permissions are restricted on supported Unix systems.                                                                                                                                                                                                            | Application-level cache encryption is not present, and the offline search index, with decrypted text when chosen, is stored unencrypted in the cache. Directory permissions do not protect mail from a compromised account or unencrypted disk. Removing an account deletes its cache files without overwriting them first. |
 | OpenPGP           | Optional GpgME++/Mimetic MIME handling and decryption tests are present.                                                                                                                                                                                                                                                                           | Availability depends on build options; complete signature-status UX and verification policy are not established.                                                                                                         |
 | Diagnostics       | Persistent protocol logging is opt-in at startup; an in-app protocol log is available.                                                                                                                                                                                                                                                             | Treat protocol logs as sensitive and review them before sharing.                                                                                                                                                         |
 

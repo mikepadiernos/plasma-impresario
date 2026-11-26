@@ -348,7 +348,9 @@ folder's context menu asks before fetching the text of messages that lack it.
 While the account is offline, searches are answered from the index and the
 status line says so, warning when results may be incomplete. **Application ›
 Offline Search Index…** shows which folders are confirmed as indexed, the
-progress of an update, and lets you pause, resume or rebuild the index.
+progress of an update, and lets you pause, resume, rebuild or delete the
+index, and uncheck folders to keep them out of it. Decrypted text of
+encrypted messages is indexed only if you choose to, when you open them.
 Turning the option off deletes the index.
 
 Online, a search of several places or of the Unified Inbox is answered from
