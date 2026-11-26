@@ -543,6 +543,8 @@ void MainWindow::defineActions()
     shortcutHandler->defineAction(QStringLiteral("action_next_account"), QString(), tr("Switch to Next Account"), QStringLiteral("Ctrl+Alt+PgDown"));
     shortcutHandler->defineAction(QStringLiteral("action_previous_account"), QString(), tr("Switch to Previous Account"), QStringLiteral("Ctrl+Alt+PgUp"));
     shortcutHandler->defineAction(QStringLiteral("action_focus_quick_search"), QString(), tr("Move Focus to Quick Search"), QStringLiteral("/"));
+    shortcutHandler->defineAction(QStringLiteral("action_search_builder"), QStringLiteral("edit-find"),
+                                  i18nc("@action", "&Search Builder..."), QStringLiteral("Ctrl+Shift+B"));
     shortcutHandler->defineAction(QStringLiteral("action_go_to_folder"), QStringLiteral("go-jump"), i18nc("@action", "Go to &Folder..."), QStringLiteral("Ctrl+J"));
     shortcutHandler->defineAction(QStringLiteral("action_go_to_next_unread_folder"), QStringLiteral("go-next"),
                                   i18nc("@action", "Go to Next &Unread Folder"), QStringLiteral("Ctrl+Alt+N"));
@@ -704,6 +706,8 @@ void MainWindow::createActions()
 
     addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_focus_quick_search"),
             msgListWidget, SLOT(focusSearch()), this));
+    m_searchBuilder = ShortcutHandler::instance()->createAction(QStringLiteral("action_search_builder"), msgListWidget,
+            SLOT(openSearchBuilder()), this);
 
     addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_focus_mailbox_tree"), mboxTree,
             SLOT(setFocus()), this));
@@ -1511,6 +1515,7 @@ void MainWindow::createMenus()
         ADD_ACTION(mailboxMenu, m_goToNextUnreadFolder);
         ADD_ACTION(mailboxMenu, m_checkMail);
         mailboxMenu->addSeparator();
+        ADD_ACTION(mailboxMenu, m_searchBuilder);
         QMenu *sortMenu = mailboxMenu->addMenu(tr("S&orting"));
             ADD_ACTION(sortMenu, m_actionSortNone);
             ADD_ACTION(sortMenu, m_actionSortThreading);

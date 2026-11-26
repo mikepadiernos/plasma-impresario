@@ -51,6 +51,7 @@
 #include "LineEdit.h"
 #include "MsgListView.h"
 #include "ReplaceCharValidator.h"
+#include "SearchBuilderDialog.h"
 #include "Util.h"
 #include "UiUtils/IconLoader.h"
 #include "UiUtils/QuickFilters.h"
@@ -160,6 +161,11 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     m_searchOptions->setToolTip(tr("Options for the IMAP search..."));
     QMenu *optionsMenu = new QMenu(this);
     m_searchOptions->setMenu(optionsMenu);
+    QAction *searchBuilder = optionsMenu->addAction(UiUtils::loadIcon(QStringLiteral("edit-find")),
+                                                    i18nc("@action", "Search Builder..."));
+    searchBuilder->setObjectName(QStringLiteral("searchBuilder"));
+    connect(searchBuilder, &QAction::triggered, this, &MessageListWidget::openSearchBuilder);
+    optionsMenu->addSeparator();
     m_searchFuzzy = optionsMenu->addAction(tr("Fuzzy Search"));
     m_searchFuzzy->setCheckable(true);
     optionsMenu->addSeparator();
@@ -727,6 +733,27 @@ void MessageListWidget::focusSearch()
     if (!m_quickSearchText->isEnabled() || m_quickSearchText->hasFocus())
         return;
     m_quickSearchText->setFocus(Qt::ShortcutFocusReason);
+}
+
+void MessageListWidget::openSearchBuilder()
+{
+    if (!m_quickSearchText->isEnabled())
+        return;
+    auto *dialog = new SearchBuilderDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    const QString text = m_quickSearchText->text();
+    if (m_rawSearch->isChecked() && text.startsWith(QLatin1String(":="))) {
+        dialog->explainQuery(i18nc("@info", "Raw IMAP queries cannot be opened in the builder. The query you build "
+                                            "replaces the raw query."));
+    } else {
+        dialog->setQuery(text);
+    }
+    connect(dialog, &QDialog::accepted, this, [this, dialog]() {
+        m_quickSearchText->setText(dialog->query());
+        m_searchResetTimer->stop();
+        slotApplySearch();
+    });
+    dialog->open();
 }
 
 void MessageListWidget::focusRawSearch()

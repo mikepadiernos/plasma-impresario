@@ -321,6 +321,7 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/RelatedMessages.cpp
     ${path_UiUtils}/RelatedSearch.cpp
     ${path_UiUtils}/Relevance.cpp
+    ${path_UiUtils}/SearchBuilder.cpp
     ${path_UiUtils}/SearchQuery.cpp
     ${path_UiUtils}/SearchScope.cpp
     ${path_UiUtils}/SelectionAfterRemoval.cpp
@@ -440,6 +441,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/LineEdit.cpp
     ${path_DesktopGui}/MailBoxTreeView.cpp
     ${path_DesktopGui}/MailboxPickerDialog.cpp
+    ${path_DesktopGui}/SearchBuilderDialog.cpp
     ${path_DesktopGui}/SearchFoldersDialog.cpp
     ${path_DesktopGui}/MessageActionHandler.cpp
     ${path_DesktopGui}/MessageDetailsPanel.cpp
@@ -1356,6 +1358,8 @@ if(BUILD_TESTING)
     target_link_libraries(test_UnifiedMsgListModel PRIVATE UiUtils)
     trojita_test(Misc Relevance)
     target_link_libraries(test_Relevance PRIVATE UiUtils)
+    trojita_test(Misc SearchBuilder)
+    target_link_libraries(test_SearchBuilder PRIVATE UiUtils)
     trojita_test(Misc SearchQuery)
     target_link_libraries(test_SearchQuery PRIVATE UiUtils)
     trojita_test(Misc SearchScope)

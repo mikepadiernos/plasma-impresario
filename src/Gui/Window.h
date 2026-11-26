@@ -895,6 +895,8 @@ private:
     QAction *m_actionShowOnlySubscribed;
 
     QAction *m_goToFolder;
+    /** Opens the search builder of the message list */
+    QAction *m_searchBuilder;
     QAction *m_goToNextUnreadFolder = nullptr;
     QAction *m_checkMail = nullptr;
     QTimer *m_accountUnreadTimer = nullptr;

@@ -99,6 +99,8 @@ public slots:
     /** @short Put a field filter such as "from:ann@example.org" into the quick search and apply it */
     void showFieldFilter(const QString &text);
     void focusRawSearch();
+    /** @short Build a query from conditions, starting with those of the quick search, and search for it */
+    void openSearchBuilder();
 
 signals:
     void requestingSearch(const QStringList &conditions);
