@@ -66,6 +66,28 @@ void RelevanceTest::extractsTerms_data() {
                      QStringLiteral("value"), QStringLiteral("subject")};
   QTest::newRow("dangling key")
       << QStringList{QStringLiteral("SUBJECT")} << QStringList();
+  // Text which a match must not contain is no reason to rank it higher
+  QTest::newRow("negated")
+      << QStringList{QStringLiteral("FROM"), QStringLiteral("ann"),
+                     QStringLiteral("NOT"), QStringLiteral("SUBJECT"),
+                     QStringLiteral("report")}
+      << QStringList{QStringLiteral("ann")};
+  QTest::newRow("AND inside OR")
+      << QStringList{QStringLiteral("OR"),      QStringLiteral("NOT"),
+                     QStringLiteral("OR"),      QStringLiteral("NOT"),
+                     QStringLiteral("FROM"),    QStringLiteral("ann"),
+                     QStringLiteral("NOT"),     QStringLiteral("SUBJECT"),
+                     QStringLiteral("release"), QStringLiteral("FLAGGED")}
+      << QStringList{QStringLiteral("ann"), QStringLiteral("release")};
+  QTest::newRow("negated raw group")
+      << QStringList{QStringLiteral("NOT (SUBJECT x BODY y) NOT NOT TEXT z")}
+      << QStringList{QStringLiteral("z")};
+  QTest::newRow("flag keyword and attachment")
+      << QStringList{QStringLiteral("KEYWORD"), QStringLiteral("SUBJECT"),
+                     QStringLiteral("HEADER"), QStringLiteral("Content-Type"),
+                     QStringLiteral("multipart/mixed"),
+                     QStringLiteral("SUBJECT"), QStringLiteral("plan")}
+      << QStringList{QStringLiteral("plan")};
 }
 
 void RelevanceTest::extractsTerms() {
@@ -112,6 +134,15 @@ void RelevanceTest::extractsHighlightTerm_data() {
       << QStringLiteral("say \"hi\"");
   QTest::newRow("dangling key")
       << QStringList{QStringLiteral("BODY")} << QString();
+  QTest::newRow("negated")
+      << QStringList{QStringLiteral("NOT"), QStringLiteral("SUBJECT"),
+                     QStringLiteral("report"), QStringLiteral("BODY"),
+                     QStringLiteral("budget")}
+      << QStringLiteral("budget");
+  QTest::newRow("flag keyword")
+      << QStringList{QStringLiteral("KEYWORD"), QStringLiteral("BODY"),
+                     QStringLiteral("SUBJECT"), QStringLiteral("plan")}
+      << QStringLiteral("plan");
   QTest::newRow("blank value")
       << QStringList{QStringLiteral("SUBJECT"), QStringLiteral("  "),
                      QStringLiteral("BODY"), QStringLiteral("plan")}

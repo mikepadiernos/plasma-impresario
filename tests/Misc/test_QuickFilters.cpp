@@ -130,10 +130,16 @@ void QuickFiltersTest::fieldFilterTextRoundTrips_data() {
                       << QStringLiteral("to:team@example.org");
   QTest::newRow("subject with spaces")
       << int(FieldFilter::Subject) << QStringLiteral("Release plan")
-      << QStringLiteral("subject:Release plan");
+      << QStringLiteral("subject:\"Release plan\"");
   QTest::newRow("quoted subject")
       << int(FieldFilter::Subject) << QStringLiteral("\"Hello\"")
-      << QStringLiteral("subject:\"\"Hello\"\"");
+      << QStringLiteral("subject:\"\\\"Hello\\\"\"");
+  QTest::newRow("subject with a colon")
+      << int(FieldFilter::Subject) << QStringLiteral("Agenda: Monday")
+      << QStringLiteral("subject:\"Agenda: Monday\"");
+  QTest::newRow("leading space")
+      << int(FieldFilter::Subject) << QStringLiteral(" padded")
+      << QStringLiteral("subject:\" padded\"");
   QTest::newRow("list") << int(FieldFilter::MailingList)
                         << QStringLiteral("dev@lists.example.org")
                         << QStringLiteral("list:dev@lists.example.org");
@@ -151,7 +157,7 @@ void QuickFiltersTest::fieldFilterTextRoundTrips() {
 
 void QuickFiltersTest::parsesFieldFilters() {
   auto parsed =
-      UiUtils::parseFieldFilter(QStringLiteral("  FROM:  ann@example.org "));
+      UiUtils::parseFieldFilter(QStringLiteral("  FROM:ann@example.org "));
   QCOMPARE(parsed.field, FieldFilter::From);
   QCOMPARE(parsed.value, QStringLiteral("ann@example.org"));
   parsed =
@@ -159,12 +165,16 @@ void QuickFiltersTest::parsesFieldFilters() {
   QCOMPARE(parsed.field, FieldFilter::Subject);
   QCOMPARE(parsed.value, QStringLiteral("Release plan"));
 
-  // Not a field filter: plain text, unknown keywords, a word which only starts
-  // with a keyword, no value
+  // Not a field filter: plain text, other fields, a word which only starts
+  // with a keyword, no value, more than one term or an invalid query
   for (const QString &text :
        {QStringLiteral("invoice"), QStringLiteral("cc:ann"),
         QStringLiteral("today: meeting"), QStringLiteral("from:"),
+        QStringLiteral("FROM:  ann@example.org"),
         QStringLiteral("subject: \"\""), QStringLiteral("re: plans"),
+        QStringLiteral("from:ann subject:plans"),
+        QStringLiteral("from:ann OR from:bob"), QStringLiteral("-from:ann"),
+        QStringLiteral("subject:Release plan"), QStringLiteral("(from:ann"),
         QStringLiteral(":=FROM ann"), QString()}) {
     QCOMPARE(UiUtils::parseFieldFilter(text).field, FieldFilter::None);
     QVERIFY(UiUtils::fieldFilterConditions(UiUtils::parseFieldFilter(text))

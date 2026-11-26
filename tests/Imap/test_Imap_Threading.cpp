@@ -1194,6 +1194,19 @@ void ImapModelThreadingTest::testDynamicSearch()
     cEmpty();
     QCOMPARE(treeToThreading(QModelIndex()), threading);
 
+    // A flag keyword has to be an atom, so it is not quoted although it is not alphanumeric
+    threadingModel->setUserSearchingSortingPreference(QStringList() << QStringLiteral("KEYWORD") << QStringLiteral("$label1")
+                                                                    << QStringLiteral("SUBJECT") << QStringLiteral("$label1"),
+                                                      threadingModel->currentSortCriterium(), threadingModel->currentSortOrder());
+    auto keyword = t.mk("UID SEARCH RETURN (ALL) CHARSET utf-8 KEYWORD $label1 SUBJECT \"$label1\"\r\n");
+    searchTag = t.last();
+    keyword.append(t.mk("UID THREAD REFS utf-8 KEYWORD $label1 SUBJECT \"$label1\"\r\n"));
+    cClient(keyword);
+    cServer("* ESEARCH (TAG \"" + searchTag + "\") UID ALL " + ordering + "\r\n" + t.prev("OK searched\r\n"));
+    cServer(QByteArray("* THREAD ") + threading + QByteArray("\r\n") + t.last("OK thread\r\n"));
+    cEmpty();
+    QCOMPARE(treeToThreading(QModelIndex()), threading);
+
     injector.injectCapability(QStringLiteral("CONTEXT=SEARCH"));
 
 #define letsThreadingSearchUpdate(CONDITIONS, ORDERING, THREADING) \

@@ -1246,7 +1246,7 @@ private slots:
         QVERIFY(QMetaObject::invokeMethod(&window, "updateRelatedActions"));
         QSignalSpy searches(list, &Gui::MessageListWidget::requestingSearch);
         action(QStringLiteral("action_show_related_subject"))->trigger();
-        QCOMPARE(search->text(), QStringLiteral("subject:Release plan"));
+        QCOMPARE(search->text(), QStringLiteral("subject:\"Release plan\""));
         QCOMPARE(list->searchConditions(), (QStringList{QStringLiteral("SUBJECT"), QStringLiteral("Release plan")}));
         QVERIFY(!searches.isEmpty());
         action(QStringLiteral("action_show_related_sender"))->trigger();

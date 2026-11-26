@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 Plasma Impresario contributors
    SPDX-License-Identifier: GPL-2.0-or-later
 */
+#include "Gui/InlineNotificationBar.h"
 #include "Gui/MessageListWidget.h"
 #include "Gui/MsgListView.h"
 #include "Gui/SearchFoldersDialog.h"
@@ -239,6 +240,91 @@ private slots:
         QCOMPARE(widget.dateRange(), preset(Dates::AnyTime));
         widget.setSearchAvailable(true);
         QVERIFY(widget.searchConditions().isEmpty());
+    }
+
+    void explainsInvalidQueries()
+    {
+        Imap::Mailbox::FavoriteTagsModel tags;
+        Gui::MessageListWidget widget(nullptr, &tags, QStringLiteral("account-q"));
+        QStandardItemModel model;
+        enableSearch(widget, model);
+        auto *query = widget.findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        auto *problem = widget.findChild<Gui::InlineNotificationBar *>(QStringLiteral("searchQueryError"));
+        auto *dayChange = widget.findChild<QTimer *>(QStringLiteral("searchDayChange"));
+        QVERIFY(query);
+        QVERIFY(problem);
+        QVERIFY(problem->isHidden());
+        QSignalSpy search(&widget, &Gui::MessageListWidget::requestingSearch);
+        const auto apply = [&widget]() { QMetaObject::invokeMethod(&widget, "slotApplySearch"); };
+
+        // Fields, operators and flags
+        query->setText(QStringLiteral("(from:ann OR from:bob) -subject:report is:unread"));
+        apply();
+        QCOMPARE(search.size(), 1);
+        QCOMPARE(search.takeFirst().at(0).toStringList(),
+                 QStringList({QStringLiteral("OR"), QStringLiteral("FROM"), QStringLiteral("ann"), QStringLiteral("FROM"),
+                              QStringLiteral("bob"), QStringLiteral("NOT"), QStringLiteral("SUBJECT"),
+                              QStringLiteral("report"), QStringLiteral("UNSEEN")}));
+        QVERIFY(problem->isHidden());
+
+        // An invalid query is explained and never reaches the server, so the list keeps the previous search
+        query->setText(QStringLiteral("from:ann foo:bar"));
+        apply();
+        QVERIFY(search.isEmpty());
+        QVERIFY(!problem->isHidden());
+        QCOMPARE(problem->kind(), Gui::InlineNotificationBar::Kind::Error);
+        QVERIFY2(problem->text().contains(QStringLiteral("\u201Cfoo\u201D")), qPrintable(problem->text()));
+        QCOMPARE(query->selectedText(), QStringLiteral("foo:bar"));
+        QVERIFY(widget.searchConditions().isEmpty());
+
+        // Editing the text removes the explanation
+        query->setText(QStringLiteral("from:ann"));
+        QVERIFY(problem->isHidden());
+
+        // Plain words need a field to search in
+        widget.findChild<QAction *>(QStringLiteral("searchInSubject"))->setChecked(false);
+        widget.findChild<QAction *>(QStringLiteral("searchInSenders"))->setChecked(false);
+        query->setText(QStringLiteral("from:ann lunch"));
+        apply();
+        QVERIFY(search.isEmpty());
+        QVERIFY(problem->text().contains(QStringLiteral("subject:lunch")));
+        QCOMPARE(query->selectedText(), QStringLiteral("lunch"));
+        widget.findChild<QAction *>(QStringLiteral("searchInSubject"))->setChecked(true);
+
+        // Saving explains the problem rather than asking for a name
+        bool asked = false;
+        QTimer::singleShot(0, [&asked]() {
+            if (auto *dialog = QApplication::activeModalWidget()) {
+                asked = true;
+                dialog->close();
+            }
+        });
+        query->setText(QStringLiteral("(lunch"));
+        widget.findChild<QAction *>(QStringLiteral("saveSearch"))->trigger();
+        QCoreApplication::processEvents();
+        QVERIFY(!asked);
+        QVERIFY(!problem->isHidden());
+        QVERIFY(problem->text().contains(QStringLiteral("not closed")));
+
+        // A query for today follows the calendar like the preset ranges
+        query->setText(QStringLiteral("date:today"));
+        apply();
+        QCOMPARE(search.size(), 1);
+        QCOMPARE(search.takeFirst().at(0).toStringList(),
+                 UiUtils::SearchScope::dateConditions(preset(UiUtils::SearchScope::Dates::Today), QDate::currentDate()));
+        QVERIFY(dayChange->isActive());
+        query->setText(QStringLiteral("date:2025"));
+        apply();
+        QCOMPARE(search.size(), 1);
+        search.clear();
+        QVERIFY(!dayChange->isActive());
+
+        // A blank query is no search at all
+        query->setText(QStringLiteral("   "));
+        apply();
+        QCOMPARE(search.size(), 1);
+        QVERIFY(search.takeFirst().at(0).toStringList().isEmpty());
+        QVERIFY(problem->isHidden());
     }
 
     void choosesCustomRanges()

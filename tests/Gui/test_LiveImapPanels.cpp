@@ -320,7 +320,7 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(subjects(related->sameSender()), QStringList{QStringLiteral("Quarterly plan")}, 10000);
         QVERIFY(related->conversation().isEmpty());
 
-        // A message opened from a body search shows the term in the find bar, and the focus stays in the list.
+        // A message opened from a body search shows the phrase in the find bar, and the focus stays in the list.
         auto *reader = window.findChild<Gui::CompleteMessageWidget *>();
         QVERIFY(reader);
         auto *findBar = reader->findChild<Gui::FindBar *>();
@@ -332,7 +332,7 @@ private slots:
         QVERIFY(search);
         QVERIFY(searchInBody);
         searchInBody->setChecked(true);
-        search->setText(QStringLiteral("shared inbox"));
+        search->setText(QStringLiteral("\"shared inbox\""));
         QTest::keyClick(search, Qt::Key_Return);
         QTRY_VERIFY_WITH_TIMEOUT(!findMessage(messages, QStringLiteral("Lunch on Friday")).isValid(), 10000);
         QVERIFY(!findBar->isVisible());

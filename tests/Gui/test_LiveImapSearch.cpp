@@ -3,6 +3,7 @@
 */
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
+#include "Gui/InlineNotificationBar.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MessageListWidget.h"
 #include "Gui/MsgListView.h"
@@ -609,6 +610,126 @@ private slots:
         search(QString());
         QTRY_VERIFY2_WITH_TIMEOUT(messages->model()->rowCount() == inboxSize && !failed(),
                                   qPrintable(describe(shownRows(messages->model()), searchWidget)), 10000);
+    }
+
+    /**
+     * The same server with gamma@example.test, whose INBOX holds "Release plan" from Ann (seen, keyword $label1, 20
+     * November 2026), "Lunch on Friday" from Bob (flagged, unread, 21 November 2026), "Quarterly report" from Ann
+     * (seen, multipart/mixed with an attachment of about 3 KB, 10 June 2025) and "[dev] Release notes" from Carol
+     * (unread, List-Post dev@lists.example.test, 22 November 2026). Queries in the search syntax find the expected
+     * messages on the server; invalid queries are explained without a search. Pass the slot name to run only this
+     * test.
+     */
+    void searchesWithQuerySyntax()
+    {
+        bool ok = false;
+        const int port = qEnvironmentVariableIntValue("PLASMA_TEST_IMAPS_PORT", &ok);
+        QVERIFY(ok && port > 0 && port <= 65535);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        settings.setValue(Common::SettingsNames::guiShowSystray, false);
+        settings.setValue(Common::SettingsNames::passwordPlugin, QStringLiteral("cleartextpassword"));
+        settings.setValue(QStringLiteral("accounts/ids"), QStringList{QStringLiteral("account-1")});
+        settings.setValue(QStringLiteral("accounts/active"), QStringLiteral("account-1"));
+        settings.setValue(QStringLiteral("accounts/next"), 2);
+        settings.setValue(QStringLiteral("accounts/names/account-1"), QStringLiteral("Gamma"));
+        settings.setValue(QStringLiteral("accountPasswords/account-1/imap"), syntheticPassword);
+        settings.sync();
+        configureAccount(directory.filePath(QStringLiteral("main-account-1.conf")), port, QStringLiteral("gamma@example.test"));
+
+        QTimer dialogs;
+        connect(&dialogs, &QTimer::timeout, this, &answerDialogs);
+        dialogs.start(20);
+
+        Gui::MainWindow window(&settings);
+        window.resize(1000, 700);
+        window.show();
+        auto *tree = window.findChild<Gui::MailBoxTreeView *>();
+        auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
+        auto *messages = window.findChild<Gui::MsgListView *>();
+        QVERIFY(tree && searchWidget && messages);
+        auto *query = searchWidget->findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        auto *status = searchWidget->findChild<QLabel *>(QStringLiteral("messageListStatus"));
+        auto *problem = searchWidget->findChild<Gui::InlineNotificationBar *>(QStringLiteral("searchQueryError"));
+        QVERIFY(query && status && problem);
+
+        QModelIndex inbox;
+        QTRY_VERIFY_WITH_TIMEOUT((inbox = findMailbox(tree->model(), QStringLiteral("INBOX"))).isValid(), 20000);
+        tree->scrollTo(inbox);
+        QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(inbox).center());
+        QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(), 4, 10000);
+
+        const auto subjects = [&]() {
+            QStringList result;
+            for (int row = 0; row < messages->model()->rowCount(); ++row) {
+                const QString subject = messages->model()->index(row, 0).data(Imap::Mailbox::RoleMessageSubject).toString();
+                if (subject.isEmpty())
+                    return QStringList{QStringLiteral("(not loaded)")};
+                result << subject;
+            }
+            result.sort();
+            return result;
+        };
+        const auto failed = [&]() { return status->text().contains(QLatin1String("Search failed")); };
+        const auto search = [&](const QString &text) {
+            query->setText(text);
+            emit query->returnPressed();
+        };
+        const auto expectFound = [&](const QString &text, QStringList expected) {
+            search(text);
+            expected.sort();
+            QTRY_VERIFY2_WITH_TIMEOUT(subjects() == expected && !failed(),
+                                      qPrintable(text + QStringLiteral(" -> ") + describe(subjects(), searchWidget)), 10000);
+            QVERIFY2(problem->isHidden(), qPrintable(text + QStringLiteral(": ") + problem->text()));
+        };
+        const QString plan = QStringLiteral("Release plan");
+        const QString lunch = QStringLiteral("Lunch on Friday");
+        const QString report = QStringLiteral("Quarterly report");
+        const QString notes = QStringLiteral("[dev] Release notes");
+
+        // Fields, negation, OR and grouping
+        expectFound(QStringLiteral("from:ann"), {plan, report});
+        expectFound(QStringLiteral("from:ann -subject:report"), {plan});
+        expectFound(QStringLiteral("from:bob OR from:carol"), {lunch, notes});
+        expectFound(QStringLiteral("(from:ann OR from:carol) is:unread"), {notes});
+        expectFound(QStringLiteral("(from:ann subject:release) OR is:flagged"), {plan, lunch});
+        expectFound(QStringLiteral("NOT (from:ann OR from:bob)"), {notes});
+        // Flags, keywords, attachments and mailing lists
+        expectFound(QStringLiteral("is:flagged"), {lunch});
+        expectFound(QStringLiteral("is:read"), {plan, report});
+        expectFound(QStringLiteral("tag:$label1"), {plan});
+        expectFound(QStringLiteral("has:attachment"), {report});
+        expectFound(QStringLiteral("list:dev@lists.example.test"), {notes});
+        // Dates and sizes
+        expectFound(QStringLiteral("date:2025-06"), {report});
+        expectFound(QStringLiteral("date<2026"), {report});
+        expectFound(QStringLiteral("date>=2026-11-21"), {lunch, notes});
+        expectFound(QStringLiteral("date:2026-11-20"), {plan});
+        expectFound(QStringLiteral("size>2K"), {report});
+        expectFound(QStringLiteral("size<=2K"), {plan, lunch, notes});
+        // Plain words must all match in the chosen fields; quotes keep a phrase together
+        expectFound(QStringLiteral("release notes"), {notes});
+        expectFound(QStringLiteral("\"release plan\""), {plan});
+        expectFound(QStringLiteral("Re: plan"), {});
+
+        // An invalid query is explained, never sent, and the list keeps the previous search
+        expectFound(QStringLiteral("is:flagged"), {lunch});
+        for (const QString &text : {QStringLiteral("from:"), QStringLiteral("(from:ann"), QStringLiteral("AND lunch"),
+                                    QStringLiteral("foo:bar")}) {
+            search(text);
+            QVERIFY2(!problem->isHidden(), qPrintable(text));
+            QVERIFY2(problem->text().startsWith(QLatin1String("Invalid search: ")), qPrintable(problem->text()));
+            QTest::qWait(300);
+            QCOMPARE(subjects(), QStringList{lunch});
+            QVERIFY2(!failed(), qPrintable(describe(subjects(), searchWidget)));
+        }
+
+        // A valid query replaces the explanation; clearing shows the whole folder again
+        expectFound(QStringLiteral("from:carol"), {notes});
+        search(QString());
+        QTRY_VERIFY2_WITH_TIMEOUT(messages->model()->rowCount() == 4 && !failed(),
+                                  qPrintable(describe(subjects(), searchWidget)), 10000);
     }
 };
 
