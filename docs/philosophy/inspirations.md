@@ -1,13 +1,33 @@
 # Application inspirations
 
-**[Documentation](../README.md)** · **[Scope](scope.md)** ·
-**[Designs](designs.md)** · **[Roadmap](../ROADMAP.md)** ·
-**[Contributing](../../CONTRIBUTING.md)**
+**[Documentation](../README.md)** · **[Roadmap](../ROADMAP.md)** ·
+**[Contributing](../../CONTRIBUTING.md)** · **[Scope](scope.md)** ·
+**[Designs](designs.md)**
 
-These products inform workflow, layout and implementation decisions. They are
-references, not feature-cloning specifications or claims about Plasma
-Impresario's current features; the [designs](designs.md) record what is
-implemented and what is planned.
+This page decides which products Plasma Impresario learns from and what each one
+contributes. These products inform workflow, layout and implementation
+decisions. They are references, not feature-cloning specifications or claims
+about Plasma Impresario's current features; the [designs](designs.md) record
+what is implemented and what is planned. Statuses are as of 2026-11-25.
+
+Legend: ![Decided][decided] · ![Done][done] · ![Planned][planned]
+
+## Contents
+
+- [Overview](#overview)
+- [Foundational: architecture and Plasma experience](#foundational-architecture-and-plasma-experience)
+  - [KDE / Trojitá](#kde--trojitá) · [Plasma Opus](#plasma-opus) ·
+    [Kontact](#kontact)
+- [Selective: mail workflows and organization](#selective-mail-workflows-and-organization)
+  - [Aqua Mail](#aqua-mail) · [Vivaldi Mail](#vivaldi-mail) ·
+    [Thunderbird](#thunderbird) · [eM Client](#em-client) ·
+    [The Bat!](#the-bat) · [ePim](#epim) · [E-Mail](#e-mail)
+- [Focused: Qt mail implementation examples](#focused-qt-mail-implementation-examples)
+- [Adoptable E-Mail patterns](#adoptable-e-mail-patterns)
+- [Search patterns](#search-patterns)
+- [Design synthesis](#design-synthesis)
+
+## Overview
 
 References are grouped by how directly they fit Plasma Impresario's desktop,
 mail workflows and codebase. Relevance is not a ranking of application quality
@@ -20,6 +40,17 @@ or an implementation priority, and references within a group are not ranked.
   full feature sets are not requirements.
 - **Focused:** narrow implementation techniques, not product or architecture
   models.
+
+```mermaid
+flowchart TD
+    F["Foundational: Trojitá, Plasma Opus, Kontact"]
+    S["Selective: Aqua Mail, Vivaldi Mail, Thunderbird, eM Client, The Bat!, ePim, E-Mail"]
+    Q["Focused: Qt mail implementation examples"]
+    I["Plasma Impresario"]
+    F -->|"architecture and desktop fit"| I
+    S -->|"workflow patterns, adapted"| I
+    Q -->|"narrow techniques"| I
+```
 
 | Reference                                                              | Relevance    | Kind                                 | Main lesson for Plasma Impresario                           |
 | ---------------------------------------------------------------------- | ------------ | ------------------------------------ | ----------------------------------------------------------- |
@@ -128,8 +159,10 @@ views accessible in tabs.
 - Adapt tab navigation to Plasma Impresario's pane layout rather than
   reproducing Thunderbird's interface.
 
-Tabs are a planned optional feature, **off by default**; that default is a
-project decision, not a Thunderbird claim. See
+Tabs are a planned optional feature for M08
+([#246](https://github.com/mikepadiernos/plasma-impresario/issues/246)).
+![Decided][decided] They are **off by default**; that default is a project
+decision, not a Thunderbird claim. See
 [optional tabs](designs.md#optional-tabs).
 
 ### eM Client
@@ -227,25 +260,27 @@ to adopt.
 ## Adoptable E-Mail patterns
 
 Adapt these patterns to Trojitá's IMAP model and KDE Frameworks. Each has a
-roadmap item and a board issue.
+roadmap item and a board issue; ![Done][done] marks patterns merged with M04.
 
-| Area            | Pattern                                                                                                                  | Roadmap                                                                                                                                                                                                                                                                                |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Threading       | References first, then a subject fallback that strips localized prefixes and list tags within a time window              | [M04](../ROADMAP.md#m04-reading-and-conversation-flow) [#369](https://github.com/mikepadiernos/plasma-impresario/issues/369)                                                                                                                                                           |
-| Reader          | Mail without its own background on a light page in dark color schemes                                                    | [M04](../ROADMAP.md#m04-reading-and-conversation-flow) [#370](https://github.com/mikepadiernos/plasma-impresario/issues/370)                                                                                                                                                           |
-| Background      | Opt-in background running and autostart through the Background portal or XDG autostart                                   | [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support).01 [#371](https://github.com/mikepadiernos/plasma-impresario/issues/371)                                                                                                                                             |
-| Account setup   | Discovery from providers, autoconfig, ISPDB, SRV and MX, with app-password guidance and confirmation of unsigned servers | [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support).05 [#372](https://github.com/mikepadiernos/plasma-impresario/issues/372)                                                                                                                                             |
-| Hardening       | Header sanitizing, Bcc removal, Message-IDs without the host name, real link targets and user-only local files           | [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support).06 [#373](https://github.com/mikepadiernos/plasma-impresario/issues/373) [#374](https://github.com/mikepadiernos/plasma-impresario/issues/374) [#375](https://github.com/mikepadiernos/plasma-impresario/issues/375) |
-| Notifications   | One updatable notification per account that stays quiet for old and open mail                                            | [M07](../ROADMAP.md#m07-output-notifications-and-rules-automation) [#377](https://github.com/mikepadiernos/plasma-impresario/issues/377)                                                                                                                                               |
-| Outbox and sync | A persistent outbox that never sends twice; recent headers first and older ones in the background                        | [M10](../ROADMAP.md#m10-reliability-sync-and-notification-quality) [#378](https://github.com/mikepadiernos/plasma-impresario/issues/378) [#379](https://github.com/mikepadiernos/plasma-impresario/issues/379)                                                                         |
-| Testing         | AT-SPI end-to-end scenarios with screenshots; the Ubuntu AppArmor profile for the web-engine sandbox                     | [M11](../ROADMAP.md#m11-release-readiness-and-polish) [#380](https://github.com/mikepadiernos/plasma-impresario/issues/380) [#381](https://github.com/mikepadiernos/plasma-impresario/issues/381)                                                                                      |
-| Sign-in check   | A real IMAP and SMTP sign-in before saving, with failures explained by stage                                             | [M14](../ROADMAP.md#m14-refinements).03 [#382](https://github.com/mikepadiernos/plasma-impresario/issues/382)                                                                                                                                                                          |
-| Undo            | Moves and deletions applied locally and sent after a short delay so they can be undone                                   | [M14](../ROADMAP.md#m14-refinements).04 [#383](https://github.com/mikepadiernos/plasma-impresario/issues/383)                                                                                                                                                                          |
+| Area            | Pattern                                                                                                                  | Status              | Roadmap                                                                                                                                                                                                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Threading       | References first, then a subject fallback that strips localized prefixes and list tags within a time window              | ![Done][done]       | [M04](../ROADMAP.md#m04-reading-and-conversation-flow) [#369](https://github.com/mikepadiernos/plasma-impresario/issues/369)                                                                                                                                                           |
+| Reader          | Mail without its own background on a light page in dark color schemes                                                    | ![Done][done]       | [M04](../ROADMAP.md#m04-reading-and-conversation-flow) [#370](https://github.com/mikepadiernos/plasma-impresario/issues/370)                                                                                                                                                           |
+| Background      | Opt-in background running and autostart through the Background portal or XDG autostart                                   | ![Planned][planned] | [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support).01 [#371](https://github.com/mikepadiernos/plasma-impresario/issues/371)                                                                                                                                             |
+| Account setup   | Discovery from providers, autoconfig, ISPDB, SRV and MX, with app-password guidance and confirmation of unsigned servers | ![Planned][planned] | [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support).05 [#372](https://github.com/mikepadiernos/plasma-impresario/issues/372)                                                                                                                                             |
+| Hardening       | Header sanitizing, Bcc removal, Message-IDs without the host name, real link targets and user-only local files           | ![Planned][planned] | [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support).06 [#373](https://github.com/mikepadiernos/plasma-impresario/issues/373) [#374](https://github.com/mikepadiernos/plasma-impresario/issues/374) [#375](https://github.com/mikepadiernos/plasma-impresario/issues/375) |
+| Notifications   | One updatable notification per account that stays quiet for old and open mail                                            | ![Planned][planned] | [M07](../ROADMAP.md#m07-output-notifications-and-rules-automation) [#377](https://github.com/mikepadiernos/plasma-impresario/issues/377)                                                                                                                                               |
+| Outbox and sync | A persistent outbox that never sends twice; recent headers first and older ones in the background                        | ![Planned][planned] | [M10](../ROADMAP.md#m10-reliability-sync-and-notification-quality) [#378](https://github.com/mikepadiernos/plasma-impresario/issues/378) [#379](https://github.com/mikepadiernos/plasma-impresario/issues/379)                                                                         |
+| Testing         | AT-SPI end-to-end scenarios with screenshots; the Ubuntu AppArmor profile for the web-engine sandbox                     | ![Planned][planned] | [M11](../ROADMAP.md#m11-release-readiness-and-polish) [#380](https://github.com/mikepadiernos/plasma-impresario/issues/380) [#381](https://github.com/mikepadiernos/plasma-impresario/issues/381)                                                                                      |
+| Sign-in check   | A real IMAP and SMTP sign-in before saving, with failures explained by stage                                             | ![Planned][planned] | [M14](../ROADMAP.md#m14-refinements).03 [#382](https://github.com/mikepadiernos/plasma-impresario/issues/382)                                                                                                                                                                          |
+| Undo            | Moves and deletions applied locally and sent after a short delay so they can be undone                                   | ![Planned][planned] | [M14](../ROADMAP.md#m14-refinements).04 [#383](https://github.com/mikepadiernos/plasma-impresario/issues/383)                                                                                                                                                                          |
 
 E-Mail's one database per account, which lets account removal delete all of its
-local data, supports the proposal in caveat
-[#262](https://github.com/mikepadiernos/plasma-impresario/issues/262). Its
-search patterns are listed under [Search patterns](#search-patterns).
+local data, supported the proposal in caveat
+[#262](https://github.com/mikepadiernos/plasma-impresario/issues/262). That
+caveat is resolved: removing an account now deletes its settings, stored
+passwords and offline cache. E-Mail's search patterns are listed under
+[Search patterns](#search-patterns).
 
 ## Search patterns
 
@@ -282,3 +317,7 @@ familiar and integrated with Plasma without copying any single application.
 | Kontact      | Desktop integration and KDE polish                 | KDE services and agenda/contacts in [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support)                                                                                                                                                                                                             |
 | ePim         | Tags, local organization and workspace context     | [My Day / Agenda](designs.md#embedded-panels) and workspaces in [M08](../ROADMAP.md#m08-settings-and-workspace-configuration)                                                                                                                                                                                     |
 | E-Mail       | Safe defaults, guided setup and offline-first sync | Account setup in [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support) and [M14](../ROADMAP.md#m14-refinements), notifications in [M07](../ROADMAP.md#m07-output-notifications-and-rules-automation), and outbox and sync order in [M10](../ROADMAP.md#m10-reliability-sync-and-notification-quality) |
+
+[decided]: https://img.shields.io/badge/Decided-1a7f37
+[done]: https://img.shields.io/badge/Done-1a7f37
+[planned]: https://img.shields.io/badge/Planned-6e7781
