@@ -608,9 +608,9 @@ Plasma session; that check is
 
 ### Search
 
-| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                        |
-| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/454#issuecomment-7181065871) | The quick search's query syntax, **Date** and **Search In** menus, saved searches with a date range or places, and searches the server cannot run |
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                    |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/454#issuecomment-7181065871) | The quick search's query syntax and builder, **Date** and **Search In** menus, saved searches with a date range or places, and searches the server cannot run |
 
 **Current behavior:**
 
@@ -646,6 +646,12 @@ Plasma session; that check is
   sent; an invalid one is explained below the search field, with the faulty
   text selected, and the list keeps the previous results
   ([#334](https://github.com/mikepadiernos/plasma-impresario/issues/334)).
+- ![Resolved][resolved] **Search Builder...** in the search options and the
+  **Mailbox** menu (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>) builds a
+  query from rows of field, comparison and value, matching all or any of them.
+  It opens with the current search and shows the query it will run; a query
+  it cannot show is explained instead
+  ([#335](https://github.com/mikepadiernos/plasma-impresario/issues/335)).
 - ![Limitation][limitation] The server compares the calendar day in each
   message's Date header, in the sender's time zone, because IMAP's `SENTSINCE`
   and `SENTBEFORE` disregard the time and zone. The list shows local time, so a
@@ -687,6 +693,12 @@ Plasma session; that check is
   instead of searched; `Re:` or `Note:` followed by a space is still text.
   Field names, `is:` values and the upper-case operators `AND`, `OR` and `NOT`
   are English in every language.
+- ![Limitation][limitation] The builder has one level of rows. A query with
+  groups inside groups or a negated group cannot be opened in it, and a raw
+  `:=` query is replaced by the built one. The query text in the dialog is read
+  only, and the builder is unavailable while the quick search is disabled.
+- ![Limitation][limitation] A builder value with spaces is searched as a
+  phrase, unlike the same words typed without quotes in the search field.
 - ![Limitation][limitation] Every query is run by the server; there is no
   local index yet (M05.04), so searches need a connection.
 
@@ -708,6 +720,8 @@ Plasma session; that check is
   such as `"shared inbox"` or `"https://example.org"`.
 - To find attachments the `has:` term misses, combine a sender or subject
   with `size>100K`.
+- For a query the builder cannot open, type it in the search field, or use
+  one builder row per word to match the words anywhere.
 
 **Proposed improvements:**
 
@@ -728,6 +742,8 @@ Plasma session; that check is
   or in the local index.
 - Highlight every searched word in the find bar, not only the first.
 - Accept translated field names next to the English ones.
+- Show nested groups in the builder as indented rows, and let the query text
+  be edited there.
 
 ## Before reporting results
 
