@@ -588,9 +588,9 @@ Plasma session; that check is
 
 ### Search
 
-| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                          |
-| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/454#issuecomment-7181065871) | The quick search's **Date** and **Search In** menus, and saved searches with a date range or places |
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                          |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/454#issuecomment-7181065871) | The quick search's **Date** and **Search In** menus, saved searches with a date range or places, and searches the server cannot run |
 
 **Current behavior:**
 
@@ -612,6 +612,13 @@ Plasma session; that check is
   shown. **Retry**, in the status row and the notification bar, searches again
   only the accounts and folders that failed, and reconnects an account whose
   connection was lost ([#332](https://github.com/mikepadiernos/plasma-impresario/issues/332)).
+- ![Resolved][resolved] The quick search keeps its field toggles, raw IMAP
+  queries after `:=` and fuzzy matching, and uses ESEARCH where the server
+  advertises it, plain SEARCH otherwise. A search the server cannot run shows
+  **Search failed** and the reason in the status line instead of an empty
+  list: a key that needs a capability the server does not advertise is named
+  before anything is sent, and a refused search repeats the server's own
+  explanation ([#333](https://github.com/mikepadiernos/plasma-impresario/issues/333)).
 - ![Limitation][limitation] The server compares the calendar day in each
   message's Date header, in the sender's time zone, because IMAP's `SENTSINCE`
   and `SENTBEFORE` disregard the time and zone. The list shows local time, so a
@@ -634,6 +641,12 @@ Plasma session; that check is
 - ![Limitation][limitation] **Retry** of an account whose password was rejected
   reports the failure again; it does not ask for a new password. A stopped
   search cannot be resumed, only started again.
+- ![Limitation][limitation] The check before sending knows only common
+  extension keys, such as `FUZZY`, `OLDER`, `YOUNGER`, `MODSEQ`, `SAVEDBEFORE`
+  and `X-GM-RAW`; other keys go to the server, and its answer is shown.
+  Dovecot accepts `FUZZY` without advertising `SEARCH=FUZZY`, so the fuzzy
+  option stays off there and a raw `FUZZY` query is explained as unsupported.
+  A server that advertises `SEARCH=FUZZY` is covered by offline tests only.
 
 **Workarounds:**
 
@@ -647,6 +660,8 @@ Plasma session; that check is
   subfolders.
 - After a rejected password, correct it in the account settings, then press
   **Retry** or **Enter** in the search field.
+- When a search is explained as unsupported, leave out the named key or use
+  the field search, which every server supports.
 
 **Proposed improvements:**
 
@@ -657,6 +672,8 @@ Plasma session; that check is
 - Search on a separate connection, or with `MULTISEARCH` (RFC 7377) where the
   server offers it, so that the shown folder stays selected.
 - Load the headers of results as their rows are shown.
+- Offer fuzzy matching on servers that accept `FUZZY` without advertising it,
+  once a test search succeeds.
 - Show translated special-folder names in results, and list unloaded folders
   in **Selected Folders** on demand.
 - Ask for the password again when **Retry** meets a rejected password, and
