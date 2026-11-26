@@ -26,16 +26,22 @@
 #include <QComboBox>
 #include <QDialog>
 #include <QFile>
+#include <QHostAddress>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QTcpServer>
+#include <QTcpSocket>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QToolButton>
 #include <QTreeWidget>
+
+#include <memory>
 
 namespace {
 
@@ -92,8 +98,113 @@ QStringList shownRows(const QAbstractItemModel *model)
 QString describe(const QStringList &rows, Gui::MessageListWidget *widget)
 {
     auto *status = widget->findChild<QLabel *>(QStringLiteral("messageListStatus"));
-    return rows.join(QStringLiteral("; ")) + QStringLiteral(" | status: ") + (status ? status->text() : QString());
+    return rows.join(QStringLiteral("; ")) + QStringLiteral(" | status: ") + (status ? status->text() : QString())
+        + QStringLiteral(" | details: ") + (status ? status->toolTip() : QString());
 }
+
+/** @short Accept the server's certificate and dismiss password prompts while a test runs */
+void answerDialogs()
+{
+    for (QWidget *widget : QApplication::topLevelWidgets()) {
+        if (!widget->isVisible())
+            continue;
+        if (auto *message = qobject_cast<QMessageBox *>(widget);
+            message && message->standardButtons() == (QMessageBox::Yes | QMessageBox::No)) {
+            message->button(QMessageBox::Yes)->click();
+        } else if (auto *dialog = qobject_cast<QDialog *>(widget);
+                   dialog && dialog->findChild<QLineEdit *>(QStringLiteral("passwordLineEdit"))) {
+            dialog->reject();
+        }
+    }
+}
+
+/** @short Forwards loopback connections to the server, and can hold its answers or cut the connections
+
+Holding the answers makes the server look slow; cutting closes the open connections and refuses new ones, like a
+server which went away. The TLS stream passes through unchanged.
+*/
+class TcpProxy : public QObject
+{
+public:
+    explicit TcpProxy(quint16 serverPort)
+        : m_serverPort(serverPort)
+    {
+        connect(&m_listener, &QTcpServer::newConnection, this, &TcpProxy::accept);
+        m_listener.listen(QHostAddress::LocalHost);
+    }
+
+    bool isListening() const { return m_listener.isListening(); }
+    quint16 port() const { return m_listener.serverPort(); }
+
+    void hold() { m_holding = true; }
+    void release()
+    {
+        m_holding = false;
+        for (const auto &link : std::as_const(m_links)) {
+            if (link->client && !link->held.isEmpty())
+                link->client->write(link->held);
+            link->held.clear();
+        }
+    }
+    void cut()
+    {
+        m_refusing = true;
+        m_holding = false;
+        const auto links = std::exchange(m_links, {});
+        for (const auto &link : links) {
+            if (link->client)
+                link->client->abort();
+            if (link->server)
+                link->server->abort();
+        }
+    }
+    void restore()
+    {
+        m_refusing = false;
+        m_holding = false;
+    }
+
+private:
+    struct Link {
+        QPointer<QTcpSocket> client;
+        QPointer<QTcpSocket> server;
+        QByteArray held;
+    };
+
+    void accept()
+    {
+        while (QTcpSocket *client = m_listener.nextPendingConnection()) {
+            if (m_refusing) {
+                client->abort();
+                client->deleteLater();
+                continue;
+            }
+            auto link = std::make_shared<Link>();
+            auto *server = new QTcpSocket(this);
+            client->setParent(this);
+            link->client = client;
+            link->server = server;
+            m_links << link;
+            connect(client, &QTcpSocket::readyRead, server, [client, server]() { server->write(client->readAll()); });
+            connect(server, &QTcpSocket::readyRead, client, [this, link, client, server]() {
+                const QByteArray data = server->readAll();
+                if (m_holding)
+                    link->held += data;
+                else
+                    client->write(data);
+            });
+            connect(client, &QTcpSocket::disconnected, server, &QTcpSocket::disconnectFromHost);
+            connect(server, &QTcpSocket::disconnected, client, &QTcpSocket::disconnectFromHost);
+            server->connectToHost(QHostAddress::LocalHost, m_serverPort);
+        }
+    }
+
+    QTcpServer m_listener;
+    quint16 m_serverPort;
+    bool m_holding = false;
+    bool m_refusing = false;
+    QList<std::shared_ptr<Link>> m_links;
+};
 
 }
 
@@ -137,19 +248,7 @@ private slots:
         configureAccount(directory.filePath(QStringLiteral("main-account-3.conf")), port, QStringLiteral("beta@example.test"));
 
         QTimer dialogs;
-        connect(&dialogs, &QTimer::timeout, this, [&] {
-            for (QWidget *widget : QApplication::topLevelWidgets()) {
-                if (!widget->isVisible())
-                    continue;
-                if (auto *message = qobject_cast<QMessageBox *>(widget);
-                    message && message->standardButtons() == (QMessageBox::Yes | QMessageBox::No)) {
-                    message->button(QMessageBox::Yes)->click();
-                } else if (auto *dialog = qobject_cast<QDialog *>(widget);
-                           dialog && dialog->findChild<QLineEdit *>(QStringLiteral("passwordLineEdit"))) {
-                    dialog->reject();
-                }
-            }
-        });
+        connect(&dialogs, &QTimer::timeout, this, &answerDialogs);
         dialogs.start(20);
 
         Gui::MainWindow window(&settings);
@@ -282,6 +381,122 @@ private slots:
         QVERIFY(query->text().isEmpty());
         QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(), 3, 10000);
         QCOMPARE(searchWidget->findChild<QAction *>(QStringLiteral("searchPlaces-current"))->text(), QStringLiteral("Current Folder"));
+    }
+
+    /**
+     * The same server and users as searchesAcrossFoldersAndAccounts(), with Beta reached through a proxy which can
+     * hold the server's answers or cut the connection: a slow search can be stopped, nothing arrives from a stopped
+     * search, a connection lost during a search is reported with a retry action, and retrying finds the rest.
+     */
+    void stopsSlowSearchesAndRetriesFailedPlaces()
+    {
+        using UiUtils::SearchScope::Places;
+        bool ok = false;
+        const int port = qEnvironmentVariableIntValue("PLASMA_TEST_IMAPS_PORT", &ok);
+        QVERIFY(ok && port > 0 && port <= 65535);
+        TcpProxy proxy{quint16(port)};
+        QVERIFY(proxy.isListening());
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        settings.setValue(Common::SettingsNames::guiShowSystray, false);
+        settings.setValue(Common::SettingsNames::passwordPlugin, QStringLiteral("cleartextpassword"));
+        settings.setValue(QStringLiteral("accounts/ids"), QStringList{QStringLiteral("account-1"), QStringLiteral("account-2")});
+        settings.setValue(QStringLiteral("accounts/active"), QStringLiteral("account-1"));
+        settings.setValue(QStringLiteral("accounts/next"), 3);
+        settings.setValue(QStringLiteral("accounts/names/account-1"), QStringLiteral("Alpha"));
+        settings.setValue(QStringLiteral("accounts/names/account-2"), QStringLiteral("Beta"));
+        settings.setValue(QStringLiteral("accountPasswords/account-1/imap"), syntheticPassword);
+        settings.setValue(QStringLiteral("accountPasswords/account-2/imap"), syntheticPassword);
+        settings.sync();
+        configureAccount(directory.filePath(QStringLiteral("main-account-1.conf")), port, QStringLiteral("alpha@example.test"));
+        configureAccount(directory.filePath(QStringLiteral("main-account-2.conf")), proxy.port(), QStringLiteral("beta@example.test"));
+
+        QTimer dialogs;
+        connect(&dialogs, &QTimer::timeout, this, &answerDialogs);
+        dialogs.start(20);
+
+        Gui::MainWindow window(&settings);
+        window.resize(1000, 700);
+        window.show();
+        auto *tree = window.findChild<Gui::MailBoxTreeView *>();
+        auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
+        auto *messages = window.findChild<Gui::MsgListView *>();
+        QVERIFY(tree && searchWidget && messages);
+        auto *query = searchWidget->findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        auto *status = searchWidget->findChild<QLabel *>(QStringLiteral("messageListStatus"));
+        auto *stop = searchWidget->findChild<QToolButton *>(QStringLiteral("stopSearchButton"));
+        auto *retry = searchWidget->findChild<QToolButton *>(QStringLiteral("retrySearchButton"));
+        QVERIFY(query && status && stop && retry);
+
+        QModelIndex inbox;
+        QTRY_VERIFY_WITH_TIMEOUT((inbox = findMailbox(tree->model(), QStringLiteral("INBOX"))).isValid(), 20000);
+        tree->scrollTo(inbox);
+        QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(inbox).center());
+        QTRY_VERIFY_WITH_TIMEOUT(messages->model()->rowCount() >= 2, 10000);
+
+        const QStringList alphaRows{QStringLiteral("Synthetic invoice-alpha-archive | Alpha \u00B7 Archive"),
+                                    QStringLiteral("Synthetic invoice-alpha-inbox | Alpha \u00B7 Inbox"),
+                                    QStringLiteral("Synthetic invoice-alpha-old | Alpha \u00B7 Archive/2024")};
+        const QStringList allRows = alphaRows
+            + QStringList{QStringLiteral("Synthetic invoice-beta | Beta \u00B7 Inbox"),
+                          QStringLiteral("Synthetic invoice-beta-receipt | Beta \u00B7 Receipts")};
+
+        // Both accounts answer: nothing to stop or retry afterwards
+        QStringList rows;
+        query->setText(QStringLiteral("invoice"));
+        searchWidget->setSearchPlaces(Places::AllAccounts);
+        QTRY_VERIFY2_WITH_TIMEOUT((rows = shownRows(messages->model())) == allRows && status->text().contains(QLatin1String("5 messages found")),
+                                  qPrintable(describe(rows, searchWidget)), 30000);
+        QVERIFY(stop->isHidden());
+        QVERIFY(retry->isHidden());
+        QVERIFY2(status->toolTip().contains(QLatin1String("Alpha: 3 found")) && status->toolTip().contains(QLatin1String("Beta: 2 found")),
+                 qPrintable(status->toolTip()));
+
+        // A slow server does not hold up the others; their results arrive while it is still being searched
+        proxy.hold();
+        emit query->returnPressed();
+        QTRY_VERIFY2_WITH_TIMEOUT((rows = shownRows(messages->model())) == alphaRows && status->text().contains(QLatin1String("Searching"))
+                                      && status->toolTip().contains(QLatin1String("Alpha: 3 found"))
+                                      && status->toolTip().contains(QLatin1String("Beta: searching")),
+                                  qPrintable(describe(rows, searchWidget)), 30000);
+        QVERIFY(stop->isVisible());
+        QVERIFY(retry->isHidden());
+
+        // Stopping keeps what was found, and the slow server's answers which arrive afterwards are not shown
+        stop->click();
+        QTRY_VERIFY2_WITH_TIMEOUT(status->text().contains(QLatin1String("Search stopped after")), qPrintable(describe(rows, searchWidget)), 5000);
+        QVERIFY2(status->text().contains(QLatin1String("3 found")), qPrintable(status->text()));
+        QVERIFY2(status->toolTip().contains(QLatin1String("Beta: stopped after 0 of 2 folders")), qPrintable(status->toolTip()));
+        QVERIFY(stop->isHidden());
+        QCOMPARE(shownRows(messages->model()), alphaRows);
+        proxy.release();
+        QTest::qWait(3000);
+        QCOMPARE(shownRows(messages->model()), alphaRows);
+        QVERIFY2(status->text().contains(QLatin1String("Search stopped after")), qPrintable(status->text()));
+
+        // The connection to a server is lost during the search: the results of the others stay, and it is reported
+        proxy.hold();
+        emit query->returnPressed();
+        QTRY_VERIFY2_WITH_TIMEOUT((rows = shownRows(messages->model())) == alphaRows && status->toolTip().contains(QLatin1String("Beta: searching")),
+                                  qPrintable(describe(rows, searchWidget)), 30000);
+        proxy.cut();
+        QTRY_VERIFY2_WITH_TIMEOUT(!status->text().contains(QLatin1String("Searching"))
+                                      && status->text().contains(QLatin1String("could not be searched")),
+                                  qPrintable(describe(shownRows(messages->model()), searchWidget)), 30000);
+        QCOMPARE(shownRows(messages->model()), alphaRows);
+        QVERIFY(retry->isVisible());
+        QPushButton *notified = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((notified = window.findChild<QPushButton *>(QStringLiteral("searchRetry"))) && notified->isVisible(), 5000);
+
+        // Once the server is back, retrying searches only what is missing
+        proxy.restore();
+        notified->click();
+        QTRY_VERIFY2_WITH_TIMEOUT((rows = shownRows(messages->model())) == allRows && status->text().contains(QLatin1String("5 messages found"))
+                                      && !status->text().contains(QLatin1String("could not be searched")),
+                                  qPrintable(describe(rows, searchWidget)), 60000);
+        QVERIFY(retry->isHidden());
+        QVERIFY(stop->isHidden());
     }
 };
 
