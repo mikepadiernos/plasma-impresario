@@ -29,6 +29,7 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned · ✅ resolved
   - [Conversations](#conversations)
   - [OAuth sign-in](#oauth-sign-in)
   - [Mail operations](#mail-operations)
+  - [Composing and sending](#composing-and-sending)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -46,6 +47,7 @@ Legend: ⚠️ limitation · 🔒 security · 📋 planned · ✅ resolved
 | ⚠️ Reading privacy   | Link warnings are heuristic and remote content consent applies to the open message only ([details](#reading-privacy))                                                                                              |
 | ⚠️ Loading on demand | Parts that failed after a server error load again only on Try Again; the unavailable-message page is not verified live ([details](#loading-on-demand))                                                             |
 | ⚠️ Reader actions    | The action bar is in the main window only, zoom is not saved, and Archive and Trash from the bar are not verified live ([details](#reader-actions))                                                                |
+| ⚠️ Composing         | Each refused send files another copy in Sent, a forward sent before its message downloads is refused, forwards are attachment-only and drafts are local without attachments ([details](#composing-and-sending))    |
 | ⚠️ Conversations     | A search in a threaded list splits threads, conversations cover the loaded messages of the current folder only, and the Unified Inbox has no conversation steps ([details](#conversations))                        |
 | ⚠️ Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                             |
 | 🔒 Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings`                                                     |
@@ -499,6 +501,49 @@ with #315 in [M15](ROADMAP.md#m15-real-plasma-session-verification).
 - 📋 Extend the Unified Inbox to other special folders, threads and quick
   search across accounts, and moves between accounts.
 - 📋 Add live window-level tests.
+
+### Composing and sending
+
+| Caveat issue                                                          | Board   | Recommendation                                                                                         | Applies to                                                                     |
+| --------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| [#450](https://github.com/mikepadiernos/plasma-impresario/issues/450) | Backlog | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/450#issuecomment-7179584259) | The composer, replies and forwards, drafts and failed-send recovery (#41, #93) |
+
+**Current behavior:**
+
+- ✅ New messages, replies, including **Reply to All but Me**, and **Forward**
+  send through the account the composer was opened from, mark the original as
+  answered or forwarded, and file a copy in Sent (#41, #93, #224).
+- ✅ A refused send keeps the composer open with the server's error, and the
+  message stays in an automatic draft until it is sent; **Send** tries again.
+  An automatic draft left by a crash opens again at the next start.
+- ⚠️ The copy for Sent is stored before the outgoing server is asked, so every
+  refused attempt leaves another copy in Sent.
+- ⚠️ Sending a forward before the forwarded message has downloaded is refused
+  with "some parts are not available".
+- ⚠️ **Forward** attaches the original message; there is no inline forward.
+- ⚠️ **Save Draft?** writes a local `.draft` file with the recipients, subject
+  and text, but not the attachments.
+- ⚠️ The live test, `tools/dev-container/live-imap-compose.sh`, sends through a
+  local sendmail script; SMTP delivery is covered by offscreen tests only.
+
+**Workarounds:**
+
+- After a refused send succeeds, delete the extra copies from Sent.
+- If a forward is refused because parts are not available, wait a moment and
+  press **Send** again.
+- To forward inline, copy the text into a new message.
+- Attach files again after opening a draft.
+
+**Proposed improvements:**
+
+- 📋 File the Sent copy after the outgoing server accepts the message, or remove
+  the copy of a refused attempt.
+- 📋 Wait for attachments to download when **Send** is pressed, with progress,
+  instead of refusing.
+- 📋 Add an inline forward mode.
+- 📋 Store drafts in the account's Drafts folder on the server, attachments
+  included.
+- 📋 Exercise SMTP delivery in the live test with a local SMTP server.
 
 ## Before reporting results
 

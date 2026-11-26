@@ -105,12 +105,13 @@ are the [open follow-ups](#open-follow-ups).
 > synthetic users and the synthetic password `synthetic-test-only`. Never point
 > them at a real account or service.
 
-| Check                   | How to run                                                                                     | Server                                                                                | Verifies                                                |
-| ----------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| `test_LiveImap`         | Set `PLASMA_TEST_IMAPS_PORT` to a loopback-only Dovecot IMAPS listener                         | Dovecot 2.4 in the dev container; 2.4.5 at the recorded account-settings run          | #78, #81, #76                                           |
-| `test_LiveImapAccounts` | `tools/dev-container/run.sh sh tools/dev-container/live-imap-accounts.sh` in the dev container | Loopback-only Dovecot 2.4 with synthetic users; 2.4.5 at the recorded run             | #222, #79, per-account #76, #78 removal and credentials |
-| `test_LiveImapPanels`   | `tools/dev-container/run.sh sh tools/dev-container/live-imap-panels.sh`                        | Same Dovecot 2.4 helper, seeded with a conversation, attachments and a signed message | #35 embedded panels, screenshots                        |
-| VNC view                | `tools/dev-container/vnc.sh`                                                                   | The same seeded mailbox, shown in a VNC session                                       | #35 by hand                                             |
+| Check                   | How to run                                                                                     | Server                                                                                    | Verifies                                                |
+| ----------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `test_LiveImap`         | Set `PLASMA_TEST_IMAPS_PORT` to a loopback-only Dovecot IMAPS listener                         | Dovecot 2.4 in the dev container; 2.4.5 at the recorded account-settings run              | #78, #81, #76                                           |
+| `test_LiveImapAccounts` | `tools/dev-container/run.sh sh tools/dev-container/live-imap-accounts.sh` in the dev container | Loopback-only Dovecot 2.4 with synthetic users; 2.4.5 at the recorded run                 | #222, #79, per-account #76, #78 removal and credentials |
+| `test_LiveImapPanels`   | `tools/dev-container/run.sh sh tools/dev-container/live-imap-panels.sh`                        | Same Dovecot 2.4 helper, seeded with a conversation, attachments and a signed message     | #35 embedded panels, screenshots                        |
+| `test_LiveImapCompose`  | `tools/dev-container/run.sh sh tools/dev-container/live-imap-compose.sh`                       | The same seeded mailbox with a Sent folder; mail goes out through a local sendmail script | #93 reading to responses, #41 composing and recovery    |
+| VNC view                | `tools/dev-container/vnc.sh`                                                                   | The same seeded mailbox, shown in a VNC session                                           | #35 by hand                                             |
 
 The dev container pins Fedora 44, and `synthetic-dovecot.sh` refuses any Dovecot
 outside the 2.4 series, which its configuration requires. It prints the exact
@@ -118,13 +119,14 @@ version on each run; record it with new results. The dev container has no Plasma
 session, so D-Bus services, KWallet, notifications and the Plasma look still
 need a real session.
 
-| Variable                                                                                 | Used by               | Purpose                                                                                                                                                        |
-| ---------------------------------------------------------------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PLASMA_TEST_IMAPS_PORT`                                                                 | All live tests        | Loopback IMAPS port. The dev-container scripts set it.                                                                                                         |
-| `PLASMA_TEST_IMAP_RESTORE_UID`, `PLASMA_TEST_IMAP_RESTORE_VALIDITY`                      | `test_LiveImap`       | Include message restoration. Seed INBOX with a synthetic message with this UID and UIDVALIDITY.                                                                |
-| `PLASMA_TEST_IMAP_RESTART_PHASE` (`write`, then `read`), `PLASMA_TEST_IMAP_RESTART_HOME` | `test_LiveImap`       | Check restoration across two processes. Requires the restore variables; the home must be a temporary directory named `plasma-impresario-imap-restart-*`.       |
-| `PLASMA_TEST_IMAP_SEARCH_SUBJECT`                                                        | `test_LiveImap`       | Check folder counts and saved-search filtering. Requires the matching message's UID and UIDVALIDITY; INBOX must contain exactly two unread synthetic messages. |
-| `PLASMA_TEST_SCREENSHOT_DIR`                                                             | `test_LiveImapPanels` | Save layout screenshots. `live-imap-panels.sh` defaults to `<build-dir>/shell-screenshots`.                                                                    |
+| Variable                                                                                 | Used by                | Purpose                                                                                                                                                        |
+| ---------------------------------------------------------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PLASMA_TEST_IMAPS_PORT`                                                                 | All live tests         | Loopback IMAPS port. The dev-container scripts set it.                                                                                                         |
+| `PLASMA_TEST_IMAP_RESTORE_UID`, `PLASMA_TEST_IMAP_RESTORE_VALIDITY`                      | `test_LiveImap`        | Include message restoration. Seed INBOX with a synthetic message with this UID and UIDVALIDITY.                                                                |
+| `PLASMA_TEST_IMAP_RESTART_PHASE` (`write`, then `read`), `PLASMA_TEST_IMAP_RESTART_HOME` | `test_LiveImap`        | Check restoration across two processes. Requires the restore variables; the home must be a temporary directory named `plasma-impresario-imap-restart-*`.       |
+| `PLASMA_TEST_IMAP_SEARCH_SUBJECT`                                                        | `test_LiveImap`        | Check folder counts and saved-search filtering. Requires the matching message's UID and UIDVALIDITY; INBOX must contain exactly two unread synthetic messages. |
+| `PLASMA_TEST_MAILDIR`                                                                    | `test_LiveImapCompose` | The synthetic user's Maildir, to count the copies filed in Sent. `live-imap-compose.sh` sets it.                                                               |
+| `PLASMA_TEST_SCREENSHOT_DIR`                                                             | `test_LiveImapPanels`  | Save layout screenshots. `live-imap-panels.sh` defaults to `<build-dir>/shell-screenshots`.                                                                    |
 
 #### Verification record
 

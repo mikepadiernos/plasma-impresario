@@ -303,7 +303,9 @@ Caveats: [message security](CAVEATS.md#message-security)
 [reader actions](CAVEATS.md#reader-actions)
 ([#445](https://github.com/mikepadiernos/plasma-impresario/issues/445));
 [conversations](CAVEATS.md#conversations)
-([#449](https://github.com/mikepadiernos/plasma-impresario/issues/449)).
+([#449](https://github.com/mikepadiernos/plasma-impresario/issues/449));
+[composing and sending](CAVEATS.md#composing-and-sending)
+([#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)).
 
 ### M05: Search and indexing
 
