@@ -680,6 +680,20 @@ Plasma session; that check is
   saved earlier appear unchanged; nothing is moved, copied or changed to fill a
   virtual folder
   ([#338](https://github.com/mikepadiernos/plasma-impresario/issues/338)).
+- ![Resolved][resolved] Saved searches are managed from the context menu of
+  the **Saved Searches** section, and from **Saved Searches** in the search
+  options. **Edit Search** runs a search and shows a bar above the list; the
+  list previews the changed query, fields, dates and places until **Save** or
+  **Cancel**. **Rename...** (<kbd>F2</kbd>) refuses empty names and names the
+  account already uses, and **Delete...** (<kbd>Del</kbd>) asks first.
+  Dragging a search, or **Move Up** and **Move Down**
+  (<kbd>Alt</kbd>+<kbd>Up</kbd> and <kbd>Alt</kbd>+<kbd>Down</kbd>), sets the
+  order across accounts, and **Move to Account** gives a search to another
+  account. Each tooltip shows the query, the places and the dates. Searches of
+  a removed account, and chosen folders that the server no longer lists, are
+  kept and marked with a warning; **Move to Account**, **Choose Folders...**
+  and **Leave Out Missing Folders** update them
+  ([#339](https://github.com/mikepadiernos/plasma-impresario/issues/339)).
 - ![Limitation][limitation] The server compares the calendar day in each
   message's Date header, in the sender's time zone, because IMAP's `SENTSINCE`
   and `SENTBEFORE` disregard the time and zone. The list shows local time, so a
@@ -753,9 +767,16 @@ Plasma session; that check is
   **Stop**.
 - ![Limitation][limitation] A search saved for the shown folder runs in the
   folder its account shows when it is chosen, so its counts depend on that
-  folder. Saved searches cannot yet be renamed, edited or reordered from the
-  sidebar, and those of a removed account are hidden rather than offered for
-  deletion (M05.03).
+  folder.
+- ![Limitation][limitation] A chosen folder is reported missing only after
+  its account's folders, down to the folder's parent, were listed in this
+  session. Until then the folder is assumed to exist, and a search of it fails
+  when it runs. A removed account's folders are reported at once.
+- ![Limitation][limitation] Choosing a folder, switching accounts or opening
+  another saved search ends an edit without saving it or asking. Moving a
+  search to another account forgets its counts, and is refused while that
+  account has a search of the same name. One order applies to every account;
+  searches saved later follow the ordered ones by name.
 - ![Limitation][limitation] The earlier shell-like <kbd>Up</kbd> and
   <kbd>Down</kbd> history of the search field is replaced by the suggestion
   list. **Remember Searches** and **Suggest While Typing** apply to every
@@ -791,6 +812,8 @@ Plasma session; that check is
 - Choose a virtual folder again to bring its counts up to date. Save a search
   of chosen folders rather than of the shown folder to have it look in the
   same place each time.
+- Expand an account's folders in the sidebar to have missing chosen folders
+  reported, and press **Save** before choosing a folder while editing a search.
 
 **Proposed improvements:**
 
@@ -822,6 +845,9 @@ Plasma session; that check is
   and tags already used on messages, not only the favorite ones.
 - Count every virtual folder in the background from the local index
   (M05.04), so the counts stay current without choosing each one.
+- Ask before leaving an unsaved edit, list each account's folders in the
+  background to report missing folders early, and offer a new name when a
+  moved search's name is taken.
 
 ## Before reporting results
 
