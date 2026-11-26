@@ -2,11 +2,15 @@
 
 **[Application](../README.md)** · **[Roadmap](ROADMAP.md)** ·
 **[Pending tasks](TODO.md)** · **[Bugs](BUGS.md)** · **[Caveats](CAVEATS.md)** ·
-**[Contributing](../CONTRIBUTING.md)**
+**[Edge cases](EDGE.md)** · **[Contributing](../CONTRIBUTING.md)** ·
+**[Project board](https://github.com/users/mikepadiernos/projects/4)**
 
-Find installation help, product direction, design and integration references,
-and project tracking. Each topic has one source of truth; other documents link
-to it instead of repeating it.
+Installation help, product direction, design and integration references, and
+project tracking, as of 2026-11-25. Each topic has one source of truth; other
+documents link to it instead of repeating it.
+
+Legend: ![Limitation][limitation] · ![Needs verification][needs-verification]
+· ![Planned][planned] · ![Recommended][recommended]
 
 ## Contents
 
@@ -20,13 +24,13 @@ to it instead of repeating it.
 
 ## Start here
 
-| Guide                                         | What it covers                                                   |
-| --------------------------------------------- | ---------------------------------------------------------------- |
-| [Project README](../README.md)                | What works today, screenshots, quick start and product direction |
-| [Project status](../README.md#project-status) | Milestone progress and the branch each milestone lives on        |
-| [Installation](INSTALL.md)                    | Installer options, distribution packages and troubleshooting     |
-| [Contributing](../CONTRIBUTING.md)            | Development workflow, board statuses and the headless container  |
-| [Project instructions](../CLAUDE.md)          | Conventions for code, roadmap, board and branches                |
+| Guide                                         | What it covers                                                       |
+| --------------------------------------------- | -------------------------------------------------------------------- |
+| [Project README](../README.md)                | What works today, screenshots, quick start and product direction     |
+| [Project status](../README.md#project-status) | Milestone progress and the branch each milestone lives on            |
+| [Installation](INSTALL.md)                    | Installer options, distribution packages and troubleshooting         |
+| [Contributing](../CONTRIBUTING.md)            | Development workflow, documentation style and the headless container |
+| [Project instructions](../CLAUDE.md)          | Conventions for code, roadmap, board and branches                    |
 
 ## Plan and track
 
@@ -36,16 +40,28 @@ to it instead of repeating it.
 | [Pending tasks](TODO.md)                                        | Blockers, verification records and resumable handoffs     |
 | [Reported bugs](BUGS.md)                                        | User-visible bugs and their resolution status             |
 | ![Limitation][limitation] [Caveats and security](CAVEATS.md)    | Current limitations, security posture and recommendations |
-| ![Needs verification][needs-verification] [Edge cases](EDGE.md) | Boundary scenarios that still need tests                  |
+| ![Needs verification][needs-verification] [Edge cases](EDGE.md) | Boundary scenarios and the tests that cover them          |
+
+The documents feed each other as work moves through the
+[project board](https://github.com/users/mikepadiernos/projects/4):
+
+```mermaid
+flowchart TD
+    A[Roadmap: milestones and features] --> B[Project board: issue status]
+    B --> C[Pending tasks: blockers and handoffs]
+    B --> D[Bugs: confirmed defects]
+    B --> E[Caveats: limits of completed features]
+    E --> F[Edge cases: scenarios to test]
+    C --> B
+```
 
 > [!IMPORTANT]
 >
 > The roadmap defines intended scope. Pending tasks are handoffs, caveats
 > describe limitations, edge cases are test candidates and bugs are confirmed
 > defects. None of them is a completion marker: an item is done only when its
-> issue is $\color{#2da44e}\textbf{Completed}$ or
-> $\color{#8957e5}\textbf{Merged}$ on the [project
-> board](https://github.com/users/mikepadiernos/projects/4).
+> issue is ![Completed][completed] or ![Merged][merged] on the
+> [project board](https://github.com/users/mikepadiernos/projects/4).
 
 ## Design and product
 
@@ -69,7 +85,7 @@ to it instead of repeating it.
 
 | Guide                                                                  | What it covers                                                 |
 | ---------------------------------------------------------------------- | -------------------------------------------------------------- |
-| [Refinement plans](refinements/README.md)                              | Release-quality review areas and acceptance criteria           |
+| [Refinement plans](refinements/README.md)                              | Release-quality review areas and acceptance criteria (M14)     |
 | ![Planned][planned] [Menu specifications](refinements/menus/README.md) | Application and context-menu behavior                          |
 | [Toolbar specifications](refinements/toolbars/README.md)               | Main, list, reader, attachment and compose toolbars            |
 | [Backend parity](parity/backend.md)                                    | Current IMAP, sync and account behavior against parity targets |
@@ -86,7 +102,8 @@ to it instead of repeating it.
 
 [`screenshots/`](screenshots/) holds layout screenshots captured by
 `test_LiveImapPanels` against a synthetic mailbox in the headless dev container.
-See [live mail, screenshots and a VNC
+They show the container's default Qt style, not a Plasma theme. See
+[live mail, screenshots and a VNC
 view](../CONTRIBUTING.md#live-mail-screenshots-and-a-vnc-view) to regenerate
 them.
 
@@ -103,7 +120,9 @@ protocol notes, research and user guidance. Treat them as historical context;
 the current source, build configuration and the documents above define present
 behavior.
 
+[completed]: https://img.shields.io/badge/Completed-2da44e
 [limitation]: https://img.shields.io/badge/Limitation-bc4c00
+[merged]: https://img.shields.io/badge/Merged-8250df
 [needs-verification]: https://img.shields.io/badge/Needs_verification-0969da
 [planned]: https://img.shields.io/badge/Planned-6e7781
 [recommended]: https://img.shields.io/badge/Recommended-1b7c83
