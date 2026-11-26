@@ -50,9 +50,11 @@
 #include "Gui/TagListWidget.h"
 #include "Gui/WebEngineMessageProfile.h"
 #include "Gui/Window.h"
+#include "Imap/Model/DecryptedTextIndexer.h"
 #include "Imap/Model/MailboxTree.h"
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/NetworkWatcher.h"
+#include "Imap/Model/SearchIndexer.h"
 #include "Imap/Model/Utils.h"
 #include "Imap/Network/MsgPartNetAccessManager.h"
 #include "Plugins/PluginManager.h"
@@ -247,6 +249,12 @@ void MessageView::setMessage(const QModelIndex &index)
                                      message.data(Imap::Mailbox::RoleMessageUid).toString()));
     for (const auto &module: m_pluginManager->mimePartReplacers()) {
         messageModel->registerPartHandler(module);
+    }
+    if (auto *indexer = Imap::Mailbox::SearchIndexer::forModel(message.model())) {
+        // Offers the text of an encrypted message to the index once it is decrypted; the index decides whether to keep it
+        new Imap::Mailbox::DecryptedTextIndexer(messageModel, indexer,
+                                                message.data(Imap::Mailbox::RoleMailboxName).toString(),
+                                                message.data(Imap::Mailbox::RoleMessageUid).toUInt());
     }
     emit messageModelChanged(messageModel);
 

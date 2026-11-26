@@ -2984,6 +2984,24 @@ void MainWindow::slotShowSearchIndex()
             if (m_imapAccess)
                 m_imapAccess->setSearchIndexPaused(paused);
         });
+        connect(m_searchIndexDialog, &SearchIndexDialog::excludedFoldersChanged, this, [this](const QStringList &folders) {
+            if (m_imapAccess)
+                m_imapAccess->setSearchIndexExcluded(folders);
+        });
+        connect(m_searchIndexDialog, &SearchIndexDialog::deleteRequested, this, [this]() {
+            if (!m_imapAccess || !m_searchIndexDialog)
+                return;
+            QString problem;
+            const bool deleted = m_imapAccess->deleteSearchIndex(&problem);
+            m_searchIndexDialog->setIndexer(nullptr, m_accounts->displayName(m_accounts->activeAccount()));
+            m_searchIndexDialog->showDeleted();
+            if (!deleted) {
+                Gui::Util::messageBoxWarning(m_searchIndexDialog, i18nc("@title:window", "Search Index Not Deleted"),
+                                             i18nc("@info %1 is the reason",
+                                                   "The offline search index could not be deleted completely: %1",
+                                                   problem));
+            }
+        });
     }
     m_searchIndexDialog->setIndexer(m_imapAccess ? m_imapAccess->searchIndexer() : nullptr,
                                     m_accounts->displayName(m_accounts->activeAccount()));
@@ -3882,7 +3900,8 @@ void MainWindow::confirmRemoveAccount(const QString &accountId)
         Gui::Util::messageBoxWarning(this, i18n("Cannot Remove Account"), i18n("At least one account is required."));
         return;
     }
-    QString question = i18n("Remove account \"%1\" and its settings? Messages on the server are not affected.",
+    QString question = i18n("Remove account \"%1\" and its settings? The mail and the search index kept on this "
+                            "computer for it are deleted too. Messages on the server are not affected.",
                             m_accounts->displayName(accountId));
     const QSettings &settings = *m_accounts->settings(accountId);
     if (usesOAuth(settings)) {
@@ -3961,8 +3980,13 @@ void MainWindow::removeAccountNow(const QString &accountId)
         m_unifiedModel->removeAccount(accountId);
     // Deleting the account's models also closes its cache database, so the files can be removed.
     delete m_accountAccess.take(accountId);
-    if (!Imap::removeAccountCache(cacheDirectory, Common::writablePath(Common::LOCATION_CACHE)))
+    if (!Imap::removeAccountCache(cacheDirectory, Common::writablePath(Common::LOCATION_CACHE))) {
         qWarning() << "Could not delete the offline cache of the removed account in" << cacheDirectory;
+        Gui::Util::messageBoxWarning(this, i18n("Offline Mail Not Deleted"),
+                                     i18n("The mail and the search index kept on this computer for the removed account "
+                                          "could not be deleted. Remove the folder %1 to delete them.",
+                                          cacheDirectory));
+    }
     // Open composers may still list this account's identities, so the model lives until the window closes.
     m_accountIdentities.remove(accountId);
     m_accountStatus->forget(accountId);
@@ -8254,11 +8278,18 @@ QString MainWindow::searchProgressDetails() const
                             "%2: the text of %1 messages is not on this computer, so only their headers were searched",
                             search->messagesWithoutText(), name);
         }
-        if (!search->isRunning() && !search->incompleteFolders().isEmpty()) {
+        const int excluded = int(search->excludedFolders().size());
+        if (!search->isRunning() && search->incompleteFolders().size() > excluded) {
             lines << i18ncp("@info:tooltip %2 is an account name",
                             "%2: %1 folder is not fully indexed on this computer, so results may be incomplete",
                             "%2: %1 folders are not fully indexed on this computer, so results may be incomplete",
-                            int(search->incompleteFolders().size()), name);
+                            int(search->incompleteFolders().size()) - excluded, name);
+        }
+        if (!search->isRunning() && excluded > 0) {
+            lines << i18ncp("@info:tooltip %2 is an account name",
+                            "%2: %1 folder is kept out of the index, so only Search Server can search it",
+                            "%2: %1 folders are kept out of the index, so only Search Server can search them",
+                            excluded, name);
         }
         if (!search->isRunning() && !search->discardedFolders().isEmpty()) {
             lines << i18ncp("@info:tooltip %2 is an account name",

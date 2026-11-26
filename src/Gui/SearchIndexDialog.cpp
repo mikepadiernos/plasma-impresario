@@ -13,6 +13,7 @@
 #include <QMessageBox>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QScrollBar>
 #include <QStyle>
 #include <QTreeWidget>
 #include <QVBoxLayout>
@@ -51,6 +52,8 @@ QString stateText(Coverage::State state)
         return i18nc("@item:intable index state of a folder", "Partly indexed");
     case Coverage::State::Indexed:
         return i18nc("@item:intable index state of a folder", "Indexed");
+    case Coverage::State::Excluded:
+        return i18nc("@item:intable index state of a folder", "Excluded");
     }
     return QString();
 }
@@ -71,6 +74,9 @@ QString stateToolTip(Coverage::State state)
                                       "index cannot hold them. Opening the folder while online loads them.");
     case Coverage::State::Indexed:
         return i18nc("@info:tooltip", "Every message of the folder kept on this computer is indexed.");
+    case Coverage::State::Excluded:
+        return i18nc("@info:tooltip", "You keep the folder out of the index, so offline searches do not find its "
+                                      "messages. Check the folder to index it again.");
     }
     return QString();
 }
@@ -88,6 +94,8 @@ SearchIndexDialog::SearchIndexDialog(QWidget *parent)
     , m_pause(new QPushButton(this))
     , m_rebuild(new QPushButton(UiUtils::loadIcon(QStringLiteral("view-refresh")),
                                 i18nc("@action:button", "Rebuild…"), this))
+    , m_delete(new QPushButton(UiUtils::loadIcon(QStringLiteral("edit-delete")),
+                               i18nc("@action:button", "Delete Index…"), this))
 {
     setWindowTitle(i18nc("@title:window", "Offline Search Index"));
     m_state->setObjectName(QStringLiteral("indexState"));
@@ -118,6 +126,9 @@ SearchIndexDialog::SearchIndexDialog(QWidget *parent)
         i18nc("@title:column indexed messages whose text is offline", "With Text"),
         i18nc("@title:column", "Updated"),
     });
+    m_folders->headerItem()->setToolTip(ColumnFolder, i18nc("@info:tooltip", "Uncheck a folder to keep it out of the "
+                                                                             "index, so that its messages are not "
+                                                                             "searchable offline."));
     m_folders->header()->setStretchLastSection(false);
     m_folders->header()->setSectionResizeMode(ColumnFolder, QHeaderView::Stretch);
     for (int column = ColumnState; column < ColumnCount; ++column)
@@ -128,10 +139,15 @@ SearchIndexDialog::SearchIndexDialog(QWidget *parent)
     m_rebuild->setToolTip(i18nc("@info:tooltip", "Empty the index and build it again from the mail on this computer"));
     connect(m_pause, &QPushButton::clicked, this, &SearchIndexDialog::togglePaused);
     connect(m_rebuild, &QPushButton::clicked, this, &SearchIndexDialog::askRebuild);
+    m_delete->setObjectName(QStringLiteral("indexDelete"));
+    m_delete->setToolTip(i18nc("@info:tooltip", "Delete the index from this computer and turn offline search off"));
+    connect(m_delete, &QPushButton::clicked, this, &SearchIndexDialog::askDelete);
+    connect(m_folders, &QTreeWidget::itemChanged, this, &SearchIndexDialog::folderChanged);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
     buttons->addButton(m_pause, QDialogButtonBox::ActionRole);
     buttons->addButton(m_rebuild, QDialogButtonBox::ActionRole);
+    buttons->addButton(m_delete, QDialogButtonBox::DestructiveRole);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
     auto *layout = new QVBoxLayout(this);
@@ -155,6 +171,8 @@ void SearchIndexDialog::setIndexer(Imap::Mailbox::SearchIndexer *indexer, const 
     for (const QMetaObject::Connection &connection : std::as_const(m_connections))
         disconnect(connection);
     m_connections.clear();
+    if (indexer || accountName != m_accountName)
+        m_deleted = false;
     m_indexer = indexer;
     m_accountName = accountName;
     setWindowTitle(accountName.isEmpty() ? i18nc("@title:window", "Offline Search Index")
@@ -177,21 +195,34 @@ Imap::Mailbox::SearchIndexer *SearchIndexDialog::indexer() const
     return m_indexer;
 }
 
+void SearchIndexDialog::showDeleted()
+{
+    m_deleted = true;
+    refresh();
+}
+
 void SearchIndexDialog::refresh()
 {
     m_refresh.stop();
+    const int scrolled = m_folders->verticalScrollBar()->value();
+    m_filling = true;
     m_folders->clear();
     m_progress->hide();
     m_summary->clear();
     const bool available = m_indexer && m_indexer->isAvailable();
     m_pause->setEnabled(available);
     m_rebuild->setEnabled(available);
+    m_delete->setEnabled(available);
     const bool paused = m_indexer && m_indexer->isPaused();
     m_pause->setText(paused ? i18nc("@action:button", "Resume") : i18nc("@action:button", "Pause"));
     m_pause->setIcon(UiUtils::loadIcon(paused ? QStringLiteral("media-playback-start")
                                               : QStringLiteral("media-playback-pause")));
     QString warning;
-    if (!m_indexer) {
+    if (!m_indexer && m_deleted) {
+        m_state->setText(i18nc("@info", "The offline search index of this account was deleted, and offline search is "
+                                        "off. To build a new index, turn on <interface>Index downloaded mail for "
+                                        "searching offline</interface> in the account settings."));
+    } else if (!m_indexer) {
         m_state->setText(i18nc("@info", "Offline search is off for this account. To search mail kept on this "
                                         "computer while offline, turn on <interface>Index downloaded mail for "
                                         "searching offline</interface> in the account settings."));
@@ -224,12 +255,15 @@ void SearchIndexDialog::refresh()
         const QList<Coverage> coverage = m_indexer->coverage();
         int confirmed = 0;
         int incomplete = 0;
+        int excluded = 0;
         QDateTime lastUpdate;
         const QLocale locale;
         for (const Coverage &folder : coverage) {
             auto *item = new QTreeWidgetItem(m_folders);
             item->setText(ColumnFolder, folder.mailbox);
             item->setToolTip(ColumnFolder, folder.mailbox);
+            item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+            item->setCheckState(ColumnFolder, folder.state == Coverage::State::Excluded ? Qt::Unchecked : Qt::Checked);
             item->setText(ColumnState, stateText(folder.state));
             item->setToolTip(ColumnState, stateToolTip(folder.state));
             item->setData(ColumnState, Qt::UserRole, int(folder.state));
@@ -246,6 +280,8 @@ void SearchIndexDialog::refresh()
                 item->setTextAlignment(column, Qt::AlignRight | Qt::AlignVCenter);
             if (folder.state == Coverage::State::Indexed) {
                 ++confirmed;
+            } else if (folder.state == Coverage::State::Excluded) {
+                ++excluded;
             } else {
                 ++incomplete;
                 item->setIcon(ColumnState, UiUtils::loadIcon(folder.state == Coverage::State::NotCached
@@ -255,7 +291,18 @@ void SearchIndexDialog::refresh()
         }
         QString summary = i18ncp("@info %2 is the folders confirmed as indexed",
                                  "%1 folder to index, %2 confirmed as indexed.",
-                                 "%1 folders to index, %2 confirmed as indexed.", int(coverage.size()), confirmed);
+                                 "%1 folders to index, %2 confirmed as indexed.", int(coverage.size()) - excluded,
+                                 confirmed);
+        if (excluded > 0) {
+            summary += QLatin1Char(' ')
+                + i18ncp("@info", "%1 folder is kept out of the index.", "%1 folders are kept out of the index.",
+                         excluded);
+        }
+        if (const int decrypted = m_indexer->index()->decryptedMessages(); decrypted > 0) {
+            summary += QLatin1Char(' ')
+                + i18ncp("@info", "%1 message holds decrypted text of encrypted mail.",
+                         "%1 messages hold decrypted text of encrypted mail.", decrypted);
+        }
         if (lastUpdate.isValid()) {
             summary += QLatin1Char(' ')
                 + i18nc("@info date and time", "Last updated %1.",
@@ -270,9 +317,28 @@ void SearchIndexDialog::refresh()
         if (paused && !warning.isEmpty())
             warning += QLatin1Char(' ') + i18nc("@info", "Resume indexing to catch up.");
     }
+    m_filling = false;
+    m_folders->verticalScrollBar()->setValue(scrolled);
     m_warning->setText(warning);
     m_warning->setVisible(!warning.isEmpty());
     m_warningIcon->setVisible(!warning.isEmpty());
+}
+
+void SearchIndexDialog::folderChanged(QTreeWidgetItem *item, int column)
+{
+    if (m_filling || column != ColumnFolder || !m_indexer)
+        return;
+    // Folders which the cache does not list at the moment stay excluded
+    QStringList excluded = m_indexer->excludedFolders();
+    const QString mailbox = item->text(ColumnFolder);
+    if (item->checkState(ColumnFolder) == Qt::Checked)
+        excluded.removeAll(mailbox);
+    else if (!excluded.contains(mailbox))
+        excluded << mailbox;
+    excluded.sort();
+    // The indexer reports the change, which refreshes the list a little later
+    m_indexer->setExcludedFolders(excluded);
+    emit excludedFoldersChanged(excluded);
 }
 
 void SearchIndexDialog::togglePaused()
@@ -295,6 +361,18 @@ void SearchIndexDialog::askRebuild()
         return;
     m_indexer->rebuild();
     refresh();
+}
+
+void SearchIndexDialog::askDelete()
+{
+    if (!m_indexer || !m_indexer->isAvailable())
+        return;
+    const QString question = i18nc("@info", "Delete the offline search index of this account from this computer and "
+                                            "turn offline search off? The mail kept on this computer stays; searches "
+                                            "while offline find nothing until the index is turned on and built again.");
+    if (QMessageBox::question(this, i18nc("@title:window", "Delete Search Index"), question) != QMessageBox::Yes)
+        return;
+    emit deleteRequested();
 }
 
 }
