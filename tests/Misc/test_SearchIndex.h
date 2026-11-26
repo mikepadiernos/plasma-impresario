@@ -32,6 +32,13 @@ private slots:
     void testRemovedFolder();
     void testDropAndReopen();
     void testPlainTextOfHtml();
+    void testClear();
+    void testCoverage();
+    void testProgress();
+    void testPauseAndResume();
+    void testPauseDuringPass();
+    void testRebuild();
+    void testRebuildWhilePaused();
 
 private:
     void seed();

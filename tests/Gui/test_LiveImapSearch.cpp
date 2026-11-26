@@ -11,6 +11,7 @@
 #include "Gui/SavedSearchFolders.h"
 #include "Gui/SearchBuilderDialog.h"
 #include "Gui/SearchFoldersDialog.h"
+#include "Gui/SearchIndexDialog.h"
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/ItemRoles.h"
@@ -878,6 +879,28 @@ private slots:
         expectFound(QStringLiteral("release -from:ann"), {notes});
         expectFound(QStringLiteral("text:nothing-like-this"), {});
         QVERIFY(!status->text().contains(QLatin1String("could not be searched")));
+
+        // The index shows which folders it covers, and INBOX is confirmed as indexed
+        auto *indexAction = window.findChild<QAction *>(QStringLiteral("action_search_index_status"));
+        QVERIFY(indexAction);
+        indexAction->trigger();
+        auto *indexDialog = window.findChild<Gui::SearchIndexDialog *>();
+        QVERIFY(indexDialog);
+        QCOMPARE(indexDialog->indexer(), indexer);
+        const auto inboxRows = indexDialog->findChild<QTreeWidget *>(QStringLiteral("indexFolders"))
+                                   ->findItems(QStringLiteral("INBOX"), Qt::MatchExactly, 0);
+        QCOMPARE(inboxRows.size(), 1);
+        QCOMPARE(inboxRows.first()->data(1, Qt::UserRole).toInt(),
+                 int(Imap::Mailbox::SearchIndexer::FolderCoverage::State::Indexed));
+        // While indexing is paused, offline results say that they may be incomplete
+        auto *pause = indexDialog->findChild<QPushButton *>(QStringLiteral("indexPause"));
+        pause->click();
+        QVERIFY(indexer->isPaused());
+        expectFound(QStringLiteral("body:noon"), {lunch});
+        QTRY_VERIFY_WITH_TIMEOUT(status->text().contains(QLatin1String("results may be incomplete")), 5000);
+        pause->click();
+        QVERIFY(!indexer->isPaused());
+        indexDialog->close();
 
         query->setText(QString());
         emit query->returnPressed();

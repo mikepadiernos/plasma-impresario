@@ -404,4 +404,186 @@ void SearchIndexTest::testPlainTextOfHtml()
              QString::fromUtf8("One <two>\nCafé \u263a\nnext"));
 }
 
+void SearchIndexTest::testClear()
+{
+    QVERIFY(!m_indexer->index()->folders().isEmpty());
+    QVERIFY(m_indexer->index()->clear());
+    QVERIFY(m_indexer->index()->isOpen());
+    QCOMPARE(m_indexer->index()->folders().size(), 0);
+    QCOMPARE(m_indexer->index()->search({QStringLiteral("ALL")}, {}).matches.size(), 0);
+    QVERIFY(!m_indexer->index()->folder(inbox).updated.isValid());
+    // The tables stay, so the index fills again without being opened anew
+    runIndexer();
+    QCOMPARE(matches({QStringLiteral("SUBJECT"), QStringLiteral("report")}), QList<uint>{1});
+}
+
+void SearchIndexTest::testCoverage()
+{
+    using State = SearchIndexer::FolderCoverage::State;
+    const auto stateOf = [this](const QString &mailbox) {
+        const QList<SearchIndexer::FolderCoverage> coverage = m_indexer->coverage();
+        for (const SearchIndexer::FolderCoverage &folder : coverage) {
+            if (folder.mailbox == mailbox)
+                return folder;
+        }
+        return SearchIndexer::FolderCoverage{};
+    };
+
+    QList<SearchIndexer::FolderCoverage> coverage = m_indexer->coverage();
+    // Folders which cannot be selected hold no messages, so they are not listed
+    QCOMPARE(coverage.size(), 2);
+    QCOMPARE(coverage.at(0).mailbox, inbox);
+    QCOMPARE(coverage.at(0).state, State::Indexed);
+    QCOMPARE(coverage.at(0).cached, 3);
+    QCOMPARE(coverage.at(0).indexed, 3);
+    QCOMPARE(coverage.at(0).withText, 2);
+    QVERIFY(coverage.at(0).updated.isValid());
+    QCOMPARE(coverage.at(1).mailbox, archive);
+    QCOMPARE(coverage.at(1).state, State::Indexed);
+
+    // A folder which is listed but was never synchronized is configured for indexing, yet not confirmed as indexed
+    m_cache->setChildMailboxes(QString(), {
+        MailboxMetadata(inbox, QStringLiteral("/"), {QStringLiteral("\\HasNoChildren")}),
+        MailboxMetadata(archive, QStringLiteral("/"), {QStringLiteral("\\HasNoChildren")}),
+        MailboxMetadata(QStringLiteral("Drafts"), QStringLiteral("/"), {QStringLiteral("\\HasNoChildren")}),
+    });
+    QCOMPARE(stateOf(QStringLiteral("Drafts")).state, State::NotCached);
+    QVERIFY(!stateOf(QStringLiteral("Drafts")).updated.isValid());
+
+    // Synchronized, but not indexed yet
+    m_cache->setMailboxSyncState(QStringLiteral("Drafts"), syncState(3, 0, 1));
+    m_cache->setUidMapping(QStringLiteral("Drafts"), Imap::Uids{});
+    QCOMPARE(stateOf(QStringLiteral("Drafts")).state, State::NotIndexed);
+
+    // A new message arrived since the last pass
+    m_cache->setMailboxSyncState(inbox, syncState(100, 4, 5));
+    m_cache->setUidMapping(inbox, Imap::Uids{1, 2, 3, 4});
+    QCOMPARE(stateOf(inbox).state, State::OutOfDate);
+    QCOMPARE(stateOf(inbox).cached, 4);
+
+    // Its headers are not in the cache, so the pass cannot index it
+    runIndexer();
+    QCOMPARE(stateOf(inbox).state, State::Partial);
+    QCOMPARE(stateOf(inbox).indexed, 3);
+    QCOMPARE(stateOf(QStringLiteral("Drafts")).state, State::Indexed);
+
+    m_cache->setMessageMetadata(inbox, 4, message(4, QStringLiteral("Late"), QStringLiteral("Dan"), QDate(2026, 5, 1),
+                                                  QDate(2026, 5, 1), 100, plainText));
+    m_cache->setMsgFlags(inbox, 4, {});
+    runIndexer();
+    QCOMPARE(stateOf(inbox).state, State::Indexed);
+    QCOMPARE(stateOf(inbox).indexed, 4);
+
+    // The server numbered the folder anew
+    m_cache->setMailboxSyncState(archive, syncState(8, 1, 6));
+    QCOMPARE(stateOf(archive).state, State::OutOfDate);
+}
+
+void SearchIndexTest::testProgress()
+{
+    QCOMPARE(m_indexer->progress().folders, 0);
+    QVERIFY(m_indexer->progress().mailbox.isEmpty());
+    m_indexer->setTimings(0, 50, 1);
+    QSignalSpy finished(m_indexer.get(), &SearchIndexer::finished);
+    m_indexer->update();
+    QCOMPARE(m_indexer->progress().folders, 2);
+    QCOMPARE(m_indexer->progress().folder, 1);
+    QTRY_COMPARE_WITH_TIMEOUT(m_indexer->progress().mailbox, inbox, 2000);
+    QCOMPARE(m_indexer->progress().messages, 3);
+    QTRY_COMPARE_WITH_TIMEOUT(m_indexer->progress().position, 2, 2000);
+    // The archive holds one message, so it is done within one batch
+    QTRY_COMPARE_WITH_TIMEOUT(m_indexer->progress().folder, 2, 2000);
+    QVERIFY(finished.wait(5000));
+    QCOMPARE(m_indexer->progress().folders, 0);
+}
+
+void SearchIndexTest::testPauseAndResume()
+{
+    QSignalSpy progress(m_indexer.get(), &SearchIndexer::progressChanged);
+    m_indexer->setPaused(true);
+    QVERIFY(m_indexer->isPaused());
+    QVERIFY(!progress.isEmpty());
+    QVERIFY(!m_indexer->hasPendingChanges());
+
+    m_cache->setMsgFlags(inbox, 3, {QStringLiteral("\\Flagged")});
+    m_indexer->scheduleUpdate();
+    m_indexer->update();
+    QVERIFY(!m_indexer->isRunning());
+    QVERIFY(m_indexer->hasPendingChanges());
+    QTest::qWait(50);
+    QCOMPARE(matches({QStringLiteral("FLAGGED")}), QList<uint>{2});
+
+    QSignalSpy finished(m_indexer.get(), &SearchIndexer::finished);
+    m_indexer->setPaused(false);
+    QVERIFY(!m_indexer->isPaused());
+    QVERIFY(m_indexer->isRunning());
+    QVERIFY(finished.wait(5000));
+    QVERIFY(!m_indexer->hasPendingChanges());
+    QCOMPARE(matches({QStringLiteral("FLAGGED")}), (QList<uint>{2, 3}));
+
+    // Resuming without changes does not start a pass
+    m_indexer->setPaused(true);
+    m_indexer->setPaused(false);
+    QVERIFY(!m_indexer->isRunning());
+}
+
+void SearchIndexTest::testPauseDuringPass()
+{
+    QVERIFY(m_indexer->index()->clear());
+    m_indexer->setTimings(0, 50, 1);
+    QSignalSpy finished(m_indexer.get(), &SearchIndexer::finished);
+    m_indexer->update();
+    QTRY_COMPARE_WITH_TIMEOUT(m_indexer->progress().mailbox, inbox, 2000);
+    m_indexer->setPaused(true);
+    QVERIFY(!m_indexer->isRunning());
+    QVERIFY(m_indexer->hasPendingChanges());
+    QCOMPARE(m_indexer->progress().folders, 0);
+    QTest::qWait(200);
+    QVERIFY(finished.isEmpty());
+    // The folder under way was not finished, so it is not confirmed as indexed
+    QCOMPARE(m_indexer->index()->folder(inbox).uidValidity, 0u);
+
+    m_indexer->setTimings(0, 0, 2);
+    m_indexer->setPaused(false);
+    QVERIFY(finished.wait(5000));
+    QCOMPARE(m_indexer->index()->folder(inbox).indexed, 3);
+    QCOMPARE(matches({QStringLiteral("SUBJECT"), QStringLiteral("report")}), QList<uint>{1});
+}
+
+void SearchIndexTest::testRebuild()
+{
+    QSignalSpy finished(m_indexer.get(), &SearchIndexer::finished);
+    QVERIFY(m_indexer->rebuild());
+    QVERIFY(m_indexer->isRunning());
+    QCOMPARE(m_indexer->index()->folders().size(), 0);
+    QCOMPARE(m_indexer->coverage().at(0).state, SearchIndexer::FolderCoverage::State::NotIndexed);
+    QVERIFY(finished.wait(5000));
+    QCOMPARE(m_indexer->index()->folders().size(), 2);
+    QCOMPARE(matches({QStringLiteral("BODY"), QStringLiteral("zürich")}), QList<uint>{1});
+
+    // Rebuilding during a pass starts over
+    m_indexer->setTimings(0, 50, 1);
+    m_indexer->update();
+    QTRY_COMPARE_WITH_TIMEOUT(m_indexer->progress().position, 2, 2000);
+    finished.clear();
+    QVERIFY(m_indexer->rebuild());
+    QCOMPARE(m_indexer->progress().folder, 1);
+    QVERIFY(finished.wait(5000));
+    QCOMPARE(finished.size(), 1);
+    QCOMPARE(m_indexer->index()->folders().size(), 2);
+}
+
+void SearchIndexTest::testRebuildWhilePaused()
+{
+    m_indexer->setPaused(true);
+    QVERIFY(m_indexer->rebuild());
+    QVERIFY(!m_indexer->isRunning());
+    QVERIFY(m_indexer->hasPendingChanges());
+    QCOMPARE(m_indexer->index()->folders().size(), 0);
+    QSignalSpy finished(m_indexer.get(), &SearchIndexer::finished);
+    m_indexer->setPaused(false);
+    QVERIFY(finished.wait(5000));
+    QCOMPARE(m_indexer->index()->folders().size(), 2);
+}
+
 QTEST_GUILESS_MAIN(SearchIndexTest)
