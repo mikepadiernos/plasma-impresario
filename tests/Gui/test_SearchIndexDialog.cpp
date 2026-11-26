@@ -54,6 +54,8 @@ private slots:
     void pausesAndResumes();
     void rebuildAsksFirst();
     void followsTheIndexAway();
+    void uncheckedFoldersAreExcluded();
+    void deleteAsksFirst();
 
 private:
     void runIndexer();
@@ -231,6 +233,80 @@ void SearchIndexDialogTest::followsTheIndexAway()
     QTRY_COMPARE(dialog.findChild<QTreeWidget *>(QStringLiteral("indexFolders"))->topLevelItemCount(), 0);
     QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("indexPause"))->isEnabled());
     QCOMPARE(dialog.indexer(), nullptr);
+}
+
+void SearchIndexDialogTest::uncheckedFoldersAreExcluded()
+{
+    using State = SearchIndexer::FolderCoverage::State;
+    SearchIndexDialog dialog;
+    dialog.setIndexer(m_indexer.get(), QStringLiteral("Work"));
+    dialog.show();
+    QSignalSpy excluded(&dialog, &SearchIndexDialog::excludedFoldersChanged);
+    QCOMPARE(row(dialog, inbox)->checkState(0), Qt::Checked);
+    QCOMPARE(row(dialog, archive)->checkState(0), Qt::Checked);
+    // Refreshing the list does not count as a choice
+    dialog.refresh();
+    QVERIFY(excluded.isEmpty());
+
+    row(dialog, archive)->setCheckState(0, Qt::Unchecked);
+    QCOMPARE(excluded.size(), 1);
+    QCOMPARE(excluded.at(0).at(0).toStringList(), QStringList{archive});
+    QCOMPARE(m_indexer->excludedFolders(), QStringList{archive});
+    QTRY_COMPARE(row(dialog, archive)->data(1, Qt::UserRole).toInt(), int(State::Excluded));
+    QCOMPARE(row(dialog, archive)->text(1), QStringLiteral("Excluded"));
+    QCOMPARE(row(dialog, archive)->checkState(0), Qt::Unchecked);
+    QTRY_VERIFY(!m_indexer->isRunning());
+    dialog.refresh();
+    const QString summary = dialog.findChild<QLabel *>(QStringLiteral("indexSummary"))->text();
+    QVERIFY2(summary.contains(QStringLiteral("2 folders to index, 1 confirmed as indexed")), qPrintable(summary));
+    QVERIFY2(summary.contains(QStringLiteral("1 folder is kept out of the index")), qPrintable(summary));
+    // Only Drafts, which is not on this computer, is incomplete now
+    const QString warning = dialog.findChild<QLabel *>(QStringLiteral("indexWarning"))->text();
+    QVERIFY2(warning.contains(QStringLiteral("1 folder is not fully indexed")), qPrintable(warning));
+
+    row(dialog, drafts)->setCheckState(0, Qt::Unchecked);
+    QCOMPARE(excluded.last().at(0).toStringList(), (QStringList{archive, drafts}));
+    QTRY_COMPARE(row(dialog, drafts)->data(1, Qt::UserRole).toInt(), int(State::Excluded));
+    row(dialog, archive)->setCheckState(0, Qt::Checked);
+    QCOMPARE(excluded.last().at(0).toStringList(), QStringList{drafts});
+    QCOMPARE(m_indexer->excludedFolders(), QStringList{drafts});
+    QTRY_VERIFY(row(dialog, archive)->data(1, Qt::UserRole).toInt() != int(State::Excluded));
+}
+
+void SearchIndexDialogTest::deleteAsksFirst()
+{
+    SearchIndexDialog dialog;
+    dialog.setIndexer(m_indexer.get(), QStringLiteral("Work"));
+    dialog.show();
+    QSignalSpy deleting(&dialog, &SearchIndexDialog::deleteRequested);
+    auto *remove = dialog.findChild<QPushButton *>(QStringLiteral("indexDelete"));
+    QVERIFY(remove->isEnabled());
+    const auto answer = [](QMessageBox::StandardButton button) {
+        QTimer::singleShot(0, [button]() {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(button)->click();
+        });
+    };
+    answer(QMessageBox::No);
+    QTest::mouseClick(remove, Qt::LeftButton);
+    QVERIFY(deleting.isEmpty());
+    QVERIFY(m_indexer->isAvailable());
+
+    answer(QMessageBox::Yes);
+    QTest::mouseClick(remove, Qt::LeftButton);
+    QCOMPARE(deleting.size(), 1);
+    // The owner deletes the index and tells the dialog
+    QVERIFY(m_indexer->deleteIndex());
+    m_indexer.reset();
+    dialog.setIndexer(nullptr, QStringLiteral("Work"));
+    dialog.showDeleted();
+    const QString state = dialog.findChild<QLabel *>(QStringLiteral("indexState"))->text();
+    QVERIFY2(state.contains(QStringLiteral("was deleted")), qPrintable(state));
+    QVERIFY(!remove->isEnabled());
+    // Another account's index is not described as deleted
+    dialog.setIndexer(nullptr, QStringLiteral("Home"));
+    QVERIFY(!dialog.findChild<QLabel *>(QStringLiteral("indexState"))->text().contains(QStringLiteral("deleted")));
 }
 
 QTEST_MAIN(SearchIndexDialogTest)

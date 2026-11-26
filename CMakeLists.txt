@@ -1228,7 +1228,8 @@ if(BUILD_TESTING)
             # One main window per process: the shortcut handler is a singleton.
             foreach(settings_case accountsKeepTheirOwnCaches applicationSettingsLeaveTheAccountAlone
                     accountSettingsEditOnlyTheActiveAccount cancellingAccountSettingsKeepsTheAccount
-                    addingAnAccountOpensItsAccountSettings clientSecretStaysOutOfTheSettings)
+                    addingAnAccountOpensItsAccountSettings clientSecretStaysOutOfTheSettings
+                    searchIndexIsChosenPerAccount searchIndexPrivacyIsKeptPerAccount memoryOnlyCacheLeavesNoIndex)
                 add_test(NAME test_AccountSettingsDialog_${settings_case} COMMAND test_AccountSettingsDialog ${settings_case})
                 set_tests_properties(test_AccountSettingsDialog_${settings_case} PROPERTIES
                     TIMEOUT 60

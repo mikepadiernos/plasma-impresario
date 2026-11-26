@@ -5,6 +5,7 @@
 #include "Common/SettingsNames.h"
 #include "Composer/AccountIdentities.h"
 #include "Composer/SenderIdentitiesModel.h"
+#include "Gui/SearchIndexDialog.h"
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/Model.h"
@@ -24,6 +25,7 @@
 #include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QFileInfo>
 #include <QFile>
 #include <QInputDialog>
 #include <QLabel>
@@ -32,6 +34,7 @@
 #include <QPushButton>
 #include <QRadioButton>
 #include <QSettings>
+#include <QSqlDatabase>
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <QTemporaryDir>
@@ -98,6 +101,31 @@ bool handleDialog(const std::function<void()> &trigger, const std::function<void
     poll.start(20);
     trigger();
     return handled;
+}
+
+/** @short The tables of the SQLite file @arg path, read through a connection of their own */
+QStringList tablesOf(const QString &path)
+{
+    const QString name = QStringLiteral("account-settings-test-tables");
+    QStringList tables;
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), name);
+        db.setDatabaseName(path);
+        if (db.open())
+            tables = db.tables();
+        db.close();
+    }
+    QSqlDatabase::removeDatabase(name);
+    return tables;
+}
+
+void answerQuestion(QMessageBox::StandardButton button)
+{
+    QTimer::singleShot(0, [button]() {
+        auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+        QVERIFY(box);
+        box->button(button)->click();
+    });
 }
 
 void save(QDialog *dialog)
@@ -240,6 +268,7 @@ private slots:
 
         bool shownOff = false;
         bool followsCache = false;
+        bool decryptedFollowsIndex = false;
         QVERIFY(
             handleDialog([&]() { window.findChild<QAction *>(QStringLiteral("action_account_settings"))->trigger(); },
                 [&](QDialog *dialog) {
@@ -247,13 +276,20 @@ private slots:
                     auto *none = dialog->findChild<QRadioButton *>(QStringLiteral("offlineNope"));
                     auto *all = dialog->findChild<QRadioButton *>(QStringLiteral("offlineEverything"));
                     QVERIFY(index && none && all && dialog->findChild<QLabel *>(QStringLiteral("searchIndexNote")));
-                    shownOff = !index->isChecked() && index->isEnabled();
+                    auto *decrypted = dialog->findChild<QCheckBox *>(QStringLiteral("searchIndexDecrypted"));
+                    auto *note = dialog->findChild<QLabel *>(QStringLiteral("searchIndexNote"));
+                    QVERIFY(decrypted);
+                    shownOff = !index->isChecked() && index->isEnabled() && !decrypted->isChecked();
+                    decryptedFollowsIndex = !decrypted->isEnabled();
                     // Without an offline cache there is nothing to index
                     none->click();
-                    followsCache = !index->isEnabled();
+                    followsCache = !index->isEnabled() && note->text().contains(QStringLiteral("nothing to index"));
                     all->click();
-                    followsCache = followsCache && index->isEnabled();
+                    followsCache = followsCache && index->isEnabled()
+                        && !note->text().contains(QStringLiteral("nothing to index"));
                     index->setChecked(true);
+                    decryptedFollowsIndex = decryptedFollowsIndex && decrypted->isEnabled();
+                    decrypted->setChecked(true);
                     auto *smtpHost = dialog->findChild<QLineEdit *>(QStringLiteral("smtpHost"));
                     QVERIFY(smtpHost);
                     smtpHost->setText(QStringLiteral("smtp.work.example.test"));
@@ -261,14 +297,94 @@ private slots:
                 }));
         QVERIFY(shownOff);
         QVERIFY(followsCache);
+        QVERIFY(decryptedFollowsIndex);
         QSettings work(directory.filePath(QStringLiteral("main-account-1.conf")), QSettings::IniFormat);
         QCOMPARE(work.value(Common::SettingsNames::searchIndexKey).toBool(), true);
+        QCOMPARE(work.value(Common::SettingsNames::searchIndexDecryptedKey).toBool(), true);
         QSettings home(directory.filePath(QStringLiteral("main-account-2.conf")), QSettings::IniFormat);
         QVERIFY(!home.contains(Common::SettingsNames::searchIndexKey));
         QVERIFY(!settings.contains(Common::SettingsNames::searchIndexKey));
         QTRY_VERIFY(window.imapAccess()->searchIndexer());
         QVERIFY2(window.imapAccess()->searchIndexer()->isAvailable(),
             qPrintable(window.imapAccess()->searchIndexer()->unavailableReason()));
+        QVERIFY(window.imapAccess()->searchIndexer()->indexesDecrypted());
+    }
+
+    void searchIndexPrivacyIsKeptPerAccount()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        {
+            QSettings work(directory.filePath(QStringLiteral("main-account-1.conf")), QSettings::IniFormat);
+            work.setValue(Common::SettingsNames::searchIndexKey, true);
+            work.setValue(Common::SettingsNames::searchIndexExcludedKey, QStringList{QStringLiteral("Archive")});
+        }
+        Gui::MainWindow window(&settings);
+        Imap::ImapAccess *access = window.imapAccess();
+        QVERIFY(access->searchIndexer());
+        QVERIFY2(access->searchIndexer()->isAvailable(), qPrintable(access->searchIndexer()->unavailableReason()));
+        QCOMPARE(access->searchIndexer()->excludedFolders(), QStringList{QStringLiteral("Archive")});
+        QVERIFY(!access->searchIndexer()->indexesDecrypted());
+        const QString cacheFile = access->cacheDirectory() + QLatin1String("imap.cache.sqlite");
+        QVERIFY(tablesOf(cacheFile).contains(QStringLiteral("search_docs")));
+
+        window.findChild<QAction *>(QStringLiteral("action_search_index_status"))->trigger();
+        auto *dialog = window.findChild<Gui::SearchIndexDialog *>();
+        QVERIFY(dialog);
+        emit dialog->excludedFoldersChanged({QStringLiteral("Junk"), QStringLiteral("Trash")});
+        QCOMPARE(window.accountSettings()->value(Common::SettingsNames::searchIndexExcludedKey).toStringList(),
+            (QStringList{QStringLiteral("Junk"), QStringLiteral("Trash")}));
+        QCOMPARE(access->searchIndexer()->excludedFolders(), (QStringList{QStringLiteral("Junk"), QStringLiteral("Trash")}));
+        emit dialog->excludedFoldersChanged({});
+        QVERIFY(!window.accountSettings()->contains(Common::SettingsNames::searchIndexExcludedKey));
+
+        auto *remove = dialog->findChild<QPushButton *>(QStringLiteral("indexDelete"));
+        QVERIFY(remove && remove->isEnabled());
+        answerQuestion(QMessageBox::Yes);
+        remove->click();
+        QVERIFY(!access->searchIndexer());
+        QCOMPARE(window.accountSettings()->value(Common::SettingsNames::searchIndexKey).toBool(), false);
+        QVERIFY(!dialog->indexer());
+        QVERIFY(dialog->findChild<QLabel *>(QStringLiteral("indexState"))->text().contains(QStringLiteral("was deleted")));
+        QVERIFY(!tablesOf(cacheFile).contains(QStringLiteral("search_docs")));
+        // The offline mail stays
+        QVERIFY(QFileInfo::exists(cacheFile));
+        for (auto *widget : QApplication::topLevelWidgets()) {
+            auto *box = qobject_cast<QMessageBox *>(widget);
+            QVERIFY2(!box || !box->isVisible(), qPrintable(box ? box->text() : QString()));
+        }
+    }
+
+    void memoryOnlyCacheLeavesNoIndex()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        {
+            QSettings work(directory.filePath(QStringLiteral("main-account-1.conf")), QSettings::IniFormat);
+            work.setValue(Common::SettingsNames::searchIndexKey, true);
+        }
+        Gui::MainWindow window(&settings);
+        QVERIFY(window.imapAccess()->searchIndexer());
+        const QString cacheFile = window.imapAccess()->cacheDirectory() + QLatin1String("imap.cache.sqlite");
+        QVERIFY(tablesOf(cacheFile).contains(QStringLiteral("search_docs")));
+
+        QVERIFY(
+            handleDialog([&]() { window.findChild<QAction *>(QStringLiteral("action_account_settings"))->trigger(); },
+                [&](QDialog *dialog) {
+                    auto *none = dialog->findChild<QRadioButton *>(QStringLiteral("offlineNope"));
+                    QVERIFY(none);
+                    none->click();
+                    auto *smtpHost = dialog->findChild<QLineEdit *>(QStringLiteral("smtpHost"));
+                    QVERIFY(smtpHost);
+                    smtpHost->setText(QStringLiteral("smtp.work.example.test"));
+                    save(dialog);
+                }));
+        QTRY_VERIFY(!window.imapAccess()->searchIndexer());
+        QTRY_VERIFY(!tablesOf(cacheFile).contains(QStringLiteral("search_docs")));
     }
 
     void cancellingAccountSettingsKeepsTheAccount()

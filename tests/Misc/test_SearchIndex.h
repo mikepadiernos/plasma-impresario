@@ -39,6 +39,12 @@ private slots:
     void testPauseDuringPass();
     void testRebuild();
     void testRebuildWhilePaused();
+    void testExcludedFolders();
+    void testExcludedWhilePaused();
+    void testDecryptedText();
+    void testDecryptedTextIndexer();
+    void testDeleteIndex();
+    void testNothingIndexedIsLogged();
 
 private:
     void seed();

@@ -8,11 +8,14 @@
 #include <QSignalSpy>
 #include <QSqlDatabase>
 #include <QSqlQuery>
+#include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QTest>
 #include <QTimeZone>
 
 #include "Imap/Model/CombinedCache.h"
+#include "Imap/Model/DecryptedTextIndexer.h"
+#include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/MailboxMetadata.h"
 #include "Imap/Model/MemoryCache.h"
 #include "Imap/Model/SearchIndex.h"
@@ -66,6 +69,29 @@ AbstractCache::MessageDataBundle message(uint uid, const QString &subject, const
     data.serializedBodyStructure = structure(bodyStructure);
     data.hdrListPostNo = false;
     return data;
+}
+
+const QByteArray encrypted =
+    "((\"application\" \"pgp-encrypted\" NIL NIL NIL \"7bit\" 11 NIL NIL NIL NIL)"
+    "(\"application\" \"octet-stream\" NIL NIL NIL \"7bit\" 500 NIL NIL NIL NIL) \"encrypted\" "
+    "(\"protocol\" \"application/pgp-encrypted\" \"boundary\" \"b3\") NIL NIL NIL)";
+
+QStandardItem *part(const QByteArray &mimeType, const QByteArray &data = QByteArray(),
+                    const QByteArray &disposition = QByteArray())
+{
+    auto *item = new QStandardItem(QString::fromLatin1(mimeType));
+    item->setData(mimeType, RolePartMimeType);
+    item->setData(data, RolePartData);
+    item->setData(QByteArray("utf-8"), RolePartCharset);
+    item->setData(disposition, RolePartBodyDisposition);
+    return item;
+}
+
+QStringList logged;
+
+void keepMessage(QtMsgType, const QMessageLogContext &, const QString &message)
+{
+    logged << message;
 }
 
 SyncState syncState(uint uidValidity, uint exists, uint uidNext)
@@ -584,6 +610,194 @@ void SearchIndexTest::testRebuildWhilePaused()
     m_indexer->setPaused(false);
     QVERIFY(finished.wait(5000));
     QCOMPARE(m_indexer->index()->folders().size(), 2);
+}
+
+void SearchIndexTest::testExcludedFolders()
+{
+    using State = SearchIndexer::FolderCoverage::State;
+    QSignalSpy finished(m_indexer.get(), &SearchIndexer::finished);
+    m_indexer->setExcludedFolders({archive});
+    // What the index holds of the folder goes right away
+    QCOMPARE(m_indexer->index()->folder(archive).uidValidity, 0u);
+    QVERIFY(matches({QStringLiteral("SUBJECT"), QStringLiteral("report")}, archive).isEmpty());
+    QCOMPARE(m_indexer->excludedFolders(), QStringList{archive});
+    QVERIFY(finished.wait(5000));
+    QCOMPARE(m_indexer->index()->folder(archive).uidValidity, 0u);
+    QVERIFY(matches({QStringLiteral("SUBJECT"), QStringLiteral("report")}, archive).isEmpty());
+    QCOMPARE(matches({QStringLiteral("SUBJECT"), QStringLiteral("report")}), QList<uint>{1});
+    const QList<SearchIndexer::FolderCoverage> coverage = m_indexer->coverage();
+    QCOMPARE(coverage.size(), 2);
+    QCOMPARE(coverage.at(0).state, State::Indexed);
+    QCOMPARE(coverage.at(1).mailbox, archive);
+    QCOMPARE(coverage.at(1).state, State::Excluded);
+    QCOMPARE(coverage.at(1).cached, 1);
+
+    // The same choice again changes nothing
+    m_indexer->setExcludedFolders({archive, QString()});
+    QVERIFY(!m_indexer->isRunning());
+
+    // Included again, the folder is indexed by the next pass
+    finished.clear();
+    m_indexer->setExcludedFolders({});
+    QVERIFY(m_indexer->excludedFolders().isEmpty());
+    QVERIFY(finished.wait(5000));
+    QCOMPARE(matches({QStringLiteral("SUBJECT"), QStringLiteral("report")}, archive), QList<uint>{5});
+    QCOMPARE(m_indexer->coverage().at(1).state, State::Indexed);
+}
+
+void SearchIndexTest::testExcludedWhilePaused()
+{
+    m_indexer->setPaused(true);
+    m_indexer->setExcludedFolders({inbox});
+    QVERIFY(!m_indexer->isRunning());
+    QVERIFY(m_indexer->hasPendingChanges());
+    QVERIFY(matches({QStringLiteral("SUBJECT"), QStringLiteral("report")}).isEmpty());
+    QSignalSpy finished(m_indexer.get(), &SearchIndexer::finished);
+    m_indexer->setPaused(false);
+    QVERIFY(finished.wait(5000));
+    QVERIFY(matches({QStringLiteral("SUBJECT"), QStringLiteral("report")}).isEmpty());
+    QCOMPARE(m_indexer->index()->folders().size(), 1);
+}
+
+void SearchIndexTest::testDecryptedText()
+{
+    const QStringList secret{QStringLiteral("BODY"), QStringLiteral("rendezvous")};
+    // Off by default
+    QVERIFY(!m_indexer->indexesDecrypted());
+    QVERIFY(!m_indexer->addDecryptedText(inbox, 3, QStringLiteral("Secret rendezvous at the harbour")));
+    QVERIFY(matches(secret).isEmpty());
+
+    m_indexer->setIndexDecrypted(true);
+    QVERIFY(m_indexer->indexesDecrypted());
+    QVERIFY(m_indexer->addDecryptedText(inbox, 3, QStringLiteral("Secret rendezvous at the harbour")));
+    QVERIFY(m_indexer->addDecryptedText(inbox, 3, QStringLiteral("Secret rendezvous at the harbour")));
+    QVERIFY(!m_indexer->addDecryptedText(inbox, 3, QStringLiteral("  ")));
+    QCOMPARE(matches(secret), QList<uint>{3});
+    QCOMPARE(matches({QStringLiteral("SUBJECT"), QStringLiteral("holiday")}), QList<uint>{3});
+    QCOMPARE(m_indexer->index()->decryptedMessages(), 1);
+
+    // A message which the index has not reached yet is added from the cache first
+    m_cache->setMailboxSyncState(inbox, syncState(100, 4, 5));
+    m_cache->setUidMapping(inbox, Imap::Uids{1, 2, 3, 4});
+    m_cache->setMessageMetadata(inbox, 4, message(4, QStringLiteral("Sealed"), QStringLiteral("Dan"), QDate(2026, 5, 1),
+                                                  QDate(2026, 5, 1), 900, encrypted));
+    m_cache->setMsgFlags(inbox, 4, {QStringLiteral("\\Seen")});
+    QVERIFY(m_indexer->addDecryptedText(inbox, 4, QStringLiteral("Minutes of the board")));
+    QCOMPARE(matches({QStringLiteral("BODY"), QStringLiteral("minutes")}), QList<uint>{4});
+    QCOMPARE(matches({QStringLiteral("SEEN")}), (QList<uint>{1, 4}));
+    // A pass keeps the decrypted text
+    runIndexer();
+    QCOMPARE(matches({QStringLiteral("BODY"), QStringLiteral("minutes")}), QList<uint>{4});
+    QCOMPARE(m_indexer->index()->decryptedMessages(), 2);
+    // A message missing from the cache cannot be added
+    QVERIFY(!m_indexer->addDecryptedText(inbox, 42, QStringLiteral("Nowhere")));
+
+    // Nothing is added to excluded folders
+    QSignalSpy finished(m_indexer.get(), &SearchIndexer::finished);
+    m_indexer->setExcludedFolders({archive});
+    QVERIFY(finished.wait(5000));
+    QVERIFY(!m_indexer->addDecryptedText(archive, 5, QStringLiteral("Archived rendezvous")));
+
+    // Turning it off removes the decrypted text, and the next pass indexes the messages without it
+    finished.clear();
+    m_indexer->setIndexDecrypted(false);
+    QCOMPARE(m_indexer->index()->decryptedMessages(), 0);
+    QVERIFY(matches(secret).isEmpty());
+    QVERIFY(matches({QStringLiteral("BODY"), QStringLiteral("minutes")}).isEmpty());
+    QVERIFY(finished.wait(5000));
+    QCOMPARE(matches({QStringLiteral("SUBJECT"), QStringLiteral("holiday")}), QList<uint>{3});
+    QCOMPARE(matches({QStringLiteral("SUBJECT"), QStringLiteral("sealed")}), QList<uint>{4});
+    QVERIFY(matches(secret).isEmpty());
+    QVERIFY(matches({QStringLiteral("BODY"), QStringLiteral("minutes")}).isEmpty());
+    // Off again does nothing
+    m_indexer->setIndexDecrypted(false);
+    QVERIFY(!m_indexer->isRunning());
+}
+
+void SearchIndexTest::testDecryptedTextIndexer()
+{
+    m_indexer->setIndexDecrypted(true);
+    QStandardItemModel model;
+    auto *root = part("multipart/mixed");
+    auto *sealed = part("multipart/encrypted");
+    sealed->setData(true, RolePartDecryptionSupported);
+    root->appendRow(sealed);
+    model.appendRow(root);
+    new DecryptedTextIndexer(&model, m_indexer.get(), inbox, 3);
+
+    // Text which is not below an encrypted part is indexed as usual, not as decrypted text
+    root->appendRow(part("text/plain", "Visible lighthouse note"));
+    QVERIFY(matches({QStringLiteral("BODY"), QStringLiteral("lighthouse")}).isEmpty());
+
+    auto *decrypted = part("multipart/mixed");
+    auto *alternative = part("multipart/alternative");
+    alternative->appendRow(part("text/plain", "Decrypted harbour plan"));
+    alternative->appendRow(part("text/html", "<p>Gate <b>seven</b> at dawn</p>"));
+    decrypted->appendRow(alternative);
+    decrypted->appendRow(part("text/plain", "Attachment ledger", "attachment"));
+    decrypted->appendRow(part("message/rfc822", "Forwarded payroll"));
+    decrypted->appendRow(part("application/pdf", "%PDF quarterly"));
+    sealed->appendRow(decrypted);
+
+    QCOMPARE(matches({QStringLiteral("BODY"), QStringLiteral("harbour plan")}), QList<uint>{3});
+    QCOMPARE(matches({QStringLiteral("BODY"), QStringLiteral("gate seven")}), QList<uint>{3});
+    QVERIFY(matches({QStringLiteral("BODY"), QStringLiteral("ledger")}).isEmpty());
+    QVERIFY(matches({QStringLiteral("BODY"), QStringLiteral("payroll")}).isEmpty());
+    QVERIFY(matches({QStringLiteral("BODY"), QStringLiteral("%PDF")}).isEmpty());
+
+    const QStringList texts = DecryptedTextIndexer::texts(model.indexFromItem(decrypted));
+    QCOMPARE(texts.size(), 2);
+    QCOMPARE(texts.at(0), QStringLiteral("Decrypted harbour plan"));
+    QVERIFY(texts.at(1).contains(QStringLiteral("Gate seven at dawn")));
+
+    // A failed decryption inserts only a notice, which is not text to index
+    sealed->appendRow(part("application/octet-stream", "Failure blob"));
+    QVERIFY(matches({QStringLiteral("BODY"), QStringLiteral("blob")}).isEmpty());
+}
+
+void SearchIndexTest::testDeleteIndex()
+{
+    QSignalSpy progress(m_indexer.get(), &SearchIndexer::progressChanged);
+    QString problem;
+    QVERIFY2(m_indexer->deleteIndex(&problem), qPrintable(problem));
+    QVERIFY(!progress.isEmpty());
+    QVERIFY(!m_indexer->isAvailable());
+    QVERIFY(!m_indexer->index());
+    QVERIFY(m_indexer->unavailableReason().contains(QStringLiteral("deleted")));
+    QVERIFY(m_indexer->coverage().isEmpty());
+    const QStringList tables = QSqlDatabase::database(m_cache->databaseConnectionName(), false).tables();
+    for (const QString &table : {QStringLiteral("search_text"), QStringLiteral("search_docs"),
+                                 QStringLiteral("search_folders"), QStringLiteral("search_meta")})
+        QVERIFY2(!tables.contains(table), qPrintable(table));
+    // The cached mail stays
+    QCOMPARE(m_cache->uidMapping(inbox), (Imap::Uids{1, 2, 3}));
+    // Nothing happens afterwards
+    m_indexer->update();
+    QVERIFY(!m_indexer->isRunning());
+    QVERIFY(!m_indexer->addDecryptedText(inbox, 1, QStringLiteral("text")));
+}
+
+void SearchIndexTest::testNothingIndexedIsLogged()
+{
+    logged.clear();
+    const QtMessageHandler previous = qInstallMessageHandler(keepMessage);
+    QSignalSpy finished(m_indexer.get(), &SearchIndexer::finished);
+    m_indexer->rebuild();
+    finished.wait(5000);
+    m_indexer->index()->search({QStringLiteral("HEADER"), QStringLiteral("X-Spam"), QStringLiteral("Quarterly")}, {});
+    m_indexer->index()->search({QStringLiteral("BODY Zürich")}, {inbox});
+    m_indexer->setIndexDecrypted(true);
+    m_indexer->addDecryptedText(inbox, 3, QStringLiteral("Confidential rendezvous"));
+    m_indexer->setExcludedFolders({inbox});
+    finished.wait(5000);
+    m_indexer->setIndexDecrypted(false);
+    m_indexer->deleteIndex();
+    qInstallMessageHandler(previous);
+    for (const QString &message : std::as_const(logged)) {
+        for (const QString &word : {QStringLiteral("Zürich"), QStringLiteral("Café"), QStringLiteral("Quarterly"),
+                                    QStringLiteral("rendezvous"), QStringLiteral("numbers"), QStringLiteral("Budget")})
+            QVERIFY2(!message.contains(word, Qt::CaseInsensitive), qPrintable(message));
+    }
 }
 
 QTEST_GUILESS_MAIN(SearchIndexTest)
