@@ -68,10 +68,20 @@ void write(KConfigGroup &group, const SavedSearch &search)
     group.writeEntry("Folders", search.places == Places::SelectedFolders ? search.folders : QStringList());
 }
 
-QList<SavedSearch> load(const KConfigGroup &root, const QStringList &owners)
+QList<SavedSearch> load(const KConfigGroup &root, const QStringList &owners, Orphans orphans)
 {
+    QStringList keys = owners;
+    if (orphans == Orphans::Include) {
+        QStringList removed;
+        for (const QString &owner : root.groupList()) {
+            if (!owners.contains(owner))
+                removed << owner;
+        }
+        removed.sort();
+        keys << removed;
+    }
     QList<SavedSearch> searches;
-    for (const QString &owner : owners) {
+    for (const QString &owner : std::as_const(keys)) {
         const KConfigGroup account = root.group(owner);
         for (const QString &id : account.groupList()) {
             SavedSearch search = read(account.group(id), owner);
@@ -83,7 +93,69 @@ QList<SavedSearch> load(const KConfigGroup &root, const QStringList &owners)
     std::stable_sort(searches.begin(), searches.end(), [](const SavedSearch &a, const SavedSearch &b) {
         return a.name.compare(b.name, Qt::CaseInsensitive) < 0;
     });
+    const QStringList order = readOrder(root);
+    const auto position = [&order](const SavedSearch &search) {
+        const qsizetype index = order.indexOf(countsKey(search.owner, search.id));
+        return index < 0 ? order.size() : index;
+    };
+    std::stable_sort(searches.begin(), searches.end(),
+                     [&position](const SavedSearch &a, const SavedSearch &b) { return position(a) < position(b); });
     return searches;
+}
+
+QStringList readOrder(const KConfigGroup &root)
+{
+    return root.readEntry("Order", QStringList());
+}
+
+void writeOrder(KConfigGroup &root, const QList<SavedSearch> &searches)
+{
+    QStringList order;
+    for (const SavedSearch &search : searches)
+        order << countsKey(search.owner, search.id);
+    root.writeEntry("Order", order);
+}
+
+bool isNameTaken(const KConfigGroup &root, const QString &owner, const QString &name, const QString &exceptId)
+{
+    const KConfigGroup account = root.group(owner);
+    const QStringList ids = account.groupList();
+    return std::any_of(ids.cbegin(), ids.cend(), [&](const QString &id) {
+        return id != exceptId && account.group(id).readEntry("Name", QString()).compare(name, Qt::CaseInsensitive) == 0;
+    });
+}
+
+bool changeOwner(KConfigGroup &root, const QString &from, const QString &id, const QString &to)
+{
+    if (from == to || !root.group(from).hasGroup(id) || root.group(to).hasGroup(id))
+        return false;
+    KConfigGroup source = root.group(from).group(id);
+    KConfigGroup target = root.group(to).group(id);
+    source.copyTo(&target);
+    source.deleteGroup();
+    QStringList order = readOrder(root);
+    const qsizetype index = order.indexOf(countsKey(from, id));
+    if (index >= 0) {
+        order[index] = countsKey(to, id);
+        root.writeEntry("Order", order);
+    }
+    return true;
+}
+
+Problems problems(const SavedSearch &search, const QStringList &owners, const QStringList &accountIds,
+                  const std::function<FolderPresence(const SearchScope::Folder &)> &presence)
+{
+    Problems found;
+    found.missingOwner = !owners.contains(search.owner);
+    if (search.places != Places::SelectedFolders)
+        return found;
+    for (const QString &key : search.folders) {
+        const SearchScope::Folder folder = SearchScope::folderFromKey(key);
+        if (folder.accountId.isEmpty() || !accountIds.contains(folder.accountId)
+            || (presence && presence(folder) == FolderPresence::Missing))
+            found.missingFolders << key;
+    }
+    return found;
 }
 
 QString countsKey(const QString &owner, const QString &id)

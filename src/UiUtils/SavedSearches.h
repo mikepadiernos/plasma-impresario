@@ -7,6 +7,8 @@
 #include <QString>
 #include <QStringList>
 
+#include <functional>
+
 #include "UiUtils/SearchScope.h"
 
 class KConfigGroup;
@@ -18,7 +20,11 @@ namespace UiUtils {
 Saved searches are stored in the SavedSearches group of plasma-impresariorc: one subgroup per account, named after the
 account's key (ImapAccess::credentialAccountId()), with one group per search, named by a UUID. The account a search
 belongs to is its owner. The places decide where it looks: CurrentFolder and Account are relative to the owner, while
-SelectedFolders and AllAccounts name their folders and accounts themselves.
+SelectedFolders and AllAccounts name their folders and accounts themselves. The Order entry of the SavedSearches group
+keeps the order which the user gave the searches, across accounts.
+
+Searches stay stored while their account or folders are unavailable; problems() reports those which are gone, so that
+the user can update or delete the search.
 
 A virtual folder only lists what its search finds; messages are never moved, copied or changed to fill it.
 */
@@ -55,12 +61,58 @@ Searches saved before a date range or places could be chosen use any time and th
 SavedSearch read(const KConfigGroup &group, const QString &owner);
 /** @short Store @arg search in @arg group, which should be named after its ID */
 void write(KConfigGroup &group, const SavedSearch &search);
+/** @short Whether removed accounts keep their searches in load() */
+enum class Orphans {
+    Skip,
+    Include,
+};
+
 /** @short The valid searches of @arg owners, read from the SavedSearches group @arg root
 
-Searches of other keys, such as those of removed accounts, are left out. The result is sorted by name, ignoring
-case, then by owner in the order of @arg owners.
+Searches of other keys, those of removed accounts, are left out unless @arg orphans includes them. The result follows
+the stored order; searches which it does not name yet follow, sorted by name, ignoring case, then by owner in the
+order of @arg owners, with removed accounts last.
 */
-QList<SavedSearch> load(const KConfigGroup &root, const QStringList &owners);
+QList<SavedSearch> load(const KConfigGroup &root, const QStringList &owners, Orphans orphans = Orphans::Skip);
+/** @short The stored order of the searches, as keys of countsKey() */
+QStringList readOrder(const KConfigGroup &root);
+/** @short Store the order of @arg searches */
+void writeOrder(KConfigGroup &root, const QList<SavedSearch> &searches);
+/** @short Whether a search of @arg owner other than @arg exceptId is called @arg name, ignoring case */
+bool isNameTaken(const KConfigGroup &root, const QString &owner, const QString &name, const QString &exceptId = QString());
+/** @short Give the search @arg id of @arg from to the account key @arg to, keeping its ID and its place in the order
+
+False when there is no such search, or when @arg to already has a search with its ID.
+*/
+bool changeOwner(KConfigGroup &root, const QString &from, const QString &id, const QString &to);
+
+/** @short Whether a folder is still on the server, as far as its account's folders have been listed */
+enum class FolderPresence {
+    Present,
+    /** The folders around it were listed without it */
+    Missing,
+    /** Not listed yet, or the account is not available; the folder is assumed to be there */
+    Unknown,
+};
+
+/** @short What prevents a saved search from looking where it was saved to look */
+struct Problems {
+    /** The account which saved the search was removed */
+    bool missingOwner = false;
+    /** Chosen folders, as keys of SearchScope::folderKey(), whose account was removed or which the server no longer
+    lists */
+    QStringList missingFolders;
+
+    bool isEmpty() const { return !missingOwner && missingFolders.isEmpty(); }
+    bool operator==(const Problems &other) const = default;
+};
+
+/** @short The problems of @arg search with the account keys @arg owners and the accounts @arg accountIds
+
+@arg presence tells whether a folder of an account in @arg accountIds is still there; unknown folders are not reported.
+*/
+Problems problems(const SavedSearch &search, const QStringList &owners, const QStringList &accountIds,
+                  const std::function<FolderPresence(const SearchScope::Folder &)> &presence);
 
 /** @short How many messages a virtual folder showed when its search last ran */
 struct Counts {

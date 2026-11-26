@@ -112,8 +112,14 @@ QString searchHistoryKey()
     return UiUtils::SearchHistory::profileKey(QString::fromUtf8(qgetenv("TROJITA_PROFILE")));
 }
 
-/** @short A short description of @p range, such as "Past Week" or "Since 3/5/26" */
 QString dateRangeText(const DateRange &range)
+{
+    return searchDatesText(range);
+}
+
+}
+
+QString searchDatesText(const DateRange &range)
 {
     switch (range.dates) {
     case Dates::AnyTime:
@@ -143,8 +149,6 @@ QString dateRangeText(const DateRange &range)
     if (days.last.isValid())
         return i18nc("@item search date range without a start", "Until %1", last);
     return i18nc("@item search date range", "Any Time");
-}
-
 }
 
 MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTagsModel *m_favoriteTagsModel, const QString &accountId) :
@@ -376,6 +380,13 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     m_searchError->setObjectName(QStringLiteral("searchQueryError"));
     m_searchError->setAccessibleName(i18nc("@info:accessible", "Search problem"));
 
+    m_savedSearchEdit = new InlineNotificationBar(this);
+    m_savedSearchEdit->setObjectName(QStringLiteral("savedSearchEditBar"));
+    m_savedSearchEdit->setAccessibleName(i18nc("@info:accessible", "Saved search being edited"));
+    m_savedSearchEdit->setAutoHideTimeout(0);
+    // Closing the bar is the same as Cancel; its buttons hide it before they act
+    connect(m_savedSearchEdit->closeButton(), &QAbstractButton::clicked, this, &MessageListWidget::cancelSavedSearchEdit);
+
     m_listStatus = new QLabel(this);
     m_listStatus->setObjectName(QStringLiteral("messageListStatus"));
     m_listStatus->setAccessibleName(i18nc("@label", "Message list status"));
@@ -435,6 +446,7 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addLayout(m_toolRow);
     layout->addWidget(m_searchError);
+    layout->addWidget(m_savedSearchEdit);
     layout->addWidget(m_searchSummary);
     layout->addWidget(tree);
     layout->addWidget(m_statusRow);
@@ -494,28 +506,15 @@ void MessageListWidget::saveCurrentSearch()
     }
 
     const KConfigGroup searches = savedSearchGroup();
-    for (const QString &id : searches.groupList()) {
-        if (searches.group(id).readEntry("Name", QString()).compare(name, Qt::CaseInsensitive) == 0) {
-            Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Save Search"),
-                                         i18nc("@info", "A saved search with this name already exists."));
-            return;
-        }
+    if (UiUtils::SavedSearches::isNameTaken(savedSearchesRoot(), m_accountId, name)) {
+        Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Save Search"),
+                                     i18nc("@info", "A saved search with this name already exists."));
+        return;
     }
-    UiUtils::SavedSearch search;
+    UiUtils::SavedSearch search = currentSearch();
     search.owner = m_accountId;
     search.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
     search.name = name;
-    search.query = m_quickSearchText->text();
-    search.subject = m_searchInSubject->isChecked();
-    search.body = m_searchInBody->isChecked();
-    search.senders = m_searchInSenders->isChecked();
-    search.recipients = m_searchInRecipients->isChecked();
-    const bool rawQuery = m_rawSearch->isChecked() && m_quickSearchText->text().startsWith(QLatin1String(":="));
-    search.fuzzy = !rawQuery && m_supportsFuzzySearch && m_searchFuzzy->isChecked();
-    search.raw = m_rawSearch->isChecked();
-    search.dates = m_dateRange;
-    search.places = m_places;
-    search.folders = m_places == Places::SelectedFolders ? m_selectedFolders : QStringList();
     KConfigGroup group = searches.group(search.id);
     UiUtils::SavedSearches::write(group, search);
     if (!group.sync())
@@ -530,15 +529,19 @@ void MessageListWidget::rebuildSavedSearchMenu()
 {
     qDeleteAll(m_savedSearches->findChildren<QMenu *>(QString(), Qt::FindDirectChildrenOnly));
     m_savedSearches->clear();
-    const auto ids = savedSearchGroup().groupList();
-    for (const QString &id : ids)
-        addSavedSearch(id);
+    // In the order of the virtual folders
+    const auto searches = UiUtils::SavedSearches::load(savedSearchesRoot(), {m_accountId});
+    for (const UiUtils::SavedSearch &search : searches)
+        addSavedSearch(search);
 }
 
 void MessageListWidget::setAccountId(const QString &accountId)
 {
-    if (accountId != m_accountId)
+    if (accountId != m_accountId) {
+        // Another account's search would be saved over the edited one
+        endSavedSearchEdit();
         forgetActiveSavedSearch();
+    }
     m_accountId = accountId;
 }
 
@@ -673,28 +676,184 @@ void MessageListWidget::clearSearch()
     slotAutoEnableDisableSearch();
 }
 
-KConfigGroup MessageListWidget::savedSearchGroup() const
+KConfigGroup MessageListWidget::savedSearchesRoot()
 {
-    KConfigGroup searches(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), QStringLiteral("SavedSearches"));
-    return searches.group(m_accountId);
+    return KConfigGroup(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), QStringLiteral("SavedSearches"));
 }
 
-void MessageListWidget::addSavedSearch(const QString &id)
+KConfigGroup MessageListWidget::savedSearchGroup() const
 {
-    const UiUtils::SavedSearch search = UiUtils::SavedSearches::read(savedSearchGroup().group(id), m_accountId);
-    if (!search.isValid()) {
-        qWarning() << "Ignoring invalid saved search" << id;
-        return;
-    }
+    return savedSearchesRoot().group(m_accountId);
+}
+
+void MessageListWidget::addSavedSearch(const UiUtils::SavedSearch &search)
+{
+    const QString id = search.id;
     QString menuName = search.name;
     menuName.replace(QLatin1Char('&'), QStringLiteral("&&"));
     QMenu *entry = m_savedSearches->addMenu(menuName);
     QAction *run = entry->addAction(i18nc("@action", "Run Search"));
     run->setObjectName(QStringLiteral("runSavedSearch"));
     connect(run, &QAction::triggered, this, [this, id]() { runSavedSearch(m_accountId, id); });
+    QAction *edit = entry->addAction(i18nc("@action", "Edit Search"));
+    edit->setObjectName(QStringLiteral("editSavedSearch"));
+    connect(edit, &QAction::triggered, this, [this, id]() { editSavedSearch(m_accountId, id); });
+    QAction *rename = entry->addAction(i18nc("@action", "Rename Search..."));
+    rename->setObjectName(QStringLiteral("renameSavedSearch"));
+    connect(rename, &QAction::triggered, this, [this, id]() { renameSavedSearch(m_accountId, id); });
     QAction *remove = entry->addAction(i18nc("@action", "Delete Search..."));
     remove->setObjectName(QStringLiteral("deleteSavedSearch"));
-    connect(remove, &QAction::triggered, this, [this, id]() { deleteSavedSearch(id); });
+    connect(remove, &QAction::triggered, this, [this, id]() { deleteSavedSearch(m_accountId, id); });
+}
+
+UiUtils::SavedSearch MessageListWidget::currentSearch() const
+{
+    UiUtils::SavedSearch search;
+    search.query = m_quickSearchText->text();
+    search.subject = m_searchInSubject->isChecked();
+    search.body = m_searchInBody->isChecked();
+    search.senders = m_searchInSenders->isChecked();
+    search.recipients = m_searchInRecipients->isChecked();
+    const bool rawQuery = m_rawSearch->isChecked() && m_quickSearchText->text().startsWith(QLatin1String(":="));
+    search.fuzzy = !rawQuery && m_supportsFuzzySearch && m_searchFuzzy->isChecked();
+    search.raw = m_rawSearch->isChecked();
+    search.dates = m_dateRange;
+    search.places = m_places;
+    search.folders = m_places == Places::SelectedFolders ? m_selectedFolders : QStringList();
+    return search;
+}
+
+bool MessageListWidget::editSavedSearch(const QString &owner, const QString &id)
+{
+    endSavedSearchEdit();
+    if (!runSavedSearch(owner, id))
+        return false;
+    m_editedSavedSearch = m_activeSavedSearch;
+    showSavedSearchEdit();
+    m_quickSearchText->setFocus(Qt::OtherFocusReason);
+    return true;
+}
+
+void MessageListWidget::showSavedSearchEdit()
+{
+    if (m_editedSavedSearch.id.isEmpty())
+        return;
+    m_savedSearchEdit->showInfo(
+        i18nc("@info %1 is the name of a saved search",
+              "Editing the saved search \"%1\". Change the search, its dates or where it looks; the list shows what it "
+              "finds until you save or cancel.",
+              m_editedSavedSearch.name),
+        {
+            {i18nc("@action:button", "Save"), QStringLiteral("document-save"), QStringLiteral("saveSavedSearchEdit"),
+             [this]() { saveSavedSearchEdit(); }},
+            {i18nc("@action:button", "Cancel"), QStringLiteral("dialog-cancel"), QStringLiteral("cancelSavedSearchEdit"),
+             [this]() { cancelSavedSearchEdit(); }},
+        });
+}
+
+QString MessageListWidget::editedSavedSearchOwner() const
+{
+    return m_editedSavedSearch.owner;
+}
+
+QString MessageListWidget::editedSavedSearchId() const
+{
+    return m_editedSavedSearch.id;
+}
+
+void MessageListWidget::endSavedSearchEdit()
+{
+    if (m_editedSavedSearch.id.isEmpty())
+        return;
+    m_editedSavedSearch = UiUtils::SavedSearch();
+    m_savedSearchEdit->dismiss();
+}
+
+void MessageListWidget::saveSavedSearchEdit()
+{
+    if (m_editedSavedSearch.id.isEmpty())
+        return;
+    const UiUtils::SavedSearch edited = m_editedSavedSearch;
+    UiUtils::SavedSearch search = currentSearch();
+    search.owner = edited.owner;
+    search.id = edited.id;
+    search.name = edited.name;
+    UiUtils::SearchQuery::Error problem;
+    if (searchConditions(&problem, nullptr).isEmpty() || !search.isValid()) {
+        if (!problem.isEmpty())
+            showSearchError(problem);
+        else
+            Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Save Search"),
+                                         i18nc("@info", "Enter a search and select at least one search field, or choose a date range."));
+        // Still editing
+        showSavedSearchEdit();
+        return;
+    }
+    KConfigGroup account = savedSearchesRoot().group(search.owner);
+    if (!account.hasGroup(search.id)) {
+        endSavedSearchEdit();
+        Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Save Search"),
+                                     i18nc("@info", "The saved search was deleted meanwhile, so the changes could not be saved."));
+        emit savedSearchesChanged();
+        return;
+    }
+    KConfigGroup group = account.group(search.id);
+    UiUtils::SavedSearches::write(group, search);
+    if (!group.sync())
+        Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Save Search"),
+                                     i18nc("@info", "The search could not be saved."));
+    endSavedSearchEdit();
+    // What the list shows is now what the saved search finds
+    applySavedSearch(search);
+    emit savedSearchesChanged();
+}
+
+void MessageListWidget::cancelSavedSearchEdit()
+{
+    if (m_editedSavedSearch.id.isEmpty())
+        return;
+    const UiUtils::SavedSearch edited = m_editedSavedSearch;
+    endSavedSearchEdit();
+    // Back to what the saved search finds, where it can still run
+    if (!edited.dependsOnOwner() || edited.owner == m_accountId)
+        runSavedSearch(edited.owner, edited.id);
+}
+
+bool MessageListWidget::renameSavedSearch(const QString &owner, const QString &id)
+{
+    KConfigGroup root = savedSearchesRoot();
+    if (owner.isEmpty() || id.isEmpty() || !root.group(owner).hasGroup(id))
+        return false;
+    KConfigGroup group = root.group(owner).group(id);
+    const QString current = group.readEntry("Name", QString());
+    bool accepted = false;
+    const QString name = QInputDialog::getText(this, i18nc("@title:window", "Rename Search"),
+                                               i18nc("@label:textbox", "Search name:"), QLineEdit::Normal, current,
+                                               &accepted).trimmed();
+    if (!accepted || name == current)
+        return false;
+    if (name.isEmpty()) {
+        Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Rename Search"),
+                                     i18nc("@info", "The search name cannot be empty."));
+        return false;
+    }
+    if (UiUtils::SavedSearches::isNameTaken(root, owner, name, id)) {
+        Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Rename Search"),
+                                     i18nc("@info", "A saved search with this name already exists."));
+        return false;
+    }
+    group.writeEntry("Name", name);
+    if (!group.sync())
+        Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Rename Search"),
+                                     i18nc("@info", "The search could not be renamed."));
+    if (m_activeSavedSearch.owner == owner && m_activeSavedSearch.id == id)
+        m_activeSavedSearch.name = name;
+    if (m_editedSavedSearch.owner == owner && m_editedSavedSearch.id == id) {
+        m_editedSavedSearch.name = name;
+        showSavedSearchEdit();
+    }
+    emit savedSearchesChanged();
+    return true;
 }
 
 bool MessageListWidget::runSavedSearch(const QString &owner, const QString &id)
@@ -770,20 +929,29 @@ void MessageListWidget::forgetActiveSavedSearch()
     setActiveSavedSearch(UiUtils::SavedSearch());
 }
 
-void MessageListWidget::deleteSavedSearch(const QString &id)
+bool MessageListWidget::deleteSavedSearch(const QString &owner, const QString &id)
 {
-    KConfigGroup group = savedSearchGroup().group(id);
+    KConfigGroup root = savedSearchesRoot();
+    if (owner.isEmpty() || id.isEmpty() || !root.group(owner).hasGroup(id))
+        return false;
+    KConfigGroup group = root.group(owner).group(id);
     const QString name = group.readEntry("Name", QString());
     if (QMessageBox::question(this, i18nc("@title:window", "Delete Search"),
                               Qt::convertFromPlainText(i18nc("@info", "Delete the saved search \"%1\"?", name))) != QMessageBox::Yes)
-        return;
+        return false;
     group.deleteGroup();
-    if (!group.sync())
+    QStringList order = UiUtils::SavedSearches::readOrder(root);
+    if (order.removeAll(UiUtils::SavedSearches::countsKey(owner, id)) > 0)
+        root.writeEntry("Order", order);
+    if (!root.sync())
         Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Delete Search"),
                                      i18nc("@info", "The search could not be deleted."));
-    if (m_activeSavedSearch.owner == m_accountId && m_activeSavedSearch.id == id)
+    if (m_editedSavedSearch.owner == owner && m_editedSavedSearch.id == id)
+        endSavedSearchEdit();
+    if (m_activeSavedSearch.owner == owner && m_activeSavedSearch.id == id)
         forgetActiveSavedSearch();
     emit savedSearchesChanged();
+    return true;
 }
 
 UiUtils::SearchScope::DateRange MessageListWidget::dateRange() const

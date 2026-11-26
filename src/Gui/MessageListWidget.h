@@ -49,6 +49,9 @@ namespace Gui {
 class InlineNotificationBar;
 class MsgListView;
 
+/** @short A short description of @p range, such as "Past Week" or "Since 3/5/26" */
+QString searchDatesText(const UiUtils::SearchScope::DateRange &range);
+
 /** @short Widget containing a list of messages along with quick filtering toolbar */
 class MessageListWidget : public QWidget
 {
@@ -116,6 +119,24 @@ public:
     QString activeSavedSearchId() const;
     /** @short Treat the list as an ordinary search from now on, such as after another folder is chosen */
     void forgetActiveSavedSearch();
+    /** @short Run the saved search @p id of @p owner and let the user change it, with Save and Cancel above the list
+
+    The list shows what the changed search finds, so that it can be checked before it is saved. Save keeps the
+    changes under the search's name; Cancel runs the saved search again. Another account or another edit ends the
+    editing without saving. False when the search cannot run.
+    */
+    bool editSavedSearch(const QString &owner, const QString &id);
+    /** @short The owner and the ID of the saved search being edited, or empty strings */
+    QString editedSavedSearchOwner() const;
+    QString editedSavedSearchId() const;
+    /** @short Stop editing without saving and without running the search again */
+    void endSavedSearchEdit();
+    /** @short Ask for a new name of the saved search @p id of @p owner; false when it was not renamed */
+    bool renameSavedSearch(const QString &owner, const QString &id);
+    /** @short Delete the saved search @p id of @p owner after confirmation; false when it was not deleted */
+    bool deleteSavedSearch(const QString &owner, const QString &id);
+    /** @short The SavedSearches group of the settings, which holds the searches of every account */
+    static KConfigGroup savedSearchesRoot();
 
     // FIXME: consider making this private and moving the logic from Window with it
     MsgListView *tree;
@@ -139,7 +160,7 @@ signals:
     void clearAllRequested();
     /** @short Suggestions want the contacts matching @p query; answer with showContactSuggestions() */
     void contactSuggestionsRequested(const QString &query);
-    /** @short A search was saved or deleted */
+    /** @short A search was saved, changed, renamed or deleted */
     void savedSearchesChanged();
     /** @short The saved search shown in the list changed; empty strings when none is shown */
     void activeSavedSearchChanged(const QString &owner, const QString &id);
@@ -166,15 +187,19 @@ private slots:
 private:
     /** Returns the saved-search configuration for this account. */
     KConfigGroup savedSearchGroup() const;
-    /** Adds the saved search identified by @p id to the menu. */
-    void addSavedSearch(const QString &id);
+    /** Adds @p search to the menu. */
+    void addSavedSearch(const UiUtils::SavedSearch &search);
+    /** The quick search as a saved search, without an owner, an ID or a name */
+    UiUtils::SavedSearch currentSearch() const;
+    void showSavedSearchEdit();
+    void saveSavedSearchEdit();
+    /** Stops editing and runs the saved search as it was */
+    void cancelSavedSearchEdit();
     /** Applies @p search, with its fields, date range and places */
     void applySavedSearch(const UiUtils::SavedSearch &search);
     /** Whether the quick search is set up as @p search is */
     bool matchesSavedSearch(const UiUtils::SavedSearch &search) const;
     void setActiveSavedSearch(const UiUtils::SavedSearch &search);
-    /** Deletes the saved search identified by @p id after confirmation. */
-    void deleteSavedSearch(const QString &id);
     /** Asks for the first and last day of a custom date range. */
     void chooseCustomDateRange();
     /** Shows the date range and the places in the menus, the placeholder and the tooltip of the quick search. */
@@ -271,6 +296,9 @@ private:
     UiUtils::SavedSearch m_activeSavedSearch;
     /** A saved search is being set up, so the searches applied meanwhile do not end it */
     bool m_applyingSavedSearch = false;
+    /** The saved search being edited; its owner is empty when none is */
+    UiUtils::SavedSearch m_editedSavedSearch;
+    InlineNotificationBar *m_savedSearchEdit;
 
     friend class MainWindow; // needs access to our private slots
 };

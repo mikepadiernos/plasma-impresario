@@ -259,6 +259,7 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     // Choosing a folder leaves the Unified Inbox and the search results for it
     const auto showChosenFolder = [this]() {
         // A folder shows all of its messages, not what the saved search found
+        msgListWidget->endSavedSearchEdit();
         const bool savedSearch = !msgListWidget->activeSavedSearchOwner().isEmpty();
         msgListWidget->forgetActiveSavedSearch();
         if (m_searchAcross) {
@@ -3068,6 +3069,28 @@ Imap::ImapAccess *MainWindow::accountAccess(const QString &accountId)
         ? QString::fromUtf8(qgetenv("TROJITA_PROFILE")) : accountId;
     auto *access = new Imap::ImapAccess(this, m_accounts->settings(accountId), m_pluginManager, name, m_settings);
     connect(access, &Imap::ImapAccess::cacheError, this, &MainWindow::cacheError);
+    // Folders chosen for saved searches are only known to be gone once their account's folders were listed
+    const auto watchMailboxes = [this, access]() {
+        QAbstractItemModel *mailboxes = access->mailboxModel();
+        if (!mailboxes)
+            return;
+        const auto schedule = [this]() {
+            if (m_savedSearchProblemsTimer && !m_savedSearchProblemsTimer->isActive())
+                m_savedSearchProblemsTimer->start();
+        };
+        schedule();
+        // Lambdas cannot be unique connections, so a model which is reused keeps its first ones
+        static const char watched[] = "savedSearchProblemsWatched";
+        if (mailboxes->property(watched).toBool())
+            return;
+        mailboxes->setProperty(watched, true);
+        connect(mailboxes, &QAbstractItemModel::rowsInserted, this, schedule);
+        connect(mailboxes, &QAbstractItemModel::rowsRemoved, this, schedule);
+        connect(mailboxes, &QAbstractItemModel::modelReset, this, schedule);
+        connect(mailboxes, &QAbstractItemModel::dataChanged, this, schedule);
+    };
+    connect(access, &Imap::ImapAccess::modelsChanged, this, watchMailboxes);
+    watchMailboxes();
     connect(access, &Imap::ImapAccess::checkSslPolicy, this, [this, accountId]() { checkSslPolicy(accountId); },
             Qt::QueuedConnection);
     m_accountAccess.insert(accountId, access);
@@ -3094,21 +3117,76 @@ void MainWindow::reloadSavedSearchFolders()
         owners << owner;
         names.insert(owner, m_accounts->displayName(accountId));
     }
-    const KConfigGroup root(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), QStringLiteral("SavedSearches"));
-    const QList<UiUtils::SavedSearch> searches = UiUtils::SavedSearches::load(root, owners);
-    m_savedSearchFolders->setSearches(searches, names);
+    // Searches of removed accounts stay until the user moves or deletes them
+    const QList<UiUtils::SavedSearch> searches =
+        UiUtils::SavedSearches::load(MessageListWidget::savedSearchesRoot(), owners, UiUtils::SavedSearches::Orphans::Include);
+    m_savedSearchFolders->setSearches(searches, owners, names);
     KConfigGroup counts(KSharedConfig::openStateConfig(), QStringLiteral("SavedSearchCounts"));
     UiUtils::SavedSearches::pruneCounts(counts, searches);
     for (const UiUtils::SavedSearch &search : searches)
         m_savedSearchFolders->setCounts(search.owner, search.id, UiUtils::SavedSearches::readCounts(counts, search.owner, search.id));
     m_savedSearchFolders->setActive(msgListWidget->activeSavedSearchOwner(), msgListWidget->activeSavedSearchId());
+    refreshSavedSearchProblems();
     scheduleSavedSearchCount();
+}
+
+void MainWindow::refreshSavedSearchProblems()
+{
+    if (!m_savedSearchFolders)
+        return;
+    QStringList owners;
+    const QStringList accountIds = m_accounts->accountIds();
+    for (const QString &accountId : accountIds)
+        owners << savedSearchOwner(accountId);
+    const auto presence = [this](const UiUtils::SearchScope::Folder &folder) { return folderPresence(folder); };
+    const QList<UiUtils::SavedSearch> searches = m_savedSearchFolders->searches();
+    for (const UiUtils::SavedSearch &search : searches) {
+        m_savedSearchFolders->setProblems(search.owner, search.id,
+                                          UiUtils::SavedSearches::problems(search, owners, accountIds, presence));
+    }
+}
+
+UiUtils::SavedSearches::FolderPresence MainWindow::folderPresence(const UiUtils::SearchScope::Folder &folder) const
+{
+    using UiUtils::SavedSearches::FolderPresence;
+    Imap::ImapAccess *access = m_accountAccess.value(folder.accountId);
+    auto *model = access ? qobject_cast<Imap::Mailbox::Model *>(access->imapModel()) : nullptr;
+    if (!model || folder.mailbox.isEmpty())
+        return FolderPresence::Unknown;
+    if (model->mailboxIndexByName(folder.mailbox).isValid())
+        return FolderPresence::Present;
+    // Every server has an INBOX; without it, the top folders have not been listed yet
+    const QModelIndex inbox = model->mailboxIndexByName(QStringLiteral("INBOX"));
+    if (!inbox.isValid())
+        return FolderPresence::Unknown;
+    const QString separator = inbox.data(Imap::Mailbox::RoleMailboxSeparator).toString();
+    QString parent = folder.mailbox;
+    while (!separator.isEmpty()) {
+        const qsizetype cut = parent.lastIndexOf(separator);
+        if (cut <= 0)
+            break;
+        parent.truncate(cut);
+        const QModelIndex index = model->mailboxIndexByName(parent);
+        // The nearest listed folder above it decides: gone only when its subfolders were listed without it
+        if (index.isValid())
+            return index.data(Imap::Mailbox::RoleIsFetched).toBool() ? FolderPresence::Missing : FolderPresence::Unknown;
+    }
+    return FolderPresence::Missing;
 }
 
 void MainWindow::activateSavedSearch(const QString &owner, const QString &id)
 {
-    const KConfigGroup searches(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), QStringLiteral("SavedSearches"));
-    const KConfigGroup group = searches.group(owner);
+    openSavedSearch(owner, id, false);
+}
+
+void MainWindow::editSavedSearch(const QString &owner, const QString &id)
+{
+    openSavedSearch(owner, id, true);
+}
+
+void MainWindow::openSavedSearch(const QString &owner, const QString &id, bool edit)
+{
+    const KConfigGroup group = MessageListWidget::savedSearchesRoot().group(owner);
     const UiUtils::SavedSearch search = group.hasGroup(id) ? UiUtils::SavedSearches::read(group.group(id), owner)
                                                            : UiUtils::SavedSearch();
     if (!search.isValid()) {
@@ -3120,15 +3198,143 @@ void MainWindow::activateSavedSearch(const QString &owner, const QString &id)
         const QStringList accountIds = m_accounts->accountIds();
         const auto account = std::find_if(accountIds.cbegin(), accountIds.cend(),
                                           [this, &owner](const QString &accountId) { return savedSearchOwner(accountId) == owner; });
-        if (account == accountIds.cend())
+        if (account == accountIds.cend()) {
+            const QString shownOwner = savedSearchOwner(m_accounts->activeAccount());
+            const QString name = search.name;
+            m_notificationBar->showInfo(
+                i18nc("@info %1 is the name of a saved search", "The account of the saved search \"%1\" was removed, "
+                                                                "so it cannot run.", name),
+                {
+                    {i18nc("@action:button %1 is an account", "Move to %1", m_accounts->displayName(m_accounts->activeAccount())),
+                     QStringLiteral("user-identity"), QStringLiteral("moveSavedSearchToShownAccount"),
+                     [this, owner, id, shownOwner]() { changeSavedSearchOwner(owner, id, shownOwner); }},
+                    {i18nc("@action:button", "Delete..."), QStringLiteral("edit-delete"),
+                     QStringLiteral("deleteOrphanedSavedSearch"), [this, owner, id]() { msgListWidget->deleteSavedSearch(owner, id); }},
+                });
             return;
+        }
         // Choosing the shown account in the Unified Inbox goes back to its folder
         if (*account != m_accounts->activeAccount() || m_unifiedInbox)
             switchAccount(*account);
         if (*account != m_accounts->activeAccount() || m_unifiedInbox)
             return;
     }
-    msgListWidget->runSavedSearch(owner, id);
+    if (edit)
+        msgListWidget->editSavedSearch(owner, id);
+    else
+        msgListWidget->runSavedSearch(owner, id);
+}
+
+void MainWindow::changeSavedSearchOwner(const QString &owner, const QString &id, const QString &newOwner)
+{
+    KConfigGroup root = MessageListWidget::savedSearchesRoot();
+    if (!root.group(owner).hasGroup(id)) {
+        reloadSavedSearchFolders();
+        return;
+    }
+    const QString name = root.group(owner).group(id).readEntry("Name", QString());
+    if (UiUtils::SavedSearches::isNameTaken(root, newOwner, name, id)) {
+        Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Move Saved Search"),
+                                     i18nc("@info %1 is the name of a saved search", "The account already has a saved "
+                                           "search called \"%1\". Rename one of them first.", name));
+        return;
+    }
+    if (!UiUtils::SavedSearches::changeOwner(root, owner, id, newOwner)) {
+        reloadSavedSearchFolders();
+        return;
+    }
+    if (!root.sync())
+        Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Move Saved Search"),
+                                     i18nc("@info", "The search could not be moved."));
+    // The counts were found in the folders of the old account
+    KConfigGroup counts(KSharedConfig::openStateConfig(), QStringLiteral("SavedSearchCounts"));
+    counts.deleteEntry(UiUtils::SavedSearches::countsKey(owner, id));
+    counts.sync();
+    if (msgListWidget->editedSavedSearchOwner() == owner && msgListWidget->editedSavedSearchId() == id)
+        msgListWidget->endSavedSearchEdit();
+    if (msgListWidget->activeSavedSearchOwner() == owner && msgListWidget->activeSavedSearchId() == id)
+        msgListWidget->forgetActiveSavedSearch();
+    reloadSavedSearchFolders();
+}
+
+void MainWindow::addSearchFolderAccounts(SearchFoldersDialog *dialog)
+{
+    for (const QString &accountId : m_accounts->accountIds()) {
+        Imap::ImapAccess *access = m_accountAccess.value(accountId);
+        QAbstractItemModel *mailboxes = nullptr;
+        if (access == m_imapAccess)
+            mailboxes = prettyMboxModel;
+        else if (access && access->mailboxModel())
+            mailboxes = new Imap::Mailbox::PrettyMailboxModel(dialog, access->mailboxModel());
+        dialog->addAccount(accountId, m_accounts->displayName(accountId), mailboxes);
+    }
+}
+
+void MainWindow::chooseSavedSearchFolders(const QString &owner, const QString &id)
+{
+    const KConfigGroup group = MessageListWidget::savedSearchesRoot().group(owner);
+    const UiUtils::SavedSearch search = group.hasGroup(id) ? UiUtils::SavedSearches::read(group.group(id), owner)
+                                                           : UiUtils::SavedSearch();
+    if (!search.isValid()) {
+        reloadSavedSearchFolders();
+        return;
+    }
+    auto *dialog = new SearchFoldersDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setObjectName(QStringLiteral("savedSearchFoldersDialog"));
+    dialog->setWindowTitle(i18nc("@title:window %1 is the name of a saved search", "Folders of \"%1\"", search.name));
+    addSearchFolderAccounts(dialog);
+    dialog->setSelectedFolders(search.folders);
+    connect(dialog, &QDialog::accepted, this, [this, dialog, owner, id]() {
+        KConfigGroup account = MessageListWidget::savedSearchesRoot().group(owner);
+        if (!account.hasGroup(id)) {
+            reloadSavedSearchFolders();
+            return;
+        }
+        KConfigGroup group = account.group(id);
+        UiUtils::SavedSearch search = UiUtils::SavedSearches::read(group, owner);
+        search.folders = dialog->selectedFolders();
+        UiUtils::SavedSearches::write(group, search);
+        group.sync();
+        reloadSavedSearchFolders();
+        // The virtual folder shows what the changed search finds
+        if (msgListWidget->activeSavedSearchOwner() == owner && msgListWidget->activeSavedSearchId() == id)
+            activateSavedSearch(owner, id);
+    });
+    dialog->open();
+}
+
+void MainWindow::removeMissingSavedSearchFolders(const QString &owner, const QString &id)
+{
+    KConfigGroup account = MessageListWidget::savedSearchesRoot().group(owner);
+    if (!account.hasGroup(id) || !m_savedSearchFolders) {
+        reloadSavedSearchFolders();
+        return;
+    }
+    KConfigGroup group = account.group(id);
+    UiUtils::SavedSearch search = UiUtils::SavedSearches::read(group, owner);
+    const QStringList missing = m_savedSearchFolders->problems(owner, id).missingFolders;
+    QStringList kept;
+    for (const QString &folder : std::as_const(search.folders)) {
+        if (!missing.contains(folder))
+            kept << folder;
+    }
+    // Leaving out every folder would leave nothing to search
+    if (kept.isEmpty() || kept.size() == search.folders.size())
+        return;
+    search.folders = kept;
+    UiUtils::SavedSearches::write(group, search);
+    group.sync();
+    reloadSavedSearchFolders();
+    if (msgListWidget->activeSavedSearchOwner() == owner && msgListWidget->activeSavedSearchId() == id)
+        activateSavedSearch(owner, id);
+}
+
+void MainWindow::storeSavedSearchOrder(const QList<UiUtils::SavedSearch> &searches)
+{
+    KConfigGroup root = MessageListWidget::savedSearchesRoot();
+    UiUtils::SavedSearches::writeOrder(root, searches);
+    root.sync();
 }
 
 void MainWindow::scheduleSavedSearchCount()
@@ -6809,6 +7015,18 @@ void MainWindow::createShell()
     m_savedSearchFolders = new SavedSearchFolders;
     m_accountSidebar->setFooter(m_savedSearchFolders);
     connect(m_savedSearchFolders, &SavedSearchFolders::searchActivated, this, &MainWindow::activateSavedSearch);
+    connect(m_savedSearchFolders, &SavedSearchFolders::editRequested, this, &MainWindow::editSavedSearch);
+    connect(m_savedSearchFolders, &SavedSearchFolders::renameRequested, msgListWidget, &MessageListWidget::renameSavedSearch);
+    connect(m_savedSearchFolders, &SavedSearchFolders::deleteRequested, msgListWidget, &MessageListWidget::deleteSavedSearch);
+    connect(m_savedSearchFolders, &SavedSearchFolders::ownerChangeRequested, this, &MainWindow::changeSavedSearchOwner);
+    connect(m_savedSearchFolders, &SavedSearchFolders::foldersChoiceRequested, this, &MainWindow::chooseSavedSearchFolders);
+    connect(m_savedSearchFolders, &SavedSearchFolders::missingFoldersRemovalRequested, this,
+            &MainWindow::removeMissingSavedSearchFolders);
+    connect(m_savedSearchFolders, &SavedSearchFolders::orderChanged, this, &MainWindow::storeSavedSearchOrder);
+    m_savedSearchProblemsTimer = new QTimer(this);
+    m_savedSearchProblemsTimer->setInterval(500);
+    m_savedSearchProblemsTimer->setSingleShot(true);
+    connect(m_savedSearchProblemsTimer, &QTimer::timeout, this, &MainWindow::refreshSavedSearchProblems);
     m_savedSearchCountTimer = new QTimer(this);
     m_savedSearchCountTimer->setInterval(300);
     m_savedSearchCountTimer->setSingleShot(true);
@@ -7926,15 +8144,7 @@ void MainWindow::chooseSearchFolders()
 {
     auto *dialog = new SearchFoldersDialog(this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
-    for (const QString &accountId : m_accounts->accountIds()) {
-        Imap::ImapAccess *access = m_accountAccess.value(accountId);
-        QAbstractItemModel *mailboxes = nullptr;
-        if (access == m_imapAccess)
-            mailboxes = prettyMboxModel;
-        else if (access && access->mailboxModel())
-            mailboxes = new Imap::Mailbox::PrettyMailboxModel(dialog, access->mailboxModel());
-        dialog->addAccount(accountId, m_accounts->displayName(accountId), mailboxes);
-    }
+    addSearchFolderAccounts(dialog);
     dialog->setSelectedFolders(msgListWidget->selectedFolders());
     connect(dialog, &QDialog::accepted, this, [this, dialog]() { msgListWidget->setSelectedFolders(dialog->selectedFolders()); });
     dialog->open();

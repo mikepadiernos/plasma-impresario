@@ -44,6 +44,7 @@
 #include "UiUtils/DestructiveActions.h"
 #include "UiUtils/QuickFilters.h"
 #include "UiUtils/RecentFolders.h"
+#include "UiUtils/SavedSearches.h"
 #include "UiUtils/SearchScope.h"
 #include "UiUtils/ShortcutOverview.h"
 #include "UiUtils/ViewStateStore.h"
@@ -113,6 +114,7 @@ namespace Gui
 
 class AccountSidebar;
 class SavedSearchFolders;
+class SearchFoldersDialog;
 class CapabilityActionGate;
 class ShellHeader;
 class AttachmentPanel;
@@ -422,6 +424,24 @@ private:
     void reloadSavedSearchFolders();
     /** @short Show the virtual folder of the search @p id of @p owner, switching to the owner when the search needs it */
     void activateSavedSearch(const QString &owner, const QString &id);
+    /** @short As activateSavedSearch(), but let the user change the search, previewing it in the list */
+    void editSavedSearch(const QString &owner, const QString &id);
+    /** @short Run the search, or edit it with @p edit; a search whose account was removed is offered to be moved */
+    void openSavedSearch(const QString &owner, const QString &id, bool edit);
+    /** @short Give the search @p id of @p owner to the account key @p newOwner */
+    void changeSavedSearchOwner(const QString &owner, const QString &id, const QString &newOwner);
+    /** @short Let the user choose the folders which the search @p id of @p owner looks at */
+    void chooseSavedSearchFolders(const QString &owner, const QString &id);
+    /** @short Leave the folders which are gone out of the search @p id of @p owner */
+    void removeMissingSavedSearchFolders(const QString &owner, const QString &id);
+    /** @short Keep @p searches in their order */
+    void storeSavedSearchOrder(const QList<UiUtils::SavedSearch> &searches);
+    /** @short Mark the saved searches whose account or chosen folders are gone */
+    void refreshSavedSearchProblems();
+    /** @short Whether the folder @p folder is still listed by its account */
+    UiUtils::SavedSearches::FolderPresence folderPresence(const UiUtils::SearchScope::Folder &folder) const;
+    /** @short Offer every account's folders in @p dialog */
+    void addSearchFolderAccounts(SearchFoldersDialog *dialog);
     /** @short Count the messages of the shown virtual folder soon, coalescing repeated requests */
     void scheduleSavedSearchCount();
     /** @short Count the messages which the shown virtual folder lists, and remember them once the search is done */
@@ -765,6 +785,8 @@ private:
     /** The saved searches of every account, as virtual folders below the folder tree */
     SavedSearchFolders *m_savedSearchFolders = nullptr;
     QTimer *m_savedSearchCountTimer = nullptr;
+    /** Checks the saved searches again once the folders of an account were listed */
+    QTimer *m_savedSearchProblemsTimer = nullptr;
     /** The header region above the columns, off by default */
     ShellHeader *m_shellHeader = nullptr;
     /** Hides the actions which the active account's protocol does not support */
