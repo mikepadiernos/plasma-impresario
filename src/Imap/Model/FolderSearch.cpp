@@ -11,6 +11,7 @@
 #include "Imap/Model/SearchIndexer.h"
 #include "Imap/Model/SearchResultsModel.h"
 #include "Imap/Model/TaskFactory.h"
+#include "Imap/Tasks/ListChildMailboxesTask.h"
 #include "Imap/Tasks/SortTask.h"
 #include "UiUtils/SearchScope.h"
 
@@ -41,7 +42,9 @@ FolderSearch::FolderSearch(Model *model, QObject *parent)
         case Phase::Opening:
             m_loadPoll.stop();
             m_opening = QPersistentModelIndex();
-            fail(m_current, tr("The folder could not be opened from the offline cache in time"));
+            fail(m_current, m_model && m_model->isNetworkAvailable()
+                                ? tr("The folder could not be opened in time")
+                                : tr("The folder could not be opened from the offline cache in time"));
             searchNext();
             break;
         case Phase::Loading:
@@ -116,6 +119,21 @@ bool FolderSearch::indexPaused() const
     return m_local && m_indexPaused;
 }
 
+QStringList FolderSearch::discardedFolders() const
+{
+    return m_local ? m_discardedFolders : QStringList();
+}
+
+bool FolderSearch::canContinueOnServer() const
+{
+    return m_local && m_phase == Phase::Idle && m_model && m_model->isNetworkAvailable();
+}
+
+bool FolderSearch::continuedOnServer() const
+{
+    return m_onServer && !m_local;
+}
+
 Model *FolderSearch::model() const
 {
     return m_model;
@@ -154,12 +172,21 @@ bool FolderSearch::isRunning() const
 void FolderSearch::start(const QStringList &mailboxes, bool allFolders, const QStringList &conditions)
 {
     m_conditions = conditions;
+    m_startMailboxes = mailboxes;
+    m_startAllFolders = allFolders;
+    m_onServer = false;
     begin(mailboxes, allFolders, false);
 }
 
 void FolderSearch::retry(const QStringList &mailboxes, bool allFolders)
 {
     begin(mailboxes, allFolders, true);
+}
+
+void FolderSearch::continueOnServer()
+{
+    m_onServer = true;
+    begin(m_startMailboxes, m_startAllFolders, true);
 }
 
 void FolderSearch::begin(const QStringList &mailboxes, bool allFolders, bool keepResults)
@@ -178,18 +205,31 @@ void FolderSearch::begin(const QStringList &mailboxes, bool allFolders, bool kee
     m_searchedCount = 0;
     m_phase = Phase::Listing;
     const quint64 generation = m_generation;
-    m_local = m_model && !m_model->isNetworkAvailable() && m_indexer && m_indexer->isAvailable();
+    // Once continued on the server, the search stays there while the account is online
+    m_local = m_model && m_indexer && m_indexer->isAvailable() && !(m_onServer && m_model->isNetworkAvailable());
     m_localResult = SearchIndex::Result();
     m_incompleteFolders.clear();
+    m_indexedValidity.clear();
+    m_discardedFolders.clear();
     m_indexPending = false;
     m_indexPaused = false;
     QString problem;
     if (m_local) {
         // One query answers every folder; the folders are still listed, from the offline cache, to show the matches
         m_localResult = m_indexer->index()->search(m_conditions, QStringList());
+        if (!m_localResult.problem.isEmpty() && m_model->isNetworkAvailable()) {
+            // Conditions which the index cannot answer go straight to the server
+            m_local = false;
+            m_localResult = SearchIndex::Result();
+        }
+    }
+    if (m_local) {
         problem = m_localResult.problem;
         const QList<SearchIndexer::FolderCoverage> coverage = m_indexer->coverage();
         QSet<QString> known;
+        const QList<SearchIndex::Folder> indexed = m_indexer->index()->folders();
+        for (const SearchIndex::Folder &folder : indexed)
+            m_indexedValidity.insert(folder.mailbox, folder.uidValidity);
         for (const SearchIndexer::FolderCoverage &folder : coverage) {
             known.insert(folder.mailbox);
             if (folder.state != SearchIndexer::FolderCoverage::State::Indexed
@@ -334,6 +374,18 @@ void FolderSearch::list()
         if (!allKnown)
             complete = walk(m_model->m_mailboxes, found, false);
     }
+    if (complete && m_local && m_model->isNetworkAvailable()) {
+        // A folder list answered from the cache is replaced once the server's arrives, and the matches with it; the
+        // server's search would find its folder replaced and search it again, but the index's matches would just vanish
+        const QList<ListChildMailboxesTask *> listings =
+            m_model->findChildren<ListChildMailboxesTask *>(Qt::FindDirectChildrenOnly);
+        if (std::any_of(listings.cbegin(), listings.cend(), [](const ListChildMailboxesTask *task) {
+                return !task->isFinished();
+            })) {
+            m_walkTimer.start();
+            return;
+        }
+    }
     if (!complete)
         return;
     m_deadline.stop();
@@ -393,11 +445,17 @@ void FolderSearch::searchNext()
         }
         TreeItemMailbox *mailbox = m_model->findMailboxByName(m_current);
         if (!mailbox) {
-            fail(m_current, m_local ? tr("The folder is not in the offline cache") : tr("The folder was not found on the server"));
+            fail(m_current, m_local && !m_model->isNetworkAvailable() ? tr("The folder is not in the offline cache")
+                                                                      : tr("The folder was not found on the server"));
             continue;
         }
         if (!mailbox->isSelectable()) {
             fail(m_current, tr("The folder cannot contain messages"));
+            continue;
+        }
+        if (m_local && m_model->isNetworkAvailable() && m_localResult.matches.value(m_current).isEmpty()) {
+            // Online, opening a folder selects it on the server; one without indexed matches is left to the server
+            ++m_searchedCount;
             continue;
         }
         if (m_local) {
@@ -513,10 +571,22 @@ void FolderSearch::checkOpened()
     m_loadPoll.stop();
     m_deadline.stop();
     const bool usable = m_opening.isValid() && m_opening.data(RoleIsFetched).toBool();
+    const bool replaced = !m_opening.isValid() || !m_currentMailbox.isValid();
     m_opening = QPersistentModelIndex();
     const quint64 generation = m_generation;
+    if (!usable && replaced && !m_searchedAgain.contains(m_current)) {
+        // The folders were listed again while this one was opened, which replaced it; open the new one
+        m_searchedAgain.insert(m_current);
+        m_queue.prepend(m_current);
+        QMetaObject::invokeMethod(this, [this, generation]() {
+            if (generation == m_generation)
+                searchNext();
+        }, Qt::QueuedConnection);
+        return;
+    }
     if (!usable) {
-        fail(m_current, tr("The folder's messages are not in the offline cache"));
+        fail(m_current, m_model && m_model->isNetworkAvailable() ? tr("The folder could not be opened")
+                                                                 : tr("The folder's messages are not in the offline cache"));
         QMetaObject::invokeMethod(this, [this, generation]() {
             if (generation == m_generation)
                 searchNext();
@@ -524,6 +594,17 @@ void FolderSearch::checkOpened()
         return;
     }
     m_phase = Phase::Searching;
+    TreeItemMailbox *mailbox = m_model ? m_model->findMailboxByName(m_current) : nullptr;
+    const uint indexedValidity = m_indexedValidity.value(m_current);
+    const uint currentValidity = mailbox ? mailbox->syncState.uidValidity() : 0;
+    if (indexedValidity != 0 && currentValidity != 0 && indexedValidity != currentValidity) {
+        // The folder was renumbered since it was indexed, so the indexed UIDs name other messages
+        m_discardedFolders << m_current;
+        if (!m_incompleteFolders.contains(m_current))
+            m_incompleteFolders << m_current;
+        searchAnswered(generation, Imap::Uids());
+        return;
+    }
     searchAnswered(generation, m_localResult.matches.value(m_current));
 }
 

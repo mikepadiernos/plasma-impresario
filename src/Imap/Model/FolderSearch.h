@@ -4,6 +4,7 @@
 #ifndef IMAP_MODEL_FOLDERSEARCH_H
 #define IMAP_MODEL_FOLDERSEARCH_H
 
+#include <QHash>
 #include <QList>
 #include <QObject>
 #include <QPersistentModelIndex>
@@ -40,8 +41,15 @@ folderFailed(); an empty mailbox name means that the whole account could not be 
 The search changes which folder of the account is selected; whoever starts it selects the shown folder again
 afterwards.
 
-While the account is offline, a search with a local index set through setSearchIndex() is answered from the index
-instead of the server, and the matches are loaded from the offline cache; without an index it fails.
+With a local index set through setSearchIndex(), a search is answered from the index first and the matches are loaded
+from the offline cache. While the account is offline, that is the whole search; without an index it fails. While it is
+online, only the folders with indexed matches are opened, and continueOnServer() searches the same places on the
+server afterwards, adding the messages which the index does not have. Each message is listed once, as the results
+point at the messages of the account's Model.
+
+Indexed matches of a folder whose UIDVALIDITY differs from the one it was indexed with name other messages, so they are
+dropped and the folder counts as not fully indexed. A folder found to be renumbered by the server during the search
+loses its messages in the Model, and with them its results.
 */
 class FolderSearch : public QObject
 {
@@ -68,6 +76,16 @@ public:
     this search. Meant for the places which could not be searched before.
     */
     void retry(const QStringList &mailboxes, bool allFolders);
+    /** @short Search the places of the last start() again on the server, keeping the results found so far
+
+    For a search which the local index answered while the account is online; see canContinueOnServer(). Later calls of
+    retry() search on the server as well, until the next start().
+    */
+    void continueOnServer();
+    /** @short Whether the last search was answered by the local index while the account is online and not running */
+    bool canContinueOnServer() const;
+    /** @short Whether the last search, or the one under way, was sent to the server by continueOnServer() */
+    bool continuedOnServer() const;
     /** @short Stop without emitting finished(); the results found so far stay */
     void cancel();
     bool isRunning() const;
@@ -106,6 +124,8 @@ public:
     /** @short Whether the local index was being updated when the last search used it, or was paused */
     bool indexPending() const;
     bool indexPaused() const;
+    /** @short Searched folders whose indexed matches were dropped, as their UIDVALIDITY changed since they were indexed */
+    QStringList discardedFolders() const;
 
 signals:
     void progressChanged();
@@ -174,6 +194,13 @@ private:
     bool m_indexPending = false;
     bool m_indexPaused = false;
     QPersistentModelIndex m_opening;
+    /** The places of the last start(), for continueOnServer() */
+    QStringList m_startMailboxes;
+    bool m_startAllFolders = false;
+    bool m_onServer = false;
+    /** UIDVALIDITY of each indexed folder when the local index answered */
+    QHash<QString, uint> m_indexedValidity;
+    QStringList m_discardedFolders;
 };
 
 }

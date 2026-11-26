@@ -1759,6 +1759,14 @@ void MainWindow::createWidgets()
     m_actionRetrySearch->setVisible(false);
     connect(m_actionRetrySearch, &QAction::triggered, this, &MainWindow::retrySearchAcross);
     msgListWidget->addStatusButton(m_actionRetrySearch)->setObjectName(QStringLiteral("retrySearchButton"));
+    m_actionSearchServer =
+        new QAction(quickActionIcon(QStringLiteral("network-server")), i18nc("@action:button", "Search Server"), this);
+    m_actionSearchServer->setObjectName(QStringLiteral("action_search_server"));
+    m_actionSearchServer->setToolTip(
+        i18nc("@info:tooltip", "Continue the search on the server, adding the messages which are not indexed on this computer"));
+    m_actionSearchServer->setVisible(false);
+    connect(m_actionSearchServer, &QAction::triggered, this, &MainWindow::continueSearchOnServer);
+    msgListWidget->addStatusButton(m_actionSearchServer)->setObjectName(QStringLiteral("searchServerButton"));
     msgListWidget->tree->setContextMenuPolicy(Qt::CustomContextMenu);
     msgListWidget->tree->setAlternatingRowColors(true);
     msgListWidget->setRawSearchEnabled(m_settings->value(Common::SettingsNames::guiAllowRawSearch).toBool());
@@ -6643,17 +6651,26 @@ void MainWindow::updateMessageListStatus()
         m_actionStopSearch->setVisible(searchRunning);
     if (m_actionRetrySearch)
         m_actionRetrySearch->setVisible(m_searchAcross && !searchRunning && !m_searchProblems.isEmpty());
+    if (m_actionSearchServer) {
+        m_actionSearchServer->setVisible(
+            m_searchAcross && !searchRunning
+            && std::any_of(m_folderSearches.cbegin(), m_folderSearches.cend(),
+                           [](const QPointer<FolderSearch> &search) { return search && search->canContinueOnServer(); }));
+    }
     if (m_searchAcross && m_unifiedModel) {
         int folders = 0;
         int searched = 0;
         bool local = false;
+        bool localOnline = false;
         bool incomplete = false;
         for (const QPointer<FolderSearch> &search : std::as_const(m_folderSearches)) {
             if (!search)
                 continue;
             folders += search->folderCount();
             searched += search->searchedCount();
-            local = local || search->usedLocalIndex();
+            const bool online = search->model() && search->model()->isNetworkAvailable();
+            local = local || (search->usedLocalIndex() && !online);
+            localOnline = localOnline || (search->usedLocalIndex() && online);
             incomplete = incomplete || !search->incompleteFolders().isEmpty() || search->indexPending()
                 || search->indexPaused();
         }
@@ -6676,7 +6693,9 @@ void MainWindow::updateMessageListStatus()
         }
         if (local)
             parts << i18nc("@info:status", "offline, in mail indexed on this computer");
-        if (local && incomplete && !searchRunning)
+        else if (localOnline)
+            parts << i18nc("@info:status", "in mail indexed on this computer");
+        if ((local || localOnline) && incomplete && !searchRunning)
             parts << i18nc("@info:status", "results may be incomplete");
         if (!m_searchProblems.isEmpty()) {
             parts << i18ncp("@info:status", "%1 place could not be searched", "%1 places could not be searched",
@@ -8158,6 +8177,41 @@ void MainWindow::retrySearchAcross()
         folderSearchFinished(QString());
 }
 
+void MainWindow::continueSearchOnServer()
+{
+    if (!m_searchAcross || isSearchAcrossRunning())
+        return;
+    QStringList accounts;
+    for (auto it = m_folderSearches.cbegin(); it != m_folderSearches.cend(); ++it) {
+        if (it.value() && it.value()->canContinueOnServer())
+            accounts << it.key();
+    }
+    if (accounts.isEmpty())
+        return;
+    // The server searches these places again, including those which could not be opened from the index
+    m_searchProblems.erase(std::remove_if(m_searchProblems.begin(), m_searchProblems.end(),
+                                          [&accounts](const SearchProblem &problem) {
+                                              return accounts.contains(problem.accountId);
+                                          }),
+                           m_searchProblems.end());
+    if (m_notificationBar && m_notificationBar->isVisible() && m_notificationBar->text() == m_searchProblemsNotice)
+        m_notificationBar->dismiss();
+    m_searchStopped = false;
+    for (const QString &accountId : std::as_const(accounts)) {
+        Imap::Mailbox::FolderSearch *search = m_folderSearches.value(accountId);
+        // Both searches would select folders on the same connection
+        if (m_relatedMessagesPanel && m_relatedMessagesPanel->serverSearch()->isRunning()
+            && m_relatedMessagesPanel->serverSearch()->message().model() == search->model())
+            m_relatedMessagesPanel->restartServerSearch();
+        search->continueOnServer();
+    }
+    updateUnifiedStates();
+    updateMessageListScope();
+    scheduleMessageListStatus();
+    if (!isSearchAcrossRunning())
+        folderSearchFinished(QString());
+}
+
 QString MainWindow::searchProgressDetails() const
 {
     QStringList lines;
@@ -8205,6 +8259,18 @@ QString MainWindow::searchProgressDetails() const
                             "%2: %1 folder is not fully indexed on this computer, so results may be incomplete",
                             "%2: %1 folders are not fully indexed on this computer, so results may be incomplete",
                             int(search->incompleteFolders().size()), name);
+        }
+        if (!search->isRunning() && !search->discardedFolders().isEmpty()) {
+            lines << i18ncp("@info:tooltip %2 is an account name",
+                            "%2: %1 folder was renumbered on the server since it was indexed, so its indexed matches "
+                            "were left out",
+                            "%2: %1 folders were renumbered on the server since they were indexed, so their indexed "
+                            "matches were left out",
+                            int(search->discardedFolders().size()), name);
+        }
+        if (!search->isRunning() && search->canContinueOnServer()) {
+            lines << i18nc("@info:tooltip account name", "%1: Search Server adds the messages found on the server",
+                           name);
         }
         if (!search->isRunning() && search->indexPaused()) {
             lines << i18nc("@info:tooltip account name", "%1: indexing is paused, so recent changes may be missing",

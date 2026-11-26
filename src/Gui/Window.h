@@ -688,6 +688,8 @@ private:
     void stopSearchAcross();
     /** @short Search the places which could not be searched again */
     void retrySearchAcross();
+    /** @short Search on the server the places which the local index answered while online, keeping the results */
+    void continueSearchOnServer();
     /** @short Progress of each account, for the tooltip of the status */
     QString searchProgressDetails() const;
     void folderSearchFinished(const QString &accountId);
@@ -1020,6 +1022,7 @@ private:
     QString m_searchProblemsNotice;
     QAction *m_actionStopSearch = nullptr;
     QAction *m_actionRetrySearch = nullptr;
+    QAction *m_actionSearchServer = nullptr;
     /** While an action works on messages of another account than the shown one */
     Imap::ImapAccess *m_actingAccess = nullptr;
     QString m_actingAccountId;
