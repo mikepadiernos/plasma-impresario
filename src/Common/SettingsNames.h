@@ -54,6 +54,10 @@ struct SettingsNames {
     static const QString searchIndexKey;
     /** @short Per-account switch which keeps the local index from being updated until it is resumed */
     static const QString searchIndexPausedKey;
+    /** @short Per-account list of folders kept out of the local index; none unless chosen */
+    static const QString searchIndexExcludedKey;
+    /** @short Per-account switch which lets the local index hold the decrypted text of encrypted mail; off by default */
+    static const QString searchIndexDecryptedKey;
     static const QString watchedFoldersKey, watchOnlyInbox, watchSubscribed, watchAll;
     static const QString guiMsgListShowThreading;
     static const QString guiMsgListHideRead;

@@ -109,6 +109,9 @@ public:
 
     void setRenewalThreshold(const int days) override;
 
+    /** @short Finish the reads left pending in the prepared queries, so that SQLite lets other tables be dropped */
+    void finishQueries();
+
 private:
     /** @short Broadcast an error from the SQL query */
     void emitError(const QString &message, const QSqlQuery &query) const;

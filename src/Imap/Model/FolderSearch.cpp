@@ -124,6 +124,11 @@ QStringList FolderSearch::discardedFolders() const
     return m_local ? m_discardedFolders : QStringList();
 }
 
+QStringList FolderSearch::excludedFolders() const
+{
+    return m_local ? m_excludedFolders : QStringList();
+}
+
 bool FolderSearch::canContinueOnServer() const
 {
     return m_local && m_phase == Phase::Idle && m_model && m_model->isNetworkAvailable();
@@ -211,6 +216,7 @@ void FolderSearch::begin(const QStringList &mailboxes, bool allFolders, bool kee
     m_incompleteFolders.clear();
     m_indexedValidity.clear();
     m_discardedFolders.clear();
+    m_excludedFolders.clear();
     m_indexPending = false;
     m_indexPaused = false;
     QString problem;
@@ -233,8 +239,11 @@ void FolderSearch::begin(const QStringList &mailboxes, bool allFolders, bool kee
         for (const SearchIndexer::FolderCoverage &folder : coverage) {
             known.insert(folder.mailbox);
             if (folder.state != SearchIndexer::FolderCoverage::State::Indexed
-                && (allFolders || m_requested.contains(folder.mailbox)))
+                && (allFolders || m_requested.contains(folder.mailbox))) {
                 m_incompleteFolders << folder.mailbox;
+                if (folder.state == SearchIndexer::FolderCoverage::State::Excluded)
+                    m_excludedFolders << folder.mailbox;
+            }
         }
         if (!allFolders) {
             // Chosen folders which the cache does not even list

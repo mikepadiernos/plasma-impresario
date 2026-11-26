@@ -304,7 +304,9 @@ QList<SearchIndexer::FolderCoverage> SearchIndexer::coverage() const
             coverage.withText = record->withText;
             coverage.updated = record->updated;
         }
-        if (!cached)
+        if (m_excluded.contains(mailbox))
+            coverage.state = FolderCoverage::State::Excluded;
+        else if (!cached)
             coverage.state = FolderCoverage::State::NotCached;
         else if (record == indexed.constEnd())
             coverage.state = FolderCoverage::State::NotIndexed;
@@ -317,6 +319,94 @@ QList<SearchIndexer::FolderCoverage> SearchIndexer::coverage() const
         result << coverage;
     }
     return result;
+}
+
+void SearchIndexer::setExcludedFolders(const QStringList &mailboxes)
+{
+    QSet<QString> excluded(mailboxes.cbegin(), mailboxes.cend());
+    excluded.remove(QString());
+    if (excluded == m_excluded)
+        return;
+    m_excluded = excluded;
+    if (m_index) {
+        // The folders done so far stay done; a new pass skips the excluded folders and takes in the included ones
+        if (m_running)
+            abandonPass();
+        for (const QString &mailbox : std::as_const(m_excluded))
+            m_index->removeFolder(mailbox);
+        if (m_paused)
+            m_pending = true;
+        else
+            update();
+    }
+    emit progressChanged();
+}
+
+QStringList SearchIndexer::excludedFolders() const
+{
+    QStringList result(m_excluded.cbegin(), m_excluded.cend());
+    result.sort();
+    return result;
+}
+
+void SearchIndexer::setIndexDecrypted(bool enabled)
+{
+    m_indexDecrypted = enabled;
+    if (enabled || !m_index || m_index->decryptedMessages() == 0)
+        return;
+    m_scheduled.stop();
+    abandonPass();
+    m_index->removeDecrypted();
+    if (m_paused)
+        m_pending = true;
+    else
+        update();
+    emit progressChanged();
+}
+
+bool SearchIndexer::indexesDecrypted() const
+{
+    return m_indexDecrypted;
+}
+
+bool SearchIndexer::addDecryptedText(const QString &mailbox, uint uid, const QString &text)
+{
+    if (!m_indexDecrypted || !m_index || !m_index->isOpen() || m_excluded.contains(mailbox) || uid == 0
+        || text.trimmed().isEmpty())
+        return false;
+    if (!m_index->hasMessage(mailbox, uid)) {
+        const std::shared_ptr<AbstractCache> cache = usableCache();
+        if (!cache)
+            return false;
+        SearchIndex::Document document;
+        if (!SearchIndexer::document(*cache, mailbox, uid, normalizedFlags(cache->msgFlags(mailbox, uid)), &document)
+            || !m_index->store({document}))
+            return false;
+    }
+    if (!m_index->addDecryptedText(mailbox, uid, text))
+        return false;
+    emit progressChanged();
+    return true;
+}
+
+bool SearchIndexer::deleteIndex(QString *problem)
+{
+    m_scheduled.stop();
+    abandonPass();
+    m_pending = false;
+    // Prepared statements of the index and the cache which are still reading would stop SQLite from dropping tables
+    m_index.reset();
+    if (auto combined = std::dynamic_pointer_cast<CombinedCache>(usableCache()))
+        combined->finishQueries();
+    const bool deleted = m_connection.isEmpty() || SearchIndex::drop(m_connection, problem);
+    m_unavailable = tr("The offline search index was deleted.");
+    emit progressChanged();
+    return deleted;
+}
+
+SearchIndexer *SearchIndexer::forModel(const QObject *model)
+{
+    return model ? model->findChild<SearchIndexer *>(QString(), Qt::FindDirectChildrenOnly) : nullptr;
 }
 
 void SearchIndexer::scheduleUpdate()
@@ -387,17 +477,20 @@ void SearchIndexer::beginPass(const AbstractCache &cache)
     m_mailbox.clear();
     QSet<QString> listed;
     m_queue = cachedFolders(cache, &listed);
+    m_queue.removeIf([this](const QString &mailbox) { return m_excluded.contains(mailbox); });
     m_passFolders = int(m_queue.size());
-    // Folders which are gone from the account are gone from the index too
+    // Folders which are gone from the account, or kept out of the index, are gone from the index too
     const QList<SearchIndex::Folder> indexed = m_index->folders();
     for (const SearchIndex::Folder &folder : indexed) {
-        if (!listed.contains(folder.mailbox))
+        if (!listed.contains(folder.mailbox) || m_excluded.contains(folder.mailbox))
             m_index->removeFolder(folder.mailbox);
     }
 }
 
 bool SearchIndexer::beginFolder(const AbstractCache &cache, const QString &mailbox)
 {
+    if (m_excluded.contains(mailbox))
+        return false;
     const SyncState state = cache.mailboxSyncState(mailbox);
     if (!state.isUsableForSyncing() || state.uidValidity() == 0)
         return false;

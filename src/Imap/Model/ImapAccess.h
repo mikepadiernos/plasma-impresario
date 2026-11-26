@@ -102,6 +102,10 @@ public:
     Imap::Mailbox::SearchIndexer *searchIndexer() const;
     /** @short Pause or resume the local search index, and remember the choice for the account */
     void setSearchIndexPaused(bool paused);
+    /** @short Keep @arg mailboxes out of the local search index, and remember the choice for the account */
+    void setSearchIndexExcluded(const QStringList &mailboxes);
+    /** @short Delete the local search index and turn it off for the account; @arg problem says what failed */
+    bool deleteSearchIndex(QString *problem = nullptr);
 
     QString server() const;
     void setServer(const QString &server);
@@ -173,6 +177,9 @@ private slots:
     void desiredNetworkPolicyChanged(const Imap::Mailbox::NetworkPolicy policy);
 
 private:
+    /** @short Remove the search index from the cache file while no cache uses it */
+    bool dropSearchIndexFile(QString *problem);
+
     QSettings *m_settings;
     QSettings *m_appSettings;
     Imap::Mailbox::Model *m_imapModel;

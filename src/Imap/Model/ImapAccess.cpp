@@ -26,6 +26,7 @@
 #include <QPointer>
 #include <QSslKey>
 #include <QSettings>
+#include <QSqlDatabase>
 #include "Common/MetaTypes.h"
 #include "Common/Paths.h"
 #include "Common/PortNumbers.h"
@@ -323,8 +324,9 @@ void ImapAccess::doConnect()
         break;
     }
 
-    bool shouldUsePersistentCache =
-            m_settings->value(Common::SettingsNames::cacheOfflineKey).toString() != Common::SettingsNames::cacheOfflineNone;
+    const bool memoryOnly =
+            m_settings->value(Common::SettingsNames::cacheOfflineKey).toString() == Common::SettingsNames::cacheOfflineNone;
+    bool shouldUsePersistentCache = !memoryOnly;
 
     if (shouldUsePersistentCache && !QDir().mkpath(m_cacheDir)) {
         onCacheError(tr("Failed to create directory %1").arg(m_cacheDir));
@@ -347,6 +349,9 @@ void ImapAccess::doConnect()
 
     if (!shouldUsePersistentCache) {
         cache.reset(new Imap::Mailbox::MemoryCache());
+        // Mail kept in memory only leaves nothing to index, so no index is left behind on disk either
+        if (memoryOnly)
+            dropSearchIndexFile(nullptr);
     } else {
         // Each account needs its own SQLite connection name; a shared name replaces the other accounts' connections.
         cache.reset(new Imap::Mailbox::CombinedCache(QStringLiteral("trojita-imap-cache-%1").arg(credentialAccountId()),
@@ -404,7 +409,11 @@ void ImapAccess::doConnect()
                 m_imapModel);
             m_searchIndexer->setObjectName(QStringLiteral("searchIndexer-%1").arg(m_accountName));
             m_searchIndexer->setPaused(m_settings->value(Common::SettingsNames::searchIndexPausedKey, false).toBool());
+            m_searchIndexer->setExcludedFolders(
+                m_settings->value(Common::SettingsNames::searchIndexExcludedKey).toStringList());
             if (m_searchIndexer->open()) {
+                m_searchIndexer->setIndexDecrypted(
+                    m_settings->value(Common::SettingsNames::searchIndexDecryptedKey, false).toBool());
                 // A burst of new messages, flags or downloaded parts leads to one pass a little later
                 connect(m_imapModel, &QAbstractItemModel::rowsInserted, m_searchIndexer, &Imap::Mailbox::SearchIndexer::scheduleUpdate);
                 connect(m_imapModel, &QAbstractItemModel::rowsRemoved, m_searchIndexer, &Imap::Mailbox::SearchIndexer::scheduleUpdate);
@@ -413,6 +422,7 @@ void ImapAccess::doConnect()
             }
         } else {
             // Turning the index off deletes it, so that no copy of the text is left behind
+            combined->finishQueries();
             Imap::Mailbox::SearchIndex::drop(combined->databaseConnectionName());
         }
     }
@@ -493,6 +503,55 @@ void ImapAccess::setSearchIndexPaused(bool paused)
         m_settings->remove(Common::SettingsNames::searchIndexPausedKey);
     if (m_searchIndexer)
         m_searchIndexer->setPaused(paused);
+}
+
+void ImapAccess::setSearchIndexExcluded(const QStringList &mailboxes)
+{
+    if (mailboxes.isEmpty())
+        m_settings->remove(Common::SettingsNames::searchIndexExcludedKey);
+    else
+        m_settings->setValue(Common::SettingsNames::searchIndexExcludedKey, mailboxes);
+    if (m_searchIndexer)
+        m_searchIndexer->setExcludedFolders(mailboxes);
+}
+
+bool ImapAccess::deleteSearchIndex(QString *problem)
+{
+    m_settings->setValue(Common::SettingsNames::searchIndexKey, false);
+    if (m_searchIndexer) {
+        const bool deleted = m_searchIndexer->deleteIndex(problem);
+        delete m_searchIndexer;
+        m_searchIndexer = nullptr;
+        return deleted;
+    }
+    if (m_imapModel) {
+        if (auto combined = dynamic_cast<Imap::Mailbox::CombinedCache *>(m_imapModel->cache().get())) {
+            combined->finishQueries();
+            return Imap::Mailbox::SearchIndex::drop(combined->databaseConnectionName(), problem);
+        }
+    }
+    return dropSearchIndexFile(problem);
+}
+
+bool ImapAccess::dropSearchIndexFile(QString *problem)
+{
+    const QString file = m_cacheDir + QLatin1String("imap.cache.sqlite");
+    if (!QFileInfo::exists(file))
+        return true;
+    const QString connection = QStringLiteral("trojita-search-index-cleanup-%1").arg(credentialAccountId());
+    bool dropped = false;
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), connection);
+        db.setDatabaseName(file);
+        if (db.open()) {
+            dropped = Imap::Mailbox::SearchIndex::drop(connection, problem);
+            db.close();
+        } else if (problem) {
+            *problem = tr("Cannot open the offline cache to remove its search index");
+        }
+    }
+    QSqlDatabase::removeDatabase(connection);
+    return dropped;
 }
 
 QAbstractItemModel *ImapAccess::mailboxModel() const

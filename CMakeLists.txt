@@ -569,6 +569,7 @@ set(libImap_SOURCES
     ${path_Imap}/Model/UnifiedMsgListModel.cpp
     ${path_Imap}/Model/SearchResultsModel.cpp
     ${path_Imap}/Model/FolderSearch.cpp
+    ${path_Imap}/Model/DecryptedTextIndexer.cpp
     ${path_Imap}/Model/SearchIndex.cpp
     ${path_Imap}/Model/SearchIndexer.cpp
     ${path_Imap}/Model/SearchTextFetcher.cpp

@@ -855,6 +855,36 @@ void SQLCache::setRenewalThreshold(const int days)
     m_updateAccessIfOlder = days;
 }
 
+void SQLCache::finishQueries()
+{
+    queryChildMailboxes.finish();
+    queryChildMailboxesFresh.finish();
+    queryRemoveChildMailboxes.finish();
+    querySetChildMailboxes.finish();
+    queryMailboxSyncState.finish();
+    querySetMailboxSyncState.finish();
+    queryUidMapping.finish();
+    querySetUidMapping.finish();
+    queryClearUidMapping.finish();
+    queryMessageMetadata.finish();
+    queryAccessMessageMetadata.finish();
+    querySetMessageMetadata.finish();
+    queryMessageFlags.finish();
+    querySetMessageFlags.finish();
+    queryClearAllMessages1.finish();
+    queryClearAllMessages2.finish();
+    queryClearAllMessages3.finish();
+    queryClearAllMessages4.finish();
+    queryClearMessage1.finish();
+    queryClearMessage2.finish();
+    queryClearMessage3.finish();
+    queryMessagePart.finish();
+    querySetMessagePart.finish();
+    queryForgetMessagePart.finish();
+    queryMessageThreading.finish();
+    querySetMessageThreading.finish();
+}
+
 /** @short Return a proper represenation of the mailbox name to be used in the SQL queries
 
 A null QString is represented as NIL, which makes our cache unhappy.

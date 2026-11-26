@@ -124,8 +124,20 @@ public:
     bool removeFolder(const QString &mailbox);
 
     QHash<uint, Entry> entries(const QString &mailbox) const;
-    /** @short Add or replace the messages */
+    /** @short Add or replace the messages; a replaced message loses any decrypted text added to it */
     bool store(const QList<Document> &documents);
+    /** @short Whether the message is in the index */
+    bool hasMessage(const QString &mailbox, uint uid) const;
+    /** @short Add @arg text, the decrypted text of an encrypted message which is in the index, to its body
+
+    Text which the message already has is not added again. The message is marked, so that removeDecrypted() can take
+    the decrypted text out of the index again.
+    */
+    bool addDecryptedText(const QString &mailbox, uint uid, const QString &text);
+    /** @short Number of messages holding decrypted text */
+    int decryptedMessages() const;
+    /** @short Forget the messages holding decrypted text, so that they are indexed again without it */
+    bool removeDecrypted();
     bool setFlags(const QString &mailbox, const QHash<uint, QStringList> &flags);
     bool remove(const QString &mailbox, const QList<uint> &uids);
 

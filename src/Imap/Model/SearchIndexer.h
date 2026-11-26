@@ -49,6 +49,8 @@ public:
             /** Some cached messages have no headers in the cache yet, so the index cannot hold them */
             Partial,
             Indexed,
+            /** The user keeps the folder out of the index */
+            Excluded,
         };
         QString mailbox;
         State state = State::NotCached;
@@ -104,6 +106,30 @@ public:
     */
     QList<FolderCoverage> coverage() const;
 
+    /** @short Keep @arg mailboxes out of the index; what the index holds of them is removed right away */
+    void setExcludedFolders(const QStringList &mailboxes);
+    /** @short The folders kept out of the index, sorted */
+    QStringList excludedFolders() const;
+
+    /** @short Whether addDecryptedText() adds the decrypted text of encrypted messages; off by default
+
+    Turning it off removes the decrypted text which the index holds; the messages are then indexed again without it.
+    */
+    void setIndexDecrypted(bool enabled);
+    bool indexesDecrypted() const;
+    /** @short Add @arg text, decrypted from the message @arg uid of @arg mailbox, to the index
+
+    Does nothing unless decrypted text is to be indexed and the folder is not excluded. A message which is not in the
+    index yet is added from the cache first.
+    */
+    bool addDecryptedText(const QString &mailbox, uint uid, const QString &text);
+
+    /** @short Delete the index from the cache, leaving the indexer unavailable; @arg problem says what failed */
+    bool deleteIndex(QString *problem = nullptr);
+
+    /** @short The indexer of the IMAP model @arg model, or nullptr when the account has none */
+    static SearchIndexer *forModel(const QObject *model);
+
     /** @short Pause before a scheduled pass, pause between batches and messages per batch; for tests */
     void setTimings(int scheduleMs, int batchMs, int batchSize);
 
@@ -141,6 +167,8 @@ private:
     QTimer m_scheduled;
     QTimer m_batch;
     int m_batchSize = 200;
+    QSet<QString> m_excluded;
+    bool m_indexDecrypted = false;
 
     QStringList m_queue;
     QString m_mailbox;

@@ -16,7 +16,10 @@ namespace Mailbox
 namespace
 {
 
-const int indexVersion = 1;
+const int indexVersion = 2;
+
+/** Text kept of one message; longer text is cut, as it rarely adds anything to a search */
+const int maximumBody = 512 * 1024;
 
 const QString textColumns[] = {
     QStringLiteral("subject"), QStringLiteral("sender"), QStringLiteral("recipient_to"), QStringLiteral("recipient_cc"),
@@ -420,7 +423,8 @@ bool SearchIndex::open()
         QStringLiteral("CREATE TABLE IF NOT EXISTS search_docs (id INTEGER PRIMARY KEY, mailbox TEXT NOT NULL, "
                        "uid INTEGER NOT NULL, sent INTEGER, received INTEGER, size INTEGER, flags TEXT, "
                        "content_type TEXT, has_attachment INTEGER, message_id TEXT, in_reply_to TEXT, refs TEXT, "
-                       "list_id TEXT, list_post TEXT, has_text INTEGER, text_parts TEXT, UNIQUE (mailbox, uid))"),
+                       "list_id TEXT, list_post TEXT, has_text INTEGER, text_parts TEXT, "
+                       "decrypted INTEGER NOT NULL DEFAULT 0, UNIQUE (mailbox, uid))"),
         QStringLiteral("CREATE VIRTUAL TABLE IF NOT EXISTS search_text USING fts5(subject, sender, recipient_to, "
                        "recipient_cc, recipient_bcc, body, attachments, tokenize='trigram')"),
     };
@@ -488,12 +492,12 @@ bool SearchIndex::drop(const QString &connectionName, QString *problem)
             return false;
         }
     }
-    // SQLite refuses to drop a table while the cache is in the middle of reading; the empty tables then stay until
-    // the next time, which is harmless
+    // SQLite refuses to drop a table while a statement on the connection is still reading, so callers finish the
+    // cache's queries first; should a drop still fail, the empty tables stay until the next time, which is harmless
     QSqlQuery q(db);
     for (const QString &table : tables) {
-        if (existing.contains(table))
-            q.exec(QStringLiteral("DROP TABLE IF EXISTS %1").arg(table));
+        if (existing.contains(table) && !q.exec(QStringLiteral("DROP TABLE IF EXISTS %1").arg(table)))
+            qWarning() << "Search index: cannot drop" << table << q.lastError().text();
     }
     return true;
 }
@@ -624,7 +628,7 @@ bool SearchIndex::store(const QList<Document> &documents)
     QSqlQuery update(db);
     update.prepare(QStringLiteral("UPDATE search_docs SET sent = ?, received = ?, size = ?, flags = ?, content_type = ?, "
                                   "has_attachment = ?, message_id = ?, in_reply_to = ?, refs = ?, list_id = ?, "
-                                  "list_post = ?, has_text = ?, text_parts = ? WHERE id = ?"));
+                                  "list_post = ?, has_text = ?, text_parts = ?, decrypted = 0 WHERE id = ?"));
     QSqlQuery insert(db);
     insert.prepare(QStringLiteral("INSERT INTO search_docs (sent, received, size, flags, content_type, has_attachment, "
                                   "message_id, in_reply_to, refs, list_id, list_post, has_text, text_parts, mailbox, uid) "
@@ -677,6 +681,81 @@ bool SearchIndex::store(const QList<Document> &documents)
         if (!insertText.exec())
             return fail(tr("Cannot update the search index"), insertText.lastError().text());
     }
+    if (!savepoint.release())
+        return fail(tr("Cannot update the search index"), db.lastError().text());
+    return true;
+}
+
+bool SearchIndex::hasMessage(const QString &mailbox, uint uid) const
+{
+    QSqlQuery q(database());
+    q.prepare(QStringLiteral("SELECT 1 FROM search_docs WHERE mailbox = ? AND uid = ?"));
+    q.addBindValue(mailbox);
+    q.addBindValue(uid);
+    if (!q.exec()) {
+        fail(tr("Cannot read the search index"), q.lastError().text());
+        return false;
+    }
+    return q.next();
+}
+
+bool SearchIndex::addDecryptedText(const QString &mailbox, uint uid, const QString &text)
+{
+    QSqlDatabase db = database();
+    Savepoint savepoint(db);
+    if (!savepoint.isActive())
+        return fail(tr("Cannot update the search index"), db.lastError().text());
+    QSqlQuery q(db);
+    q.prepare(QStringLiteral("SELECT search_docs.id, search_text.body FROM search_docs JOIN search_text "
+                             "ON search_text.rowid = search_docs.id WHERE search_docs.mailbox = ? AND search_docs.uid = ?"));
+    q.addBindValue(mailbox);
+    q.addBindValue(uid);
+    if (!q.exec())
+        return fail(tr("Cannot read the search index"), q.lastError().text());
+    if (!q.next())
+        return fail(tr("The message is not in the search index"), QString());
+    const qlonglong id = q.value(0).toLongLong();
+    QString body = q.value(1).toString();
+    q.finish();
+    if (!body.contains(text)) {
+        if (!body.isEmpty())
+            body += QLatin1Char('\n');
+        body += text;
+        if (body.size() > maximumBody)
+            body.truncate(maximumBody);
+        q.prepare(QStringLiteral("UPDATE search_text SET body = ? WHERE rowid = ?"));
+        q.addBindValue(body);
+        q.addBindValue(id);
+        if (!q.exec())
+            return fail(tr("Cannot update the search index"), q.lastError().text());
+    }
+    q.prepare(QStringLiteral("UPDATE search_docs SET decrypted = 1 WHERE id = ?"));
+    q.addBindValue(id);
+    if (!q.exec())
+        return fail(tr("Cannot update the search index"), q.lastError().text());
+    if (!savepoint.release())
+        return fail(tr("Cannot update the search index"), db.lastError().text());
+    return true;
+}
+
+int SearchIndex::decryptedMessages() const
+{
+    QSqlQuery q(database());
+    if (!q.exec(QStringLiteral("SELECT count(*) FROM search_docs WHERE decrypted = 1")) || !q.next()) {
+        fail(tr("Cannot read the search index"), q.lastError().text());
+        return 0;
+    }
+    return q.value(0).toInt();
+}
+
+bool SearchIndex::removeDecrypted()
+{
+    QSqlDatabase db = database();
+    Savepoint savepoint(db);
+    QSqlQuery q(db);
+    if (!q.exec(QStringLiteral("DELETE FROM search_text WHERE rowid IN (SELECT id FROM search_docs WHERE decrypted = 1)"))
+        || !q.exec(QStringLiteral("DELETE FROM search_docs WHERE decrypted = 1")))
+        return fail(tr("Cannot update the search index"), q.lastError().text());
     if (!savepoint.release())
         return fail(tr("Cannot update the search index"), db.lastError().text());
     return true;

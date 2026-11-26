@@ -164,5 +164,10 @@ void CombinedCache::setRenewalThreshold(const int days)
     sqlCache->setRenewalThreshold(days);
 }
 
+void CombinedCache::finishQueries()
+{
+    sqlCache->finishQueries();
+}
+
 }
 }

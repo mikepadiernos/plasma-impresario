@@ -126,6 +126,11 @@ public:
     bool indexPaused() const;
     /** @short Searched folders whose indexed matches were dropped, as their UIDVALIDITY changed since they were indexed */
     QStringList discardedFolders() const;
+    /** @short Searched folders which the user keeps out of the local index, when the last search used it
+
+    They are among incompleteFolders(): the index has none of their messages, and only the server can search them.
+    */
+    QStringList excludedFolders() const;
 
 signals:
     void progressChanged();
@@ -201,6 +206,7 @@ private:
     /** UIDVALIDITY of each indexed folder when the local index answered */
     QHash<QString, uint> m_indexedValidity;
     QStringList m_discardedFolders;
+    QStringList m_excludedFolders;
 };
 
 }
