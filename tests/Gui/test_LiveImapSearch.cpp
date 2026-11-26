@@ -755,6 +755,129 @@ private slots:
         QTRY_VERIFY2_WITH_TIMEOUT(messages->model()->rowCount() == 4 && !failed(),
                                   qPrintable(describe(subjects(), searchWidget)), 10000);
     }
+
+    void clearsSearchAndFiltersInOneStep()
+    {
+        using UiUtils::SearchScope::Places;
+        bool ok = false;
+        const int port = qEnvironmentVariableIntValue("PLASMA_TEST_IMAPS_PORT", &ok);
+        QVERIFY(ok && port > 0 && port <= 65535);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        settings.setValue(Common::SettingsNames::guiShowSystray, false);
+        settings.setValue(Common::SettingsNames::passwordPlugin, QStringLiteral("cleartextpassword"));
+        settings.setValue(QStringLiteral("accounts/ids"), QStringList{QStringLiteral("account-1")});
+        settings.setValue(QStringLiteral("accounts/active"), QStringLiteral("account-1"));
+        settings.setValue(QStringLiteral("accounts/next"), 2);
+        settings.setValue(QStringLiteral("accounts/names/account-1"), QStringLiteral("Gamma"));
+        settings.setValue(QStringLiteral("accountPasswords/account-1/imap"), syntheticPassword);
+        // Clicking messages must not change their flags, which the later searches of the same folder rely on
+        settings.setValue(Common::SettingsNames::autoMarkReadEnabled, false);
+        settings.sync();
+        configureAccount(directory.filePath(QStringLiteral("main-account-1.conf")), port, QStringLiteral("gamma@example.test"));
+
+        QTimer dialogs;
+        connect(&dialogs, &QTimer::timeout, this, &answerDialogs);
+        dialogs.start(20);
+
+        Gui::MainWindow window(&settings);
+        window.resize(1000, 700);
+        window.show();
+        auto *tree = window.findChild<Gui::MailBoxTreeView *>();
+        auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
+        auto *messages = window.findChild<Gui::MsgListView *>();
+        QVERIFY(tree && searchWidget && messages);
+        auto *query = searchWidget->findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        auto *scope = searchWidget->findChild<QLabel *>(QStringLiteral("messageListScope"));
+        auto *summary = searchWidget->findChild<QWidget *>(QStringLiteral("searchSummary"));
+        auto *summaryText = searchWidget->findChild<QLabel *>(QStringLiteral("searchSummaryText"));
+        auto *unread = window.findChild<QAction *>(QStringLiteral("messageListFilterUnread"));
+        auto *clearAll = window.findChild<QAction *>(QStringLiteral("action_clear_search_and_filters"));
+        QVERIFY(query && scope && summary && summaryText && unread && clearAll);
+
+        QModelIndex inbox;
+        QTRY_VERIFY_WITH_TIMEOUT((inbox = findMailbox(tree->model(), QStringLiteral("INBOX"))).isValid(), 20000);
+        tree->scrollTo(inbox);
+        QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(inbox).center());
+
+        const auto rowOf = [messages](const QString &subject) {
+            const QAbstractItemModel *model = messages->model();
+            for (int row = 0; row < model->rowCount(); ++row) {
+                const QModelIndex index = model->index(row, 0);
+                if (index.data(Imap::Mailbox::RoleMessageSubject).toString() == subject)
+                    return index;
+            }
+            return QModelIndex();
+        };
+        const auto currentSubject = [messages]() {
+            return messages->currentIndex().data(Imap::Mailbox::RoleMessageSubject).toString();
+        };
+        const auto search = [&](const QString &text) {
+            query->setText(text);
+            emit query->returnPressed();
+        };
+        const QString plan = QStringLiteral("Release plan");
+        const QString notes = QStringLiteral("[dev] Release notes");
+        const QString lunch = QStringLiteral("Lunch on Friday");
+        // Opening a message with the mouse, as the user does, and not by moving the current index of the view
+        const auto click = [&](const QString &subject) {
+            const QModelIndex index = rowOf(subject);
+            QVERIFY(index.isValid());
+            messages->scrollTo(index);
+            QTest::mouseClick(messages->viewport(), Qt::LeftButton, Qt::NoModifier, messages->visualRect(index).center());
+            QTRY_COMPARE(currentSubject(), subject);
+        };
+        QTRY_VERIFY_WITH_TIMEOUT(messages->model()->rowCount() == 4 && rowOf(plan).isValid(), 10000);
+        QVERIFY(summary->isHidden());
+
+        // A filter and a search hide the selected message; one step brings back the whole folder and the selection
+        click(plan);
+        unread->trigger();
+        search(QStringLiteral("from:carol"));
+        QTRY_VERIFY_WITH_TIMEOUT(messages->model()->rowCount() == 1 && rowOf(notes).isValid(), 10000);
+        QVERIFY(!summary->isHidden());
+        QCOMPARE(summaryText->text(), QStringLiteral("Search: from:carol \u00B7 In: Current Folder \u00B7 Filters: Unread"));
+        QTRY_VERIFY(clearAll->isEnabled());
+        clearAll->trigger();
+        QVERIFY(query->text().isEmpty());
+        QVERIFY(!unread->isChecked());
+        QVERIFY(summary->isHidden());
+        QTRY_VERIFY2_WITH_TIMEOUT(messages->model()->rowCount() == 4 && currentSubject() == plan,
+                                  qPrintable(currentSubject()), 10000);
+        QCOMPARE(messages->selectionModel()->selectedRows().size(), 1);
+
+        // A message picked among the results stays selected among all messages
+        search(QStringLiteral("from:carol"));
+        const auto rows = [messages]() {
+            QStringList subjects;
+            for (int row = 0; row < messages->model()->rowCount(); ++row)
+                subjects << messages->model()->index(row, 0).data(Imap::Mailbox::RoleMessageSubject).toString();
+            return subjects.join(QLatin1String(" | "));
+        };
+        QTRY_VERIFY2_WITH_TIMEOUT(messages->model()->rowCount() == 1 && rowOf(notes).isValid(), qPrintable(rows()), 10000);
+        click(notes);
+        QTRY_VERIFY(clearAll->isEnabled());
+        clearAll->trigger();
+        QTRY_VERIFY2_WITH_TIMEOUT(messages->model()->rowCount() == 4 && currentSubject() == notes,
+                                  qPrintable(currentSubject()), 10000);
+
+        // After a search of the whole account, the folder comes back where it was; the places stay chosen
+        click(lunch);
+        searchWidget->setSearchPlaces(Places::Account);
+        search(QStringLiteral("from:ann"));
+        QTRY_COMPARE_WITH_TIMEOUT(scope->text(), QStringLiteral("Search Results"), 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(messages->model()->rowCount() == 2, 30000);
+        QVERIFY(summaryText->text().contains(QLatin1String("In: Current Account")));
+        QTRY_VERIFY(clearAll->isEnabled());
+        clearAll->trigger();
+        QTRY_VERIFY_WITH_TIMEOUT(scope->text() != QStringLiteral("Search Results"), 5000);
+        QTRY_VERIFY2_WITH_TIMEOUT(messages->model()->rowCount() == 4 && currentSubject() == lunch,
+                                  qPrintable(currentSubject()), 10000);
+        QCOMPARE(searchWidget->searchPlaces(), Places::Account);
+        QVERIFY(summary->isHidden());
+        QTRY_VERIFY(!clearAll->isEnabled());
+    }
 };
 
 int main(int argc, char **argv)

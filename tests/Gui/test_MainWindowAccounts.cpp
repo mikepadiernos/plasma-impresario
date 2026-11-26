@@ -957,6 +957,34 @@ private slots:
         nextAccount->trigger();
         QCOMPARE(model()->filters(), PrettyMsgListModel::Filters(PrettyMsgListModel::NoFilter));
 
+        // The summary above the list names the filters, and one step clears the search and the filters
+        auto *clearAll = action(QStringLiteral("action_clear_search_and_filters"));
+        auto *summary = window.findChild<QWidget *>(QStringLiteral("searchSummary"));
+        auto *summaryText = window.findChild<QLabel *>(QStringLiteral("searchSummaryText"));
+        QVERIFY(clearAll);
+        QVERIFY(summary);
+        QVERIFY(summaryText);
+        QCOMPARE(clearAll->shortcut(), QKeySequence(QStringLiteral("Ctrl+Shift+Backspace")));
+        QVERIFY(filterMenu->actions().contains(clearAll));
+        QVERIFY(summary->isHidden());
+        QTRY_VERIFY(!clearAll->isEnabled());
+        action(QStringLiteral("messageListFilterFlagged"))->trigger();
+        action(QStringLiteral("messageListFilterAttachments"))->trigger();
+        QVERIFY(!summary->isHidden());
+        QCOMPARE(summaryText->text(), QStringLiteral("Filters: Flagged, With Attachments"));
+        QTRY_VERIFY(clearAll->isEnabled());
+        clearAll->trigger();
+        QCOMPARE(model()->filters(), PrettyMsgListModel::Filters(PrettyMsgListModel::NoFilter));
+        QVERIFY(summary->isHidden());
+        QCOMPARE(window.accountSettings()->value(Common::SettingsNames::guiMsgListFilterFlagged, true).toBool(), false);
+        QTRY_VERIFY(!clearAll->isEnabled());
+        // The button in the summary does the same
+        action(QStringLiteral("messageListFilterUnread"))->trigger();
+        QVERIFY(!summary->isHidden());
+        window.findChild<QToolButton *>(QStringLiteral("clearSearchAndFiltersButton"))->click();
+        QCOMPARE(model()->filters(), PrettyMsgListModel::Filters(PrettyMsgListModel::NoFilter));
+        QVERIFY(summary->isHidden());
+
         // Selection commands on a small threaded list: [1 [2, 3]], 4
         QStandardItemModel messages;
         auto message = [](uint uid) {

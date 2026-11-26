@@ -20,6 +20,7 @@
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QInputDialog>
+#include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
 #include <QMessageBox>
@@ -666,6 +667,77 @@ private slots:
         // Nothing to clear asks for nothing
         widget.clearSearch();
         QCOMPARE(search.size(), 1);
+    }
+
+    void summarizesSearchAndFilters()
+    {
+        Imap::Mailbox::FavoriteTagsModel tags;
+        Gui::MessageListWidget widget(nullptr, &tags, QStringLiteral("account-s"));
+        QStandardItemModel model;
+        enableSearch(widget, model);
+        auto *query = widget.findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        auto *summary = widget.findChild<QWidget *>(QStringLiteral("searchSummary"));
+        auto *text = widget.findChild<QLabel *>(QStringLiteral("searchSummaryText"));
+        auto *clearAll = widget.findChild<QToolButton *>(QStringLiteral("clearSearchAndFiltersButton"));
+        QVERIFY(query);
+        QVERIFY(summary);
+        QVERIFY(text);
+        QVERIFY(clearAll);
+        QVERIFY(!text->accessibleName().isEmpty());
+        QVERIFY(!clearAll->toolTip().isEmpty());
+        QVERIFY(!clearAll->accessibleDescription().isEmpty());
+        const auto apply = [&widget]() { QMetaObject::invokeMethod(&widget, "slotApplySearch"); };
+        const QString separator = QStringLiteral(" \u00B7 ");
+
+        // Nothing narrows the list
+        QVERIFY(summary->isHidden());
+
+        // The query in effect and where it looks
+        query->setText(QStringLiteral("  from:ann  "));
+        QVERIFY(summary->isHidden());
+        apply();
+        QVERIFY(!summary->isHidden());
+        QCOMPARE(text->text(), QStringLiteral("Search: from:ann") + separator + QStringLiteral("In: Current Folder"));
+        QCOMPARE(text->toolTip(), text->text());
+
+        // Dates and places are part of the search
+        chooseDates(widget, UiUtils::SearchScope::Dates::PastWeek);
+        widget.findChild<QAction *>(QStringLiteral("searchPlaces-all"))->trigger();
+        QCOMPARE(text->text(), QStringLiteral("Search: from:ann") + separator + QStringLiteral("Past Week") + separator
+                     + QStringLiteral("In: All Accounts"));
+
+        // An invalid query does not replace the search in effect
+        query->setText(QStringLiteral("foo:bar"));
+        apply();
+        QVERIFY(text->text().startsWith(QStringLiteral("Search: from:ann")));
+
+        // The quick filters of the window
+        widget.setActiveFilters({QStringLiteral("Unread"), QStringLiteral("Flagged")});
+        QVERIFY(text->text().endsWith(separator + QStringLiteral("Filters: Unread, Flagged")));
+
+        // The button asks the window to clear everything
+        QSignalSpy clear(&widget, &Gui::MessageListWidget::clearAllRequested);
+        QVERIFY(clearAll->isEnabled());
+        clearAll->click();
+        QCOMPARE(clear.size(), 1);
+
+        // A date range on its own narrows the list as well
+        widget.clearSearch();
+        QCOMPARE(text->text(), QStringLiteral("Filters: Unread, Flagged"));
+        widget.setDateRange(preset(UiUtils::SearchScope::Dates::Today));
+        QCOMPARE(text->text(), QStringLiteral("Today") + separator + QStringLiteral("In: All Accounts") + separator
+                     + QStringLiteral("Filters: Unread, Flagged"));
+        widget.clearSearch();
+        widget.setActiveFilters({});
+        QVERIFY(summary->isHidden());
+        QVERIFY(text->text().isEmpty());
+
+        // A list which cannot be searched has no search to show
+        query->setText(QStringLiteral("invoice"));
+        apply();
+        QVERIFY(!summary->isHidden());
+        widget.setSearchAvailable(false);
+        QVERIFY(summary->isHidden());
     }
 
     void choosesFoldersOfSeveralAccounts()
