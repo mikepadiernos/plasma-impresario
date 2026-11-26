@@ -315,6 +315,20 @@ private slots:
         QCOMPARE(savedSelection(QStringLiteral("account-2")).readEntry("Mailbox", QString()), QStringLiteral("Projects"));
         QCOMPARE(savedSelection(QStringLiteral("account-1")).readEntry("MessageUid", 0u), workUid);
 
+        // The server narrows the quick search to a date range; the synthetic messages are dated 24 Nov 2026
+        using UiUtils::SearchScope::Dates;
+        searchWidget->setDateRange({Dates::Custom, QDate(2026, 11, 24), QDate(2026, 11, 24)});
+        QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(), 2, 10000);
+        searchWidget->setDateRange({Dates::Custom, QDate(2026, 11, 25), QDate()});
+        QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(), 0, 10000);
+        QVERIFY(query->isEnabled());
+        query->setText(QStringLiteral("work-second"));
+        searchWidget->setDateRange({Dates::Custom, QDate(), QDate(2026, 11, 24)});
+        QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(), 1, 10000);
+        query->clear();
+        searchWidget->setDateRange({});
+        QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(), 2, 10000);
+
         QCOMPARE(passwordPrompts, 0);
         qInfo("Certificate prompts accepted: %d", certificatePrompts);
         QVERIFY2(workErrors.isEmpty(), qPrintable(workErrors.isEmpty() ? QString() : workErrors.first().first().toString()));
