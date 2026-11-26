@@ -30,6 +30,7 @@
 #include <QDebug>
 #include <QDir>
 #include <QFormLayout>
+#include <QHBoxLayout>
 #include <QGroupBox>
 #include <QInputDialog>
 #include <QLineEdit>
@@ -1147,12 +1148,36 @@ CachePage::CachePage(QWidget *parent, QSettings &s): QScrollArea(parent), Ui_Cac
                                            "it, so that offline searches find it. The index itself is not encrypted, so "
                                            "anyone who can read your files can read that text. Turning this off removes "
                                            "the decrypted text from the index."));
+    auto *attachmentRow = new QWidget(offlineModeGroup);
+    auto *attachmentLayout = new QHBoxLayout(attachmentRow);
+    attachmentLayout->setContentsMargins(0, 0, 0, 0);
+    searchIndexAttachments = new QCheckBox(i18nc("@option:check followed by a size limit",
+                                                 "Also index the text of downloaded &attachments up to"),
+                                           attachmentRow);
+    searchIndexAttachments->setObjectName(QStringLiteral("searchIndexAttachments"));
+    searchIndexAttachments->setChecked(s.value(SettingsNames::searchIndexAttachmentsKey, false).toBool());
+    searchIndexAttachments->setToolTip(i18nc("@info:tooltip",
+                                             "Reads the text of attached files once you download them, such as by "
+                                             "opening or saving them, using the text extractors of Plasma's file "
+                                             "search. Nothing is downloaded for this, and larger files are skipped. "
+                                             "Offline Search Index lists the formats which no installed extractor "
+                                             "can read."));
+    searchIndexAttachmentLimit = new QSpinBox(attachmentRow);
+    searchIndexAttachmentLimit->setObjectName(QStringLiteral("searchIndexAttachmentLimit"));
+    searchIndexAttachmentLimit->setRange(1, 1024);
+    searchIndexAttachmentLimit->setSuffix(i18nc("@item:valuesuffix size in megabytes", " MB"));
+    searchIndexAttachmentLimit->setValue(s.value(SettingsNames::searchIndexAttachmentLimitKey, 10).toInt());
+    searchIndexAttachmentLimit->setToolTip(i18nc("@info:tooltip", "Largest attached file to read, per file"));
+    attachmentLayout->addWidget(searchIndexAttachments);
+    attachmentLayout->addWidget(searchIndexAttachmentLimit);
+    attachmentLayout->addStretch();
     searchIndexNote = new QLabel(offlineModeGroup);
     searchIndexNote->setObjectName(QStringLiteral("searchIndexNote"));
     searchIndexNote->setWordWrap(true);
     searchIndexNote->setEnabled(false);
     formLayout->addRow(searchIndex);
     formLayout->addRow(searchIndexDecrypted);
+    formLayout->addRow(attachmentRow);
     formLayout->addRow(searchIndexNote);
 
     val = s.value(SettingsNames::watchedFoldersKey).toString();
@@ -1170,6 +1195,7 @@ CachePage::CachePage(QWidget *parent, QSettings &s): QScrollArea(parent), Ui_Cac
     connect(offlineXDays, &QAbstractButton::clicked, this, &CachePage::updateWidgets);
     connect(offlineEverything, &QAbstractButton::clicked, this, &CachePage::updateWidgets);
     connect(searchIndex, &QAbstractButton::toggled, this, &CachePage::updateWidgets);
+    connect(searchIndexAttachments, &QAbstractButton::toggled, this, &CachePage::updateWidgets);
 }
 
 void CachePage::updateWidgets()
@@ -1178,6 +1204,8 @@ void CachePage::updateWidgets()
     // The index lives in the offline cache, so there is nothing to index without one
     searchIndex->setEnabled(!offlineNope->isChecked());
     searchIndexDecrypted->setEnabled(!offlineNope->isChecked() && searchIndex->isChecked());
+    searchIndexAttachments->setEnabled(!offlineNope->isChecked() && searchIndex->isChecked());
+    searchIndexAttachmentLimit->setEnabled(searchIndexAttachments->isEnabled() && searchIndexAttachments->isChecked());
     searchIndexNote->setText(offlineNope->isChecked()
                                  ? i18nc("@info", "Without mail kept offline there is nothing to index; an existing "
                                                   "index is deleted.")
@@ -1199,6 +1227,8 @@ void CachePage::save(QSettings &s)
     s.setValue(SettingsNames::cacheOfflineNumberDaysKey, offlineNumberOfDays->value());
     s.setValue(SettingsNames::searchIndexKey, searchIndex->isChecked());
     s.setValue(SettingsNames::searchIndexDecryptedKey, searchIndexDecrypted->isChecked());
+    s.setValue(SettingsNames::searchIndexAttachmentsKey, searchIndexAttachments->isChecked());
+    s.setValue(SettingsNames::searchIndexAttachmentLimitKey, searchIndexAttachmentLimit->value());
 
     if (watchAll->isChecked()) {
         s.setValue(SettingsNames::watchedFoldersKey, SettingsNames::watchAll);

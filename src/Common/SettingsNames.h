@@ -58,6 +58,8 @@ struct SettingsNames {
     static const QString searchIndexExcludedKey;
     /** @short Per-account switch which lets the local index hold the decrypted text of encrypted mail; off by default */
     static const QString searchIndexDecryptedKey;
+    static const QString searchIndexAttachmentsKey;
+    static const QString searchIndexAttachmentLimitKey;
     static const QString watchedFoldersKey, watchOnlyInbox, watchSubscribed, watchAll;
     static const QString guiMsgListShowThreading;
     static const QString guiMsgListHideRead;

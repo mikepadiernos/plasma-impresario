@@ -330,6 +330,8 @@ private:
     QCheckBox *startOffline;
     QCheckBox *searchIndex;
     QCheckBox *searchIndexDecrypted;
+    QCheckBox *searchIndexAttachments;
+    QSpinBox *searchIndexAttachmentLimit;
     QLabel *searchIndexNote;
 
 private slots:

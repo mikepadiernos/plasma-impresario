@@ -21,6 +21,7 @@
 */
 
 #include "ImapAccess.h"
+#include <algorithm>
 #include <QDir>
 #include <QFileInfo>
 #include <QPointer>
@@ -414,6 +415,11 @@ void ImapAccess::doConnect()
             if (m_searchIndexer->open()) {
                 m_searchIndexer->setIndexDecrypted(
                     m_settings->value(Common::SettingsNames::searchIndexDecryptedKey, false).toBool());
+                const int limitMB = std::clamp(
+                    m_settings->value(Common::SettingsNames::searchIndexAttachmentLimitKey, 10).toInt(), 1, 1024);
+                m_searchIndexer->setAttachmentIndexing(
+                    m_settings->value(Common::SettingsNames::searchIndexAttachmentsKey, false).toBool(),
+                    quint64(limitMB) * 1024 * 1024);
                 // A burst of new messages, flags or downloaded parts leads to one pass a little later
                 connect(m_imapModel, &QAbstractItemModel::rowsInserted, m_searchIndexer, &Imap::Mailbox::SearchIndexer::scheduleUpdate);
                 connect(m_imapModel, &QAbstractItemModel::rowsRemoved, m_searchIndexer, &Imap::Mailbox::SearchIndexer::scheduleUpdate);
