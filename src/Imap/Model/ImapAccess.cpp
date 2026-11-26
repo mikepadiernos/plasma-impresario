@@ -39,6 +39,8 @@
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/NetworkWatcher.h"
 #include "Imap/Model/OneMessageModel.h"
+#include "Imap/Model/SearchIndex.h"
+#include "Imap/Model/SearchIndexer.h"
 #include "Imap/Model/SubtreeModel.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "Imap/Model/ThreadingMsgListModel.h"
@@ -281,6 +283,9 @@ void ImapAccess::doConnect()
         m_mailboxModel = nullptr;
         delete m_netWatcher;
         m_netWatcher = nullptr;
+        // The index uses the cache's database connection, which goes away with the model
+        delete m_searchIndexer;
+        m_searchIndexer = nullptr;
         delete m_imapModel;
         m_imapModel = nullptr;
     }
@@ -391,6 +396,25 @@ void ImapAccess::doConnect()
             });
         }
     }
+    if (auto combined = dynamic_cast<Imap::Mailbox::CombinedCache *>(m_imapModel->cache().get())) {
+        if (m_settings->value(Common::SettingsNames::searchIndexKey, false).toBool()) {
+            QPointer<Imap::Mailbox::Model> model = m_imapModel;
+            m_searchIndexer = new Imap::Mailbox::SearchIndexer(
+                [model]() { return model ? model->cache() : std::shared_ptr<Imap::Mailbox::AbstractCache>(); },
+                m_imapModel);
+            m_searchIndexer->setObjectName(QStringLiteral("searchIndexer-%1").arg(m_accountName));
+            if (m_searchIndexer->open()) {
+                // A burst of new messages, flags or downloaded parts leads to one pass a little later
+                connect(m_imapModel, &QAbstractItemModel::rowsInserted, m_searchIndexer, &Imap::Mailbox::SearchIndexer::scheduleUpdate);
+                connect(m_imapModel, &QAbstractItemModel::rowsRemoved, m_searchIndexer, &Imap::Mailbox::SearchIndexer::scheduleUpdate);
+                connect(m_imapModel, &QAbstractItemModel::dataChanged, m_searchIndexer, &Imap::Mailbox::SearchIndexer::scheduleUpdate);
+                QMetaObject::invokeMethod(m_searchIndexer, &Imap::Mailbox::SearchIndexer::update, Qt::QueuedConnection);
+            }
+        } else {
+            // Turning the index off deletes it, so that no copy of the text is left behind
+            Imap::Mailbox::SearchIndex::drop(combined->databaseConnectionName());
+        }
+    }
     connect(m_imapModel, &Mailbox::Model::alertReceived, this, &ImapAccess::alertReceived);
     connect(m_imapModel, &Mailbox::Model::imapError, this, &ImapAccess::imapError);
     connect(m_imapModel, &Mailbox::Model::networkError, this, &ImapAccess::networkError);
@@ -453,6 +477,11 @@ void ImapAccess::onCacheError(const QString &message)
 QAbstractItemModel *ImapAccess::imapModel() const
 {
     return m_imapModel;
+}
+
+Imap::Mailbox::SearchIndexer *ImapAccess::searchIndexer() const
+{
+    return m_searchIndexer;
 }
 
 QAbstractItemModel *ImapAccess::mailboxModel() const

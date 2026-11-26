@@ -50,6 +50,8 @@ struct SettingsNames {
     static const QString composerSaveToImapKey, composerImapSentKey, smtpUseBurlKey, composerUseSharedIdentitiesKey;
     static const QString cacheMetadataKey, cacheMetadataMemory,
            cacheOfflineKey, cacheOfflineNone, cacheOfflineXDays, cacheOfflineAll, cacheOfflineNumberDaysKey;
+    /** @short Per-account switch for the local full-text index of the offline cache; off unless enabled */
+    static const QString searchIndexKey;
     static const QString watchedFoldersKey, watchOnlyInbox, watchSubscribed, watchAll;
     static const QString guiMsgListShowThreading;
     static const QString guiMsgListHideRead;

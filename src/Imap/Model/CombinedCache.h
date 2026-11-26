@@ -92,6 +92,9 @@ public:
     /** @short Open a connection to the cache */
     bool open();
 
+    /** @short Name of the SQLite connection, which the local search index shares */
+    QString databaseConnectionName() const;
+
 private:
     /** @short Name of the DB connection */
     QString name;

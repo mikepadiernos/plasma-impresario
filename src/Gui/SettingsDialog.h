@@ -327,6 +327,7 @@ public:
 
 private:
     QCheckBox *startOffline;
+    QCheckBox *searchIndex;
 
 private slots:
     void updateWidgets();

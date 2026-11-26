@@ -48,6 +48,7 @@ class Model;
 class MsgListModel;
 class NetworkWatcher;
 class OneMessageModel;
+class SearchIndexer;
 class SubtreeModelOfMailboxModel;
 class ThreadingMsgListModel;
 class VisibleTasksModel;
@@ -97,6 +98,8 @@ public:
     QAbstractItemModel *threadingMsgListModel() const;
     QObject *msgQNAM() const;
     UiUtils::PasswordWatcher *passwordWatcher() const;
+    /** @short The local search index of the account, or nullptr when it is not enabled */
+    Imap::Mailbox::SearchIndexer *searchIndexer() const;
 
     QString server() const;
     void setServer(const QString &server);
@@ -171,6 +174,7 @@ private:
     QSettings *m_settings;
     QSettings *m_appSettings;
     Imap::Mailbox::Model *m_imapModel;
+    Imap::Mailbox::SearchIndexer *m_searchIndexer = nullptr;
     Imap::Mailbox::MailboxModel *m_mailboxModel;
     Imap::Mailbox::SubtreeModelOfMailboxModel *m_mailboxSubtreeModel;
     Imap::Mailbox::MsgListModel *m_msgListModel;

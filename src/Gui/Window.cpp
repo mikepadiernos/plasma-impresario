@@ -99,6 +99,8 @@
 #include "Imap/Model/ThreadingMsgListModel.h"
 #include "Imap/Model/UnifiedMsgListModel.h"
 #include "Imap/Model/FolderSearch.h"
+#include "Imap/Model/SearchIndexer.h"
+#include "Imap/Model/SearchTextFetcher.h"
 #include "Imap/Model/SearchResultsModel.h"
 #include "Imap/Model/FavoriteTagsModel.h"
 #include "Imap/Model/GroupingMsgListModel.h"
@@ -956,6 +958,11 @@ void MainWindow::createActions()
 
     m_actionMarkMailboxAsRead = new QAction(tr("&Mark Mailbox as Read"), this);
     connect(m_actionMarkMailboxAsRead, &QAction::triggered, this, &MainWindow::slotMarkCurrentMailboxRead);
+
+    m_actionDownloadSearchText = new QAction(UiUtils::loadIcon(QStringLiteral("edit-download")),
+                                             i18nc("@action", "Download Message Text for Offline Search…"), this);
+    m_actionDownloadSearchText->setObjectName(QStringLiteral("action_download_search_text"));
+    connect(m_actionDownloadSearchText, &QAction::triggered, this, &MainWindow::slotDownloadTextForSearch);
 
     //: "mailbox" as a "folder of messages", not as a "mail account"
     deleteCurrentMailbox = new QAction(tr("&Remove Mailbox"), this);
@@ -2519,6 +2526,14 @@ void MainWindow::showContextMenuMboxTree(const QPoint &position)
         actionList.append(m_actionMarkMailboxAsRead);
         actionList.append(resyncMbox);
         actionList.append(reloadMboxList);
+        // Only with the local index enabled; the index itself never downloads anything
+        if (const Imap::Mailbox::SearchIndexer *indexer = m_imapAccess ? m_imapAccess->searchIndexer() : nullptr;
+            indexer && clicked.data(Imap::Mailbox::RoleMailboxIsSelectable).toBool()) {
+            m_actionDownloadSearchText->setData(clicked.data(Imap::Mailbox::RoleMailboxName).toString());
+            m_actionDownloadSearchText->setEnabled(indexer->isAvailable() && imapModel() && imapModel()->isNetworkAvailable()
+                                                   && !(m_searchTextFetcher && m_searchTextFetcher->isRunning()));
+            actionList.append(m_actionDownloadSearchText);
+        }
 
         actionList.append(m_actionSubscribeMailbox);
         m_actionSubscribeMailbox->setChecked(mboxTree->indexAt(position).data(Imap::Mailbox::RoleMailboxIsSubscribed).toBool());
@@ -4918,6 +4933,64 @@ void MainWindow::slotMarkCurrentMailboxRead()
     imapModel()->markMailboxAsRead(mboxTree->currentIndex());
 }
 
+void MainWindow::slotDownloadTextForSearch()
+{
+    using Imap::Mailbox::SearchTextFetcher;
+    const QString mailbox = m_actionDownloadSearchText->data().toString();
+    Imap::Mailbox::SearchIndexer *indexer = m_imapAccess ? m_imapAccess->searchIndexer() : nullptr;
+    Imap::Mailbox::Model *model = imapModel();
+    if (mailbox.isEmpty() || !indexer || !indexer->isAvailable() || !model || !model->isNetworkAvailable()
+        || (m_searchTextFetcher && m_searchTextFetcher->isRunning()))
+        return;
+    Imap::Uids missing;
+    const auto entries = indexer->index()->entries(mailbox);
+    for (auto it = entries.cbegin(); it != entries.cend(); ++it) {
+        if (!it->hasText)
+            missing << it.key();
+    }
+    if (missing.isEmpty()) {
+        m_notificationBar->showInfo(
+            i18nc("@info folder name", "The text of every indexed message in %1 is already on this computer.", mailbox));
+        return;
+    }
+    std::sort(missing.begin(), missing.end());
+    const QString question = i18ncp("@info folder name",
+                                    "Download the text of %1 message in %2, so that it can be searched offline?",
+                                    "Download the text of %1 messages in %2, so that they can be searched offline?",
+                                    int(missing.size()), mailbox);
+    if (QMessageBox::question(this, i18nc("@title:window", "Download Message Text"), question) != QMessageBox::Yes)
+        return;
+    if (m_searchTextFetcher)
+        m_searchTextFetcher->deleteLater();
+    auto *fetcher = new SearchTextFetcher(model, mailbox, missing, this);
+    m_searchTextFetcher = fetcher;
+    const quint64 busy = m_notificationBar->showBusy(
+        i18ncp("@info folder name", "Downloading the text of %1 message in %2…",
+               "Downloading the text of %1 messages in %2…", int(missing.size()), mailbox));
+    QPointer<Imap::ImapAccess> access = m_imapAccess;
+    QPointer<Imap::Mailbox::SearchIndexer> index = indexer;
+    connect(fetcher, &SearchTextFetcher::finished, this, [this, fetcher, busy, access, index]() {
+        m_notificationBar->dismissBusy(busy);
+        reselectShownFolder(access);
+        // Index what arrived right away rather than after the usual pause
+        if (index)
+            index->update();
+        if (fetcher->failed() > 0) {
+            m_notificationBar->showError(i18ncp("@info folder name",
+                                                "The text of %1 message in %2 could not be downloaded.",
+                                                "The text of %1 messages in %2 could not be downloaded.",
+                                                fetcher->failed(), fetcher->mailbox()));
+        } else {
+            m_notificationBar->showInfo(i18ncp("@info folder name",
+                                               "Downloaded the text of %1 message in %2 for offline search.",
+                                               "Downloaded the text of %1 messages in %2 for offline search.",
+                                               fetcher->downloaded(), fetcher->mailbox()));
+        }
+        fetcher->deleteLater();
+    });
+    fetcher->start();
+}
+
 void MainWindow::slotCreateMailboxBelowCurrent()
 {
     createMailboxBelow(mboxTree->currentIndex());
@@ -5880,9 +5953,13 @@ void MainWindow::slotSearchRequested(const QStringList &searchConditions)
 {
     if (!searchConditions.isEmpty())
         rememberUnnarrowedPosition();
+    // Offline, the server cannot filter the folder, but the account's local index can answer like a search across
+    const Imap::Mailbox::SearchIndexer *indexer = m_imapAccess ? m_imapAccess->searchIndexer() : nullptr;
+    const bool searchIndexOffline = imapModel() && !imapModel()->isNetworkAvailable() && indexer && indexer->isAvailable();
     // The Unified Inbox has no single folder to filter, so its INBOXes are searched like several folders
     if (!searchConditions.isEmpty()
-        && (m_unifiedInbox || msgListWidget->searchPlaces() != UiUtils::SearchScope::Places::CurrentFolder)) {
+        && (m_unifiedInbox || searchIndexOffline
+            || msgListWidget->searchPlaces() != UiUtils::SearchScope::Places::CurrentFolder)) {
         startSearchAcross(searchConditions);
 #ifdef TROJITA_HAVE_WEBENGINE
         m_messageWidget->messageView->setHighlightTerm(UiUtils::searchHighlightTerm(searchConditions));
@@ -6542,11 +6619,13 @@ void MainWindow::updateMessageListStatus()
     if (m_searchAcross && m_unifiedModel) {
         int folders = 0;
         int searched = 0;
+        bool local = false;
         for (const QPointer<FolderSearch> &search : std::as_const(m_folderSearches)) {
             if (!search)
                 continue;
             folders += search->folderCount();
             searched += search->searchedCount();
+            local = local || search->usedLocalIndex();
         }
         const int found = m_unifiedModel->messageCount();
         statusDetails = searchProgressDetails();
@@ -6565,6 +6644,8 @@ void MainWindow::updateMessageListStatus()
             parts << i18nc("@info:status filters hide some messages", "showing %1 of %2",
                            m_prettyUnifiedModel->visibleMessageCount(), found);
         }
+        if (local)
+            parts << i18nc("@info:status", "offline, in mail indexed on this computer");
         if (!m_searchProblems.isEmpty()) {
             parts << i18ncp("@info:status", "%1 place could not be searched", "%1 places could not be searched",
                             m_searchProblems.size());
@@ -7937,6 +8018,7 @@ void MainWindow::searchAccount(const QString &accountId, const QStringList &mail
     Imap::ImapAccess *access = m_accountAccess.value(accountId);
     auto *model = access && access->isConfigured() ? qobject_cast<Imap::Mailbox::Model *>(access->imapModel()) : nullptr;
     Common::AccountStatus status = m_accountStatus->status(accountId);
+    Imap::Mailbox::SearchIndexer *indexer = access ? access->searchIndexer() : nullptr;
     if (retrying && model && !model->isNetworkAvailable() && status.kind == AccountStatusKind::NetworkError) {
         // Connect now instead of waiting for the next attempt to reconnect
         auto *watcher = qobject_cast<Imap::Mailbox::NetworkWatcher *>(access->networkWatcher());
@@ -7946,13 +8028,16 @@ void MainWindow::searchAccount(const QString &accountId, const QStringList &mail
             watcher->setNetworkExpensive();
         status = m_accountStatus->status(accountId);
     }
+    // Without a connection, the mail indexed on this computer is searched instead
+    const bool local = model && !model->isNetworkAvailable() && indexer && indexer->isAvailable();
     QString problem;
     if (!model) {
         problem = i18nc("@info account name", "%1 is not set up", name);
-    } else if (status.kind == AccountStatusKind::Offline || !model->isNetworkAvailable()) {
+    } else if (!local && (status.kind == AccountStatusKind::Offline || !model->isNetworkAvailable())) {
         problem = i18nc("@info account name", "%1 is offline", name);
-    } else if ((status.kind == AccountStatusKind::NetworkError && !retrying) || status.kind == AccountStatusKind::AuthRequired
-               || status.kind == AccountStatusKind::AuthFailed) {
+    } else if (!local
+               && ((status.kind == AccountStatusKind::NetworkError && !retrying) || status.kind == AccountStatusKind::AuthRequired
+                   || status.kind == AccountStatusKind::AuthFailed)) {
         problem = i18nc("@info account name, reason", "%1: %2", name,
                         status.detail.isEmpty() ? Common::AccountStatusTracker::label(status.kind) : status.detail);
     }
@@ -7965,10 +8050,12 @@ void MainWindow::searchAccount(const QString &accountId, const QStringList &mail
         && m_relatedMessagesPanel->serverSearch()->message().model() == model)
         m_relatedMessagesPanel->restartServerSearch();
     if (FolderSearch *search = m_folderSearches.value(accountId); search && search->model() == model) {
+        search->setSearchIndex(indexer);
         search->retry(mailboxes, allFolders);
         return;
     }
     auto *search = new FolderSearch(model, this);
+    search->setSearchIndex(indexer);
     m_folderSearches.insert(accountId, search);
     connect(search, &FolderSearch::progressChanged, this, &MainWindow::scheduleMessageListStatus);
     connect(search, &FolderSearch::folderFailed, this, [this, accountId, name](const QString &mailbox, const QString &reason) {
@@ -8067,9 +8154,19 @@ QString MainWindow::searchProgressDetails() const
         } else if (m_searchStopped && searched < folders) {
             lines << i18nc("@info:tooltip account name, folders done, all folders, messages found",
                            "%1: stopped after %2 of %3 folders, %4 found", name, searched, folders, found);
+        } else if (search->usedLocalIndex()) {
+            lines << i18ncp("@info:tooltip %2 is an account name, %1 the messages found",
+                            "%2: %1 found in mail indexed on this computer",
+                            "%2: %1 found in mail indexed on this computer", found, name);
         } else {
             lines << i18ncp("@info:tooltip %2 is an account name, %1 the messages found",
                             "%2: %1 found", "%2: %1 found", found, name);
+        }
+        if (!search->isRunning() && search->messagesWithoutText() > 0) {
+            lines << i18ncp("@info:tooltip %2 is an account name",
+                            "%2: the text of %1 message is not on this computer, so only its headers were searched",
+                            "%2: the text of %1 messages is not on this computer, so only their headers were searched",
+                            search->messagesWithoutText(), name);
         }
     }
     if (!m_searchProblems.isEmpty()) {

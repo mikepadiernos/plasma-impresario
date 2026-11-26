@@ -96,6 +96,7 @@ const QString SettingsNames::cacheOfflineNone = QStringLiteral("memory");
 const QString SettingsNames::cacheOfflineXDays = QStringLiteral("days");
 const QString SettingsNames::cacheOfflineAll = QStringLiteral("all");
 const QString SettingsNames::cacheOfflineNumberDaysKey = QStringLiteral("offline.cache.numDays");
+const QString SettingsNames::searchIndexKey = QStringLiteral("offline.searchIndex");
 const QString SettingsNames::watchedFoldersKey = QStringLiteral("watchFolders");
 const QString SettingsNames::watchOnlyInbox = QStringLiteral("INBOX");
 const QString SettingsNames::watchSubscribed = QStringLiteral("subscribed");

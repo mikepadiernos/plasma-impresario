@@ -12,6 +12,7 @@
 #include <QStringList>
 #include <QTimer>
 
+#include "Imap/Model/SearchIndex.h"
 #include "Imap/Parser/Uids.h"
 
 namespace Imap
@@ -21,6 +22,7 @@ namespace Mailbox
 {
 
 class Model;
+class SearchIndexer;
 class SearchResultsModel;
 class SortTask;
 class TreeItemMailbox;
@@ -37,6 +39,9 @@ folderFailed(); an empty mailbox name means that the whole account could not be 
 
 The search changes which folder of the account is selected; whoever starts it selects the shown folder again
 afterwards.
+
+While the account is offline, a search with a local index set through setSearchIndex() is answered from the index
+instead of the server, and the matches are loaded from the offline cache; without an index it fails.
 */
 class FolderSearch : public QObject
 {
@@ -87,6 +92,13 @@ public:
     /** @short Whether the last search skipped folders or matches because of setLimits() */
     bool isTruncated() const;
 
+    /** @short Answer searches from @p indexer while the account is offline; nullptr searches only on the server */
+    void setSearchIndex(SearchIndexer *indexer);
+    /** @short Whether the last search was answered by the local index */
+    bool usedLocalIndex() const;
+    /** @short Messages of the searched folders whose text was not downloaded, when the local index looked at text */
+    int messagesWithoutText() const;
+
 signals:
     void progressChanged();
     void folderFailed(const QString &mailbox, const QString &reason);
@@ -96,6 +108,8 @@ private:
     enum class Phase {
         Idle,
         Listing,
+        /** Loading the message list of a folder from the offline cache, for the local index */
+        Opening,
         Searching,
         Loading,
     };
@@ -109,6 +123,8 @@ private:
     void searchAnswered(quint64 generation, const Imap::Uids &uids);
     void searchFailed(quint64 generation, const QString &reason);
     void checkLoaded();
+    void checkOpened();
+    void openLocally(TreeItemMailbox *mailbox);
     void fail(const QString &mailbox, const QString &reason);
     void finish();
     void limitQueue();
@@ -143,6 +159,10 @@ private:
     int m_listingMs = 30000;
     int m_searchMs = 60000;
     int m_loadingMs = 30000;
+    QPointer<SearchIndexer> m_indexer;
+    bool m_local = false;
+    SearchIndex::Result m_localResult;
+    QPersistentModelIndex m_opening;
 };
 
 }

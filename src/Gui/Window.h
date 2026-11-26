@@ -89,6 +89,7 @@ namespace Mailbox
 
 class FolderSearch;
 class ImapTask;
+class SearchTextFetcher;
 class Model;
 class PrettyMailboxModel;
 class ThreadingMsgListModel;
@@ -276,6 +277,8 @@ private slots:
     void openCompleteMessageWidget();
     void slotCreateMailboxBelowCurrent();
     void slotMarkCurrentMailboxRead();
+    /** @short Ask whether to download the text which the local search index lacks in a folder, then do it */
+    void slotDownloadTextForSearch();
     void slotCreateTopMailbox();
     void slotDeleteCurrentMailbox();
     void slotRenameCurrentMailbox();
@@ -904,6 +907,8 @@ private:
     QAction *m_actionLayoutWide;
     QAction *m_actionLayoutOneAtTime;
     QAction *m_actionMarkMailboxAsRead;
+    QAction *m_actionDownloadSearchText = nullptr;
+    QPointer<Imap::Mailbox::SearchTextFetcher> m_searchTextFetcher;
     QAction *m_actionFilterUnread = nullptr;
     QAction *m_actionFilterFlagged = nullptr;
     QAction *m_actionFilterAttachments = nullptr;

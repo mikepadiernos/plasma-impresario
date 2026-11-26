@@ -1131,6 +1131,21 @@ CachePage::CachePage(QWidget *parent, QSettings &s): QScrollArea(parent), Ui_Cac
 
     offlineNumberOfDays->setValue(s.value(SettingsNames::cacheOfflineNumberDaysKey, QVariant(30)).toInt());
 
+    searchIndex = new QCheckBox(i18nc("@option:check", "&Index downloaded mail for searching offline"), offlineModeGroup);
+    searchIndex->setObjectName(QStringLiteral("searchIndex"));
+    searchIndex->setChecked(s.value(SettingsNames::searchIndexKey, false).toBool());
+    searchIndex->setToolTip(i18nc("@info:tooltip",
+                                  "Keeps an index of the headers and the downloaded text of the cached messages on "
+                                  "this computer, so that searches work without a connection. Nothing is downloaded "
+                                  "for the index. Turning it off deletes the index."));
+    auto searchIndexNote = new QLabel(i18nc("@info", "Only mail kept offline is indexed; nothing extra is downloaded."),
+                                      offlineModeGroup);
+    searchIndexNote->setObjectName(QStringLiteral("searchIndexNote"));
+    searchIndexNote->setWordWrap(true);
+    searchIndexNote->setEnabled(false);
+    formLayout->addRow(searchIndex);
+    formLayout->addRow(searchIndexNote);
+
     val = s.value(SettingsNames::watchedFoldersKey).toString();
     if (val == Common::SettingsNames::watchAll) {
         watchAll->setChecked(true);
@@ -1150,6 +1165,8 @@ CachePage::CachePage(QWidget *parent, QSettings &s): QScrollArea(parent), Ui_Cac
 void CachePage::updateWidgets()
 {
     offlineNumberOfDays->setEnabled(offlineXDays->isChecked());
+    // The index lives in the offline cache, so there is nothing to index without one
+    searchIndex->setEnabled(!offlineNope->isChecked());
     emit widgetsUpdated();
 }
 
@@ -1165,6 +1182,7 @@ void CachePage::save(QSettings &s)
         s.setValue(SettingsNames::cacheOfflineKey, SettingsNames::cacheOfflineNone);
 
     s.setValue(SettingsNames::cacheOfflineNumberDaysKey, offlineNumberOfDays->value());
+    s.setValue(SettingsNames::searchIndexKey, searchIndex->isChecked());
 
     if (watchAll->isChecked()) {
         s.setValue(SettingsNames::watchedFoldersKey, SettingsNames::watchAll);
