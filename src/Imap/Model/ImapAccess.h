@@ -100,6 +100,8 @@ public:
     UiUtils::PasswordWatcher *passwordWatcher() const;
     /** @short The local search index of the account, or nullptr when it is not enabled */
     Imap::Mailbox::SearchIndexer *searchIndexer() const;
+    /** @short Pause or resume the local search index, and remember the choice for the account */
+    void setSearchIndexPaused(bool paused);
 
     QString server() const;
     void setServer(const QString &server);

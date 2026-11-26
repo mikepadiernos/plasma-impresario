@@ -98,6 +98,14 @@ public:
     bool usedLocalIndex() const;
     /** @short Messages of the searched folders whose text was not downloaded, when the local index looked at text */
     int messagesWithoutText() const;
+    /** @short Searched folders which the local index does not fully cover, when the last search used it
+
+    Their matches may be missing: they are not on this computer, not indexed yet, or changed since they were indexed.
+    */
+    QStringList incompleteFolders() const;
+    /** @short Whether the local index was being updated when the last search used it, or was paused */
+    bool indexPending() const;
+    bool indexPaused() const;
 
 signals:
     void progressChanged();
@@ -162,6 +170,9 @@ private:
     QPointer<SearchIndexer> m_indexer;
     bool m_local = false;
     SearchIndex::Result m_localResult;
+    QStringList m_incompleteFolders;
+    bool m_indexPending = false;
+    bool m_indexPaused = false;
     QPersistentModelIndex m_opening;
 };
 

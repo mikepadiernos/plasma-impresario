@@ -207,10 +207,126 @@ std::shared_ptr<AbstractCache> SearchIndexer::usableCache() const
     return cache;
 }
 
+SearchIndexer::Progress SearchIndexer::progress() const
+{
+    Progress progress;
+    if (!m_running)
+        return progress;
+    progress.mailbox = m_mailbox;
+    progress.folders = m_passFolders;
+    progress.folder = std::min(m_passFolders, std::max(1, m_passFolders - int(m_queue.size())));
+    progress.position = m_position;
+    progress.messages = int(m_uids.size());
+    return progress;
+}
+
+bool SearchIndexer::isPaused() const
+{
+    return m_paused;
+}
+
+bool SearchIndexer::hasPendingChanges() const
+{
+    return m_pending || m_again || m_scheduled.isActive();
+}
+
+void SearchIndexer::setPaused(bool paused)
+{
+    if (m_paused == paused)
+        return;
+    m_paused = paused;
+    if (paused) {
+        // What was not indexed yet is indexed on resume; the folders done so far stay done
+        m_pending = m_pending || hasPendingChanges() || m_running;
+        m_scheduled.stop();
+        abandonPass();
+        emit progressChanged();
+        return;
+    }
+    emit progressChanged();
+    if (m_pending)
+        update();
+}
+
+void SearchIndexer::abandonPass()
+{
+    m_batch.stop();
+    m_running = false;
+    m_again = false;
+    m_queue.clear();
+    m_passFolders = 0;
+    m_mailbox.clear();
+    m_uids.clear();
+    m_position = 0;
+    m_entries.clear();
+}
+
+bool SearchIndexer::rebuild()
+{
+    if (!m_index)
+        return false;
+    m_scheduled.stop();
+    abandonPass();
+    const bool cleared = m_index->clear();
+    if (m_paused)
+        m_pending = true;
+    else
+        update();
+    emit progressChanged();
+    return cleared;
+}
+
+QList<SearchIndexer::FolderCoverage> SearchIndexer::coverage() const
+{
+    QList<FolderCoverage> result;
+    const std::shared_ptr<AbstractCache> cache = m_index ? usableCache() : nullptr;
+    if (!cache)
+        return result;
+    QHash<QString, SearchIndex::Folder> indexed;
+    const QList<SearchIndex::Folder> folders = m_index->folders();
+    for (const SearchIndex::Folder &folder : folders)
+        indexed.insert(folder.mailbox, folder);
+    const QStringList mailboxes = cachedFolders(*cache);
+    for (const QString &mailbox : mailboxes) {
+        FolderCoverage coverage;
+        coverage.mailbox = mailbox;
+        const SyncState state = cache->mailboxSyncState(mailbox);
+        const bool cached = state.isUsableForSyncing() && state.uidValidity() != 0;
+        int mapped = 0;
+        if (cached) {
+            const Imap::Uids uids = cache->uidMapping(mailbox);
+            mapped = int(uids.size());
+            coverage.cached = int(std::count_if(uids.cbegin(), uids.cend(), [](uint uid) { return uid != 0; }));
+        }
+        const auto record = indexed.constFind(mailbox);
+        if (record != indexed.constEnd()) {
+            coverage.indexed = record->indexed;
+            coverage.withText = record->withText;
+            coverage.updated = record->updated;
+        }
+        if (!cached)
+            coverage.state = FolderCoverage::State::NotCached;
+        else if (record == indexed.constEnd())
+            coverage.state = FolderCoverage::State::NotIndexed;
+        else if (record->uidValidity != state.uidValidity() || record->messages != mapped)
+            coverage.state = FolderCoverage::State::OutOfDate;
+        else if (record->indexed < coverage.cached)
+            coverage.state = FolderCoverage::State::Partial;
+        else
+            coverage.state = FolderCoverage::State::Indexed;
+        result << coverage;
+    }
+    return result;
+}
+
 void SearchIndexer::scheduleUpdate()
 {
     if (!m_index)
         return;
+    if (m_paused) {
+        m_pending = true;
+        return;
+    }
     if (m_running) {
         m_again = true;
         return;
@@ -224,6 +340,10 @@ void SearchIndexer::update()
     m_scheduled.stop();
     if (!m_index)
         return;
+    if (m_paused) {
+        m_pending = true;
+        return;
+    }
     if (m_running) {
         m_again = true;
         return;
@@ -233,18 +353,17 @@ void SearchIndexer::update()
         return;
     m_running = true;
     m_again = false;
+    m_pending = false;
     beginPass(*cache);
     emit progressChanged();
     m_batch.start();
 }
 
-void SearchIndexer::beginPass(const AbstractCache &cache)
+QStringList SearchIndexer::cachedFolders(const AbstractCache &cache, QSet<QString> *listed)
 {
-    m_queue.clear();
-    m_mailbox.clear();
+    QStringList result;
     QSet<QString> seen;
     QStringList pending{QString()};
-    QSet<QString> listed;
     while (!pending.isEmpty()) {
         const QString parent = pending.takeFirst();
         const QList<MailboxMetadata> children = cache.childMailboxes(parent);
@@ -252,13 +371,23 @@ void SearchIndexer::beginPass(const AbstractCache &cache)
             if (child.mailbox.isEmpty() || seen.contains(child.mailbox))
                 continue;
             seen.insert(child.mailbox);
-            listed.insert(child.mailbox);
             if (!hasFlag(child.flags, QStringLiteral("\\Noselect")) && !hasFlag(child.flags, QStringLiteral("\\NonExistent")))
-                m_queue << child.mailbox;
+                result << child.mailbox;
             if (!hasFlag(child.flags, QStringLiteral("\\HasNoChildren")) && !hasFlag(child.flags, QStringLiteral("\\Noinferiors")))
                 pending << child.mailbox;
         }
     }
+    if (listed)
+        *listed = seen;
+    return result;
+}
+
+void SearchIndexer::beginPass(const AbstractCache &cache)
+{
+    m_mailbox.clear();
+    QSet<QString> listed;
+    m_queue = cachedFolders(cache, &listed);
+    m_passFolders = int(m_queue.size());
     // Folders which are gone from the account are gone from the index too
     const QList<SearchIndex::Folder> indexed = m_index->folders();
     for (const SearchIndex::Folder &folder : indexed) {
@@ -351,6 +480,7 @@ void SearchIndexer::endPass()
 {
     m_running = false;
     m_queue.clear();
+    m_passFolders = 0;
     emit progressChanged();
     emit finished();
     if (m_again) {

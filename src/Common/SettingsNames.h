@@ -52,6 +52,8 @@ struct SettingsNames {
            cacheOfflineKey, cacheOfflineNone, cacheOfflineXDays, cacheOfflineAll, cacheOfflineNumberDaysKey;
     /** @short Per-account switch for the local full-text index of the offline cache; off unless enabled */
     static const QString searchIndexKey;
+    /** @short Per-account switch which keeps the local index from being updated until it is resumed */
+    static const QString searchIndexPausedKey;
     static const QString watchedFoldersKey, watchOnlyInbox, watchSubscribed, watchAll;
     static const QString guiMsgListShowThreading;
     static const QString guiMsgListHideRead;

@@ -83,6 +83,7 @@ public:
         int messages = 0;
         int indexed = 0;
         int withText = 0;
+        /** When the folder was last indexed; invalid when never */
         QDateTime updated;
     };
 
@@ -112,7 +113,11 @@ public:
     /** @short Remove the index from the database connection called @arg connectionName, if there is one */
     static bool drop(const QString &connectionName, QString *problem = nullptr);
 
+    /** @short Forget every folder and message, keeping the tables, so that the index can be built again */
+    bool clear();
+
     QList<Folder> folders() const;
+    /** @short The state of @arg mailbox; its uidValidity is 0 when the folder is not in the index */
     Folder folder(const QString &mailbox) const;
     bool setFolder(const Folder &folder);
     /** @short Forget a folder and its messages */

@@ -101,6 +101,21 @@ int FolderSearch::messagesWithoutText() const
     return m_local && m_localResult.usesText ? m_localResult.withoutText : 0;
 }
 
+QStringList FolderSearch::incompleteFolders() const
+{
+    return m_local ? m_incompleteFolders : QStringList();
+}
+
+bool FolderSearch::indexPending() const
+{
+    return m_local && m_indexPending;
+}
+
+bool FolderSearch::indexPaused() const
+{
+    return m_local && m_indexPaused;
+}
+
 Model *FolderSearch::model() const
 {
     return m_model;
@@ -165,11 +180,32 @@ void FolderSearch::begin(const QStringList &mailboxes, bool allFolders, bool kee
     const quint64 generation = m_generation;
     m_local = m_model && !m_model->isNetworkAvailable() && m_indexer && m_indexer->isAvailable();
     m_localResult = SearchIndex::Result();
+    m_incompleteFolders.clear();
+    m_indexPending = false;
+    m_indexPaused = false;
     QString problem;
     if (m_local) {
         // One query answers every folder; the folders are still listed, from the offline cache, to show the matches
         m_localResult = m_indexer->index()->search(m_conditions, QStringList());
         problem = m_localResult.problem;
+        const QList<SearchIndexer::FolderCoverage> coverage = m_indexer->coverage();
+        QSet<QString> known;
+        for (const SearchIndexer::FolderCoverage &folder : coverage) {
+            known.insert(folder.mailbox);
+            if (folder.state != SearchIndexer::FolderCoverage::State::Indexed
+                && (allFolders || m_requested.contains(folder.mailbox)))
+                m_incompleteFolders << folder.mailbox;
+        }
+        if (!allFolders) {
+            // Chosen folders which the cache does not even list
+            for (const QString &mailbox : std::as_const(m_requested)) {
+                if (!known.contains(mailbox))
+                    m_incompleteFolders << mailbox;
+            }
+        }
+        // A pass merely scheduled after browsing rarely changes anything; one under way may still add messages
+        m_indexPending = m_indexer->isRunning();
+        m_indexPaused = m_indexer->isPaused();
     } else if (!m_model) {
         problem = tr("The account is not available");
     } else if (!m_model->isNetworkAvailable()) {

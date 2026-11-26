@@ -403,6 +403,7 @@ void ImapAccess::doConnect()
                 [model]() { return model ? model->cache() : std::shared_ptr<Imap::Mailbox::AbstractCache>(); },
                 m_imapModel);
             m_searchIndexer->setObjectName(QStringLiteral("searchIndexer-%1").arg(m_accountName));
+            m_searchIndexer->setPaused(m_settings->value(Common::SettingsNames::searchIndexPausedKey, false).toBool());
             if (m_searchIndexer->open()) {
                 // A burst of new messages, flags or downloaded parts leads to one pass a little later
                 connect(m_imapModel, &QAbstractItemModel::rowsInserted, m_searchIndexer, &Imap::Mailbox::SearchIndexer::scheduleUpdate);
@@ -482,6 +483,16 @@ QAbstractItemModel *ImapAccess::imapModel() const
 Imap::Mailbox::SearchIndexer *ImapAccess::searchIndexer() const
 {
     return m_searchIndexer;
+}
+
+void ImapAccess::setSearchIndexPaused(bool paused)
+{
+    if (paused)
+        m_settings->setValue(Common::SettingsNames::searchIndexPausedKey, true);
+    else
+        m_settings->remove(Common::SettingsNames::searchIndexPausedKey);
+    if (m_searchIndexer)
+        m_searchIndexer->setPaused(paused);
 }
 
 QAbstractItemModel *ImapAccess::mailboxModel() const

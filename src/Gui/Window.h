@@ -116,6 +116,7 @@ namespace Gui
 class AccountSidebar;
 class SavedSearchFolders;
 class SearchFoldersDialog;
+class SearchIndexDialog;
 class CapabilityActionGate;
 class ShellHeader;
 class AttachmentPanel;
@@ -217,6 +218,7 @@ private slots:
     void networkPolicyOnline();
     void slotShowSettings();
     void slotShowAccountSettings();
+    void slotShowSearchIndex();
     void slotAddAccount();
     void slotRemoveAccount();
     void slotNextAccount();
@@ -909,6 +911,8 @@ private:
     QAction *m_actionMarkMailboxAsRead;
     QAction *m_actionDownloadSearchText = nullptr;
     QPointer<Imap::Mailbox::SearchTextFetcher> m_searchTextFetcher;
+    QAction *m_actionSearchIndex = nullptr;
+    QPointer<SearchIndexDialog> m_searchIndexDialog;
     QAction *m_actionFilterUnread = nullptr;
     QAction *m_actionFilterFlagged = nullptr;
     QAction *m_actionFilterAttachments = nullptr;

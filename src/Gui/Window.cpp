@@ -127,6 +127,7 @@
 #include "MailBoxTreeView.h"
 #include "MailboxPickerDialog.h"
 #include "SearchFoldersDialog.h"
+#include "SearchIndexDialog.h"
 #include "MessageDetailsPanel.h"
 #include "MessageListWidget.h"
 #include "MessageRowsMenu.h"
@@ -732,6 +733,10 @@ void MainWindow::createActions()
     m_actionAccountSettings = new QAction(UiUtils::loadIcon(QStringLiteral("configure")), i18n("A&ccount Settings..."), this);
     m_actionAccountSettings->setObjectName(QStringLiteral("action_account_settings"));
     connect(m_actionAccountSettings, &QAction::triggered, this, &MainWindow::slotShowAccountSettings);
+    m_actionSearchIndex = new QAction(UiUtils::loadIcon(QStringLiteral("edit-find")), i18nc("@action", "Offline Search &Index…"), this);
+    m_actionSearchIndex->setObjectName(QStringLiteral("action_search_index_status"));
+    m_actionSearchIndex->setToolTip(i18nc("@info:tooltip", "Show how much of the account's mail can be searched offline"));
+    connect(m_actionSearchIndex, &QAction::triggered, this, &MainWindow::slotShowSearchIndex);
     m_actionRenameAccount = new QAction(i18n("Re&name Account..."), this);
     connect(m_actionRenameAccount, &QAction::triggered, this, &MainWindow::slotRenameAccount);
     m_actionRemoveAccount = new QAction(UiUtils::loadIcon(QStringLiteral("list-remove")), i18n("&Remove Account..."), this);
@@ -1475,6 +1480,7 @@ void MainWindow::createMenus()
         applicationMenu->addSeparator();
         ADD_ACTION(applicationMenu, m_actionAddAccount);
         ADD_ACTION(applicationMenu, m_actionAccountSettings);
+        ADD_ACTION(applicationMenu, m_actionSearchIndex);
         ADD_ACTION(applicationMenu, m_actionRenameAccount);
         ADD_ACTION(applicationMenu, m_actionRemoveAccount);
         applicationMenu->addSeparator();
@@ -2151,6 +2157,9 @@ void MainWindow::setupModels(bool reconnect)
     connect(imapModel(), &Imap::Mailbox::Model::specialFoldersChanged, this, &MainWindow::updateGoToFolderActions,
             Qt::UniqueConnection);
     updateGoToFolderActions();
+    // The account's index is new after switching accounts or saving the account settings
+    if (m_searchIndexDialog)
+        m_searchIndexDialog->setIndexer(m_imapAccess->searchIndexer(), m_accounts->displayName(m_accounts->activeAccount()));
 
     auto accountIconName = accountSettings()->value(Common::SettingsNames::imapAccountIcon).toString();
     if (accountIconName.isEmpty()) {
@@ -2955,6 +2964,24 @@ void MainWindow::slotShowSettings()
         removeSysTray();
         slotToggleSysTray();
     }
+}
+
+void MainWindow::slotShowSearchIndex()
+{
+    if (!m_searchIndexDialog) {
+        m_searchIndexDialog = new SearchIndexDialog(this);
+        m_searchIndexDialog->setAttribute(Qt::WA_DeleteOnClose);
+        connect(m_searchIndexDialog, &SearchIndexDialog::pausedChanged, this, [this](bool paused) {
+            // The dialog shows the index of the shown account
+            if (m_imapAccess)
+                m_imapAccess->setSearchIndexPaused(paused);
+        });
+    }
+    m_searchIndexDialog->setIndexer(m_imapAccess ? m_imapAccess->searchIndexer() : nullptr,
+                                    m_accounts->displayName(m_accounts->activeAccount()));
+    m_searchIndexDialog->show();
+    m_searchIndexDialog->raise();
+    m_searchIndexDialog->activateWindow();
 }
 
 void MainWindow::slotShowAccountSettings()
@@ -6620,12 +6647,15 @@ void MainWindow::updateMessageListStatus()
         int folders = 0;
         int searched = 0;
         bool local = false;
+        bool incomplete = false;
         for (const QPointer<FolderSearch> &search : std::as_const(m_folderSearches)) {
             if (!search)
                 continue;
             folders += search->folderCount();
             searched += search->searchedCount();
             local = local || search->usedLocalIndex();
+            incomplete = incomplete || !search->incompleteFolders().isEmpty() || search->indexPending()
+                || search->indexPaused();
         }
         const int found = m_unifiedModel->messageCount();
         statusDetails = searchProgressDetails();
@@ -6646,6 +6676,8 @@ void MainWindow::updateMessageListStatus()
         }
         if (local)
             parts << i18nc("@info:status", "offline, in mail indexed on this computer");
+        if (local && incomplete && !searchRunning)
+            parts << i18nc("@info:status", "results may be incomplete");
         if (!m_searchProblems.isEmpty()) {
             parts << i18ncp("@info:status", "%1 place could not be searched", "%1 places could not be searched",
                             m_searchProblems.size());
@@ -8167,6 +8199,19 @@ QString MainWindow::searchProgressDetails() const
                             "%2: the text of %1 message is not on this computer, so only its headers were searched",
                             "%2: the text of %1 messages is not on this computer, so only their headers were searched",
                             search->messagesWithoutText(), name);
+        }
+        if (!search->isRunning() && !search->incompleteFolders().isEmpty()) {
+            lines << i18ncp("@info:tooltip %2 is an account name",
+                            "%2: %1 folder is not fully indexed on this computer, so results may be incomplete",
+                            "%2: %1 folders are not fully indexed on this computer, so results may be incomplete",
+                            int(search->incompleteFolders().size()), name);
+        }
+        if (!search->isRunning() && search->indexPaused()) {
+            lines << i18nc("@info:tooltip account name", "%1: indexing is paused, so recent changes may be missing",
+                           name);
+        } else if (!search->isRunning() && search->indexPending()) {
+            lines << i18nc("@info:tooltip account name", "%1: the index was still being updated",
+                           name);
         }
     }
     if (!m_searchProblems.isEmpty()) {

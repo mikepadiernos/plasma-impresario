@@ -447,6 +447,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/SearchBuilderDialog.cpp
     ${path_DesktopGui}/SavedSearchFolders.cpp
     ${path_DesktopGui}/SearchFoldersDialog.cpp
+    ${path_DesktopGui}/SearchIndexDialog.cpp
     ${path_DesktopGui}/MessageActionHandler.cpp
     ${path_DesktopGui}/MessageDetailsPanel.cpp
     ${path_DesktopGui}/MessageListWidget.cpp

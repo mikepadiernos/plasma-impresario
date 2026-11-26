@@ -65,6 +65,13 @@ QString flagText(const QStringList &flags)
     return lower.isEmpty() ? QStringLiteral(" ") : QLatin1Char(' ') + lower.join(QLatin1Char(' ')) + QLatin1Char(' ');
 }
 
+/** @short A stored update time; 0 means the folder was never indexed */
+QDateTime updatedAt(const QVariant &value)
+{
+    const qint64 seconds = value.toLongLong();
+    return seconds > 0 ? QDateTime::fromSecsSinceEpoch(seconds) : QDateTime();
+}
+
 QStringList flagList(const QString &text)
 {
     return text.split(QLatin1Char(' '), Qt::SkipEmptyParts);
@@ -491,6 +498,20 @@ bool SearchIndex::drop(const QString &connectionName, QString *problem)
     return true;
 }
 
+bool SearchIndex::clear()
+{
+    QSqlDatabase db = database();
+    Savepoint savepoint(db);
+    QSqlQuery q(db);
+    for (const QString &table : {QStringLiteral("search_text"), QStringLiteral("search_docs"), QStringLiteral("search_folders")}) {
+        if (!q.exec(QStringLiteral("DELETE FROM %1").arg(table)))
+            return fail(tr("Cannot empty the search index"), q.lastError().text());
+    }
+    if (!savepoint.release())
+        return fail(tr("Cannot empty the search index"), db.lastError().text());
+    return true;
+}
+
 QList<SearchIndex::Folder> SearchIndex::folders() const
 {
     QList<Folder> result;
@@ -507,7 +528,7 @@ QList<SearchIndex::Folder> SearchIndex::folders() const
         folder.messages = q.value(2).toInt();
         folder.indexed = q.value(3).toInt();
         folder.withText = q.value(4).toInt();
-        folder.updated = QDateTime::fromSecsSinceEpoch(q.value(5).toLongLong());
+        folder.updated = updatedAt(q.value(5));
         result << folder;
     }
     return result;
@@ -530,7 +551,7 @@ SearchIndex::Folder SearchIndex::folder(const QString &mailbox) const
         folder.messages = q.value(1).toInt();
         folder.indexed = q.value(2).toInt();
         folder.withText = q.value(3).toInt();
-        folder.updated = QDateTime::fromSecsSinceEpoch(q.value(4).toLongLong());
+        folder.updated = updatedAt(q.value(4));
     }
     return folder;
 }
