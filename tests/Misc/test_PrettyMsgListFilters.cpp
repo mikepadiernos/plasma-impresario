@@ -305,6 +305,35 @@ void PrettyMsgListFiltersTest::keptVisibleMessageKeepsItsThread() {
   QCOMPARE(visible(proxy), QStringList{QStringLiteral("unread")});
 }
 
+void PrettyMsgListFiltersTest::keptVisibleMessageIsRevealed() {
+  QStandardItemModel source;
+  source.appendRow(unread(QStringLiteral("unread")));
+  auto *hidden = read(QStringLiteral("read"));
+  source.appendRow(hidden);
+  source.appendRow(read(QStringLiteral("other read")));
+  auto *root = read(QStringLiteral("root"));
+  auto *reply = read(QStringLiteral("reply"));
+  root->appendRow(reply);
+  source.appendRow(root);
+  PrettyMsgListModel proxy(nullptr);
+  proxy.setSourceModel(&source);
+  proxy.setHideRead(true);
+  QCOMPARE(visible(proxy), QStringList{QStringLiteral("unread")});
+
+  // Going through a conversation reaches a message which the filters hide
+  proxy.setKeptVisibleIndex(source.indexFromItem(hidden));
+  QCOMPARE(visible(proxy),
+           (QStringList{QStringLiteral("unread"), QStringLiteral("read")}));
+  QVERIFY(proxy.mapFromSource(source.indexFromItem(hidden)).isValid());
+  // A reply brings its thread, and the previous message goes away again
+  proxy.setKeptVisibleIndex(source.indexFromItem(reply));
+  QCOMPARE(visible(proxy),
+           (QStringList{QStringLiteral("unread"), QStringLiteral("root"),
+                        QStringLiteral("reply")}));
+  proxy.setKeptVisibleIndex(QModelIndex());
+  QCOMPARE(visible(proxy), QStringList{QStringLiteral("unread")});
+}
+
 void PrettyMsgListFiltersTest::visibleMessageCount() {
   QStandardItemModel source;
   auto *root = read(QStringLiteral("root"));

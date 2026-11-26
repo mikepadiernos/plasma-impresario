@@ -200,7 +200,7 @@ void RelatedMessagesTest::stepsThroughThreads()
     model.appendRow(header);
 
     const auto step = [&model](QStandardItem *from, bool forward) {
-        return subjectOf(UiUtils::adjacentInConversation(&model, from->index(), forward, true, {}));
+        return subjectOf(UiUtils::adjacentInThread(&model, from->index(), forward));
     };
     QCOMPARE(step(first, true), QStringLiteral("second"));
     QCOMPARE(step(second, true), QStringLiteral("nested"));
@@ -213,8 +213,12 @@ void RelatedMessagesTest::stepsThroughThreads()
     QCOMPARE(step(groupedReply, false), QStringLiteral("grouped"));
     QCOMPARE(step(grouped, false), QStringLiteral("(none)"));
     QCOMPARE(step(header, true), QStringLiteral("(none)"));
-    QVERIFY(!UiUtils::adjacentInConversation(nullptr, first->index(), true, true, {}).isValid());
-    QVERIFY(!UiUtils::adjacentInConversation(&model, QModelIndex(), true, true, {}).isValid());
+    QVERIFY(!UiUtils::adjacentInThread(nullptr, first->index(), true).isValid());
+    QVERIFY(!UiUtils::adjacentInThread(&model, QModelIndex(), true).isValid());
+    // An index of another model is not a row of the list
+    QStandardItemModel other;
+    other.appendRow(message(QStringLiteral("elsewhere"), 7));
+    QVERIFY(!UiUtils::adjacentInThread(&model, other.index(0, 0), true).isValid());
 }
 
 void RelatedMessagesTest::stepsThroughConversationsByDate()
@@ -227,14 +231,29 @@ void RelatedMessagesTest::stepsThroughConversationsByDate()
     QStandardItem *followUp = message(QStringLiteral("Re: Re: Plans"), 4, day.addDays(3));
     for (QStandardItem *item : {reply, other, plans, followUp})
         model.appendRow(item);
-    // The list shows the messages through a proxy; the conversation comes from the source
+    // The list shows the messages through a filtering proxy, which hides the follow-up; the conversation and the
+    // result are messages of the source
     QSortFilterProxyModel view;
     view.setSourceModel(&model);
+    view.setFilterRegularExpression(QStringLiteral("^(Plans|Re: Plans|Other)$"));
     view.sort(0, Qt::DescendingOrder);
-    const QList<QPersistentModelIndex> conversation{reply->index(), followUp->index()};
+    QCOMPARE(view.rowCount(), 3);
+    const auto conversationOf = [&](QStandardItem *from) {
+        QList<QPersistentModelIndex> result;
+        for (QStandardItem *item : {reply, followUp, plans}) {
+            // A hidden message is known by its source index
+            const QModelIndex shown = view.mapFromSource(item->index());
+            if (item != from)
+                result << (shown.isValid() ? shown : item->index());
+        }
+        return result;
+    };
 
     const auto step = [&](QStandardItem *from, bool forward) {
-        return subjectOf(UiUtils::adjacentInConversation(&view, view.mapFromSource(from->index()), forward, false, conversation));
+        const QModelIndex at = view.mapFromSource(from->index());
+        const QModelIndex target = UiUtils::adjacentByDate(at.isValid() ? at : from->index(), forward, conversationOf(from));
+        Q_ASSERT(!target.isValid() || target.model() == &model);
+        return subjectOf(target);
     };
     QCOMPARE(step(plans, true), QStringLiteral("Re: Plans"));
     QCOMPARE(step(reply, true), QStringLiteral("Re: Re: Plans"));
@@ -242,9 +261,8 @@ void RelatedMessagesTest::stepsThroughConversationsByDate()
     QCOMPARE(step(followUp, false), QStringLiteral("Re: Plans"));
     QCOMPARE(step(plans, false), QStringLiteral("(none)"));
     // A message outside the conversation has nowhere to go
-    QCOMPARE(UiUtils::adjacentInConversation(&view, view.mapFromSource(other->index()), true, false, {}), QModelIndex());
-    // An index of another model is not a row of the list
-    QCOMPARE(UiUtils::adjacentInConversation(&view, plans->index(), true, false, conversation), QModelIndex());
+    QCOMPARE(UiUtils::adjacentByDate(view.mapFromSource(other->index()), true, {}), QModelIndex());
+    QCOMPARE(UiUtils::adjacentByDate(QModelIndex(), true, conversationOf(plans)), QModelIndex());
 }
 
 QTEST_GUILESS_MAIN(RelatedMessagesTest)

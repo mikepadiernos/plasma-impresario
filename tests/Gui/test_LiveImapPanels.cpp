@@ -18,6 +18,7 @@
 #include "Gui/InlineNotificationBar.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/ItemRoles.h"
+#include "Imap/Model/PrettyMsgListModel.h"
 #include "Imap/Model/Model.h"
 #include "Imap/Model/NetworkWatcher.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
@@ -614,6 +615,55 @@ private slots:
         QVERIFY(messages->isExpanded(planThread));
         stepThrough("None");
         QVERIFY(!action(window, QStringLiteral("action_collapse_all_conversations"))->isEnabled());
+
+        // Quick filters keep the conversation. In a flat list, the steps reach messages which the filter hides and
+        // show them while they are current; only "Quarterly plan" of the conversation is flagged.
+        const auto shownSubject = [&]() { return details->message().data(Imap::Mailbox::RoleMessageSubject).toString(); };
+        const auto currentSubject = [&]() { return messages->currentIndex().data(Imap::Mailbox::RoleMessageSubject).toString(); };
+        QVERIFY(findMessage(messages, conversationOrder.at(0)).data(Imap::Mailbox::RoleMessageIsMarkedFlagged).toBool());
+        QVERIFY(!findMessage(messages, conversationOrder.at(1)).data(Imap::Mailbox::RoleMessageIsMarkedFlagged).toBool());
+        QVERIFY(!findMessage(messages, conversationOrder.at(2)).data(Imap::Mailbox::RoleMessageIsMarkedFlagged).toBool());
+        // The list keeps the current message shown once the events of selecting it are handled, as between key presses
+        const auto settle = [&]() {
+            auto *pretty = window.findChild<Imap::Mailbox::PrettyMsgListModel *>();
+            QTRY_COMPARE(pretty->mapFromSource(pretty->keptVisibleIndex()), messages->currentIndex().siblingAtColumn(0));
+        };
+        const auto step = [&](bool forward, int to) {
+            action(window, forward ? QStringLiteral("action_go_to_next_in_conversation")
+                                   : QStringLiteral("action_go_to_previous_in_conversation"))
+                ->trigger();
+            QTRY_COMPARE_WITH_TIMEOUT(shownSubject(), conversationOrder.at(to), 10000);
+            QTRY_COMPARE(currentSubject(), conversationOrder.at(to));
+            settle();
+        };
+        QAction *flaggedFilter = action(window, QStringLiteral("messageListFilterFlagged"));
+        setChecked(flaggedFilter, true);
+        QTRY_VERIFY(!findMessage(messages, conversationOrder.at(1)).isValid());
+        QCOMPARE(currentSubject(), conversationOrder.at(0));
+        step(true, 1);
+        step(true, 2);
+        // The message from before is hidden again
+        QTRY_VERIFY(!findMessage(messages, conversationOrder.at(1)).isValid());
+        step(false, 1);
+
+        // In threads, a thread with a matching message is shown whole, and the current message stays current and in
+        // view when the list switches between threads and a flat list
+        action(window, QStringLiteral("messageListGroupByConversation"))->trigger();
+        QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(findMessage(messages, conversationOrder.at(0))), 2, 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(currentSubject(), conversationOrder.at(1), 10000);
+        QTRY_VERIFY(messages->isExpanded(messages->currentIndex().parent()));
+        QVERIFY(messages->viewport()->rect().intersects(messages->visualRect(messages->currentIndex())));
+        open(conversationOrder.at(2));
+        settle();
+        action(window, QStringLiteral("messageListGroupByNone"))->trigger();
+        QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(findMessage(messages, conversationOrder.at(0))), 0, 10000);
+        QTRY_COMPARE(currentSubject(), conversationOrder.at(2));
+        QVERIFY(messages->viewport()->rect().intersects(messages->visualRect(messages->currentIndex())));
+        // Clearing the filter keeps the current message as well
+        setChecked(flaggedFilter, false);
+        QTRY_VERIFY(findMessage(messages, conversationOrder.at(1)).isValid());
+        QCOMPARE(currentSubject(), conversationOrder.at(2));
+        QCOMPARE(shownSubject(), conversationOrder.at(2));
         groupedBefore->trigger();
 
         QCOMPARE(passwordPrompts, 0);
