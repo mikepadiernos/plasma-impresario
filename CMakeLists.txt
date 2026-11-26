@@ -308,6 +308,7 @@ set(path_UiUtils ${CMAKE_CURRENT_SOURCE_DIR}/src/UiUtils)
 set(libUiUtils_SOURCES
     ${path_UiUtils}/AttachmentCollector.cpp
     ${path_UiUtils}/Color.cpp
+    ${path_UiUtils}/Conversations.cpp
     ${path_UiUtils}/Formatting.cpp
     ${path_UiUtils}/IconLoader.cpp
     ${path_UiUtils}/LinkSafety.cpp

@@ -6,25 +6,20 @@
 #include <algorithm>
 #include <QAbstractItemModel>
 #include <QDateTime>
-#include <QHash>
-#include <QRegularExpression>
 #include <QSet>
 #include <QStringList>
 #include <QVariant>
 
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/Utils.h"
+#include "Conversations.h"
+#include "QuickFilters.h"
 
 namespace UiUtils {
 
 QString normalizedSubject(const QString &subject)
 {
-    // Common reply and forward prefixes, optionally counted ("Re[2]:"), in English and a few other languages
-    static const QRegularExpression prefixes(QStringLiteral("^\\s*((re|fw|fwd|aw|wg|sv|vs|antw|tr|rif|r)(\\[\\d+\\])?\\s*[:：]\\s*)+"),
-                                             QRegularExpression::CaseInsensitiveOption);
-    QString result = subject;
-    result.remove(prefixes);
-    return result.simplified().toCaseFolded();
+    return searchableSubject(subject).toCaseFolded();
 }
 
 QString firstAddress(const QVariant &addresses)
@@ -39,11 +34,6 @@ QString firstAddress(const QVariant &addresses)
 }
 
 namespace {
-
-QList<QByteArray> inReplyTo(const QModelIndex &index)
-{
-    return index.data(Imap::Mailbox::RoleMessageInReplyTo).value<QList<QByteArray>>();
-}
 
 bool isGroupHeader(const QModelIndex &index)
 {
@@ -60,6 +50,46 @@ void appendDescendants(const QAbstractItemModel *model, const QModelIndex &paren
     }
 }
 
+/** The loaded rows of a message list, in row order, followed by the current message */
+struct LoadedRows {
+    QList<QModelIndex> rows;
+    QList<ConversationMessage> messages;
+    bool truncated = false;
+};
+
+LoadedRows loadedRows(const QAbstractItemModel *messages, const QModelIndex &current, int maximumScannedRows)
+{
+    LoadedRows result;
+    const QModelIndex currentMessage = Imap::deproxifiedIndex(current);
+    const int count = messages->rowCount();
+    const int first = qMax(0, count - maximumScannedRows);
+    result.truncated = first > 0;
+    for (int row = first; row < count; ++row) {
+        const QModelIndex index = messages->index(row, 0);
+        // Asking for envelope data of an unfetched row would download it, so look at loaded rows only.
+        if (!index.data(Imap::Mailbox::RoleIsFetched).toBool() || Imap::deproxifiedIndex(index) == currentMessage)
+            continue;
+        result.rows.append(index);
+        result.messages.append(conversationMessage(index));
+    }
+    result.rows.append(current);
+    result.messages.append(conversationMessage(current));
+    return result;
+}
+
+/** Positions in @arg loaded of the other messages in the conversation of its current message, last row first */
+QList<qsizetype> conversationOf(const LoadedRows &loaded)
+{
+    const QList<qsizetype> groups = groupConversations(loaded.messages);
+    const qsizetype self = loaded.rows.size() - 1;
+    QList<qsizetype> result;
+    for (qsizetype at = self - 1; at >= 0; --at) {
+        if (groups.at(at) == groups.at(self))
+            result.append(at);
+    }
+    return result;
+}
+
 }
 
 RelatedMessages collectRelatedMessages(const QAbstractItemModel *messages, const QModelIndex &current, int maximumPerGroup,
@@ -69,46 +99,28 @@ RelatedMessages collectRelatedMessages(const QAbstractItemModel *messages, const
     if (!messages || !current.isValid() || !current.data(Imap::Mailbox::RoleIsFetched).toBool())
         return result;
 
-    const QString subject = normalizedSubject(current.data(Imap::Mailbox::RoleMessageSubject).toString());
-    const QString sender = firstAddress(current.data(Imap::Mailbox::RoleMessageFrom));
-    const QByteArray messageId = current.data(Imap::Mailbox::RoleMessageMessageId).toByteArray();
-    const QList<QByteArray> parents = inReplyTo(current);
-    const QModelIndex currentMessage = Imap::deproxifiedIndex(current);
+    const LoadedRows loaded = loadedRows(messages, current, maximumScannedRows);
+    result.truncated = loaded.truncated;
+    QSet<qsizetype> inConversation;
+    for (const qsizetype at : conversationOf(loaded)) {
+        inConversation.insert(at);
+        if (result.conversation.size() < maximumPerGroup)
+            result.conversation.append(loaded.rows.at(at));
+        else
+            result.truncated = true;
+    }
 
-    const int rows = messages->rowCount();
-    const int last = qMax(0, rows - maximumScannedRows);
-    if (last > 0)
-        result.truncated = true;
-    for (int row = rows - 1; row >= last; --row) {
-        if (result.conversation.size() >= maximumPerGroup && result.sameSender.size() >= maximumPerGroup) {
+    const QString sender = firstAddress(current.data(Imap::Mailbox::RoleMessageFrom));
+    if (sender.isEmpty())
+        return result;
+    for (qsizetype at = loaded.rows.size() - 2; at >= 0; --at) {
+        if (inConversation.contains(at) || firstAddress(loaded.rows.at(at).data(Imap::Mailbox::RoleMessageFrom)) != sender)
+            continue;
+        if (result.sameSender.size() < maximumPerGroup) {
+            result.sameSender.append(loaded.rows.at(at));
+        } else {
             result.truncated = true;
             break;
-        }
-        const QModelIndex index = messages->index(row, 0);
-        // Asking for envelope data of an unfetched row would download it, so look at loaded rows only.
-        if (!index.data(Imap::Mailbox::RoleIsFetched).toBool())
-            continue;
-        if (Imap::deproxifiedIndex(index) == currentMessage)
-            continue;
-
-        const QByteArray rowId = index.data(Imap::Mailbox::RoleMessageMessageId).toByteArray();
-        bool sameConversation = !subject.isEmpty()
-            && normalizedSubject(index.data(Imap::Mailbox::RoleMessageSubject).toString()) == subject;
-        if (!sameConversation && !messageId.isEmpty())
-            sameConversation = inReplyTo(index).contains(messageId);
-        if (!sameConversation && !rowId.isEmpty())
-            sameConversation = parents.contains(rowId);
-
-        if (sameConversation) {
-            if (result.conversation.size() < maximumPerGroup)
-                result.conversation.append(index);
-            else
-                result.truncated = true;
-        } else if (!sender.isEmpty() && firstAddress(index.data(Imap::Mailbox::RoleMessageFrom)) == sender) {
-            if (result.sameSender.size() < maximumPerGroup)
-                result.sameSender.append(index);
-            else
-                result.truncated = true;
         }
     }
     return result;
@@ -120,65 +132,11 @@ QList<QPersistentModelIndex> collectConversation(const QAbstractItemModel *messa
     QList<QPersistentModelIndex> result;
     if (!messages || !current.isValid() || !current.data(Imap::Mailbox::RoleIsFetched).toBool())
         return result;
-
-    struct Message {
-        QModelIndex index;
-        QString subject;
-        QByteArray id;
-        QList<QByteArray> parents;
-    };
-    const auto describe = [](const QModelIndex &index) {
-        return Message{index, normalizedSubject(index.data(Imap::Mailbox::RoleMessageSubject).toString()),
-                       index.data(Imap::Mailbox::RoleMessageMessageId).toByteArray(), inReplyTo(index)};
-    };
-
-    // Index the loaded rows once, then walk the links from the current message
-    QList<Message> rows;
-    QMultiHash<QString, qsizetype> bySubject;
-    QMultiHash<QByteArray, qsizetype> byId;
-    QMultiHash<QByteArray, qsizetype> byParent;
-    const QModelIndex currentMessage = Imap::deproxifiedIndex(current);
-    const int count = messages->rowCount();
-    for (int row = count - 1, last = qMax(0, count - maximumScannedRows); row >= last; --row) {
-        const QModelIndex index = messages->index(row, 0);
-        if (!index.data(Imap::Mailbox::RoleIsFetched).toBool() || Imap::deproxifiedIndex(index) == currentMessage)
-            continue;
-        const Message message = describe(index);
-        const qsizetype at = rows.size();
-        if (!message.subject.isEmpty())
-            bySubject.insert(message.subject, at);
-        if (!message.id.isEmpty())
-            byId.insert(message.id, at);
-        for (const QByteArray &parent : message.parents)
-            byParent.insert(parent, at);
-        rows.append(message);
-    }
-
-    QList<bool> taken(rows.size(), false);
-    QSet<QString> seenSubjects;
-    QSet<QByteArray> seenIds;
-    QList<Message> pending{describe(current)};
-    while (!pending.isEmpty() && result.size() < maximum) {
-        const Message message = pending.takeFirst();
-        QList<qsizetype> linked;
-        if (!message.subject.isEmpty() && !seenSubjects.contains(message.subject)) {
-            seenSubjects.insert(message.subject);
-            linked += bySubject.values(message.subject);
-        }
-        if (!message.id.isEmpty() && !seenIds.contains(message.id)) {
-            seenIds.insert(message.id);
-            linked += byParent.values(message.id);
-        }
-        for (const QByteArray &parent : message.parents)
-            linked += byId.values(parent);
-        std::sort(linked.begin(), linked.end());
-        for (const qsizetype at : std::as_const(linked)) {
-            if (taken.at(at) || result.size() >= maximum)
-                continue;
-            taken[at] = true;
-            result.append(rows.at(at).index);
-            pending.append(rows.at(at));
-        }
+    const LoadedRows loaded = loadedRows(messages, current, maximumScannedRows);
+    for (const qsizetype at : conversationOf(loaded)) {
+        if (result.size() >= maximum)
+            break;
+        result.append(loaded.rows.at(at));
     }
     return result;
 }

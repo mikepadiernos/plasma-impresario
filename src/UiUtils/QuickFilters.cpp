@@ -9,6 +9,7 @@
 #include <QVariant>
 
 #include "Imap/Model/ItemRoles.h"
+#include "Conversations.h"
 #include "RelatedMessages.h"
 
 namespace UiUtils {
@@ -16,27 +17,6 @@ namespace UiUtils {
 namespace {
 
 const QLatin1Char quote('"');
-
-QString stripPrefixes(QString subject, bool alsoTags) {
-  // The reply and forward prefixes known to normalizedSubject(), optionally
-  // counted ("Re[2]:")
-  static const QRegularExpression prefix(
-      QStringLiteral("^\\s*(re|fw|fwd|aw|wg|sv|vs|antw|tr|rif|r)(\\[\\d+\\])?"
-                     "\\s*[:：]\\s*"),
-      QRegularExpression::CaseInsensitiveOption);
-  // A mailing list tag such as "[dev]"
-  static const QRegularExpression tag(
-      QStringLiteral("^\\s*\\[[^\\[\\]]*\\]\\s*"));
-  for (;;) {
-    const int before = subject.size();
-    subject.remove(prefix);
-    if (alsoTags)
-      subject.remove(tag);
-    if (subject.size() == before)
-      break;
-  }
-  return subject.simplified();
-}
 
 QString keyword(FieldFilter field) {
   switch (field) {
@@ -98,8 +78,8 @@ shownRowBefore(const QAbstractItemModel *model, const QModelIndex &index,
 } // namespace
 
 QString searchableSubject(const QString &subject) {
-  const QString result = stripPrefixes(subject, true);
-  return result.isEmpty() ? stripPrefixes(subject, false) : result;
+  const QString result = strippedSubject(subject, true);
+  return result.isEmpty() ? strippedSubject(subject, false) : result;
 }
 
 QString fieldFilterText(FieldFilter field, const QString &value) {

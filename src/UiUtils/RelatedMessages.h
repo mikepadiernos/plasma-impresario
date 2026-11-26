@@ -12,10 +12,11 @@ class QVariant;
 
 namespace UiUtils {
 
-/** @short Subject without reply and forward prefixes, folded for comparison
+/** @short Subject without reply and forward prefixes or list tags, folded for comparison
 
-"Re: Fwd: AW: Hello  world" and "hello world" give the same result. An empty
-result means that the subject cannot be used to find a conversation.
+"Re: [team] AW: Hello  world", "Re[2]: hello world" and "hello world" give the same result (see strippedSubject()). A
+subject which is only a list tag keeps it. An empty result means that the subject cannot be used to find a
+conversation.
 */
 QString normalizedSubject(const QString &subject);
 
@@ -23,7 +24,7 @@ QString normalizedSubject(const QString &subject);
 QString firstAddress(const QVariant &addresses);
 
 struct RelatedMessages {
-    /** Messages sharing the normalized subject or linked through Message-ID and In-Reply-To */
+    /** Messages of the same conversation, as grouped by groupConversations() */
     QList<QPersistentModelIndex> conversation;
     /** Other messages from the same sender */
     QList<QPersistentModelIndex> sameSender;
@@ -35,21 +36,18 @@ struct RelatedMessages {
 
 @arg messages is a flat message list such as Imap::Mailbox::MsgListModel. Only rows
 whose data was already fetched are considered, because asking for the envelope of
-any other row would make the IMAP model download it. Rows are scanned from the last
-(newest arrival) backwards, so each group starts with the most recent message.
-@arg current must be an index whose envelope is fetched; rows that deproxify to it
-are skipped.
+any other row would make the IMAP model download it. Each group starts with the last row
+(newest arrival). @arg current must be an index whose envelope is fetched; rows that
+deproxify to it are skipped. Only the last @arg maximumScannedRows rows are scanned.
 */
 RelatedMessages collectRelatedMessages(const QAbstractItemModel *messages, const QModelIndex &current, int maximumPerGroup = 25,
                                        int maximumScannedRows = 20000);
 
 /** @short The whole conversation of @arg current among the loaded rows of a message list
 
-Unlike collectRelatedMessages(), which lists the messages directly related to @arg current, this follows the links
-from message to message: a row joins when it shares the normalized subject of a message already in the conversation,
-replies to one, or is replied to by one. Every message of the result therefore gives the same conversation. The result
-does not contain @arg current and holds at most @arg maximum rows; the other arguments are those of
-collectRelatedMessages().
+The conversation follows groupConversations(), so every message of the result gives the same conversation. The result
+starts with the last row, does not contain @arg current and holds at most @arg maximum rows; the other arguments are
+those of collectRelatedMessages().
 */
 QList<QPersistentModelIndex> collectConversation(const QAbstractItemModel *messages, const QModelIndex &current, int maximum = 1000,
                                                  int maximumScannedRows = 20000);
