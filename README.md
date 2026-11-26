@@ -107,9 +107,11 @@ Legend: ![Verified][verified] against a disposable IMAP server ·
 | Composing          | New messages, replies and forwards, local drafts and configurable delivery    |
 | Plugins            | Optional password, address-book, spell-check and OpenPGP plugins              |
 
-M01 verified that these build, install and launch with Qt 6. Live reading,
-replies and attachments are scheduled for verification in M04
-([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)).
+M01 verified that these build, install and launch with Qt 6. M04 verified
+live reading, replies, forwards, attachments, drafts and failed-send recovery
+against a disposable Dovecot server
+([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)); see the
+[composing caveats](docs/CAVEATS.md#composing-and-sending).
 
 ### Added in M02
 
@@ -174,11 +176,14 @@ M04 is in progress on `feature/m04-reading-flow`
 | Conversations    | Alt+Down and Alt+Up step through a conversation from oldest to newest, threaded or not; Ctrl+. and Ctrl+, expand and collapse every thread               | ![Needs verification][needs-verification] |
 | Filters          | Filters keep whole threads and the open message; conversation steps show replies a filter hides                                                          | ![Needs verification][needs-verification] |
 | Subjects         | Replies without links join their conversation by subject within 30 days, ignoring localized prefixes and list tags; References can merge conversations   | ![Needs verification][needs-verification] |
+| Composing        | Replies, Reply to All but Me and Forward send from the message's account; a refused send keeps the composer open, and unsent mail reopens after a crash  | ![Needs verification][needs-verification] |
 | Keyboard         | F6 follows the screen order of panes and panels, also in right-to-left layouts; Escape returns from the reader or a panel to the message list            | ![Needs verification][needs-verification] |
 
 Inline PGP is detected but not verified; see
 [caveats](docs/CAVEATS.md#message-security). A search in a threaded list
-splits threads; see [caveats](docs/CAVEATS.md#conversations).
+splits threads; see [caveats](docs/CAVEATS.md#conversations). Each refused send
+files another copy in Sent and drafts do not keep attachments; see
+[caveats](docs/CAVEATS.md#composing-and-sending).
 
 ### Accounts
 
