@@ -321,13 +321,18 @@ parentheses are the expected behavior.
 
 ### Search
 
-| Area        | Scenario                                                                                                             | Coverage                                                                |
-| ----------- | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Date ranges | A custom range narrows the folder, alone and with a text search, on a live server                                    | ![Verified][verified] `test_LiveImapAccounts`                           |
-| Date ranges | Presets, custom ranges with open ends, raw and `from:`-style queries, saved searches and cancelling the range dialog | ![Offscreen tests][offscreen] `test_SavedSearch` and `test_SearchScope` |
-| Date ranges | A message sent near midnight in another time zone, at a range boundary                                               | ![Not validated][not-validated] ([caveat](CAVEATS.md#search))           |
-| Date ranges | A Today or Past Week search left open past midnight moves on to the new day                                          | ![Not validated][not-validated] Covered only by the timer being active  |
-| Date ranges | A message without a Date header, and servers other than Dovecot                                                      | ![Not validated][not-validated]                                         |
+| Area        | Scenario                                                                                                                                                               | Coverage                                                                               |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Date ranges | A custom range narrows the folder, alone and with a text search, on a live server                                                                                      | ![Verified][verified] `test_LiveImapAccounts`                                          |
+| Date ranges | Presets, custom ranges with open ends, raw and `from:`-style queries, saved searches and cancelling the range dialog                                                   | ![Offscreen tests][offscreen] `test_SavedSearch` and `test_SearchScope`                |
+| Date ranges | A message sent near midnight in another time zone, at a range boundary                                                                                                 | ![Not validated][not-validated] ([caveat](CAVEATS.md#search))                          |
+| Date ranges | A Today or Past Week search left open past midnight moves on to the new day                                                                                            | ![Not validated][not-validated] Covered only by the timer being active                 |
+| Date ranges | A message without a Date header, and servers other than Dovecot                                                                                                        | ![Not validated][not-validated]                                                        |
+| Places      | The shown folder, a whole account, all accounts, chosen folders of two accounts and the Unified Inbox, with a rejected password and a missing folder, on a live server | ![Verified][verified] `test_LiveImapSearch`                                            |
+| Places      | Search In choices, saved places and chosen folders, clearing a search and the folder chooser                                                                           | ![Offscreen tests][offscreen] `test_SavedSearch` and `test_SearchScope`                |
+| Places      | Results labelled with account and folder, merged by date as each folder finishes                                                                                       | ![Offscreen tests][offscreen] `test_SearchResultsModel` and `test_UnifiedMsgListModel` |
+| Places      | Changing folder or account while a search runs, and new mail arriving in a searched folder                                                                             | ![Not validated][not-validated]                                                        |
+| Places      | A folder that cannot be selected, thousands of results, and servers other than Dovecot                                                                                 | ![Not validated][not-validated] ([caveat](CAVEATS.md#search))                          |
 
 ### Interface and embedded panels
 

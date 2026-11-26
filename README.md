@@ -93,17 +93,17 @@ As of 2026-11-25. **Done** counts roadmap features whose issues are
 [project board](https://github.com/users/mikepadiernos/projects/4); **Board**
 is the milestone's parent issue.
 
-| Milestone                                                                                | Branch               | Done                                                                 | Board                       | Notes                                                                                                              |
-| ---------------------------------------------------------------------------------------- | -------------------- | -------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| [M01](docs/ROADMAP.md#m01-kde--qt6-compatibility-baseline) KDE / Qt 6 baseline           | `main`               | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]           | Builds, installs and launches with Qt 6 and KF6                                                                    |
-| [M02](docs/ROADMAP.md#m02-shell-accounts-and-core-mailbox-foundation) Shell and accounts | `main`               | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]           | Checks in a real Plasma session moved to M15                                                                       |
-| [M03](docs/ROADMAP.md#m03-mail-operations-sorting-and-folder-management) Mail operations | `main`               | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]           | Destructive actions verified against a live server                                                                 |
-| [M04](docs/ROADMAP.md#m04-reading-and-conversation-flow) Reading and conversations       | `main`               | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #451](https://github.com/mikepadiernos/plasma-impresario/pull/451)                                   |
-| [M05](docs/ROADMAP.md#m05-search-and-indexing) Search and indexing                       | `feature/m05-search` | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-9a6700)     | ![Development][development] | Started with date ranges in the quick search ([#95](https://github.com/mikepadiernos/plasma-impresario/issues/95)) |
-| M06–M08: desktop integration, automation, settings                                       | —                    | —                                                                    | ![Backlog][backlog]         | Not started                                                                                                        |
-| [M09](docs/ROADMAP.md#m09-themes-and-branding-foundation) Themes and branding            | —                    | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development] | Started with the product rename ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221))            |
-| M10–M14: reliability, release, Nextcloud, Microsoft, refinements                         | —                    | —                                                                    | ![Backlog][backlog]         | Not started                                                                                                        |
-| [M15](docs/ROADMAP.md#m15-real-plasma-session-verification) Real Plasma session checks   | —                    | ![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781)       | ![Defined][defined]         | Needs a real Plasma session                                                                                        |
+| Milestone                                                                                | Branch               | Done                                                                 | Board                       | Notes                                                                                                                                  |
+| ---------------------------------------------------------------------------------------- | -------------------- | -------------------------------------------------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| [M01](docs/ROADMAP.md#m01-kde--qt6-compatibility-baseline) KDE / Qt 6 baseline           | `main`               | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]           | Builds, installs and launches with Qt 6 and KF6                                                                                        |
+| [M02](docs/ROADMAP.md#m02-shell-accounts-and-core-mailbox-foundation) Shell and accounts | `main`               | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]           | Checks in a real Plasma session moved to M15                                                                                           |
+| [M03](docs/ROADMAP.md#m03-mail-operations-sorting-and-folder-management) Mail operations | `main`               | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]           | Destructive actions verified against a live server                                                                                     |
+| [M04](docs/ROADMAP.md#m04-reading-and-conversation-flow) Reading and conversations       | `main`               | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #451](https://github.com/mikepadiernos/plasma-impresario/pull/451)                                                       |
+| [M05](docs/ROADMAP.md#m05-search-and-indexing) Search and indexing                       | `feature/m05-search` | ![1 of 24 done](https://img.shields.io/badge/1%2F24-4%25-9a6700)     | ![Development][development] | Date ranges done; search across folders and accounts in review ([#331](https://github.com/mikepadiernos/plasma-impresario/issues/331)) |
+| M06–M08: desktop integration, automation, settings                                       | —                    | —                                                                    | ![Backlog][backlog]         | Not started                                                                                                                            |
+| [M09](docs/ROADMAP.md#m09-themes-and-branding-foundation) Themes and branding            | —                    | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development] | Started with the product rename ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221))                                |
+| M10–M14: reliability, release, Nextcloud, Microsoft, refinements                         | —                    | —                                                                    | ![Backlog][backlog]         | Not started                                                                                                                            |
+| [M15](docs/ROADMAP.md#m15-real-plasma-session-verification) Real Plasma session checks   | —                    | ![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781)       | ![Defined][defined]         | Needs a real Plasma session                                                                                                            |
 
 The [roadmap overview](docs/ROADMAP.md#milestones-at-a-glance) tracks every
 milestone, and [pending tasks](docs/TODO.md#in-progress) record what each one
@@ -287,14 +287,17 @@ The quick search above the message list searches the selected folder on the
 server. Its options menu picks the fields to search, fuzzy matching and a
 **Date** range: today, the past week, month or year, or custom days with an
 optional start and end. A date range narrows text, `from:`-style and raw IMAP
-queries, and on its own filters the list by date.
+queries, and on its own filters the list by date. **Search In** widens the
+search to chosen folders of any account, the whole account or all accounts;
+results appear in one list, labelled with their account and folder, as each
+folder is searched.
 
 Enter a query and choose **Save Current Search** from the search options menu.
 **Saved Searches** in the same menu runs or deletes the active account's saved
 queries; a query runs in the selected folder, with its date range. Preset
 ranges stay relative, so a saved "Past Week" search always covers the latest
-week. Searching across folders and
-accounts, virtual folders and an optional offline index are planned in
+week. A saved search also keeps where it searches. Virtual folders and an
+optional offline index are planned in
 [M05](docs/ROADMAP.md#m05-search-and-indexing).
 
 ### Command line
