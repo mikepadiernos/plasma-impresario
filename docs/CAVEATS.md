@@ -768,6 +768,18 @@ Plasma session; that check is
   cache**, or removing the account also deletes the index; removing an
   account says so and warns when its files cannot be deleted
   ([#344](https://github.com/mikepadiernos/plasma-impresario/issues/344)).
+- ![Resolved][resolved] **Also index the text of downloaded attachments up
+  to** a size, in the account's **Offline** settings, is off by default and
+  set per account, with a limit of 10 MB per file. When on, the index reads
+  the text of attached files once they are downloaded, such as by opening or
+  saving them, through the KFileMetaData extractors that Plasma's file search
+  uses; text and HTML files are read directly. Nothing is downloaded for it.
+  Pictures, sound, video, keys and encrypted data are skipped. `body:` and
+  `text:` find the text, and the index dialog counts the files read, waiting
+  to be downloaded, over the limit or unreadable, and warns about formats no
+  installed extractor reads. Turning the option off or changing the limit
+  indexes the affected messages again
+  ([#345](https://github.com/mikepadiernos/plasma-impresario/issues/345)).
 - ![Limitation][limitation] The server compares the calendar day in each
   message's Date header, in the sender's time zone, because IMAP's `SENTSINCE`
   and `SENTBEFORE` disregard the time and zone. The list shows local time, so a
@@ -833,8 +845,19 @@ Plasma session; that check is
   trigram, so the index reads every message for them and folds the case of
   ASCII letters only. Each message's text is cut at 512K characters.
 - ![Limitation][limitation] The index keeps the text of a message's text
-  parts only. The text of attached messages and files is not indexed, only
-  their names. `has:attachment` follows the top-level type, as on the server.
+  parts, and of attached files only when that option is on. The text of
+  attached messages is not indexed, only their subjects or names.
+  `has:attachment` follows the top-level type, as on the server.
+- ![Limitation][limitation] Attached files are read only once downloaded, and
+  only those within the limit; the server's size is the encoded size, so a
+  file is judged by about three quarters of it until it is downloaded. Which
+  formats can be read depends on the KFileMetaData extractors installed, and a
+  build without KFileMetaData reads text and HTML files only. Extraction runs
+  in the application, during short index batches, so a large or slow document
+  can briefly hold up the window. Attachments of encrypted messages are not
+  read, even with decrypted indexing on, and the read text is stored
+  unencrypted with the rest of the index
+  ([#345](https://github.com/mikepadiernos/plasma-impresario/issues/345)).
 - ![Limitation][limitation] Decrypted text is added only when a message is
   opened and decrypted in the reader with the option on; messages decrypted
   earlier are not added until they are opened again. Inline PGP is indexed as
@@ -973,6 +996,10 @@ Plasma session; that check is
   clear.
 - Online, press **Search Server** when an indexed search misses older or
   undownloaded mail, or reports a renumbered folder.
+- To search the text of an attachment offline, open or save it once while
+  online; the index reads it shortly after. For a format the index dialog
+  lists as unreadable, install the distribution's KFileMetaData extractors,
+  which Plasma's file search uses as well.
 - Leave decrypted indexing off unless the disk is encrypted, and exclude
   folders whose text should not be copied into the index. To free the space
   as well, remove the account, which deletes its cache files, and add it
@@ -1029,6 +1056,10 @@ Plasma session; that check is
   together and shrink the file, encrypt the index with a key kept in KWallet,
   and decrypt inline PGP for the index when the option is on
   ([#344](https://github.com/mikepadiernos/plasma-impresario/issues/344)).
+- Read attachments in a separate process with a time limit, as Plasma's file
+  search does, and offer **Download Attachments for Offline Search...** next
+  to the text download, asking first and respecting the limit
+  ([#345](https://github.com/mikepadiernos/plasma-impresario/issues/345)).
 
 ## Before reporting results
 
@@ -1047,15 +1078,15 @@ Plasma session; that check is
 > This is a source-based status summary, not a security audit. Behavior varies
 > with account settings and optional build features.
 
-| Area              | Existing behavior                                                                                                                                                                                                                                                                                                                                  | Limitation                                                                                                                                                                                                               |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| IMAP transport    | Supports cleartext, STARTTLS, dedicated TLS and process-backed connections. Qt certificate errors prompt the user; a previously accepted matching public key can be remembered, and an accepted key is trusted for its host by every account of the profile.                                                                                       | Cleartext is selectable; the active connection method determines whether traffic is encrypted. Certificate decisions and policy need focused regression tests.                                                           |
-| SMTP transport    | Supports cleartext, STARTTLS and dedicated TLS. Certificate errors prompt the user in the composer; an accepted public key is remembered per account and forgotten when the SMTP host changes. A key accepted for the same host by any account, over IMAP or SMTP, is accepted without asking.                                                     | Cleartext is selectable. Certificates the system trusts are accepted without remembering their key, so only the system's policy applies to them. There is no way yet to review or forget accepted keys.                  |
-| Credentials       | The password-plugin interface supports retrieval, storage and deletion. QtKeychain can provide encrypted storage when built and selected, and is the default for new profiles. Each account keeps its own stored passwords, which are deleted when the account is removed.                                                                         | QtKeychain is optional. Profiles that already have saved cleartext passwords keep the cleartext plugin, which stores IMAP/SMTP secrets in `QSettings`.                                                                   |
-| Message rendering | The reader uses a private profile per message, disables scripts, plugins and persistent storage, blocks local-file and remote requests by default, and delegates permitted external links. Remote images require explicit per-message consent. Switching messages destroys the profile, discarding loaded content and cancelling pending requests. | Renderer behavior has not been smoke-tested in a live Plasma session or across the documented distribution matrix.                                                                                                       |
+| Area              | Existing behavior                                                                                                                                                                                                                                                                                                                                  | Limitation                                                                                                                                                                                                                                                                                                                  |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| IMAP transport    | Supports cleartext, STARTTLS, dedicated TLS and process-backed connections. Qt certificate errors prompt the user; a previously accepted matching public key can be remembered, and an accepted key is trusted for its host by every account of the profile.                                                                                       | Cleartext is selectable; the active connection method determines whether traffic is encrypted. Certificate decisions and policy need focused regression tests.                                                                                                                                                              |
+| SMTP transport    | Supports cleartext, STARTTLS and dedicated TLS. Certificate errors prompt the user in the composer; an accepted public key is remembered per account and forgotten when the SMTP host changes. A key accepted for the same host by any account, over IMAP or SMTP, is accepted without asking.                                                     | Cleartext is selectable. Certificates the system trusts are accepted without remembering their key, so only the system's policy applies to them. There is no way yet to review or forget accepted keys.                                                                                                                     |
+| Credentials       | The password-plugin interface supports retrieval, storage and deletion. QtKeychain can provide encrypted storage when built and selected, and is the default for new profiles. Each account keeps its own stored passwords, which are deleted when the account is removed.                                                                         | QtKeychain is optional. Profiles that already have saved cleartext passwords keep the cleartext plugin, which stores IMAP/SMTP secrets in `QSettings`.                                                                                                                                                                      |
+| Message rendering | The reader uses a private profile per message, disables scripts, plugins and persistent storage, blocks local-file and remote requests by default, and delegates permitted external links. Remote images require explicit per-message consent. Switching messages destroys the profile, discarding loaded content and cancelling pending requests. | Renderer behavior has not been smoke-tested in a live Plasma session or across the documented distribution matrix.                                                                                                                                                                                                          |
 | Cached data       | Persistent SQL cache can hold message metadata and fetched parts; cache directory permissions are restricted on supported Unix systems.                                                                                                                                                                                                            | Application-level cache encryption is not present, and the offline search index, with decrypted text when chosen, is stored unencrypted in the cache. Directory permissions do not protect mail from a compromised account or unencrypted disk. Removing an account deletes its cache files without overwriting them first. |
-| OpenPGP           | Optional GpgME++/Mimetic MIME handling and decryption tests are present.                                                                                                                                                                                                                                                                           | Availability depends on build options; complete signature-status UX and verification policy are not established.                                                                                                         |
-| Diagnostics       | Persistent protocol logging is opt-in at startup; an in-app protocol log is available.                                                                                                                                                                                                                                                             | Treat protocol logs as sensitive and review them before sharing.                                                                                                                                                         |
+| OpenPGP           | Optional GpgME++/Mimetic MIME handling and decryption tests are present.                                                                                                                                                                                                                                                                           | Availability depends on build options; complete signature-status UX and verification policy are not established.                                                                                                                                                                                                            |
+| Diagnostics       | Persistent protocol logging is opt-in at startup; an in-app protocol log is available.                                                                                                                                                                                                                                                             | Treat protocol logs as sensitive and review them before sharing.                                                                                                                                                                                                                                                            |
 
 ### Recommendations
 
