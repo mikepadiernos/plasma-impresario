@@ -338,8 +338,15 @@ whether it writes a message or opens a web page. **Mailing Lists** in the
 search options shows the messages of any list among the loaded messages, and
 **Pin Shown List as Saved Search** keeps that view as a saved search of every
 folder of every account. `list:` matches a list's `List-Id`, or its posting
-address when it has none. An optional offline index is planned in
-[M05](docs/ROADMAP.md#m05-search-and-indexing).
+address when it has none.
+
+**Index downloaded mail for searching offline**, in an account's **Offline**
+settings, keeps a full-text index of the headers and downloaded text of the
+mail the account keeps offline. It is off by default, and nothing is
+downloaded for it; **Download Message Text for Offline Search...** in a
+folder's context menu asks before fetching the text of messages that lack it.
+While the account is offline, searches are answered from the index and the
+status line says so. Turning the option off deletes the index.
 
 ### Command line
 

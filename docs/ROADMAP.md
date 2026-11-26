@@ -453,6 +453,10 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 
   **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317846628)
 
+  **Decision:** the index lives in each account's SQLite cache and uses FTS5
+  with the `trigram` tokenizer, which needs SQLite 3.34 or later; limits are in
+  [Search caveats](CAVEATS.md#search).
+
   - [ ] Offer an opt-in, per-account full-text index of headers and downloaded
         message bodies in the existing SQLite cache, evaluating SQLite FTS5 first.
         Search indexed mail offline and never download whole folders without consent
