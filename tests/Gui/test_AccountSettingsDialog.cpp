@@ -34,6 +34,7 @@
 #include <QPushButton>
 #include <QRadioButton>
 #include <QSettings>
+#include <QSpinBox>
 #include <QSqlDatabase>
 #include <QStandardPaths>
 #include <QTabWidget>
@@ -308,6 +309,51 @@ private slots:
         QVERIFY2(window.imapAccess()->searchIndexer()->isAvailable(),
             qPrintable(window.imapAccess()->searchIndexer()->unavailableReason()));
         QVERIFY(window.imapAccess()->searchIndexer()->indexesDecrypted());
+    }
+
+    void searchIndexAttachmentsAreChosenPerAccount()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        Gui::MainWindow window(&settings);
+
+        bool followsIndex = false;
+        bool limitFollowsChoice = false;
+        QVERIFY(
+            handleDialog([&]() { window.findChild<QAction *>(QStringLiteral("action_account_settings"))->trigger(); },
+                [&](QDialog *dialog) {
+                    auto *index = dialog->findChild<QCheckBox *>(QStringLiteral("searchIndex"));
+                    auto *all = dialog->findChild<QRadioButton *>(QStringLiteral("offlineEverything"));
+                    auto *attachments = dialog->findChild<QCheckBox *>(QStringLiteral("searchIndexAttachments"));
+                    auto *limit = dialog->findChild<QSpinBox *>(QStringLiteral("searchIndexAttachmentLimit"));
+                    QVERIFY(index && all && attachments && limit);
+                    QCOMPARE(limit->value(), 10);
+                    all->click();
+                    followsIndex = !attachments->isChecked() && !attachments->isEnabled() && !limit->isEnabled();
+                    index->setChecked(true);
+                    followsIndex = followsIndex && attachments->isEnabled();
+                    limitFollowsChoice = !limit->isEnabled();
+                    attachments->setChecked(true);
+                    limitFollowsChoice = limitFollowsChoice && limit->isEnabled();
+                    limit->setValue(25);
+                    auto *smtpHost = dialog->findChild<QLineEdit *>(QStringLiteral("smtpHost"));
+                    QVERIFY(smtpHost);
+                    smtpHost->setText(QStringLiteral("smtp.work.example.test"));
+                    save(dialog);
+                }));
+        QVERIFY(followsIndex);
+        QVERIFY(limitFollowsChoice);
+        QSettings work(directory.filePath(QStringLiteral("main-account-1.conf")), QSettings::IniFormat);
+        QCOMPARE(work.value(Common::SettingsNames::searchIndexAttachmentsKey).toBool(), true);
+        QCOMPARE(work.value(Common::SettingsNames::searchIndexAttachmentLimitKey).toInt(), 25);
+        QSettings home(directory.filePath(QStringLiteral("main-account-2.conf")), QSettings::IniFormat);
+        QVERIFY(!home.contains(Common::SettingsNames::searchIndexAttachmentsKey));
+        QVERIFY(!settings.contains(Common::SettingsNames::searchIndexAttachmentsKey));
+        QTRY_VERIFY(window.imapAccess()->searchIndexer());
+        QVERIFY(window.imapAccess()->searchIndexer()->indexesAttachments());
+        QCOMPARE(window.imapAccess()->searchIndexer()->attachmentLimit(), quint64(25) * 1024 * 1024);
     }
 
     void searchIndexPrivacyIsKeptPerAccount()

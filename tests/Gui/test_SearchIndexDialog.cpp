@@ -4,6 +4,7 @@
 #include "Gui/SearchIndexDialog.h"
 #include "Imap/Model/CombinedCache.h"
 #include "Imap/Model/MailboxMetadata.h"
+#include "Imap/Model/SearchIndex.h"
 #include "Imap/Model/SearchIndexer.h"
 
 #include <KLocalizedString>
@@ -56,6 +57,7 @@ private slots:
     void followsTheIndexAway();
     void uncheckedFoldersAreExcluded();
     void deleteAsksFirst();
+    void summarizesAttachments();
 
 private:
     void runIndexer();
@@ -309,5 +311,43 @@ void SearchIndexDialogTest::deleteAsksFirst()
     QVERIFY(!dialog.findChild<QLabel *>(QStringLiteral("indexState"))->text().contains(QStringLiteral("deleted")));
 }
 
+void SearchIndexDialogTest::summarizesAttachments()
+{
+    {
+        SearchIndexDialog dialog;
+        dialog.setIndexer(m_indexer.get(), QStringLiteral("Work"));
+        const QString summary = dialog.findChild<QLabel *>(QStringLiteral("indexSummary"))->text();
+        QVERIFY2(!summary.contains(QStringLiteral("attached")), qPrintable(summary));
+    }
+
+    QSignalSpy finished(m_indexer.get(), &SearchIndexer::finished);
+    m_indexer->setAttachmentIndexing(true, 10 * 1024 * 1024);
+    QVERIFY(finished.wait(5000));
+    SearchIndex::Document document;
+    document.mailbox = inbox;
+    document.uid = 7;
+    document.attachmentParts = {QStringLiteral("3")};
+    document.attachmentReport = {QStringLiteral("read application/pdf"), QStringLiteral("read text/plain"),
+                                 QStringLiteral("large application/zip"), QStringLiteral("failed application/x-broken"),
+                                 QStringLiteral("none application/x-foo"), QStringLiteral("none application/x-foo")};
+    QVERIFY(m_indexer->index()->store({document}));
+
+    SearchIndexDialog dialog;
+    dialog.setIndexer(m_indexer.get(), QStringLiteral("Work"));
+    dialog.show();
+    const QString summary = dialog.findChild<QLabel *>(QStringLiteral("indexSummary"))->text();
+    for (const QString &line : {QStringLiteral("The text of 2 attached files is searchable."),
+                                QStringLiteral("1 attached file is not downloaded yet"),
+                                QStringLiteral("1 attached file is larger than the limit of 10 MB"),
+                                QStringLiteral("1 attached file could not be read.")})
+        QVERIFY2(summary.contains(line), qPrintable(summary));
+    auto *warning = dialog.findChild<QLabel *>(QStringLiteral("indexWarning"));
+    QVERIFY(warning->isVisible());
+    QVERIFY2(warning->text().contains(QStringLiteral("The text of 2 attached files is not searchable because no text "
+                                                     "extractor is installed for their types: application/x-foo.")),
+             qPrintable(warning->text()));
+}
+
 QTEST_MAIN(SearchIndexDialogTest)
+
 #include "test_SearchIndexDialog.moc"

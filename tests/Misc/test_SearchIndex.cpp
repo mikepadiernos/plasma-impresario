@@ -13,6 +13,7 @@
 #include <QTest>
 #include <QTimeZone>
 
+#include "Imap/Model/AttachmentTextExtractor.h"
 #include "Imap/Model/CombinedCache.h"
 #include "Imap/Model/DecryptedTextIndexer.h"
 #include "Imap/Model/ItemRoles.h"
@@ -86,6 +87,71 @@ QStandardItem *part(const QByteArray &mimeType, const QByteArray &data = QByteAr
     item->setData(disposition, RolePartBodyDisposition);
     return item;
 }
+
+/** @short An attached file of @arg type/@arg subType called @arg name, @arg size octets on the server */
+QByteArray attachedFile(const QByteArray &type, const QByteArray &subType, const QByteArray &name, quint64 size,
+                        const QByteArray &encoding = "base64")
+{
+    const QByteArray lines = type == "text" ? " 1" : "";
+    return "(\"" + type + "\" \"" + subType + "\" (\"name\" \"" + name + "\" \"charset\" \"utf-8\") NIL NIL \""
+        + encoding + "\" " + QByteArray::number(size) + lines + " NIL (\"attachment\" (\"filename\" \"" + name
+        + "\")) NIL NIL)";
+}
+
+/** @short Reads PDF and Word files by dropping their first word, cannot read x-broken files and knows nothing else */
+class FakeExtractor : public AttachmentTextExtractor
+{
+public:
+    bool canExtract(const QString &mimeType) const override
+    {
+        return mimeType == QLatin1String("application/pdf") || mimeType == QLatin1String("application/msword")
+            || mimeType == QLatin1String("application/x-broken");
+    }
+
+    Outcome extract(const QByteArray &data, const QString &mimeType, const QString &fileName,
+                    QString *text) const override
+    {
+        seen << mimeType + QLatin1Char(' ') + fileName;
+        text->clear();
+        if (mimeType == QLatin1String("application/x-broken"))
+            return Outcome::Failed;
+        if (!canExtract(mimeType))
+            return Outcome::NoExtractor;
+        *text = QString::fromUtf8(data).section(QLatin1Char(' '), 1);
+        return Outcome::Extracted;
+    }
+
+    mutable QStringList seen;
+};
+
+/** @short A one-page PDF file showing @arg line in a standard font */
+QByteArray pdfFile(const QByteArray &line)
+{
+    const QByteArray stream = "BT /F1 24 Tf 72 700 Td (" + line + ") Tj ET";
+    const QList<QByteArray> objects{
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+        "/Resources << /Font << /F1 5 0 R >> >> >>",
+        "<< /Length " + QByteArray::number(stream.size()) + " >>\nstream\n" + stream + "\nendstream",
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    };
+    QByteArray pdf = "%PDF-1.4\n";
+    QList<qsizetype> offsets;
+    for (int i = 0; i < objects.size(); ++i) {
+        offsets << pdf.size();
+        pdf += QByteArray::number(i + 1) + " 0 obj\n" + objects.at(i) + "\nendobj\n";
+    }
+    const qsizetype xref = pdf.size();
+    pdf += "xref\n0 " + QByteArray::number(objects.size() + 1) + "\n0000000000 65535 f \n";
+    for (const qsizetype offset : offsets)
+        pdf += QByteArray::number(offset).rightJustified(10, '0') + " 00000 n \n";
+    pdf += "trailer\n<< /Size " + QByteArray::number(objects.size() + 1) + " /Root 1 0 R >>\nstartxref\n"
+        + QByteArray::number(xref) + "\n%%EOF\n";
+    return pdf;
+}
+
+const QString files = QStringLiteral("Files");
 
 QStringList logged;
 
@@ -798,6 +864,183 @@ void SearchIndexTest::testNothingIndexedIsLogged()
                                     QStringLiteral("rendezvous"), QStringLiteral("numbers"), QStringLiteral("Budget")})
             QVERIFY2(!message.contains(word, Qt::CaseInsensitive), qPrintable(message));
     }
+}
+
+void SearchIndexTest::addFilesFolder(const QByteArray &bodyStructure)
+{
+    m_cache->setChildMailboxes(QString(), {
+        MailboxMetadata(inbox, QStringLiteral("/"), {QStringLiteral("\\HasNoChildren")}),
+        MailboxMetadata(archive, QStringLiteral("/"), {QStringLiteral("\\HasNoChildren")}),
+        MailboxMetadata(QStringLiteral("Shared"), QStringLiteral("/"), {QStringLiteral("\\Noselect"), QStringLiteral("\\HasNoChildren")}),
+        MailboxMetadata(files, QStringLiteral("/"), {QStringLiteral("\\HasNoChildren")}),
+    });
+    m_cache->setMailboxSyncState(files, syncState(9, 1, 2));
+    m_cache->setUidMapping(files, Imap::Uids{1});
+    m_cache->setMessageMetadata(files, 1, message(1, QStringLiteral("Field trip"), QStringLiteral("Erin"),
+                                                  QDate(2026, 4, 2), QDate(2026, 4, 2), 90000, bodyStructure));
+    m_cache->setMsgFlags(files, 1, {});
+    m_cache->setMsgPart(files, 1, "1", "Cover note for the trip");
+}
+
+void SearchIndexTest::testAttachmentText()
+{
+    const QByteArray bodyStructure = "((\"text\" \"plain\" (\"charset\" \"utf-8\") NIL NIL \"7bit\" 30 1 NIL NIL NIL NIL)"
+        + attachedFile("application", "pdf", "report.pdf", 400)
+        + attachedFile("text", "plain", "notes.txt", 30, "7bit")
+        + attachedFile("text", "html", "page.html", 40, "7bit")
+        + attachedFile("application", "octet-stream", "scan.pdf", 40)
+        + attachedFile("application", "x-foo", "blob.foo", 40)
+        + attachedFile("application", "x-broken", "broken.bin", 40)
+        + attachedFile("image", "png", "photo.png", 40)
+        + attachedFile("application", "msword", "minutes.doc", 40)
+        + attachedFile("application", "zip", "huge.zip", 4000000)
+        + attachedFile("application", "x-foo", "grown.foo", 100)
+        + attachedFile("application", "pgp-keys", "key.asc", 40, "7bit")
+        + " \"mixed\" (\"boundary\" \"b9\") NIL NIL NIL)";
+    addFilesFolder(bodyStructure);
+    m_cache->setMsgPart(files, 1, "2", "%PDF ledger reconciliation");
+    m_cache->setMsgPart(files, 1, "3", "Harbour inventory list");
+    m_cache->setMsgPart(files, 1, "4", "<p>Lantern <b>festival</b></p>");
+    m_cache->setMsgPart(files, 1, "5", "%PDF-1.4 kestrel sighting");
+    m_cache->setMsgPart(files, 1, "6", "FOO walrus data");
+    m_cache->setMsgPart(files, 1, "7", "BROKEN zebra crossing");
+    m_cache->setMsgPart(files, 1, "8", "PNG pelican");
+    // 9 and 10 were never downloaded; 11 turns out larger than the server said
+    m_cache->setMsgPart(files, 1, "11", QByteArray(2 * 1024 * 1024, 'q'));
+    m_cache->setMsgPart(files, 1, "12", "KEY osprey");
+    auto extractor = std::make_shared<FakeExtractor>();
+    m_indexer->setAttachmentExtractor(extractor);
+    const QString body = QStringLiteral("BODY");
+    const QString text = QStringLiteral("TEXT");
+
+    // Off by default: only the names of attached files are searchable
+    runIndexer();
+    QVERIFY(!m_indexer->indexesAttachments());
+    QCOMPARE(matches({text, QStringLiteral("cover note")}, files), QList<uint>{1});
+    QCOMPARE(matches({text, QStringLiteral("report.pdf")}, files), QList<uint>{1});
+    QVERIFY(matches({body, QStringLiteral("reconciliation")}, files).isEmpty());
+    QVERIFY(matches({body, QStringLiteral("harbour")}, files).isEmpty());
+    QVERIFY(extractor->seen.isEmpty());
+    QVERIFY(m_indexer->index()->setting(QStringLiteral("attachments")).isEmpty());
+
+    // Turned on, the next pass reads the attachments which are already downloaded
+    QSignalSpy finished(m_indexer.get(), &SearchIndexer::finished);
+    m_indexer->setAttachmentIndexing(true, 1024 * 1024);
+    QVERIFY(m_indexer->indexesAttachments());
+    QCOMPARE(m_indexer->attachmentLimit(), quint64(1024 * 1024));
+    QCOMPARE(m_indexer->index()->setting(QStringLiteral("attachments")), QStringLiteral("1048576"));
+    QVERIFY(finished.wait(5000));
+    QCOMPARE(matches({body, QStringLiteral("reconciliation")}, files), QList<uint>{1});
+    QCOMPARE(matches({body, QStringLiteral("harbour inventory")}, files), QList<uint>{1});
+    QCOMPARE(matches({body, QStringLiteral("lantern festival")}, files), QList<uint>{1});
+    QCOMPARE(matches({text, QStringLiteral("kestrel")}, files), QList<uint>{1});
+    QVERIFY(matches({body, QStringLiteral("<b>")}, files).isEmpty());
+    QVERIFY(matches({body, QStringLiteral("walrus")}, files).isEmpty());
+    QVERIFY(matches({body, QStringLiteral("zebra")}, files).isEmpty());
+    QVERIFY(matches({body, QStringLiteral("pelican")}, files).isEmpty());
+    QVERIFY(matches({body, QStringLiteral("osprey")}, files).isEmpty());
+    QVERIFY(matches({body, QStringLiteral("qqqq")}, files).isEmpty());
+    // The other folders are unaffected
+    QCOMPARE(matches({body, QStringLiteral("numbers")}), QList<uint>{2});
+
+    // Text needs no extractor, a generic type is told by the name and data, and media, keys and large files are not read
+    QStringList seen = extractor->seen;
+    seen.sort();
+    QCOMPARE(seen, (QStringList{QStringLiteral("application/pdf report.pdf"), QStringLiteral("application/pdf scan.pdf"),
+                                QStringLiteral("application/x-broken broken.bin"),
+                                QStringLiteral("application/x-foo blob.foo")}));
+
+    // Counted over the account, so the report in INBOX which was never downloaded counts too
+    SearchIndex::AttachmentSummary summary = m_indexer->index()->attachmentSummary();
+    QCOMPARE(summary.read, 4);
+    QCOMPARE(summary.notDownloaded, 2);
+    QCOMPARE(summary.tooLarge, 2);
+    QCOMPARE(summary.failed, 1);
+    QCOMPARE(summary.withoutExtractor, (QHash<QString, int>{{QStringLiteral("application/x-foo"), 1}}));
+
+    // Once the user downloads an attachment, the next pass reads it
+    m_cache->setMsgPart(files, 1, "9", "DOC minutes of the board");
+    extractor->seen.clear();
+    runIndexer();
+    QCOMPARE(matches({body, QStringLiteral("minutes of the board")}, files), QList<uint>{1});
+    summary = m_indexer->index()->attachmentSummary();
+    QCOMPARE(summary.read, 5);
+    QCOMPARE(summary.notDownloaded, 1);
+    // A pass with nothing new reads nothing again
+    extractor->seen.clear();
+    runIndexer();
+    QVERIFY(extractor->seen.isEmpty());
+
+    // A different limit reads the files again: the grown file is now read, the large one now waits to be downloaded
+    m_indexer->setAttachmentIndexing(true, 4 * 1024 * 1024);
+    QCOMPARE(m_indexer->index()->setting(QStringLiteral("attachments")), QStringLiteral("4194304"));
+    QVERIFY(matches({body, QStringLiteral("reconciliation")}, files).isEmpty());
+    QVERIFY(finished.wait(5000));
+    QCOMPARE(matches({body, QStringLiteral("reconciliation")}, files), QList<uint>{1});
+    summary = m_indexer->index()->attachmentSummary();
+    QCOMPARE(summary.read, 5);
+    QCOMPARE(summary.notDownloaded, 2);
+    QCOMPARE(summary.tooLarge, 0);
+    QCOMPARE(summary.withoutExtractor, (QHash<QString, int>{{QStringLiteral("application/x-foo"), 2}}));
+    // The same setting again changes nothing
+    m_indexer->setAttachmentIndexing(true, 4 * 1024 * 1024);
+    QVERIFY(!m_indexer->isRunning());
+
+    // Turned off, the text read from attachments is forgotten
+    finished.clear();
+    m_indexer->setAttachmentIndexing(false, 4 * 1024 * 1024);
+    QVERIFY(!m_indexer->indexesAttachments());
+    QVERIFY(m_indexer->index()->setting(QStringLiteral("attachments")).isEmpty());
+    QVERIFY(matches({body, QStringLiteral("reconciliation")}, files).isEmpty());
+    QVERIFY(finished.wait(5000));
+    QVERIFY(matches({body, QStringLiteral("reconciliation")}, files).isEmpty());
+    QVERIFY(matches({body, QStringLiteral("minutes")}, files).isEmpty());
+    QCOMPARE(matches({text, QStringLiteral("minutes.doc")}, files), QList<uint>{1});
+    QCOMPARE(matches({body, QStringLiteral("cover note")}, files), QList<uint>{1});
+    summary = m_indexer->index()->attachmentSummary();
+    QCOMPARE(summary.read, 0);
+    QVERIFY(summary.withoutExtractor.isEmpty());
+}
+
+void SearchIndexTest::testAttachmentTextWithKFileMetaData()
+{
+    const std::shared_ptr<AttachmentTextExtractor> extractor = AttachmentTextExtractor::createDefault();
+    if (!extractor->canExtract(QStringLiteral("application/pdf")))
+        QSKIP("No KFileMetaData extractor for PDF files is installed");
+    const QByteArray pdf = pdfFile("Osprey nesting survey");
+    QString text;
+    QCOMPARE(extractor->extract(pdf, QStringLiteral("application/pdf"), QStringLiteral("survey.pdf"), &text),
+             AttachmentTextExtractor::Outcome::Extracted);
+    QVERIFY2(text.contains(QStringLiteral("Osprey nesting survey")), qPrintable(text));
+    QCOMPARE(extractor->extract("not a format", QStringLiteral("application/x-unknown-format"), QString(), &text),
+             AttachmentTextExtractor::Outcome::NoExtractor);
+    QVERIFY(text.isEmpty());
+
+    // The indexer reads a downloaded PDF file through it, even one sent as a generic type
+    addFilesFolder("((\"text\" \"plain\" (\"charset\" \"utf-8\") NIL NIL \"7bit\" 30 1 NIL NIL NIL NIL)"
+                   + attachedFile("application", "octet-stream", "survey.pdf", pdf.size() * 4 / 3 + 4)
+                   + " \"mixed\" (\"boundary\" \"b9\") NIL NIL NIL)");
+    m_cache->setMsgPart(files, 1, "2", pdf);
+    QSignalSpy finished(m_indexer.get(), &SearchIndexer::finished);
+    m_indexer->setAttachmentIndexing(true, 10 * 1024 * 1024);
+    QVERIFY(finished.wait(5000));
+    QCOMPARE(matches({QStringLiteral("BODY"), QStringLiteral("nesting survey")}, files), QList<uint>{1});
+    QCOMPARE(m_indexer->index()->attachmentSummary().read, 1);
+}
+
+void SearchIndexTest::testEffectiveMimeType()
+{
+    const QByteArray pdf = pdfFile("Anything");
+    QCOMPARE(AttachmentTextExtractor::effectiveMimeType(pdf, QStringLiteral("APPLICATION/PDF"), QString()),
+             QStringLiteral("application/pdf"));
+    QCOMPARE(AttachmentTextExtractor::effectiveMimeType(pdf, QStringLiteral("application/octet-stream"),
+                                                        QStringLiteral("file.bin")),
+             QStringLiteral("application/pdf"));
+    QCOMPARE(AttachmentTextExtractor::effectiveMimeType("plain words", QStringLiteral("application/octet-stream"),
+                                                        QStringLiteral("notes.txt")),
+             QStringLiteral("text/plain"));
+    QCOMPARE(AttachmentTextExtractor::effectiveMimeType("data", QStringLiteral("application/x-made-up"), QString()),
+             QStringLiteral("application/x-made-up"));
 }
 
 QTEST_GUILESS_MAIN(SearchIndexTest)

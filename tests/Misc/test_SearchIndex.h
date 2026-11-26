@@ -44,11 +44,15 @@ private slots:
     void testDecryptedText();
     void testDecryptedTextIndexer();
     void testDeleteIndex();
+    void testAttachmentText();
+    void testAttachmentTextWithKFileMetaData();
+    void testEffectiveMimeType();
     void testNothingIndexedIsLogged();
 
 private:
     void seed();
     void runIndexer();
+    void addFilesFolder(const QByteArray &bodyStructure);
     QList<uint> matches(const QStringList &conditions, const QString &mailbox = QStringLiteral("INBOX"));
 
     std::unique_ptr<QTemporaryDir> m_dir;
