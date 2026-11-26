@@ -136,6 +136,159 @@ void SavedSearchesTest::loadSortsAcrossOwners()
     QVERIFY(SavedSearches::load(root, {}).isEmpty());
 }
 
+void SavedSearchesTest::loadFollowsTheStoredOrder()
+{
+    KConfig config(m_dir.filePath(QStringLiteral("order")), KConfig::SimpleConfig);
+    KConfigGroup root = config.group(QStringLiteral("SavedSearches"));
+    const QList<SavedSearch> stored = {
+        named(QStringLiteral("account-1"), QStringLiteral("1"), QStringLiteral("Alpha")),
+        named(QStringLiteral("account-2"), QStringLiteral("2"), QStringLiteral("Beta")),
+        named(QStringLiteral("account-1"), QStringLiteral("3"), QStringLiteral("Gamma")),
+        named(QStringLiteral("account-2"), QStringLiteral("4"), QStringLiteral("Delta")),
+    };
+    for (const SavedSearch &search : stored) {
+        KConfigGroup group = root.group(search.owner).group(search.id);
+        SavedSearches::write(group, search);
+    }
+    const QStringList owners = {QStringLiteral("account-1"), QStringLiteral("account-2")};
+    const auto names = [&root, &owners]() {
+        QStringList result;
+        for (const SavedSearch &search : SavedSearches::load(root, owners))
+            result << search.name;
+        return result;
+    };
+    QVERIFY(SavedSearches::readOrder(root).isEmpty());
+    QCOMPARE(names(), (QStringList{QStringLiteral("Alpha"), QStringLiteral("Beta"), QStringLiteral("Delta"),
+                                   QStringLiteral("Gamma")}));
+
+    // The stored order wins across accounts; searches it does not name yet follow by name
+    SavedSearches::writeOrder(root, {stored.at(2), stored.at(1)});
+    QCOMPARE(SavedSearches::readOrder(root),
+             (QStringList{SavedSearches::countsKey(QStringLiteral("account-1"), QStringLiteral("3")),
+                          SavedSearches::countsKey(QStringLiteral("account-2"), QStringLiteral("2"))}));
+    QCOMPARE(names(), (QStringList{QStringLiteral("Gamma"), QStringLiteral("Beta"), QStringLiteral("Alpha"),
+                                   QStringLiteral("Delta")}));
+    // Searches which are gone in the order are skipped
+    root.writeEntry("Order", QStringList{QStringLiteral("account-1/gone"), SavedSearches::countsKey(QStringLiteral("account-2"), QStringLiteral("4"))});
+    QCOMPARE(names().constFirst(), QStringLiteral("Delta"));
+    // The Order entry is not mistaken for an account
+    QCOMPARE(SavedSearches::load(root, owners, SavedSearches::Orphans::Include).size(), 4);
+}
+
+void SavedSearchesTest::loadIncludesOrphans()
+{
+    KConfig config(m_dir.filePath(QStringLiteral("orphans")), KConfig::SimpleConfig);
+    KConfigGroup root = config.group(QStringLiteral("SavedSearches"));
+    const QList<SavedSearch> stored = {
+        named(QStringLiteral("account-1"), QStringLiteral("1"), QStringLiteral("Zulu")),
+        named(QStringLiteral("removed-b"), QStringLiteral("2"), QStringLiteral("Alpha")),
+        named(QStringLiteral("removed-a"), QStringLiteral("3"), QStringLiteral("Alpha")),
+        named(QStringLiteral("removed-a"), QStringLiteral("4"), QStringLiteral("Broken"), QString()),
+    };
+    for (const SavedSearch &search : stored) {
+        KConfigGroup group = root.group(search.owner).group(search.id);
+        SavedSearches::write(group, search);
+    }
+    QCOMPARE(SavedSearches::load(root, {QStringLiteral("account-1")}).size(), 1);
+    const QList<SavedSearch> loaded = SavedSearches::load(root, {QStringLiteral("account-1")}, SavedSearches::Orphans::Include);
+    QStringList order;
+    for (const SavedSearch &search : loaded)
+        order << search.owner + QLatin1Char(':') + search.name;
+    // Removed accounts follow by key where names are equal; invalid searches stay out
+    QCOMPARE(order, (QStringList{QStringLiteral("removed-a:Alpha"), QStringLiteral("removed-b:Alpha"),
+                                 QStringLiteral("account-1:Zulu")}));
+    QCOMPARE(SavedSearches::load(root, {}, SavedSearches::Orphans::Include).size(), 3);
+}
+
+void SavedSearchesTest::nameTaken()
+{
+    KConfig config(m_dir.filePath(QStringLiteral("names")), KConfig::SimpleConfig);
+    KConfigGroup root = config.group(QStringLiteral("SavedSearches"));
+    KConfigGroup group = root.group(QStringLiteral("account-1")).group(QStringLiteral("1"));
+    SavedSearches::write(group, named(QStringLiteral("account-1"), QStringLiteral("1"), QStringLiteral("Invoices")));
+    QVERIFY(SavedSearches::isNameTaken(root, QStringLiteral("account-1"), QStringLiteral("invoices")));
+    QVERIFY(SavedSearches::isNameTaken(root, QStringLiteral("account-1"), QStringLiteral("INVOICES"), QStringLiteral("2")));
+    // Renaming a search to its own name, or using the name in another account, is fine
+    QVERIFY(!SavedSearches::isNameTaken(root, QStringLiteral("account-1"), QStringLiteral("Invoices"), QStringLiteral("1")));
+    QVERIFY(!SavedSearches::isNameTaken(root, QStringLiteral("account-2"), QStringLiteral("Invoices")));
+    QVERIFY(!SavedSearches::isNameTaken(root, QStringLiteral("account-1"), QStringLiteral("Receipts")));
+}
+
+void SavedSearchesTest::changeOwner()
+{
+    KConfig config(m_dir.filePath(QStringLiteral("owner")), KConfig::SimpleConfig);
+    KConfigGroup root = config.group(QStringLiteral("SavedSearches"));
+    SavedSearch moved = named(QStringLiteral("account-1"), QStringLiteral("1"), QStringLiteral("Invoices"));
+    moved.places = Places::SelectedFolders;
+    moved.folders = {QStringLiteral("account-1/INBOX")};
+    const SavedSearch other = named(QStringLiteral("account-1"), QStringLiteral("2"), QStringLiteral("Other"));
+    const SavedSearch clash = named(QStringLiteral("account-3"), QStringLiteral("1"), QStringLiteral("Clash"));
+    for (const SavedSearch &search : {moved, other, clash}) {
+        KConfigGroup group = root.group(search.owner).group(search.id);
+        SavedSearches::write(group, search);
+    }
+    SavedSearches::writeOrder(root, {other, moved});
+
+    QVERIFY(SavedSearches::changeOwner(root, QStringLiteral("account-1"), QStringLiteral("1"), QStringLiteral("account-2")));
+    QVERIFY(!root.group(QStringLiteral("account-1")).hasGroup(QStringLiteral("1")));
+    SavedSearch expected = moved;
+    expected.owner = QStringLiteral("account-2");
+    QCOMPARE(SavedSearches::read(root.group(QStringLiteral("account-2")).group(QStringLiteral("1")), QStringLiteral("account-2")),
+             expected);
+    // It keeps its place
+    QCOMPARE(SavedSearches::readOrder(root),
+             (QStringList{SavedSearches::countsKey(QStringLiteral("account-1"), QStringLiteral("2")),
+                          SavedSearches::countsKey(QStringLiteral("account-2"), QStringLiteral("1"))}));
+
+    // Nothing to move, the same owner, or an ID which the target already uses
+    QVERIFY(!SavedSearches::changeOwner(root, QStringLiteral("account-1"), QStringLiteral("1"), QStringLiteral("account-2")));
+    QVERIFY(!SavedSearches::changeOwner(root, QStringLiteral("account-1"), QStringLiteral("2"), QStringLiteral("account-1")));
+    QVERIFY(!SavedSearches::changeOwner(root, QStringLiteral("account-2"), QStringLiteral("1"), QStringLiteral("account-3")));
+    QVERIFY(root.group(QStringLiteral("account-2")).hasGroup(QStringLiteral("1")));
+    QCOMPARE(root.group(QStringLiteral("account-3")).group(QStringLiteral("1")).readEntry("Name", QString()), QStringLiteral("Clash"));
+}
+
+void SavedSearchesTest::problems()
+{
+    using SavedSearches::FolderPresence;
+    const QStringList owners = {QStringLiteral("acc-1"), QStringLiteral("acc-2")};
+    const QStringList accounts = {QStringLiteral("account-1"), QStringLiteral("account-2")};
+    const auto presence = [](const UiUtils::SearchScope::Folder &folder) {
+        if (folder.mailbox == QLatin1String("Gone"))
+            return FolderPresence::Missing;
+        if (folder.mailbox == QLatin1String("Later"))
+            return FolderPresence::Unknown;
+        return FolderPresence::Present;
+    };
+
+    SavedSearch search = named(QStringLiteral("acc-1"), QStringLiteral("1"), QStringLiteral("Name"));
+    QVERIFY(SavedSearches::problems(search, owners, accounts, presence).isEmpty());
+    search.owner = QStringLiteral("removed");
+    QVERIFY(SavedSearches::problems(search, owners, accounts, presence).missingOwner);
+
+    // Chosen folders are reported once they are known to be gone, or when their account was removed
+    search.owner = QStringLiteral("acc-1");
+    search.places = Places::SelectedFolders;
+    const auto key = [](const QString &account, const QString &mailbox) {
+        return UiUtils::SearchScope::folderKey({account, mailbox});
+    };
+    search.folders = {key(QStringLiteral("account-1"), QStringLiteral("INBOX")),
+                      key(QStringLiteral("account-1"), QStringLiteral("Gone")),
+                      key(QStringLiteral("account-2"), QStringLiteral("Later")),
+                      key(QStringLiteral("account-9"), QStringLiteral("INBOX")), QStringLiteral("broken")};
+    const SavedSearches::Problems found = SavedSearches::problems(search, owners, accounts, presence);
+    QVERIFY(!found.missingOwner);
+    QCOMPARE(found.missingFolders, (QStringList{key(QStringLiteral("account-1"), QStringLiteral("Gone")),
+                                                key(QStringLiteral("account-9"), QStringLiteral("INBOX")),
+                                                QStringLiteral("broken")}));
+    QVERIFY(!found.isEmpty());
+    // Without a way to know, only folders of removed accounts are reported
+    QCOMPARE(SavedSearches::problems(search, owners, accounts, {}).missingFolders.size(), 2);
+    // Folders are not checked for other places
+    search.places = Places::Account;
+    QVERIFY(SavedSearches::problems(search, owners, accounts, presence).isEmpty());
+}
+
 void SavedSearchesTest::counts()
 {
     KConfig config(m_dir.filePath(QStringLiteral("counts")), KConfig::SimpleConfig);

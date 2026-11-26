@@ -1050,6 +1050,54 @@ private slots:
         QCOMPARE(view->topLevelItem(0)->text(1), QStringLiteral("%1 / 5").arg(invoicesUnread));
         QCOMPARE(view->topLevelItem(1)->text(1), QStringLiteral("1 / 2"));
 
+        // A chosen folder which the server does not list is reported once the account's folders were listed
+        KConfigGroup chosen = searches.group(alphaKey).group(QStringLiteral("chosen"));
+        chosen.writeEntry("Name", QStringLiteral("Chosen folders"));
+        chosen.writeEntry("Query", QStringLiteral("invoice"));
+        chosen.writeEntry("Subject", true);
+        chosen.writeEntry("Places", QStringLiteral("folders"));
+        chosen.writeEntry("Folders", QStringList{QStringLiteral("account-1/INBOX"), QStringLiteral("account-1/NoSuchFolder"),
+                                                 QStringLiteral("account-3/INBOX")});
+        QVERIFY(config->sync());
+        emit window.accountsChanged();
+        QCOMPARE(view->topLevelItemCount(), 3);
+        QTRY_COMPARE_WITH_TIMEOUT(panel->problems(alphaKey, QStringLiteral("chosen")).missingFolders,
+                                  QStringList{QStringLiteral("account-1/NoSuchFolder")}, 10000);
+        const auto chosenItem = [view]() { return view->findItems(QStringLiteral("Chosen folders"), Qt::MatchExactly).value(0); };
+        QVERIFY(chosenItem());
+        QVERIFY(chosenItem()->toolTip(0).contains(QStringLiteral("NoSuchFolder")));
+        QVERIFY(chosenItem()->data(0, Qt::AccessibleTextRole).toString().endsWith(QLatin1String(", needs attention")));
+        // The search is kept as it was until the user decides
+        QCOMPARE(chosen.readEntry("Folders", QStringList()).size(), 3);
+        panel->menuFor(chosenItem());
+        auto *removeMissing = panel->findChild<QAction *>(QStringLiteral("savedSearchRemoveMissing"));
+        QVERIFY(removeMissing && removeMissing->isVisible());
+        removeMissing->trigger();
+        QCOMPARE(chosen.readEntry("Folders", QStringList()),
+                 (QStringList{QStringLiteral("account-1/INBOX"), QStringLiteral("account-3/INBOX")}));
+        QVERIFY(panel->problems(alphaKey, QStringLiteral("chosen")).isEmpty());
+
+        // Editing previews the changed search in the list before it is saved
+        panel->menuFor(chosenItem());
+        panel->findChild<QAction *>(QStringLiteral("savedSearchEdit"))->trigger();
+        QCOMPARE(searchWidget->editedSavedSearchId(), QStringLiteral("chosen"));
+        QTRY_VERIFY_WITH_TIMEOUT(status->text().contains(QLatin1String("found")), 30000);
+        query->setText(QStringLiteral("release"));
+        QMetaObject::invokeMethod(searchWidget, "slotApplySearch");
+        QTRY_VERIFY2_WITH_TIMEOUT((rows = shownRows(messages->model())).size() >= 2
+                                      && rows.filter(QStringLiteral("Release notes")).size() >= 1,
+                                  qPrintable(describe(rows, searchWidget)), 30000);
+        QCOMPARE(chosen.readEntry("Query", QString()), QStringLiteral("invoice"));
+        auto *save = searchWidget->findChild<QPushButton *>(QStringLiteral("saveSavedSearchEdit"));
+        QVERIFY(save && save->isVisible());
+        save->click();
+        QVERIFY(searchWidget->editedSavedSearchId().isEmpty());
+        QCOMPARE(KConfigGroup(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), QStringLiteral("SavedSearches"))
+                     .group(alphaKey).group(QStringLiteral("chosen")).readEntry("Query", QString()),
+                 QStringLiteral("release"));
+        QCOMPARE(searchWidget->activeSavedSearchId(), QStringLiteral("chosen"));
+        QTRY_COMPARE_WITH_TIMEOUT(view->currentItem(), chosenItem(), 5000);
+
         searches.deleteGroup();
         counts.deleteGroup();
         QVERIFY(config->sync());

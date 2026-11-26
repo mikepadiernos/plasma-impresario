@@ -1186,6 +1186,7 @@ if(BUILD_TESTING)
             foreach(account_case ${reader_account_cases} migratesSingleProfileIntoFirstAccount switchingKeepsAccountsIndependent backgroundAccountStatusIsShown
                     removingAccountDeletesItsSettingsAndPasswords accountsSwitchFromTheKeyboard
                     savedSearchesAndFolderExpansionFollowTheAccount savedSearchesAreVirtualFoldersOfEveryAccount
+                    savedSearchesCanBeManaged
                     focusCyclesThroughShellRegions
                     goToFolderActionsWithoutFolders checkMailAndNextUnreadFolder destructiveActionsOffline quickActionsOffline
                     messageListFiltersOffline shortcutOverviewAndSelectionOffline powerUserProcessingOffline

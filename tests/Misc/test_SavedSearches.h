@@ -20,6 +20,11 @@ private slots:
     void validity();
     void dependsOnOwner();
     void loadSortsAcrossOwners();
+    void loadFollowsTheStoredOrder();
+    void loadIncludesOrphans();
+    void nameTaken();
+    void changeOwner();
+    void problems();
     void counts();
     void pruneCounts();
 

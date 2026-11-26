@@ -7,6 +7,7 @@
 #include "Gui/SearchBuilderDialog.h"
 #include "Gui/SearchFoldersDialog.h"
 #include "Imap/Model/ItemRoles.h"
+#include "UiUtils/SavedSearches.h"
 #include "UiUtils/SearchScope.h"
 
 #include <KConfigGroup>
@@ -262,6 +263,180 @@ private slots:
         QSignalSpy search(&widget, &Gui::MessageListWidget::requestingSearch);
         savedSearches(widget)->actions().first()->menu()->findChild<QAction *>(QStringLiteral("runSavedSearch"))->trigger();
         QVERIFY(search.takeFirst().at(0).toStringList().contains(QStringLiteral("first")));
+    }
+
+    void editsSavedSearches()
+    {
+        KConfigGroup root = Gui::MessageListWidget::savedSearchesRoot();
+        root.deleteGroup();
+        Imap::Mailbox::FavoriteTagsModel tags;
+        Gui::MessageListWidget widget(nullptr, &tags, QStringLiteral("account-e"));
+        QStandardItemModel model;
+        enableSearch(widget, model);
+        auto *query = widget.findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        query->setText(QStringLiteral("quarterly"));
+        saveSearch(widget, QStringLiteral("Reports"));
+        const QString id = widget.activeSavedSearchId();
+        QVERIFY(!id.isEmpty());
+        const auto stored = [&root, &id]() {
+            return UiUtils::SavedSearches::read(root.group(QStringLiteral("account-e")).group(id), QStringLiteral("account-e"));
+        };
+        auto *bar = widget.findChild<Gui::InlineNotificationBar *>(QStringLiteral("savedSearchEditBar"));
+        QVERIFY(bar);
+        QVERIFY(bar->isHidden());
+        const auto button = [bar](const QString &name) { return bar->findChild<QPushButton *>(name); };
+        QSignalSpy changed(&widget, &Gui::MessageListWidget::savedSearchesChanged);
+        QSignalSpy search(&widget, &Gui::MessageListWidget::requestingSearch);
+
+        // Editing runs the search and keeps showing what the changed search finds until it is saved
+        savedSearches(widget)->actions().first()->menu()->findChild<QAction *>(QStringLiteral("editSavedSearch"))->trigger();
+        QCOMPARE(widget.editedSavedSearchOwner(), QStringLiteral("account-e"));
+        QCOMPARE(widget.editedSavedSearchId(), id);
+        QVERIFY(!bar->isHidden());
+        QVERIFY(button(QStringLiteral("saveSavedSearchEdit")));
+        QVERIFY(button(QStringLiteral("cancelSavedSearchEdit")));
+        QCOMPARE(search.size(), 1);
+        query->setText(QStringLiteral("annual"));
+        widget.findChild<QAction *>(QStringLiteral("searchInBody"))->setChecked(true);
+        chooseDates(widget, UiUtils::SearchScope::Dates::PastMonth);
+        QMetaObject::invokeMethod(&widget, "slotApplySearch");
+        QVERIFY(search.constLast().at(0).toStringList().contains(QStringLiteral("annual")));
+        QCOMPARE(widget.editedSavedSearchId(), id);
+        QCOMPARE(stored().query, QStringLiteral("quarterly"));
+
+        // Saving keeps the name and ID and shows the saved search
+        button(QStringLiteral("saveSavedSearchEdit"))->click();
+        QVERIFY(widget.editedSavedSearchId().isEmpty());
+        QVERIFY(bar->isHidden());
+        QCOMPARE(changed.size(), 1);
+        UiUtils::SavedSearch saved = stored();
+        QCOMPARE(saved.name, QStringLiteral("Reports"));
+        QCOMPARE(saved.query, QStringLiteral("annual"));
+        QVERIFY(saved.body);
+        QCOMPARE(saved.dates.dates, UiUtils::SearchScope::Dates::PastMonth);
+        QCOMPARE(widget.activeSavedSearchId(), id);
+        QCOMPARE(UiUtils::SavedSearches::load(root, {QStringLiteral("account-e")}).size(), 1);
+
+        // Cancelling, or closing the bar, goes back to the saved search
+        for (const bool close : {false, true}) {
+            QVERIFY(widget.editSavedSearch(QStringLiteral("account-e"), id));
+            query->setText(QStringLiteral("draft"));
+            QMetaObject::invokeMethod(&widget, "slotApplySearch");
+            if (close)
+                bar->closeButton()->click();
+            else
+                button(QStringLiteral("cancelSavedSearchEdit"))->click();
+            QVERIFY(widget.editedSavedSearchId().isEmpty());
+            QVERIFY(bar->isHidden());
+            QCOMPARE(query->text(), QStringLiteral("annual"));
+            QCOMPARE(widget.activeSavedSearchId(), id);
+            QCOMPARE(stored().query, QStringLiteral("annual"));
+        }
+        QCOMPARE(changed.size(), 1);
+
+        // A search which finds nothing to look for is not saved, and editing goes on
+        QVERIFY(widget.editSavedSearch(QStringLiteral("account-e"), id));
+        query->clear();
+        chooseDates(widget, UiUtils::SearchScope::Dates::AnyTime);
+        button(QStringLiteral("saveSavedSearchEdit"))->click();
+        QCOMPARE(widget.editedSavedSearchId(), id);
+        QVERIFY(!bar->isHidden());
+        QCOMPARE(stored().query, QStringLiteral("annual"));
+        const QList<QMessageBox *> warnings = widget.findChildren<QMessageBox *>();
+        QVERIFY(!warnings.isEmpty());
+        qDeleteAll(warnings);
+
+        // Unknown searches cannot be edited; deleting or leaving the account ends editing
+        QVERIFY(!widget.editSavedSearch(QStringLiteral("account-e"), QStringLiteral("missing")));
+        QVERIFY(widget.editedSavedSearchId().isEmpty());
+        QVERIFY(widget.editSavedSearch(QStringLiteral("account-e"), id));
+        widget.setAccountId(QStringLiteral("account-f"));
+        QVERIFY(widget.editedSavedSearchId().isEmpty());
+        QVERIFY(bar->isHidden());
+        widget.setAccountId(QStringLiteral("account-e"));
+        QVERIFY(widget.editSavedSearch(QStringLiteral("account-e"), id));
+        QTimer::singleShot(0, []() {
+            if (auto *dialog = qobject_cast<QMessageBox *>(QApplication::activeModalWidget()))
+                dialog->button(QMessageBox::Yes)->click();
+        });
+        QVERIFY(widget.deleteSavedSearch(QStringLiteral("account-e"), id));
+        QVERIFY(widget.editedSavedSearchId().isEmpty());
+        QVERIFY(bar->isHidden());
+        QVERIFY(widget.activeSavedSearchId().isEmpty());
+    }
+
+    void renamesSavedSearches()
+    {
+        KConfigGroup root = Gui::MessageListWidget::savedSearchesRoot();
+        root.deleteGroup();
+        Imap::Mailbox::FavoriteTagsModel tags;
+        Gui::MessageListWidget widget(nullptr, &tags, QStringLiteral("account-g"));
+        QStandardItemModel model;
+        enableSearch(widget, model);
+        auto *query = widget.findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        query->setText(QStringLiteral("first"));
+        saveSearch(widget, QStringLiteral("Reports"));
+        const QString id = widget.activeSavedSearchId();
+        query->setText(QStringLiteral("second"));
+        saveSearch(widget, QStringLiteral("Invoices"));
+        QVERIFY(!id.isEmpty());
+        const auto name = [&root, &id]() {
+            return root.group(QStringLiteral("account-g")).group(id).readEntry("Name", QString());
+        };
+        const auto answer = [](const QString &text) {
+            QTimer::singleShot(0, [text]() {
+                if (auto *dialog = qobject_cast<QInputDialog *>(QApplication::activeModalWidget())) {
+                    dialog->setTextValue(text);
+                    dialog->accept();
+                }
+            });
+        };
+        const auto dismissWarnings = [&widget]() {
+            const QList<QMessageBox *> warnings = widget.findChildren<QMessageBox *>();
+            qDeleteAll(warnings);
+            return warnings.size();
+        };
+        dismissWarnings();
+        QSignalSpy changed(&widget, &Gui::MessageListWidget::savedSearchesChanged);
+
+        // From the options menu, which lists the searches in their order
+        QMenu *menu = savedSearches(widget);
+        QCOMPARE(menu->actions().size(), 2);
+        QMenu *reports = nullptr;
+        for (QAction *action : menu->actions()) {
+            if (action->text() == QLatin1String("Reports"))
+                reports = action->menu();
+        }
+        QVERIFY(reports);
+        answer(QStringLiteral("  Quarterly Reports  "));
+        reports->findChild<QAction *>(QStringLiteral("renameSavedSearch"))->trigger();
+        QCOMPARE(name(), QStringLiteral("Quarterly Reports"));
+        QCOMPARE(changed.size(), 1);
+
+        // Empty names and names of other searches are refused, ignoring case
+        answer(QStringLiteral("   "));
+        QVERIFY(!widget.renameSavedSearch(QStringLiteral("account-g"), id));
+        QCOMPARE(dismissWarnings(), 1);
+        answer(QStringLiteral("INVOICES"));
+        QVERIFY(!widget.renameSavedSearch(QStringLiteral("account-g"), id));
+        QCOMPARE(dismissWarnings(), 1);
+        QCOMPARE(name(), QStringLiteral("Quarterly Reports"));
+        // Changing only the case of its own name is fine
+        answer(QStringLiteral("quarterly reports"));
+        QVERIFY(widget.renameSavedSearch(QStringLiteral("account-g"), id));
+        QCOMPARE(name(), QStringLiteral("quarterly reports"));
+        QVERIFY(!widget.renameSavedSearch(QStringLiteral("account-g"), QStringLiteral("missing")));
+        QCOMPARE(changed.size(), 2);
+
+        // The search being edited keeps its new name when it is saved
+        QVERIFY(widget.editSavedSearch(QStringLiteral("account-g"), id));
+        answer(QStringLiteral("Reports"));
+        QVERIFY(widget.renameSavedSearch(QStringLiteral("account-g"), id));
+        QCOMPARE(widget.editedSavedSearchId(), id);
+        query->setText(QStringLiteral("third"));
+        widget.findChild<QPushButton *>(QStringLiteral("saveSavedSearchEdit"))->click();
+        QCOMPARE(name(), QStringLiteral("Reports"));
+        QCOMPARE(root.group(QStringLiteral("account-g")).group(id).readEntry("Query", QString()), QStringLiteral("third"));
     }
 
     void datesLimitEveryKindOfSearch()
