@@ -140,6 +140,10 @@ private:
     bool m_supportsFuzzySearch;
     bool m_searchAvailable = true;
     QTimer *m_searchResetTimer;
+    /** Applies a preset date range again once the day changes, so that "Today" moves on at midnight */
+    QTimer *m_dayChangeTimer;
+    /** The day on which the last search was applied */
+    QDate m_searchDay;
     QString m_queryPlaceholder;
 
     friend class MainWindow; // needs access to our private slots

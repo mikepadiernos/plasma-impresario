@@ -274,6 +274,14 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     m_searchResetTimer->setSingleShot(true);
     connect(m_searchResetTimer, &QTimer::timeout, this, &MessageListWidget::slotApplySearch);
 
+    m_dayChangeTimer = new QTimer(this);
+    m_dayChangeTimer->setObjectName(QStringLiteral("searchDayChange"));
+    m_dayChangeTimer->setInterval(std::chrono::minutes(1));
+    connect(m_dayChangeTimer, &QTimer::timeout, this, [this]() {
+        if (QDate::currentDate() != m_searchDay)
+            slotApplySearch();
+    });
+
     slotAutoEnableDisableSearch();
 }
 
@@ -576,6 +584,13 @@ void MessageListWidget::showFieldFilter(const QString &text)
 
 void MessageListWidget::slotApplySearch()
 {
+    m_searchDay = QDate::currentDate();
+    // Custom ranges are fixed days; the presets end today
+    const bool relative = m_dateRange.dates != Dates::AnyTime && m_dateRange.dates != Dates::Custom;
+    if (relative)
+        m_dayChangeTimer->start();
+    else
+        m_dayChangeTimer->stop();
     emit requestingSearch(searchConditions());
 }
 

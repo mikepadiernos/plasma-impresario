@@ -201,6 +201,10 @@ private slots:
                  QStringList({QStringLiteral("OR"), QStringLiteral("SUBJECT"), QStringLiteral("plan"), QStringLiteral("FROM"),
                               QStringLiteral("plan")}) + week);
         QVERIFY(query->placeholderText().contains(QStringLiteral("Past Week")));
+        // A preset follows the calendar, so the search is checked again for a new day
+        auto *dayChange = widget.findChild<QTimer *>(QStringLiteral("searchDayChange"));
+        QVERIFY(dayChange);
+        QVERIFY(dayChange->isActive());
         QVERIFY(query->toolTip().contains(QStringLiteral("Past Week")));
         QCOMPARE(widget.dateRange(), preset(Dates::PastWeek));
 
@@ -222,6 +226,7 @@ private slots:
         QCOMPARE(widget.searchConditions(), week);
 
         chooseDates(widget, Dates::AnyTime);
+        QVERIFY(!dayChange->isActive());
         QCOMPARE(widget.searchConditions(), QStringList({QString()}));
         QCOMPARE(query->placeholderText(), QStringLiteral("Quick Search"));
 
@@ -253,6 +258,7 @@ private slots:
         chooseDates(widget, Dates::Custom);
         QCOMPARE(widget.dateRange(), (UiUtils::SearchScope::DateRange{Dates::Custom, QDate(2026, 1, 10), QDate()}));
         QCOMPARE(widget.searchConditions(), QStringList({QStringLiteral("SENTSINCE"), QStringLiteral("10-Jan-2026")}));
+        QVERIFY(!widget.findChild<QTimer *>(QStringLiteral("searchDayChange"))->isActive());
 
         // Cancelling keeps the range in effect
         QTimer::singleShot(0, []() {
