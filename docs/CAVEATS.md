@@ -34,6 +34,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [OAuth sign-in](#oauth-sign-in)
   - [Mail operations](#mail-operations)
   - [Composing and sending](#composing-and-sending)
+  - [Search](#search)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -56,6 +57,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | OAuth sign-in     | Microsoft uses the `common` tenant only and cannot revoke grants from the app, IMAP and SMTP refresh tokens independently, and switching provider replaces a grant without revoking it ([details](#oauth-sign-in)) | [#362](https://github.com/mikepadiernos/plasma-impresario/issues/362)                                                                        |
 | ![Limitation][limitation] | Mail operations   | Special folders need server attributes or English names, Go to Folder and related searches use loaded data only, and Undo after a move needs server COPYUID support ([details](#mail-operations))                  | [#312](https://github.com/mikepadiernos/plasma-impresario/issues/312)                                                                        |
 | ![Limitation][limitation] | Composing         | Each refused send files another copy in Sent, a forward sent before its message downloads is refused, forwards are attachment-only and drafts are local without attachments ([details](#composing-and-sending))    | [#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)                                                                        |
+| ![Limitation][limitation] | Search            | Date ranges follow the day in each message's Date header, in the sender's time zone, so a message sent near midnight elsewhere can fall on the other side of a range boundary ([details](#search))                 | [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete         | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                             | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))          | —                                                                                                                                            |
@@ -583,6 +585,43 @@ Plasma session; that check is
 - Store drafts in the account's Drafts folder on the server, attachments
   included.
 - Exercise SMTP delivery in the live test with a local SMTP server.
+
+### Search
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                            |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/454#issuecomment-7181065871) | The quick search's **Date** menu and saved searches with a date range |
+
+**Current behavior:**
+
+- ![Resolved][resolved] The **Date** menu in the search options limits the
+  quick search to today, the past week, month or year, or custom days with an
+  optional start and end. The range narrows text, `from:`-style and raw IMAP
+  queries, works on its own and is stored with saved searches. Presets stay
+  relative and move on when the day changes
+  ([#95](https://github.com/mikepadiernos/plasma-impresario/issues/95)).
+- ![Limitation][limitation] The server compares the calendar day in each
+  message's Date header, in the sender's time zone, because IMAP's `SENTSINCE`
+  and `SENTBEFORE` disregard the time and zone. The list shows local time, so a
+  message sent near midnight in another zone can fall outside a range that its
+  listed date is inside, or the other way round.
+- ![Limitation][limitation] The Date header is set by the sender and can be
+  wrong. Servers differ in how they treat a message without one.
+
+**Workarounds:**
+
+- Widen a custom range by a day at either end when a message near a boundary
+  is missing, then sort by date.
+- To match by arrival time instead, allow raw IMAP search in the search
+  options and use `SINCE` or `BEFORE`, which compare the date the server
+  received the message.
+
+**Proposed improvements:**
+
+- Offer a choice between the sent date and the received date.
+- Ask the server for one extra day at each end and keep only the messages
+  whose local date is inside the range, once their envelopes are loaded or the
+  local index (M05.04) has them.
 
 ## Before reporting results
 

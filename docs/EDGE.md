@@ -33,6 +33,7 @@ Legend: ![Verified][verified] against a synthetic live IMAP server ·
   - [Microsoft accounts and Exchange](#microsoft-accounts-and-exchange)
   - [Sending](#sending)
   - [Mail operations](#mail-operations)
+  - [Search](#search)
   - [Interface and embedded panels](#interface-and-embedded-panels)
 - [Validation checklist](#validation-checklist)
 
@@ -317,6 +318,16 @@ parentheses are the expected behavior.
   settings while the overview is open, actions of the standalone message window
   or composer that do not exist yet, two actions given the same shortcut, and
   searching by shortcut text in a translated interface.
+
+### Search
+
+| Area        | Scenario                                                                                                             | Coverage                                                                |
+| ----------- | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Date ranges | A custom range narrows the folder, alone and with a text search, on a live server                                    | ![Verified][verified] `test_LiveImapAccounts`                           |
+| Date ranges | Presets, custom ranges with open ends, raw and `from:`-style queries, saved searches and cancelling the range dialog | ![Offscreen tests][offscreen] `test_SavedSearch` and `test_SearchScope` |
+| Date ranges | A message sent near midnight in another time zone, at a range boundary                                               | ![Not validated][not-validated] ([caveat](CAVEATS.md#search))           |
+| Date ranges | A Today or Past Week search left open past midnight moves on to the new day                                          | ![Not validated][not-validated] Covered only by the timer being active  |
+| Date ranges | A message without a Date header, and servers other than Dovecot                                                      | ![Not validated][not-validated]                                         |
 
 ### Interface and embedded panels
 
