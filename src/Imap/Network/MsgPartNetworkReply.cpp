@@ -59,7 +59,11 @@ MsgPartNetworkReply::MsgPartNetworkReply(MsgPartNetAccessManager *parent, const 
     QTimer::singleShot(0, this, SLOT(slotMyDataChanged()));
 
     QByteArray* bufferPtr = part.data(Imap::Mailbox::RolePartBufferPtr).value<QByteArray*>();
-    Q_ASSERT(bufferPtr);
+    if (!bufferPtr) {
+        // Asking for the data can let the part go, for example when its folder is loaded again after a reconnect
+        QTimer::singleShot(0, this, [this] { failForVanishedPart(); });
+        return;
+    }
     buffer.setBuffer(bufferPtr);
     buffer.open(QIODevice::ReadOnly);
 }
