@@ -605,6 +605,13 @@ Plasma session; that check is
   appear in one list as each folder is searched, labelled with the account and
   folder, and places that could not be searched are named in the status line
   and the notification bar ([#331](https://github.com/mikepadiernos/plasma-impresario/issues/331)).
+- ![Resolved][resolved] A search of several places runs in the background.
+  The status line's tooltip shows each account's progress and count, a slow or
+  failing account does not hold up the others, and **Stop** ends the search
+  while keeping the results found so far; answers that arrive later are not
+  shown. **Retry**, in the status row and the notification bar, searches again
+  only the accounts and folders that failed, and reconnects an account whose
+  connection was lost ([#332](https://github.com/mikepadiernos/plasma-impresario/issues/332)).
 - ![Limitation][limitation] The server compares the calendar day in each
   message's Date header, in the sender's time zone, because IMAP's `SENTSINCE`
   and `SENTBEFORE` disregard the time and zone. The list shows local time, so a
@@ -624,6 +631,9 @@ Plasma session; that check is
   `Archive/2024`, rather than a translated special-folder name. **Selected
   Folders** lists only folders the sidebar has loaded; **Current Account** and
   **All Accounts** search every folder on the server.
+- ![Limitation][limitation] **Retry** of an account whose password was rejected
+  reports the failure again; it does not ask for a new password. A stopped
+  search cannot be resumed, only started again.
 
 **Workarounds:**
 
@@ -635,6 +645,8 @@ Plasma session; that check is
 - Choose a few folders rather than a whole account to keep a search short.
 - Expand an account's folders in the sidebar before **Selected Folders** to pick
   subfolders.
+- After a rejected password, correct it in the account settings, then press
+  **Retry** or **Enter** in the search field.
 
 **Proposed improvements:**
 
@@ -647,6 +659,8 @@ Plasma session; that check is
 - Load the headers of results as their rows are shown.
 - Show translated special-folder names in results, and list unloaded folders
   in **Selected Folders** on demand.
+- Ask for the password again when **Retry** meets a rejected password, and
+  offer **Continue** after **Stop** to search the remaining folders.
 
 ## Before reporting results
 
