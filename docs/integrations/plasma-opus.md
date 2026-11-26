@@ -1,18 +1,21 @@
 # Plasma Opus integrations
 
-**[Integrations](README.md)** · **[KDE Plasma](kde-plasma.md)** · **[File
-handoff: M06](../ROADMAP.md#m06-desktop-integration-and-provider-support)** ·
-**[Workspace settings:
-M08](../ROADMAP.md#m08-settings-and-workspace-configuration)** · **[Search:
-M05](../ROADMAP.md#m05-search-and-indexing)** · **[Refinements:
-M14](../ROADMAP.md#m14-refinements)**
+**[Documentation](../README.md)** · **[Roadmap](../ROADMAP.md)** ·
+**[Integrations](README.md)** · **[KDE Plasma](kde-plasma.md)** ·
+**[Microsoft](microsoft.md)**
 
 These are proposed workflows between Plasma Impresario and the
 [Plasma Opus](https://github.com/mikepadiernos/plasma-opus) file manager, not
 implemented integration contracts. Plasma Impresario stays useful without a
-companion application.
+companion application. The work is spread across file handoff in
+[M06](../ROADMAP.md#m06-desktop-integration-and-provider-support), search in
+[M05](../ROADMAP.md#m05-search-and-indexing), workspace settings in
+[M08](../ROADMAP.md#m08-settings-and-workspace-configuration), themes in
+[M09](../ROADMAP.md#m09-themes-and-branding-foundation) and refinements in
+[M14](../ROADMAP.md#m14-refinements).
 
-Status: ![Done][done] · ![Planned][planned] or proposed
+Legend for Plasma Opus features: ![Done][done] in Plasma Opus ·
+![Planned][planned] in Plasma Opus or proposed
 
 > [!NOTE]
 >
@@ -43,8 +46,9 @@ include features that Plasma Impresario can use through standard desktop
 interfaces. Each use must also work with other file managers and without Plasma
 Opus. Plasma Opus status was checked against its roadmap on 2026-11-25.
 Milestone numbers in the first column are Plasma Opus milestones; those in the
-Tracking column are Plasma Impresario milestones. All Plasma Impresario issues
-listed are in the Backlog.
+Tracking column are Plasma Impresario milestones. As of 2026-11-25, all Plasma
+Impresario issues listed are in the Backlog. Plasma Impresario currently opens
+files with `QFileDialog` and accepts only dropped local files.
 
 | Plasma Opus feature                                                                                                         | Plasma Opus status                                        | Use in Plasma Impresario                                                       | Tracking                                                                                                                                                                                                                                                             |
 | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -102,6 +106,9 @@ listed are in the Backlog.
 
 ## Workspaces and Plasma Activities
 
+Planned in [M08](../ROADMAP.md#m08-settings-and-workspace-configuration)
+workspace settings.
+
 - **What:** Allow email accounts to be attached to workspaces and thereby
   associated with the corresponding Plasma Activities.
 - **How:** Provide settings to manage the account-to-workspace association and
@@ -117,6 +124,13 @@ listed are in the Backlog.
   unavailable services without leaking account data between contexts.
 
 ## Files and document handoff
+
+Planned in M06.01 and M06.03 in
+[M06](../ROADMAP.md#m06-desktop-integration-and-provider-support)
+([#101](https://github.com/mikepadiernos/plasma-impresario/issues/101),
+[#263](https://github.com/mikepadiernos/plasma-impresario/issues/263),
+[#265](https://github.com/mikepadiernos/plasma-impresario/issues/265),
+[#266](https://github.com/mikepadiernos/plasma-impresario/issues/266)).
 
 - **What:** Open, share or forward attachments and related documents through
   suitable desktop or companion applications.
@@ -137,8 +151,11 @@ listed are in the Backlog.
 
 ## Search and indexing
 
-Planned in [M05](../ROADMAP.md#m05-search-and-indexing), with the KRunner
-provider in M06.01 and search settings in M08.
+Planned in [M05](../ROADMAP.md#m05-search-and-indexing)
+([#350](https://github.com/mikepadiernos/plasma-impresario/issues/350),
+[#351](https://github.com/mikepadiernos/plasma-impresario/issues/351),
+[#352](https://github.com/mikepadiernos/plasma-impresario/issues/352)), with the
+KRunner provider in M06.01 and search settings in M08.
 
 - **What:** Find mail-related files with Plasma Opus and Baloo, open a message
   from the Plasma Opus `.eml` preview, and keep search behavior familiar across
@@ -160,6 +177,9 @@ provider in M06.01 and search settings in M08.
   messages.
 
 ## Themes and appearance
+
+Planned in [M09](../ROADMAP.md#m09-themes-and-branding-foundation)
+([#268](https://github.com/mikepadiernos/plasma-impresario/issues/268)).
 
 - **What:** Carry theme settings over between Plasma Impresario and Plasma Opus
   in both directions, so both apps can share one look without changing the
