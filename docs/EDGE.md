@@ -1,22 +1,40 @@
 # Mail workflow edge cases
 
 **[Documentation](README.md)** · **[Roadmap](ROADMAP.md)** ·
-**[Reported bugs](BUGS.md)** · **[Caveats](CAVEATS.md)** ·
-**[Pending tasks](TODO.md)**
+**[Pending tasks](TODO.md)** · **[Bugs](BUGS.md)** ·
+**[Caveats](CAVEATS.md)** ·
+**[Project board](https://github.com/users/mikepadiernos/projects/4)**
 
-This log captures boundary and failure scenarios that need validation. Record a
-reproduced and confirmed defect in [reported bugs](BUGS.md) and a known
-limitation in [caveats](CAVEATS.md); keep unconfirmed scenarios here.
+This log captures boundary and failure scenarios that need validation, with
+their test coverage as of 2026-11-25. Record a reproduced and confirmed defect
+in [bugs](BUGS.md) and a known limitation in [caveats](CAVEATS.md); keep
+unconfirmed scenarios here.
 
 Legend: ![Verified][verified] against a synthetic live IMAP server ·
 ![Offscreen tests][offscreen] covered only by offscreen tests ·
-![Limitation][limitation] · ![Not validated][not-validated]
+![Limitation][limitation] known limitation, see [caveats](CAVEATS.md) ·
+![Not validated][not-validated] no automated or live check yet
 
 > [!NOTE]
 >
 > No scenario below has been checked in a real Plasma session. Live checks use
 > the synthetic Dovecot servers described in the
-> [M02 handoff](TODO.md#m02-shell-and-account-foundation).
+> [M02 handoff](TODO.md#m02-shell-and-account-foundation); real-session checks
+> are planned in [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+## Contents
+
+- [Candidate scenarios](#candidate-scenarios)
+  - [Mailboxes and synchronization](#mailboxes-and-synchronization)
+  - [Message content and attachments](#message-content-and-attachments)
+  - [Message security](#message-security)
+  - [Multiple accounts](#multiple-accounts)
+  - [OAuth sign-in](#oauth-sign-in)
+  - [Microsoft accounts and Exchange](#microsoft-accounts-and-exchange)
+  - [Sending](#sending)
+  - [Mail operations](#mail-operations)
+  - [Interface and embedded panels](#interface-and-embedded-panels)
+- [Validation checklist](#validation-checklist)
 
 ## Candidate scenarios
 
@@ -85,7 +103,7 @@ Legend: ![Verified][verified] against a synthetic live IMAP server ·
 | Removing the migrated first account, whose cache shares the cache root | ![Offscreen tests][offscreen] `test_AccountCache`: drafts and other accounts' caches are kept                                                                                                               |
 | A background account with a rejected password                          | ![Verified][verified] `test_LiveImapAccounts`                                                                                                                                                               |
 | A background account fails repeatedly before reconnecting              | ![Offscreen tests][offscreen] `test_AccountStatus`: one notification until it connects again                                                                                                                |
-| The background-account notification in a Plasma session                | ![Not validated][not-validated] #315 in M15                                                                                                                                                                 |
+| The background-account notification in a Plasma session                | ![Not validated][not-validated] [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315) in M15                                                                                                |
 | Switching accounts during synchronization                              | ![Not validated][not-validated]                                                                                                                                                                             |
 | Saved searches and folder counts after switching                       | ![Verified][verified] `test_LiveImapAccounts`                                                                                                                                                               |
 | Mailbox and message selection after switching                          | ![Verified][verified] `test_LiveImapAccounts`                                                                                                                                                               |
@@ -169,25 +187,136 @@ Planned in [M13](ROADMAP.md#m13-microsoft-accounts-and-exchange); see the
 
 ### Mail operations
 
-| Area              | Scenario                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Coverage                                                                                            |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Special folders   | Localized names without SPECIAL-USE (e.g. Gesendet), several folders of one kind by name or attribute, a server that marks INBOX or a `\Noselect` container as special, a configured archive folder that is missing or renamed (applied on reconnect), an `INBOX.Sent` listed after a top-level `Sent`, Go to Folder into a collapsed or unlisted branch, in the one-panel layout, or with folders hidden by Show Only Subscribed, and switching accounts while the folder picker is open                                                                                                                                                                                                                                                                                                          | 📋                                                                                                  |
-| Folder operations | Renaming INBOX, a `\Noselect` container or a namespace root, a new name containing the separator or matching an existing folder, renaming the open folder or its parent, renaming the archive or Sent folder (settings keep the old name), renaming while offline, and emptying an empty Trash, a Junk folder with an unknown count or a very large folder                                                                                                                                                                                                                                                                                                                                                                                                                                         | 📋                                                                                                  |
-| Deleting          | No Trash folder, deleting inside Trash, Move Deleted Messages to Trash turned off for one account only, a server without UIDPLUS for Delete Permanently (messages stay marked until Expunge), Delete Permanently on a selection that changes while the question is open, and Shift+Delete while the reader or quick search has focus                                                                                                                                                                                                                                                                                                                                                                                                                                                               | 📋                                                                                                  |
-| Undo              | A server without COPYUID (no Undo, Open Trash instead), Undo after the source folder was renamed or removed, Undo after switching accounts or going offline, Undo of a large move, and the open folder being reselected after Undo or Empty                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | 📋                                                                                                  |
-| Confirmations     | Do not ask again ticked and then cancelled (must still ask), the Confirmations group edited by hand, Expunge with flags not yet loaded (no count), and a folder or account switch while a confirmation is open                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | 📋                                                                                                  |
-| Quick actions     | A recent destination deleted or renamed on the server (dropped when a menu opens) or below an unloaded branch (kept), names with `&` or commas, the open folder (not offered), Move or Copy offline or after the selection changed while the picker was open, a server without COPYUID (Open Folder instead of Undo), a failed copy, switching accounts during a move, and a configured archive folder beside a server `\Archive` folder                                                                                                                                                                                                                                                                                                                                                           | 📋                                                                                                  |
-| Fast processing   | Show Related on a message whose envelope is not loaded yet (actions disabled), a sender or subject with quotes or leading spaces, a subject that is only a list tag (tag kept) or only prefixes, a message without a `mailto:` List-Post (no list action) or with only a List-Id, typed text that starts with `to:` or `from:` and is now a field search, a subject with spaces while the server threads with THREAD SEARCH, the current message not matching the filter, Select Similar with unloaded envelopes (skipped) or no match, Shift+N on the last unread message or with Unread hiding read messages, F and B on collapsed threads and placeholder rows, and Dense Processing Layout after changing density or panels while it is on, across restarts, or with all panels already hidden | 📋                                                                                                  |
-| Message lists     | Unread or Flagged filters before flags load (hidden) and With Attachments before the structure loads (shown), the current message stops matching (kept until another message is current) or the current row is hidden by a filter after reselection, a thread where only a reply matches, filters combined with quick search, switching accounts with different filters, an account without its own filters (former Hide Read Messages), Ctrl+A in the reader or search field, Invert Selection with collapsed threads, counts not yet known, and bulk marking offline or while the selection changes                                                                                                                                                                                              | 📋                                                                                                  |
-| Selection         | Removing a selection that ends the list (previous message), the whole list (nothing selected), a selection the server expunges one message at a time, an expunge by another client of the current message inside a multi-selection, a removed current message hidden by a filter or inside a collapsed thread, Shift+Page Down from the last row, Ctrl+Space with a single selected message, and letters typed while several messages are selected (no jump)                                                                                                                                                                                                                                                                                                                                       | 📋                                                                                                  |
-| Grouping          | Date groups around midnight or a week or month boundary while the list stays open (they move only on the next regroup), a message dated in the future, a message with several tags or only system flags, a favourite tag renamed or removed, the Loading group of envelopes which have not arrived, Read State grouping when reading a message moves it to Read, Select All or a removal with collapsed groups, a group emptied by an expunge, a flagged or tagged message inside a collapsed group, sorting by sender while grouped by date, and switching accounts between a grouped and a threaded account                                                                                                                                                                                      | 📋                                                                                                  |
-| Relevance sort    | Search words found only in unloaded messages or only in the body, Show Related by mailing list (no words to score), clearing the search while sorting by relevance (previous sort returns), a server without SORT (relevance disabled), relevance while grouping, and a message which loads after the list was ranked                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | 📋                                                                                                  |
-| Folder views      | A folder renamed or deleted on the server or by another client while it keeps a view or a position (dropped on the next folder change), a UIDVALIDITY change (position not restored), the current message expunged while away (nothing selected, list at the newest end), more than 200 folders with their own view (least recently used dropped), Use This View for All Folders with the question open while switching accounts or folders, a server without SORT or THREAD (stored sort or threading refused), relevance sort active when leaving (not stored), a resync that replaces every row, new mail at the top of a descending list while scrolled down, the current message inside a collapsed group or thread, and several accounts sharing the global default                          | 📋                                                                                                  |
-| Batch feedback    | A move or flag change of thousands of messages, a task that finishes just after the 400 ms delay, a failure after a newer result was shown (newer result stays), switching accounts while a busy message is shown, going offline during a batch (reported as a failure), and partial failure reported by the server for part of a batch                                                                                                                                                                                                                                                                                                                                                                                                                                                            | 📋                                                                                                  |
-| Message rows      | Two Lines with a very narrow list (sender, subject and date elided, indicators kept), a long sender without spaces, a sender that is only an address, symbols or a non-Latin script (initials), a right-to-left locale (mirrored row), threads nested deeply enough to squeeze the row, Sent and Drafts without recipients (sender shown), clicking the unread dot or flag of a message whose flags are not loaded (no toggle), a tag color on a selected row, switching to Columns with a saved header layout (restored), the dense processing layout turned off after choosing Columns meanwhile (Columns kept), and high-contrast or dark themes                                                                                                                                                | 🧪 `test_MessageRows`, `test_MainWindowAccounts`; 📋 RTL and themes in Plasma                       |
-| Folder sync       | Check for New Mail with every account offline (reported, nothing sent), with a background account whose INBOX is not open (count updated), while the open folder is still loading, and repeatedly in quick succession; account headers before the folder list arrives (name only), with an INBOX that cannot be selected, after an account is removed (count forgotten) and with a single account (headers hidden); Go to Next Unread Folder with no other unread folder, from a folder of another account, past `\Noselect` containers, into unlisted branches (skipped) and with counts still loading (skipped)                                                                                                                                                                                  | 🧪 `test_UnreadFolders`, `test_MainWindowShell`, `test_MainWindowAccounts`, `test_LiveImapAccounts` |
-| Unified Inbox     | An account without an INBOX or whose folders have not been listed yet (no rows until they are), an account added, renamed or removed while it is shown, every account left out but one (last one cannot be unchecked), offline and failed accounts (cached rows kept, named in the status line), a selection spanning accounts for Move To or Copy To (refused) and for flagging or deleting (split per account), Delete Permanently across accounts (one confirmation), Undo after switching accounts, sorting by a column while shown, filters set in a folder (applied), and restarting while it is shown                                                                                                                                                                                       | 🧪 `test_UnifiedMsgListModel`, `test_MainWindowAccounts`; 📋 live server                            |
-| Shortcuts         | The ? shortcut on keyboard layouts where it needs Shift or AltGr, shortcuts changed in the settings while the overview is open, actions of the standalone message window or composer that do not exist yet, two actions given the same shortcut, and searching by shortcut text in a translated interface                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | 📋                                                                                                  |
+Each item names an area, its coverage and the scenarios to validate. Results in
+parentheses are the expected behavior.
+
+- **Special folders:** ![Not validated][not-validated]. Localized names without
+  SPECIAL-USE (e.g. Gesendet), several folders of one kind by name or attribute,
+  a server that marks INBOX or a `\Noselect` container as special, a configured
+  archive folder that is missing or renamed (applied on reconnect), an
+  `INBOX.Sent` listed after a top-level `Sent`, Go to Folder into a collapsed or
+  unlisted branch, in the one-panel layout, or with folders hidden by Show Only
+  Subscribed, and switching accounts while the folder picker is open.
+- **Folder operations:** ![Not validated][not-validated]. Renaming INBOX, a
+  `\Noselect` container or a namespace root, a new name containing the separator
+  or matching an existing folder, renaming the open folder or its parent,
+  renaming the archive or Sent folder (settings keep the old name), renaming
+  while offline, and emptying an empty Trash, a Junk folder with an unknown
+  count or a very large folder.
+- **Deleting:** ![Not validated][not-validated]. No Trash folder, deleting
+  inside Trash, Move Deleted Messages to Trash turned off for one account only,
+  a server without UIDPLUS for Delete Permanently (messages stay marked until
+  Expunge), Delete Permanently on a selection that changes while the question is
+  open, and Shift+Delete while the reader or quick search has focus.
+- **Undo:** ![Not validated][not-validated]. A server without COPYUID (no Undo,
+  Open Trash instead), Undo after the source folder was renamed or removed, Undo
+  after switching accounts or going offline, Undo of a large move, and the open
+  folder being reselected after Undo or Empty.
+- **Confirmations:** ![Not validated][not-validated]. Do not ask again ticked
+  and then cancelled (must still ask), the Confirmations group edited by hand,
+  Expunge with flags not yet loaded (no count), and a folder or account switch
+  while a confirmation is open.
+- **Quick actions:** ![Not validated][not-validated]. A recent destination
+  deleted or renamed on the server (dropped when a menu opens) or below an
+  unloaded branch (kept), names with `&` or commas, the open folder (not
+  offered), Move or Copy offline or after the selection changed while the picker
+  was open, a server without COPYUID (Open Folder instead of Undo), a failed
+  copy, switching accounts during a move, and a configured archive folder beside
+  a server `\Archive` folder.
+- **Fast processing:** ![Not validated][not-validated]. Show Related on a
+  message whose envelope is not loaded yet (actions disabled), a sender or
+  subject with quotes or leading spaces, a subject that is only a list tag (tag
+  kept) or only prefixes, a message without a `mailto:` List-Post (no list
+  action) or with only a List-Id, typed text that starts with `to:` or `from:`
+  and is now a field search, a subject with spaces while the server threads with
+  THREAD SEARCH, the current message not matching the filter, Select Similar
+  with unloaded envelopes (skipped) or no match, Shift+N on the last unread
+  message or with Unread hiding read messages, F and B on collapsed threads and
+  placeholder rows, and Dense Processing Layout after changing density or panels
+  while it is on, across restarts, or with all panels already hidden.
+- **Message lists:** ![Not validated][not-validated]. Unread or Flagged filters
+  before flags load (hidden) and With Attachments before the structure loads
+  (shown), the current message stops matching (kept until another message is
+  current) or the current row is hidden by a filter after reselection, a thread
+  where only a reply matches, filters combined with quick search, switching
+  accounts with different filters, an account without its own filters (former
+  Hide Read Messages), Ctrl+A in the reader or search field, Invert Selection
+  with collapsed threads, counts not yet known, and bulk marking offline or
+  while the selection changes.
+- **Selection:** ![Not validated][not-validated]. Removing a selection that ends
+  the list (previous message), the whole list (nothing selected), a selection
+  the server expunges one message at a time, an expunge by another client of the
+  current message inside a multi-selection, a removed current message hidden by
+  a filter or inside a collapsed thread, Shift+Page Down from the last row,
+  Ctrl+Space with a single selected message, and letters typed while several
+  messages are selected (no jump).
+- **Grouping:** ![Not validated][not-validated]. Date groups around midnight or
+  a week or month boundary while the list stays open (they move only on the next
+  regroup), a message dated in the future, a message with several tags or only
+  system flags, a favourite tag renamed or removed, the Loading group of
+  envelopes which have not arrived, Read State grouping when reading a message
+  moves it to Read, Select All or a removal with collapsed groups, a group
+  emptied by an expunge, a flagged or tagged message inside a collapsed group,
+  sorting by sender while grouped by date, and switching accounts between a
+  grouped and a threaded account.
+- **Relevance sort:** ![Not validated][not-validated]. Search words found only
+  in unloaded messages or only in the body, Show Related by mailing list (no
+  words to score), clearing the search while sorting by relevance (previous sort
+  returns), a server without SORT (relevance disabled), relevance while
+  grouping, and a message which loads after the list was ranked.
+- **Folder views:** ![Not validated][not-validated]. A folder renamed or deleted
+  on the server or by another client while it keeps a view or a position
+  (dropped on the next folder change), a UIDVALIDITY change (position not
+  restored), the current message expunged while away (nothing selected, list at
+  the newest end), more than 200 folders with their own view (least recently
+  used dropped), Use This View for All Folders with the question open while
+  switching accounts or folders, a server without SORT or THREAD (stored sort or
+  threading refused), relevance sort active when leaving (not stored), a resync
+  that replaces every row, new mail at the top of a descending list while
+  scrolled down, the current message inside a collapsed group or thread, and
+  several accounts sharing the global default.
+- **Batch feedback:** ![Not validated][not-validated]. A move or flag change of
+  thousands of messages, a task that finishes just after the 400 ms delay, a
+  failure after a newer result was shown (newer result stays), switching
+  accounts while a busy message is shown, going offline during a batch (reported
+  as a failure), and partial failure reported by the server for part of a batch.
+- **Message rows:** ![Offscreen tests][offscreen] `test_MessageRows`,
+  `test_MainWindowAccounts`; ![Not validated][not-validated] RTL and themes in
+  Plasma. Two Lines with a very narrow list (sender, subject and date elided,
+  indicators kept), a long sender without spaces, a sender that is only an
+  address, symbols or a non-Latin script (initials), a right-to-left locale
+  (mirrored row), threads nested deeply enough to squeeze the row, Sent and
+  Drafts without recipients (sender shown), clicking the unread dot or flag of a
+  message whose flags are not loaded (no toggle), a tag color on a selected row,
+  switching to Columns with a saved header layout (restored), the dense
+  processing layout turned off after choosing Columns meanwhile (Columns kept),
+  and high-contrast or dark themes.
+- **Folder sync:** ![Offscreen tests][offscreen] `test_UnreadFolders`,
+  `test_MainWindowShell`, `test_MainWindowAccounts`; ![Verified][verified]
+  `test_LiveImapAccounts` for background-account counts and Check for New Mail.
+  Check for New Mail with every account offline (reported, nothing sent), with a
+  background account whose INBOX is not open (count updated), while the open
+  folder is still loading, and repeatedly in quick succession; account headers
+  before the folder list arrives (name only), with an INBOX that cannot be
+  selected, after an account is removed (count forgotten) and with a single
+  account (headers hidden); Go to Next Unread Folder with no other unread
+  folder, from a folder of another account, past `\Noselect` containers, into
+  unlisted branches (skipped) and with counts still loading (skipped).
+- **Unified Inbox:** ![Offscreen tests][offscreen] `test_UnifiedMsgListModel`,
+  `test_MainWindowAccounts`; ![Not validated][not-validated] live server. An
+  account without an INBOX or whose folders have not been listed yet (no rows
+  until they are), an account added, renamed or removed while it is shown, every
+  account left out but one (last one cannot be unchecked), offline and failed
+  accounts (cached rows kept, named in the status line), a selection spanning
+  accounts for Move To or Copy To (refused) and for flagging or deleting (split
+  per account), Delete Permanently across accounts (one confirmation), Undo
+  after switching accounts, sorting by a column while shown, filters set in a
+  folder (applied), and restarting while it is shown.
+- **Shortcuts:** ![Not validated][not-validated]. The <kbd>?</kbd> shortcut on
+  keyboard layouts where it needs Shift or AltGr, shortcuts changed in the
+  settings while the overview is open, actions of the standalone message window
+  or composer that do not exist yet, two actions given the same shortcut, and
+  searching by shortcut text in a translated interface.
 
 ### Interface and embedded panels
 
@@ -196,6 +325,7 @@ Planned in [M13](ROADMAP.md#m13-microsoft-accounts-and-exchange); see the
 | Interface       | Narrow windows, display scaling, RTL locales and high-contrast modes                                           | ![Not validated][not-validated]                                                                                                |
 | Interface       | Upgrading with pane sizes saved before the shell, including a folder tree on the right                         | ![Offscreen tests][offscreen] `test_MainWindowShell` (compact and wide layouts)                                                |
 | Navigation      | <kbd>F6</kbd> focus cycling with hidden or collapsed panes                                                     | ![Not validated][not-validated]                                                                                                |
+| Navigation      | <kbd>F6</kbd> focus cycling with the header region shown                                                       | ![Offscreen tests][offscreen] `test_MainWindowShell`                                                                           |
 | Navigation      | <kbd>F6</kbd> order with the folder tree on the right and in right-to-left layouts                             | ![Offscreen tests][offscreen] `test_MainWindowAccounts`                                                                        |
 | Navigation      | <kbd>F6</kbd> order with panels in the right column and the footer                                             | ![Verified][verified] `test_LiveImapPanels`                                                                                    |
 | Navigation      | <kbd>Escape</kbd> from the reader or a panel back to the message list                                          | ![Offscreen tests][offscreen] `test_MainWindowAccounts`, ![Verified][verified] `test_LiveImapPanels`                           |
@@ -215,7 +345,6 @@ Planned in [M13](ROADMAP.md#m13-microsoft-accounts-and-exchange); see the
 | Navigation      | Subject prefixes in other scripts (回复:, Отв:, ΑΠ:) and full-width colons                                     | ![Offscreen tests][offscreen] `test_RelatedMessages`                                                                           |
 | Navigation      | Vim mode keys typed in the composer, search or address fields                                                  | ![Not validated][not-validated]                                                                                                |
 | Navigation      | A Plasma Opus keymap that conflicts with the single-key mail shortcuts                                         | ![Not validated][not-validated]                                                                                                |
-| Navigation      | <kbd>F6</kbd> focus cycling with the header region shown                                                       | ![Offscreen tests][offscreen] `test_MainWindowShell`                                                                           |
 | Embedded panels | Swapping sidebar sides with panels in both columns                                                             | ![Not validated][not-validated]                                                                                                |
 | Embedded panels | One-panel layout with side-column panels                                                                       | ![Not validated][not-validated]                                                                                                |
 | Embedded panels | Moving a hidden panel                                                                                          | ![Not validated][not-validated]                                                                                                |
