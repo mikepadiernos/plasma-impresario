@@ -33,7 +33,8 @@ of each account is kept apart from its rows: the messages of an offline or faili
 A source list can be shown for one account only; using it again for another account is refused, so the same message
 never appears twice. Destroying a source removes only that account's rows.
 
-RoleMessageAccountId, RoleMessageAccountName and RoleMessageSourceLabel tell where a message comes from. Messages
+RoleMessageAccountId, RoleMessageAccountName, RoleMessageSourceLabel and RoleMessageRowLabel tell where a message comes
+from. Messages
 cannot be dragged: dropped data names a folder and UIDs but not the account.
 */
 class UnifiedMsgListModel : public QAbstractProxyModel
@@ -74,6 +75,10 @@ public:
     void setAccountState(const QString &accountId, AccountState state, const QString &detail = QString());
     AccountState accountState(const QString &accountId) const;
     QString accountStateDetail(const QString &accountId) const;
+
+    /** @short Name the folder next to the account in RoleMessageRowLabel, as search results of several folders do */
+    void setShowsFolders(bool showsFolders);
+    bool showsFolders() const;
 
     /** @short Number of messages of @p accountId, or of all accounts for an empty ID */
     int messageCount(const QString &accountId = QString()) const;
@@ -130,6 +135,7 @@ private:
     QString folderLabel(const QModelIndex &sourceIndex) const;
 
     std::vector<Source> m_sources;
+    bool m_showsFolders = false;
     /** Persistent indexes in a source whose layout is changing, and where they point in the source */
     QModelIndexList m_layoutProxy;
     QList<QPersistentModelIndex> m_layoutSource;

@@ -143,4 +143,71 @@ void SearchScopeTest::configNamesRoundTrip()
     QCOMPARE(datesFromConfigName(QString()), Dates::AnyTime);
 }
 
+void SearchScopeTest::placeNamesRoundTrip()
+{
+    for (const Places places : {Places::CurrentFolder, Places::SelectedFolders, Places::Account, Places::AllAccounts})
+        QCOMPARE(placesFromConfigName(configName(places)), places);
+    QCOMPARE(placesFromConfigName(QStringLiteral("everywhere")), Places::CurrentFolder);
+    QCOMPARE(placesFromConfigName(QString()), Places::CurrentFolder);
+}
+
+void SearchScopeTest::folderKeysRoundTrip()
+{
+    const Folder nested{QStringLiteral("account-2"), QStringLiteral("Archive/2024")};
+    QCOMPARE(folderKey(nested), QStringLiteral("account-2/Archive/2024"));
+    QCOMPARE(folderFromKey(folderKey(nested)), nested);
+    QCOMPARE(folderFromKey(QStringLiteral("INBOX")), Folder());
+    QCOMPARE(folderFromKey(QStringLiteral("/INBOX")), Folder());
+    QCOMPARE(folderFromKey(QStringLiteral("account-1/")), Folder());
+}
+
+void SearchScopeTest::searchesTheShownFolders()
+{
+    const QStringList accounts{QStringLiteral("a"), QStringLiteral("b"), QStringLiteral("c")};
+    // A folder of the shown account
+    QCOMPARE(foldersToSearch(Places::CurrentFolder, QStringLiteral("a"), {{QStringLiteral("a"), QStringLiteral("Archive")}}, {},
+                             accounts),
+             (QList<AccountFolders>{{QStringLiteral("a"), {QStringLiteral("Archive")}, false}}));
+    // The Unified Inbox shows the INBOX of several accounts, which follow the order of the accounts
+    QCOMPARE(foldersToSearch(Places::CurrentFolder, QStringLiteral("a"),
+                             {{QStringLiteral("c"), QStringLiteral("INBOX")}, {QStringLiteral("a"), QStringLiteral("INBOX")}}, {},
+                             accounts),
+             (QList<AccountFolders>{{QStringLiteral("a"), {QStringLiteral("INBOX")}, false},
+                                    {QStringLiteral("c"), {QStringLiteral("INBOX")}, false}}));
+    QVERIFY(foldersToSearch(Places::CurrentFolder, QStringLiteral("a"), {}, {}, accounts).isEmpty());
+}
+
+void SearchScopeTest::searchesSelectedFolders()
+{
+    const QStringList accounts{QStringLiteral("a"), QStringLiteral("b")};
+    const QList<Folder> selected{{QStringLiteral("b"), QStringLiteral("Receipts")},
+                                 {QStringLiteral("a"), QStringLiteral("Archive")},
+                                 {QStringLiteral("a"), QStringLiteral("Archive")},
+                                 {QStringLiteral("gone"), QStringLiteral("INBOX")},
+                                 {QStringLiteral("b"), QStringLiteral("INBOX")}};
+    // Duplicates and removed accounts are dropped; the shown folder does not matter
+    QCOMPARE(foldersToSearch(Places::SelectedFolders, QStringLiteral("a"), {{QStringLiteral("a"), QStringLiteral("INBOX")}},
+                             selected, accounts),
+             (QList<AccountFolders>{{QStringLiteral("a"), {QStringLiteral("Archive")}, false},
+                                    {QStringLiteral("b"), {QStringLiteral("INBOX"), QStringLiteral("Receipts")}, false}}));
+    QVERIFY(foldersToSearch(Places::SelectedFolders, QStringLiteral("a"), {}, {}, accounts).isEmpty());
+}
+
+void SearchScopeTest::searchesWholeAccounts()
+{
+    const QStringList accounts{QStringLiteral("a"), QStringLiteral("b")};
+    QCOMPARE(foldersToSearch(Places::Account, QStringLiteral("b"), {}, {}, accounts),
+             (QList<AccountFolders>{{QStringLiteral("b"), {}, true}}));
+    QVERIFY(foldersToSearch(Places::Account, QStringLiteral("removed"), {}, {}, accounts).isEmpty());
+    QCOMPARE(foldersToSearch(Places::AllAccounts, QStringLiteral("b"), {}, {}, accounts),
+             (QList<AccountFolders>{{QStringLiteral("a"), {}, true}, {QStringLiteral("b"), {}, true}}));
+}
+
+void SearchScopeTest::searchesInboxFirst()
+{
+    QCOMPARE(searchOrder({QStringLiteral("Sent"), QStringLiteral("Archive"), QStringLiteral("inbox"), QStringLiteral("Sent")}),
+             (QStringList{QStringLiteral("inbox"), QStringLiteral("Sent"), QStringLiteral("Archive")}));
+    QVERIFY(searchOrder({}).isEmpty());
+}
+
 QTEST_GUILESS_MAIN(SearchScopeTest)

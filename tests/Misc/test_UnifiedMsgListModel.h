@@ -17,6 +17,7 @@ private slots:
   void mapsToTheAccountsOwnMessages();
   void refusesAListShownForAnotherAccount();
   void tellsWhereAMessageComesFrom();
+  void rowLabelNamesFoldersOfSearchResults();
   void renamingAnAccountUpdatesItsLabels();
   void forwardsInsertedAndRemovedMessages();
   void forwardsChangedData();

@@ -23,6 +23,12 @@ private slots:
     void combinesTextAndDates();
     void extendsRawQueries();
     void configNamesRoundTrip();
+    void placeNamesRoundTrip();
+    void folderKeysRoundTrip();
+    void searchesTheShownFolders();
+    void searchesSelectedFolders();
+    void searchesWholeAccounts();
+    void searchesInboxFirst();
 };
 
 #endif

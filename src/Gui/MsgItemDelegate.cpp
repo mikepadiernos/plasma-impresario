@@ -223,8 +223,8 @@ MsgItemDelegate::RowLayout MsgItemDelegate::multiLineLayout(const QStyleOptionVi
         layout.status = QRect(second.left(), second.top() + (line - iconSize) / 2, iconSize, iconSize);
         second.setLeft(layout.status.right() + 1 + margin / 2);
     }
-    // Only lists of several accounts name the account; it gets at most a third of the line
-    const QString account = index.data(Imap::Mailbox::RoleMessageAccountName).toString();
+    // Only lists of several accounts name the account, and search results the folder too; at most a third of the line
+    const QString account = index.data(Imap::Mailbox::RoleMessageRowLabel).toString();
     if (!account.isEmpty()) {
         const int accountWidth = qMin(option.fontMetrics.horizontalAdvance(account), second.width() / 3);
         layout.source = QRect(second.right() - accountWidth + 1, second.top(), accountWidth, line);
@@ -357,7 +357,7 @@ void MsgItemDelegate::paintMultiLineRow(QPainter *painter, const QStyleOptionVie
     if (layout.source.isValid()) {
         painter->setFont(opt.font);
         painter->setPen(secondary);
-        const QString account = index.data(RoleMessageAccountName).toString();
+        const QString account = index.data(RoleMessageRowLabel).toString();
         painter->drawText(layout.source, trailing, opt.fontMetrics.elidedText(account, Qt::ElideRight, layout.source.width()));
     }
     painter->restore();

@@ -3,6 +3,8 @@
 */
 #include "Gui/MessageListWidget.h"
 #include "Gui/MsgListView.h"
+#include "Gui/SearchFoldersDialog.h"
+#include "Imap/Model/ItemRoles.h"
 #include "UiUtils/SearchScope.h"
 
 #include <KConfigGroup>
@@ -23,6 +25,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QTreeWidget>
 
 class SavedSearchTest : public QObject
 {
@@ -346,6 +349,167 @@ private slots:
         QCOMPARE(olderSearch.takeLast().at(0).toStringList(),
                  QStringList({QStringLiteral("OR"), QStringLiteral("SUBJECT"), QStringLiteral("old"), QStringLiteral("FROM"),
                               QStringLiteral("old")}));
+    }
+
+    void choosesWhereToSearch()
+    {
+        using UiUtils::SearchScope::Places;
+        Imap::Mailbox::FavoriteTagsModel tags;
+        Gui::MessageListWidget widget(nullptr, &tags, QStringLiteral("account-i"));
+        QStandardItemModel model;
+        enableSearch(widget, model);
+        auto *query = widget.findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        query->setText(QStringLiteral("invoice"));
+        QSignalSpy search(&widget, &Gui::MessageListWidget::requestingSearch);
+        QSignalSpy choice(&widget, &Gui::MessageListWidget::foldersChoiceRequested);
+        QCOMPARE(widget.searchPlaces(), Places::CurrentFolder);
+
+        // Another place applies the search at once and shows up in the placeholder
+        widget.findChild<QAction *>(QStringLiteral("searchPlaces-all"))->trigger();
+        QCOMPARE(widget.searchPlaces(), Places::AllAccounts);
+        QCOMPARE(search.size(), 1);
+        QCOMPARE(query->placeholderText(), QStringLiteral("Quick Search (All Accounts)"));
+        widget.setDateRange({UiUtils::SearchScope::Dates::PastWeek, {}, {}});
+        QCOMPARE(query->placeholderText(), QStringLiteral("Quick Search (All Accounts, Past Week)"));
+        widget.setDateRange({});
+
+        // Picking folders asks for them, and nothing changes until they are chosen
+        auto *folders = widget.findChild<QAction *>(QStringLiteral("searchPlaces-folders"));
+        folders->trigger();
+        QCOMPARE(choice.size(), 1);
+        QCOMPARE(widget.searchPlaces(), Places::AllAccounts);
+        QVERIFY(widget.findChild<QAction *>(QStringLiteral("searchPlaces-all"))->isChecked());
+        search.clear();
+        const QStringList keys{QStringLiteral("account-i/INBOX"), QStringLiteral("account-j/Archive")};
+        widget.setSelectedFolders(keys);
+        QCOMPARE(widget.searchPlaces(), Places::SelectedFolders);
+        QCOMPARE(widget.selectedFolders(), keys);
+        QVERIFY(folders->isChecked());
+        QCOMPARE(search.size(), 1);
+        QCOMPARE(query->placeholderText(), QStringLiteral("Quick Search (2 Selected Folders)"));
+
+        // The shown list can be named after what it is
+        widget.findChild<QAction *>(QStringLiteral("searchPlaces-current"))->trigger();
+        widget.setCurrentPlaceText(QStringLiteral("Unified Inbox"));
+        QCOMPARE(widget.findChild<QAction *>(QStringLiteral("searchPlaces-current"))->text(), QStringLiteral("Unified Inbox"));
+        QCOMPARE(query->placeholderText(), QStringLiteral("Quick Search"));
+    }
+
+    void savesPlaces()
+    {
+        using UiUtils::SearchScope::Places;
+        Imap::Mailbox::FavoriteTagsModel tags;
+        Gui::MessageListWidget widget(nullptr, &tags, QStringLiteral("account-k"));
+        QStandardItemModel model;
+        enableSearch(widget, model);
+        auto *query = widget.findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        query->setText(QStringLiteral("invoice"));
+        const QStringList keys{QStringLiteral("account-k/INBOX.Receipts")};
+        widget.setSelectedFolders(keys);
+        saveSearch(widget, QStringLiteral("Receipts"));
+        widget.findChild<QAction *>(QStringLiteral("searchPlaces-account"))->trigger();
+        saveSearch(widget, QStringLiteral("Everywhere"));
+        widget.findChild<QAction *>(QStringLiteral("searchPlaces-current"))->trigger();
+        widget.setSelectedFolders({});
+        widget.findChild<QAction *>(QStringLiteral("searchPlaces-current"))->trigger();
+
+        KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"))->reparseConfiguration();
+        QMenu *receipts = nullptr;
+        QMenu *everywhere = nullptr;
+        for (auto *action : savedSearches(widget)->actions()) {
+            if (action->text() == QStringLiteral("Receipts"))
+                receipts = action->menu();
+            if (action->text() == QStringLiteral("Everywhere"))
+                everywhere = action->menu();
+        }
+        QVERIFY(receipts);
+        QVERIFY(everywhere);
+        receipts->findChild<QAction *>(QStringLiteral("runSavedSearch"))->trigger();
+        QCOMPARE(widget.searchPlaces(), Places::SelectedFolders);
+        QCOMPARE(widget.selectedFolders(), keys);
+        QVERIFY(widget.findChild<QAction *>(QStringLiteral("searchPlaces-folders"))->isChecked());
+        everywhere->findChild<QAction *>(QStringLiteral("runSavedSearch"))->trigger();
+        QCOMPARE(widget.searchPlaces(), Places::Account);
+        // Searches saved before places existed search the shown list
+        KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), QStringLiteral("SavedSearches"));
+        group = group.group(QStringLiteral("account-k"));
+        for (const QString &id : group.groupList())
+            group.group(id).deleteEntry("Places");
+        group.sync();
+        everywhere->findChild<QAction *>(QStringLiteral("runSavedSearch"))->trigger();
+        QCOMPARE(widget.searchPlaces(), Places::CurrentFolder);
+    }
+
+    void clearingKeepsPlaces()
+    {
+        using UiUtils::SearchScope::Places;
+        Imap::Mailbox::FavoriteTagsModel tags;
+        Gui::MessageListWidget widget(nullptr, &tags, QStringLiteral("account-l"));
+        QStandardItemModel model;
+        enableSearch(widget, model);
+        auto *query = widget.findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        widget.findChild<QAction *>(QStringLiteral("searchPlaces-all"))->trigger();
+        query->setText(QStringLiteral("invoice"));
+        widget.setDateRange({UiUtils::SearchScope::Dates::PastWeek, {}, {}});
+
+        QSignalSpy search(&widget, &Gui::MessageListWidget::requestingSearch);
+        widget.clearSearch();
+        QCOMPARE(search.size(), 1);
+        QVERIFY(search.first().first().toStringList().isEmpty());
+        QVERIFY(query->text().isEmpty());
+        QVERIFY(!UiUtils::SearchScope::isLimited(widget.dateRange()));
+        QCOMPARE(widget.searchPlaces(), Places::AllAccounts);
+        // Nothing to clear asks for nothing
+        widget.clearSearch();
+        QCOMPARE(search.size(), 1);
+    }
+
+    void choosesFoldersOfSeveralAccounts()
+    {
+        using namespace Imap::Mailbox;
+        const auto folder = [](const QString &name, const QString &shortName, bool selectable) {
+            auto *item = new QStandardItem(shortName);
+            item->setData(name, RoleMailboxName);
+            item->setData(shortName, RoleShortMailboxName);
+            item->setData(selectable, RoleMailboxIsSelectable);
+            item->setData(true, RoleIsFetched);
+            return item;
+        };
+        QStandardItemModel alpha;
+        alpha.appendRow(folder(QStringLiteral("INBOX"), QStringLiteral("INBOX"), true));
+        QStandardItem *archive = folder(QStringLiteral("Archive"), QStringLiteral("Archive"), false);
+        archive->appendRow(folder(QStringLiteral("Archive.2024"), QStringLiteral("2024"), true));
+        alpha.appendRow(archive);
+        // A branch which is not listed yet is not walked
+        QStandardItem *unlisted = folder(QStringLiteral("Lists"), QStringLiteral("Lists"), true);
+        unlisted->setData(false, RoleIsFetched);
+        unlisted->appendRow(folder(QStringLiteral("Lists.kde"), QStringLiteral("kde"), true));
+        alpha.appendRow(unlisted);
+        QStandardItemModel beta;
+        beta.appendRow(folder(QStringLiteral("INBOX"), QStringLiteral("INBOX"), true));
+
+        Gui::SearchFoldersDialog dialog;
+        dialog.addAccount(QStringLiteral("alpha"), QStringLiteral("Alpha"), &alpha);
+        dialog.addAccount(QStringLiteral("beta"), QStringLiteral("Beta"), &beta);
+        dialog.addAccount(QStringLiteral("gamma"), QStringLiteral("Gamma"), nullptr);
+        QTreeWidget *tree = dialog.tree();
+        QCOMPARE(tree->topLevelItemCount(), 3);
+        QTreeWidgetItem *alphaItem = tree->topLevelItem(0);
+        QCOMPARE(alphaItem->childCount(), 3);
+        QCOMPARE(alphaItem->child(0)->text(0), QStringLiteral("INBOX"));
+        QCOMPARE(alphaItem->child(1)->text(0), QStringLiteral("Archive / 2024"));
+        QCOMPARE(alphaItem->child(2)->text(0), QStringLiteral("Lists"));
+        QVERIFY(!(tree->topLevelItem(2)->flags() & Qt::ItemIsEnabled));
+
+        // Chosen folders of accounts which are not listed are kept
+        dialog.setSelectedFolders({QStringLiteral("alpha/Archive.2024"), QStringLiteral("gamma/INBOX")});
+        QCOMPARE(alphaItem->child(1)->checkState(0), Qt::Checked);
+        QCOMPARE(alphaItem->checkState(0), Qt::PartiallyChecked);
+        tree->topLevelItem(1)->setCheckState(0, Qt::Checked);
+        QCOMPARE(dialog.selectedFolders(),
+                 (QStringList{QStringLiteral("alpha/Archive.2024"), QStringLiteral("beta/INBOX"), QStringLiteral("gamma/INBOX")}));
+        alphaItem->setCheckState(0, Qt::Checked);
+        QCOMPARE(dialog.selectedFolders().size(), 5);
     }
 };
 

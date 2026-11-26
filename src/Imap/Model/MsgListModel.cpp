@@ -273,11 +273,17 @@ QVariant MsgListModel::data(const QModelIndex &proxyIndex, int role) const
 
 QVariant MsgListModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
-    if (orientation == Qt::Horizontal && role == Qt::DecorationRole && section == ATTACHMENT)
-        return UiUtils::loadIcon(QStringLiteral("mail-attachment"));
+    if (orientation == Qt::Horizontal && (role == Qt::DecorationRole || role == Qt::DisplayRole))
+        return columnHeader(section, role);
+    return QAbstractItemModel::headerData(section, orientation, role);
+}
 
-    if (orientation != Qt::Horizontal || role != Qt::DisplayRole)
-        return QAbstractItemModel::headerData(section, orientation, role);
+QVariant MsgListModel::columnHeader(int section, int role)
+{
+    if (role == Qt::DecorationRole)
+        return section == ATTACHMENT ? QVariant(UiUtils::loadIcon(QStringLiteral("mail-attachment"))) : QVariant();
+    if (role != Qt::DisplayRole)
+        return QVariant();
 
     switch (section) {
     case SUBJECT:

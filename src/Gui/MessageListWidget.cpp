@@ -59,6 +59,7 @@ namespace {
 
 using UiUtils::SearchScope::DateRange;
 using UiUtils::SearchScope::Dates;
+using UiUtils::SearchScope::Places;
 
 /** @short A short description of @p range, such as "Past Week" or "Since 3/5/26" */
 QString dateRangeText(const DateRange &range)
@@ -197,6 +198,36 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
             setDateRange({dates, {}, {}});
     });
 
+    // Like the dates, the places apply to every kind of search
+    m_placesMenu = optionsMenu->addMenu(i18nc("@title:menu", "Search In"));
+    m_placesMenu->setObjectName(QStringLiteral("searchPlaces"));
+    m_placesActions = new QActionGroup(this);
+    m_placesActions->setExclusive(true);
+    const auto addPlaces = [this](Places places, const QString &text) {
+        QAction *action = m_placesMenu->addAction(text);
+        action->setObjectName(QLatin1String("searchPlaces-") + UiUtils::SearchScope::configName(places));
+        action->setCheckable(true);
+        action->setData(static_cast<int>(places));
+        m_placesActions->addAction(action);
+        return action;
+    };
+    m_currentPlace = addPlaces(Places::CurrentFolder, i18nc("@option:radio search in", "Current Folder"));
+    m_currentPlace->setChecked(true);
+    addPlaces(Places::SelectedFolders, i18nc("@option:radio search in", "Selected Folders..."));
+    m_placesMenu->addSeparator();
+    addPlaces(Places::Account, i18nc("@option:radio search in", "Current Account"));
+    addPlaces(Places::AllAccounts, i18nc("@option:radio search in", "All Accounts"));
+    connect(m_placesActions, &QActionGroup::triggered, this, [this](QAction *action) {
+        const auto places = static_cast<Places>(action->data().toInt());
+        if (places == Places::SelectedFolders) {
+            // Stays as it is unless the user picks some folders
+            showDateRange();
+            emit foldersChoiceRequested();
+        } else {
+            setSearchPlaces(places);
+        }
+    });
+
     optionsMenu->addSeparator();
 
     QMenu *complexMenu = new QMenu(tr("Complex IMAP query"), optionsMenu);
@@ -326,6 +357,8 @@ void MessageListWidget::saveCurrentSearch()
     group.writeEntry("Dates", UiUtils::SearchScope::configName(m_dateRange.dates));
     group.writeEntry("DateFrom", m_dateRange.from.toString(Qt::ISODate));
     group.writeEntry("DateTo", m_dateRange.to.toString(Qt::ISODate));
+    group.writeEntry("Places", UiUtils::SearchScope::configName(m_places));
+    group.writeEntry("Folders", m_places == Places::SelectedFolders ? m_selectedFolders : QStringList());
     if (!group.sync())
         Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Save Search"),
                                      i18nc("@info", "The search could not be saved."));
@@ -408,13 +441,20 @@ void MessageListWidget::setSearchAvailable(bool available)
         return;
     m_searchAvailable = available;
     // A search which still filters a single folder would look like it applies to the shown list
-    if (!available && (!m_quickSearchText->text().isEmpty() || UiUtils::SearchScope::isLimited(m_dateRange))) {
-        m_quickSearchText->clear();
-        m_dateRange = {};
-        showDateRange();
-        m_searchResetTimer->stop();
-        slotApplySearch();
-    }
+    if (!available)
+        clearSearch();
+    slotAutoEnableDisableSearch();
+}
+
+void MessageListWidget::clearSearch()
+{
+    if (m_quickSearchText->text().isEmpty() && !UiUtils::SearchScope::isLimited(m_dateRange))
+        return;
+    m_quickSearchText->clear();
+    m_dateRange = {};
+    showDateRange();
+    m_searchResetTimer->stop();
+    slotApplySearch();
     slotAutoEnableDisableSearch();
 }
 
@@ -460,6 +500,9 @@ void MessageListWidget::runSavedSearch(const QString &id)
     m_searchFuzzy->setChecked(fuzzy);
     m_quickSearchText->setText(group.readEntry("Query", QString()));
     m_dateRange = savedDateRange(group);
+    m_places = UiUtils::SearchScope::placesFromConfigName(group.readEntry("Places", QString()));
+    if (m_places == Places::SelectedFolders)
+        m_selectedFolders = group.readEntry("Folders", QStringList());
     showDateRange();
     m_searchResetTimer->stop();
     slotApplySearch();
@@ -494,6 +537,52 @@ void MessageListWidget::setDateRange(const DateRange &range)
     slotAutoEnableDisableSearch();
     m_searchResetTimer->stop();
     slotApplySearch();
+}
+
+UiUtils::SearchScope::Places MessageListWidget::searchPlaces() const
+{
+    return m_places;
+}
+
+void MessageListWidget::setSearchPlaces(const Places places)
+{
+    m_places = places;
+    showDateRange();
+    m_searchResetTimer->stop();
+    slotApplySearch();
+}
+
+QStringList MessageListWidget::selectedFolders() const
+{
+    return m_selectedFolders;
+}
+
+void MessageListWidget::setSelectedFolders(const QStringList &keys)
+{
+    m_selectedFolders = keys;
+    setSearchPlaces(Places::SelectedFolders);
+}
+
+void MessageListWidget::setCurrentPlaceText(const QString &text)
+{
+    m_currentPlaceText = text;
+    m_currentPlace->setText(text.isEmpty() ? i18nc("@option:radio search in", "Current Folder") : text);
+    showDateRange();
+}
+
+QString MessageListWidget::placesText() const
+{
+    switch (m_places) {
+    case Places::CurrentFolder:
+        return m_currentPlaceText.isEmpty() ? i18nc("@item search in", "Current Folder") : m_currentPlaceText;
+    case Places::SelectedFolders:
+        return i18ncp("@item search in", "%1 Selected Folder", "%1 Selected Folders", m_selectedFolders.size());
+    case Places::Account:
+        return i18nc("@item search in", "Current Account");
+    case Places::AllAccounts:
+        return i18nc("@item search in", "All Accounts");
+    }
+    return QString();
 }
 
 void MessageListWidget::chooseCustomDateRange()
@@ -543,18 +632,40 @@ void MessageListWidget::showDateRange()
         if (static_cast<Dates>(action->data().toInt()) == m_dateRange.dates)
             action->setChecked(true);
     }
-    if (!UiUtils::SearchScope::isLimited(m_dateRange)) {
-        m_dateMenu->setTitle(i18nc("@title:menu", "Date"));
-        m_quickSearchText->setPlaceholderText(tr("Quick Search"));
-        m_quickSearchText->setToolTip(m_searchToolTip);
-        return;
+    const auto placesActions = m_placesActions->actions();
+    for (QAction *action : placesActions) {
+        if (static_cast<Places>(action->data().toInt()) == m_places)
+            action->setChecked(true);
     }
-    const QString text = dateRangeText(m_dateRange);
-    m_dateMenu->setTitle(i18nc("@title:menu %1 is a date range such as Past Week", "Date: %1", text));
-    m_quickSearchText->setPlaceholderText(i18nc("@info:placeholder %1 is a date range such as Past Week", "Quick Search (%1)", text));
-    m_quickSearchText->setToolTip(m_searchToolTip + QLatin1String("<br/><hr/>")
-                                  + i18nc("@info:tooltip %1 is a date range such as Past Week", "Only messages sent in this date range are shown: %1",
-                                          text.toHtmlEscaped()));
+    const bool limited = UiUtils::SearchScope::isLimited(m_dateRange);
+    const bool elsewhere = m_places != Places::CurrentFolder;
+    const QString dates = dateRangeText(m_dateRange);
+    const QString places = placesText();
+    m_dateMenu->setTitle(limited ? i18nc("@title:menu %1 is a date range such as Past Week", "Date: %1", dates)
+                                 : i18nc("@title:menu", "Date"));
+    m_placesMenu->setTitle(elsewhere ? i18nc("@title:menu %1 is where to search, such as All Accounts", "Search In: %1", places)
+                                     : i18nc("@title:menu", "Search In"));
+    QString placeholder = tr("Quick Search");
+    if (limited && elsewhere) {
+        placeholder = i18nc("@info:placeholder %1 is where to search, such as All Accounts, %2 a date range such as Past Week",
+                            "Quick Search (%1, %2)", places, dates);
+    } else if (elsewhere) {
+        placeholder = i18nc("@info:placeholder %1 is where to search, such as All Accounts", "Quick Search (%1)", places);
+    } else if (limited) {
+        placeholder = i18nc("@info:placeholder %1 is a date range such as Past Week", "Quick Search (%1)", dates);
+    }
+    m_quickSearchText->setPlaceholderText(placeholder);
+    QString toolTip = m_searchToolTip;
+    if (elsewhere) {
+        toolTip += QLatin1String("<br/><hr/>")
+            + i18nc("@info:tooltip %1 is where to search, such as All Accounts", "Searches in: %1", places.toHtmlEscaped());
+    }
+    if (limited) {
+        toolTip += QLatin1String("<br/><hr/>")
+            + i18nc("@info:tooltip %1 is a date range such as Past Week", "Only messages sent in this date range are shown: %1",
+                    dates.toHtmlEscaped());
+    }
+    m_quickSearchText->setToolTip(toolTip);
 }
 
 void MessageListWidget::focusSearch()

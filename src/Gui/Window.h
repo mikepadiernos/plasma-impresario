@@ -85,6 +85,7 @@ class ImapAccess;
 namespace Mailbox
 {
 
+class FolderSearch;
 class ImapTask;
 class Model;
 class PrettyMailboxModel;
@@ -619,6 +620,21 @@ private:
     void updateUnifiedStates();
     QStringList unifiedAccountIds() const;
     void populateUnifiedAccountsMenu();
+    /** @short Whether the list shows messages of several folders or accounts: the Unified Inbox or search results */
+    bool showsUnifiedList() const;
+    /** @short Show the unified list instead of the folder's list, or the folder's list again */
+    void showUnifiedListModel();
+    void showFolderListModel();
+    /** @short Offer the actions which only make sense for one folder, or disable them for a unified list */
+    void setFolderViewActionsEnabled(bool enabled);
+    /** @short Search the places chosen in the quick search, which span several folders or accounts */
+    void startSearchAcross(const QStringList &conditions);
+    /** @short Stop searching several folders and show the list from before the search */
+    void leaveSearchAcross();
+    void cancelFolderSearches();
+    void folderSearchFinished(const QString &accountId);
+    /** @short Ask which folders the quick search looks at */
+    void chooseSearchFolders();
 
     Common::AccountRegistry *m_accounts = nullptr;
     Common::AccountStatusTracker *m_accountStatus = nullptr;
@@ -901,6 +917,14 @@ private:
     QString m_unifiedReturnMailbox;
     /** Whether threading could be chosen before the Unified Inbox disabled it */
     bool m_unifiedThreadingEnabled = true;
+    /** While the list shows the results of a search in several folders or accounts */
+    bool m_searchAcross = false;
+    /** The running or finished searches of the shown results, by account */
+    QHash<QString, QPointer<Imap::Mailbox::FolderSearch>> m_folderSearches;
+    /** The searched places, for the tooltip of the list */
+    QStringList m_searchedPlaces;
+    /** Accounts and folders which could not be searched, one description each */
+    QStringList m_searchProblems;
     /** While an action works on messages of another account than the shown one */
     Imap::ImapAccess *m_actingAccess = nullptr;
     QString m_actingAccountId;

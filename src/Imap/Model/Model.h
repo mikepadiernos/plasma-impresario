@@ -490,6 +490,7 @@ private:
     friend class MsgListModel; // needs access to createIndex()
     friend class MailboxModel; // needs access to createIndex()
     friend class ThreadingMsgListModel; // needs access to taskFactory
+    friend class FolderSearch; // needs access to taskFactory, the mailbox tree and findMessagesByUids
     friend class SubtreeClassSpecificItem<Model>; // needs access to createIndex()
 
     friend class IdleLauncher;

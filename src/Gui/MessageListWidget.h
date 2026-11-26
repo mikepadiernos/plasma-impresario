@@ -58,6 +58,19 @@ public:
     /** @short Limit the quick search to @p range and apply it */
     void setDateRange(const UiUtils::SearchScope::DateRange &range);
 
+    /** @short Where the quick search looks: the shown list, chosen folders, the account or all accounts */
+    UiUtils::SearchScope::Places searchPlaces() const;
+    /** @short Search in @p places and apply the search */
+    void setSearchPlaces(UiUtils::SearchScope::Places places);
+    /** @short The folders chosen for searching selected folders, as keys of UiUtils::SearchScope::folderKey() */
+    QStringList selectedFolders() const;
+    /** @short Search the folders of @p keys, as chosen by the user, and apply the search */
+    void setSelectedFolders(const QStringList &keys);
+    /** @short Name the shown list in the Search In menu, such as "Unified Inbox"; empty for "Current Folder" */
+    void setCurrentPlaceText(const QString &text);
+    /** @short Empty the quick search and its date range, keeping the places, and apply that */
+    void clearSearch();
+
     /** Key saved searches to another account, for example after switching accounts. */
     void setAccountId(const QString &accountId);
 
@@ -86,6 +99,8 @@ public slots:
 signals:
     void requestingSearch(const QStringList &conditions);
     void rawSearchSettingChanged(bool enabled);
+    /** @short The user wants to pick the folders to search; answer with setSelectedFolders() */
+    void foldersChoiceRequested();
 
 protected slots:
     void slotApplySearch();
@@ -114,8 +129,10 @@ private:
     void deleteSavedSearch(const QString &id);
     /** Asks for the first and last day of a custom date range. */
     void chooseCustomDateRange();
-    /** Shows the date range in the menu, the placeholder and the tooltip of the quick search. */
+    /** Shows the date range and the places in the menus, the placeholder and the tooltip of the quick search. */
     void showDateRange();
+    /** A short description of where the search looks, such as "All Accounts" */
+    QString placesText() const;
 
     LineEdit *m_quickSearchText;
     /** The quick search field and the buttons next to it */
@@ -134,6 +151,12 @@ private:
     QMenu *m_dateMenu;
     QActionGroup *m_dateActions;
     UiUtils::SearchScope::DateRange m_dateRange;
+    QMenu *m_placesMenu;
+    QActionGroup *m_placesActions;
+    QAction *m_currentPlace;
+    UiUtils::SearchScope::Places m_places = UiUtils::SearchScope::Places::CurrentFolder;
+    QStringList m_selectedFolders;
+    QString m_currentPlaceText;
     QString m_searchToolTip;
     QMenu *m_savedSearches;
     QString m_accountId;

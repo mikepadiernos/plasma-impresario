@@ -20,6 +20,18 @@ constexpr std::array<std::pair<Dates, const char *>, 6> names{{
     {Dates::Custom, "custom"},
 }};
 
+constexpr std::array<std::pair<Places, const char *>, 4> placeNames{{
+    {Places::CurrentFolder, "current"},
+    {Places::SelectedFolders, "folders"},
+    {Places::Account, "account"},
+    {Places::AllAccounts, "all"},
+}};
+
+bool isInbox(const QString &mailbox)
+{
+    return mailbox.compare(QLatin1String("INBOX"), Qt::CaseInsensitive) == 0;
+}
+
 }
 
 Days resolve(const DateRange &range, const QDate &today)
@@ -131,6 +143,85 @@ Dates datesFromConfigName(const QString &name)
             return value;
     }
     return Dates::AnyTime;
+}
+
+QString configName(const Places places)
+{
+    for (const auto &[value, name] : placeNames) {
+        if (value == places)
+            return QLatin1String(name);
+    }
+    return QStringLiteral("current");
+}
+
+Places placesFromConfigName(const QString &name)
+{
+    for (const auto &[value, known] : placeNames) {
+        if (name == QLatin1String(known))
+            return value;
+    }
+    return Places::CurrentFolder;
+}
+
+QString folderKey(const Folder &folder)
+{
+    return folder.accountId + QLatin1Char('/') + folder.mailbox;
+}
+
+Folder folderFromKey(const QString &key)
+{
+    const qsizetype slash = key.indexOf(QLatin1Char('/'));
+    if (slash <= 0 || slash == key.size() - 1)
+        return {};
+    return {key.left(slash), key.mid(slash + 1)};
+}
+
+QList<AccountFolders> foldersToSearch(const Places places, const QString &activeAccount, const QList<Folder> &shown,
+                                      const QList<Folder> &selected, const QStringList &accounts)
+{
+    QList<AccountFolders> result;
+    const auto pick = [&](const QList<Folder> &folders) {
+        for (const QString &accountId : accounts) {
+            QStringList mailboxes;
+            for (const Folder &folder : folders) {
+                if (folder.accountId == accountId && !folder.mailbox.isEmpty() && !mailboxes.contains(folder.mailbox))
+                    mailboxes << folder.mailbox;
+            }
+            if (!mailboxes.isEmpty())
+                result.append({accountId, searchOrder(mailboxes), false});
+        }
+    };
+    switch (places) {
+    case Places::CurrentFolder:
+        pick(shown);
+        break;
+    case Places::SelectedFolders:
+        pick(selected);
+        break;
+    case Places::Account:
+        if (accounts.contains(activeAccount))
+            result.append({activeAccount, {}, true});
+        break;
+    case Places::AllAccounts:
+        for (const QString &accountId : accounts)
+            result.append({accountId, {}, true});
+        break;
+    }
+    return result;
+}
+
+QStringList searchOrder(const QStringList &mailboxes)
+{
+    QStringList ordered;
+    for (const QString &mailbox : mailboxes) {
+        if (isInbox(mailbox) && !ordered.contains(mailbox))
+            ordered << mailbox;
+    }
+    for (const QString &mailbox : mailboxes) {
+        if (!isInbox(mailbox) && !ordered.contains(mailbox))
+            ordered << mailbox;
+    }
+    return ordered;
 }
 
 }

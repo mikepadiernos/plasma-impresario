@@ -7,14 +7,18 @@
 #include <QFlags>
 #include <QString>
 #include <QStringList>
+#include <QList>
 
-/** @short What the quick search looks at: message fields and a date range
+/** @short What the quick search looks at: message fields, a date range and places
 
 The quick search turns its text, the chosen fields and the date range into IMAP
 SEARCH keys. All keys used here are part of IMAP4rev1 (RFC 3501), so every
 server supports them; FUZZY (RFC 6203) is added only where the server
 advertises it. The date range compares the date in the Date header, as the
 message list shows it, through SENTSINCE and SENTBEFORE.
+
+The places say which folders are searched: the shown folder, folders chosen by
+the user, every folder of the shown account or every folder of all accounts.
 */
 namespace UiUtils {
 namespace SearchScope {
@@ -74,6 +78,57 @@ QString withDateConditions(const QString &rawQuery, const DateRange &range, cons
 /** @short Stable names for storing a range in a configuration file */
 QString configName(Dates dates);
 Dates datesFromConfigName(const QString &name);
+
+/** @short Where the quick search looks for messages */
+enum class Places {
+    /** The shown list: one folder, or the INBOX of each account in the Unified Inbox */
+    CurrentFolder,
+    /** Folders which the user picked, of any account */
+    SelectedFolders,
+    /** Every folder of the shown account */
+    Account,
+    /** Every folder of every account */
+    AllAccounts,
+};
+
+QString configName(Places places);
+Places placesFromConfigName(const QString &name);
+
+/** @short One folder of one account */
+struct Folder {
+    QString accountId;
+    QString mailbox;
+
+    bool operator==(const Folder &other) const = default;
+};
+
+/** @short A folder as one string for storing it, "accountId/mailbox"; account IDs contain no slash */
+QString folderKey(const Folder &folder);
+/** @short The folder of a key made by folderKey(); an invalid key gives empty fields */
+Folder folderFromKey(const QString &key);
+
+/** @short The folders of one account which a search looks at */
+struct AccountFolders {
+    QString accountId;
+    /** Full mailbox names, without duplicates; empty when allFolders is set */
+    QStringList mailboxes;
+    /** Search every folder of the account, as listed on the server */
+    bool allFolders = false;
+
+    bool operator==(const AccountFolders &other) const = default;
+};
+
+/** @short What a search in @arg places looks at, account by account in the order of @arg accounts
+
+@arg activeAccount is the shown account, @arg shown the folders of the shown list (several in the Unified Inbox) and
+@arg selected the folders picked for SelectedFolders. Folders of accounts which are not in @arg accounts are left out,
+as are accounts with nothing to search.
+*/
+QList<AccountFolders> foldersToSearch(Places places, const QString &activeAccount, const QList<Folder> &shown,
+                                      const QList<Folder> &selected, const QStringList &accounts);
+
+/** @short @arg mailboxes in the order they are searched: INBOX first, then the others as given */
+QStringList searchOrder(const QStringList &mailboxes);
 
 }
 }

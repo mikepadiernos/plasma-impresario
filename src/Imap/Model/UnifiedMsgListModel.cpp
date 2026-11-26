@@ -130,9 +130,23 @@ void UnifiedMsgListModel::setAccountName(const QString &accountId, const QString
     const int offset = offsetOf(position);
     if (m_sources[position].rows > 0) {
         emit dataChanged(index(offset, 0), index(offset + m_sources[position].rows - 1, columnCount() - 1),
-                         {RoleMessageAccountName, RoleMessageSourceLabel, Qt::ToolTipRole});
+                         {RoleMessageAccountName, RoleMessageSourceLabel, RoleMessageRowLabel, Qt::ToolTipRole});
     }
     emit accountsChanged();
+}
+
+void UnifiedMsgListModel::setShowsFolders(const bool showsFolders)
+{
+    if (m_showsFolders == showsFolders)
+        return;
+    m_showsFolders = showsFolders;
+    if (rowCount() > 0)
+        emit dataChanged(index(0, 0), index(rowCount() - 1, columnCount() - 1), {RoleMessageRowLabel});
+}
+
+bool UnifiedMsgListModel::showsFolders() const
+{
+    return m_showsFolders;
 }
 
 QStringList UnifiedMsgListModel::accountIds() const
@@ -391,6 +405,10 @@ QVariant UnifiedMsgListModel::data(const QModelIndex &proxyIndex, int role) cons
         return source.accountId;
     case RoleMessageAccountName:
         return source.accountName;
+    case RoleMessageRowLabel:
+        if (!m_showsFolders)
+            return source.accountName;
+        [[fallthrough]];
     case RoleMessageSourceLabel: {
         const QString folder = folderLabel(mapToSource(proxyIndex));
         if (folder.isEmpty())
@@ -447,6 +465,7 @@ QHash<int, QByteArray> UnifiedMsgListModel::roleNames() const
     names.insert(RoleMessageAccountId, QByteArrayLiteral("messageAccountId"));
     names.insert(RoleMessageAccountName, QByteArrayLiteral("messageAccountName"));
     names.insert(RoleMessageSourceLabel, QByteArrayLiteral("messageSourceLabel"));
+    names.insert(RoleMessageRowLabel, QByteArrayLiteral("messageRowLabel"));
     return names;
 }
 

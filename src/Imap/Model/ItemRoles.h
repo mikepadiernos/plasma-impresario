@@ -274,6 +274,9 @@ enum {
     RoleMessageAccountName,
     /** @short Account and folder of a message of a UnifiedMsgListModel, such as "Work · Inbox" */
     RoleMessageSourceLabel,
+    /** @short Where a message of a UnifiedMsgListModel comes from, as its row names it: the account, or the account and
+    folder in search results */
+    RoleMessageRowLabel,
 
     /** @short The very last role */
     RoleInvalidLastOne

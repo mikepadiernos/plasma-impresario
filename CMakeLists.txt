@@ -438,6 +438,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/LineEdit.cpp
     ${path_DesktopGui}/MailBoxTreeView.cpp
     ${path_DesktopGui}/MailboxPickerDialog.cpp
+    ${path_DesktopGui}/SearchFoldersDialog.cpp
     ${path_DesktopGui}/MessageActionHandler.cpp
     ${path_DesktopGui}/MessageDetailsPanel.cpp
     ${path_DesktopGui}/MessageListWidget.cpp
@@ -556,6 +557,8 @@ set(libImap_SOURCES
     ${path_Imap}/Model/TaskPresentationModel.cpp
     ${path_Imap}/Model/ThreadingMsgListModel.cpp
     ${path_Imap}/Model/UnifiedMsgListModel.cpp
+    ${path_Imap}/Model/SearchResultsModel.cpp
+    ${path_Imap}/Model/FolderSearch.cpp
     ${path_Imap}/Model/Utils.cpp
     ${path_Imap}/Model/VisibleTasksModel.cpp
 
@@ -1348,6 +1351,8 @@ if(BUILD_TESTING)
     target_link_libraries(test_Relevance PRIVATE UiUtils)
     trojita_test(Misc SearchScope)
     target_link_libraries(test_SearchScope PRIVATE UiUtils)
+    trojita_test(Misc SearchResultsModel)
+    target_link_libraries(test_SearchResultsModel PRIVATE UiUtils)
     trojita_test(Misc LinkSafety)
     target_link_libraries(test_LinkSafety PRIVATE UiUtils)
     if(WITH_DESKTOP)

@@ -173,6 +173,34 @@ void UnifiedMsgListModelTest::tellsWhereAMessageComesFrom() {
   QVERIFY(unified.roleNames().contains(RoleMessageSourceLabel));
 }
 
+void UnifiedMsgListModelTest::rowLabelNamesFoldersOfSearchResults() {
+  using namespace Imap::Mailbox;
+  Message archived{QStringLiteral("old"), at(1)};
+  archived.mailbox = QStringLiteral("Archive");
+  auto work = inbox({{QStringLiteral("new"), at(2)}, archived});
+  UnifiedMsgListModel unified;
+  unified.setAccountSource(QStringLiteral("work"), QStringLiteral("Work"),
+                           work.get());
+
+  // The Unified Inbox names only the account
+  QVERIFY(!unified.showsFolders());
+  QCOMPARE(unified.index(1, 0).data(RoleMessageRowLabel).toString(),
+           QStringLiteral("Work"));
+
+  QSignalSpy changed(&unified, &QAbstractItemModel::dataChanged);
+  unified.setShowsFolders(true);
+  QCOMPARE(changed.count(), 1);
+  QCOMPARE(changed.at(0).at(2).value<QList<int>>(),
+           QList<int>{RoleMessageRowLabel});
+  QCOMPARE(unified.index(0, 0).data(RoleMessageRowLabel).toString(),
+           QStringLiteral("Work \u00B7 Inbox"));
+  QCOMPARE(unified.index(1, 0).data(RoleMessageRowLabel).toString(),
+           QStringLiteral("Work \u00B7 Archive"));
+  unified.setShowsFolders(true);
+  QCOMPARE(changed.count(), 1);
+  QVERIFY(unified.roleNames().contains(RoleMessageRowLabel));
+}
+
 void UnifiedMsgListModelTest::renamingAnAccountUpdatesItsLabels() {
   using namespace Imap::Mailbox;
   auto work = inbox({{QStringLiteral("w1"), at(1)}});
