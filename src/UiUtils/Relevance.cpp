@@ -5,6 +5,7 @@
 
 #include "Imap/Model/ItemRoles.h"
 
+#include <QHash>
 #include <QModelIndex>
 #include <QSet>
 #include <QVariant>
@@ -81,42 +82,97 @@ int fieldScore(const QString &field, const QString &term,
   return score;
 }
 
+/** @short A search key with text, such as SUBJECT, and its arguments */
+struct TextKey {
+  QString key;
+  QStringList arguments;
+};
+
+/** @short How many arguments follow @arg key, for keys without text */
+int argumentCount(const QString &key) {
+  static const QHash<QString, int> counts = {
+      {QStringLiteral("BEFORE"), 1},      {QStringLiteral("ON"), 1},
+      {QStringLiteral("SINCE"), 1},       {QStringLiteral("SENTBEFORE"), 1},
+      {QStringLiteral("SENTON"), 1},      {QStringLiteral("SENTSINCE"), 1},
+      {QStringLiteral("LARGER"), 1},      {QStringLiteral("SMALLER"), 1},
+      {QStringLiteral("KEYWORD"), 1},     {QStringLiteral("UNKEYWORD"), 1},
+      {QStringLiteral("UID"), 1},         {QStringLiteral("OLDER"), 1},
+      {QStringLiteral("YOUNGER"), 1},     {QStringLiteral("SAVEDBEFORE"), 1},
+      {QStringLiteral("SAVEDON"), 1},     {QStringLiteral("SAVEDSINCE"), 1},
+      {QStringLiteral("EMAILID"), 1},     {QStringLiteral("THREADID"), 1},
+      {QStringLiteral("FILTER"), 1},      {QStringLiteral("X-GM-RAW"), 1},
+      {QStringLiteral("X-GM-MSGID"), 1},  {QStringLiteral("X-GM-THRID"), 1},
+      {QStringLiteral("X-GM-LABELS"), 1}, {QStringLiteral("ANNOTATION"), 3},
+  };
+  return counts.value(key);
+}
+
+/** @short Collect the text keys of the search key at @arg i which a match has
+to contain, moving @arg i past it
+
+A key under an odd number of NOTs excludes its text, so it is skipped. */
+void collectTextKeys(const QStringList &tokens, qsizetype &i, bool negated,
+                     QList<TextKey> &keys) {
+  static const QStringList oneArgument{
+      QStringLiteral("SUBJECT"), QStringLiteral("FROM"), QStringLiteral("TO"),
+      QStringLiteral("CC"),      QStringLiteral("BCC"),  QStringLiteral("BODY"),
+      QStringLiteral("TEXT"),
+  };
+  if (i >= tokens.size())
+    return;
+  const QString key = tokens.at(i++).toUpper();
+  if (key == QLatin1String("NOT")) {
+    collectTextKeys(tokens, i, !negated, keys);
+  } else if (key == QLatin1String("OR")) {
+    collectTextKeys(tokens, i, negated, keys);
+    collectTextKeys(tokens, i, negated, keys);
+  } else if (key == QLatin1String("FUZZY")) {
+    collectTextKeys(tokens, i, negated, keys);
+  } else if (key == QLatin1String("(")) {
+    while (i < tokens.size() && tokens.at(i) != QLatin1String(")"))
+      collectTextKeys(tokens, i, negated, keys);
+    ++i;
+  } else if (oneArgument.contains(key) || key == QLatin1String("HEADER")) {
+    const qsizetype count = key == QLatin1String("HEADER") ? 2 : 1;
+    if (!negated && i + count <= tokens.size())
+      keys.append({key, tokens.mid(i, count)});
+    i += count;
+  } else {
+    i += argumentCount(key);
+  }
+}
+
+/** @short The text keys which messages found by @arg conditions contain */
+QList<TextKey> textKeys(const QStringList &conditions) {
+  const QStringList tokens =
+      conditions.size() == 1 ? tokenize(conditions.constFirst()) : conditions;
+  QList<TextKey> keys;
+  qsizetype i = 0;
+  while (i < tokens.size())
+    collectTextKeys(tokens, i, false, keys);
+  return keys;
+}
+
 } // namespace
 
 QString searchHighlightTerm(const QStringList &conditions) {
-  const QStringList tokens =
-      conditions.size() == 1 ? tokenize(conditions.constFirst()) : conditions;
   static const QStringList bodyKeys{
       QStringLiteral("SUBJECT"),
       QStringLiteral("BODY"),
       QStringLiteral("TEXT"),
   };
-  static const QStringList headerKeys{
-      QStringLiteral("FROM"),
-      QStringLiteral("TO"),
-      QStringLiteral("CC"),
-      QStringLiteral("BCC"),
-  };
-  for (int i = 0; i < tokens.size(); ++i) {
-    const QString key = tokens.at(i).toUpper();
-    if (bodyKeys.contains(key)) {
-      if (i + 1 < tokens.size()) {
-        const QString term = tokens.at(++i).simplified();
-        if (!term.isEmpty())
-          return term;
-      }
-    } else if (headerKeys.contains(key)) {
-      ++i;
-    } else if (key == QLatin1String("HEADER")) {
-      i += 2;
-    }
+  const QList<TextKey> keys = textKeys(conditions);
+  for (const TextKey &key : keys) {
+    if (!bodyKeys.contains(key.key))
+      continue;
+    const QString term = key.arguments.constFirst().simplified();
+    if (!term.isEmpty())
+      return term;
   }
   return QString();
 }
 
 QStringList relevanceTerms(const QStringList &conditions) {
-  const QStringList tokens =
-      conditions.size() == 1 ? tokenize(conditions.constFirst()) : conditions;
   QStringList terms;
   QSet<QString> seen;
   auto add = [&](const QString &value) {
@@ -126,21 +182,14 @@ QStringList relevanceTerms(const QStringList &conditions) {
     seen.insert(term);
     terms << term;
   };
-  static const QStringList valueKeys{
-      QStringLiteral("SUBJECT"), QStringLiteral("FROM"), QStringLiteral("TO"),
-      QStringLiteral("CC"),      QStringLiteral("BCC"),  QStringLiteral("BODY"),
-      QStringLiteral("TEXT"),
-  };
-  for (int i = 0; i < tokens.size(); ++i) {
-    const QString key = tokens.at(i).toUpper();
-    if (valueKeys.contains(key)) {
-      if (i + 1 < tokens.size())
-        add(tokens.at(++i));
-    } else if (key == QLatin1String("HEADER")) {
-      // HEADER field-name value
-      if (i + 2 < tokens.size())
-        add(tokens.at(i + 2));
-      i += 2;
+  const QList<TextKey> keys = textKeys(conditions);
+  for (const TextKey &key : keys) {
+    if (key.key != QLatin1String("HEADER")) {
+      add(key.arguments.constFirst());
+    } else if (key.arguments.constFirst().compare(
+                   QLatin1String("Content-Type"), Qt::CaseInsensitive) != 0) {
+      // HEADER field-name value; has:attachment's Content-Type is no text
+      add(key.arguments.at(1));
     }
   }
   return terms;

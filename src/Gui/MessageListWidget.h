@@ -25,6 +25,7 @@
 
 #include <QWidget>
 #include "Imap/Model/FavoriteTagsModel.h"
+#include "UiUtils/SearchQuery.h"
 #include "UiUtils/SearchScope.h"
 
 class LineEdit;
@@ -39,6 +40,7 @@ class QToolButton;
 
 namespace Gui {
 
+class InlineNotificationBar;
 class MsgListView;
 
 /** @short Widget containing a list of messages along with quick filtering toolbar */
@@ -137,10 +139,17 @@ private:
     QString placesText() const;
     /** Shows the row below the list while it has anything to show */
     void updateStatusRow();
+    /** IMAP SEARCH keys for the quick search; when the query cannot be used, an empty list and the reason in
+    @p problem. @p relativeDates says whether the query names days such as today. */
+    QStringList searchConditions(UiUtils::SearchQuery::Error *problem, bool *relativeDates) const;
+    /** Explains below the quick search why its query cannot be used and selects the text it is about */
+    void showSearchError(const UiUtils::SearchQuery::Error &problem);
 
     LineEdit *m_quickSearchText;
     /** The quick search field and the buttons next to it */
     QHBoxLayout *m_toolRow;
+    /** Why the query in the quick search cannot be used */
+    InlineNotificationBar *m_searchError;
     QLabel *m_listStatus;
     /** Account and folder of the list, in the row of the status */
     QLabel *m_scope;
@@ -169,7 +178,8 @@ private:
     bool m_supportsFuzzySearch;
     bool m_searchAvailable = true;
     QTimer *m_searchResetTimer;
-    /** Applies a preset date range again once the day changes, so that "Today" moves on at midnight */
+    /** Applies a preset date range or a query with date:today again once the day changes, so that "Today" moves on
+    at midnight */
     QTimer *m_dayChangeTimer;
     /** The day on which the last search was applied */
     QDate m_searchDay;

@@ -20,7 +20,8 @@ namespace UiUtils {
 The values of the SUBJECT, FROM, TO, CC, BCC, BODY, TEXT and HEADER keys are
 returned case-folded and without duplicates. A single element is a raw search
 typed by the user, such as `OR SUBJECT "release plan" FROM ann`; it is split
-into tokens first. Other keys, such as dates or flags, are ignored.
+into tokens first. Other keys, such as dates or flags, are ignored, and so are
+keys under NOT, since a match does not contain their text.
 */
 QStringList relevanceTerms(const QStringList &conditions);
 
@@ -30,7 +31,8 @@ QStringList relevanceTerms(const QStringList &conditions);
 This is the first value of a SUBJECT, BODY or TEXT key, with its case kept and
 whitespace simplified. A search which only looks at the senders, recipients or
 other headers gives an empty string, since those are not part of the message
-body. A single element is a raw search, as for relevanceTerms().
+body. Keys under NOT are skipped. A single element is a raw search, as for
+relevanceTerms().
 */
 QString searchHighlightTerm(const QStringList &conditions);
 

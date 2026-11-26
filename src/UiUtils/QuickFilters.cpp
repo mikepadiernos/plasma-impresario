@@ -4,19 +4,18 @@
 #include "QuickFilters.h"
 
 #include <QAbstractItemModel>
-#include <QRegularExpression>
+#include <QDate>
 #include <QUrl>
 #include <QVariant>
 
 #include "Imap/Model/ItemRoles.h"
 #include "Conversations.h"
 #include "RelatedMessages.h"
+#include "SearchQuery.h"
 
 namespace UiUtils {
 
 namespace {
-
-const QLatin1Char quote('"');
 
 QString keyword(FieldFilter field) {
   switch (field) {
@@ -85,35 +84,35 @@ QString searchableSubject(const QString &subject) {
 QString fieldFilterText(FieldFilter field, const QString &value) {
   if (field == FieldFilter::None || value.isEmpty())
     return value;
-  const bool needsQuotes = value.front().isSpace() || value.back().isSpace() ||
-                           value.front() == quote || value.back() == quote;
-  return keyword(field) + QLatin1Char(':') +
-         (needsQuotes ? quote + value + quote : value);
+  return keyword(field) + QLatin1Char(':') + SearchQuery::quotedValue(value);
 }
 
 ParsedFieldFilter parseFieldFilter(const QString &text) {
-  static const QRegularExpression filter(
-      QStringLiteral("^\\s*(from|to|subject|list):(.*)$"),
-      QRegularExpression::CaseInsensitiveOption |
-          QRegularExpression::DotMatchesEverythingOption);
   ParsedFieldFilter result;
-  const auto match = filter.match(text);
-  if (!match.hasMatch())
+  // Dates do not matter, since only a single text field counts
+  const SearchQuery::Query query =
+      SearchQuery::Query::parse(text, QDate::currentDate());
+  if (query.isEmpty() || !query.isValid() ||
+      query.root().kind != SearchQuery::Node::Kind::Term)
     return result;
-  QString value = match.captured(2).trimmed();
-  if (value.size() >= 2 && value.front() == quote && value.back() == quote)
-    value = value.mid(1, value.size() - 2);
-  if (value.isEmpty())
+  const SearchQuery::Term &term = query.root().term;
+  switch (term.field) {
+  case SearchQuery::Field::From:
+    result.field = FieldFilter::From;
+    break;
+  case SearchQuery::Field::To:
+    result.field = FieldFilter::To;
+    break;
+  case SearchQuery::Field::Subject:
+    result.field = FieldFilter::Subject;
+    break;
+  case SearchQuery::Field::List:
+    result.field = FieldFilter::MailingList;
+    break;
+  default:
     return result;
-
-  const QString name = match.captured(1).toLower();
-  for (const FieldFilter field :
-       {FieldFilter::From, FieldFilter::To, FieldFilter::Subject,
-        FieldFilter::MailingList}) {
-    if (keyword(field) == name)
-      result.field = field;
   }
-  result.value = value;
+  result.value = term.value;
   return result;
 }
 

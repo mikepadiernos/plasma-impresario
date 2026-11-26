@@ -47,6 +47,7 @@
 #include <QUuid>
 #include <QVBoxLayout>
 #include <QWidgetAction>
+#include "InlineNotificationBar.h"
 #include "LineEdit.h"
 #include "MsgListView.h"
 #include "ReplaceCharValidator.h"
@@ -121,16 +122,29 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     QValidator *validator = new ReplaceCharValidator(QLatin1Char('\n'), QLatin1Char(' '), m_quickSearchText);
     m_quickSearchText->setValidator(validator);
     m_quickSearchText->setPlaceholderText(tr("Quick Search"));
-    m_searchToolTip = tr("Type in a text to search for within this mailbox. "
-                         "The icon on the left can be used to limit the search options "
-                         "(like whether to include addresses or message bodies, etc)."
-                         "<br/><hr/>"
-                         "Experts who have read RFC3501 can use the <code>:=</code> prefix and switch to a raw IMAP mode.");
+    m_searchToolTip = i18nc("@info:tooltip field names, operators and values stay in English",
+                            "Type words to search for in the fields chosen with the icon on the left; all of them must "
+                            "match.<br/>"
+                            "Search one field with <code>from:</code>, <code>to:</code>, <code>cc:</code>, <code>bcc:</code>, "
+                            "<code>subject:</code>, <code>body:</code>, <code>text:</code> or <code>list:</code>, such as "
+                            "<code>from:ann subject:\"release plan\"</code>.<br/>"
+                            "Narrow with <code>is:unread</code>, <code>is:flagged</code>, <code>tag:name</code>, "
+                            "<code>has:attachment</code>, <code>date&gt;=2025-06</code>, <code>date:today</code> or "
+                            "<code>size&gt;2M</code>.<br/>"
+                            "Combine terms with <code>OR</code>, <code>NOT</code> or a minus sign, and group them with "
+                            "parentheses. Quote text with spaces, or an operator to search for the word."
+                            "<br/><hr/>"
+                            "Experts who have read RFC 3501 can allow raw IMAP search in the options and use the "
+                            "<code>:=</code> prefix.");
     m_quickSearchText->setToolTip(m_searchToolTip);
     m_queryPlaceholder = tr("<query>");
 
     connect(m_quickSearchText, &QLineEdit::returnPressed, this, &MessageListWidget::slotApplySearch);
     connect(m_quickSearchText, &QLineEdit::textChanged, this, &MessageListWidget::slotConditionalSearchReset);
+    connect(m_quickSearchText, &QLineEdit::textChanged, this, [this]() {
+        // The explanation is about text which is no longer there
+        m_searchError->hide();
+    });
     connect(m_quickSearchText, &QLineEdit::cursorPositionChanged, this, &MessageListWidget::slotUpdateSearchCursor);
     connect(m_quickSearchText, &LineEdit::escapePressed, this, [this]() {
         // A field filter, as set by Show Related, goes away at once
@@ -268,6 +282,10 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     m_toolRow->setContentsMargins(0, 0, 0, 0);
     m_toolRow->addWidget(m_quickSearchText, 1);
 
+    m_searchError = new InlineNotificationBar(this);
+    m_searchError->setObjectName(QStringLiteral("searchQueryError"));
+    m_searchError->setAccessibleName(i18nc("@info:accessible", "Search problem"));
+
     m_listStatus = new QLabel(this);
     m_listStatus->setObjectName(QStringLiteral("messageListStatus"));
     m_listStatus->setAccessibleName(i18nc("@label", "Message list status"));
@@ -299,6 +317,7 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     layout->setSpacing(0);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addLayout(m_toolRow);
+    layout->addWidget(m_searchError);
     layout->addWidget(tree);
     layout->addWidget(m_statusRow);
 
@@ -319,7 +338,12 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
 
 void MessageListWidget::saveCurrentSearch()
 {
-    if (searchConditions().isEmpty()) {
+    UiUtils::SearchQuery::Error problem;
+    if (searchConditions(&problem, nullptr).isEmpty()) {
+        if (!problem.isEmpty()) {
+            showSearchError(problem);
+            return;
+        }
         Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Save Search"),
                                      i18nc("@info", "Enter a search and select at least one search field, or choose a date range."));
         return;
@@ -726,13 +750,29 @@ void MessageListWidget::showFieldFilter(const QString &text)
 void MessageListWidget::slotApplySearch()
 {
     m_searchDay = QDate::currentDate();
+    UiUtils::SearchQuery::Error problem;
+    bool relativeQuery = false;
+    const QStringList conditions = searchConditions(&problem, &relativeQuery);
+    if (!problem.isEmpty()) {
+        // The list keeps showing the previous search rather than everything, or a server error for a typo
+        showSearchError(problem);
+        return;
+    }
+    m_searchError->hide();
     // Custom ranges are fixed days; the presets end today
-    const bool relative = m_dateRange.dates != Dates::AnyTime && m_dateRange.dates != Dates::Custom;
+    const bool relative = relativeQuery || (m_dateRange.dates != Dates::AnyTime && m_dateRange.dates != Dates::Custom);
     if (relative)
         m_dayChangeTimer->start();
     else
         m_dayChangeTimer->stop();
-    emit requestingSearch(searchConditions());
+    emit requestingSearch(conditions);
+}
+
+void MessageListWidget::showSearchError(const UiUtils::SearchQuery::Error &problem)
+{
+    m_searchError->showError(i18nc("@info %1 explains what is wrong with the search query", "Invalid search: %1", problem.message));
+    if (problem.position >= 0 && problem.position < m_quickSearchText->text().size())
+        m_quickSearchText->setSelection(problem.position, problem.length);
 }
 
 void MessageListWidget::slotAutoEnableDisableSearch()
@@ -832,6 +872,11 @@ void MessageListWidget::slotDeActivateSimpleSearch()
 
 QStringList MessageListWidget::searchConditions() const
 {
+    return searchConditions(nullptr, nullptr);
+}
+
+QStringList MessageListWidget::searchConditions(UiUtils::SearchQuery::Error *problem, bool *relativeDates) const
+{
     using namespace UiUtils::SearchScope;
     const QString text = m_quickSearchText->text();
     if (!m_quickSearchText->isEnabled() || (text.isEmpty() && !isLimited(m_dateRange)))
@@ -848,13 +893,13 @@ QStringList MessageListWidget::searchConditions() const
         return QStringList() << withDateConditions(rawQuery, m_dateRange, today);
     }
 
-    // "from:", "to:", "subject:" and "list:" search that field only, whatever the options say
-    const UiUtils::ParsedFieldFilter fieldFilter = UiUtils::parseFieldFilter(text);
-    if (fieldFilter.field != UiUtils::FieldFilter::None) {
-        const QStringList keys = UiUtils::fieldFilterConditions(fieldFilter);
-        return keys.isEmpty() ? keys : keys + dateConditions(m_dateRange, today);
-    }
+    const auto query = UiUtils::SearchQuery::Query::parse(text, today);
+    if (relativeDates)
+        *relativeDates = query.usesRelativeDates();
+    if (query.isEmpty())
+        return dateConditions(m_dateRange, today);
 
+    // Words without a field search the fields chosen in the options; "from:" and the like search that field only
     Fields fields;
     if (m_searchInSubject->isChecked())
         fields |= Field::Subject;
@@ -864,7 +909,14 @@ QStringList MessageListWidget::searchConditions() const
         fields |= Field::Recipients;
     if (m_searchInSenders->isChecked())
         fields |= Field::Senders;
-    return conditions(text, fields, m_searchFuzzy->isChecked() && m_supportsFuzzySearch, m_dateRange, today);
+    UiUtils::SearchQuery::Error error;
+    const QStringList keys = query.imapConditions(fields, m_searchFuzzy->isChecked() && m_supportsFuzzySearch, &error);
+    if (keys.isEmpty()) {
+        if (problem)
+            *problem = error;
+        return keys;
+    }
+    return keys + dateConditions(m_dateRange, today);
 }
 
 void MessageListWidget::setFuzzySearchSupported(bool supported)

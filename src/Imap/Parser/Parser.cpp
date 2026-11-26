@@ -320,6 +320,39 @@ CommandHandle Parser::expunge()
     return queueCommand(Commands::ATOM, "EXPUNGE");
 }
 
+/** @short Whether @arg item can be sent as an IMAP atom, as a flag keyword must be */
+static bool isAtom(const QByteArray &item)
+{
+    if (item.isEmpty() || item.size() > 100)
+        return false;
+    for (const char c : item) {
+        const auto u = static_cast<unsigned char>(c);
+        if (u <= 0x20 || u >= 0x7f)
+            return false;
+        if (c == '(' || c == ')' || c == '{' || c == '%' || c == '*' || c == '"' || c == '\\' || c == ']')
+            return false;
+    }
+    return true;
+}
+
+/** @short Append search keys given as separate items
+
+The flag after KEYWORD or UNKEYWORD has to be an atom, but values such as $Forwarded would otherwise be quoted. An atom
+is also a valid astring, so sending one unquoted is safe even where KEYWORD happens to be a value. */
+static void appendSearchCriteria(Commands::Command &cmd, const QStringList &criteria)
+{
+    for (int i = 0; i < criteria.size(); ++i) {
+        const QByteArray item = criteria.at(i).toUtf8();
+        const bool isFlag = i > 0
+            && (criteria.at(i - 1).compare(QLatin1String("KEYWORD"), Qt::CaseInsensitive) == 0
+                || criteria.at(i - 1).compare(QLatin1String("UNKEYWORD"), Qt::CaseInsensitive) == 0);
+        if (isFlag && isAtom(item))
+            cmd << Commands::PartOfCommand(Commands::ATOM, item);
+        else
+            cmd << item;
+    }
+}
+
 CommandHandle Parser::searchHelper(const QByteArray &command, const QStringList &criteria, const QByteArray &charset)
 {
     Commands::Command cmd(command);
@@ -334,8 +367,7 @@ CommandHandle Parser::searchHelper(const QByteArray &command, const QStringList 
         // This is required in the current shape of the API if we want to allow the user to type in their queries directly.
         cmd << Commands::PartOfCommand(Commands::ATOM, criteria.front().toUtf8());
     } else {
-        for (QStringList::const_iterator it = criteria.begin(); it != criteria.end(); ++it)
-            cmd << it->toUtf8();
+        appendSearchCriteria(cmd, criteria);
     }
 
     return queueCommand(cmd);
@@ -369,8 +401,7 @@ CommandHandle Parser::sortHelper(const QByteArray &command, const QStringList &s
         // This is required in the current shape of the API if we want to allow the user to type in their queries directly.
         cmd << Commands::PartOfCommand(Commands::ATOM, searchCriteria.front().toUtf8());
     } else {
-        for (QStringList::const_iterator it = searchCriteria.begin(); it != searchCriteria.end(); ++it)
-            cmd << it->toUtf8();
+        appendSearchCriteria(cmd, searchCriteria);
     }
 
     return queueCommand(cmd);
@@ -417,8 +448,7 @@ CommandHandle Parser::threadHelper(const QByteArray &command, const QByteArray &
         cmd << Commands::PartOfCommand(Commands::ATOM, searchCriteria.front().toUtf8());
     } else {
         // Quote values such as a subject with spaces, as SORT and SEARCH do
-        for (QStringList::const_iterator it = searchCriteria.begin(); it != searchCriteria.end(); ++it)
-            cmd << it->toUtf8();
+        appendSearchCriteria(cmd, searchCriteria);
     }
 
     return queueCommand(cmd);

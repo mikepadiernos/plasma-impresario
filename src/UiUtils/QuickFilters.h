@@ -44,18 +44,19 @@ struct ParsedFieldFilter {
 };
 
 /** @short Quick search text for a field filter, such as "from:ann@example.org"
-or "subject:Release plan"
+or "subject:\"Release plan\""
 
-The value is quoted only when it would otherwise lose leading or trailing spaces
-or quotes.
+The value is quoted as the search query syntax needs it, so that the text
+searches for the whole value.
 */
 QString fieldFilterText(FieldFilter field, const QString &value);
 
 /** @short Recognize a "from:", "to:", "subject:" or "list:" filter typed into
 the quick search
 
-The keyword is case-insensitive and not translated. Anything else, including a
-keyword without a value, gives FieldFilter::None.
+The text has to be a single term of the search query syntax. The keyword is
+case-insensitive and not translated. Anything else, including a keyword without
+a value or a query with more terms, gives FieldFilter::None.
 */
 ParsedFieldFilter parseFieldFilter(const QString &text);
 
