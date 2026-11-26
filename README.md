@@ -293,6 +293,9 @@ quote a phrase. Fields narrow a term, such as `from:ann`, `subject:"release
 plan"`, `list:dev@example.org`, `tag:$label1`, `is:unread`, `has:attachment`,
 `date>=2026-01` or `size>2M`, and `-` or `NOT`, `OR` and parentheses combine
 them. An invalid query is explained below the field instead of being sent.
+**Search Builder...** in the options menu or the **Mailbox** menu
+(<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>) builds the same query from rows
+of field, comparison and value, matching all or any of them.
 The options menu also offers fuzzy matching and a
 **Date** range: today, the past week, month or year, or custom days with an
 optional start and end. A date range narrows text, field and raw IMAP
