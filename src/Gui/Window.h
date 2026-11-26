@@ -292,6 +292,8 @@ private slots:
     void slotViewMsgHeaders();
     void slotThreadMsgList();
     void slotHideRead();
+    /** @short Clear the quick search, its date range and the quick filters, and go back to where the list was before */
+    void clearSearchAndFilters();
     void slotSortingPreferenceChanged();
     void slotSortingConfirmed(int column, Qt::SortOrder order);
     void slotSearchRequested(const QStringList &searchConditions);
@@ -432,6 +434,10 @@ private:
     void saveMessageListFilters();
     /** @short Show the state of the quick filters on their actions and buttons */
     void syncMessageListFilterUi();
+    /** @short Whether a search or a quick filter hides messages of the list */
+    bool messageListNarrowed() const;
+    /** @short Note where the folder's list is before a search or a filter narrows it, for clearSearchAndFilters() */
+    void rememberUnnarrowedPosition();
     void updateSelectionActions();
     /** @short Limit the quick search to messages sharing @p field with the current message */
     void showRelatedMessages(UiUtils::FieldFilter field);
@@ -680,6 +686,11 @@ private:
     /** Folder which the message list shows, and where in it the list is */
     QString m_positionMailbox;
     UiUtils::FolderPosition m_livePosition;
+    /** Folder whose list was narrowed by a search or a filter, and where in it the list was before */
+    QString m_unnarrowedMailbox;
+    UiUtils::FolderPosition m_unnarrowedPosition;
+    /** Whether the user opened a message while the list was narrowed, which then stays current after clearing */
+    bool m_pickedWhileNarrowed = false;
     QPointer<MessageSelectionRestorer> m_messageRestorer;
     /** Keys of the groups which the user has collapsed during this session */
     QSet<QString> m_collapsedGroups;
@@ -897,6 +908,8 @@ private:
     QAction *m_goToFolder;
     /** Opens the search builder of the message list */
     QAction *m_searchBuilder;
+    /** Clears the search and the quick filters of the message list at once */
+    QAction *m_clearSearchAndFilters = nullptr;
     QAction *m_goToNextUnreadFolder = nullptr;
     QAction *m_checkMail = nullptr;
     QTimer *m_accountUnreadTimer = nullptr;

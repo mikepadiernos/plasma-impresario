@@ -90,6 +90,8 @@ public:
     void setCustomScope(const QString &text, const QString &toolTip);
     /** @short Offer the quick search, or clear and disable it for a list which it cannot search */
     void setSearchAvailable(bool available);
+    /** @short Name the quick filters which narrow the list, such as "Unread", in the summary above it */
+    void setActiveFilters(const QStringList &names);
 
     // FIXME: consider making this private and moving the logic from Window with it
     MsgListView *tree;
@@ -107,6 +109,8 @@ signals:
     void rawSearchSettingChanged(bool enabled);
     /** @short The user wants to pick the folders to search; answer with setSelectedFolders() */
     void foldersChoiceRequested();
+    /** @short The user wants the search, its date range and the quick filters cleared at once */
+    void clearAllRequested();
 
 protected slots:
     void slotApplySearch();
@@ -141,6 +145,8 @@ private:
     QString placesText() const;
     /** Shows the row below the list while it has anything to show */
     void updateStatusRow();
+    /** Describes the search and the filters in effect above the list, or hides the summary when nothing narrows it */
+    void updateSearchSummary();
     /** IMAP SEARCH keys for the quick search; when the query cannot be used, an empty list and the reason in
     @p problem. @p relativeDates says whether the query names days such as today. */
     QStringList searchConditions(UiUtils::SearchQuery::Error *problem, bool *relativeDates) const;
@@ -152,6 +158,14 @@ private:
     QHBoxLayout *m_toolRow;
     /** Why the query in the quick search cannot be used */
     InlineNotificationBar *m_searchError;
+    /** What narrows the list: the query, its dates and places, and the quick filters */
+    QWidget *m_searchSummary;
+    QLabel *m_searchSummaryText;
+    QAction *m_clearAll;
+    /** The query, dates and places of the search in effect, as the summary shows them; an invalid query typed
+    later does not change them */
+    QStringList m_searchDescription;
+    QStringList m_activeFilters;
     QLabel *m_listStatus;
     /** Account and folder of the list, in the row of the status */
     QLabel *m_scope;

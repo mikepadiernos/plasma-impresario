@@ -545,6 +545,8 @@ void MainWindow::defineActions()
     shortcutHandler->defineAction(QStringLiteral("action_focus_quick_search"), QString(), tr("Move Focus to Quick Search"), QStringLiteral("/"));
     shortcutHandler->defineAction(QStringLiteral("action_search_builder"), QStringLiteral("edit-find"),
                                   i18nc("@action", "&Search Builder..."), QStringLiteral("Ctrl+Shift+B"));
+    shortcutHandler->defineAction(QStringLiteral("action_clear_search_and_filters"), QStringLiteral("edit-clear-all"),
+                                  i18nc("@action", "Clear Search and &Filters"), QStringLiteral("Ctrl+Shift+Backspace"));
     shortcutHandler->defineAction(QStringLiteral("action_go_to_folder"), QStringLiteral("go-jump"), i18nc("@action", "Go to &Folder..."), QStringLiteral("Ctrl+J"));
     shortcutHandler->defineAction(QStringLiteral("action_go_to_next_unread_folder"), QStringLiteral("go-next"),
                                   i18nc("@action", "Go to Next &Unread Folder"), QStringLiteral("Ctrl+Alt+N"));
@@ -708,6 +710,8 @@ void MainWindow::createActions()
             msgListWidget, SLOT(focusSearch()), this));
     m_searchBuilder = ShortcutHandler::instance()->createAction(QStringLiteral("action_search_builder"), msgListWidget,
             SLOT(openSearchBuilder()), this);
+    m_clearSearchAndFilters = ShortcutHandler::instance()->createAction(QStringLiteral("action_clear_search_and_filters"), this,
+            SLOT(clearSearchAndFilters()), this);
 
     addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_focus_mailbox_tree"), mboxTree,
             SLOT(setFocus()), this));
@@ -1095,6 +1099,8 @@ void MainWindow::createActions()
         action->setCheckable(true);
         action->setToolTip(toolTip);
         connect(action, &QAction::triggered, this, [this, filter](bool checked) {
+            if (checked)
+                rememberUnnarrowedPosition();
             prettyMsgListModel->setFilterEnabled(filter, checked);
             saveMessageListFilters();
         });
@@ -1494,6 +1500,7 @@ void MainWindow::createMenus()
             ADD_ACTION(filterMenu, m_actionFilterAttachments);
             filterMenu->addSeparator();
             ADD_ACTION(filterMenu, m_actionClearFilters);
+            ADD_ACTION(filterMenu, m_clearSearchAndFilters);
         m_groupByMenu = viewMenu->addMenu(quickActionIcon(QStringLiteral("view-group")), i18nc("@title:menu", "&Group By"));
         m_groupByMenu->setObjectName(QStringLiteral("messageListGroupByMenu"));
             for (QAction *action : m_groupByActions->actions()) {
@@ -1712,9 +1719,16 @@ void MainWindow::createWidgets()
     connect(msgListWidget->tree, &QWidget::customContextMenuRequested, this, &MainWindow::showContextMenuMsgListTree);
     connect(msgListWidget->tree, &QAbstractItemView::activated, this, &MainWindow::msgListClicked);
     connect(msgListWidget->tree, &QAbstractItemView::clicked, this, &MainWindow::msgListClicked);
+    for (auto signal : {&QAbstractItemView::activated, &QAbstractItemView::clicked}) {
+        connect(msgListWidget->tree, signal, this, [this] {
+            if (messageListNarrowed())
+                m_pickedWhileNarrowed = true;
+        });
+    }
     connect(msgListWidget->tree, &QAbstractItemView::doubleClicked, this, &MainWindow::openCompleteMessageWidget);
     connect(msgListWidget->tree, &MsgListView::currentReplacedAfterRemoval, this, &MainWindow::slotMessageReplacedAfterRemoval);
     connect(msgListWidget, &MessageListWidget::requestingSearch, this, &MainWindow::slotSearchRequested);
+    connect(msgListWidget, &MessageListWidget::clearAllRequested, this, &MainWindow::clearSearchAndFilters);
     connect(msgListWidget->tree->header(), &QHeaderView::sectionMoved, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
     connect(msgListWidget->tree->header(), &QHeaderView::sectionResized, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
 
@@ -1882,6 +1896,9 @@ void MainWindow::setupModels(bool reconnect)
         // The message list of an account which was shown before still has its folder open
         m_positionMailbox = currentMailboxName();
         m_livePosition = UiUtils::FolderPosition();
+        m_unnarrowedMailbox.clear();
+        m_unnarrowedPosition = UiUtils::FolderPosition();
+        m_pickedWhileNarrowed = false;
     }
     applyMessageListFilters();
     connect(prettyMsgListModel, &Imap::Mailbox::PrettyMsgListModel::filtersChanged, this, &MainWindow::syncMessageListFilterUi);
@@ -1944,6 +1961,9 @@ void MainWindow::setupModels(bool reconnect)
         commitFolderPosition();
         m_positionMailbox = currentMailboxName();
         m_livePosition = UiUtils::FolderPosition();
+        m_unnarrowedMailbox.clear();
+        m_unnarrowedPosition = UiUtils::FolderPosition();
+        m_pickedWhileNarrowed = false;
         pruneFolderStates();
         applyMessageListView();
         updateMessageListScope();
@@ -2527,7 +2547,8 @@ void MainWindow::showContextMenuMsgListTree(const QPoint &position)
     } else {
         // Below the messages: actions on the whole list
         actionList << m_actionSelectAllMessages << &selectionSeparator << m_actionFilterUnread << m_actionFilterFlagged
-                   << m_actionFilterAttachments << m_actionClearFilters << &filterSeparator << m_actionMarkMailboxAsRead;
+                   << m_actionFilterAttachments << m_actionClearFilters << m_clearSearchAndFilters << &filterSeparator
+                   << m_actionMarkMailboxAsRead;
         if (msgListWidget->tree->model() == m_groupingMsgListModel)
             actionList << &relatedSeparator << m_actionExpandAllGroups << m_actionCollapseAllGroups;
         else if (showsThreads())
@@ -5504,6 +5525,8 @@ void MainWindow::slotSortingConfirmed(int column, Qt::SortOrder order)
 
 void MainWindow::slotSearchRequested(const QStringList &searchConditions)
 {
+    if (!searchConditions.isEmpty())
+        rememberUnnarrowedPosition();
     // The Unified Inbox has no single folder to filter, so its INBOXes are searched like several folders
     if (!searchConditions.isEmpty()
         && (m_unifiedInbox || msgListWidget->searchPlaces() != UiUtils::SearchScope::Places::CurrentFolder)) {
@@ -6040,6 +6063,8 @@ void MainWindow::applyGroupExpansion()
 
 void MainWindow::slotHideRead()
 {
+    if (actionHideRead->isChecked())
+        rememberUnnarrowedPosition();
     prettyMsgListModel->setHideRead(actionHideRead->isChecked());
     saveMessageListFilters();
 }
@@ -6088,7 +6113,57 @@ void MainWindow::syncMessageListFilterUi()
     const bool active = filters != PrettyMsgListModel::NoFilter;
     m_actionClearFilters->setEnabled(active);
     m_clearFiltersButton->setVisible(active);
+    QStringList names;
+    for (const QAction *action : {m_actionFilterUnread, m_actionFilterFlagged, m_actionFilterAttachments}) {
+        if (action->isChecked())
+            names << KLocalizedString::removeAcceleratorMarker(action->text());
+    }
+    msgListWidget->setActiveFilters(names);
     scheduleMessageListStatus();
+}
+
+bool MainWindow::messageListNarrowed() const
+{
+    if (m_searchAcross || (prettyMsgListModel && prettyMsgListModel->filters() != Imap::Mailbox::PrettyMsgListModel::NoFilter))
+        return true;
+    const auto *threading = m_imapAccess ? qobject_cast<Imap::Mailbox::ThreadingMsgListModel *>(m_imapAccess->threadingMsgListModel())
+                                         : nullptr;
+    return threading && !threading->currentSearchCondition().isEmpty();
+}
+
+void MainWindow::rememberUnnarrowedPosition()
+{
+    if (messageListNarrowed() || showsUnifiedList())
+        return;
+    captureFolderPosition();
+    m_unnarrowedMailbox = m_positionMailbox;
+    m_unnarrowedPosition = m_livePosition;
+    m_pickedWhileNarrowed = false;
+}
+
+void MainWindow::clearSearchAndFilters()
+{
+    using Imap::Mailbox::PrettyMsgListModel;
+    if (!prettyMsgListModel || !messageListNarrowed())
+        return;
+    const QString mailbox = std::exchange(m_unnarrowedMailbox, QString());
+    const UiUtils::FolderPosition before = std::exchange(m_unnarrowedPosition, UiUtils::FolderPosition());
+    // A message which the user picked among the results stays current, now among all messages of the folder
+    const bool picked = std::exchange(m_pickedWhileNarrowed, false);
+    if (picked)
+        captureFolderPosition();
+    const UiUtils::FolderPosition narrowed = picked && !showsUnifiedList() ? m_livePosition : UiUtils::FolderPosition();
+    prettyMsgListModel->setFilters(PrettyMsgListModel::NoFilter);
+    saveMessageListFilters();
+    msgListWidget->clearSearch();
+    const QString shown = currentMailboxName();
+    if (showsUnifiedList() || !m_messageRestorer || shown.isEmpty() || shown != m_positionMailbox)
+        return;
+    if (narrowed.uid && narrowed.uidValidity) {
+        m_messageRestorer->restorePosition(shown, narrowed.uidValidity, narrowed.uid, 0, narrowed.selectedUids);
+    } else if (before.isValid() && mailbox == shown) {
+        m_messageRestorer->restorePosition(shown, before.uidValidity, before.uid, before.anchorUid, before.selectedUids);
+    }
 }
 
 void MainWindow::scheduleMessageListStatus()
@@ -6199,6 +6274,8 @@ void MainWindow::updateMessageListStatus()
     const int selected = msgListWidget->tree->selectedTree().size();
     if (selected > 1)
         parts << i18ncp("@info:status", "%1 selected", "%1 selected", selected);
+    if (m_clearSearchAndFilters)
+        m_clearSearchAndFilters->setEnabled(messageListNarrowed());
     msgListWidget->setListStatus(parts.join(QStringLiteral(" \u00B7 ")), statusDetails);
     updateSelectionActions();
 }

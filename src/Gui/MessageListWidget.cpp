@@ -301,6 +301,33 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     m_listStatus->setContentsMargins(margin, margin / 2, margin, margin / 2);
     m_listStatus->hide();
 
+    m_searchSummary = new QWidget(this);
+    m_searchSummary->setObjectName(QStringLiteral("searchSummary"));
+    m_searchSummaryText = new QLabel(m_searchSummary);
+    m_searchSummaryText->setObjectName(QStringLiteral("searchSummaryText"));
+    m_searchSummaryText->setAccessibleName(i18nc("@label", "Search and filters in effect"));
+    m_searchSummaryText->setTextFormat(Qt::PlainText);
+    // Long queries must not make the list wider; the tooltip has the whole text
+    m_searchSummaryText->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    m_searchSummaryText->setContentsMargins(margin, margin / 2, margin, margin / 2);
+    m_clearAll = new QAction(UiUtils::loadIcon(QStringLiteral("edit-clear-all")), i18nc("@action:button", "Clear All"), this);
+    m_clearAll->setObjectName(QStringLiteral("clearSearchAndFilters"));
+    m_clearAll->setToolTip(i18nc("@info:tooltip", "Clear the search, its date range and the filters, and go back to the "
+                                                  "messages shown before"));
+    connect(m_clearAll, &QAction::triggered, this, &MessageListWidget::clearAllRequested);
+    auto *clearAllButton = new QToolButton(m_searchSummary);
+    clearAllButton->setObjectName(QStringLiteral("clearSearchAndFiltersButton"));
+    clearAllButton->setDefaultAction(m_clearAll);
+    clearAllButton->setAutoRaise(true);
+    clearAllButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    clearAllButton->setAccessibleDescription(m_clearAll->toolTip());
+    auto *summaryLayout = new QHBoxLayout(m_searchSummary);
+    summaryLayout->setSpacing(0);
+    summaryLayout->setContentsMargins(0, 0, 0, 0);
+    summaryLayout->addWidget(m_searchSummaryText, 1);
+    summaryLayout->addWidget(clearAllButton);
+    m_searchSummary->hide();
+
     m_statusRow = new QWidget(this);
     m_scope = new QLabel(m_statusRow);
     m_scope->setObjectName(QStringLiteral("messageListScope"));
@@ -324,6 +351,7 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addLayout(m_toolRow);
     layout->addWidget(m_searchError);
+    layout->addWidget(m_searchSummary);
     layout->addWidget(tree);
     layout->addWidget(m_statusRow);
 
@@ -493,6 +521,28 @@ void MessageListWidget::setCustomScope(const QString &text, const QString &toolT
     m_scope->setAccessibleName(text);
     m_scope->setVisible(!text.isEmpty());
     updateStatusRow();
+}
+
+void MessageListWidget::setActiveFilters(const QStringList &names)
+{
+    if (m_activeFilters == names)
+        return;
+    m_activeFilters = names;
+    updateSearchSummary();
+}
+
+void MessageListWidget::updateSearchSummary()
+{
+    QStringList parts = m_searchDescription;
+    if (!m_activeFilters.isEmpty()) {
+        parts << i18nc("@info:status %1 is a list of quick filters such as Unread, Flagged", "Filters: %1",
+                       m_activeFilters.join(i18nc("@info:status separator of quick filter names", ", ")));
+    }
+    const QString text = parts.join(QStringLiteral(" \u00B7 "));
+    m_searchSummaryText->setText(text);
+    m_searchSummaryText->setToolTip(text);
+    m_clearAll->setEnabled(!parts.isEmpty());
+    m_searchSummary->setVisible(!parts.isEmpty());
 }
 
 void MessageListWidget::setSearchAvailable(bool available)
@@ -786,6 +836,15 @@ void MessageListWidget::slotApplySearch()
         return;
     }
     m_searchError->hide();
+    m_searchDescription.clear();
+    if (!conditions.isEmpty()) {
+        if (const QString query = m_quickSearchText->text().trimmed(); !query.isEmpty())
+            m_searchDescription << i18nc("@info:status %1 is the search query", "Search: %1", query);
+        if (UiUtils::SearchScope::isLimited(m_dateRange))
+            m_searchDescription << dateRangeText(m_dateRange);
+        m_searchDescription << i18nc("@info:status %1 is where the search looks, such as All Accounts", "In: %1", placesText());
+    }
+    updateSearchSummary();
     // Custom ranges are fixed days; the presets end today
     const bool relative = relativeQuery || (m_dateRange.dates != Dates::AnyTime && m_dateRange.dates != Dates::Custom);
     if (relative)
