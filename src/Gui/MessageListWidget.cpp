@@ -1412,6 +1412,11 @@ void MessageListWidget::showDateRange()
     m_quickSearchText->setToolTip(toolTip);
 }
 
+QLineEdit *MessageListWidget::searchField() const
+{
+    return m_quickSearchText;
+}
+
 void MessageListWidget::focusSearch()
 {
     if (!m_quickSearchText->isEnabled() || m_quickSearchText->hasFocus())

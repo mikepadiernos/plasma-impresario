@@ -717,6 +717,11 @@ Plugins::PluginManager *MessageView::pluginManager() const
 }
 
 /** @short Callback for AbstractPartWidget */
+QAction *MessageView::findAction() const
+{
+    return m_findAction;
+}
+
 void MessageView::triggerSearchDialogBy(EmbeddedWebView *w)
 {
     emit searchRequestedBy(w);

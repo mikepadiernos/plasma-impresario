@@ -40,6 +40,7 @@ class QIcon;
 class QActionGroup;
 class QCompleter;
 class QLabel;
+class QLineEdit;
 class QMenu;
 class QModelIndex;
 class QStandardItemModel;
@@ -162,6 +163,9 @@ public:
 
     // FIXME: consider making this private and moving the logic from Window with it
     MsgListView *tree;
+
+    /** @short The quick search field, a stop of its own when focus moves between panes */
+    QLineEdit *searchField() const;
 
 public slots:
     void focusSearch();

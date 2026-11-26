@@ -227,6 +227,8 @@ private slots:
     void slotFocusMessageView();
     void slotFocusNextRegion();
     void slotFocusPreviousRegion();
+    /** Find text in the open message while the reader has focus, or else move to the quick search */
+    void slotFind();
     void slotReturnToMessageList();
     void removeAccountNow(const QString &accountId);
     /** Authorize an OAuth account in the browser again, then reconnect it */
@@ -988,6 +990,7 @@ private:
     QAction *m_goToFolder;
     /** Opens the search builder of the message list */
     QAction *m_searchBuilder;
+    QAction *m_actionFind;
     /** Clears the search and the quick filters of the message list at once */
     QAction *m_clearSearchAndFilters = nullptr;
     QAction *m_goToNextUnreadFolder = nullptr;

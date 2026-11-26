@@ -593,6 +593,8 @@ void MainWindow::defineActions()
     shortcutHandler->defineAction(QStringLiteral("action_next_account"), QString(), tr("Switch to Next Account"), QStringLiteral("Ctrl+Alt+PgDown"));
     shortcutHandler->defineAction(QStringLiteral("action_previous_account"), QString(), tr("Switch to Previous Account"), QStringLiteral("Ctrl+Alt+PgUp"));
     shortcutHandler->defineAction(QStringLiteral("action_focus_quick_search"), QString(), tr("Move Focus to Quick Search"), QStringLiteral("/"));
+    shortcutHandler->defineAction(QStringLiteral("action_find"), QStringLiteral("edit-find"), i18nc("@action", "&Find..."),
+                                  QKeySequence::Find);
     shortcutHandler->defineAction(QStringLiteral("action_search_builder"), QStringLiteral("edit-find"),
                                   i18nc("@action", "&Search Builder..."), QStringLiteral("Ctrl+Shift+B"));
     shortcutHandler->defineAction(QStringLiteral("action_clear_search_and_filters"), QStringLiteral("edit-clear-all"),
@@ -762,6 +764,8 @@ void MainWindow::createActions()
 
     addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_focus_quick_search"),
             msgListWidget, SLOT(focusSearch()), this));
+    m_actionFind = ShortcutHandler::instance()->createAction(QStringLiteral("action_find"), this, SLOT(slotFind()), this);
+    m_actionFind->setToolTip(i18nc("@info:tooltip", "Find text in the open message while the reader has focus, or else search messages"));
     m_searchBuilder = ShortcutHandler::instance()->createAction(QStringLiteral("action_search_builder"), msgListWidget,
             SLOT(openSearchBuilder()), this);
     m_clearSearchAndFilters = ShortcutHandler::instance()->createAction(QStringLiteral("action_clear_search_and_filters"), this,
@@ -1590,6 +1594,7 @@ void MainWindow::createMenus()
         ADD_ACTION(mailboxMenu, m_goToNextUnreadFolder);
         ADD_ACTION(mailboxMenu, m_checkMail);
         mailboxMenu->addSeparator();
+        ADD_ACTION(mailboxMenu, m_actionFind);
         ADD_ACTION(mailboxMenu, m_searchBuilder);
         QMenu *sortMenu = mailboxMenu->addMenu(tr("S&orting"));
             ADD_ACTION(sortMenu, m_actionSortNone);
@@ -1821,6 +1826,9 @@ void MainWindow::createWidgets()
 
 #ifdef TROJITA_HAVE_WEBENGINE
     m_messageWidget = new CompleteMessageWidget(this, m_settings, m_pluginManager, m_favoriteTags);
+    // The window's Find action hands the key to the reader while it has focus; two actions with the same key in one
+    // window would be ambiguous, so that neither of them would run
+    m_messageWidget->messageView->findAction()->setShortcut(QKeySequence());
     const auto accountName = [this](const QModelIndex &message) { return messageAccountName(message); };
     m_messageWidget->messageView->setAccountResolver(accountName);
     connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::scrollMessageUp);
@@ -3847,6 +3855,26 @@ void MainWindow::slotFocusPreviousRegion()
     cycleFocusRegion(-1);
 }
 
+void MainWindow::slotFind()
+{
+#ifdef TROJITA_HAVE_WEBENGINE
+    QWidget *focus = focusWidget();
+    const bool inReader = focus
+        && (m_messageWidget->isAncestorOf(focus) || (m_readerActions && m_readerActions->isAncestorOf(focus)));
+    if (inReader && m_messageWidget->messageView->currentMessage().isValid()) {
+        m_messageWidget->messageView->findAction()->trigger();
+        return;
+    }
+#endif
+    // A layout which shows one pane at a time hides the list, and with it the search, while a message is open
+    if (!msgListWidget->searchField()->isVisible() && m_layoutMode == LAYOUT_ONE_AT_TIME && m_oneAtTimeGoBack
+        && m_oneAtTimeGoBack->isEnabled())
+        m_oneAtTimeGoBack->trigger();
+    msgListWidget->focusSearch();
+    // Typing replaces the previous search
+    msgListWidget->searchField()->selectAll();
+}
+
 void MainWindow::cycleFocusRegion(int step)
 {
     // Each region is entered through its target; focus anywhere inside the container counts as being in it.
@@ -3889,14 +3917,23 @@ void MainWindow::cycleFocusRegion(int step)
         return bandA != 0 && position(a) < position(b);
     });
 
+    // The quick search is a stop of its own, just before the list of messages or results that it fills
+    QLineEdit *search = msgListWidget->searchField();
+    for (int i = 0; i < regions.size(); ++i) {
+        if (regions.at(i).container == msgListWidget) {
+            regions.insert(i, Region{search, search});
+            break;
+        }
+    }
+
     const int count = regions.size();
     QWidget *focus = focusWidget();
     int current = -1;
     for (int i = 0; i < count && focus; ++i) {
-        if (regions.at(i).container == focus || regions.at(i).container->isAncestorOf(focus)) {
+        // Focus in the search field is also inside the message list, so the innermost region wins
+        if ((regions.at(i).container == focus || regions.at(i).container->isAncestorOf(focus))
+            && (current < 0 || regions.at(current).container->isAncestorOf(regions.at(i).container)))
             current = i;
-            break;
-        }
     }
     if (current < 0)
         current = step > 0 ? -1 : count;
