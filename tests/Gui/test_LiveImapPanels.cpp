@@ -286,14 +286,16 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(contact->contactCount(), 4, 10000);
         QVERIFY2(contacts(contact).join(QLatin1Char('\n')).contains(QLatin1String("bob-replies@example.test")),
                  qPrintable(contacts(contact).join(QLatin1String(" | "))));
-        QTRY_COMPARE_WITH_TIMEOUT(subjects(related->conversation()), QStringList{QStringLiteral("Quarterly plan")}, 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(subjects(related->conversation()),
+                                  (QStringList{QStringLiteral("Budget numbers"), QStringLiteral("Quarterly plan")}), 10000);
         QVERIFY(related->sameSender().isEmpty());
         QTRY_COMPARE_WITH_TIMEOUT(attachments->attachmentCount(), 0, 15000);
         QTRY_VERIFY(!attachments->isVisible());
 
-        // A reply with another subject still joins the conversation through In-Reply-To.
+        // A reply with another subject still joins the conversation through In-Reply-To, and sees all of it.
         open(QStringLiteral("Budget numbers"));
-        QTRY_COMPARE_WITH_TIMEOUT(subjects(related->conversation()), QStringList{QStringLiteral("Quarterly plan")}, 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(subjects(related->conversation()),
+                                  (QStringList{QStringLiteral("Quarterly plan"), QStringLiteral("Re: Quarterly plan")}), 10000);
 
         // The reader's verification of the synthetic signature is reported, never as a valid signature.
         open(QStringLiteral("Signed release note"));
@@ -664,6 +666,85 @@ private slots:
         QTRY_VERIFY(findMessage(messages, conversationOrder.at(1)).isValid());
         QCOMPARE(currentSubject(), conversationOrder.at(2));
         QCOMPARE(shownSubject(), conversationOrder.at(2));
+        groupedBefore->trigger();
+
+        // In the Conversations folder, replies without links join their conversation by subject within 30 days, mail
+        // of the same subject without reply prefixes stays apart, and a reply referencing two messages joins them.
+        // The server's REFS threads only follow links, so the list merges the threads itself.
+        settle();
+        QModelIndex conversationsFolder;
+        QTRY_VERIFY_WITH_TIMEOUT((conversationsFolder = findMailbox(tree->model(), QStringLiteral("Conversations"))).isValid(),
+                                 10000);
+        tree->scrollTo(conversationsFolder);
+        QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(conversationsFolder).center());
+        QTRY_COMPARE_WITH_TIMEOUT(conversationsFolder.data(Imap::Mailbox::RoleTotalMessageCount).toInt(), 9, 10000);
+        const QString status = QStringLiteral("[team] Status update");
+        const QString statusAw = QStringLiteral("AW: [team] Status update");
+        const QString statusRe = QStringLiteral("Re[2]: Status update");
+        const QString statusOld = QStringLiteral("Re: Status update");
+        const QString minutes = QStringLiteral("Minutes");
+        const QString agenda = QStringLiteral("Agenda");
+        const QString both = QStringLiteral("Re: Minutes and agenda");
+        for (const QString &subject : {status, statusAw, statusRe, statusOld, minutes, agenda, both})
+            QTRY_VERIFY2_WITH_TIMEOUT(findMessage(messages, subject).isValid(), qPrintable(subject), 10000);
+        const auto hellos = [&]() {
+            QList<QPersistentModelIndex> result;
+            for (const QModelIndex &index : messages->model()->match(messages->model()->index(0, 0), Imap::Mailbox::RoleMessageSubject,
+                                                                     QStringLiteral("Hello"), -1,
+                                                                     Qt::MatchExactly | Qt::MatchRecursive))
+                result << index;
+            return result;
+        };
+        const auto threadOf = [&](const QModelIndex &message) {
+            QModelIndex index = message;
+            while (index.parent().isValid() && !index.parent().data(Imap::Mailbox::RoleIsGroupHeader).toBool())
+                index = index.parent();
+            return QPersistentModelIndex(index);
+        };
+        const auto threadOfSubject = [&](const QString &subject) { return threadOf(findMessage(messages, subject)); };
+
+        action(window, QStringLiteral("messageListGroupByConversation"))->trigger();
+        // The merged replies are children of the thread's first message once their envelopes are loaded
+        QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(findMessage(messages, status)), 2, 15000);
+        QCOMPARE(threadOfSubject(statusAw), threadOfSubject(status));
+        QCOMPARE(threadOfSubject(statusRe), threadOfSubject(status));
+        QVERIFY(threadOfSubject(statusOld) != threadOfSubject(status));
+        QCOMPARE(hellos().size(), 2);
+        QVERIFY(threadOf(hellos().at(0)) != threadOf(hellos().at(1)));
+        QCOMPARE(threadOfSubject(agenda), threadOfSubject(minutes));
+        QCOMPARE(threadOfSubject(both), threadOfSubject(minutes));
+        snapshot(window, QStringLiteral("10-wide-merged-conversations"));
+
+        // The related messages panel groups the same way
+        open(statusRe);
+        QTRY_COMPARE_WITH_TIMEOUT(subjects(related->conversation()), (QStringList{statusAw, status}), 10000);
+        open(both);
+        QTRY_COMPARE_WITH_TIMEOUT(subjects(related->conversation()), (QStringList{agenda, minutes}), 10000);
+        open(statusOld);
+        QTRY_VERIFY_WITH_TIMEOUT(related->conversation().isEmpty(), 10000);
+
+        // The conversation steps follow the merged thread, and the same conversation in a flat list
+        const auto stepTo = [&](bool forward, const QString &subject) {
+            action(window, forward ? QStringLiteral("action_go_to_next_in_conversation")
+                                   : QStringLiteral("action_go_to_previous_in_conversation"))
+                ->trigger();
+            QTRY_COMPARE_WITH_TIMEOUT(shownSubject(), subject, 10000);
+            QTRY_COMPARE(currentSubject(), subject);
+            settle();
+        };
+        open(status);
+        settle();
+        stepTo(true, statusAw);
+        stepTo(true, statusRe);
+        action(window, QStringLiteral("messageListGroupByNone"))->trigger();
+        QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(findMessage(messages, status)), 0, 10000);
+        QTRY_COMPARE(currentSubject(), statusRe);
+        settle();
+        stepTo(false, statusAw);
+        stepTo(false, status);
+        action(window, QStringLiteral("action_go_to_previous_in_conversation"))->trigger();
+        QTest::qWait(200);
+        QCOMPARE(shownSubject(), status);
         groupedBefore->trigger();
 
         QCOMPARE(passwordPrompts, 0);

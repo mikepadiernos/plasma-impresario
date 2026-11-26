@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Seed a Maildir INBOX with synthetic messages that exercise the embedded panels.
+"""Seed a Maildir with synthetic messages that exercise the embedded panels.
 
 Usage: seed-panel-mail.py MAILDIR
 
@@ -21,6 +21,20 @@ a real OpenPGP signature. The messages are:
              test goes offline, so its body is not available offline
   digest     "Release digest" from Grace, multipart/alternative with plain
              text and HTML versions which can be told apart; unread
+
+The Conversations folder (MAILDIR/.Conversations) exercises the grouping of
+conversations; all its messages are read:
+
+  status     "[team] Status update" from Alice, 2 Nov
+  status-aw  "AW: [team] Status update" from Bob, 3 Nov, without In-Reply-To
+             or References
+  status-re  "Re[2]: Status update" from Carol, 5 Nov, without links either
+  status-old "Re: Status update" from Dave, 20 Sep, without links and more
+             than 30 days before the others, so it stays apart
+  hello-1    "Hello" from Erin, 2 Nov, and hello-2 "Hello" from Frank, 4 Nov:
+             unrelated mail of the same subject
+  minutes    "Minutes" from Alice, 9 Nov, and agenda "Agenda" from Bob, 9 Nov
+  both       "Re: Minutes and agenda" from Carol, 10 Nov, which references both
 """
 
 import base64
@@ -230,19 +244,56 @@ MESSAGES = [
 ]
 
 
-def main():
-    if len(sys.argv) != 2:
-        sys.exit(__doc__)
-    maildir = sys.argv[1]
+def conversation(sender, subject, date, message_id, extra=()):
+    return text_message(
+        headers(sender, USER, subject, f"{date} +0000", message_id, extra),
+        f"{subject}\n\nSynthetic conversation message.",
+    )
+
+
+CONVERSATIONS = [
+    ("1-status", "S", conversation(ALICE, "[team] Status update", "Mon, 02 Nov 2026 09:00:00", "status")),
+    ("2-status-aw", "S", conversation(BOB, "AW: [team] Status update", "Tue, 03 Nov 2026 09:00:00", "status-aw")),
+    ("3-status-re", "S", conversation(CAROL, "Re[2]: Status update", "Thu, 05 Nov 2026 09:00:00", "status-re")),
+    ("4-status-old", "S", conversation(DAVE, "Re: Status update", "Sun, 20 Sep 2026 09:00:00", "status-old")),
+    ("5-hello-1", "S", conversation(ERIN, "Hello", "Mon, 02 Nov 2026 10:00:00", "hello-1")),
+    ("6-hello-2", "S", conversation(FRANK, "Hello", "Wed, 04 Nov 2026 10:00:00", "hello-2")),
+    ("7-minutes", "S", conversation(ALICE, "Minutes", "Mon, 09 Nov 2026 09:00:00", "minutes")),
+    ("8-agenda", "S", conversation(BOB, "Agenda", "Mon, 09 Nov 2026 09:30:00", "agenda")),
+    (
+        "9-both",
+        "S",
+        conversation(
+            CAROL,
+            "Re: Minutes and agenda",
+            "Tue, 10 Nov 2026 09:00:00",
+            "both",
+            [f"References: <minutes@{DOMAIN}> <agenda@{DOMAIN}>"],
+        ),
+    ),
+]
+
+
+def write_maildir(maildir, messages):
     for part in ("cur", "new", "tmp"):
         os.makedirs(os.path.join(maildir, part), exist_ok=True)
-    for name, flags, lines in MESSAGES:
+    for name, flags, lines in messages:
         if flags is None:
             path = os.path.join(maildir, "new", f"{name}.synthetic")
         else:
             path = os.path.join(maildir, "cur", f"{name}.synthetic:2,{flags}")
         with open(path, "wb") as message:
             message.write(("\r\n".join(lines) + "\r\n").encode("utf-8"))
+
+
+def main():
+    if len(sys.argv) != 2:
+        sys.exit(__doc__)
+    maildir = sys.argv[1]
+    write_maildir(maildir, MESSAGES)
+    folder = os.path.join(maildir, ".Conversations")
+    write_maildir(folder, CONVERSATIONS)
+    open(os.path.join(folder, "maildirfolder"), "wb").close()
 
 
 if __name__ == "__main__":

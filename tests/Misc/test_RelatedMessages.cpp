@@ -8,6 +8,7 @@
 #include <QtTest>
 #include "test_RelatedMessages.h"
 #include "Imap/Model/ItemRoles.h"
+#include "UiUtils/Conversations.h"
 #include "UiUtils/RelatedMessages.h"
 
 namespace {
@@ -23,6 +24,7 @@ struct Row {
     QByteArray messageId;
     QList<QByteArray> inReplyTo;
     bool fetched = true;
+    QDateTime date = QDateTime();
 };
 
 QStandardItem *addRow(QStandardItemModel &model, const Row &row)
@@ -33,6 +35,7 @@ QStandardItem *addRow(QStandardItemModel &model, const Row &row)
     item->setData(address(row.from, QStringLiteral("example.org")), Imap::Mailbox::RoleMessageFrom);
     item->setData(row.messageId, Imap::Mailbox::RoleMessageMessageId);
     item->setData(QVariant::fromValue(row.inReplyTo), Imap::Mailbox::RoleMessageInReplyTo);
+    item->setData(row.date, Imap::Mailbox::RoleMessageDate);
     model.appendRow(item);
     return item;
 }
@@ -117,10 +120,12 @@ void RelatedMessagesTest::skipsUnfetchedRows()
 
 void RelatedMessagesTest::honoursLimits()
 {
+    const QDateTime day(QDate(2026, 11, 2), QTime(9, 0), QTimeZone::UTC);
     QStandardItemModel model;
-    for (int i = 0; i < 5; ++i)
-        addRow(model, {QStringLiteral("Plans"), QStringLiteral("bob"), {}, {}});
-    QStandardItem *current = addRow(model, {QStringLiteral("Plans"), QStringLiteral("ann"), {}, {}});
+    // Replies without links join the earlier message of their subject, so the current message starts the conversation
+    for (int i = 1; i <= 5; ++i)
+        addRow(model, {QStringLiteral("Re: Plans"), QStringLiteral("bob"), {}, {}, true, day.addDays(i)});
+    QStandardItem *current = addRow(model, {QStringLiteral("Plans"), QStringLiteral("ann"), {}, {}, true, day});
 
     auto related = UiUtils::collectRelatedMessages(&model, current->index(), 3);
     QCOMPARE(related.conversation.size(), 3);
@@ -143,8 +148,9 @@ void RelatedMessagesTest::followsTheWholeConversation()
     addRow(model, {QStringLiteral("Unrelated"), QStringLiteral("ann"), "<other@example.org>", {"<missing@example.org>"}});
     addRow(model, {QStringLiteral("Budget"), QStringLiteral("dave"), {}, {}, false});
 
-    // The related messages panel only sees direct links, so the reply does not reach the budget
-    QCOMPARE(subjects(UiUtils::collectRelatedMessages(&model, reply->index()).conversation), QStringList{QStringLiteral("Plans")});
+    // The related messages panel shows the whole conversation too, last row first
+    QCOMPARE(subjects(UiUtils::collectRelatedMessages(&model, reply->index()).conversation),
+             QStringList({QStringLiteral("Numbers"), QStringLiteral("Budget"), QStringLiteral("Plans")}));
     for (QStandardItem *from : {plans, reply, budget, numbers}) {
         QStringList found = subjects(UiUtils::collectConversation(&model, from->index()));
         found << from->text();
@@ -263,6 +269,119 @@ void RelatedMessagesTest::stepsThroughConversationsByDate()
     // A message outside the conversation has nowhere to go
     QCOMPARE(UiUtils::adjacentByDate(view.mapFromSource(other->index()), true, {}), QModelIndex());
     QCOMPARE(UiUtils::adjacentByDate(QModelIndex(), true, conversationOf(plans)), QModelIndex());
+}
+
+void RelatedMessagesTest::stripsLocalizedPrefixes()
+{
+    QCOMPARE(UiUtils::strippedSubject(QStringLiteral("AW: WG: Angebot"), true), QStringLiteral("Angebot"));
+    QCOMPARE(UiUtils::strippedSubject(QStringLiteral("Re[2]: Re(3):Status"), true), QStringLiteral("Status"));
+    QCOMPARE(UiUtils::strippedSubject(QStringLiteral("[team] Re: [team]  Status  update"), true),
+             QStringLiteral("Status update"));
+    QCOMPARE(UiUtils::strippedSubject(QStringLiteral("[team] Re: Status"), false), QStringLiteral("[team] Re: Status"));
+    QCOMPARE(UiUtils::strippedSubject(QStringLiteral("回复：会议"), true), QStringLiteral("会议"));
+    QCOMPARE(UiUtils::strippedSubject(QStringLiteral("SV: Vs: VB: Odp: Tilbud"), true), QStringLiteral("Tilbud"));
+    // A word which merely starts like a prefix is kept
+    QCOMPARE(UiUtils::strippedSubject(QStringLiteral("Report: done"), true), QStringLiteral("Report: done"));
+    QCOMPARE(UiUtils::normalizedSubject(QStringLiteral("[team] AW: STATUS update")), QStringLiteral("status update"));
+
+    QVERIFY(UiUtils::hasReplyPrefix(QStringLiteral("Re: Status")));
+    QVERIFY(UiUtils::hasReplyPrefix(QStringLiteral("[team] Fwd: Status")));
+    QVERIFY(UiUtils::hasReplyPrefix(QStringLiteral("re[2]:Status")));
+    QVERIFY(UiUtils::hasReplyPrefix(QStringLiteral("回复: 会议")));
+    QVERIFY(!UiUtils::hasReplyPrefix(QStringLiteral("[team] Status")));
+    QVERIFY(!UiUtils::hasReplyPrefix(QStringLiteral("Report: done")));
+}
+
+void RelatedMessagesTest::groupsConversationsByLinksAndSubject()
+{
+    const QDateTime day(QDate(2026, 11, 2), QTime(9, 0), QTimeZone::UTC);
+    const auto message = [](const QString &subject, const QDateTime &date, const QByteArray &id = {},
+                            const QList<QByteArray> &inReplyTo = {}, const QList<QByteArray> &references = {}) {
+        return UiUtils::ConversationMessage{subject, date, id, inReplyTo, references};
+    };
+    const QList<UiUtils::ConversationMessage> messages{
+        /* 0 */ message(QStringLiteral("[team] Status update"), day),
+        /* 1 */ message(QStringLiteral("AW: [team] Status update"), day.addDays(1)),
+        /* 2 */ message(QStringLiteral("Re[2]: Status update"), day.addDays(3)),
+        // Too long before the conversation, and nothing earlier to join
+        /* 3 */ message(QStringLiteral("Re: Status update"), day.addDays(-40)),
+        // Unrelated mail of the same subject without prefixes stays apart
+        /* 4 */ message(QStringLiteral("Hello"), day),
+        /* 5 */ message(QStringLiteral("hello"), day.addDays(1)),
+        // A reply which links one message is not joined to another one by its subject
+        /* 6 */ message(QStringLiteral("Minutes"), day, "<minutes@example.org>"),
+        /* 7 */ message(QStringLiteral("Agenda"), day, "<agenda@example.org>"),
+        /* 8 */ message(QStringLiteral("Re: Minutes and agenda"), day.addDays(1), "<both@example.org>", {},
+                        {"<minutes@example.org>", "<agenda@example.org>"}),
+        /* 9 */ message(QStringLiteral("Re: Hello"), day.addDays(2), {}, {"<elsewhere@example.org>"}),
+        // Without a date, a reply joins the earliest message of its subject
+        /* 10 */ message(QStringLiteral("Fwd: Hello"), QDateTime()),
+    };
+    const QList<qsizetype> groups = UiUtils::groupConversations(messages);
+    QCOMPARE(groups.size(), messages.size());
+    QCOMPARE(groups.at(1), groups.at(0));
+    QCOMPARE(groups.at(2), groups.at(0));
+    QVERIFY(groups.at(3) != groups.at(0));
+    QVERIFY(groups.at(4) != groups.at(5));
+    QCOMPARE(groups.at(7), groups.at(6));
+    QCOMPARE(groups.at(8), groups.at(6));
+    QVERIFY(groups.at(9) != groups.at(4) && groups.at(9) != groups.at(5));
+    QVERIFY(groups.at(10) == groups.at(4) || groups.at(10) == groups.at(5));
+    // Each group is known by its first message
+    QCOMPARE(groups.at(0), qsizetype(0));
+    QCOMPARE(groups.at(8), qsizetype(6));
+
+    // A wider window takes in the old reply
+    QCOMPARE(UiUtils::groupConversations(messages, 60).at(3), qsizetype(0));
+    QVERIFY(UiUtils::groupConversations({}).isEmpty());
+}
+
+namespace {
+
+QString describeThreads(const QVector<Imap::Responses::ThreadingNode> &threads)
+{
+    QStringList out;
+    for (const auto &node : threads) {
+        QString text = QString::number(node.num);
+        if (!node.children.isEmpty())
+            text += QLatin1Char('(') + describeThreads(node.children) + QLatin1Char(')');
+        out << text;
+    }
+    return out.join(QLatin1Char(' '));
+}
+
+}
+
+void RelatedMessagesTest::mergesConversationThreads()
+{
+    using Imap::Responses::ThreadingNode;
+    const QDateTime day(QDate(2026, 11, 2), QTime(9, 0), QTimeZone::UTC);
+    QHash<uint, UiUtils::ConversationMessage> loaded{
+        {1, {QStringLiteral("Status"), day, "<1@example.org>", {}, {}}},
+        {2, {QStringLiteral("Re: Status"), day.addDays(1), "<2@example.org>", {"<1@example.org>"}, {}}},
+        {3, {QStringLiteral("Hello"), day, "<3@example.org>", {}, {}}},
+        // A reply without links, which the server put in a thread of its own
+        {4, {QStringLiteral("AW: Status"), day.addDays(2), "<4@example.org>", {}, {}}},
+        {5, {QStringLiteral("Hello"), day.addDays(1), "<5@example.org>", {}, {}}},
+    };
+    const auto describe = [&loaded](uint uid) -> std::optional<UiUtils::ConversationMessage> {
+        const auto it = loaded.constFind(uid);
+        return it == loaded.constEnd() ? std::nullopt : std::optional(*it);
+    };
+    // The server's threads: 1 with its reply 2, below a missing parent; 3; 4; 5; 6, which is not loaded
+    const QVector<ThreadingNode> threads{
+        ThreadingNode(4),
+        ThreadingNode(0, {ThreadingNode(1, {ThreadingNode(2)})}),
+        ThreadingNode(3),
+        ThreadingNode(5),
+        ThreadingNode(6),
+    };
+    QCOMPARE(describeThreads(UiUtils::mergeConversationThreads(threads, describe)), QStringLiteral("0(1(2) 4) 3 5 6"));
+
+    // Nothing to merge gives the threads unchanged
+    loaded.remove(4);
+    QCOMPARE(UiUtils::mergeConversationThreads(threads, describe), threads);
+    QCOMPARE(UiUtils::mergeConversationThreads({}, describe), QVector<ThreadingNode>());
 }
 
 QTEST_GUILESS_MAIN(RelatedMessagesTest)
