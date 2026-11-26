@@ -286,6 +286,10 @@ void SortTask::cancelSortingUpdates()
 {
     Q_ASSERT(m_persistentSearch);
     Q_ASSERT(!sortTag.isEmpty());
+    if (!cancelUpdateTag.isEmpty()) {
+        // Already asked; a second CANCELUPDATE would leave the server's reply to the first one without a task
+        return;
+    }
     KeepMailboxOpenTask *keepTask = dynamic_cast<KeepMailboxOpenTask*>(conn);
     Q_ASSERT(keepTask);
     keepTask->breakOrCancelPossibleIdle();

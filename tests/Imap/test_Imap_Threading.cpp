@@ -1253,6 +1253,38 @@ void ImapModelThreadingTest::testDynamicSearch()
     justKeepTask();
     QCOMPARE(treeToThreading(QModelIndex()), threading);
 
+    // Searching again before the server confirms that the updates of the previous search stopped cancels them only once
+    conditions = QStringList() << QStringLiteral("SUBJECT") << QStringLiteral("foo3");
+    letsThreadingSearchUpdate(conditions, QByteArray("10,15"), QByteArray("(10 15)"));
+    QCOMPARE(treeToThreading(QModelIndex()), QByteArray("(10 15)"));
+    threadingModel->setUserSearchingSortingPreference(QStringList(), threadingModel->currentSortCriterium(), threadingModel->currentSortOrder());
+    const QByteArray cancelTag = t.mk("").trimmed();
+    const QByteArray allThreadTag = t.mk("").trimmed();
+    cClient(cancelTag + " CANCELUPDATE \"" + searchTag + "\"\r\n" + allThreadTag + " UID THREAD REFS utf-8 ALL\r\n");
+    threadingModel->setUserSearchingSortingPreference(conditions, threadingModel->currentSortCriterium(), threadingModel->currentSortOrder());
+    const QByteArray oldSearchTag = searchTag;
+    auto again = t.mk("UID SEARCH RETURN (ALL UPDATE) CHARSET utf-8 SUBJECT foo3\r\n");
+    searchTag = t.last();
+    again.append(t.mk("UID THREAD REFS utf-8 SUBJECT foo3\r\n"));
+    const QByteArray searchThreadTag = t.last();
+    cClient(again);
+    cServer(cancelTag + " OK Updates cancelled\r\n");
+    cServer("* THREAD " + threading + "\r\n" + allThreadTag + " OK thread\r\n");
+    cServer("* ESEARCH (TAG \"" + searchTag + "\") UID ALL 10,15\r\n" + searchTag + " OK searched\r\n");
+    cServer("* THREAD (10 15)\r\n" + searchThreadTag + " OK thread\r\n");
+    cEmpty();
+    QVERIFY(oldSearchTag != searchTag);
+    QCOMPARE(treeToThreading(QModelIndex()), QByteArray("(10 15)"));
+    threadingModel->setUserSearchingSortingPreference(QStringList(), threadingModel->currentSortCriterium(), threadingModel->currentSortOrder());
+    auto leave = t.mk(QString("CANCELUPDATE \"" + searchTag + "\"\r\n").toLocal8Bit().data());
+    leave.append(t.mk("UID THREAD REFS utf-8 ALL\r\n"));
+    cClient(leave);
+    cServer(t.prev("OK Updates cancelled\r\n"));
+    cServer("* THREAD " + threading + "\r\n" + t.last("OK thread\r\n"));
+    cEmpty();
+    justKeepTask();
+    QCOMPARE(treeToThreading(QModelIndex()), threading);
+
     // FIXME: check sorting & searching combo
     // FIXME: check threading & sorting & searching combo
     // FIXME: check incremental updates

@@ -238,6 +238,8 @@ private:
     /** @short Is this someone else's THREAD response? */
     bool shouldIgnoreThisThreadingResponse(const QModelIndex &mailbox, const QByteArray &algorithm,
                                            const QStringList &searchCriteria, const Model **realModel=nullptr);
+    /** @short Does this THREAD response answer a search which has been replaced while its request was in flight? */
+    bool isStaleThreadingResponse(const QStringList &searchCriteria) const;
 
     /** @short Return some number from the thread mapping @arg mapping which is either the highest among them, or at least as high as the marker*/
     static uint findHighEnoughNumber(const QVector<Imap::Responses::ThreadingNode> &mapping, uint marker);

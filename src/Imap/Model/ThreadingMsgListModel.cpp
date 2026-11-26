@@ -814,8 +814,18 @@ bool ThreadingMsgListModel::shouldIgnoreThisThreadingResponse(const QModelIndex 
     return false;
 }
 
+bool ThreadingMsgListModel::isStaleThreadingResponse(const QStringList &searchCriteria) const
+{
+    // askForThreading() asks with these criteria, so a response with others belongs to a request made before
+    return searchCriteria != (m_filteredBySearch ? m_currentSearchConditions : QStringList{QStringLiteral("ALL")});
+}
+
 void ThreadingMsgListModel::slotThreadingFailed(const QModelIndex &mailbox, const QByteArray &algorithm, const QStringList &searchCriteria)
 {
+    // The request for the current search is still in flight
+    if (isStaleThreadingResponse(searchCriteria))
+        return;
+
     // Better safe than sorry -- prevent infinite waiting to the maximal possible extent
     threadingInFlight = false;
 
@@ -834,6 +844,10 @@ void ThreadingMsgListModel::slotThreadingAvailable(const QModelIndex &mailbox, c
         const QStringList &searchCriteria,
         const QVector<Imap::Responses::ThreadingNode> &mapping)
 {
+    // The request for the current search is still in flight
+    if (isStaleThreadingResponse(searchCriteria))
+        return;
+
     // Better safe than sorry -- prevent infinite waiting to the maximal possible extent
     threadingInFlight = false;
 
