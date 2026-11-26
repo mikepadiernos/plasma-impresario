@@ -1,23 +1,34 @@
 # Navigation toolbar
 
+**[Documentation](../../README.md)** · **[Roadmap: M14](../../ROADMAP.md#m14-refinements)** ·
 **[Refinements](../README.md)** · **[Toolbars](README.md)** ·
-**[Interface design](../../philosophy/designs.md)** ·
-**[M14 in roadmap](../../ROADMAP.md#m14-refinements)**
+**[Menus](../menus/README.md)** · **[Interface design](../../philosophy/designs.md)**
 
 This proposed Impresario-specific icon toolbar is separate from the account and
-folder sidebar. It can be positioned in any shell region. Within either side
-column it can dock to the top, bottom, left or right edge, including vertical
-placement. A separate full-app-height option places it vertically at the left or
-right window edge, from the top of the header to the bottom of the status bar.
-Reserve space for it rather than covering the header, content or status bar.
+folder sidebar. It maps each entry to the **Navigation** toolbar that exists
+today.
+
+Legend: ![Exists][exists] in the current code on `main`, not checked in a real
+Plasma session · ![Planned][planned] not implemented yet
+
+| Roadmap subsection                                                | Issue                                                                 |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------- |
+| [M14.02: Shell and interaction](../../ROADMAP.md#m14-refinements) | [#151](https://github.com/mikepadiernos/plasma-impresario/issues/151) |
+
+## Purpose
+
+The toolbar holds compose, common message actions and utility entry points. It
+can be positioned in any shell region:
+
+- Within either side column it can dock to the top, bottom, left or right edge,
+  including vertical placement.
+- A separate full-app-height option places it vertically at the left or right
+  window edge, from the top of the header to the bottom of the status bar.
+- It reserves space rather than covering the header, content or status bar.
+
 Other toolbars remain horizontal.
 
-**Roadmap subsection:**
-[M14.02: Shell and interaction](../../ROADMAP.md#m14-refinements) · **Issue:**
-[#151](https://github.com/mikepadiernos/plasma-impresario/issues/151)
-
-**Legend:** ![Exists][exists] in the current code on `main` ·
-![Planned][planned] not implemented yet
+## Toolbar tree
 
 The pictured left-edge arrangement is one possible placement:
 
@@ -38,16 +49,14 @@ The diagram shows grouping, not a fixed icon order or a complete action list.
 The upper group can include compose and common message actions; the lower group
 holds utility and application-menu entry points.
 
-## Current toolbar
+## Actions
 
-The toolbar exists today as the Qt toolbar titled **Navigation**, built in
-`src/Gui/Window.cpp`. It docks at the left window edge by default, can be moved
-to another edge, and restores its position with the window state. **View › Show
-Toolbar** hides or shows it. Items appear in this order:
+Items appear in this order in the current toolbar. Separators follow the
+account selector, **Expunge** and the expanding space.
 
 | Action              | Shortcut                                                                                         | Availability                                     | Notes                                                                                                                          |
 | ------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| Navigate Back       | <kbd>Alt</kbd>+<kbd>Left</kbd>                                                                   | ![Exists][exists] One At a Time layout only      | Inserted at the start of the toolbar                                                                                           |
+| Navigate Back       | <kbd>Alt</kbd>+<kbd>Left</kbd>                                                                   | ![Exists][exists] One At a Time layout only      | Inserted at the start of the toolbar; the shortcut is the platform Back key                                                    |
 | Account selector    | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>PgDown</kbd>, <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>PgUp</kbd> | ![Exists][exists] Always                         | Switches the active account                                                                                                    |
 | New Message         | <kbd>Ctrl</kbd>+<kbd>N</kbd>                                                                     | ![Exists][exists] Always                         | Drop-down adds **Edit Draft…**                                                                                                 |
 | Reply               | —                                                                                                | ![Exists][exists] Online, with a message shown   | Default follows the message: Reply to Mailing List, else Reply to All but Me, else Private Reply; the drop-down lists all four |
@@ -59,10 +68,11 @@ Toolbar** hides or shows it. Items appear in this order:
 | Mark as Junk        | <kbd>J</kbd>                                                                                     | ![Exists][exists] Online, with messages selected | Toggle                                                                                                                         |
 | Mark as Not Junk    | <kbd>Shift</kbd>+<kbd>J</kbd>                                                                    | ![Exists][exists] Online, with messages selected | Toggle                                                                                                                         |
 | Archive             | <kbd>A</kbd>                                                                                     | ![Exists][exists] Online, with messages selected | Moves to the account's archive folder, `Archive` unless configured; disabled when every selected message is already there      |
+| Move to Folder      | <kbd>V</kbd>                                                                                     | ![Exists][exists] Online, with messages selected | **Move to Folder…** opens a folder picker; the drop-down lists recent **Move To** folders                                      |
 | Expanding space     | —                                                                                                | ![Exists][exists] Always                         | Separates mail actions from the indicators                                                                                     |
 | Activity indicator  | —                                                                                                | ![Exists][exists] Always                         | Spinner while IMAP tasks run; the tooltip counts ongoing actions                                                               |
 | Network indicator   | —                                                                                                | ![Exists][exists] Always                         | Opens the **Network Access** menu                                                                                              |
-| Main menu button    | —                                                                                                | ![Exists][exists] While the menu bar is hidden   | Opens the Application, View, Mailbox and Message menus                                                                         |
+| Main menu button    | —                                                                                                | ![Exists][exists] While the menu bar is hidden   | Opens the Application, View, Mailbox, Message and Help menus and **Show Main Menu Bar**                                        |
 | Customization mode  | —                                                                                                | ![Planned][planned]                              | See [toolbars and customization](../../philosophy/designs.md#toolbars-and-customization)                                       |
 | Side-column docking | —                                                                                                | ![Planned][planned]                              | Docking inside a side column or at full app height                                                                             |
 | Menu corner markers | —                                                                                                | ![Planned][planned]                              | Part of [M09](../../ROADMAP.md#m09-themes-and-branding-foundation)                                                             |
@@ -70,9 +80,22 @@ Toolbar** hides or shows it. Items appear in this order:
 > [!NOTE]
 >
 > The availability column follows the enable rules in `src/Gui/Window.cpp`;
-> "Online" means the network access policy is not **Offline**.
+> "Online" means the network access policy is not **Offline**. **Archive** and
+> **Move to Folder** also need an account whose server can move messages, and
+> **Mark as Junk** and **Mark as Not Junk** need server-side flags.
 
-## Behavior
+## Current toolbar
+
+The toolbar exists today as the Qt toolbar titled **Navigation**, built in
+`src/Gui/Window.cpp`. It docks at the left window edge by default, can be moved
+to another edge, and restores its position with the window state. **View › Show
+Toolbar** hides or shows it.
+
+Compared with this specification, the current toolbar has no customization
+mode, cannot dock inside a side column or at full app height, and its menu
+buttons are Qt split buttons rather than icons with corner markers.
+
+## Design rules
 
 - Use compact theme icons, visible focus, accessible names and tooltips. Clearly
   distinguish unavailable actions from active ones.
@@ -89,8 +112,10 @@ Toolbar** hides or shows it. Items appear in this order:
   customization through the shared mode. The toolbar remains usable when sidebar
   panels or message panes are hidden.
 
-The exact action set, spacing and visual treatment require validation with
-representative mail workflows and Plasma themes.
+> [!NOTE]
+>
+> The exact action set, spacing and visual treatment require validation with
+> representative mail workflows and Plasma themes.
 
 [exists]: https://img.shields.io/badge/Exists-1a7f37
 [planned]: https://img.shields.io/badge/Planned-6e7781

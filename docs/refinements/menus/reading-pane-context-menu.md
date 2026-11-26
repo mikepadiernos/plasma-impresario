@@ -1,14 +1,15 @@
 # Reading pane context menu
 
+**[Documentation](../../README.md)** · **[Roadmap: M14](../../ROADMAP.md#m14-refinements)** ·
 **[Refinements](../README.md)** · **[Menus](README.md)** ·
-**[Interface design](../../philosophy/designs.md)** ·
-**[M14 in roadmap](../../ROADMAP.md#m14-refinements)**
+**[Toolbars](../toolbars/README.md)** · **[Interface design](../../philosophy/designs.md)**
 
 This proposed menu appears when the user right-clicks in the reading pane or on
-content inside an opened message.
+content inside an opened message. It maps each entry to the reader actions that
+exist today.
 
-**Legend:** ![Exists][exists] in the current code on `main` ·
-![Planned][planned] not implemented yet
+Legend: ![Exists][exists] in the current code on `main`, not checked in a real
+Plasma session · ![Planned][planned] not implemented yet
 
 ## Purpose
 
@@ -51,36 +52,36 @@ desktop-like reading and linking behavior.
 
 ### Content actions
 
-| Action                | Shortcut                     | Availability                                | Notes                                                                        |
-| --------------------- | ---------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------- |
-| Copy                  | <kbd>Ctrl</kbd>+<kbd>C</kbd> | ![Exists][exists] Reader context menu       |                                                                              |
-| Select all            | <kbd>Ctrl</kbd>+<kbd>A</kbd> | ![Exists][exists] Reader context menu       |                                                                              |
-| Copy link address     | —                            | ![Exists][exists] Reader context menu       | On a link; a `mailto:` link offers **Copy e-mail address** instead           |
-| Open link in browser  | —                            | ![Planned][planned]                         |                                                                              |
-| Save link as          | —                            | ![Planned][planned]                         |                                                                              |
-| Open external content | —                            | ![Planned][planned]                         |                                                                              |
-| Load remote content   | —                            | ![Exists][exists] Remote content bar        | A bar in the reader offers **Load**; remote content stays blocked until then |
-| Show original source  | —                            | ![Planned][planned]                         | See **View message source**                                                  |
-| View message source   | —                            | ![Exists][exists] Message list context menu | **View Message Source…**                                                     |
-| Print                 | —                            | ![Planned][planned]                         |                                                                              |
-| Zoom in               | <kbd>Ctrl</kbd>+<kbd>+</kbd> | ![Exists][exists] Reader **Zoom** submenu   |                                                                              |
-| Zoom out              | <kbd>Ctrl</kbd>+<kbd>-</kbd> | ![Exists][exists] Reader **Zoom** submenu   |                                                                              |
-| Reset zoom            | —                            | ![Exists][exists] Reader **Zoom** submenu   | **Original Size**                                                            |
+| Action                | Shortcut                     | Availability                                                 | Notes                                                                                       |
+| --------------------- | ---------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| Copy                  | <kbd>Ctrl</kbd>+<kbd>C</kbd> | ![Exists][exists] Reader context menu                        |                                                                                             |
+| Select all            | <kbd>Ctrl</kbd>+<kbd>A</kbd> | ![Exists][exists] Reader context menu                        |                                                                                             |
+| Copy link address     | —                            | ![Exists][exists] Reader context menu                        | On a link; a `mailto:` link offers **Copy e-mail address** instead                          |
+| Open link in browser  | —                            | ![Planned][planned]                                          |                                                                                             |
+| Save link as          | —                            | ![Planned][planned]                                          |                                                                                             |
+| Open external content | —                            | ![Planned][planned]                                          |                                                                                             |
+| Load remote content   | —                            | ![Exists][exists] Remote content bar                         | A bar in the reader offers **Load Remote Content**; remote content stays blocked until then |
+| Show original source  | —                            | ![Planned][planned]                                          | See **View message source**                                                                 |
+| View message source   | —                            | ![Exists][exists] Message list context menu                  | **View Message Source…**                                                                    |
+| Print                 | —                            | ![Planned][planned]                                          |                                                                                             |
+| Zoom in               | <kbd>Ctrl</kbd>+<kbd>+</kbd> | ![Exists][exists] Reader **Zoom** submenu, reader action bar |                                                                                             |
+| Zoom out              | <kbd>Ctrl</kbd>+<kbd>-</kbd> | ![Exists][exists] Reader **Zoom** submenu, reader action bar |                                                                                             |
+| Reset zoom            | —                            | ![Exists][exists] Reader **Zoom** submenu, reader action bar | **Original Size** in the menu, **Reset Zoom** on the bar                                    |
 
 ### Message actions
 
-| Action             | Shortcut                                                     | Availability                                                    | Notes                                                |
-| ------------------ | ------------------------------------------------------------ | --------------------------------------------------------------- | ---------------------------------------------------- |
-| Reply              | <kbd>Ctrl</kbd>+<kbd>R</kbd>                                 | ![Exists][exists] **Message** menu, navigation toolbar          | **Reply by Guess**                                   |
-| Reply all          | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> | ![Exists][exists] **Message** menu, navigation toolbar          | **Reply to All**                                     |
-| Forward            | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>                | ![Exists][exists] **Message** menu, navigation toolbar          | Forwards as an attachment                            |
-| Mark as read       | <kbd>M</kbd>                                                 | ![Exists][exists] Navigation toolbar, message list context menu |                                                      |
-| Flag               | <kbd>S</kbd>                                                 | ![Exists][exists] Navigation toolbar, message list context menu | **Mark as Flagged**                                  |
-| Archive            | <kbd>A</kbd>                                                 | ![Exists][exists] Navigation toolbar, message list context menu |                                                      |
-| Move to folder     | —                                                            | ![Exists][exists] Drag and drop onto the folder tree            | From the message list                                |
-| Delete             | <kbd>Delete</kbd>                                            | ![Exists][exists] Navigation toolbar, message list context menu | **Mark as Deleted**                                  |
-| Save attachment as | —                                                            | ![Exists][exists] Reader context menu, Attachments panel        | **Save this message part…**, **Save Attachment As…** |
-| Open attachment    | —                                                            | ![Exists][exists] Attachments panel, inline attachment menu     | **Open Attachment**, **Open Directly**               |
+| Action             | Shortcut                                                     | Availability                                                                                             | Notes                                                                                          |
+| ------------------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Reply              | <kbd>Ctrl</kbd>+<kbd>R</kbd>                                 | ![Exists][exists] **Message** menu, navigation toolbar, reader action bar                                | **Reply by Guess**                                                                             |
+| Reply all          | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> | ![Exists][exists] **Message** menu, navigation toolbar                                                   | **Reply to All**                                                                               |
+| Forward            | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>                | ![Exists][exists] **Message** menu, navigation toolbar, reader action bar                                | Forwards as an attachment                                                                      |
+| Mark as read       | <kbd>M</kbd>                                                 | ![Exists][exists] Navigation toolbar, reader action bar, message list context menu                       |                                                                                                |
+| Flag               | <kbd>S</kbd>                                                 | ![Exists][exists] Navigation toolbar, reader action bar, message list context menu                       | **Mark as Flagged**                                                                            |
+| Archive            | <kbd>A</kbd>                                                 | ![Exists][exists] Navigation toolbar, reader action bar, message list context menu                       |                                                                                                |
+| Move to folder     | <kbd>V</kbd>                                                 | ![Exists][exists] **Message › Move to Folder…**, navigation toolbar, drag and drop from the message list |                                                                                                |
+| Delete             | <kbd>Delete</kbd>                                            | ![Exists][exists] Navigation toolbar, reader action bar, message list context menu                       | **Mark as Deleted**; the reader action bar shows **Move to Trash**, **Delete** or **Undelete** |
+| Save attachment as | —                                                            | ![Exists][exists] Reader context menu, Attachments panel                                                 | **Save this message part…**, **Save Attachment As…**                                           |
+| Open attachment    | —                                                            | ![Exists][exists] Attachments panel, inline attachment menu                                              | **Open Attachment**, **Open Directly**                                                         |
 
 ## Current menu
 
@@ -96,10 +97,12 @@ the reader menu:
   **Download Image…**.
 - **Color scheme** and **Zoom** submenus.
 
-The reader has no message actions in its menu today; they are in the **Message**
-menu, the navigation toolbar and the message list menu.
+The reader has no message actions in its menu today. They are in the
+**Message** menu, the navigation toolbar, the message list menu and, in builds
+with the WebEngine reader, the
+[reader action bar](../toolbars/reading-pane-toolbar.md).
 
-## Safety and quality rules
+## Design rules
 
 - Opening external links must be explicit and must not silently trigger without
   user confirmation when security or privacy controls are enabled.

@@ -1,14 +1,15 @@
 # Attachment context menu
 
+**[Documentation](../../README.md)** · **[Roadmap: M14](../../ROADMAP.md#m14-refinements)** ·
 **[Refinements](../README.md)** · **[Menus](README.md)** ·
-**[Interface design](../../philosophy/designs.md)** ·
-**[M14 in roadmap](../../ROADMAP.md#m14-refinements)**
+**[Toolbars](../toolbars/README.md)** · **[Interface design](../../philosophy/designs.md)**
 
 This proposed menu appears when the user right-clicks an attachment in the
-reading pane, attachment tray, or compose attachment list.
+reading pane, attachment tray, or compose attachment list. It maps each entry
+to the attachment actions that exist today.
 
-**Legend:** ![Exists][exists] in the current code on `main` ·
-![Planned][planned] not implemented yet
+Legend: ![Exists][exists] in the current code on `main`, not checked in a real
+Plasma session · ![Planned][planned] not implemented yet
 
 ## Purpose
 
@@ -52,15 +53,16 @@ desktop file handling available while keeping the user aware of potential risk.
 | Add to notes           | —        | ![Planned][planned]                                         |                                                                       |
 | Forward as attachment  | —        | ![Planned][planned]                                         | **Forward** sends the whole message as an attachment                  |
 | Inspect security state | —        | ![Planned][planned]                                         |                                                                       |
-| Scan with ClamAV       | —        | ![Planned][planned]                                         |                                                                       |
+| Scan with ClamAV       | —        | ![Planned][planned]                                         | No ClamAV integration exists in `src/`                                |
 
-## Current menus
+## Current menu
 
 Attachment actions are split across three places today:
 
 - **Attachments embedded panel** (`src/Gui/AttachmentPanel.cpp`): header
   buttons **Open Attachment** and **Save Attachment As…**, and a context menu
-  with **Open** and **Save As…**.
+  with **Open** and **Save As…**. In WebEngine builds, the reader action bar's
+  attachment count chip opens this panel.
 - **Inline attachment drop-down** in the reader
   (`src/Gui/AttachmentView.cpp`): **Download**, **Open Directly**, **Show
   Preview** for previewable types, and **Show Message Source** for attached
@@ -68,7 +70,7 @@ Attachment actions are split across three places today:
 - **Composer attachment list** (`src/Gui/ComposerAttachmentsList.cpp`):
   **Send Inline**, **Rename…** and **Remove**.
 
-## Safety and quality rules
+## Design rules
 
 - Open and save actions must respect trusted, blocked, or suspicious file
   states.

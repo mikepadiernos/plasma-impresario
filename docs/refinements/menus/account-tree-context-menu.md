@@ -1,28 +1,20 @@
 # Account tree context menu
 
+**[Documentation](../../README.md)** · **[Roadmap: M14](../../ROADMAP.md#m14-refinements)** ·
 **[Refinements](../README.md)** · **[Menus](README.md)** ·
-**[Interface design](../../philosophy/designs.md)** ·
-**[M14 in roadmap](../../ROADMAP.md#m14-refinements)**
+**[Toolbars](../toolbars/README.md)** · **[Interface design](../../philosophy/designs.md)**
 
 This proposed menu appears when the user right-clicks an account in the
-account/sidebar navigation tree.
+sidebar navigation tree. It maps each entry to the account actions that exist
+today.
 
-**Legend:** ![Exists][exists] in the current code on `main` ·
-![Planned][planned] not implemented yet
+Legend: ![Exists][exists] in the current code on `main`, not checked in a real
+Plasma session · ![Planned][planned] not implemented yet
 
 ## Purpose
 
 This menu is about account lifecycle and maintenance. It should not contain
 message actions that belong in the message list or reading pane.
-
-> [!NOTE]
->
-> There is no account tree today. The folder tree shows the active account, and
-> the account selector in the navigation toolbar switches accounts
-> (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>PgDown</kbd> and
-> <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>PgUp</kbd>). Account actions live in the
-> **Application** menu and act on the active account. See the
-> [multiple accounts caveat](../../CAVEATS.md#multiple-accounts).
 
 ## Menu tree
 
@@ -33,6 +25,7 @@ message actions that belong in the message list or reading pane.
    ├─ Synchronize now
    ├─ Pause or resume sync
    ├─ Edit account
+   ├─ Sign in again
    ├─ Remove account
    ├─ Account settings
    ├─ Create folder
@@ -44,22 +37,41 @@ message actions that belong in the message list or reading pane.
 
 ## Actions
 
-| Action                         | Shortcut                                                                                         | Availability                                                            | Notes                                                                   |
-| ------------------------------ | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Open account                   | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>PgDown</kbd>, <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>PgUp</kbd> | ![Exists][exists] Navigation toolbar account selector                   | Switches the active account                                             |
-| Expand / collapse account tree | —                                                                                                | ![Planned][planned]                                                     |                                                                         |
-| Synchronize now                | —                                                                                                | ![Exists][exists] Folder tree context menu, **Application › Debugging** | **Reload Everything** reloads the active account                        |
-| Pause or resume sync           | —                                                                                                | ![Exists][exists] **Application › Network Access**                      | Also in the toolbar network indicator                                   |
-| Edit account                   | —                                                                                                | ![Exists][exists] **Application › Account Settings…**                   | Edits the active account; switch accounts to edit another               |
-| Remove account                 | —                                                                                                | ![Exists][exists] **Application › Remove Account…**                     | Asks for confirmation; needs at least two accounts; server mail is kept |
-| Account settings               | —                                                                                                | ![Exists][exists] **Application › Account Settings…**                   | A dedicated dialog; application-wide options stay in **Settings…**      |
-| Create folder                  | —                                                                                                | ![Exists][exists] Folder tree context menu                              | **Create New Mailbox…** on empty space                                  |
-| Rename account                 | —                                                                                                | ![Exists][exists] **Application › Rename Account…**                     | Changes the display name of the active account                          |
-| Set as default account         | —                                                                                                | ![Planned][planned]                                                     |                                                                         |
-| Show unread counts             | —                                                                                                | ![Planned][planned]                                                     |                                                                         |
-| Show account in sidebar        | —                                                                                                | ![Planned][planned]                                                     |                                                                         |
+| Action                         | Shortcut                                                                                         | Availability                                                                                | Notes                                                                                         |
+| ------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Open account                   | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>PgDown</kbd>, <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>PgUp</kbd> | ![Exists][exists] Account header in the folder sidebar, navigation toolbar account switcher | Switches the active account                                                                   |
+| Expand / collapse account tree | <kbd>Return</kbd>, <kbd>Space</kbd> on a focused header                                          | ![Exists][exists] Account header in the folder sidebar                                      | Activating the active account's header collapses or expands its folders; not a menu entry yet |
+| Synchronize now                | —                                                                                                | ![Exists][exists] Folder tree context menu, **Application › Debugging**                     | **Reload Everything** reloads the active account                                              |
+| Pause or resume sync           | —                                                                                                | ![Exists][exists] **Application › Network Access**                                          | Also in the toolbar network indicator                                                         |
+| Edit account                   | —                                                                                                | ![Exists][exists] Account header menu, **Application › Account Settings…**                  | The header menu switches to that account first; the Application menu edits the active account |
+| Sign in again                  | —                                                                                                | ![Exists][exists] Account header menu                                                       | **Sign In…**, shown for OAuth accounts only                                                   |
+| Remove account                 | —                                                                                                | ![Exists][exists] Account header menu, **Application › Remove Account…**                    | Asks for confirmation; disabled while only one account exists; server mail is kept            |
+| Account settings               | —                                                                                                | ![Exists][exists] Account header menu, **Application › Account Settings…**                  | A dedicated dialog; application-wide options stay in **Settings…**                            |
+| Create folder                  | —                                                                                                | ![Exists][exists] Folder tree context menu                                                  | **Create New Mailbox…** on empty space                                                        |
+| Rename account                 | —                                                                                                | ![Exists][exists] Account header menu, **Application › Rename Account…**                    | Changes the display name of the account                                                       |
+| Set as default account         | —                                                                                                | ![Planned][planned]                                                                         |                                                                                               |
+| Show unread counts             | —                                                                                                | ![Planned][planned]                                                                         | Headers always show the account's Inbox unread count; there is no toggle                      |
+| Show account in sidebar        | —                                                                                                | ![Planned][planned]                                                                         |                                                                                               |
 
-## Safety and quality rules
+## Current menu
+
+With two or more accounts, the folder sidebar shows a header per account with
+its name and Inbox unread count. The headers take keyboard focus:
+<kbd>Up</kbd> and <kbd>Down</kbd> move between them, and <kbd>Return</kbd>,
+<kbd>Enter</kbd> or <kbd>Space</kbd> activates one. Right-clicking a header, or
+pressing the Menu key on it, opens the account header menu:
+
+- **Account Settings…**, after switching to that account
+- **Rename Account…**
+- **Sign In…**, for OAuth accounts only
+- **Remove Account…**, disabled while only one account exists
+
+The account switcher in the navigation toolbar still switches accounts, and
+the same account actions remain in the **Application** menu, where they act on
+the active account. See the
+[multiple accounts caveat](../../CAVEATS.md#multiple-accounts).
+
+## Design rules
 
 - Account deletion must require confirmation and show the number of folders,
   messages, and local data affected.
