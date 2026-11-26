@@ -1,25 +1,35 @@
-# Toolbar layout specification
+# Toolbar specifications
 
+**[Documentation](../../README.md)** · **[Roadmap: M14](../../ROADMAP.md#m14-refinements)** ·
 **[Refinements](../README.md)** · **[Menus](../menus/README.md)** ·
-**[Interface design](../../philosophy/designs.md)** ·
-**[M14 in roadmap](../../ROADMAP.md#m14-refinements)**
+**[Interface design](../../philosophy/designs.md)**
 
 These proposed toolbar layouts keep primary actions visible and consistent
-without crowding each surface. Each specification maps its entries to actions
-that exist today.
+without crowding each surface. Each specification maps its entries to the
+actions that exist today.
 
-**Legend:** ![Exists][exists] in the current code on `main` ·
-![Planned][planned] not implemented yet
+Legend: ![Exists][exists] in the current code on `main`, not checked in a real
+Plasma session · ![Planned][planned] not implemented yet
 
-## Toolbar tree map
+## Specifications
 
-| Specification                                   | Scope                                         | Exists today                                          |
-| ----------------------------------------------- | --------------------------------------------- | ----------------------------------------------------- |
-| [Navigation toolbar](main-window-toolbar.md)    | Movable icon toolbar and global actions       | ![Exists][exists] **Navigation** toolbar, docked left |
-| [Message list toolbar](message-list-toolbar.md) | Message triage and selection actions          | ![Planned][planned] Quick search field only           |
-| [Reading pane toolbar](reading-pane-toolbar.md) | Actions while reading a message               | ![Planned][planned] No toolbar                        |
-| [Compose toolbar](compose-toolbar.md)           | Message composition                           | ![Planned][planned] Button row only                   |
-| [Attachment toolbar](attachment-toolbar.md)     | Attachment actions while reading or composing | ![Exists][exists] Attachments panel header buttons    |
+Every specification uses the same sections: **Purpose**, **Toolbar tree**,
+**Actions**, **Current toolbar** and **Design rules**.
+
+| Specification                                   | Scope                                         | Exists today                                                               |
+| ----------------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------------- |
+| [Navigation toolbar](main-window-toolbar.md)    | Movable icon toolbar and global actions       | ![Exists][exists] **Navigation** toolbar, docked left                      |
+| [Message list toolbar](message-list-toolbar.md) | Message triage and selection actions          | ![Exists][exists] Tool row with quick search, filters and sort; status row |
+| [Reading pane toolbar](reading-pane-toolbar.md) | Actions while reading a message               | ![Exists][exists] Reader action bar, WebEngine builds only                 |
+| [Compose toolbar](compose-toolbar.md)           | Message composition                           | ![Exists][exists] Composer button row, no toolbar                          |
+| [Attachment toolbar](attachment-toolbar.md)     | Attachment actions while reading or composing | ![Exists][exists] Attachments panel header buttons                         |
+
+> [!NOTE]
+>
+> The navigation toolbar and the message list tool row are built in
+> `src/Gui/Window.cpp` and `src/Gui/MessageListWidget.cpp`; the reader action
+> bar, composer and Attachments panel live in their own widgets under
+> `src/Gui/`. The status in these specifications reflects `main` on 2026-11-25.
 
 ## Layout principles
 

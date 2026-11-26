@@ -1,22 +1,36 @@
 # Plasma Impresario scope and objective
 
 **[Documentation](../README.md)** · **[Roadmap](../ROADMAP.md)** ·
-**[Designs](designs.md)** · **[Inspirations](inspirations.md)** ·
-**[Compatibility](compatibility.md)**
+**[Caveats](../CAVEATS.md)** · **[Designs](designs.md)** ·
+**[Inspirations](inspirations.md)** · **[Compatibility](compatibility.md)**
+
+This page decides what Plasma Impresario is for, what it covers and which
+principles settle trade-offs. Statuses are as of 2026-11-25; milestones and
+their order live in the [roadmap](../ROADMAP.md).
 
 Plasma Impresario is a KDE Plasma-only IMAP desktop mail client, forked from
 Trojitá, for users who need reliable account management, fast triage and
 readable conversations. Other desktop environments are outside the supported
-product scope; milestones and their order live in the [roadmap](../ROADMAP.md).
+product scope.
 
-Legend: ![Done][done] · ![Needs verification][needs-verification] ·
-![Planned][planned] · ![Blocked][blocked]
+Legend: ![Decided][decided] · ![Done][done] ·
+![Needs verification][needs-verification] · ![In progress][in-progress] ·
+![Planned][planned]
 
 > [!IMPORTANT]
 >
 > IMAP and SMTP reliability, account isolation and predictable message state are
 > foundational. Provider-specific, workspace and desktop integrations expand the
 > product after those fundamentals are complete.
+
+```mermaid
+flowchart TD
+    F["Foundations: compatibility, shell and accounts, mail operations, reading (M01–M04, merged)"]
+    X["Expansion: search, desktop and providers, rules, settings, themes, reliability, release, Nextcloud, Microsoft, refinements (M05–M14)"]
+    V["Real Plasma session checks (M15, runs alongside)"]
+    F --> X
+    F --> V
+```
 
 ## Current baseline
 
@@ -28,18 +42,26 @@ implementation, [designs](designs.md#current-interface) describes the current
 interface, and [caveats](../CAVEATS.md) records security and platform
 limitations.
 
-| Capability                                                    | Status                                    | Notes                                                                                                                                                                                                                                   |
-| ------------------------------------------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| KDE / Qt 6 baseline (M01)                                     | ![Done][done]                             | Merged into `main`; see [compatibility](compatibility.md).                                                                                                                                                                              |
-| IMAP reading with on-demand fetching and local cache          | ![Needs verification][needs-verification] | Inherited from Trojitá. Live reading with a real account is pending in M04.                                                                                                                                                             |
-| SMTP and other submission paths                               | ![Needs verification][needs-verification] | Inherited from Trojitá. Live sending is pending in M04.                                                                                                                                                                                 |
-| Multiple simultaneous IMAP accounts                           | ![Done][done]                             | Completed in M02 ([#222](https://github.com/mikepadiernos/plasma-impresario/issues/222)).                                                                                                                                               |
-| Mail shell and embedded panels                                | ![Needs verification][needs-verification] | Completed ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); Plasma check in [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315); see [designs](designs.md#shell-status).                         |
-| OAuth account authentication                                  | ![Needs verification][needs-verification] | Merged in M02 ([#218](https://github.com/mikepadiernos/plasma-impresario/issues/218)); live sign-in in [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317) and limitations in [caveats](../CAVEATS.md#oauth-sign-in). |
-| Search across folders and accounts with an opt-in local index | ![Planned][planned]                       | M05. Server search stays the default; the index covers downloaded mail only.                                                                                                                                                            |
-| POP3 retrieval with SMTP submission                           | ![Planned][planned]                       | M06.05. POP3 stores retrieved mail locally and has no IMAP-style server folder synchronization.                                                                                                                                         |
-| JMAP accounts                                                 | ![Planned][planned]                       | M06.05. Capabilities depend on the server.                                                                                                                                                                                              |
-| Consumer Outlook, Exchange Online and Exchange Server         | ![Planned][planned]                       | M13; see the [Microsoft guide](../integrations/microsoft.md). Exchange Online and on-premises Exchange Server differ in interfaces, authentication options and administrator policies.                                                  |
+M01 through M04 are merged into `main`. Live checks so far run against a
+synthetic Dovecot server in `tools/dev-container/`; nothing has been checked in
+a real Plasma session, which M15
+([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)) tracks.
+
+| Capability                                                    | Status                                    | Notes                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| KDE / Qt 6 baseline (M01)                                     | ![Done][done]                             | Merged into `main`; see [compatibility](compatibility.md).                                                                                                                                                                                                                                                              |
+| IMAP reading with on-demand fetching and local cache          | ![Needs verification][needs-verification] | Inherited from Trojitá. M04 ([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)) exercised the reading flow against the synthetic Dovecot server; not checked with a real provider or in a Plasma session.                                                                                             |
+| SMTP and other submission paths                               | ![Needs verification][needs-verification] | Inherited from Trojitá. M04 ([#41](https://github.com/mikepadiernos/plasma-impresario/issues/41)) exercised composing, sending and failed-send recovery through a local sendmail script, not an SMTP server; see [caveats](../CAVEATS.md#composing-and-sending).                                                        |
+| Multiple simultaneous IMAP accounts                           | ![Done][done]                             | Merged in M02 ([#222](https://github.com/mikepadiernos/plasma-impresario/issues/222)).                                                                                                                                                                                                                                  |
+| Mail shell and embedded panels                                | ![Needs verification][needs-verification] | Merged in M02 ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); Plasma check in [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315); see [designs](designs.md#shell-status).                                                                                                     |
+| Mail operations, sorting and the unified inbox                | ![Done][done]                             | Merged in M03, including the unified inbox ([#223](https://github.com/mikepadiernos/plasma-impresario/issues/223)); see [mail operations](designs.md#mail-operations).                                                                                                                                                  |
+| Reading, conversations and account-aware replies              | ![Done][done]                             | Merged in M04 ([#39](https://github.com/mikepadiernos/plasma-impresario/issues/39), [#40](https://github.com/mikepadiernos/plasma-impresario/issues/40), [#224](https://github.com/mikepadiernos/plasma-impresario/issues/224)); see [reading and triage](designs.md#reading-and-triage).                               |
+| OAuth account authentication                                  | ![Needs verification][needs-verification] | Merged in M02 ([#218](https://github.com/mikepadiernos/plasma-impresario/issues/218)); live sign-in in [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317) and limitations in [caveats](../CAVEATS.md#oauth-sign-in).                                                                                 |
+| Search across folders and accounts with an opt-in local index | ![Planned][planned]                       | M05. Server search stays the default; the index covers downloaded mail only.                                                                                                                                                                                                                                            |
+| POP3 retrieval with SMTP submission                           | ![Planned][planned]                       | M06.05. POP3 stores retrieved mail locally and has no IMAP-style server folder synchronization.                                                                                                                                                                                                                         |
+| JMAP accounts                                                 | ![Planned][planned]                       | M06.05. Capabilities depend on the server.                                                                                                                                                                                                                                                                              |
+| Themes and branding                                           | ![In progress][in-progress]               | M09 ([#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)) is in Development; the rename ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)) is merged and branding ([#269](https://github.com/mikepadiernos/plasma-impresario/issues/269)) has started. No theme options exist yet. |
+| Consumer Outlook, Exchange Online and Exchange Server         | ![Planned][planned]                       | M13; see the [Microsoft guide](../integrations/microsoft.md). Exchange Online and on-premises Exchange Server differ in interfaces, authentication options and administrator policies.                                                                                                                                  |
 
 ## Target experience
 
@@ -55,6 +77,9 @@ limitations.
 - Use Plasma-native notifications, credentials, files and settings.
 
 ## Scope boundaries
+
+![Decided][decided] Only KDE Plasma is supported. Each in-scope area still needs
+the validation in the right-hand column before it is claimed for a release.
 
 | In scope                                                     | Requires explicit validation                                               |
 | ------------------------------------------------------------ | -------------------------------------------------------------------------- |
@@ -78,9 +103,9 @@ limitations.
 ## Reference model
 
 Trojitá provides the IMAP-first, KDE-native baseline. Aqua Mail, Vivaldi Mail,
-Thunderbird, The Bat!, Kontact, ePim and E-Mail inform triage, cross-account
-views, optional tabs, dense power-user workflows, Plasma integration and safe
-defaults. The
+Thunderbird, eM Client, The Bat!, Kontact, ePim and E-Mail inform triage,
+cross-account views, optional tabs, follow-up, dense power-user workflows,
+Plasma integration and safe defaults; Plasma Opus is the shell reference. The
 [inspirations](inspirations.md#design-synthesis) document lists what each
 contributes.
 
@@ -89,9 +114,9 @@ contributes.
 > [!NOTE]
 >
 > The YAML below is an illustrative product concept, not a supported
-> configuration file. Today the client stores profile settings through
-> `QSettings`, appearance and embedded-panel preferences in the `Appearance`
-> group of `plasma-impresariorc` (see
+> configuration file. Today the client stores profile and account settings
+> through `QSettings`, appearance and embedded-panel preferences in the
+> `Appearance` group of `plasma-impresariorc` (see
 > [designs](designs.md#current-embedded-panels)), and session selection in
 > KConfig state.
 
@@ -130,7 +155,8 @@ productivity:
 
 </details>
 
-[blocked]: https://img.shields.io/badge/Blocked-cf222e
+[decided]: https://img.shields.io/badge/Decided-1a7f37
 [done]: https://img.shields.io/badge/Done-1a7f37
+[in-progress]: https://img.shields.io/badge/In_progress-9a6700
 [needs-verification]: https://img.shields.io/badge/Needs_verification-0969da
 [planned]: https://img.shields.io/badge/Planned-6e7781

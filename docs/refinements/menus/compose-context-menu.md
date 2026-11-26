@@ -1,14 +1,15 @@
 # Compose context menu
 
+**[Documentation](../../README.md)** · **[Roadmap: M14](../../ROADMAP.md#m14-refinements)** ·
 **[Refinements](../README.md)** · **[Menus](README.md)** ·
-**[Interface design](../../philosophy/designs.md)** ·
-**[M14 in roadmap](../../ROADMAP.md#m14-refinements)**
+**[Toolbars](../toolbars/README.md)** · **[Interface design](../../philosophy/designs.md)**
 
 This proposed menu appears when the user right-clicks in the composer editor,
-recipient field, attachment list, or signature area.
+recipient field, attachment list, or signature area. It maps each entry to the
+composer actions that exist today.
 
-**Legend:** ![Exists][exists] in the current code on `main` ·
-![Planned][planned] not implemented yet
+Legend: ![Exists][exists] in the current code on `main`, not checked in a real
+Plasma session · ![Planned][planned] not implemented yet
 
 ## Purpose
 
@@ -90,16 +91,16 @@ mail-specific correctness.
 | Open attachment      | —        | ![Planned][planned]                            |                     |
 | Inspect attachment   | —        | ![Planned][planned]                            |                     |
 
-## Current composer menus
+## Current menu
 
 - The editor (`src/Gui/ComposerTextEdit.cpp`) uses Qt's standard text context
   menu and adds **Paste as Quoted Text**.
 - The attachment list (`src/Gui/ComposerAttachmentsList.cpp`) offers **Send
   Inline**, **Rename…** and **Remove**.
-- Drafts are saved automatically to the cache every 30 seconds. Closing an
-  unsent message asks **Save Draft?**; attachments are not saved with the draft.
+- Drafts are saved automatically every 30 seconds. Closing an unsent message
+  asks **Save Draft?** and warns that attachments are not saved with the draft.
 
-## Safety and quality rules
+## Design rules
 
 - Composer actions should remain consistent with standard desktop text editing
   behavior.

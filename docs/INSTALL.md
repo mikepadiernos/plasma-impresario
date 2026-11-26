@@ -1,13 +1,14 @@
 # Installation and builds
 
 **[Application](../README.md)** · **[Documentation](README.md)** ·
-**[Compatibility](philosophy/compatibility.md)** · **[Caveats](CAVEATS.md)** ·
+**[Roadmap](ROADMAP.md)** · **[Caveats](CAVEATS.md)** ·
+**[Compatibility](philosophy/compatibility.md)** ·
 **[Contributing](../CONTRIBUTING.md)**
 
 `install.sh` installs missing build dependencies, builds Plasma Impresario with
-the WebEngine message reader and installs it to `$HOME/.local`. This guide
-covers its options, supported distributions, installed files and
-troubleshooting.
+the WebEngine message reader and installs it to `$HOME/.local`. This guide is
+the source of truth for its options, supported distributions, installed files
+and troubleshooting, as of 2026-11-25.
 
 Legend: ![Verified][verified] · ![Needs verification][needs-verification] ·
 ![Limitation][limitation]
@@ -97,14 +98,15 @@ For example:
 ## Requirements by distribution
 
 The [compatibility baseline](philosophy/compatibility.md) records the verified
-environment and the CMake-level dependencies.
+environment and the CMake-level dependencies: Qt 6.7 or later and KDE
+Frameworks 6.26 or later.
 
-| Family        | `ID` or `ID_LIKE` values                         | Package manager                       | WebEngine package            | Status                                                                                            |
-| ------------- | ------------------------------------------------ | ------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------- |
-| Arch          | `arch`, `cachyos`, `manjaro`                     | `pacman`; else `paru`, `yay`, `pamac` | `qt6-webengine`              | ![Verified][verified] CachyOS with `pacman`; ![Needs verification][needs-verification] the others |
-| Debian/Ubuntu | `debian`, `ubuntu`                               | `apt-get`                             | `qt6-webengine-dev`          | ![Needs verification][needs-verification] not verified                                            |
-| Fedora/RHEL   | `fedora`, `rhel`, `centos`, `rocky`, `almalinux` | `dnf`                                 | `qt6-qtwebengine-devel`      | ![Needs verification][needs-verification] not verified                                            |
-| openSUSE/SUSE | `opensuse*`, `suse`, `sles`                      | `zypper`                              | `qt6-webenginewidgets-devel` | ![Needs verification][needs-verification] not verified                                            |
+| Family        | `ID` or `ID_LIKE` values                         | Package manager                       | WebEngine package            | Status                                                                                              |
+| ------------- | ------------------------------------------------ | ------------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------- |
+| Arch          | `arch`, `cachyos`, `manjaro`                     | `pacman`; else `paru`, `yay`, `pamac` | `qt6-webengine`              | ![Verified][verified] CachyOS with `pacman`; ![Needs verification][needs-verification] the others   |
+| Debian/Ubuntu | `debian`, `ubuntu`                               | `apt-get`                             | `qt6-webengine-dev`          | ![Needs verification][needs-verification]                                                           |
+| Fedora/RHEL   | `fedora`, `rhel`, `centos`, `rocky`, `almalinux` | `dnf`                                 | `qt6-qtwebengine-devel`      | ![Needs verification][needs-verification] installer; the headless dev container builds on Fedora 44 |
+| openSUSE/SUSE | `opensuse*`, `suse`, `sles`                      | `zypper`                              | `qt6-webenginewidgets-devel` | ![Needs verification][needs-verification]                                                           |
 
 > [!WARNING]
 >

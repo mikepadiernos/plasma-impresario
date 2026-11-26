@@ -1,17 +1,21 @@
 # Microsoft accounts and Exchange
 
-**[Integrations](README.md)** · **[KDE Plasma](kde-plasma.md)** · **[Plasma
-Opus](plasma-opus.md)** · **[Roadmap:
-M13](../ROADMAP.md#m13-microsoft-accounts-and-exchange)** · **[OAuth
-caveats](../CAVEATS.md#oauth-sign-in)**
+**[Documentation](../README.md)** ·
+**[Roadmap: M13](../ROADMAP.md#m13-microsoft-accounts-and-exchange)** ·
+**[Pending tasks](../TODO.md#m13-microsoft-milestone-insertion)** ·
+**[OAuth caveats](../CAVEATS.md#oauth-sign-in)** ·
+**[Integrations](README.md)** · **[KDE Plasma](kde-plasma.md)** ·
+**[Plasma Opus](plasma-opus.md)**
 
 This guide plans how Plasma Impresario supports Outlook.com, Microsoft 365 and
 Exchange Server accounts: sign-in, mail, calendar, contacts, tasks and files.
 Apart from OAuth sign-in for IMAP and SMTP, everything here is planned. The work
 is tracked in [M13: Microsoft accounts and
-Exchange](../ROADMAP.md#m13-microsoft-accounts-and-exchange).
+Exchange](../ROADMAP.md#m13-microsoft-accounts-and-exchange)
+([#388](https://github.com/mikepadiernos/plasma-impresario/issues/388)), which is
+in the Backlog as of 2026-11-25.
 
-Status: ![Done][done] · ![Decided][decided] · ![Recommended][recommended] ·
+Legend: ![Done][done] · ![Decided][decided] · ![Recommended][recommended] ·
 ![Needs verification][needs-verification] · ![Planned][planned]
 
 ## Contents
@@ -29,15 +33,15 @@ Status: ![Done][done] · ![Decided][decided] · ![Recommended][recommended] ·
 
 ## Status
 
-| Area                               | Status                                    | Today                                                                                                                                              | Roadmap |
-| ---------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| Sign-in and consent                | ![Needs verification][needs-verification] | OAuth for IMAP and SMTP through the `common` tenant ([#218](https://github.com/mikepadiernos/plasma-impresario/issues/218)); no built-in client ID | M13.01  |
-| Outlook.com and Microsoft 365 mail | ![Needs verification][needs-verification] | IMAP and SMTP with XOAUTH2; not yet verified with a real account ([#317](https://github.com/mikepadiernos/plasma-impresario/issues/317))           | M13.02  |
-| Exchange Server                    | ![Planned][planned]                       | Works only where the server offers IMAP and SMTP with a supported sign-in                                                                          | M13.03  |
-| Calendar and scheduling            | ![Planned][planned]                       | Not in Plasma Impresario; KDE PIM's Microsoft 365 (Graph) resource syncs it for KDE apps from KDE Gear 26.12                                       | M13.04  |
-| Contacts and address book          | ![Planned][planned]                       | Not in Plasma Impresario; personal contacts sync through the same KDE PIM resource                                                                 | M13.05  |
-| Tasks and files                    | ![Planned][planned]                       | Not in Plasma Impresario; KDE PIM's Graph resource syncs Microsoft To Do, and no KDE component covers OneDrive                                     | M13.06  |
-| KDE, privacy and tests             | ![Planned][planned]                       | Limitations are recorded in [OAuth caveats](../CAVEATS.md#oauth-sign-in)                                                                           | M13.07  |
+| Area                               | Status                                    | Today                                                                                                                                              | Roadmap                                                                      |
+| ---------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Sign-in and consent                | ![Needs verification][needs-verification] | OAuth for IMAP and SMTP through the `common` tenant ([#218](https://github.com/mikepadiernos/plasma-impresario/issues/218)); no built-in client ID | M13.01 [#389](https://github.com/mikepadiernos/plasma-impresario/issues/389) |
+| Outlook.com and Microsoft 365 mail | ![Needs verification][needs-verification] | IMAP and SMTP with XOAUTH2; not yet verified with a real account ([#317](https://github.com/mikepadiernos/plasma-impresario/issues/317))           | M13.02 [#390](https://github.com/mikepadiernos/plasma-impresario/issues/390) |
+| Exchange Server                    | ![Planned][planned]                       | Works only where the server offers IMAP and SMTP with a supported sign-in                                                                          | M13.03 [#391](https://github.com/mikepadiernos/plasma-impresario/issues/391) |
+| Calendar and scheduling            | ![Planned][planned]                       | Not in Plasma Impresario; KDE PIM's Microsoft 365 (Graph) resource syncs it for KDE apps from KDE Gear 26.12                                       | M13.04 [#392](https://github.com/mikepadiernos/plasma-impresario/issues/392) |
+| Contacts and address book          | ![Planned][planned]                       | Not in Plasma Impresario; personal contacts sync through the same KDE PIM resource                                                                 | M13.05 [#393](https://github.com/mikepadiernos/plasma-impresario/issues/393) |
+| Tasks and files                    | ![Planned][planned]                       | Not in Plasma Impresario; KDE PIM's Graph resource syncs Microsoft To Do, and no KDE component covers OneDrive                                     | M13.06 [#394](https://github.com/mikepadiernos/plasma-impresario/issues/394) |
+| KDE, privacy and tests             | ![Planned][planned]                       | Limitations are recorded in [OAuth caveats](../CAVEATS.md#oauth-sign-in) ([#362](https://github.com/mikepadiernos/plasma-impresario/issues/362))   | M13.07 [#395](https://github.com/mikepadiernos/plasma-impresario/issues/395) |
 
 ## Account types
 
@@ -80,11 +84,14 @@ reported as unavailable when neither interface supports them.
 
 ## Sign-in and permissions
 
-The current sign-in from #218 uses the `common` tenant, the
-`IMAP.AccessAsUser.All` and `SMTP.Send` scopes and a `localhost` redirect. A
-client ID comes from the account settings or the
+The current sign-in from
+[#218](https://github.com/mikepadiernos/plasma-impresario/issues/218) uses the
+`common` tenant, the `IMAP.AccessAsUser.All`, `SMTP.Send` and `offline_access`
+scopes and a `localhost` redirect on any free port. A client ID comes from the
+**OAuth client ID** field in the account settings or the
 `IMPRESARIO_OAUTH_MICROSOFT_CLIENT_ID` build option; none is built in yet.
-M13.01 adds:
+M13.01 ([#389](https://github.com/mikepadiernos/plasma-impresario/issues/389))
+adds:
 
 - a Plasma Impresario app registration with its client ID built into
   release packages, as described under [App registration](#app-registration);
@@ -155,7 +162,8 @@ them.
 
 #### Recommendation
 
-Follow KMail and the EWS resource, with their lessons applied:
+![Recommended][recommended] Follow KMail and the EWS resource, with their
+lessons applied:
 
 - The maintainer registers one Plasma Impresario app, and release builds
   ship its client ID, so most people sign in without any setup.
@@ -170,12 +178,12 @@ Follow KMail and the EWS resource, with their lessons applied:
 
 #### Owners
 
-| Step        | Owner                                     | Plan                                                                                                                                                                       |
-| ----------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1️⃣ Register | Project maintainer                        | One "Plasma Impresario" registration for any work or school account and personal accounts, in a work or school tenant with a project domain, with the permissions above    |
-| 2️⃣ Ship     | Release builds and distributions          | Release builds set `IMPRESARIO_OAUTH_MICROSOFT_CLIENT_ID`; distributions may build with their own registration                                                             |
-| 3️⃣ Override | Administrators and users                  | A per-account client ID and tenant in the account settings, plus system-wide KConfig defaults for managed desktops, for organizations that require their own registration  |
-| 4️⃣ Verify   | An organization that can hold the account | Ask KDE e.V. to host or verify the app; otherwise verify it once a legal entity for the project exists. Until then, document how administrators approve the unverified app |
+| Step        | Owner                                     | Status                                                                                                                                    | Plan                                                                                                                                                                       |
+| ----------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Register | Project maintainer                        | ![Planned][planned] [#396](https://github.com/mikepadiernos/plasma-impresario/issues/396)                                                 | One "Plasma Impresario" registration for any work or school account and personal accounts, in a work or school tenant with a project domain, with the permissions above    |
+| 2. Ship     | Release builds and distributions          | ![Planned][planned] The build option exists; no client ID is set                                                                          | Release builds set `IMPRESARIO_OAUTH_MICROSOFT_CLIENT_ID`; distributions may build with their own registration                                                             |
+| 3. Override | Administrators and users                  | ![Done][done] Client ID · ![Planned][planned] Tenant ([#397](https://github.com/mikepadiernos/plasma-impresario/issues/397)) and defaults | A per-account client ID and tenant in the account settings, plus system-wide KConfig defaults for managed desktops, for organizations that require their own registration  |
+| 4. Verify   | An organization that can hold the account | ![Planned][planned]                                                                                                                       | Ask KDE e.V. to host or verify the app; otherwise verify it once a legal entity for the project exists. Until then, document how administrators approve the unverified app |
 
 Registering the app needs the maintainer's own Microsoft account; see the
 [M13 handoff](../TODO.md#m13-microsoft-milestone-insertion).
@@ -209,6 +217,11 @@ resources lack, such as directory lookup and shared mailboxes.
   URLs (M05), and OneDrive or SharePoint files can be shared as links following
   the M12 Nextcloud flow.
 
+These features are tracked in
+[#407](https://github.com/mikepadiernos/plasma-impresario/issues/407) through
+[#413](https://github.com/mikepadiernos/plasma-impresario/issues/413), all in the
+Backlog.
+
 ## KDE and Plasma Opus
 
 - Reuse Microsoft accounts already set up in KDE PIM's Graph or EWS
@@ -225,20 +238,25 @@ version 2 or later can be combined with it, and copied files keep their SPDX
 headers. Before copying any file, check its own header: the sampled files below
 are LGPL-2.0-or-later.
 
-| Component                                   | Source and license                                                                               | Reuse for                                                                                                                                             | How                                                                                                              | Roadmap       |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------- |
-| Graph client and handlers                   | `kdepim-runtime` `resources/graph`, KDE Gear 26.12, LGPL-2.0-or-later                            | Graph requests with `Retry-After` back-off, paging and `$batch`; delta links; mail and MIME, events and To Do as KCalendarCore, contacts as KContacts | Copy into the source tree without the Akonadi parts and track upstream changes                                   | M13.02–M13.06 |
-| Microsoft 365 (Graph) Akonadi resource      | Same                                                                                             | Calendars, contacts and To Do that KDE PIM already syncs                                                                                              | Read through Akonadi at run time; Plasma Impresario already links the Akonadi contact library                    | M13.04–M13.07 |
-| EWS client                                  | `kdepim-runtime` `resources/ews/ewsclient`, LGPL-2.0-or-later                                    | EWS requests, folder and item sync, streaming notifications, POX Autodiscover, recurrences and attendees                                              | Copy without its WebEngine sign-in, using the #218 OAuth instead; propose an installed shared library to KDE PIM | M13.03        |
-| Fake EWS server and Graph tests             | `kdepim-runtime` `resources/ews/test` and `resources/graph/autotests`                            | Offline tests                                                                                                                                         | Copy with the clients                                                                                            | M13.07        |
-| `QTimeZone::windowsIdToDefaultIanaId`       | Qt                                                                                               | Windows time zone names                                                                                                                               | Use directly                                                                                                     | M13.04        |
-| Akonadi iTIP handler and KCalendarCore      | KDE PIM and KDE Frameworks, LGPL                                                                 | Meeting replies with iTIP and iMIP                                                                                                                    | Use where KDE PIM is installed                                                                                   | M13.04        |
-| `MailTransport::OutlookOAuthTokenRequester` | KMailTransport, LGPL-2.0-or-later, public API                                                    | Microsoft OAuth with PKCE and a loopback redirect                                                                                                     | Not adopted: #218 already covers this with SASL                                                                  | —             |
-| Thunderbird `ews-rs`                        | Rust, MPL-2.0                                                                                    | EWS request shapes and server quirks                                                                                                                  | Reference only; not linked                                                                                       | M13.03        |
-| Evolution EWS and its Microsoft 365 module  | C and GLib, LGPL-2.1                                                                             | Graph and EWS behavior in another Linux client                                                                                                        | Reference only; not linked                                                                                       | M13.02–M13.03 |
-| `akonadi-microsoft365`                      | [Standalone repository](https://github.com/mzilinski/akonadi-microsoft365) of the Graph resource | App registration guide and live test tools                                                                                                            | Reference for the M13.07 setup guide and live tests                                                              | M13.07        |
+| Component                                   | Source and license                                                                               | Reuse for                                                                                                                                             | How                                                                                                                                                                               | Roadmap       |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| Graph client and handlers                   | `kdepim-runtime` `resources/graph`, KDE Gear 26.12, LGPL-2.0-or-later                            | Graph requests with `Retry-After` back-off, paging and `$batch`; delta links; mail and MIME, events and To Do as KCalendarCore, contacts as KContacts | Copy into the source tree without the Akonadi parts and track upstream changes                                                                                                    | M13.02–M13.06 |
+| Microsoft 365 (Graph) Akonadi resource      | Same                                                                                             | Calendars, contacts and To Do that KDE PIM already syncs                                                                                              | Read through Akonadi at run time; Plasma Impresario already links the Akonadi contact library                                                                                     | M13.04–M13.07 |
+| EWS client                                  | `kdepim-runtime` `resources/ews/ewsclient`, LGPL-2.0-or-later                                    | EWS requests, folder and item sync, streaming notifications, POX Autodiscover, recurrences and attendees                                              | Copy without its WebEngine sign-in, using the [#218](https://github.com/mikepadiernos/plasma-impresario/issues/218) OAuth instead; propose an installed shared library to KDE PIM | M13.03        |
+| Fake EWS server and Graph tests             | `kdepim-runtime` `resources/ews/test` and `resources/graph/autotests`                            | Offline tests                                                                                                                                         | Copy with the clients                                                                                                                                                             | M13.07        |
+| `QTimeZone::windowsIdToDefaultIanaId`       | Qt                                                                                               | Windows time zone names                                                                                                                               | Use directly                                                                                                                                                                      | M13.04        |
+| Akonadi iTIP handler and KCalendarCore      | KDE PIM and KDE Frameworks, LGPL                                                                 | Meeting replies with iTIP and iMIP                                                                                                                    | Use where KDE PIM is installed                                                                                                                                                    | M13.04        |
+| `MailTransport::OutlookOAuthTokenRequester` | KMailTransport, LGPL-2.0-or-later, public API                                                    | Microsoft OAuth with PKCE and a loopback redirect                                                                                                     | Not adopted: [#218](https://github.com/mikepadiernos/plasma-impresario/issues/218) already covers this with SASL                                                                  | —             |
+| Thunderbird `ews-rs`                        | Rust, MPL-2.0                                                                                    | EWS request shapes and server quirks                                                                                                                  | Reference only; not linked                                                                                                                                                        | M13.03        |
+| Evolution EWS and its Microsoft 365 module  | C and GLib, LGPL-2.1                                                                             | Graph and EWS behavior in another Linux client                                                                                                        | Reference only; not linked                                                                                                                                                        | M13.02–M13.03 |
+| `akonadi-microsoft365`                      | [Standalone repository](https://github.com/mzilinski/akonadi-microsoft365) of the Graph resource | App registration guide and live test tools                                                                                                            | Reference for the M13.07 setup guide and live tests                                                                                                                               | M13.07        |
 
 ## Verification
+
+Planned in M13.07
+([#416](https://github.com/mikepadiernos/plasma-impresario/issues/416)). Today,
+`test_OAuth` covers the Microsoft OAuth provider offline; none of the Graph,
+EWS or Autodiscover tests below exist yet.
 
 - Offline tests run against local fake Graph, EWS, Autodiscover and OAuth
   servers with anonymized recordings, covering throttling, consent errors and

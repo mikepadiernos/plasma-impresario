@@ -1,37 +1,37 @@
 # Reported bugs
 
 **[Documentation](README.md)** · **[Roadmap](ROADMAP.md)** ·
-**[Pending tasks](TODO.md)** · **[Edge cases](EDGE.md)** ·
-**[Caveats](CAVEATS.md)** ·
+**[Pending tasks](TODO.md)** · **[Caveats](CAVEATS.md)** ·
+**[Edge cases](EDGE.md)** ·
 **[Project board](https://github.com/users/mikepadiernos/projects/4)**
 
-This log records confirmed user-visible bugs and reliability issues. Statuses
-match the project board as of 2026-11-25.
+This log is the source of truth for confirmed user-visible bugs and reliability
+issues. Statuses match the project board as of 2026-11-25, when every recorded
+bug is fixed and merged into `main`.
 
 Legend: ![Open][open] · ![Fix in progress][fix-in-progress] ·
 ![Needs verification][needs-verification] fixed, not yet verified ·
-![Fixed][fixed] and Completed or Merged
+![Fixed][fixed] fixed and Completed or Merged on the board
 
 > [!IMPORTANT]
 >
 > An issue is complete only when its project status is
-> $\color{#2da44e}\textbf{Completed}$ or $\color{#8957e5}\textbf{Merged}$.
-> $\color{#2da44e}\textbf{Completed}$ does not necessarily mean merged into
-> `main`.
+> ![Completed][completed] or ![Merged][merged]. ![Completed][completed] does
+> not necessarily mean merged into `main`.
 
 ## Status
 
-| Status          | Issue                                                                 | Bug                                                              | Board  |
-| --------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------- | ------ |
-| ![Fixed][fixed] | [#446](https://github.com/mikepadiernos/plasma-impresario/issues/446) | Message list stays empty after going online again                | Merged |
-| ![Fixed][fixed] | [#427](https://github.com/mikepadiernos/plasma-impresario/issues/427) | APPENDUID with several UIDs reads past the end of the response   | Merged |
-| ![Fixed][fixed] | [#426](https://github.com/mikepadiernos/plasma-impresario/issues/426) | Message list view can crash while being destroyed                | Merged |
-| ![Fixed][fixed] | [#425](https://github.com/mikepadiernos/plasma-impresario/issues/425) | Threaded quick search sends search words unquoted                | Merged |
-| ![Fixed][fixed] | [#376](https://github.com/mikepadiernos/plasma-impresario/issues/376) | Reply to All but Me keeps the user's address without an identity | Merged |
-| ![Fixed][fixed] | [#366](https://github.com/mikepadiernos/plasma-impresario/issues/366) | An untrusted SMTP certificate cannot be accepted                 | Merged |
-| ![Fixed][fixed] | [#364](https://github.com/mikepadiernos/plasma-impresario/issues/364) | Sending hangs when the SMTP connection fails                     | Merged |
-| ![Fixed][fixed] | [#241](https://github.com/mikepadiernos/plasma-impresario/issues/241) | Plasma displays a generic icon instead of the application icon   | Merged |
-| ![Fixed][fixed] | [#228](https://github.com/mikepadiernos/plasma-impresario/issues/228) | Installed app missing from Plasma application menu               | Merged |
+| Status          | Issue                                                                 | Bug                                                              | Board             |
+| --------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------- | ----------------- |
+| ![Fixed][fixed] | [#446](https://github.com/mikepadiernos/plasma-impresario/issues/446) | Message list stays empty after going online again                | ![Merged][merged] |
+| ![Fixed][fixed] | [#427](https://github.com/mikepadiernos/plasma-impresario/issues/427) | APPENDUID with several UIDs reads past the end of the response   | ![Merged][merged] |
+| ![Fixed][fixed] | [#426](https://github.com/mikepadiernos/plasma-impresario/issues/426) | Message list view can crash while being destroyed                | ![Merged][merged] |
+| ![Fixed][fixed] | [#425](https://github.com/mikepadiernos/plasma-impresario/issues/425) | Threaded quick search sends search words unquoted                | ![Merged][merged] |
+| ![Fixed][fixed] | [#376](https://github.com/mikepadiernos/plasma-impresario/issues/376) | Reply to All but Me keeps the user's address without an identity | ![Merged][merged] |
+| ![Fixed][fixed] | [#366](https://github.com/mikepadiernos/plasma-impresario/issues/366) | An untrusted SMTP certificate cannot be accepted                 | ![Merged][merged] |
+| ![Fixed][fixed] | [#364](https://github.com/mikepadiernos/plasma-impresario/issues/364) | Sending hangs when the SMTP connection fails                     | ![Merged][merged] |
+| ![Fixed][fixed] | [#241](https://github.com/mikepadiernos/plasma-impresario/issues/241) | Plasma displays a generic icon instead of the application icon   | ![Merged][merged] |
+| ![Fixed][fixed] | [#228](https://github.com/mikepadiernos/plasma-impresario/issues/228) | Installed app missing from Plasma application menu               | ![Merged][merged] |
 
 Limitations of implemented features are tracked in [caveats](CAVEATS.md), and
 unconfirmed scenarios in [edge cases](EDGE.md).
@@ -68,14 +68,14 @@ unconfirmed scenarios in [edge cases](EDGE.md).
 
 ### [bug] Message list view can crash while being destroyed
 
-| Field            | Details                                                                                                                                                                                                                                                |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Issue**        | [#426](https://github.com/mikepadiernos/plasma-impresario/issues/426)                                                                                                                                                                                  |
-| **Status**       | ![Merged][merged]                                                                                                                                                                                                                                      |
-| **Reproduction** | Delete a message list view while its header still reports a geometry change, for example right after a resize.                                                                                                                                         |
-| **Expected**     | The view is destroyed cleanly.                                                                                                                                                                                                                         |
-| **Actual**       | The header is deleted after `~MsgListView` has run, and its late `geometriesChanged` signal still calls `slotFixSize()` on the partly destroyed view. `test_MsgListViewSelection` on the M03 branch disconnects the signal by hand to avoid the crash. |
-| **Fix**          | Disconnect the header's signals from the view in `~MsgListView`, before QWidget deletes the header. `test_MsgListViewTeardown` destroys a shown, resized view and emits the signals of a header that outlives its view.                                |
+| Field            | Details                                                                                                                                                                                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Issue**        | [#426](https://github.com/mikepadiernos/plasma-impresario/issues/426)                                                                                                                                                                                   |
+| **Status**       | ![Merged][merged]                                                                                                                                                                                                                                       |
+| **Reproduction** | Delete a message list view while its header still reports a geometry change, for example right after a resize.                                                                                                                                          |
+| **Expected**     | The view is destroyed cleanly.                                                                                                                                                                                                                          |
+| **Actual**       | The header is deleted after `~MsgListView` has run, and its late `geometriesChanged` signal still calls `slotFixSize()` on the partly destroyed view. `test_MsgListViewSelection` on the M03 branch disconnected the signal by hand to avoid the crash. |
+| **Fix**          | Disconnect the header's signals from the view in `~MsgListView`, before QWidget deletes the header. `test_MsgListViewTeardown` destroys a shown, resized view and emits the signals of a header that outlives its view.                                 |
 
 ### [bug] Threaded quick search sends search words unquoted
 
@@ -145,28 +145,25 @@ unconfirmed scenarios in [edge cases](EDGE.md).
 
 ## Report template
 
-### Summary
+Copy this entry above [Fixed issues](#fixed-issues) while the bug is open, and
+move it there once fixed. Set **Status** to the issue's board status badge and
+add its reference definition at the end of this file if it is missing.
 
-- Short description of the regression
+```markdown
+### [bug] Short description of the regression
 
-### Steps to reproduce
+| Field            | Details                                                               |
+| ---------------- | --------------------------------------------------------------------- |
+| **Issue**        | [#123](https://github.com/mikepadiernos/plasma-impresario/issues/123) |
+| **Status**       | ![Backlog][backlog]                                                   |
+| **Reproduction** | Starting condition, user action and observed result                   |
+| **Expected**     | Required behavior                                                     |
+| **Actual**       | Current behavior                                                      |
+| **Fix**          | The change and the tests that cover it, once fixed                    |
+| **Notes**        | Environment, logs, issue link and follow-up status                    |
+```
 
-1. Starting condition
-2. User action
-3. Observed result
-
-### Expected behavior
-
-- Required behavior
-
-### Actual behavior
-
-- Current behavior
-
-### Notes
-
-- Environment, logs, issue link and follow-up status
-
+[completed]: https://img.shields.io/badge/Completed-2da44e
 [fix-in-progress]: https://img.shields.io/badge/Fix_in_progress-9a6700
 [fixed]: https://img.shields.io/badge/Fixed-1a7f37
 [merged]: https://img.shields.io/badge/Merged-8250df

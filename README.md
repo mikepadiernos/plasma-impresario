@@ -30,15 +30,29 @@ Other desktop environments are outside the supported scope.
 
 > [!IMPORTANT]
 >
-> Plasma Impresario is in development. Only the KDE / Qt 6 baseline (M01) is in
-> `main`; the work below it lives on feature branches until each milestone is
-> complete. See [project status](#project-status).
+> Plasma Impresario is in development. The four foundation milestones (M01–M04:
+> the KDE / Qt 6 baseline, the shell and accounts, mail operations, and
+> reading) are merged into `main`. They are verified with offscreen tests and a
+> disposable IMAP server, but nothing has been checked in a real Plasma session
+> yet. See [project status](#project-status).
+
+## Contents
+
+- [Screenshots](#screenshots)
+- [Project status](#project-status)
+- [Implemented today](#implemented-today)
+- [Using it](#using-it)
+- [Build and run](#build-and-run)
+- [Product direction](#product-direction)
+- [Documentation](#documentation)
+- [Application icon](#application-icon)
+- [License](#license)
 
 ## Screenshots
 
 Captured by `test_LiveImapPanels` against a synthetic mailbox in the headless
 [dev container](CONTRIBUTING.md#live-mail-screenshots-and-a-vnc-view), so they
-show the container's default style rather than a Plasma theme.
+show the container's default Qt style rather than a Plasma theme.
 
 <p align="center">
   <img src="docs/screenshots/mail-shell-compact.png" width="900"
@@ -74,18 +88,21 @@ show the container's default style rather than a Plasma theme.
 
 ## Project status
 
-Features done are roadmap items whose issues are
-$\color{#2da44e}\textbf{Completed}$ or $\color{#8957e5}\textbf{Merged}$ on the
-[project board](https://github.com/users/mikepadiernos/projects/4), as of
-2026-11-25.
+As of 2026-11-25. **Done** counts roadmap features whose issues are
+![Completed][completed] or ![Merged][merged] on the
+[project board](https://github.com/users/mikepadiernos/projects/4); **Board**
+is the milestone's parent issue.
 
-| Milestone                                  | Branch | Done                                                                 | State                                                                                                                                                                                |
-| ------------------------------------------ | ------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| M01 KDE / Qt 6 baseline                    | `main` | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]                                                                                                                                                                    |
-| M02 Shell, accounts and mailbox foundation | `main` | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]; checks in a real Plasma session moved to M15                                                                                                                      |
-| M03 Mail operations, sorting and folders   | `main` | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]                                                                                                                                                                    |
-| M04 Reading and conversation flow          | `main` | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]; checks in a real Plasma session are in M15                                                                                                                        |
-| M05–M15                                    | —      | —                                                                    | ![Planned][planned] Including search and indexing in M05, Microsoft accounts and Exchange in M13 and real Plasma session checks in M15; M09 branding started with the product rename |
+| Milestone                                                                                | Branch | Done                                                                 | Board                       | Notes                                                                                                   |
+| ---------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------- |
+| [M01](docs/ROADMAP.md#m01-kde--qt6-compatibility-baseline) KDE / Qt 6 baseline           | `main` | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]           | Builds, installs and launches with Qt 6 and KF6                                                         |
+| [M02](docs/ROADMAP.md#m02-shell-accounts-and-core-mailbox-foundation) Shell and accounts | `main` | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]           | Checks in a real Plasma session moved to M15                                                            |
+| [M03](docs/ROADMAP.md#m03-mail-operations-sorting-and-folder-management) Mail operations | `main` | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]           | Destructive actions still need a [live check](docs/TODO.md#m03-mail-operations)                         |
+| [M04](docs/ROADMAP.md#m04-reading-and-conversation-flow) Reading and conversations       | `main` | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #451](https://github.com/mikepadiernos/plasma-impresario/pull/451)                        |
+| M05–M08: search, desktop integration, automation, settings                               | —      | —                                                                    | ![Backlog][backlog]         | Not started                                                                                             |
+| [M09](docs/ROADMAP.md#m09-themes-and-branding-foundation) Themes and branding            | —      | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development] | Started with the product rename ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)) |
+| M10–M14: reliability, release, Nextcloud, Microsoft, refinements                         | —      | —                                                                    | ![Backlog][backlog]         | Not started                                                                                             |
+| [M15](docs/ROADMAP.md#m15-real-plasma-session-verification) Real Plasma session checks   | —      | ![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781)       | ![Defined][defined]         | Needs a real Plasma session                                                                             |
 
 The [roadmap overview](docs/ROADMAP.md#milestones-at-a-glance) tracks every
 milestone, and [pending tasks](docs/TODO.md#in-progress) record what each one
@@ -93,10 +110,17 @@ is waiting on.
 
 ## Implemented today
 
-This section covers M01 to M03.
+What works in `main` after M01–M04, as of 2026-11-25.
 
-Legend: ![Verified][verified] against a disposable IMAP server ·
-![Needs verification][needs-verification]
+Legend: ![Verified][verified] against a disposable Dovecot server ·
+![Offscreen tests][offscreen] covered by automated tests without a live server
+· ![Needs verification][needs-verification] not yet checked end to end
+
+> [!NOTE]
+>
+> No row has been checked in a real Plasma session; those checks are
+> [M15](docs/ROADMAP.md#m15-real-plasma-session-verification). Limitations of
+> each area are in the [caveats](docs/CAVEATS.md).
 
 ### Inherited from Trojitá
 
@@ -111,10 +135,12 @@ Legend: ![Verified][verified] against a disposable IMAP server ·
 M01 verified that these build, install and launch with Qt 6. M04 verified
 live reading, replies, forwards, attachments, drafts and failed-send recovery
 against a disposable Dovecot server
-([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)); see the
-[composing caveats](docs/CAVEATS.md#composing-and-sending).
+([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)).
 
 ### Added in M02
+
+Shell, accounts and mailbox foundation
+([#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)).
 
 | Area              | What works                                                                                                        | Status                                    |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
@@ -123,68 +149,82 @@ against a disposable Dovecot server
 | Saved searches    | Folder unread counts and named searches per account, run in the selected folder                                   | ![Verified][verified]                     |
 | Sessions          | Layout, pane sizes, row density and the selected message restored across restarts                                 | ![Verified][verified]                     |
 | Density           | Compact and comfortable message-list rows                                                                         | ![Verified][verified]                     |
-| Mail shell        | Left, main and right columns and a footer; folder sidebar on either side; compact, wide and one-at-a-time layouts | ![Needs verification][needs-verification] |
-| Embedded panels   | Attachments, Message Details, Contacts and Related Messages, each with its own placement                          | ![Needs verification][needs-verification] |
-| Identities        | Sender identities per account, with the account's default preselected and a **No identity** option                | ![Needs verification][needs-verification] |
+| Embedded panels   | Attachments, Message Details, Contacts and Related Messages, each with its own placement                          | ![Verified][verified]                     |
+| Mail shell        | Left, main and right columns and a footer; folder sidebar on either side; compact, wide and one-at-a-time layouts | ![Verified][verified]                     |
+| Account sidebar   | Folder sidebar grouped by account, and an optional header with the account, folder and status                     | ![Verified][verified]                     |
+| Identities        | Sender identities per account, with the account's default preselected and a **No identity** option                | ![Verified][verified]                     |
 | OAuth             | Google and Microsoft sign-in for IMAP and SMTP, chosen per account                                                | ![Needs verification][needs-verification] |
-| Account sidebar   | Folder sidebar grouped by account, and an optional header with the account, folder and status                     | ![Needs verification][needs-verification] |
 | Capabilities      | Actions the account's protocol cannot perform are hidden                                                          | ![Needs verification][needs-verification] |
 
-M02 is headless work (M02.01,
-[#318](https://github.com/mikepadiernos/plasma-impresario/issues/318)). Checks
+M02 was headless work (M02.01,
+[#318](https://github.com/mikepadiernos/plasma-impresario/issues/318)); checks
 that need a real Plasma session are their own milestone (M15,
-[#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)), and none
-has been done yet. The mail shell and embedded panels are Completed
-([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); the
-[design guide](docs/philosophy/designs.md#current-interface) describes them in
-detail, and [pending tasks](docs/TODO.md#m02-shell-and-account-foundation)
-record the verification.
+[#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)). The
+[design guide](docs/philosophy/designs.md#current-interface) describes the shell
+and panels in detail, and
+[pending tasks](docs/TODO.md#m02-shell-and-account-foundation) record the
+verification.
 
 ### Added in M03
 
-| Area                | What works                                                                                                                 | Status                                    |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| Folder navigation   | Special folders first with theme icons, **Go to Folder** (Ctrl+J), **Go to Next Unread Folder** and **Check for New Mail** | ![Needs verification][needs-verification] |
-| Unified Inbox       | The INBOX of every chosen account in one list, acting on each message's own account                                        | ![Needs verification][needs-verification] |
-| Quick actions       | Archive, Move and Copy to recent folders, mark read, unread and flagged, from the menu, toolbar and keyboard               | ![Needs verification][needs-verification] |
-| Deleting            | Move to Trash with **Undo**, Delete Permanently, Empty Trash and Junk, and Rename Folder, with confirmations               | ![Needs verification][needs-verification] |
-| Filters and sorting | Unread, Flagged and With Attachments filters, **Group By**, relevance sorting and a view remembered per folder             | ![Needs verification][needs-verification] |
-| Selection           | Select All, Thread, Similar and Invert, keyboard selection, batch progress and errors in a notification bar                | ![Needs verification][needs-verification] |
-| Triage              | **Show Related**, fast next and previous keys, a dense processing layout and a searchable shortcut list                    | ![Needs verification][needs-verification] |
-| Message rows        | Two-line rows with sender initials and unread, flag and attachment indicators                                              | ![Needs verification][needs-verification] |
+Mail operations, sorting and folder management
+([#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)).
 
-M03's features are covered by model, unit and main-window tests. Destructive
-operations and Undo still need a check against a live server; see
+| Area                | What works                                                                                                                                       | Status                                    |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
+| Folder navigation   | Special folders first with theme icons, **Go to Folder** (<kbd>Ctrl</kbd>+<kbd>J</kbd>), **Go to Next Unread Folder** and **Check for New Mail** | ![Offscreen tests][offscreen]             |
+| Unified Inbox       | The INBOX of every chosen account in one list, acting on each message's own account                                                              | ![Verified][verified]                     |
+| Quick actions       | Archive, Move and Copy to recent folders, mark read, unread and flagged, from the menu, toolbar and keyboard                                     | ![Offscreen tests][offscreen]             |
+| Filters and sorting | Unread, Flagged and With Attachments filters, **Group By**, relevance sorting and a view remembered per folder                                   | ![Verified][verified]                     |
+| Selection           | Select All, Thread, Similar and Invert, keyboard selection, batch progress and errors in a notification bar                                      | ![Offscreen tests][offscreen]             |
+| Triage              | **Show Related**, fast next and previous keys, a dense processing layout and a searchable shortcut list                                          | ![Offscreen tests][offscreen]             |
+| Message rows        | Two-line rows with sender initials and unread, flag and attachment indicators                                                                    | ![Offscreen tests][offscreen]             |
+| Deleting            | Move to Trash with **Undo**, Delete Permanently, Empty Trash and Junk, and Rename Folder, with confirmations                                     | ![Needs verification][needs-verification] |
+
+`test_LiveImapAccounts` and `test_LiveImapPanels` exercise the Unified Inbox,
+**Check for New Mail**, filters and grouping against the disposable server.
+Destructive operations and Undo are covered by model and unit tests but still
+need a check against a live server; see
 [pending tasks](docs/TODO.md#m03-mail-operations) and
-[caveats](docs/CAVEATS.md#mail-operations). The
-[design guide](docs/philosophy/designs.md#current-interface) describes each
-one.
+[caveats](docs/CAVEATS.md#mail-operations).
 
 ### Added in M04
 
-M04 is merged into `main`
+Reading and conversation flow
 ([#6](https://github.com/mikepadiernos/plasma-impresario/issues/6)).
 
-| Area             | What works                                                                                                                                               | Status                                    |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| Message security | Message Details shows the reader's signature and decryption results, with the signer, an icon and an accessible name                                     | ![Needs verification][needs-verification] |
-| Dark schemes     | Plain text follows the color scheme; HTML without its own background is shown on a light page                                                            | ![Needs verification][needs-verification] |
-| Search highlight | A message opened from a quick search shows the term in the find bar; F3 steps through the matches                                                        | ![Needs verification][needs-verification] |
-| Reading privacy  | The remote-content bar names the blocked servers; deceptive links ask before opening                                                                     | ![Needs verification][needs-verification] |
-| Load on demand   | Parts which cannot be loaded, for example offline, are reported in the reader and load again on reconnect or Try Again                                   | ![Needs verification][needs-verification] |
-| Reader actions   | A bar above the reader replies, forwards, archives, trashes, flags, marks read, shows attachments, zooms and switches to plain text for the open message | ![Needs verification][needs-verification] |
-| Reading, triage  | Plain text wraps at a readable width; Space pages through the open message and then opens the next unread one                                            | ![Needs verification][needs-verification] |
-| Conversations    | Alt+Down and Alt+Up step through a conversation from oldest to newest, threaded or not; Ctrl+. and Ctrl+, expand and collapse every thread               | ![Needs verification][needs-verification] |
-| Filters          | Filters keep whole threads and the open message; conversation steps show replies a filter hides                                                          | ![Needs verification][needs-verification] |
-| Subjects         | Replies without links join their conversation by subject within 30 days, ignoring localized prefixes and list tags; References can merge conversations   | ![Needs verification][needs-verification] |
-| Composing        | Replies, Reply to All but Me and Forward send from the message's account; a refused send keeps the composer open, and unsent mail reopens after a crash  | ![Needs verification][needs-verification] |
-| Keyboard         | F6 follows the screen order of panes and panels, also in right-to-left layouts; Escape returns from the reader or a panel to the message list            | ![Needs verification][needs-verification] |
+| Area             | What works                                                                                                                                                                                                                                  | Status                        |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Composing        | Replies, Reply to All but Me and Forward send from the message's account; a refused send keeps the composer open, and unsent mail reopens after a crash                                                                                     | ![Verified][verified]         |
+| Reader actions   | A bar above the reader replies, forwards, archives, trashes, flags, marks read, shows attachments, zooms and switches to plain text for the open message                                                                                    | ![Verified][verified]         |
+| Reading, triage  | Plain text wraps at a readable width; <kbd>Space</kbd> pages through the open message and then opens the next unread one                                                                                                                    | ![Verified][verified]         |
+| Conversations    | <kbd>Alt</kbd>+<kbd>Down</kbd> and <kbd>Alt</kbd>+<kbd>Up</kbd> step through a conversation from oldest to newest; <kbd>Ctrl</kbd>+<kbd>.</kbd> and <kbd>Ctrl</kbd>+<kbd>,</kbd> expand and collapse every thread (keys not exercised live) | ![Verified][verified]         |
+| Filters          | Filters keep whole threads and the open message; conversation steps show replies a filter hides                                                                                                                                             | ![Verified][verified]         |
+| Subjects         | Replies without links join their conversation by subject within 30 days, ignoring localized prefixes and list tags; References can merge conversations                                                                                      | ![Verified][verified]         |
+| Keyboard         | <kbd>F6</kbd> follows the screen order of panes and panels, also in right-to-left layouts; <kbd>Esc</kbd> returns from the reader or a panel to the message list                                                                            | ![Verified][verified]         |
+| Search highlight | A message opened from a quick search shows the term in the find bar; <kbd>F3</kbd> steps through the matches (key not exercised live)                                                                                                       | ![Verified][verified]         |
+| Reading privacy  | The remote-content bar names the blocked servers; deceptive links ask before opening                                                                                                                                                        | ![Verified][verified]         |
+| Load on demand   | Parts which cannot be loaded, for example offline, are reported in the reader and load again on reconnect or **Try Again**                                                                                                                  | ![Verified][verified]         |
+| Message security | Message Details shows the reader's signature and decryption results, with the signer, an icon and an accessible name                                                                                                                        | ![Offscreen tests][offscreen] |
+| Dark schemes     | Plain text follows the color scheme; HTML without its own background is shown on a light page                                                                                                                                               | ![Offscreen tests][offscreen] |
 
-Inline PGP is detected but not verified; see
-[caveats](docs/CAVEATS.md#message-security). A search in a threaded list
-splits threads; see [caveats](docs/CAVEATS.md#conversations). Each refused send
-files another copy in Sent and drafts do not keep attachments; see
-[caveats](docs/CAVEATS.md#composing-and-sending).
+`test_LiveImapPanels` and `test_LiveImapCompose` exercise the rows marked
+![Verified][verified] against the disposable server. The live security check
+uses a synthetic signature, so only the unverifiable result is seen there; the
+other results are covered offscreen.
+
+> [!WARNING]
+>
+> Some M04 behavior has known limits: inline PGP is detected but neither
+> verified nor decrypted ([message security](docs/CAVEATS.md#message-security));
+> a search in a threaded list splits threads
+> ([conversations](docs/CAVEATS.md#conversations)); and each refused send files
+> another copy in Sent, while drafts do not keep attachments
+> ([composing and sending](docs/CAVEATS.md#composing-and-sending)). The live
+> compose test sends through a local sendmail script, so SMTP submission has
+> not been exercised end to end.
+
+## Using it
 
 ### Accounts
 
@@ -193,16 +233,18 @@ files another copy in Sent and drafts do not keep attachments; see
   <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>PgUp</kbd> switch to the next and previous
   account; both shortcuts can be rebound.
 - **Add Account**, **Rename Account**, **Remove Account** and **Account
-  Settings…** are in the application menu. Account Settings edits the active
-  account's identities, IMAP, offline and SMTP settings in its own dialog.
-  Removing an account deletes its settings and stored passwords, but not its
-  offline cache or any mail on the server.
+  Settings…** are in the application menu; each account's header in the folder
+  sidebar has a menu with the last three. Account Settings edits the account's
+  identities, IMAP, offline and SMTP settings in its own dialog.
+- Removing an account deletes its settings, stored passwords and offline
+  cache, but not any mail on the server.
 - All accounts connect at startup. An account with a network error, a missing
-  password or failed authentication shows a warning in the selector.
+  password or failed authentication shows a warning in the selector, on its
+  sidebar header and in the footer, and raises one desktop notification.
 - An existing configuration becomes the first account on startup. New
   profiles store passwords with QtKeychain when it is available. An account can
   sign in with a password or with Google or Microsoft OAuth; see
-  [caveat #362](docs/CAVEATS.md#oauth-sign-in).
+  [OAuth sign-in](docs/CAVEATS.md#oauth-sign-in).
 - Each account has its own sender identities by default, and the composer
   preselects the account's default identity. An account can instead use the
   shared identities, or **No identity**, which starts the composer with an empty
@@ -218,8 +260,9 @@ files another copy in Sent and drafts do not keep attachments; see
 
 > [!NOTE]
 >
-> Only the active account's folders are shown at a time. See
-> [caveat #262](docs/CAVEATS.md#multiple-accounts) for current limits.
+> Only the active account's folders are shown at a time; the other accounts
+> show their header and status. See
+> [multiple accounts](docs/CAVEATS.md#multiple-accounts).
 
 ### Shell and panels
 
@@ -232,8 +275,8 @@ files another copy in Sent and drafts do not keep attachments; see
   account, the folder and the account's status. It is off by default.
 - <kbd>F6</kbd> and <kbd>Shift</kbd>+<kbd>F6</kbd> move focus through the
   header, account selector, folder tree, message list, reader and each visible
-  panel in the order they appear on screen. <kbd>Escape</kbd> in the reader or
-  a panel returns to the message list.
+  panel in the order they appear on screen. <kbd>Esc</kbd> in the reader or a
+  panel returns to the message list.
 - The Navigation toolbar docks at the left window edge by default. The menu
   bar is hidden; open the menus from the toolbar's main menu button or turn the
   bar on with **View › Show Main Menu Bar**.
@@ -303,26 +346,36 @@ integration still needs a real Plasma session.
 ## Product direction
 
 The [roadmap](docs/ROADMAP.md) puts reliable mail and account boundaries first,
-then mail operations, reading, search and indexing, desktop and provider
-integration,
-automation, settings, themes and release quality. Grouped account navigation,
-rules, provider OAuth, theme profiles, an optional Vim mode and workspace
-features are planned.
+then search, desktop and provider integration, automation, settings, themes and
+release quality. Real Plasma session checks run alongside as M15.
+
+```mermaid
+flowchart TD
+    A[M01-M04 foundations: baseline, shell and accounts, operations, reading] --> B[M05 search and indexing]
+    B --> C[M06-M08 desktop integration, automation, settings]
+    C --> D[M09-M11 themes, reliability, release readiness]
+    D --> E[M12-M13 Nextcloud, Microsoft accounts and Exchange]
+    E --> F[M14 refinements]
+    A -.-> G[M15 real Plasma session checks]
+```
+
+Rules, theme profiles, an optional Vim mode and workspace features are planned.
 [Plasma Opus](docs/integrations/plasma-opus.md) is the companion file manager;
 the two apps are planned to share file dialogs, themes, Vim mode settings and
-workspace context.
+workspace context. The [scope](docs/philosophy/scope.md) sets the product
+boundaries.
 
 ## Documentation
 
-| Start with                                          | For                                                     |
-| --------------------------------------------------- | ------------------------------------------------------- |
-| [Installation](docs/INSTALL.md)                     | Installer options, prerequisites and troubleshooting    |
-| [Documentation index](docs/README.md)               | Product guides, design, integrations and specifications |
-| [Roadmap](docs/ROADMAP.md)                          | Milestones, status and project-board links              |
-| [Interface design](docs/philosophy/designs.md)      | Current shell and the planned Plasma Impresario design  |
-| [Pending tasks](docs/TODO.md)                       | Blockers, verification records and handoffs             |
-| [Bugs](docs/BUGS.md) and [caveats](docs/CAVEATS.md) | Reported issues, limitations and security guidance      |
-| [Contributing](CONTRIBUTING.md)                     | Development workflow and the headless dev container     |
+| Start with                                          | For                                                             |
+| --------------------------------------------------- | --------------------------------------------------------------- |
+| [Documentation index](docs/README.md)               | Every guide, grouped by purpose                                 |
+| [Installation](docs/INSTALL.md)                     | Installer options, prerequisites and troubleshooting            |
+| [Roadmap](docs/ROADMAP.md)                          | Milestones, status and project-board links                      |
+| [Interface design](docs/philosophy/designs.md)      | The current shell and the planned Plasma Impresario design      |
+| [Pending tasks](docs/TODO.md)                       | Blockers, verification records and handoffs                     |
+| [Bugs](docs/BUGS.md) and [caveats](docs/CAVEATS.md) | Reported issues, limitations and security guidance              |
+| [Contributing](CONTRIBUTING.md)                     | Development workflow, documentation style and the dev container |
 
 ## Application icon
 
@@ -336,8 +389,11 @@ Plasma Impresario keeps Trojitá's license: GPL version 2, or (at your option)
 version 3 or any later version accepted by the membership of KDE e.V. See
 [LICENSE](LICENSE).
 
+[backlog]: https://img.shields.io/badge/Backlog-6e7781
+[completed]: https://img.shields.io/badge/Completed-2da44e
+[defined]: https://img.shields.io/badge/Defined-57606a
 [development]: https://img.shields.io/badge/Development-9a6700
 [merged]: https://img.shields.io/badge/Merged-8250df
 [needs-verification]: https://img.shields.io/badge/Needs_verification-0969da
-[planned]: https://img.shields.io/badge/Planned-6e7781
+[offscreen]: https://img.shields.io/badge/Offscreen_tests-0969da
 [verified]: https://img.shields.io/badge/Verified-1a7f37

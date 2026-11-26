@@ -1,35 +1,45 @@
 # M01 compatibility baseline
 
-**[Documentation](../README.md)** · **[Installation](../INSTALL.md)** ·
-**[Roadmap](../ROADMAP.md)** · **[TODO](../TODO.md)** ·
-**[Caveats](../CAVEATS.md)**
+**[Documentation](../README.md)** · **[Roadmap](../ROADMAP.md)** ·
+**[Pending tasks](../TODO.md)** · **[Caveats](../CAVEATS.md)** ·
+**[Installation](../INSTALL.md)** · **[Scope](scope.md)**
 
-This is the supported build target and the evidence recorded for it, not a claim
-of full reader or desktop-session support. The
+This page records the supported build target and the evidence for it, as of
+2026-11-25. It is not a claim of full reader or desktop-session support. The
 [M01 release gate](../ROADMAP.md#m01-kde--qt6-compatibility-baseline) is merged
-into `main`; live account, reading and desktop-session checks are deferred to
-later milestones, as recorded in
-[TODO](../TODO.md#m01-release-gate-and-integration).
+into `main`, as are M02 through M04. Live account, reading and composing checks
+have run only against a synthetic Dovecot server; desktop-session checks are
+deferred, as recorded in
+[pending tasks](../TODO.md#m01-release-gate-and-integration).
 
 Legend: ![Verified][verified] · ![Needs verification][needs-verification] ·
-![In progress][in-progress] · ![Planned][planned] · ![Limitation][limitation]
+![Planned][planned] · ![Limitation][limitation]
+
+## Contents
+
+- [Initial target and observed environment](#initial-target-and-observed-environment)
+  - [Installer package managers](#installer-package-managers)
+- [Dependencies and limitations](#dependencies-and-limitations)
+  - [CMake and CachyOS package audit](#cmake-and-cachyos-package-audit)
+  - [Runtime limitations](#runtime-limitations)
+- [Reproducing the current component checks](#reproducing-the-current-component-checks)
 
 ## Initial target and observed environment
 
-| Area                                  | Target                                    | Status                                    | Evidence and limits                                                                                                                                                                       |
-| ------------------------------------- | ----------------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Distribution and architecture         | CachyOS on x86_64 with `pacman`           | ![Verified][verified]                     | Renderer-free and WebEngine builds, user-prefix and temporary-prefix installs, and installer checks passed. Other Arch derivatives and architectures are not verified.                    |
-| Desktop and session                   | KDE Plasma 6, Wayland                     | ![Needs verification][needs-verification] | Plasma Workspace 6.8.3 and a KDE Wayland session were present on the observed host. Account setup and message reading in the session have not been verified.                              |
-| X11 session                           | None                                      | ![Limitation][limitation]                 | Not a release target.                                                                                                                                                                     |
-| Compiler                              | GCC with C++20 support                    | ![Verified][verified]                     | GCC 16.2.1. No older GCC minimum or any Clang version has been validated.                                                                                                                 |
-| Qt                                    | Qt 6.7.0 or newer, as required by CMake   | ![Verified][verified]                     | Qt 6.12.0. This does not validate every version from 6.7 onward.                                                                                                                          |
-| KDE Frameworks                        | KF6 and ECM compatible with the chosen Qt | ![Verified][verified]                     | ECM and KF6 6.32.0. The project declares no minimums for ECM, ItemModels, Config or I18n; the observed CMake package summary reported an effective 6.25.0 minimum for ItemModels and ECM. |
-| Build tools                           | CMake and Ninja                           | ![Verified][verified]                     | CMake 4.5.1 and Ninja 1.13.2. CMake declares 3.16 as its minimum, which has not been tested with the required ECM and Qt toolchain.                                                       |
-| WebEngine reader                      | Qt6 WebEngineWidgets, on by default       | ![Verified][verified]                     | Renderer-enabled build with the `qt6-webengine` 6.140.0 package passed all 35 CTest cases at M01 completion; live-session reading remains unverified.                                     |
-| Live account setup                    | Isolated test account                     | ![In progress][in-progress]               | Deferred to M02 ([#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)); exercised only against a disposable Dovecot container so far.                                      |
-| Live reading, replies and attachments | Isolated test mail                        | ![Planned][planned]                       | Deferred to M04 ([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)).                                                                                                    |
-| Plasma-session startup and recovery   | Real Plasma session                       | ![Planned][planned]                       | Deferred to M06.01 ([#101](https://github.com/mikepadiernos/plasma-impresario/issues/101)).                                                                                               |
-| System-prefix installs                | Renderer-free and WebEngine               | ![Planned][planned]                       | Pending; only user and temporary prefixes have been verified.                                                                                                                             |
+| Area                                  | Target                                    | Status                                    | Evidence and limits                                                                                                                                                                                                                                                                           |
+| ------------------------------------- | ----------------------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Distribution and architecture         | CachyOS on x86_64 with `pacman`           | ![Verified][verified]                     | Renderer-free and WebEngine builds, user-prefix and temporary-prefix installs, and installer checks passed. Other Arch derivatives and architectures are not verified.                                                                                                                        |
+| Desktop and session                   | KDE Plasma 6, Wayland                     | ![Needs verification][needs-verification] | Plasma Workspace 6.8.3 and a KDE Wayland session were present on the observed host. Account setup and message reading in the session have not been verified.                                                                                                                                  |
+| X11 session                           | None                                      | ![Limitation][limitation]                 | Not a release target.                                                                                                                                                                                                                                                                         |
+| Compiler                              | GCC with C++20 support                    | ![Verified][verified]                     | GCC 16.2.1. No older GCC minimum or any Clang version has been validated.                                                                                                                                                                                                                     |
+| Qt                                    | Qt 6.7.0 or newer, as required by CMake   | ![Verified][verified]                     | Qt 6.12.0. This does not validate every version from 6.7 onward.                                                                                                                                                                                                                              |
+| KDE Frameworks                        | KF6 and ECM compatible with the chosen Qt | ![Verified][verified]                     | ECM and KF6 6.32.0. The project declares no minimums for ECM, ItemModels, Config or I18n; the observed CMake package summary reported an effective 6.25.0 minimum for ItemModels and ECM.                                                                                                     |
+| Build tools                           | CMake and Ninja                           | ![Verified][verified]                     | CMake 4.5.1 and Ninja 1.13.2. CMake declares 3.16 as its minimum, which has not been tested with the required ECM and Qt toolchain.                                                                                                                                                           |
+| WebEngine reader                      | Qt6 WebEngineWidgets, on by default       | ![Verified][verified]                     | Renderer-enabled build with the `qt6-webengine` 6.140.0 package passed all 35 CTest cases at M01 completion; live-session reading remains unverified.                                                                                                                                         |
+| Live account setup                    | Isolated test account                     | ![Needs verification][needs-verification] | Merged in M02 ([#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)); exercised only against a disposable Dovecot container in `tools/dev-container/`. A real provider and KWallet are checked in M15 ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)). |
+| Live reading, replies and attachments | Isolated test mail                        | ![Needs verification][needs-verification] | Merged in M04 ([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)); exercised against the same synthetic server, with sending through a local sendmail script rather than SMTP.                                                                                              |
+| Plasma-session startup and recovery   | Real Plasma session                       | ![Planned][planned]                       | Deferred to M06.01 ([#101](https://github.com/mikepadiernos/plasma-impresario/issues/101)); shell checks in a real session are in M15 ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)).                                                                                |
+| System-prefix installs                | Renderer-free and WebEngine               | ![Planned][planned]                       | Pending; only user and temporary prefixes have been verified.                                                                                                                                                                                                                                 |
 
 ### Installer package managers
 
@@ -105,6 +115,8 @@ skipped with a warning. Package lists for other managers have not been audited.
 > On `pacman`, installing missing packages runs `pacman -Syu`, which also
 > upgrades the system.
 
+### Runtime limitations
+
 | Area                             | Dependency or behavior                                                                                       | Current limitation                                                                                                                                                                                                                             |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | IMAP and TLS                     | Qt Network supplies sockets and TLS; the observed host had the Qt OpenSSL TLS plugin.                        | ![Limitation][limitation] A working TLS backend and trusted certificates are needed for encrypted connections. An account can still be configured for cleartext. Real server and certificate behavior were not verified for M01.               |
@@ -146,12 +158,18 @@ QT_QPA_PLATFORM=offscreen ctest --test-dir build-m01-webengine --output-on-failu
 
 At M01 completion all 35 CTest cases passed, along with a temporary-prefix
 installation, `--version` startup and the installer checks. Later work adds test
-cases, so current counts differ. Live account setup, message reading, replies,
-attachments and Plasma-session behavior remain unverified; on hosts without
-Plasma, use the dev container described in
-[building outside Plasma](../../CONTRIBUTING.md#building-outside-plasma).
+cases, so current counts differ.
 
-[in-progress]: https://img.shields.io/badge/In_progress-9a6700
+> [!NOTE]
+>
+> Neither configuration exercises a real account. The opt-in live tests in
+> `tools/dev-container/` (`live-imap-accounts.sh`, `live-imap-panels.sh` and
+> `live-imap-compose.sh`) cover multiple accounts, the embedded panels,
+> reading, replies, attachments and failed sends against a disposable Dovecot
+> server. Real providers, SMTP submission and Plasma-session behavior remain
+> unverified. On hosts without Plasma, use the dev container described in
+> [building outside Plasma](../../CONTRIBUTING.md#building-outside-plasma).
+
 [limitation]: https://img.shields.io/badge/Limitation-bc4c00
 [needs-verification]: https://img.shields.io/badge/Needs_verification-0969da
 [planned]: https://img.shields.io/badge/Planned-6e7781

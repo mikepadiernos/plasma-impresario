@@ -1,14 +1,15 @@
 # Message list toolbar
 
+**[Documentation](../../README.md)** · **[Roadmap: M14](../../ROADMAP.md#m14-refinements)** ·
 **[Refinements](../README.md)** · **[Toolbars](README.md)** ·
-**[Interface design](../../philosophy/designs.md)** ·
-**[M14 in roadmap](../../ROADMAP.md#m14-refinements)**
+**[Menus](../menus/README.md)** · **[Interface design](../../philosophy/designs.md)**
 
 This proposed toolbar appears when the main message list is active and supports
-triage and selection actions.
+triage and selection actions. It maps each entry to the message list controls
+that exist today.
 
-**Legend:** ![Exists][exists] in the current code on `main` ·
-![Planned][planned] not implemented yet
+Legend: ![Exists][exists] in the current code on `main`, not checked in a real
+Plasma session · ![Planned][planned] not implemented yet
 
 ## Purpose
 
@@ -44,42 +45,53 @@ support fast triage while staying compact and predictable.
 
 ## Actions
 
-There is no message list toolbar today. The Availability column names where an
-equivalent action exists.
+The Availability column names where an equivalent action exists today.
 
-| Action                         | Shortcut                     | Availability                                                    | Notes                                                     |
-| ------------------------------ | ---------------------------- | --------------------------------------------------------------- | --------------------------------------------------------- |
-| Select all / clear selection   | <kbd>Ctrl</kbd>+<kbd>A</kbd> | ![Exists][exists] Message list                                  | Standard list selection                                   |
-| Mark selected as read          | <kbd>M</kbd>                 | ![Exists][exists] Navigation toolbar, message list context menu | **Mark as Read** toggle                                   |
-| Mark selected as unread        | <kbd>M</kbd>                 | ![Exists][exists] Navigation toolbar, message list context menu | Clear the **Mark as Read** toggle                         |
-| Flag selected                  | <kbd>S</kbd>                 | ![Exists][exists] Navigation toolbar, message list context menu | **Mark as Flagged** toggle                                |
-| Archive selected               | <kbd>A</kbd>                 | ![Exists][exists] Navigation toolbar, message list context menu |                                                           |
-| Delete selected                | <kbd>Delete</kbd>            | ![Exists][exists] Navigation toolbar, message list context menu | **Mark as Deleted**                                       |
-| Sort by date                   | —                            | ![Exists][exists] **Mailbox › Sorting**                         | **Sorted by Date from Message Headers** or **Arrival**    |
-| Sort by sender                 | —                            | ![Exists][exists] **Mailbox › Sorting**                         | **Sorted by From Address**                                |
-| Sort by subject                | —                            | ![Exists][exists] **Mailbox › Sorting**                         | **Sorted by Subject**                                     |
-| Sort by unread                 | —                            | ![Planned][planned]                                             | **Hide Read Messages** filters instead of sorting         |
-| Threading toggle               | —                            | ![Exists][exists] **Mailbox › Sorting**                         | **Show Messages in Threads**                              |
-| Filter / saved search selector | <kbd>/</kbd>                 | ![Exists][exists] Quick search field and its options menu       | **Saved Searches** per account                            |
-| Search results count indicator | —                            | ![Planned][planned]                                             |                                                           |
-| Refresh folder                 | —                            | ![Exists][exists] Folder tree context menu                      | **Check for New Messages**                                |
-| Folder properties              | —                            | ![Planned][planned]                                             |                                                           |
-| Move selected to folder        | —                            | ![Exists][exists] Drag and drop onto the folder tree            |                                                           |
-| Bulk actions menu              | —                            | ![Planned][planned]                                             | The message list context menu acts on the whole selection |
+| Action                         | Shortcut                      | Availability                                                         | Notes                                                                         |
+| ------------------------------ | ----------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Select all / clear selection   | <kbd>Ctrl</kbd>+<kbd>A</kbd>  | ![Exists][exists] Message list                                       | **Select All** and **Deselect** while the list has focus                      |
+| Mark selected as read          | <kbd>M</kbd>                  | ![Exists][exists] Navigation toolbar, message list context menu      | **Mark as Read** toggle                                                       |
+| Mark selected as unread        | <kbd>Shift</kbd>+<kbd>M</kbd> | ![Exists][exists] **Message** menu, message list context menu        | **Mark as Unread**; clearing the **Mark as Read** toggle also works           |
+| Flag selected                  | <kbd>S</kbd>                  | ![Exists][exists] Navigation toolbar, message list context menu      | **Mark as Flagged** toggle                                                    |
+| Archive selected               | <kbd>A</kbd>                  | ![Exists][exists] Navigation toolbar, message list context menu      |                                                                               |
+| Delete selected                | <kbd>Delete</kbd>             | ![Exists][exists] Navigation toolbar, message list context menu      | **Mark as Deleted**                                                           |
+| Sort by date                   | —                             | ![Exists][exists] Tool row **Sort** button, **Mailbox › Sorting**    | **Date from Message Headers** or **Arrival**                                  |
+| Sort by sender                 | —                             | ![Exists][exists] Tool row **Sort** button, **Mailbox › Sorting**    | **From Address**                                                              |
+| Sort by subject                | —                             | ![Exists][exists] Tool row **Sort** button, **Mailbox › Sorting**    | **Subject**                                                                   |
+| Sort by unread                 | —                             | ![Planned][planned]                                                  | The **Unread** filter and **Hide Read Messages** filter instead of sorting    |
+| Threading toggle               | —                             | ![Exists][exists] Tool row **Sort** button, **Mailbox › Sorting**    | **Show Messages in Threads**                                                  |
+| Filter / saved search selector | <kbd>/</kbd>                  | ![Exists][exists] Tool row filter buttons, quick search options menu | **Unread**, **Flagged**, **With Attachments**; **Saved Searches** per account |
+| Search results count indicator | —                             | ![Exists][exists] Status row                                         | "showing X of Y" while filters are on                                         |
+| Refresh folder                 | —                             | ![Exists][exists] Folder tree context menu                           | **Check for New Messages**                                                    |
+| Folder properties              | —                             | ![Planned][planned]                                                  |                                                                               |
+| Move selected to folder        | <kbd>V</kbd>                  | ![Exists][exists] **Message** menu, navigation toolbar               | **Move to Folder…**; drag and drop onto the folder tree also works            |
+| Bulk actions menu              | —                             | ![Planned][planned]                                                  | The message list context menu acts on the whole selection                     |
 
-## Current quick search
+## Current toolbar
 
-The message list has a quick search field (`src/Gui/MessageListWidget.cpp`)
-instead of a toolbar. <kbd>/</kbd> focuses it, and the key sequence <kbd>:</kbd>
-<kbd>=</kbd> focuses it for a raw IMAP query. Its options menu offers:
+The message list (`src/Gui/MessageListWidget.cpp`) has a tool row above the
+list and a status row below it. The tool row holds:
+
+- the **Quick Search** field. <kbd>/</kbd> focuses it, and the key sequence
+  <kbd>:</kbd> <kbd>=</kbd> focuses it with the `:=` prefix for a raw IMAP
+  query.
+- filter buttons **Unread**, **Flagged** and **With Attachments**, plus
+  **Clear Filters**. The filter state is saved per account.
+- a **Sort** menu button with the same entries as **Mailbox › Sorting**.
+
+The quick search options menu offers:
 
 - **Fuzzy Search**
 - **Save Current Search…** and a **Saved Searches** submenu for the active
-  account
+  account, where each search offers **Run Search** and **Delete Search…**
 - search fields **Subject**, **Body**, **Senders** and **Recipients**
-- **Complex IMAP query** templates and **Allow raw IMAP search**
+- **Allow raw IMAP search**, which reveals the **Complex IMAP query** templates
 
-## Behavioral rules
+The status row shows the scope as "Account › Folder", then the counts joined by
+" · ": "N messages, N unread", "showing X of Y" while filters are on, and "N
+selected" when more than one message is selected.
+
+## Design rules
 
 - Keep the toolbar aligned with the current folder and visible selection.
 - Never expose actions that are not valid for the current selected messages.
