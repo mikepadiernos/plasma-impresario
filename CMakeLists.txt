@@ -320,6 +320,7 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/RecentFolders.cpp
     ${path_UiUtils}/RelatedMessages.cpp
     ${path_UiUtils}/Relevance.cpp
+    ${path_UiUtils}/SearchScope.cpp
     ${path_UiUtils}/SelectionAfterRemoval.cpp
     ${path_UiUtils}/ShortcutOverview.cpp
     ${path_UiUtils}/UnreadFolders.cpp
@@ -1345,6 +1346,8 @@ if(BUILD_TESTING)
     target_link_libraries(test_UnifiedMsgListModel PRIVATE UiUtils)
     trojita_test(Misc Relevance)
     target_link_libraries(test_Relevance PRIVATE UiUtils)
+    trojita_test(Misc SearchScope)
+    target_link_libraries(test_SearchScope PRIVATE UiUtils)
     trojita_test(Misc LinkSafety)
     target_link_libraries(test_LinkSafety PRIVATE UiUtils)
     if(WITH_DESKTOP)
