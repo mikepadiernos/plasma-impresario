@@ -26,6 +26,7 @@ Legend: ![Done][done] · ![Needs verification][needs-verification] ·
   - [Loading and unavailable content](#loading-and-unavailable-content)
   - [Reader actions](#reader-actions)
   - [Reading and triage](#reading-and-triage)
+  - [Accounts in reading and composing](#accounts-in-reading-and-composing)
   - [Status bar](#status-bar)
 - [Proposed Plasma Impresario shell](#proposed-plasma-impresario-shell)
   - [Panes and placement](#panes-and-placement)
@@ -658,6 +659,35 @@ conversation ([#369](https://github.com/mikepadiernos/plasma-impresario/issues/3
   others in as replies to its first message. Only messages whose envelopes are
   loaded count, and the list merges again as more envelopes load.
 
+### Accounts in reading and composing
+
+With two or more accounts, mail keeps the account it belongs to from reading to
+sending ([#224](https://github.com/mikepadiernos/plasma-impresario/issues/224)):
+
+- The reader's headers and the Message Details panel have an **Account** row
+  naming the account that received the open message, also in the Unified Inbox
+  and the standalone message window. With one account the row is hidden.
+- Replies and forwards open with the account that received the message and the
+  identity that the message was addressed to, whichever account is active.
+- The composer has an account selector beside the **From** identities. Choosing
+  another account offers its identities, keeping the identity a reply calls
+  for or the same address when it has one, and sends and files the message
+  with that account's outgoing server, Sent folder and credentials. The
+  original message is still marked answered or forwarded on its own account.
+- A warning above the composer explains what would stop or surprise the send:
+  an account without an outgoing server, an identity that belongs to another
+  account, a draft identity that no longer exists, or a draft whose account was
+  removed. Sending without an outgoing server is refused with the same reason.
+  Renaming or removing an account updates open composers at once.
+- A reply or forward switched to another account is assembled on the desktop
+  before it is uploaded, because one IMAP server cannot copy parts held by
+  another; the original account's server is used only to fetch those parts.
+- Drafts, including the copy saved before each send, remember the account. A
+  draft opens with that account even when another one is active; if it was
+  removed, the draft opens with the active account and says so.
+
+See [caveats](../CAVEATS.md#multiple-accounts).
+
 ### Status bar
 
 The status bar below the footer reports IMAP connection activity, offline state,
@@ -876,8 +906,9 @@ proposed Impresario behaviors, not claims about the current client.
 >
 > Planned for M08
 > ([#114](https://github.com/mikepadiernos/plasma-impresario/issues/114)). Today
-> row density, per-account identities and plain-text identity signatures are
-> available; the other options below are not implemented.
+> row density, per-account identities, plain-text identity signatures and the
+> composer's account selector are available; the other options below are not
+> implemented.
 
 Aqua Mail's customization patterns are adapted to the Plasma desktop rather
 than copied from its mobile interface:
@@ -893,9 +924,10 @@ than copied from its mobile interface:
   optional Vim mode, off by default, adds Vim-style movement and multi-key
   actions with a which-key style hint panel, and can share its settings with
   [Plasma Opus](../integrations/plasma-opus.md#vim-mode-and-shortcuts).
-- **Accounts and composition:** Building on per-account identities and
-  plain-text signatures, rich-text signatures are offered where supported, and
-  the composer shows which account and identity will be used before sending.
+- **Accounts and composition:** Building on per-account identities, plain-text
+  signatures and the composer's
+  [account selector](#accounts-in-reading-and-composing), rich-text signatures
+  are offered where supported.
 - **Notifications and sync:** Per-account and per-folder notification
   preferences, quiet periods and privacy-conscious previews respect Plasma Do
   Not Disturb. Account sync schedules and loading preferences are offered where

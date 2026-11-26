@@ -201,6 +201,11 @@ splits threads; see [caveats](docs/CAVEATS.md#conversations).
   preselects the account's default identity. An account can instead use the
   shared identities, or **No identity**, which starts the composer with an empty
   From address and no signature.
+- The reader names each message's account. Replies and forwards start from the
+  account that received the message, and the composer can switch to another
+  account beside the **From** identities. Drafts remember their account, and the
+  composer warns about an account without an outgoing server or an identity of
+  another account.
 - With two or more accounts, the folder sidebar shows a header for each
   account. Clicking a header switches to that account; clicking the active
   account's header collapses or expands its folders.
