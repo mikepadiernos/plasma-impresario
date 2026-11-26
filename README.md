@@ -84,7 +84,8 @@ $\color{#2da44e}\textbf{Completed}$ or $\color{#8957e5}\textbf{Merged}$ on the
 | M01 KDE / Qt 6 baseline                    | `main` | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]                                                                                                                                                                    |
 | M02 Shell, accounts and mailbox foundation | `main` | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]; checks in a real Plasma session moved to M15                                                                                                                      |
 | M03 Mail operations, sorting and folders   | `main` | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]                                                                                                                                                                    |
-| M04–M15                                    | —      | —                                                                    | ![Planned][planned] Including search and indexing in M05, Microsoft accounts and Exchange in M13 and real Plasma session checks in M15; M09 branding started with the product rename |
+| M04 Reading and conversation flow          | `main` | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]; checks in a real Plasma session are in M15                                                                                                                        |
+| M05–M15                                    | —      | —                                                                    | ![Planned][planned] Including search and indexing in M05, Microsoft accounts and Exchange in M13 and real Plasma session checks in M15; M09 branding started with the product rename |
 
 The [roadmap overview](docs/ROADMAP.md#milestones-at-a-glance) tracks every
 milestone, and [pending tasks](docs/TODO.md#in-progress) record what each one
@@ -161,7 +162,7 @@ one.
 
 ### Added in M04
 
-M04 is in progress on `feature/m04-reading-flow`
+M04 is merged into `main`
 ([#6](https://github.com/mikepadiernos/plasma-impresario/issues/6)).
 
 | Area             | What works                                                                                                                                               | Status                                    |

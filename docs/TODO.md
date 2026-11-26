@@ -51,6 +51,13 @@ Legend: ![Done][done] or verified Â· ![Needs verification][needs-verification] Â
 - ![Done][done] **M03 mail operations, sorting and folder management**
   ([#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)): merged
   into `main`. See [M03 mail operations](#m03-mail-operations).
+- ![Done][done] **M04 reading and conversation flow**
+  ([#6](https://github.com/mikepadiernos/plasma-impresario/issues/6)): all 15
+  roadmap items are checked and `feature/m04-reading-flow` is merged into
+  `main`. The live reading, response and composing flow is verified with
+  `test_LiveImapCompose`; see [live verification](#live-verification-environment).
+  Checks in a real Plasma session remain in
+  [M15](#m15-real-plasma-session-verification).
 - ![In progress][in-progress] **M09 themes and branding foundation**
   ([#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)): in
   Development because M09.01 Branding and visual language
@@ -293,7 +300,7 @@ need a real session.
   [caveat #264](CAVEATS.md#related-messages-and-message-details-panels), pane
   sizes after upgrading, is merged in
   [#422](https://github.com/mikepadiernos/plasma-impresario/pull/422). Still
-  open: #302 and #303 in M04.
+  open: #302 in M05; #303 is merged with M04.
 - ![Planned][planned] **Resume:** #362 and #264 stay open in Review because
   their remaining items belong to later milestones. Move each to Completed and
   close it when those items are merged, then remove its bullet here.
