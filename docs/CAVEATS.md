@@ -46,6 +46,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [My Day calendars and follow-up mail](#my-day-calendars-and-follow-up-mail)
   - [Server settings discovery](#server-settings-discovery)
   - [Window activation for requests](#window-activation-for-requests)
+  - [Saving unsent messages at session end](#saving-unsent-messages-at-session-end)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -78,6 +79,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | My Day            | Every Akonadi calendar is shown and the Akonadi path is not run against a server; follow-up mail comes from search indexes and the shown folder, up to 50 messages ([details](#my-day-calendars-and-follow-up-mail))                                                                                                                                                                                                                                  | [#465](https://github.com/mikepadiernos/plasma-impresario/issues/465)                                                                        |
 | ![Limitation][limitation] | Add Account       | Found servers are not tried against real providers, guessed servers are only probed for a connection, and most resolvers do not validate DNSSEC, so servers outside the mail domain usually need confirmation ([details](#server-settings-discovery))                                                                                                                                                                                                 | [#466](https://github.com/mikepadiernos/plasma-impresario/issues/466)                                                                        |
 | ![Limitation][limitation] | Window activation | Requests pass Plasma's activation token to the window they open, but nothing is checked in a Plasma session; a composer opened by a first launch and the address book window may only be marked as wanting attention ([details](#window-activation-for-requests))                                                                                                                                                                                     | [#467](https://github.com/mikepadiernos/plasma-impresario/issues/467)                                                                        |
+| ![Limitation][limitation] | Session end       | Open composers save unsent messages as drafts when the session ends, but nothing is checked in a Plasma session; attachments are not saved, and on Wayland **Save Draft?** may hold up logging out ([details](#saving-unsent-messages-at-session-end))                                                                                                                                                                                                | [#468](https://github.com/mikepadiernos/plasma-impresario/issues/468)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -1864,6 +1866,54 @@ Plasma session; that check is
   notification explicitly.
 - Add a session-bus test for the second-launch hand-over and a test for the
   notification token.
+
+### Saving unsent messages at session end
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                 |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| [#468](https://github.com/mikepadiernos/plasma-impresario/issues/468) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/468#issuecomment-7213042207) | Saving open composers when the Plasma session ends ([#100](https://github.com/mikepadiernos/plasma-impresario/issues/100)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Composers save changes every 30 seconds. When the
+  session ends, through the X11 session manager's request to save or a
+  `SIGTERM`, each open composer also saves the changes made since then, without
+  asking, and the application quits.
+- ![Resolved][resolved] Messages that were sent or never edited are not saved.
+  The next start reopens the saved messages from the cache, as after a crash.
+- ![Limitation][limitation] Attachments are not saved with drafts, so they are
+  missing from a recovered message.
+- ![Limitation][limitation] A message opened from a saved draft is written back
+  to that draft, which does not reopen at the next start; it opens through
+  **Edit Draft…**.
+- ![Limitation][limitation] A message still being sent when the session ends is
+  saved too, so it can reopen even if the server accepted it.
+- ![Limitation][limitation] On Wayland, if Plasma closes the windows before it
+  ends the process, a composer with changes asks **Save Draft?** and can hold up
+  logging out.
+- ![Limitation][limitation] Only composers come back; Plasma's session restore
+  is not used. The test saves directly and exercises neither the session
+  manager's request nor `SIGTERM`, and nothing is tried in a Plasma session.
+  That is [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- Send or save messages with attachments before logging out, and attach the
+  files again after a recovery.
+- If **Save Draft?** holds up logging out on Wayland, choose **Save** or
+  **Discard** so that the window can close.
+- Open a message that was opened from a saved draft through **Edit Draft…**
+  after the next start.
+
+**Proposed improvements:**
+
+- Log out of Plasma 6 on Wayland and X11 with an edited composer, and check
+  that the message reopens and that no prompt holds up logging out.
+- Save without asking when Plasma closes the windows to end the session.
+- Keep the attached files' locations in drafts, or warn when a recovered message
+  had attachments.
+- Do not save a message whose sending is under way, or mark it as possibly
+  sent.
 
 ## Before reporting results
 
