@@ -182,8 +182,12 @@ void SystemNetworkWatcher::onReachabilityChanged(QNetworkInformation::Reachabili
 
     if (isOnline()) {
         m_model->logTrace(0, Common::LOG_OTHER, QStringLiteral("Network Session"), QStringLiteral("System is back online"));
+        // Failures while the network was gone say nothing about the server, so the delays start again
+        resetReconnectTimer();
         setDesiredNetworkPolicy(m_desiredPolicy);
     } else {
+        // Attempts cannot succeed without a network; coming back online connects
+        resetReconnectTimer();
         m_model->setNetworkPolicy(NETWORK_OFFLINE);
         // The session remains open, so that we indicate our intention to reconnect after the connectivity is restored
         // (or when a configured AP comes back to range, etc).

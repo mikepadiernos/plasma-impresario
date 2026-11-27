@@ -24,6 +24,7 @@
 #define IMPRESARIO_IMAP_NETWORKWATCHER_H
 
 #include <QObject>
+#include "Common/RetryBackoff.h"
 #include "Imap/ConnectionState.h"
 #include "Imap/Model/NetworkPolicy.h"
 
@@ -50,6 +51,15 @@ public:
     /** @short Whether the system is going to sleep or sleeping; see setSystemSleeping() */
     bool isSystemSleeping() const;
 
+    /** @short Whether an attempt to connect again is waiting for its delay */
+    bool isReconnectScheduled() const;
+    /** @short Milliseconds until the scheduled attempt, or -1 when none is scheduled */
+    int reconnectRemaining() const;
+    /** @short Attempts scheduled since the account last connected */
+    int reconnectAttempts() const;
+    /** @short The delays between attempts; for tests */
+    Common::RetryBackoff &backoff();
+
 public slots:
     virtual void setNetworkOffline();
     virtual void setNetworkExpensive();
@@ -61,6 +71,13 @@ public slots:
     would not survive the sleep are closed rather than left to time out after waking.
     */
     void setSystemSleeping(bool sleeping);
+
+    /** @short Try to connect right away instead of waiting for the scheduled attempt
+
+    Does nothing while the system sleeps or when the user took the account offline. The delays start again from the
+    first one, as the user asked for this attempt.
+    */
+    void reconnectNow();
 
 signals:
     void effectiveNetworkPolicyChanged();
@@ -85,6 +102,7 @@ protected:
 
     /** @short Single shot timer to trigger reconnect attempts with time-outs */
     QTimer *m_reconnectTimer;
+    Common::RetryBackoff m_backoff;
 };
 
 }

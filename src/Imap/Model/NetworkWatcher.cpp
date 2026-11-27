@@ -28,8 +28,12 @@
 namespace Imap {
 namespace Mailbox {
 
-NetworkWatcher::NetworkWatcher(ImapAccess *parent, Model *model):
-    QObject(parent), m_imapAccess(parent), m_model(model), m_desiredPolicy(NETWORK_OFFLINE)
+NetworkWatcher::NetworkWatcher(ImapAccess *parent, Model *model)
+    : QObject(parent)
+    , m_imapAccess(parent)
+    , m_model(model)
+    , m_desiredPolicy(NETWORK_OFFLINE)
+    , m_backoff(MIN_RECONNECT_TIMEOUT, MAX_RECONNECT_TIMEOUT)
 {
     // No assert for m_imapAccess. The test suite doesn't create one.
     Q_ASSERT(m_model);
@@ -39,7 +43,7 @@ NetworkWatcher::NetworkWatcher(ImapAccess *parent, Model *model):
 
     m_reconnectTimer = new QTimer(this);
     m_reconnectTimer->setSingleShot(true);
-    m_reconnectTimer->setInterval(MIN_RECONNECT_TIMEOUT/2);
+    m_reconnectTimer->setInterval(MIN_RECONNECT_TIMEOUT);
     connect(m_reconnectTimer, &QTimer::timeout, this, &NetworkWatcher::tryReconnect);
 }
 
@@ -56,8 +60,11 @@ NetworkPolicy NetworkWatcher::effectiveNetworkPolicy() const
 /** @short Start the reconnect attempt cycle */
 void NetworkWatcher::attemptReconnect()
 {
-    // Update the reconnect time-out value. Double it up to a max value of MAX_RECONNECT_TIMEOUT secs.
-    m_reconnectTimer->setInterval(qMin(MAX_RECONNECT_TIMEOUT, m_reconnectTimer->interval()*2));
+    // Neither a sleeping system nor an account which the user took offline gets connected again
+    if (m_systemSleeping || m_desiredPolicy == NETWORK_OFFLINE)
+        return;
+    // The delay doubles up to MAX_RECONNECT_TIMEOUT, spread so that accounts do not all try at once
+    m_reconnectTimer->setInterval(m_backoff.nextDelay());
     m_reconnectTimer->start();
     m_model->logTrace(0, Common::LogKind::LOG_OTHER, QStringLiteral("Network"),
                       //~ singular Attempting to reconnect in %n second
@@ -69,7 +76,7 @@ void NetworkWatcher::attemptReconnect()
 void NetworkWatcher::resetReconnectTimer()
 {
     m_reconnectTimer->stop();
-    m_reconnectTimer->setInterval(MIN_RECONNECT_TIMEOUT/2);
+    m_backoff.reset();
     emit resetReconnectState();
 }
 
@@ -136,6 +143,39 @@ NetworkPolicy NetworkWatcher::desiredNetworkPolicy() const
 bool NetworkWatcher::isSystemSleeping() const
 {
     return m_systemSleeping;
+}
+
+bool NetworkWatcher::isReconnectScheduled() const
+{
+    return m_reconnectTimer->isActive();
+}
+
+int NetworkWatcher::reconnectRemaining() const
+{
+    return m_reconnectTimer->isActive() ? m_reconnectTimer->remainingTime() : -1;
+}
+
+int NetworkWatcher::reconnectAttempts() const
+{
+    return m_backoff.attempts();
+}
+
+Common::RetryBackoff &NetworkWatcher::backoff()
+{
+    return m_backoff;
+}
+
+void NetworkWatcher::reconnectNow()
+{
+    if (m_systemSleeping || m_desiredPolicy == NETWORK_OFFLINE)
+        return;
+    resetReconnectTimer();
+    m_model->logTrace(
+        0, Common::LOG_OTHER, QStringLiteral("Network"), QStringLiteral("Reconnecting at the user's request"));
+    // A model which still counts as connected would keep its broken connection; going offline first drops it
+    if (m_model->networkPolicy() != NETWORK_OFFLINE && effectiveNetworkPolicy() == NETWORK_OFFLINE)
+        m_model->setNetworkPolicy(NETWORK_OFFLINE);
+    tryReconnect();
 }
 
 void NetworkWatcher::setSystemSleeping(bool sleeping)
