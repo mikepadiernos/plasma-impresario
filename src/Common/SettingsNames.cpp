@@ -65,6 +65,12 @@ const QString SettingsNames::pop3UserKey = QStringLiteral("pop3.user");
 const QString SettingsNames::pop3RetentionKey = QStringLiteral("pop3.retention");
 const QString SettingsNames::pop3RetentionDaysKey = QStringLiteral("pop3.retentionDays");
 const QString SettingsNames::pop3IntervalKey = QStringLiteral("pop3.interval");
+const QString SettingsNames::jmapUrlKey = QStringLiteral("jmap.url");
+const QString SettingsNames::jmapUserKey = QStringLiteral("jmap.user");
+const QString SettingsNames::jmapAuthKey = QStringLiteral("jmap.auth");
+const QString SettingsNames::jmapIntervalKey = QStringLiteral("jmap.interval");
+const QString SettingsNames::jmapSendingKey = QStringLiteral("jmap.sending");
+const QString SettingsNames::jmapCanSubmitKey = QStringLiteral("jmap.canSubmit");
 const QString SettingsNames::imapStartTlsKey = QStringLiteral("imap.starttls");
 const QString SettingsNames::imapUserKey = QStringLiteral("imap.auth.user");
 // in use by the cleartext password plugin: "imap.auth.pass"

@@ -45,6 +45,9 @@ struct SettingsNames {
     /** @short Per-account POP3 server, protection, user, how long mail stays on the server and minutes between checks */
     static const QString pop3HostKey, pop3PortKey, pop3SecurityKey, pop3UserKey, pop3RetentionKey, pop3RetentionDaysKey,
            pop3IntervalKey;
+    /** @short Per-account JMAP session URL, user, sign-in kind, minutes between checks, how mail is sent, and whether the
+     * server offered sending when last asked */
+    static const QString jmapUrlKey, jmapUserKey, jmapAuthKey, jmapIntervalKey, jmapSendingKey, jmapCanSubmitKey;
     /** @short Per-account authentication method for IMAP and SMTP, and the account's OAuth 2.0 configuration */
     static const QString imapAuthMethodKey, smtpAuthMethodKey, authMethodPassword, authMethodOAuth,
            oauthProviderKey, oauthClientIdKey, oauthClientSecretKey;

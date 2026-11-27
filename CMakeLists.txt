@@ -460,6 +460,14 @@ set(libPop3_SOURCES
     ${path_Pop3}/FetchJob.cpp
 )
 
+set(path_Jmap ${CMAKE_CURRENT_SOURCE_DIR}/src/Jmap)
+set(libJmap_SOURCES
+    ${path_Jmap}/Client.cpp
+    ${path_Jmap}/Settings.cpp
+    ${path_Jmap}/Submission.cpp
+    ${path_Jmap}/SyncJob.cpp
+)
+
 set(path_Cryptography ${CMAKE_CURRENT_SOURCE_DIR}/src/Cryptography)
 set(libCryptography_SOURCES
     ${path_Cryptography}/MessageModel.cpp
@@ -877,6 +885,18 @@ target_link_libraries(qwwsmtpclient
         Qt::Network
 )
 
+add_library(Jmap STATIC ${libJmap_SOURCES})
+set_property(TARGET Jmap APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+target_link_libraries(Jmap
+    PUBLIC
+        Qt::Core
+        Qt::Network
+        LocalMail
+        MSA
+    PRIVATE
+        Common
+)
+
 add_library(MSA STATIC ${libMSA_SOURCES})
 set_property(TARGET MSA APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
 target_link_libraries(MSA
@@ -1090,6 +1110,7 @@ if(WITH_DESKTOP)
             KF6::WindowSystem
             Cryptography
             IPC
+            Jmap
             Pop3
             MSA
             OAuth
@@ -1554,6 +1575,10 @@ if(BUILD_TESTING)
     # Opt-in, outside ctest: tools/dev-container/live-pop3.sh starts the server it needs
     add_executable(test_LivePop3 tests/Pop3/test_LivePop3.cpp)
     target_link_libraries(test_LivePop3 PRIVATE LocalMail Pop3 Qt6::Network Qt6::Test)
+    trojita_test(Jmap JmapSync)
+    target_link_libraries(test_JmapSync PRIVATE Jmap)
+    trojita_test(Jmap JmapSubmission)
+    target_link_libraries(test_JmapSubmission PRIVATE Jmap)
     trojita_test(Misc Rfc5322)
     trojita_test(Misc RingBuffer)
     trojita_test(Misc SenderIdentitiesModel)
@@ -1699,7 +1724,7 @@ if(BUILD_TESTING)
     endif()
 
     # The mail core neither includes nor links KDE desktop services; see docs/integrations/kde-plasma.md
-    set(boundary_core_targets AppVersion Common Composer Cryptography Imap LocalMail MSA OAuth Plugins Pop3 Streams UiUtils
+    set(boundary_core_targets AppVersion Common Composer Cryptography Imap Jmap LocalMail MSA OAuth Plugins Pop3 Streams UiUtils
         qwwsmtpclient)
     set(boundary_links "")
     foreach(boundary_target ${boundary_core_targets})
