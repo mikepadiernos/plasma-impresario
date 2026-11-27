@@ -8,8 +8,8 @@ Plasma Impresario targets KDE Plasma only. This guide lists the intended desktop
 integration, suggested approaches and decisions to validate; the status table
 records what the client does today, as of 2026-11-25.
 
-Legend: ![Needs verification][needs-verification] · ![Planned][planned] ·
-![Limitation][limitation]
+Legend: ![Tested][tested] · ![Needs verification][needs-verification] ·
+![Planned][planned] · ![Limitation][limitation]
 
 > [!IMPORTANT]
 >
@@ -30,12 +30,13 @@ Legend: ![Needs verification][needs-verification] · ![Planned][planned] ·
 - [Settings and credentials](#settings-and-credentials)
 - [Appearance and accessibility](#appearance-and-accessibility)
 - [Desktop actions and availability](#desktop-actions-and-availability)
+- [Service boundaries](#service-boundaries)
 
 ## Status
 
 Roadmap work is in
 [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support), which is in
-the Backlog: **M06.01** KDE and Plasma services
+Development: **M06.01** KDE and Plasma services
 ([#42](https://github.com/mikepadiernos/plasma-impresario/issues/42)),
 **M06.02** Plasma widgets and desktop feedback, and **M06.03** file manager
 handoff. Baloo search is part of [M05](../ROADMAP.md#m05-search-and-indexing).
@@ -55,6 +56,7 @@ whose branding work is in Development.
 | [Settings and credentials](#settings-and-credentials)                 | ![Limitation][limitation]                 | Account settings use `QSettings`; app preferences use KConfig; passwords use the QtKeychain or cleartext plugin ([details](../CAVEATS.md#security-and-data-protection))                                                            | M06.01         |
 | [Appearance and accessibility](#appearance-and-accessibility)         | ![Needs verification][needs-verification] | Theme icons and a row density selector; accessibility, high-contrast and scaling checks are not recorded                                                                                                                           | M06.01, M09    |
 | [Desktop actions and availability](#desktop-actions-and-availability) | ![Needs verification][needs-verification] | The desktop entry registers the `mailto:` and `mid:` scheme handlers and a Composer action                                                                                                                                         | M06.01         |
+| [Service boundaries](#service-boundaries)                             | ![Tested][tested]                         | The mail core links no KDE desktop service; helpers that use KConfig or Akonadi are built into `DesktopServices`, and `test_ArchitectureBoundaries` checks the boundary                                                            | M06.01         |
 
 ## Windows and session lifecycle
 
@@ -269,6 +271,45 @@ sender and date of matching messages
 - **Verify:** Test menu discovery, custom-prefix discovery, `mailto:` and `mid:`
   launch and missing-handler errors on the supported Plasma session.
 
+## Service boundaries
+
+Defined in **M06.01**
+([#99](https://github.com/mikepadiernos/plasma-impresario/issues/99)).
+
+- **What:** Keep desktop and provider integrations in their own layer, so that
+  the mail core (IMAP, SMTP, the composer, encryption, OAuth and the plugin
+  interfaces) works and is tested without a Plasma session, and an integration
+  can change or be missing without touching mail handling.
+- **How:** The build separates the layers into the libraries in the table
+  below. Provider support follows the same rule: provider data and discovery
+  that need only the network belong to the core, while credentials kept by a
+  desktop service, such as a wallet, go through a password plugin.
+- **Defined behavior:**
+  - The core libraries neither include the headers nor link the libraries of
+    KConfig, KIO, KNotifications, KWindowSystem, KWallet, Akonadi, KDE PIM or
+    D-Bus, and do not link `DesktopServices`, `IPC` or `DesktopGui`.
+  - `test_ArchitectureBoundaries` checks the includes of every core source and
+    the libraries each core target links, and names each violation. Fixture
+    tests confirm that it accepts the allowed libraries, exempt files and
+    plugins, and rejects violations.
+- **Recommendations:** Put new code that reads KConfig or talks to a desktop
+  service into `DesktopServices`, `IPC` or `DesktopGui`, behind an interface
+  the core can use without the service; add a plugin when the service is
+  optional or has alternatives. Keep `i18n` out of the core.
+- **Today:** As defined above. The `DesktopServices` helpers keep the `UiUtils`
+  namespace and their files in `src/UiUtils`; the check exempts exactly those
+  files.
+- **Verify:** Run `ctest -R ArchitectureBoundaries` after changing a core
+  library's sources or links.
+
+| Layer            | Libraries                                                                                                                                            | May use                                                                              |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Mail core        | `Common`, `AppVersion`, `Imap`, `Streams`, `Composer`, `MSA`, `qwwsmtpclient`, `Cryptography`, `OAuth`, `Plugins` (interfaces), `UiUtils`            | Qt, the MIME and GnuPG libraries, KItemModels, and KFileMetaData for attachment text |
+| Desktop services | `DesktopServices`: background running, saved searches, Plasma Search, file search, delete and confirmation settings, and the Akonadi calendar source | KConfig and Akonadi, in addition to the core                                         |
+| Integration      | `IPC` (D-Bus, KRunner), `DesktopGui` (windows, KIO, KNotifications, KWindowSystem), the message renderer                                             | Any KDE Framework the feature needs                                                  |
+| Plugins          | Address books (Akonadi, abook), passwords (QtKeychain, cleartext), spell checking (Sonnet)                                                           | The service they wrap, loaded through the plugin interfaces                          |
+
 [limitation]: https://img.shields.io/badge/Limitation-bc4c00
 [needs-verification]: https://img.shields.io/badge/Needs_verification-0969da
 [planned]: https://img.shields.io/badge/Planned-6e7781
+[tested]: https://img.shields.io/badge/Tested-1a7f37
