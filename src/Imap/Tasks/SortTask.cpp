@@ -128,7 +128,7 @@ bool SortTask::handleStateHelper(const Imap::Responses::State *const resp)
                 m_persistentSearch = false;
                 model->m_taskModel->taskMighHaveChanged(this);
 
-                if (m_firstCommandCompleted) {
+                if (m_firstCommandCompleted && !awaitsCancelReply()) {
                     // The server decided that it will no longer inform us about the updated SORT order, and the original
                     // response has been already received and processed. That means that we're done here and shall declare
                     // ourselves as completed.
@@ -146,7 +146,10 @@ bool SortTask::handleStateHelper(const Imap::Responses::State *const resp)
         m_firstCommandCompleted = true;
         if (resp->kind == Responses::OK) {
             emit sortingAvailable(sortResult);
-            if (!m_persistentSearch || _aborted) {
+            if (awaitsCancelReply()) {
+                // The reply to CANCELUPDATE is still on its way and completes this task
+                model->m_taskModel->taskMighHaveChanged(this);
+            } else if (!m_persistentSearch || _aborted) {
                 // This is a one-shot operation, we shall not remain as an active task, listening for further updates
                 _completed();
             } else {
@@ -159,23 +162,39 @@ bool SortTask::handleStateHelper(const Imap::Responses::State *const resp)
                 Q_ASSERT(keepTask);
                 keepTask->activateTasks();
             }
-        } else if (searchConditions == QStringList{QStringLiteral("ALL")}) {
-            _failed(tr("Sorting command has failed"));
         } else {
-            QStringList charsets;
-            if (resp->respCode == Responses::BADCHARSET) {
-                if (const auto *data = dynamic_cast<const Responses::RespData<QStringList> *>(resp->respCodeData.data()))
-                    charsets = data->data;
+            QString reason;
+            if (searchConditions == QStringList{QStringLiteral("ALL")}) {
+                reason = tr("Sorting command has failed");
+            } else {
+                QStringList charsets;
+                if (resp->respCode == Responses::BADCHARSET) {
+                    if (const auto *data = dynamic_cast<const Responses::RespData<QStringList> *>(resp->respCodeData.data()))
+                        charsets = data->data;
+                }
+                // A single condition is a query which the user typed in IMAP syntax
+                reason = SearchSupport::explainRejection(resp->kind, resp->respCode, charsets, resp->message,
+                                                         searchConditions.size() == 1);
             }
-            // A single condition is a query which the user typed in IMAP syntax
-            _failed(SearchSupport::explainRejection(resp->kind, resp->respCode, charsets, resp->message,
-                                                    searchConditions.size() == 1));
+            if (!awaitsCancelReply())
+                _failed(reason);
+            else
+                m_failureAfterCancel = reason;
         }
         return true;
-    } else if (resp->tag == cancelUpdateTag) {
+    } else if (!cancelUpdateTag.isEmpty() && resp->tag == cancelUpdateTag) {
+        // The server may answer NO when the search has already ended, which is fine as well
+        m_cancelAnswered = true;
         m_persistentSearch = false;
         model->m_taskModel->taskMighHaveChanged(this);
-        _completed();
+        if (!m_firstCommandCompleted) {
+            // Servers answer in order, so this is unusual; the reply to the search itself still has to find this task
+            return true;
+        }
+        if (m_failureAfterCancel.isEmpty())
+            _completed();
+        else
+            _failed(m_failureAfterCancel);
         return true;
     } else {
         return false;
@@ -271,6 +290,11 @@ void SortTask::_failed(const QString &errorMessage)
     ImapTask::_failed(errorMessage);
 }
 
+bool SortTask::awaitsCancelReply() const
+{
+    return !cancelUpdateTag.isEmpty() && !m_cancelAnswered;
+}
+
 bool SortTask::isPersistent() const
 {
     return m_persistentSearch;
@@ -286,8 +310,9 @@ void SortTask::cancelSortingUpdates()
 {
     Q_ASSERT(m_persistentSearch);
     Q_ASSERT(!sortTag.isEmpty());
-    if (!cancelUpdateTag.isEmpty()) {
-        // Already asked; a second CANCELUPDATE would leave the server's reply to the first one without a task
+    if (!cancelUpdateTag.isEmpty() || isFinished()) {
+        // Already asked, or done (an aborted search ends with its first reply, as the next SELECT ends its updates);
+        // the server's reply to another CANCELUPDATE would arrive without a task
         return;
     }
     KeepMailboxOpenTask *keepTask = dynamic_cast<KeepMailboxOpenTask*>(conn);

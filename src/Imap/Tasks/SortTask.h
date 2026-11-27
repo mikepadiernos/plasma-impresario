@@ -81,6 +81,15 @@ private:
 
     /** @short Did the first command (the ESEARCH/ESORT) finish properly, including its tagged response? */
     bool m_firstCommandCompleted;
+
+    /** @short Why the search failed, reported once the reply to its CANCELUPDATE arrives as well */
+    QString m_failureAfterCancel;
+
+    /** @short Has the server answered our CANCELUPDATE? */
+    bool m_cancelAnswered = false;
+
+    /** @short Was CANCELUPDATE sent without a reply so far, so that this task has to wait for it before it finishes? */
+    bool awaitsCancelReply() const;
 };
 
 }

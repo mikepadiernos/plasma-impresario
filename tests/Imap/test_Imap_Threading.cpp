@@ -26,6 +26,7 @@
 #include "test_Imap_Threading.h"
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/ThreadingMsgListModel.h"
+#include "Imap/Tasks/SortTask.h"
 #include "Streams/FakeSocket.h"
 #include "Utils/FakeCapabilitiesInjector.h"
 
@@ -1284,6 +1285,36 @@ void ImapModelThreadingTest::testDynamicSearch()
     cEmpty();
     justKeepTask();
     QCOMPARE(treeToThreading(QModelIndex()), threading);
+
+    // Stopping the updates of a search which was not answered yet, while leaving the mailbox, keeps the search's task
+    // until the server answers CANCELUPDATE as well, as no other task would take that reply
+    conditions = QStringList() << QStringLiteral("SUBJECT") << QStringLiteral("foo3");
+    threadingModel->setUserSearchingSortingPreference(conditions, threadingModel->currentSortCriterium(), threadingModel->currentSortOrder());
+    auto interrupted = t.mk("UID SEARCH RETURN (ALL UPDATE) CHARSET utf-8 SUBJECT foo3\r\n");
+    searchTag = t.last();
+    interrupted.append(t.mk("UID THREAD REFS utf-8 SUBJECT foo3\r\n"));
+    const QByteArray interruptedThreadTag = t.last();
+    cClient(interrupted);
+    QPointer<Imap::Mailbox::SortTask> search;
+    const auto sortTasks = model->findChildren<Imap::Mailbox::SortTask *>();
+    for (Imap::Mailbox::SortTask *task : sortTasks) {
+        if (!task->isFinished() && task->isPersistent())
+            search = task;
+    }
+    QVERIFY(search);
+    model->switchToMailbox(idxB);
+    search->cancelSortingUpdates();
+    cClient(t.mk(QByteArray("CANCELUPDATE \"" + searchTag + "\"\r\n")));
+    const QByteArray interruptedCancelTag = t.last();
+    cServer("* ESEARCH (TAG \"" + searchTag + "\") UID ALL 10,15\r\n" + searchTag + " OK searched\r\n");
+    QVERIFY(search && !search->isFinished());
+    cServer(interruptedCancelTag + " NO Unknown tag\r\n");
+    QVERIFY(!search || search->isFinished());
+    cServer("* THREAD (10 15)\r\n" + interruptedThreadTag + " OK thread\r\n");
+    cClient(t.mk("SELECT b\r\n"));
+    cServer("* OK [CLOSED] previous mailbox closed\r\n* 0 EXISTS\r\n" + t.last("OK selected\r\n"));
+    cEmpty();
+    justKeepTask();
 
     // FIXME: check sorting & searching combo
     // FIXME: check threading & sorting & searching combo
