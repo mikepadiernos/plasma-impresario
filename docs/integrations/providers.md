@@ -48,7 +48,7 @@ Legend: ![Done][done] · ![Needs verification][needs-verification] ·
 | Outlook.com and Microsoft 365  | ![Needs verification][needs-verification] | IMAP and SMTP with OAuth only; see the [Microsoft guide](microsoft.md)                                                                                                                                                                                      | [M13](../ROADMAP.md#m13-microsoft-accounts-and-exchange)                     |
 | Generic IMAP and SMTP          | ![Done][done]                             | Any server with IMAP4rev1 and SMTP submission; optional extensions are used when offered                                                                                                                                                                    | —                                                                            |
 | POP3                           | ![Needs verification][needs-verification] | Downloads into a store on this computer over TLS or STLS, with a chosen server retention; sends through SMTP. Tried against Dovecot only ([caveat](../CAVEATS.md#pop3-accounts))                                                                            | M06.05 [#216](https://github.com/mikepadiernos/plasma-impresario/issues/216) |
-| JMAP                           | ![Planned][planned]                       | The account model knows which actions it supports, but it cannot connect yet                                                                                                                                                                                | M06.05 [#217](https://github.com/mikepadiernos/plasma-impresario/issues/217) |
+| JMAP                           | ![Development][development]               | The synchronization and sending engine is written and covered by offscreen tests against a fake server; account setup in the window is not built yet, so a JMAP account cannot be added                                                                     | M06.05 [#217](https://github.com/mikepadiernos/plasma-impresario/issues/217) |
 
 ## Adding an account
 
@@ -247,9 +247,22 @@ deleted with the account. See [POP3 accounts](../CAVEATS.md#pop3-accounts).
 
 ### JMAP
 
-JMAP ([#217](https://github.com/mikepadiernos/plasma-impresario/issues/217))
-is planned in M06.05. The account model already records which actions it
-supports, but it cannot connect yet.
+JMAP ([#217](https://github.com/mikepadiernos/plasma-impresario/issues/217)) is in development in M06.05. What exists today is the
+engine behind the account, not yet its setup in the window:
+
+| Part                 | Behavior                                                                                                                                     |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Finding the server   | A bare host name becomes `https://<host>/.well-known/jmap`; a full session URL is used as given. Redirects are followed, at most five times  |
+| Protection           | Only HTTPS, or HTTP to this computer for testing. The sign-in is not sent to another host or port after a redirect                           |
+| Sign-in              | A password (Basic) or an access token (Bearer). Untrusted certificates are asked about, as for IMAP                                          |
+| Folders and messages | Downloaded into a store on this computer and kept in step both ways: flags, moves, copies, new and renamed folders, and removals             |
+| Changes              | Only what changed since the last visit is fetched; when the server cannot tell, everything is compared again                                 |
+| Sending              | Through the JMAP server, which keeps the message in Sent; or through the account's SMTP server. A refused message is removed from Sent again |
+
+Folders the server lacks, such as a local Trash, stay on this computer, and
+a message moved into one is removed from the server. The window integration,
+the settings page and live-server verification remain; see
+[M06 item cards](../TODO.md#m06-item-cards).
 
 ## Troubleshooting
 
@@ -271,7 +284,9 @@ supports, but it cannot connect yet.
   `test_OAuth` covers the requests, token parsing, grants and error messages;
   `test_AccountCapabilities` covers the actions of each protocol;
   `test_Pop3Fetch` covers POP3 sign-in, downloads, retention and failures
-  against a scripted server, and `test_LocalImapServer` the local store. For
+  against a scripted server, `test_JmapSync` and `test_JmapSubmission` cover
+  JMAP synchronization and sending against an in-memory server, and
+  `test_LocalImapServer` the local store. For
   Gmail, `test_SpecialFolder` covers archiving to **All Mail**,
   `test_Imap_Parser_parse` and `test_Imap_CopyAndFlagOperations` cover reading
   labels, `test_TagListWidget` covers the chips, and
@@ -285,6 +300,7 @@ supports, but it cannot connect yet.
   That is [M15](../ROADMAP.md#m15-real-plasma-session-verification) and the
   [provider caveat](../CAVEATS.md#provider-setup-and-gmail).
 
+[development]: https://img.shields.io/badge/Development-9a6700
 [done]: https://img.shields.io/badge/Done-1a7f37
 [limitation]: https://img.shields.io/badge/Limitation-bc4c00
 [needs-verification]: https://img.shields.io/badge/Needs_verification-0969da

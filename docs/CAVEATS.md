@@ -2098,8 +2098,10 @@ Plasma session; that check is
   that label. The open message shows its other labels as chips, but they are
   read-only and are fetched only when the message is opened online.
 - ![Limitation][limitation] Only Google and Microsoft offer OAuth; Yahoo,
-  iCloud and AOL need app passwords. JMAP accounts cannot connect
-  yet, and POP3 accounts have [their own limits](#pop3-accounts).
+  iCloud and AOL need app passwords. JMAP accounts cannot be added
+  yet: the engine is written, but the window does not offer it
+  ([#217](https://github.com/mikepadiernos/plasma-impresario/issues/217)).
+  POP3 accounts have [their own limits](#pop3-accounts).
 - ![Limitation][limitation] Nothing in the guide is tried with real provider
   accounts; the tests use a fake network and local Dovecot servers. That is
   [M15](ROADMAP.md#m15-real-plasma-session-verification).
