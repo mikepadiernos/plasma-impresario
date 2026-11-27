@@ -1364,6 +1364,7 @@ if(BUILD_TESTING)
       add_dependencies(test_Cryptography_PGP crypto_test_data)
     endif()
 
+    trojita_test(Misc PrivateFiles)
     trojita_test(Misc Rfc5322)
     trojita_test(Misc RingBuffer)
     trojita_test(Misc SenderIdentitiesModel)
