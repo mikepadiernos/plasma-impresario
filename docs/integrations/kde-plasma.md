@@ -389,6 +389,8 @@ sender and date of matching messages
   | Keyboard and focus | The address expander is a focusable button with Return and Enter and a focus rectangle; address links take the keyboard | ![Tested][tested] |
   | Accessible names | The main window's visible focusable controls are named, including the message list, quick search, folder tree, network access and main menu; an invalid address is described | ![Tested][tested] |
   | Localization | New strings use `i18nc`, and `Messages.sh` extracts every source file; no translations exist yet | ![Limitation][limitation] |
+  | App-local appearance | M09's **Theme** settings follow the Plasma scheme, accent and fonts by default and add app-local schemes, accents, tints, effects and theme profiles without changing the desktop ([caveat](../CAVEATS.md#themes-and-appearance)) | ![Tested][tested] |
+  | High contrast and scaling | A high-contrast scheme can suspend blur, translucency, tints, radii and the stylesheet; layouts stay readable with 16 pt text and at 200% scale | ![Tested][tested] |
 
 - **Verify:** Check keyboard focus, screen-reader names, localized labels,
   scaling and light, dark and high-contrast themes in a Plasma 6 session
