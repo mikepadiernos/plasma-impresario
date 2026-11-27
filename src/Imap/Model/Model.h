@@ -349,6 +349,13 @@ public:
     /** @short Selectable mailbox to open for the given special use, or an empty string if there is none */
     QString specialFolderMailbox(SpecialUse kind) const;
 
+    /** @short Whether @arg mailbox is open on a connection which keeps its messages up to date
+
+    A message list loaded before stays in the model after the connection moved on to another mailbox, but it is not
+    updated until the mailbox is opened again.
+    */
+    bool isMailboxOpen(const QModelIndex &mailbox) const;
+
     /** @short Whether the server has announced Gmail's label extension (X-GM-EXT-1)
 
     Remembered once seen, so that it still holds while offline.

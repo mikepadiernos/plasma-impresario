@@ -1464,6 +1464,17 @@ QString Model::specialFolderMailbox(SpecialUse kind) const
     return m_specialFolders.mailboxFor(kind);
 }
 
+bool Model::isMailboxOpen(const QModelIndex &mailbox) const
+{
+    auto *mailboxPtr = dynamic_cast<TreeItemMailbox *>(realTreeItem(mailbox));
+    if (!mailboxPtr || !mailboxPtr->maintainingTask)
+        return false;
+    const auto parser = m_parsers.constFind(mailboxPtr->maintainingTask->parser);
+    if (parser == m_parsers.constEnd() || parser->maintainingTask != mailboxPtr->maintainingTask)
+        return false;
+    return parser->connState >= CONN_STATE_SELECTED && parser->connState < CONN_STATE_LOGOUT;
+}
+
 void Model::handleMailboxRowsChanged(const QModelIndex &parent)
 {
     // Message lists and message parts live in the same model; only the mailbox tree matters here
