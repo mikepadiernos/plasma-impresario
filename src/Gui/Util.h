@@ -53,6 +53,12 @@ bool isFromDistinctImapAccount(QDropEvent* de);
 
 QString cssWarningBorder();
 
+/** The folder in which the user last saved an attachment or a message, or else the download folder */
+QString savedFilesFolder();
+
+/** Remember the folder of @arg filePath, a file which the user just saved, for the next save and Find Saved Files */
+void rememberSavedFile(const QString &filePath);
+
 } // namespace Util
 
 } // namespace Gui

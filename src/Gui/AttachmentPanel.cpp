@@ -18,12 +18,12 @@
 #include <QUrl>
 #include <memory>
 
-#include "Common/Paths.h"
 #include "Imap/Model/DragAndDrop.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Network/FileDownloadManager.h"
 #include "UiUtils/AttachmentCollector.h"
 #include "UiUtils/Formatting.h"
+#include "Util.h"
 
 namespace Gui {
 
@@ -248,7 +248,19 @@ void AttachmentPanel::showContextMenu(const QPoint &pos)
     menu.addAction(themedIcon(QStringLiteral("document-open")), i18nc("@action:inmenu", "Open"), this, &AttachmentPanel::openCurrent);
     menu.addAction(themedIcon(QStringLiteral("document-save-as")), i18nc("@action:inmenu", "Save As…"), this,
                    &AttachmentPanel::saveCurrent);
+    menu.addSeparator();
+    auto *findCopies = menu.addAction(themedIcon(QStringLiteral("system-search")),
+                                      i18nc("@action:inmenu", "Find Saved Copies…"), this,
+                                      &AttachmentPanel::findSavedCopiesOfCurrent);
+    findCopies->setObjectName(QStringLiteral("findSavedCopies"));
     menu.exec(m_list->viewport()->mapToGlobal(pos));
+}
+
+void AttachmentPanel::findSavedCopiesOfCurrent()
+{
+    const QPersistentModelIndex part = currentPart();
+    if (part.isValid())
+        emit findSavedCopiesRequested(Imap::Network::FileDownloadManager::toRealFileName(part));
 }
 
 void AttachmentPanel::openCurrent()
@@ -291,13 +303,10 @@ void AttachmentPanel::saveCurrent()
 
     auto *manager = new Imap::Network::FileDownloadManager(this, m_netAccess, part);
     connect(manager, &Imap::Network::FileDownloadManager::fileNameRequested, this, [this](QString *requested) {
-        static QDir lastDir(Common::writablePath(Common::LOCATION_DOWNLOAD));
-        if (!lastDir.exists())
-            lastDir = QDir(Common::writablePath(Common::LOCATION_DOWNLOAD));
-        *requested = QFileDialog::getSaveFileName(this, i18nc("@title:window", "Save Attachment"), lastDir.filePath(*requested),
-                                                  QString(), nullptr, QFileDialog::HideNameFilterDetails);
-        if (!requested->isEmpty())
-            lastDir = QFileInfo(*requested).absoluteDir();
+        *requested = QFileDialog::getSaveFileName(this, i18nc("@title:window", "Save Attachment"),
+                                                  QDir(Util::savedFilesFolder()).filePath(*requested), QString(), nullptr,
+                                                  QFileDialog::HideNameFilterDetails);
+        Util::rememberSavedFile(*requested);
     });
     connect(manager, &Imap::Network::FileDownloadManager::transferError, this, &AttachmentPanel::transferError);
     connect(manager, &Imap::Network::FileDownloadManager::transferError, manager, &QObject::deleteLater);

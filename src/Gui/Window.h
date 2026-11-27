@@ -116,6 +116,7 @@ namespace Gui
 class AccountSidebar;
 class SavedSearchFolders;
 class SearchFoldersDialog;
+class SavedFilesSearchDialog;
 class SearchIndexDialog;
 class CapabilityActionGate;
 class ShellHeader;
@@ -220,6 +221,8 @@ private slots:
     void slotShowSettings();
     void slotShowAccountSettings();
     void slotShowSearchIndex();
+    /** Find files which the user saved, such as attachments named @arg text, in the default file manager */
+    void findSavedFiles(const QString &text);
     void slotAddAccount();
     void slotRemoveAccount();
     void slotNextAccount();
@@ -949,6 +952,8 @@ private:
     QPointer<Imap::Mailbox::SearchTextFetcher> m_searchTextFetcher;
     QAction *m_actionSearchIndex = nullptr;
     QPointer<SearchIndexDialog> m_searchIndexDialog;
+    QPointer<SavedFilesSearchDialog> m_savedFilesDialog;
+    QAction *m_actionFindSavedFiles = nullptr;
     QAction *m_actionFilterUnread = nullptr;
     QAction *m_actionFilterFlagged = nullptr;
     QAction *m_actionFilterAttachments = nullptr;

@@ -128,6 +128,7 @@
 #include "MailBoxTreeView.h"
 #include "MailboxPickerDialog.h"
 #include "SearchFoldersDialog.h"
+#include "SavedFilesSearchDialog.h"
 #include "SearchIndexDialog.h"
 #include "MessageDetailsPanel.h"
 #include "MessageListWidget.h"
@@ -768,6 +769,13 @@ void MainWindow::createActions()
     m_actionFind->setToolTip(i18nc("@info:tooltip", "Find text in the open message while the reader has focus, or else search messages"));
     m_searchBuilder = ShortcutHandler::instance()->createAction(QStringLiteral("action_search_builder"), msgListWidget,
             SLOT(openSearchBuilder()), this);
+    m_actionFindSavedFiles = new QAction(UiUtils::loadIcon(QStringLiteral("system-search")),
+                                         i18nc("@action", "Find Saved &Files…"), this);
+    m_actionFindSavedFiles->setObjectName(QStringLiteral("action_find_saved_files"));
+    m_actionFindSavedFiles->setToolTip(i18nc("@info:tooltip", "Find attachments and messages which you saved, in your file manager"));
+    connect(m_actionFindSavedFiles, &QAction::triggered, this, [this]() {
+        findSavedFiles(msgListWidget->searchField()->text());
+    });
     m_clearSearchAndFilters = ShortcutHandler::instance()->createAction(QStringLiteral("action_clear_search_and_filters"), this,
             SLOT(clearSearchAndFilters()), this);
 
@@ -1596,6 +1604,7 @@ void MainWindow::createMenus()
         mailboxMenu->addSeparator();
         ADD_ACTION(mailboxMenu, m_actionFind);
         ADD_ACTION(mailboxMenu, m_searchBuilder);
+        mailboxMenu->addAction(m_actionFindSavedFiles);
         QMenu *sortMenu = mailboxMenu->addMenu(tr("S&orting"));
             ADD_ACTION(sortMenu, m_actionSortNone);
             ADD_ACTION(sortMenu, m_actionSortThreading);
@@ -1854,6 +1863,7 @@ void MainWindow::createWidgets()
     m_attachmentPanel->setNetworkAccessManager(m_messageWidget->messageView->networkAccessManager());
     connect(m_messageWidget->messageView, &MessageView::messageModelChanged, m_attachmentPanel, &AttachmentPanel::setMessageModel);
     connect(m_attachmentPanel, &AttachmentPanel::transferError, this, &MainWindow::slotDownloadTransferError);
+    connect(m_attachmentPanel, &AttachmentPanel::findSavedCopiesRequested, this, &MainWindow::findSavedFiles);
 
     m_messageDetailsPanel = new MessageDetailsPanel();
     m_messageDetailsPanel->setAccountResolver(accountName);
@@ -3022,6 +3032,19 @@ void MainWindow::slotShowSettings()
         removeSysTray();
         slotToggleSysTray();
     }
+}
+
+void MainWindow::findSavedFiles(const QString &text)
+{
+    if (!m_savedFilesDialog) {
+        m_savedFilesDialog = new SavedFilesSearchDialog(this);
+        m_savedFilesDialog->setAttribute(Qt::WA_DeleteOnClose);
+    }
+    m_savedFilesDialog->setSearchText(text);
+    m_savedFilesDialog->setFolder(Util::savedFilesFolder());
+    m_savedFilesDialog->show();
+    m_savedFilesDialog->raise();
+    m_savedFilesDialog->activateWindow();
 }
 
 void MainWindow::slotShowSearchIndex()
@@ -5837,8 +5860,9 @@ void MainWindow::slotDownloadTransferError(const QString &errorString)
 
 void MainWindow::slotDownloadMessageFileNameRequested(QString *fileName)
 {
-    *fileName = QFileDialog::getSaveFileName(this, tr("Save Message"), *fileName, QString(), nullptr,
-                                             QFileDialog::HideNameFilterDetails);
+    *fileName = QFileDialog::getSaveFileName(this, tr("Save Message"), QDir(Util::savedFilesFolder()).filePath(*fileName),
+                                             QString(), nullptr, QFileDialog::HideNameFilterDetails);
+    Util::rememberSavedFile(*fileName);
 }
 
 void MainWindow::slotViewMsgSource()

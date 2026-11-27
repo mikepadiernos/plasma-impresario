@@ -83,7 +83,7 @@ find_package(KF6 REQUIRED
 )
 
 if(WITH_DESKTOP)
-    find_package(KF6 REQUIRED COMPONENTS Config I18n)
+    find_package(KF6 REQUIRED COMPONENTS Config I18n KIO)
     ki18n_install(po)
 endif()
 
@@ -356,6 +356,7 @@ if(WITH_DESKTOP)
     set(libUiUtils_SOURCES
         ${libUiUtils_SOURCES}
         ${path_UiUtils}/DestructiveActions.cpp
+        ${path_UiUtils}/FileSearch.cpp
     )
 endif()
 
@@ -456,6 +457,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/SearchBuilderDialog.cpp
     ${path_DesktopGui}/SavedSearchFolders.cpp
     ${path_DesktopGui}/SearchFoldersDialog.cpp
+    ${path_DesktopGui}/SavedFilesSearchDialog.cpp
     ${path_DesktopGui}/SearchIndexDialog.cpp
     ${path_DesktopGui}/SearchResultsPanel.cpp
     ${path_DesktopGui}/MessageActionHandler.cpp
@@ -973,6 +975,8 @@ if(WITH_DESKTOP)
             Qt::Network
             KF6::ConfigCore
             KF6::I18n
+            KF6::KIOGui
+            KF6::KIOWidgets
             Cryptography
             IPC
             MSA
@@ -1126,6 +1130,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_DensityMenu PRIVATE Qt6::Widgets Qt6::Test KF6::ConfigCore KF6::I18n)
         add_executable(test_AttachmentPanel tests/Gui/test_AttachmentPanel.cpp)
         target_link_libraries(test_AttachmentPanel PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_SavedFilesSearchDialog tests/Gui/test_SavedFilesSearchDialog.cpp)
+        target_link_libraries(test_SavedFilesSearchDialog PRIVATE DesktopGui UiUtils Qt6::Test KF6::ConfigCore KF6::I18n)
         add_executable(test_SearchIndexDialog tests/Gui/test_SearchIndexDialog.cpp)
         target_link_libraries(test_SearchIndexDialog PRIVATE DesktopGui UiUtils Qt6::Test KF6::I18n)
         add_executable(test_ReaderActionBar tests/Gui/test_ReaderActionBar.cpp)
@@ -1181,6 +1187,8 @@ if(BUILD_TESTING)
             set_tests_properties(test_DensityMenu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_AttachmentPanel COMMAND test_AttachmentPanel)
             set_tests_properties(test_AttachmentPanel PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_SavedFilesSearchDialog COMMAND test_SavedFilesSearchDialog)
+            set_tests_properties(test_SavedFilesSearchDialog PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_SearchIndexDialog COMMAND test_SearchIndexDialog)
             set_tests_properties(test_SearchIndexDialog PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_ReaderActionBar COMMAND test_ReaderActionBar)
@@ -1218,7 +1226,7 @@ if(BUILD_TESTING)
                     savedSearchesAndFolderExpansionFollowTheAccount savedSearchesAreVirtualFoldersOfEveryAccount
                     savedSearchesCanBeManaged
                     focusCyclesThroughShellRegions
-                    goToFolderActionsWithoutFolders checkMailAndNextUnreadFolder destructiveActionsOffline quickActionsOffline
+                    findSavedFilesOpensTheDialog goToFolderActionsWithoutFolders checkMailAndNextUnreadFolder destructiveActionsOffline quickActionsOffline
                     messageListFiltersOffline shortcutOverviewAndSelectionOffline powerUserProcessingOffline
                     groupingAndRelevanceOffline folderViewStateOffline unifiedInboxOffline unifiedInboxIsRestored
                     identitiesFollowTheAccount composerSendsWithItsOwnAccount composerChoosesItsAccount
@@ -1419,6 +1427,8 @@ if(BUILD_TESTING)
     if(WITH_DESKTOP)
         trojita_test(Misc DestructiveActions)
         target_link_libraries(test_DestructiveActions PRIVATE UiUtils KF6::ConfigCore)
+        trojita_test(Misc FileSearch)
+        target_link_libraries(test_FileSearch PRIVATE UiUtils KF6::ConfigCore)
     endif()
 
 endif()

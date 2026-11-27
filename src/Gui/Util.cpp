@@ -34,7 +34,12 @@
 #include <QProcess>
 #include <QSettings>
 
+#include <KConfigGroup>
+#include <KSharedConfig>
+
 #include "configure.cmake.h"
+#include "Common/Paths.h"
+#include "UiUtils/FileSearch.h"
 #include <Imap/Model/DragAndDrop.h>
 #include "Util.h"
 #include "Window.h"
@@ -133,6 +138,21 @@ QString cssWarningBorder()
 {
     static QString border = QStringLiteral("border: 2px solid red; background-color: #E7C575; color: black; padding: 5px; margin: 5px; text-align: center;");
     return border;
+}
+
+QString savedFilesFolder()
+{
+    const KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("SavedFiles"));
+    return UiUtils::FileSearch::savedFilesFolder(state, Common::writablePath(Common::LOCATION_DOWNLOAD));
+}
+
+void rememberSavedFile(const QString &filePath)
+{
+    if (filePath.isEmpty())
+        return;
+    KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("SavedFiles"));
+    UiUtils::FileSearch::rememberSavedFile(state, filePath);
+    state.sync();
 }
 
 } // namespace Util
