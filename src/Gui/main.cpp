@@ -44,6 +44,8 @@
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
 #include "configure.cmake.h"
+#include "Gui/AppearanceManager.h"
+#include "Gui/AppearanceStyle.h"
 #include "Gui/Util.h"
 #include "Gui/Window.h"
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -54,6 +56,8 @@
 #include "UiUtils/ActivationToken.h"
 #include "UiUtils/BackgroundRunning.h"
 #include "UiUtils/IconLoader.h"
+#include "UiUtils/SettingsStore.h"
+#include "UiUtils/Theme.h"
 
 #include "static_plugins.h"
 
@@ -121,6 +125,14 @@ int main(int argc, char **argv)
                                     QObject::tr("file"));
     parser.addOption(attachOption);
 
+    QCommandLineOption resetAppearanceOption(QStringList() << QLatin1String("reset-appearance"),
+                                             QObject::tr("Return the appearance options to Plasma's defaults, keeping "
+                                                         "theme profiles and account and folder colours."));
+    parser.addOption(resetAppearanceOption);
+    QCommandLineOption noWorkspaceAppearanceOption(QStringList() << QLatin1String("no-workspace-appearance"),
+                                                   QObject::tr("Start without the appearance options of workspaces."));
+    parser.addOption(noWorkspaceAppearanceOption);
+
     parser.addPositionalArgument(QLatin1String("url"),
                                  QObject::tr("Mailto: URL address for composing new e-mail, or mid: URL of a message to open."),
                                  QObject::tr("[url]"));
@@ -184,6 +196,17 @@ int main(int argc, char **argv)
         qOut << Qt::endl << parser.helpText();
         return error ? 1 : 0;
     }
+
+    if (parser.isSet(resetAppearanceOption)) {
+        const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        UiUtils::SettingsStore::setTheme(*config, UiUtils::Theme::reset(UiUtils::SettingsStore::theme(*config)));
+        config->sync();
+        qOut << QObject::tr("The appearance options are back to Plasma's defaults.") << Qt::endl;
+    }
+    if (parser.isSet(noWorkspaceAppearanceOption))
+        Gui::AppearanceManager::instance()->setWorkspaceAppearanceDisabled(true);
+    // Toolbar menu markers, dividers and the other appearance options are drawn by this style
+    Gui::AppearanceStyle::ensureInstalled();
 
     // Hack: support multiple "profiles"
     if (!profileName.isEmpty()) {

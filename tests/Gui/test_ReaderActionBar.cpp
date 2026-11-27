@@ -200,7 +200,9 @@ void ReaderActionBarTest::replyKeepsItsMenu()
     bar.setReplyAction(&listReply);
     QCOMPARE(reply->defaultAction(), &listReply);
     QCOMPARE(reply->menu(), &menu);
-    QCOMPARE(reply->popupMode(), QToolButton::MenuButtonPopup);
+    // Clicking replies; holding the button opens the menu, which a corner marker shows instead of an arrow
+    QCOMPARE(reply->popupMode(), QToolButton::DelayedPopup);
+    QVERIFY(reply->property("plasmaImpresarioMenuMarker").toBool());
     // The window disables reply actions when there is nobody to reply to
     listReply.setEnabled(false);
     QVERIFY(!reply->isEnabled());

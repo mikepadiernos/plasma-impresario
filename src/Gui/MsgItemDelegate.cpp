@@ -87,7 +87,8 @@ QColor MsgItemDelegate::itemColor(const QModelIndex &index) const
 
 QFont MsgItemDelegate::itemFont(const QModelIndex &index) const
 {
-    QFont font;
+    // The view's font, which the message list font of the appearance options may set
+    QFont font = static_cast<QWidget *>(parent())->font();
 
     Q_ASSERT(index.isValid());
 

@@ -62,6 +62,7 @@
 #include "Common/PrivateFiles.h"
 #include "Common/SettingsNames.h"
 #include "Common/TrustedCertificates.h"
+#include "Gui/AppearanceManager.h"
 #include "Gui/CompleteMessageWidget.h"
 #include "Gui/ComposeWidget.h"
 #include "Gui/FileChooser.h"
@@ -1669,7 +1670,7 @@ void ComposeWidget::fadeIn(QWidget *w)
     QPropertyAnimation *animation = new QPropertyAnimation(effect, "opacity", w);
     connect(animation, &QAbstractAnimation::finished, this, &ComposeWidget::slotFadeFinished);
     animation->setObjectName(trojita_opacityAnimation);
-    animation->setDuration(333);
+    animation->setDuration(AppearanceManager::instance()->animationDuration(333));
     animation->setStartValue(0.0);
     animation->setEndValue(1.0);
     animation->start(QAbstractAnimation::DeleteWhenStopped);

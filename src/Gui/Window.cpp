@@ -151,6 +151,8 @@
 #include "MessageRowsMenu.h"
 #include "MessageView.h"
 #include "MessageSourceWidget.h"
+#include "Gui/AppearanceManager.h"
+#include "Gui/AppearanceStyle.h"
 #include "Gui/FileChooser.h"
 #include "Gui/LinkTarget.h"
 #include "Gui/MessageHeadersWidget.h"
@@ -318,6 +320,7 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     connect(m_activities, &PlasmaActivities::currentChanged, this, &MainWindow::followActivity);
     watchSharedKeymap();
     applyTabSettings();
+    registerAppearance();
     m_vimPending = new QLabel(statusBar());
     m_vimPending->setObjectName(QStringLiteral("vimPending"));
     m_vimPending->setAccessibleName(i18nc("@label", "Vim keys typed"));
@@ -1466,6 +1469,9 @@ void MainWindow::createActions()
     m_replyMenu->addAction(m_replyList);
     m_replyButton->setMenu(m_replyMenu);
     m_replyButton->setDefaultAction(m_replyPrivate);
+    // A corner marker instead of an arrow beside the button shows that it has a menu
+    AppearanceStyle::addMenuMarker(m_composeButton);
+    AppearanceStyle::addMenuMarker(m_replyButton);
 
 #ifdef TROJITA_HAVE_WEBENGINE
     // The bar above the reader works on the open message, whatever is selected in the list
@@ -1548,6 +1554,7 @@ void MainWindow::createActions()
     m_moveButton->setPopupMode(QToolButton::MenuButtonPopup);
     m_moveButton->setMenu(m_moveToMenu);
     m_moveButton->setDefaultAction(m_moveToFolder);
+    AppearanceStyle::addMenuMarker(m_moveButton);
     m_mainToolbar->addWidget(m_moveButton);
 
     // Push the status indicators all the way to the other side of the toolbar -- either to the far right, or far bottom.
@@ -1562,14 +1569,15 @@ void MainWindow::createActions()
     // This is deliberate; we want to show this button in the same style as the other ones in the toolbar
     networkIndicator->setPopupMode(QToolButton::MenuButtonPopup);
     networkIndicator->setAccessibleName(i18nc("@action:button", "Network access"));
+    AppearanceStyle::addMenuMarker(networkIndicator);
     m_mainToolbar->addWidget(networkIndicator);
 
     m_menuFromToolBar = new QToolButton(this);
     m_menuFromToolBar->setIcon(UiUtils::loadIcon(QStringLiteral("menu_new")));
     m_menuFromToolBar->setText(QChar(0x205d)); // Unicode 'TRICOLON'
     m_menuFromToolBar->setAccessibleName(i18nc("@action:button", "Main menu"));
-    m_menuFromToolBar->setPopupMode(QToolButton::MenuButtonPopup);
-    connect(m_menuFromToolBar, &QAbstractButton::clicked, m_menuFromToolBar, &QToolButton::showMenu);
+    m_menuFromToolBar->setPopupMode(QToolButton::InstantPopup);
+    AppearanceStyle::addMenuMarker(m_menuFromToolBar);
     m_mainToolbar->addWidget(m_menuFromToolBar);
     connect(showMenuBar, &QAction::toggled, this, [this](const bool menuBarVisible) {
         // https://bugreports.qt.io/browse/QTBUG-35768 , we have to work on the QAction, not QToolButton
@@ -2647,7 +2655,17 @@ void MainWindow::handleTrayIconChange()
         tooltip += tr(" - offline");
     }
     m_trayIcon->setToolTip(tooltip);
-    m_trayIcon->setIcon(QIcon(pixmap));
+    const bool symbolic = UiUtils::SettingsStore::value(*KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")),
+                                                        m_settings, QStringLiteral("Appearance/SymbolicTrayIcon"))
+                              .toBool();
+    if (symbolic) {
+        // The panel colours a symbolic icon as it does the other tray icons; the count is in the tooltip
+        m_trayIcon->setIcon(UiUtils::SymbolicIcon::fromTheme(
+            isOffline ? QStringLiteral("network-offline")
+                      : numbersValid ? QStringLiteral("mail-unread-new") : QStringLiteral("mail-message")));
+    } else {
+        m_trayIcon->setIcon(QIcon(pixmap));
+    }
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -3416,19 +3434,56 @@ void MainWindow::applyApplicationSettings()
     applyTabSettings();
     applyVimSettings();
     applyProductivitySettings();
+    applyAppearance();
+}
+
+void MainWindow::registerAppearance()
+{
+    auto *appearance = AppearanceManager::instance();
+    appearance->registerWindow(this);
+    appearance->registerPane(mboxTree);
+    appearance->registerPane(msgListWidget->tree);
+    appearance->registerPane(m_readerColumn);
+    appearance->registerFont(msgListWidget->tree, AppearanceManager::FontTarget::MessageList);
+    appearance->registerFont(mboxTree, AppearanceManager::FontTarget::FolderTree);
+    appearance->registerFont(m_tabBar, AppearanceManager::FontTarget::Tabs);
+    appearance->registerFont(statusBar(), AppearanceManager::FontTarget::StatusBar);
+    connect(appearance, &AppearanceManager::changed, this, &MainWindow::applyListAppearance);
+    applyAppearance();
+}
+
+void MainWindow::applyAppearance()
+{
+    const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    AppearanceManager::instance()->load(*config, m_activities ? m_activities->current() : QString(),
+                                        m_accounts->activeAccount());
+    handleTrayIconChange();
+}
+
+void MainWindow::applyListAppearance()
+{
+    auto *appearance = AppearanceManager::instance();
+    msgListWidget->tree->setAlternatingRowColors(appearance->value(QStringLiteral("StripeRows")).toBool());
+    mboxTree->setAlternatingRowColors(appearance->value(QStringLiteral("StripeFolderTree")).toBool());
+    msgListWidget->tree->viewport()->update();
+    mboxTree->viewport()->update();
 }
 
 void MainWindow::followActivity(const QString &activityId)
 {
     const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
-    if (activityId.isEmpty()
-        || !UiUtils::SettingsStore::value(*config, m_settings, QStringLiteral("Workspaces/FollowActivity")).toBool())
-        return;
-    const QString accountId = UiUtils::Workspaces::accountForActivity(UiUtils::SettingsStore::workspaces(*config),
-                                                                      activityId, m_accounts->activeAccount(),
-                                                                      m_accounts->accountIds());
-    if (!accountId.isEmpty() && accountId != m_accounts->activeAccount())
-        switchAccount(accountId);
+    if (!activityId.isEmpty()
+        && UiUtils::SettingsStore::value(*config, m_settings, QStringLiteral("Workspaces/FollowActivity")).toBool()) {
+        const QString accountId = UiUtils::Workspaces::accountForActivity(UiUtils::SettingsStore::workspaces(*config),
+                                                                          activityId, m_accounts->activeAccount(),
+                                                                          m_accounts->accountIds());
+        if (!accountId.isEmpty() && accountId != m_accounts->activeAccount()) {
+            // Switching applies the workspace's appearance
+            switchAccount(accountId);
+            return;
+        }
+    }
+    applyAppearance();
 }
 
 void MainWindow::watchSharedKeymap()
@@ -5200,6 +5255,7 @@ void MainWindow::switchAccount(const QString &accountId)
                                     .toString();
     if (!startFolder.isEmpty())
         goToMailbox(startFolder);
+    applyAppearance();
 }
 
 void MainWindow::slotAddAccount()

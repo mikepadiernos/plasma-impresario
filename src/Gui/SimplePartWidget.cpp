@@ -40,6 +40,7 @@
 #include "Common/Paths.h"
 #include "Common/PrivateFiles.h"
 #include "Composer/Mailto.h"
+#include "Gui/AppearanceManager.h"
 #include "Gui/MessageView.h" // so that the compiler knows that it's a QObject
 #include "Gui/LinkTarget.h"
 #include "Gui/WebEngineMessagePage.h"
@@ -76,7 +77,7 @@ SimplePartWidget::SimplePartWidget(QWidget *parent, Imap::Network::MsgPartNetAcc
         if (partIndex.data(Imap::Mailbox::RolePartOctets).toULongLong() < 100 * 1024) {
             connect(this, &QWebEngineView::loadFinished, this, &SimplePartWidget::slotMarkupPlainText);
         } else {
-            QFont font(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+            QFont font(AppearanceManager::instance()->plainTextFont());
             setStaticWidth(QFontMetrics(font).maxWidth()*90);
             addCustomStylesheet(QStringLiteral("pre{word-wrap:normal !important;white-space:pre !important;}"));
             settings()->setFontFamily(QWebEngineSettings::StandardFont, font.family());
@@ -140,7 +141,7 @@ void SimplePartWidget::slotMarkupPlainText(bool success)
     QPalette palette = QApplication::palette();
 
     // and finally set the marked up page.
-    const QString html = UiUtils::htmlizedTextPart(m_partIndex, QFontDatabase::systemFont(QFontDatabase::FixedFont),
+    const QString html = UiUtils::htmlizedTextPart(m_partIndex, AppearanceManager::instance()->plainTextFont(),
                                                    palette.base().color(), palette.text().color(),
                                                    palette.link().color(), palette.linkVisited().color());
     if (!messagePage()->setMessageHtml(html, m_partUrl))

@@ -592,6 +592,12 @@ private:
     void applyApplicationSettings();
     /** @short Show the account of @p activityId's workspace, when the workspaces follow the activities */
     void followActivity(const QString &activityId);
+    /** @short Register the window, its panes and its fonts with the appearance options, and apply them */
+    void registerAppearance();
+    /** @short Apply the appearance options of the global theme and of the active workspace */
+    void applyAppearance();
+    /** @short Stripe the message list and the folder tree as the appearance options ask */
+    void applyListAppearance();
     /** @short Watch the keymap shared with Plasma Opus, when it is followed, and import it when it changes */
     void watchSharedKeymap();
     /** @short The part of the window @p focus is in, as Vim mode sees it */
