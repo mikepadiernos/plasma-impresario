@@ -348,6 +348,25 @@ const Profile *find(const QList<Profile> &profiles, const QString &id)
     return nullptr;
 }
 
+Theme::Values appliedTo(const Theme::Values &global, const Profile &profile)
+{
+    Theme::Values result = global;
+    for (const QString &entry : Theme::profileEntries()) {
+        if (profile.values.contains(entry))
+            result.insert(entry, Theme::value(profile.values, entry));
+    }
+    return result;
+}
+
+Profile fromValues(const QString &name, const Theme::Values &values)
+{
+    Profile profile;
+    profile.name = name.trimmed();
+    for (const QString &entry : Theme::profileEntries())
+        profile.values.insert(entry, Theme::value(values, entry));
+    return profile;
+}
+
 } // namespace ThemeProfiles
 
 } // namespace UiUtils

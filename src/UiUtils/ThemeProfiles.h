@@ -89,6 +89,12 @@ QString newId(const QList<Profile> &profiles);
 qsizetype indexOfName(const QList<Profile> &profiles, const QString &name);
 const Profile *find(const QList<Profile> &profiles, const QString &id);
 
+/** @short @arg global with the options of @arg profile in its place, as when a profile or a followed file becomes the
+global appearance; options the profile does not hold keep their global values */
+Theme::Values appliedTo(const Theme::Values &global, const Profile &profile);
+/** @short A profile called @arg name holding the profile options of @arg values */
+Profile fromValues(const QString &name, const Theme::Values &values);
+
 } // namespace ThemeProfiles
 
 } // namespace UiUtils

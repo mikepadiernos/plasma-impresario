@@ -389,6 +389,32 @@ private slots:
         QCOMPARE(FolderColors::iconColors().size(), 12);
     }
 
+    void profileAppliedToGlobal()
+    {
+        Theme::Values global = Theme::defaults();
+        global.insert(QStringLiteral("FolderColorRules"), QStringList{QStringLiteral("rule")});
+        global.insert(QStringLiteral("StripeRows"), false);
+        global.insert(QStringLiteral("SuspendEffectsInHighContrast"), false);
+        Theme::Values chosen = Theme::defaults();
+        chosen.insert(QStringLiteral("CornerRadius"), QStringLiteral("Large"));
+        const ThemeProfiles::Profile profile = ThemeProfiles::fromValues(QStringLiteral("  Large  "), chosen);
+        QCOMPARE(profile.name, QStringLiteral("Large"));
+        QVERIFY(!profile.values.contains(QStringLiteral("FolderColorRules")));
+        const Theme::Values applied = ThemeProfiles::appliedTo(global, profile);
+        QCOMPARE(applied.value(QStringLiteral("CornerRadius")).toString(), QStringLiteral("Large"));
+        // The profile holds every profile option, so the global stripe setting is replaced
+        QCOMPARE(applied.value(QStringLiteral("StripeRows")).toBool(), true);
+        // Options a profile never holds stay
+        QCOMPARE(applied.value(QStringLiteral("FolderColorRules")).toStringList(), QStringList{QStringLiteral("rule")});
+        QCOMPARE(applied.value(QStringLiteral("SuspendEffectsInHighContrast")).toBool(), false);
+        // A file leaving options out keeps the global ones
+        ThemeProfiles::Profile partial;
+        partial.values.insert(QStringLiteral("Dividers"), QStringLiteral("Hidden"));
+        const Theme::Values merged = ThemeProfiles::appliedTo(global, partial);
+        QCOMPARE(merged.value(QStringLiteral("Dividers")).toString(), QStringLiteral("Hidden"));
+        QCOMPARE(merged.value(QStringLiteral("StripeRows")).toBool(), false);
+    }
+
     void profileRoundTrip()
     {
         ThemeProfiles::Profile profile;
