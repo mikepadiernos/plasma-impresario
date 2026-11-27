@@ -50,6 +50,8 @@ void SearchQueryTest::normalizes_data()
     QTest::newRow("field names ignore case") << QStringLiteral("FROM:ann Subject:x") << QStringLiteral("from:ann AND subject:x");
     QTest::newRow("is aliases") << QStringLiteral("is:Starred is:seen") << QStringLiteral("is:flagged AND is:read");
     QTest::newRow("has plural") << QStringLiteral("has:attachments") << QStringLiteral("has:attachment");
+    QTest::newRow("Plasma Opus field names") << QStringLiteral("content:invoice Contents:\"due date\" tags:work")
+                                            << QStringLiteral("body:invoice AND body:\"due date\" AND tag:work");
     QTest::newRow("dates") << QStringLiteral("date>=2025-06 date:today") << QStringLiteral("date>=2025-06 AND date:today");
     QTest::newRow("sizes") << QStringLiteral("size>2M") << QStringLiteral("size>2M");
     QTest::newRow("subject prefix is text") << QStringLiteral("Re: lunch") << QStringLiteral("\"Re:\" AND lunch");

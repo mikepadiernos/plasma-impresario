@@ -21,6 +21,7 @@ private slots:
     void closestFolderDecides();
     void hiddenFolders();
     void namesOnly();
+    void indexedSubfolders();
     void expandsHomeInPaths();
     void indexedSearchUrl();
     void liveSearchUrl();

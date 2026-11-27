@@ -142,6 +142,39 @@ void FileSearchTest::namesOnly()
     QCOMPARE(coverageOf(config, QStringLiteral("/elsewhere")).coverage, Coverage::NotIncluded);
 }
 
+void FileSearchTest::indexedSubfolders()
+{
+    const QString config = configPath(QStringLiteral("inside"),
+                                      "[General]\n"
+                                      "folders=/data/Reports,/srv/private/kept,/srv/private/gone\n"
+                                      "exclude folders=/srv/private,/srv/private/gone\n");
+    // A folder outside every indexed one can still hold one, which a search of the folder finds
+    auto status = coverageOf(config, QStringLiteral("/data"));
+    QCOMPARE(status.coverage, Coverage::NotIncluded);
+    QCOMPARE(status.indexedSubfolder, QStringLiteral("/data/Reports"));
+    QVERIFY(status.isSearchable());
+    QVERIFY(!status.coversWholeFolder());
+
+    status = coverageOf(config, QStringLiteral("/srv/private"));
+    QCOMPARE(status.coverage, Coverage::Excluded);
+    QCOMPARE(status.indexedSubfolder, QStringLiteral("/srv/private/kept"));
+    QVERIFY(status.isSearchable());
+
+    // An indexed folder that is also excluded does not count
+    const QString gone = configPath(QStringLiteral("insideGone"), "[General]\nfolders=/srv/private/gone\n"
+                                                                  "exclude folders=/srv/private/gone\n");
+    status = coverageOf(gone, QStringLiteral("/srv"));
+    QCOMPARE(status.coverage, Coverage::NotIncluded);
+    QVERIFY(status.indexedSubfolder.isEmpty());
+    QVERIFY(!status.isSearchable());
+
+    // Neither do the folder itself, a folder whose name only starts like it, or a folder outside it
+    const QString near = configPath(QStringLiteral("insideNear"), "[General]\nfolders=/database,/elsewhere/data\n");
+    QVERIFY(coverageOf(near, QStringLiteral("/data")).indexedSubfolder.isEmpty());
+    QVERIFY(coverageOf(config, QStringLiteral("/data/Reports")).indexedSubfolder.isEmpty());
+    QVERIFY(coverageOf(config, QStringLiteral("/data/Reports")).coversWholeFolder());
+}
+
 void FileSearchTest::expandsHomeInPaths()
 {
     // System Settings writes the folders as path entries relative to $HOME

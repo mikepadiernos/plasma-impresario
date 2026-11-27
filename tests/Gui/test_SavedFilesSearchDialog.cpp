@@ -69,8 +69,9 @@ private slots:
         QCOMPARE(dialog.searchText(), QStringLiteral("report.pdf"));
         QCOMPARE(dialog.folder(), m_saved);
         QCOMPARE(dialog.status().coverage, Coverage::Covered);
-        QCOMPARE(dialog.statusText(), i18nc("@info", "File Search indexes this folder. Files saved in the last few minutes may be "
-                                                     "missing until it indexes them; a live search finds them right away."));
+        QCOMPARE(dialog.statusText(), i18nc("@info", "File Search is set to index this folder, which does not guarantee that every "
+                                                     "file is indexed yet: files saved in the last few minutes may be missing. A live "
+                                                     "search finds them right away."));
         auto *index = button(dialog, "savedFilesSearchIndex");
         auto *live = button(dialog, "savedFilesSearchLive");
         QVERIFY(!index->isHidden());
@@ -109,7 +110,18 @@ private slots:
         QVERIFY(writeBalooConfig("[General]\nfolders=/nowhere-near\n"));
         dialog.setFolder(m_saved);
         QCOMPARE(dialog.status().coverage, Coverage::NotIncluded);
+        QCOMPARE(dialog.statusText(), i18nc("@info", "File Search is not set to index this folder. A live search looks through it "
+                                                     "instead, or add the folder to File Search in System Settings."));
         QVERIFY(!index->isEnabled());
+
+        // An indexed folder inside can be searched in the index, but only a live search covers the whole folder
+        QVERIFY(writeBalooConfig("[General]\nfolders=" + m_saved.toUtf8() + "/Private\n"));
+        dialog.setFolder(m_saved);
+        QCOMPARE(dialog.status().coverage, Coverage::NotIncluded);
+        QVERIFY(dialog.statusText().contains(QDir::toNativeSeparators(m_saved + QStringLiteral("/Private"))));
+        QVERIFY(index->isEnabled());
+        QVERIFY(!index->isDefault());
+        QVERIFY(live->isDefault());
 
         // Without Baloo's KIO worker, the button is gone
         dialog.setSearchWorkers(false, true);
