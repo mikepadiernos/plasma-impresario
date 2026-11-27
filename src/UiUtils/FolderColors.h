@@ -77,6 +77,8 @@ QColor folderColor(const Colors &colors, const QString &accountId, const QString
 /** @short The colours an icon theme offers coloured folder icons in, such as
  * Breeze's "folder-red" */
 QStringList iconColors();
+/** @short The colour of the coloured folder icons called @arg name, one of iconColors(), or an invalid colour */
+QColor iconColor(const QString &name);
 /** @short The coloured folder icon closest to @arg color, such as "folder-red",
  * or empty for an invalid colour */
 QString iconName(const QColor &color);

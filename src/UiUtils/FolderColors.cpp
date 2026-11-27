@@ -146,21 +146,27 @@ QStringList iconColors()
             QStringLiteral("brown"), QStringLiteral("grey"),   QStringLiteral("black"),  QStringLiteral("white")};
 }
 
-QString iconName(const QColor &color)
+QColor iconColor(const QString &name)
 {
-    if (!color.isValid())
-        return {};
-    // Close to the colours of Breeze's coloured folder icons
+    // Close to the colours of Breeze's coloured folder icons, in the order of iconColors()
     static const QColor references[] = {
         QColor(218, 68, 83),  QColor(246, 116, 0),   QColor(253, 188, 75), QColor(39, 174, 96),
         QColor(26, 188, 156), QColor(61, 174, 233),  QColor(155, 89, 182), QColor(233, 58, 154),
         QColor(161, 118, 82), QColor(127, 140, 141), QColor(35, 38, 41),   QColor(239, 240, 241),
     };
+    const qsizetype index = iconColors().indexOf(name);
+    return index < 0 ? QColor() : references[index];
+}
+
+QString iconName(const QColor &color)
+{
+    if (!color.isValid())
+        return {};
     const QStringList names = iconColors();
     qsizetype best = 0;
     double bestDistance = std::numeric_limits<double>::max();
     for (qsizetype i = 0; i < names.size(); ++i) {
-        const QColor &reference = references[i];
+        const QColor reference = iconColor(names.at(i));
         // A weighted distance, closer to how different colours look than plain RGB
         const double meanRed = (color.red() + reference.red()) / 2.0;
         const double dr = color.red() - reference.red();

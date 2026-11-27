@@ -387,6 +387,9 @@ private slots:
         QCOMPARE(FolderColors::iconName(QColor(40, 170, 90)), QStringLiteral("folder-green"));
         QCOMPARE(FolderColors::iconName(QColor()), QString());
         QCOMPARE(FolderColors::iconColors().size(), 12);
+        for (const QString &name : FolderColors::iconColors())
+            QCOMPARE(FolderColors::iconName(FolderColors::iconColor(name)), QStringLiteral("folder-") + name);
+        QVERIFY(!FolderColors::iconColor(QStringLiteral("plaid")).isValid());
     }
 
     void profileAppliedToGlobal()
