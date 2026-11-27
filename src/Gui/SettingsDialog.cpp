@@ -72,7 +72,11 @@
 #include "UiUtils/MailStatus.h"
 #include "UiUtils/PasswordWatcher.h"
 #include "UiUtils/ServerDiscovery.h"
+#include "UiUtils/SettingsSchema.h"
+#include "SettingsGroups.h"
+#include <KConfigGroup>
 #include <KLocalizedString>
+#include <KPageWidget>
 #include <KSharedConfig>
 #include "ShortcutHandler/ShortcutHandler.h"
 
@@ -107,11 +111,11 @@ SettingsDialog::SettingsDialog(MainWindow *parent, Scope scope, Composer::Sender
                                            : i18nc("@title:window", "Settings"));
 
     QVBoxLayout *layout = new QVBoxLayout(this);
-    stack = new QTabWidget(this);
-    layout->addWidget(stack);
-    stack->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 
     if (scope == Scope::Account) {
+        stack = new QTabWidget(this);
+        layout->addWidget(stack);
+        stack->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
         addPage(new IdentitiesPage(this, *m_accountSettings, *m_settings, m_accountIdentities, m_senderIdentities),
                 i18nc("@title:tab", "I&dentities"), m_accountSettings);
         const Imap::AccountProtocol protocol = Imap::AccountCapabilities::forAccount(*m_accountSettings).protocol();
@@ -135,8 +139,11 @@ SettingsDialog::SettingsDialog(MainWindow *parent, Scope scope, Composer::Sender
             connect(jmapPage, &JmapPage::sendingChanged, outgoing, &OutgoingPage::setJmapSending);
         }
     } else {
-        addPage(new GeneralPage(this, *m_settings), tr("&General"), m_settings);
-        addPage(new FavoriteTagsPage(this, *m_settings, m_favoriteTags), tr("Favorite &tags"), m_settings);
+        m_pageWidget = new KPageWidget(this);
+        m_pageWidget->setObjectName(QStringLiteral("settingsGroups"));
+        m_pageWidget->setFaceType(KPageView::List);
+        layout->addWidget(m_pageWidget);
+        addApplicationGroups();
     }
 
     buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, Qt::Horizontal, this);
@@ -145,6 +152,72 @@ SettingsDialog::SettingsDialog(MainWindow *parent, Scope scope, Composer::Sender
     layout->addWidget(buttons);
 
     EMIT_LATER_NOARG(this, reloadPasswordsRequested);
+}
+
+SettingsDialog::~SettingsDialog() = default;
+
+void SettingsDialog::addApplicationGroups()
+{
+    using UiUtils::SettingsSchema::Group;
+    m_context = std::make_unique<SettingsContext>(mainWindow->settingsContext());
+    resize(900, 640);
+
+    // The groups show the widgets of these pages, which still load and save them
+    auto *general = new GeneralPage(this, *m_settings);
+    general->hide();
+    registerPage(general, m_settings);
+    delete general->widget()->layout();
+    if (auto *line = general->findChild<QWidget *>(QStringLiteral("line")))
+        line->hide();
+    auto *favoriteTags = new FavoriteTagsPage(this, *m_settings, m_favoriteTags);
+    registerPage(favoriteTags, m_settings);
+
+    const SettingsContext &context = *m_context;
+    const QList<std::tuple<SettingsGroupPage *, QString, QString>> groups {
+        {new GeneralGroup(general, context, this), i18nc("@title:group of settings", "General"),
+            QStringLiteral("preferences-system")},
+        {new AccountsGroup(context, this), i18nc("@title:group of settings", "Accounts"),
+            QStringLiteral("system-users")},
+        {new AppearanceGroup(favoriteTags, context, this), i18nc("@title:group of settings", "Appearance"),
+            QStringLiteral("preferences-desktop-theme-global")},
+        {new ReadingGroup(general, context, this), i18nc("@title:group of settings", "Reading"),
+            QStringLiteral("mail-read")},
+        {new CompositionGroup(general, context, this), i18nc("@title:group of settings", "Composition"),
+            QStringLiteral("mail-message-new")},
+        {new PrivacyGroup(general, context, this), i18nc("@title:group of settings", "Privacy"),
+            QStringLiteral("preferences-security")},
+        {new NotificationsGroup(general, context, this), i18nc("@title:group of settings", "Notifications"),
+            QStringLiteral("preferences-desktop-notification")},
+        {new SearchGroup(context, this), i18nc("@title:group of settings", "Search"),
+            QStringLiteral("edit-find")},
+        {new IntegrationsGroup(context, this), i18nc("@title:group of settings", "Integrations"),
+            QStringLiteral("applications-office")},
+        {new WorkspacesGroup(context, this), i18nc("@title:group of settings", "Workspaces"),
+            QStringLiteral("activities")},
+        {new KeyboardGroup(context, this), i18nc("@title:group of settings", "Keyboard"),
+            QStringLiteral("preferences-desktop-keyboard")},
+    };
+
+    const QString last = KSharedConfig::openStateConfig()->group(QStringLiteral("SettingsDialog"))
+                             .readEntry("LastGroup", QString());
+    KPageWidgetItem *current = nullptr;
+    for (const auto &[page, title, icon] : groups) {
+        registerPage(page, m_settings);
+        auto *item = m_pageWidget->addPage(page, title);
+        item->setIcon(UiUtils::loadIcon(icon));
+        const QString id = UiUtils::SettingsSchema::groupId(page->group());
+        item->setProperty("groupId", id);
+        if (id == last)
+            current = item;
+    }
+    if (current)
+        m_pageWidget->setCurrentPage(current);
+    connect(m_pageWidget, &KPageWidget::currentPageChanged, this, [](KPageWidgetItem *item) {
+        if (!item)
+            return;
+        KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("SettingsDialog"));
+        state.writeEntry("LastGroup", item->property("groupId").toString());
+    });
 }
 
 SettingsDialog::Scope SettingsDialog::scope() const
@@ -162,6 +235,8 @@ void SettingsDialog::setOriginalPlugins(const QString &passwordPlugin, const QSt
 
 void SettingsDialog::adjustSizeToScrollAreas()
 {
+    if (!stack)
+        return;
     QScrollArea *area = qobject_cast<QScrollArea*>(sender());
     Q_ASSERT(area && area->widget());
 
@@ -215,7 +290,8 @@ void SettingsDialog::accept()
 
     Q_FOREACH(ConfigurationWidgetInterface *page, pages) {
         if (!page->checkValidity()) {
-            stack->setCurrentWidget(page->asWidget());
+            if (stack)
+                stack->setCurrentWidget(page->asWidget());
             return;
         }
         connect(page->asWidget(), SIGNAL(saved()), this, SLOT(slotAccept())); // new-signal-slot: we're abusing the type system a bit here, cannot use the new syntax
@@ -295,8 +371,13 @@ void SettingsDialog::reject()
 
 void SettingsDialog::addPage(ConfigurationWidgetInterface *page, const QString &title, QSettings *pageSettings)
 {
-    m_pageSettings.insert(page, pageSettings);
     stack->addTab(page->asWidget(), title);
+    registerPage(page, pageSettings);
+}
+
+void SettingsDialog::registerPage(ConfigurationWidgetInterface *page, QSettings *pageSettings)
+{
+    m_pageSettings.insert(page, pageSettings);
     connect(page->asWidget(), SIGNAL(widgetsUpdated()), SLOT(adjustSizeToScrollAreas())); // new-signal-slot: we're abusing the type system a bit here, cannot use the new syntax
     QMetaObject::invokeMethod(page->asWidget(), "updateWidgets", Qt::QueuedConnection);
     pages << page;

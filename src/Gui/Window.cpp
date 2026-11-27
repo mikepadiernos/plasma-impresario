@@ -35,6 +35,7 @@
 #include <QDir>
 #include <QDockWidget>
 #include <QFileDialog>
+#include <QFileSystemWatcher>
 #include <QHeaderView>
 #include <QItemSelectionModel>
 #include <QKeyEvent>
@@ -74,6 +75,7 @@
 #include <KIO/OpenFileManagerWindowJob>
 #include <KIO/OpenUrlJob>
 #include <KLocalizedString>
+#include <KApplicationTrader>
 #include <KService>
 #include <KSharedConfig>
 #include <KWindowSystem>
@@ -162,6 +164,8 @@
 #include "SearchResultsPanel.h"
 #include "ProtocolLoggerWidget.h"
 #include "SettingsDialog.h"
+#include "SettingsGroups.h"
+#include "PlasmaActivities.h"
 #include "ShortcutOverviewDialog.h"
 #ifdef TROJITA_HAVE_WEBENGINE
 #include "SimplePartWidget.h"
@@ -190,6 +194,8 @@
 #include "UiUtils/Relevance.h"
 #include "UiUtils/SavedSearches.h"
 #include "UiUtils/SettingsStore.h"
+#include "UiUtils/Keymap.h"
+#include "UiUtils/Workspaces.h"
 #include "UiUtils/SleepMonitor.h"
 #include "UiUtils/SearchSuggestions.h"
 #include "UiUtils/ServerDiscovery.h"
@@ -280,6 +286,8 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     m_favoriteTags = new Imap::Mailbox::FavoriteTagsModel(this);
     m_favoriteTags->loadFromSettings(*m_settings);
 
+    m_focusLayout = UiUtils::SettingsStore::value(*KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")),
+                                                  m_settings, QStringLiteral("Appearance/FocusLayout")).toBool();
     createWidgets();
 
     Imap::migrateSettings(m_settings);
@@ -301,6 +309,9 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     createActions();
     createMenus();
     applyMessageListView();
+    m_activities = new PlasmaActivities(this);
+    connect(m_activities, &PlasmaActivities::currentChanged, this, &MainWindow::followActivity);
+    watchSharedKeymap();
     // Choosing a folder leaves the Unified Inbox and the search results for it
     const auto showChosenFolder = [this]() {
         // A folder shows all of its messages, not what the saved search found
@@ -3267,7 +3278,163 @@ void MainWindow::slotShowSettings()
         removeSysTray();
         slotToggleSysTray();
         scheduleAccountUnreadRefresh();
+        applyApplicationSettings();
     }
+}
+
+void MainWindow::applyApplicationSettings()
+{
+    const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    KConfigGroup appearance(config, QStringLiteral("Appearance"));
+    if (m_densityMenu)
+        m_densityMenu->setComfortable(appearance.readEntry("RowDensity", QStringLiteral("compact"))
+                                      == QLatin1String("comfortable"));
+    const bool right = appearance.readEntry("MailboxSidebarPosition", QStringLiteral("left")) == QLatin1String("right");
+    if (right != m_mailboxSidebarOnRight)
+        setMailboxSidebarRight(right);
+    if (auto *action = findChild<QAction *>(right ? QStringLiteral("mailboxSidebarRight") : QStringLiteral("mailboxSidebarLeft")))
+        action->setChecked(true);
+    if (m_shellHeader)
+        m_shellHeader->toggleAction()->setChecked(appearance.readEntry("ShowHeader", false));
+    const bool focus = UiUtils::SettingsStore::value(*config, m_settings, QStringLiteral("Appearance/FocusLayout")).toBool();
+    if (focus != m_focusLayout) {
+        m_focusLayout = focus;
+        updateShellRegions(true, true);
+    }
+    msgListWidget->applySearchSettings();
+    watchSharedKeymap();
+}
+
+void MainWindow::followActivity(const QString &activityId)
+{
+    const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    if (activityId.isEmpty()
+        || !UiUtils::SettingsStore::value(*config, m_settings, QStringLiteral("Workspaces/FollowActivity")).toBool())
+        return;
+    const QString accountId = UiUtils::Workspaces::accountForActivity(UiUtils::SettingsStore::workspaces(*config),
+                                                                      activityId, m_accounts->activeAccount(),
+                                                                      m_accounts->accountIds());
+    if (!accountId.isEmpty() && accountId != m_accounts->activeAccount())
+        switchAccount(accountId);
+}
+
+void MainWindow::watchSharedKeymap()
+{
+    const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    const bool follow = UiUtils::SettingsStore::value(*config, m_settings, QStringLiteral("Keyboard/FollowSharedKeymap")).toBool();
+    const QString path = follow ? UiUtils::SettingsStore::followedProfile(*config) : QString();
+    if (m_keymapWatcher) {
+        if (m_keymapWatcher->files() == QStringList{path})
+            return;
+        delete m_keymapWatcher;
+        m_keymapWatcher = nullptr;
+    }
+    if (path.isEmpty())
+        return;
+    m_keymapWatcher = new QFileSystemWatcher(this);
+    const auto import = [this, path]() {
+        QFile file(path);
+        // Editors replace the file when saving it, which drops it from the watcher
+        if (m_keymapWatcher && !m_keymapWatcher->files().contains(path) && QFileInfo::exists(path))
+            m_keymapWatcher->addPath(path);
+        if (!file.open(QIODevice::ReadOnly))
+            return;
+        const UiUtils::Keymap::ParseResult result = UiUtils::Keymap::fromJson(file.readAll());
+        if (!result.profile) {
+            qWarning() << "The followed keymap" << path << "could not be read:" << result.error;
+            return;
+        }
+        const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        if (UiUtils::SettingsStore::keymapProfile(*config) == *result.profile)
+            return;
+        UiUtils::SettingsStore::importKeymap(*config, *result.profile);
+        config->sync();
+    };
+    connect(m_keymapWatcher, &QFileSystemWatcher::fileChanged, this, import);
+    if (QFileInfo::exists(path))
+        m_keymapWatcher->addPath(path);
+    import();
+}
+
+SettingsContext MainWindow::settingsContext()
+{
+    SettingsContext context;
+    for (const QString &id : m_accounts->accountIds())
+        context.accounts.append({id, m_accounts->displayName(id)});
+    context.folders = [this](const QString &accountId) {
+        QStringList folders;
+        Imap::ImapAccess *access = m_accountAccess.value(accountId);
+        QAbstractItemModel *model = access ? access->mailboxModel() : nullptr;
+        if (!model)
+            return folders;
+        for (auto it = UiUtils::QaimDfsIterator(model->index(0, 0), model); it != UiUtils::QaimDfsIterator(); ++it) {
+            const QString name = it->data(Imap::Mailbox::RoleMailboxName).toString();
+            if (!name.isEmpty())
+                folders.append(name);
+        }
+        return folders;
+    };
+    context.accountSettings = [this](const QString &accountId) { return m_accounts->settings(accountId); };
+
+    context.activitiesAvailable = m_activities && m_activities->available();
+    if (context.activitiesAvailable) {
+        const auto activities = m_activities->activities();
+        for (const auto &activity : activities)
+            context.activities.append({activity.first, activity.second});
+    }
+    using UiUtils::SettingsSchema::Feature;
+    if (KApplicationTrader::preferredService(QStringLiteral("text/calendar")))
+        context.available |= Feature::Calendar;
+    const QString notesFolder = UiUtils::SettingsStore::value(*KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")),
+                                                              m_settings, QStringLiteral("Integrations/NotesFolder")).toString();
+    if (!notesFolder.isEmpty() && QFileInfo(notesFolder).isDir())
+        context.available |= Feature::Notes;
+    if (context.activitiesAvailable)
+        context.available |= Feature::Activities;
+
+    const auto actions = findChildren<QAction *>();
+    for (const QAction *action : actions) {
+        for (const QKeySequence &sequence : action->shortcuts()) {
+            if (sequence.count() == 1 && !(sequence[0].keyboardModifiers() & ~Qt::ShiftModifier))
+                context.shortcuts.append(sequence);
+        }
+    }
+
+    context.configureNotifications = [this]() { configureNotifications(); };
+    context.manageSearchIndex = [this](QWidget *parent) { showSearchIndexOver(parent); };
+    context.clearSearchHistory = [this]() {
+        if (auto *action = msgListWidget->findChild<QAction *>(QStringLiteral("clearSearchHistory")))
+            action->trigger();
+    };
+    context.confirm = [](QWidget *parent, const QString &title, const QString &text) {
+        return QMessageBox::question(parent, title, text) == QMessageBox::Yes;
+    };
+    context.chooseFile = [](QWidget *parent, const QString &title, SettingsContext::FileMode mode, const QString &start) {
+        switch (mode) {
+        case SettingsContext::FileMode::Directory:
+            return QFileDialog::getExistingDirectory(parent, title, start);
+        case SettingsContext::FileMode::Open:
+            return QFileDialog::getOpenFileName(parent, title, start);
+        case SettingsContext::FileMode::Save:
+            return QFileDialog::getSaveFileName(parent, title, start);
+        }
+        return QString();
+    };
+    context.legacy = m_settings;
+    return context;
+}
+
+void MainWindow::showSearchIndexOver(QWidget *parent)
+{
+    Q_UNUSED(parent);
+    slotShowSearchIndex();
+    if (!m_searchIndexDialog)
+        return;
+    // A modal settings dialog blocks the windows which are not modal themselves
+    m_searchIndexDialog->hide();
+    m_searchIndexDialog->setWindowModality(Qt::ApplicationModal);
+    m_searchIndexDialog->show();
+    m_searchIndexDialog->raise();
 }
 
 void MainWindow::findSavedFiles(const QString &text)
@@ -4458,6 +4625,11 @@ void MainWindow::switchAccount(const QString &accountId)
         m_ignoreStoredPassword = !status.detail.isEmpty();
         authenticationRequested();
     }
+    const QString startFolder = UiUtils::SettingsStore::value(*KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")),
+                                                              m_settings, QStringLiteral("Shell/StartFolder"), accountId)
+                                    .toString();
+    if (!startFolder.isEmpty())
+        goToMailbox(startFolder);
 }
 
 void MainWindow::slotAddAccount()
@@ -4793,6 +4965,14 @@ void MainWindow::removeAccountNow(const QString &accountId)
     m_accountNotices->close(accountId);
     m_accountStatus->forget(accountId);
     m_accounts->removeAccount(accountId);
+    {
+        // Its overrides and its place in the workspaces go with it
+        const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        UiUtils::SettingsStore::removeAccount(*config, accountId);
+        UiUtils::SettingsStore::setWorkspaces(
+            *config, UiUtils::Workspaces::withoutAccount(UiUtils::SettingsStore::workspaces(*config), accountId));
+        config->sync();
+    }
     if (m_unifiedInbox)
         syncUnifiedSources();
     refreshAccountSwitcher();
@@ -6507,6 +6687,10 @@ void MainWindow::slotMailboxRenameSucceeded(const QString &oldName, const QStrin
             saveMessageListViews();
         if (folderPositions().renameFolder(oldName, newName, separator))
             saveFolderPositions();
+        const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        UiUtils::SettingsStore::renameFolder(*config, currentAccountId(), oldName, newName,
+                                             separator.isEmpty() ? QChar() : separator.at(0));
+        config->sync();
         if (m_positionMailbox == oldName)
             m_positionMailbox = newName;
     }
@@ -8507,7 +8691,7 @@ void MainWindow::updateShellRegions(bool rememberCurrent, bool force)
     bool rowChanged = force || !m_shellRegionsInitialized;
     bool bodyChanged = rowChanged;
     for (ShellRegion *region : {&m_shellLeft, &m_shellRight, &m_shellFooter}) {
-        const bool shown = shellRegionHasContent(region->widget);
+        const bool shown = !m_focusLayout && shellRegionHasContent(region->widget);
         if (shown != region->shown) {
             (region == &m_shellFooter ? bodyChanged : rowChanged) = true;
             region->shown = shown;

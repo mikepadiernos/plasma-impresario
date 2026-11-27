@@ -27,6 +27,7 @@
 #include <QHash>
 #include <QPointer>
 #include <QSettings>
+#include <memory>
 #include "ui_EditIdentity.h"
 #include "ui_EditFavoriteTag.h"
 #include "ui_SettingsCachePage.h"
@@ -48,6 +49,7 @@ class QLineEdit;
 class QRadioButton;
 class QSpinBox;
 class QTabWidget;
+class KPageWidget;
 
 namespace Composer
 {
@@ -76,6 +78,7 @@ namespace Gui
 class MainWindow;
 class SettingsDialog;
 class SettingsOAuthControls;
+struct SettingsContext;
 
 /** @short Common interface for any page of the settings dialogue */
 class ConfigurationWidgetInterface {
@@ -444,6 +447,7 @@ public:
     SettingsDialog(MainWindow *parent, Scope scope, Composer::SenderIdentitiesModel *sharedIdentities,
         Composer::SenderIdentitiesModel *accountIdentities, Imap::Mailbox::FavoriteTagsModel *favoriteTagsModel,
         QSettings *settings);
+    ~SettingsDialog() override;
 
     Scope scope() const;
 
@@ -467,7 +471,9 @@ private:
     MainWindow *mainWindow;
     Scope m_scope;
     QDialogButtonBox *buttons;
-    QTabWidget *stack;
+    QTabWidget *stack = nullptr;
+    KPageWidget *m_pageWidget = nullptr;
+    std::unique_ptr<SettingsContext> m_context;
     QVector<ConfigurationWidgetInterface*> pages;
     QHash<ConfigurationWidgetInterface *, QSettings *> m_pageSettings;
     QSettings *m_accountSettings;
@@ -486,6 +492,10 @@ private:
 
     /** Add a page whose values are loaded from and saved to the given settings. */
     void addPage(ConfigurationWidgetInterface *page, const QString &title, QSettings *pageSettings);
+    /** Load and save the page with the dialog, without showing it in a tab */
+    void registerPage(ConfigurationWidgetInterface *page, QSettings *pageSettings);
+    /** The groups of the application settings, listed at the side */
+    void addApplicationGroups();
 };
 
 }

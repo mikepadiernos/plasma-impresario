@@ -57,6 +57,7 @@
 
 class QActionGroup;
 class QAuthenticator;
+class QFileSystemWatcher;
 class QComboBox;
 class QCloseEvent;
 class QFile;
@@ -125,6 +126,8 @@ class MSAFactory;
 namespace Gui
 {
 
+struct SettingsContext;
+class PlasmaActivities;
 class AccountSidebar;
 class SavedSearchFolders;
 class SearchFoldersDialog;
@@ -216,6 +219,10 @@ public:
     QString messageAccountName(const QModelIndex &message) const;
     /** @short A setting of UiUtils::SettingsSchema for the account and folder of @arg message, overrides included */
     QVariant messageSetting(const QString &key, const QModelIndex &message) const;
+    /** @short What the groups of the application settings need to know about the window */
+    SettingsContext settingsContext();
+    /** @short Show the search index dialog above @p parent, which may be modal */
+    void showSearchIndexOver(QWidget *parent);
     /** @short Run @p fn while accountSettings(), imapAccess(), imapModel(), senderIdentitiesModel() and msaFactory()
     refer to @p accountId
 
@@ -565,6 +572,12 @@ private:
     void offerRuleFromQuery(const QString &text, const QString &name);
     void showActivity();
     void configureNotifications();
+    /** @short Apply the application settings which the window shows, after the settings dialog saved them */
+    void applyApplicationSettings();
+    /** @short Show the account of @p activityId's workspace, when the workspaces follow the activities */
+    void followActivity(const QString &activityId);
+    /** @short Watch the keymap shared with Plasma Opus, when it is followed, and import it when it changes */
+    void watchSharedKeymap();
     /** @short Show the mail which a notification announced: message @p uid of @p folder, or the folder when 0 */
     void openAnnouncedMail(const QString &accountId, const QString &folder, uint uid, const QString &activationToken);
     /** @short Point the folder's Notify About New Mail action at @p mailbox */
@@ -1011,6 +1024,10 @@ private:
 
     LayoutMode m_layoutMode;
     bool m_mailboxSidebarOnRight = false;
+    /** Whether the side and footer regions are hidden, as in the Focus layout preset */
+    bool m_focusLayout = false;
+    PlasmaActivities *m_activities = nullptr;
+    QFileSystemWatcher *m_keymapWatcher = nullptr;
     bool m_skipSavingOfUI;
     QTimer *m_delayedStateSaving;
 

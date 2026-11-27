@@ -83,7 +83,7 @@ find_package(KF6 REQUIRED
 )
 
 if(WITH_DESKTOP)
-    find_package(KF6 REQUIRED COMPONENTS ColorScheme Config CoreAddons I18n KIO WindowSystem)
+    find_package(KF6 REQUIRED COMPONENTS ColorScheme Config CoreAddons I18n KIO WidgetsAddons WindowSystem)
     ki18n_install(po)
 endif()
 
@@ -563,6 +563,8 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/RelatedMessagesPanel.cpp
     ${path_DesktopGui}/ReplaceCharValidator.cpp
     ${path_DesktopGui}/SettingsDialog.cpp
+    ${path_DesktopGui}/SettingsGroups.cpp
+    ${path_DesktopGui}/PlasmaActivities.cpp
     ${path_DesktopGui}/SettingsOAuthControls.cpp
     ${path_DesktopGui}/ShellHeader.cpp
     ${path_DesktopGui}/ShortcutOverviewDialog.cpp
@@ -1126,6 +1128,7 @@ if(WITH_DESKTOP)
             KF6::I18n
             KF6::KIOGui
             KF6::KIOWidgets
+            KF6::WidgetsAddons
             KF6::WindowSystem
             Cryptography
             IPC
