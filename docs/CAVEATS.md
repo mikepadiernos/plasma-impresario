@@ -53,6 +53,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Provider setup and Gmail](#provider-setup-and-gmail)
   - [Junk and attachment safety](#junk-and-attachment-safety)
   - [External services and outbound calls](#external-services-and-outbound-calls)
+  - [System sleep and account notifications](#system-sleep-and-account-notifications)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -92,6 +93,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Providers         | The provider guide is untried with real accounts; on Gmail, **Archive** creates an `Archive` label and sent messages are uploaded twice unless set otherwise ([details](#provider-setup-and-gmail))                                                                                                                                                                                                                                                   | [#473](https://github.com/mikepadiernos/plasma-impresario/issues/473)                                                                        |
 | ![Limitation][limitation] | Security          | Junk comes only from IMAP keywords, the optional ClamAV scan needs a local `clamd` socket and runs only on **Open**, and the reader banner's **Not Junk** does not move mail ([details](#junk-and-attachment-safety))                                                                                                                                                                                                                                 | [#474](https://github.com/mikepadiernos/plasma-impresario/issues/474)                                                                        |
 | ![Limitation][limitation] | Privacy           | The outbound-call check works per file, GnuPG may fetch keys by its own settings, and version details are sent by default ([details](#external-services-and-outbound-calls))                                                                                                                                                                                                                                                                          | [#475](https://github.com/mikepadiernos/plasma-impresario/issues/475)                                                                        |
+| ![Limitation][limitation] | Sleep             | Connections close before sleep and reopen on wake only through logind, without delaying sleep; account notifications close when the app quits, and KDE Online Accounts is not used ([details](#system-sleep-and-account-notifications))                                                                                                                                                                                                               | [#476](https://github.com/mikepadiernos/plasma-impresario/issues/476)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -2230,6 +2232,59 @@ Plasma session; that check is
   server with a marker in a message, and fails if the marker appears in any
   request.
 - Check notifications, Plasma Search and the portals in a real Plasma session
+  ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
+
+### System sleep and account notifications
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                            |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#476](https://github.com/mikepadiernos/plasma-impresario/issues/476) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/476#issuecomment-7215881903) | [Windows and session lifecycle](integrations/kde-plasma.md#windows-and-session-lifecycle), [notifications](integrations/kde-plasma.md#notifications-and-status) ([#42](https://github.com/mikepadiernos/plasma-impresario/issues/42)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] When logind announces sleep with `PrepareForSleep`,
+  every account goes offline and closes its connection. On wake, each account
+  returns to the network policy the user chose; an account set to **Offline**
+  stays offline, and the chosen policy is never overwritten.
+- ![Resolved][resolved] A background account with a connection problem has at
+  most one desktop notification. A later failure replaces it, and it closes
+  when the account connects again, is opened or is removed; **Open Account**
+  does nothing for a removed account.
+- ![Limitation][limitation] No logind sleep-delay inhibitor is taken, so the
+  IMAP `LOGOUT` may not reach the server before the system sleeps; the server
+  then drops the session on its own time-out.
+- ![Limitation][limitation] Without logind or a system bus, as on systems
+  without systemd, sleep is not noticed; connections recover through time-outs
+  and the normal reconnect.
+- ![Limitation][limitation] Account notifications close when the application
+  quits.
+- ![Limitation][limitation] KDE Online Accounts (KAccounts) is not used;
+  accounts are not shared with the system or other applications.
+- ![Limitation][limitation] New-mail notifications are not part of this item;
+  they come with
+  [M07](ROADMAP.md#m07-output-notifications-and-rules-automation).
+- ![Limitation][limitation] Sleep, wake and notifications have not been
+  checked in a real Plasma session.
+
+**Workarounds:**
+
+- A stale server session after sleep is dropped by the server's time-out;
+  nothing needs to be done in the application.
+- On systems without logind, choose **Offline** in the network menu before
+  suspending and **Free Access** or **Expensive Connection** afterwards.
+- Open the account from its notification, or switch to it, to dismiss the
+  notice.
+
+**Proposed improvements:**
+
+- Take a logind `delay` inhibitor while connections log out, and release it
+  once they close or after a short limit.
+- Follow `org.freedesktop.login1` appearing and disappearing on the bus, so
+  that a restarted logind is noticed.
+- Offer KDE Online Accounts as an account source.
+- Add new-mail notifications
+  ([M07](ROADMAP.md#m07-output-notifications-and-rules-automation)).
+- Check sleep, wake and notifications in a real Plasma session
   ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
 
 ## Before reporting results

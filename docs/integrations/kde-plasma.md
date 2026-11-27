@@ -60,7 +60,7 @@ whose branding work is in Development.
 | [Settings and credentials](#settings-and-credentials)                 | ![Limitation][limitation]                 | Account settings use `QSettings`; app preferences use KConfig; passwords use the QtKeychain or cleartext plugin ([details](../CAVEATS.md#security-and-data-protection))                                                                                                             | M06.01         |
 | [Appearance and accessibility](#appearance-and-accessibility)         | ![Needs verification][needs-verification] | Theme icons with symbolic variants at small sizes, color-scheme state colors, contrast checks, keyboard access and accessible names; no screen-reader, high-contrast or translation checks yet                                                                                      | M06.02, M09    |
 | [Desktop actions and availability](#desktop-actions-and-availability) | ![Needs verification][needs-verification] | The desktop entry registers the `mailto:` and `mid:` scheme handlers and a Composer action                                                                                                                                                                                          | M06.01         |
-| [KDE services in use](#kde-services-in-use)                           | ![Needs verification][needs-verification] | Session end, notifications, file handoff, KIO, KConfig and credential plugins, as listed below; files are opened through the XDG portal file chooser                                                                                                                                | M06.01         |
+| [KDE services in use](#kde-services-in-use)                           | ![Needs verification][needs-verification] | Session end, sleep, notifications, file handoff, KIO, KConfig and credential plugins, as listed below; files are opened through the XDG portal file chooser                                                                                                                         | M06.01         |
 | [Service boundaries](#service-boundaries)                             | ![Tested][tested]                         | The mail core links no KDE desktop service; helpers that use KConfig or Akonadi are built into `DesktopServices`, and `test_ArchitectureBoundaries` checks the boundary                                                                                                             | M06.01         |
 
 ## Windows and session lifecycle
@@ -85,7 +85,12 @@ whose branding work is in Development.
   asking, and the next start reopens them
   ([#100](https://github.com/mikepadiernos/plasma-impresario/issues/100);
   [caveat #468](../CAVEATS.md#saving-unsent-messages-at-session-end)). Windows
-  are not restored through Plasma's session restore.
+  are not restored through Plasma's session restore. When logind announces
+  that the system is going to sleep, every account goes offline and closes its
+  connection; on wake, each account returns to the network policy the user
+  chose, and one set to **Offline** stays offline
+  ([#42](https://github.com/mikepadiernos/plasma-impresario/issues/42);
+  [caveat #476](../CAVEATS.md#system-sleep-and-account-notifications)).
 - **Verify:** Restart and restore multiple windows, unavailable accounts and
   interrupted drafts in a Plasma session; log out with an edited composer on
   Wayland and X11; log in with the autostart entry in place.
@@ -147,7 +152,10 @@ Defined in **M06.01**
   failure also raises one `accountNeedsAttention` desktop notification with an
   **Open Account** action (and **Sign In** for OAuth sign-in failures) when the
   build has KNotifications; otherwise it becomes a tray message while the tray
-  icon is visible. See [multiple accounts](../CAVEATS.md#multiple-accounts).
+  icon is visible. Each account has at most one notification: a later failure
+  replaces it, and it closes when the account connects again, is opened or is
+  removed. See [multiple accounts](../CAVEATS.md#multiple-accounts) and
+  [system sleep and account notifications](../CAVEATS.md#system-sleep-and-account-notifications).
   New-mail notifications and per-account or per-folder controls are not
   implemented. The rules for every surface outside the window are in
   [Desktop feedback](#desktop-feedback).
@@ -161,14 +169,14 @@ Defined in **M06.02**
 rules apply to every surface outside the main window, so that the desktop
 reflects mail without interrupting reading.
 
-| Surface                | Shows                                                                                | Interrupts                                  | Status                                                                                                   |
-| ---------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Task manager entry     | The unread messages in every account's INBOX; only the number                        | Never                                       | ![Tested][tested] On by default ([caveat](../CAVEATS.md#unread-count-on-the-task-manager))               |
-| Tray icon              | The unread count of the current account's watched folders, and whether it is offline | Never                                       | ![Tested][tested] Optional                                                                               |
-| Account notifications  | One notification for each background account failure, with **Open Account**          | A Plasma popup, which never takes the focus | ![Tested][tested] [#262](https://github.com/mikepadiernos/plasma-impresario/issues/262)                  |
-| Plasma Search          | The subject, sender and date of indexed mail                                         | Only when searched                          | ![Tested][tested] Off by default ([#354](https://github.com/mikepadiernos/plasma-impresario/issues/354)) |
-| New-mail notifications | Planned                                                                              | Planned to be grouped per account           | ![Planned][planned] [M07](../ROADMAP.md#m07-output-notifications-and-rules-automation)                   |
-| Plasma widgets         | Planned                                                                              | Never                                       | ![Planned][planned] [#245](https://github.com/mikepadiernos/plasma-impresario/issues/245)                |
+| Surface                | Shows                                                                                                                                                                   | Interrupts                                  | Status                                                                                                   |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Task manager entry     | The unread messages in every account's INBOX; only the number                                                                                                           | Never                                       | ![Tested][tested] On by default ([caveat](../CAVEATS.md#unread-count-on-the-task-manager))               |
+| Tray icon              | The unread count of the current account's watched folders, and whether it is offline                                                                                    | Never                                       | ![Tested][tested] Optional                                                                               |
+| Account notifications  | One notification per background account with a failure, with **Open Account**; replaced by later failures and closed when the account recovers, is opened or is removed | A Plasma popup, which never takes the focus | ![Tested][tested] [#262](https://github.com/mikepadiernos/plasma-impresario/issues/262)                  |
+| Plasma Search          | The subject, sender and date of indexed mail                                                                                                                            | Only when searched                          | ![Tested][tested] Off by default ([#354](https://github.com/mikepadiernos/plasma-impresario/issues/354)) |
+| New-mail notifications | Planned                                                                                                                                                                 | Planned to be grouped per account           | ![Planned][planned] [M07](../ROADMAP.md#m07-output-notifications-and-rules-automation)                   |
+| Plasma widgets         | Planned                                                                                                                                                                 | Never                                       | ![Planned][planned] [#245](https://github.com/mikepadiernos/plasma-impresario/issues/245)                |
 
 1. **Never take the focus.** Feedback does not raise, activate or focus a
    window and does not open a dialog. Only the user's action, such as a
@@ -408,6 +416,7 @@ credentials, the session and notifications, and what it does without them.
 | Credentials       | The QtKeychain plugin, which stores passwords in KWallet or the Secret Service                                                  | The cleartext plugin, only with consent ([caveat](../CAVEATS.md#security-and-data-protection)) |
 | Window activation | KWindowSystem with the request's activation token                                                                               | The window may only be marked as wanting attention                                             |
 | Task manager      | The `com.canonical.Unity.LauncherEntry` signal for the unread count                                                             | No count on the entry; the window and the tray still show it                                   |
+| Sleep             | logind's `PrepareForSleep` signal on the system bus closes connections before sleep and reconnects on wake                      | Connections time out after wake and reconnect                                                  |
 
 [limitation]: https://img.shields.io/badge/Limitation-bc4c00
 [needs-verification]: https://img.shields.io/badge/Needs_verification-0969da

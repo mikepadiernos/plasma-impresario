@@ -526,7 +526,9 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 
   **Project:** [KDE and Plasma](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540788)
 
-  - [ ] Connect the app to KDE and Plasma system services, notifications, and account lifecycle behavior [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540788)
+  - [ ] Connect the app to KDE and Plasma system services, notifications, and account lifecycle behavior. See
+        [KDE services in use](integrations/kde-plasma.md#kde-services-in-use).
+        [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540788)
   - [x] Use KDE-native file, credential, session, and notification services where supported. See
         [KDE services in use](integrations/kde-plasma.md#kde-services-in-use).
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569603)
@@ -682,6 +684,9 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   ![Backlog][backlog]
 - [External services and outbound calls](CAVEATS.md#external-services-and-outbound-calls)
   ([#475](https://github.com/mikepadiernos/plasma-impresario/issues/475))
+  ![Backlog][backlog]
+- [System sleep and account notifications](CAVEATS.md#system-sleep-and-account-notifications)
+  ([#476](https://github.com/mikepadiernos/plasma-impresario/issues/476))
   ![Backlog][backlog]
 
 ### M07: Output, notifications, and rules automation
