@@ -20,8 +20,8 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef TROJITA_CONNECTIONMETHOD_H
-#define TROJITA_CONNECTIONMETHOD_H
+#ifndef IMPRESARIO_CONNECTIONMETHOD_H
+#define IMPRESARIO_CONNECTIONMETHOD_H
 
 namespace Common {
 

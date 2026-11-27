@@ -18,7 +18,7 @@
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "configure.cmake.h"
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
 #include "Gui/WebEngineMessageProfile.h"
 #endif
 #include "static_plugins.h"
@@ -201,7 +201,7 @@ private slots:
         QCOMPARE(readerColumn->parentWidget(), mainColumn);
         QCOMPARE(mainColumn->indexOf(readerColumn), 1);
         QVERIFY(mainColumn->isAncestorOf(messages));
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
         auto *attachmentPanel = window.findChild<Gui::AttachmentPanel *>(QStringLiteral("attachmentPanel"));
         QVERIFY(attachmentPanel);
         QCOMPARE(attachmentPanel->parentWidget(), readerColumn);
@@ -263,7 +263,7 @@ private slots:
         QCOMPARE(readerColumn->parentWidget(), mainColumn);
         QCOMPARE(mainColumn->orientation(), Qt::Horizontal);
         QVERIFY(menu->actions().at(1)->isChecked());
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
         // A panel sharing a column with the mailbox tree gets the room it asks for, up to two thirds of the column
         auto *detailsPanel = window.findChild<QWidget *>(QStringLiteral("messageDetailsPanel"));
         auto *detailsAction = window.findChild<QAction *>(QStringLiteral("embeddedPanelMessageDetails"));
@@ -324,7 +324,7 @@ private slots:
         settings.beginGroup(layoutGroup);
         QCOMPARE(settings.value(QStringLiteral("shellRightColumnWidth")).toInt(), expectedWidth);
         QVERIFY(!settings.value(QStringLiteral("shellMainColumnState")).toByteArray().isEmpty());
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
         // Only sizes picked by moving a divider are saved
         QCOMPARE(settings.value(QStringLiteral("embeddedPanelMessageDetailsExtent")).toInt(), rememberedDetailsHeight);
         QVERIFY(!settings.contains(QStringLiteral("embeddedPanelContactExtent")));
@@ -346,7 +346,7 @@ int main(int argc, char **argv)
     qputenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent/plasma-impresario-test");
     qputenv("TROJITA_PROFILE", qgetenv("PLASMA_TEST_PROFILE") == "named" ? QByteArray("work-profile") : QByteArray());
     QStandardPaths::setTestModeEnabled(true);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     Gui::WebEngineMessageProfile::registerScheme();
 #endif
     Common::registerMetaTypes();

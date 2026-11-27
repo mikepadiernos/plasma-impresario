@@ -48,7 +48,7 @@
 #include "Gui/AppearanceStyle.h"
 #include "Gui/Util.h"
 #include "Gui/Window.h"
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
 #include "Gui/WebEngineMessageProfile.h"
 #endif
 #include "Imap/Model/SystemNetworkWatcher.h"
@@ -63,7 +63,7 @@
 
 int main(int argc, char **argv)
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     Gui::WebEngineMessageProfile::registerScheme();
 #endif
     Common::registerMetaTypes();

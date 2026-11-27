@@ -41,7 +41,7 @@ public:
 protected:
     QStringList mimeTypes() const override
     {
-        return {Imap::MimeTypes::xTrojitaImapPart};
+        return {Imap::MimeTypes::xImpresarioImapPart};
     }
 
     QMimeData *mimeData(const QList<QListWidgetItem *> &items) const override

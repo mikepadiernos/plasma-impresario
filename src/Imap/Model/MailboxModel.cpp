@@ -246,7 +246,7 @@ Qt::DropActions MailboxModel::supportedDropActions() const
 
 QStringList MailboxModel::mimeTypes() const
 {
-    return QStringList() << MimeTypes::xTrojitaMessageList;
+    return QStringList() << MimeTypes::xImpresarioMessageList;
 }
 
 bool MailboxModel::canDropMimeData(const QMimeData *data, Qt::DropAction action, int row, int column, const QModelIndex &parent) const
@@ -285,8 +285,8 @@ bool MailboxModel::dropMimeData(const QMimeData *data, Qt::DropAction action,
     if (! target->isSelectable())
         return false;
 
-    if (data->hasFormat(MimeTypes::xTrojitaMessageList)) {
-        return dropTrojitaMessageList(target->mailbox(), action, data->data(MimeTypes::xTrojitaMessageList));
+    if (data->hasFormat(MimeTypes::xImpresarioMessageList)) {
+        return dropImpresarioMessageList(target->mailbox(), action, data->data(MimeTypes::xImpresarioMessageList));
     } else if (data->hasUrls()) {
         return dropFileUrlList(target->mailbox(), data->urls());
     } else {
@@ -294,7 +294,7 @@ bool MailboxModel::dropMimeData(const QMimeData *data, Qt::DropAction action,
     }
 }
 
-bool MailboxModel::dropTrojitaMessageList(const QString &mailboxName, const Qt::DropAction action, const QByteArray &encodedData)
+bool MailboxModel::dropImpresarioMessageList(const QString &mailboxName, const Qt::DropAction action, const QByteArray &encodedData)
 {
     QDataStream stream(&const_cast<QByteArray &>(encodedData), QIODevice::ReadOnly);
 

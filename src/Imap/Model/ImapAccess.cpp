@@ -372,7 +372,7 @@ void ImapAccess::doConnect()
             dropSearchIndexFile(nullptr);
     } else {
         // Each account needs its own SQLite connection name; a shared name replaces the other accounts' connections.
-        cache.reset(new Imap::Mailbox::CombinedCache(QStringLiteral("trojita-imap-cache-%1").arg(credentialAccountId()),
+        cache.reset(new Imap::Mailbox::CombinedCache(QStringLiteral("impresario-imap-cache-%1").arg(credentialAccountId()),
                                                      m_cacheDir));
         cache->setErrorHandler([this](const QString &e) { this->onCacheError(e); });
         if (! static_cast<Imap::Mailbox::CombinedCache *>(cache.get())->open()) {
@@ -395,8 +395,8 @@ void ImapAccess::doConnect()
     m_imapModel = new Imap::Mailbox::Model(this, cache, std::move(factory), std::move(taskFactory));
     m_imapModel->setObjectName(QStringLiteral("imapModel-%1").arg(m_accountName));
     m_imapModel->setCapabilitiesBlacklist(m_settings->value(Common::SettingsNames::imapBlacklistedCapabilities).toStringList());
-    m_imapModel->setProperty("trojita-imap-id-no-versions", !m_appSettings->value(Common::SettingsNames::interopRevealVersions, true).toBool());
-    m_imapModel->setProperty("trojita-imap-idle-renewal", m_appSettings->value(Common::SettingsNames::imapIdleRenewal).toUInt() * 60 * 1000);
+    m_imapModel->setProperty("impresario-imap-id-no-versions", !m_appSettings->value(Common::SettingsNames::interopRevealVersions, true).toBool());
+    m_imapModel->setProperty("impresario-imap-idle-renewal", m_appSettings->value(Common::SettingsNames::imapIdleRenewal).toUInt() * 60 * 1000);
     m_imapModel->setNumberRefreshInterval(numberRefreshInterval());
     // Empty means automatic: the server's \Archive folder, a folder called Archive, or All Mail on Gmail
     m_imapModel->setArchiveFolderName(m_settings->value(Common::SettingsNames::imapArchiveFolderName).toString());

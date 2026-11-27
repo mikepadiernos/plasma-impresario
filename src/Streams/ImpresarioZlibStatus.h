@@ -19,14 +19,14 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef TROJITA_STREAMS_ZLIB_STATUS_H
-#define TROJITA_STREAMS_ZLIB_STATUS_H
+#ifndef IMPRESARIO_STREAMS_ZLIB_STATUS_H
+#define IMPRESARIO_STREAMS_ZLIB_STATUS_H
 
 #include "configure.cmake.h"
-#ifdef TROJITA_HAVE_ZLIB
-#define TROJITA_COMPRESS_DEFLATE 1
+#ifdef IMPRESARIO_HAVE_ZLIB
+#define IMPRESARIO_COMPRESS_DEFLATE 1
 #else
-#define TROJITA_COMPRESS_DEFLATE 0
+#define IMPRESARIO_COMPRESS_DEFLATE 0
 #endif
 
-#endif /* TROJITA_STREAMS_ZLIB_STATUS_H */
+#endif /* IMPRESARIO_STREAMS_ZLIB_STATUS_H */

@@ -29,7 +29,7 @@
 #include "configure.cmake.h"
 #include "Cryptography/MessageModel.h"
 #include "Cryptography/MessagePart.h"
-#ifdef TROJITA_HAVE_MIMETIC
+#ifdef IMPRESARIO_HAVE_MIMETIC
 #include "Cryptography/LocalMimeParser.h"
 #endif
 #include "Imap/data.h"
@@ -48,7 +48,7 @@ void CryptographyMessageModelTest::testImapMessageParts()
 
     // By default, there's a 50ms delay between the time we request a part download and the time it actually happens.
     // That's too long for a unit test.
-    model->setProperty("trojita-imap-delayed-fetch-part", 0);
+    model->setProperty("impresario-imap-delayed-fetch-part", 0);
 
     helperSyncBNoMessages();
     cServer("* 1 EXISTS\r\n");
@@ -182,7 +182,7 @@ void CryptographyMessageModelTest::testMixedMessageParts()
 
     // By default, there's a 50ms delay between the time we request a part download and the time it actually happens.
     // That's too long for a unit test.
-    model->setProperty("trojita-imap-delayed-fetch-part", 0);
+    model->setProperty("impresario-imap-delayed-fetch-part", 0);
 
     helperSyncBNoMessages();
     cServer("* 1 EXISTS\r\n");
@@ -238,8 +238,8 @@ void CryptographyMessageModelTest::testMixedMessageParts()
 /** @short Verify that we can handle data from Mimetic and use them locally */
 void CryptographyMessageModelTest::testLocalMimeParsing()
 {
-#ifdef TROJITA_HAVE_MIMETIC
-    model->setProperty("trojita-imap-delayed-fetch-part", 0);
+#ifdef IMPRESARIO_HAVE_MIMETIC
+    model->setProperty("impresario-imap-delayed-fetch-part", 0);
     helperSyncBNoMessages();
     cServer("* 1 EXISTS\r\n");
     cClient(t.mk("UID FETCH 1:* (FLAGS)\r\n"));
@@ -395,7 +395,7 @@ void CryptographyMessageModelTest::testLocalMimeParsing()
 
 void CryptographyMessageModelTest::testDelayedLoading()
 {
-    model->setProperty("trojita-imap-delayed-fetch-part", 0);
+    model->setProperty("impresario-imap-delayed-fetch-part", 0);
     helperSyncBNoMessages();
     cServer("* 1 EXISTS\r\n");
     cClient(t.mk("UID FETCH 1:* (FLAGS)\r\n"));

@@ -584,7 +584,7 @@ GeneralPage::GeneralPage(SettingsDialog *parent, QSettings &s):
     }
 
     preferPlaintextCheckbox->setChecked(s.value(Common::SettingsNames::guiPreferPlaintextRendering).toBool());
-    revealTrojitaVersions->setChecked(s.value(Common::SettingsNames::interopRevealVersions, QVariant(true)).toBool());
+    revealImpresarioVersions->setChecked(s.value(Common::SettingsNames::interopRevealVersions, QVariant(true)).toBool());
 
     connect(passwordBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &GeneralPage::passwordPluginChanged);
 
@@ -798,7 +798,7 @@ void GeneralPage::save(QSettings &s)
     s.setValue(Common::SettingsNames::guiPreferPlaintextRendering, preferPlaintextCheckbox->isChecked());
     s.setValue(Common::SettingsNames::guiShowSystray, guiSystrayCheckbox->isChecked());
     s.setValue(Common::SettingsNames::guiStartMinimized, guiStartMinimizedCheckbox->isChecked());
-    s.setValue(Common::SettingsNames::interopRevealVersions, revealTrojitaVersions->isChecked());
+    s.setValue(Common::SettingsNames::interopRevealVersions, revealImpresarioVersions->isChecked());
     {
         namespace Background = UiUtils::BackgroundRunning;
         const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));

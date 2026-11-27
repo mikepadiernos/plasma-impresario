@@ -51,7 +51,7 @@ check the cache for valid state.
 */
 void ImapModelObtainSynchronizedMailboxTest::testSyncEmptyMinimal()
 {
-    model->setProperty( "trojita-imap-noop-period", 10 );
+    model->setProperty( "impresario-imap-noop-period", 10 );
 
     // Ask the model to sync stuff
     QCOMPARE( model->rowCount( msgListA ), 0 );
@@ -106,7 +106,7 @@ just the EXISTS response in particular.
 */
 void ImapModelObtainSynchronizedMailboxTest::testSyncEmptyMinimalNonEmpty()
 {
-    model->setProperty("trojita-imap-noop-period", 10);
+    model->setProperty("impresario-imap-noop-period", 10);
 
     // Ask the model to sync stuff
     QCOMPARE(model->rowCount(msgListA), 0);

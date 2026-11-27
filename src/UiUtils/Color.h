@@ -21,8 +21,8 @@
 */
 
 
-#ifndef TROJITA_UIUTILS_COLOR_H
-#define TROJITA_UIUTILS_COLOR_H
+#ifndef IMPRESARIO_UIUTILS_COLOR_H
+#define IMPRESARIO_UIUTILS_COLOR_H
 
 #include <QtGlobal>
 

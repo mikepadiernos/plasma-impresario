@@ -14,7 +14,7 @@
 #include "Imap/Model/NetworkWatcher.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "configure.cmake.h"
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
 #include "Gui/MessageView.h"
 #include "Gui/WebEngineMessageProfile.h"
 #endif
@@ -163,7 +163,7 @@ private slots:
             QVERIFY(messages);
             QTRY_COMPARE_WITH_TIMEOUT(messages->currentIndex().data(Imap::Mailbox::RoleMessageUid).toUInt(), savedUid, 10000);
             QCOMPARE(messages->currentIndex().data(Imap::Mailbox::RoleMailboxUidValidity).toUInt(), savedValidity);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
             auto *reader = window.findChild<Gui::MessageView *>();
             QVERIFY(reader);
             QTRY_COMPARE_WITH_TIMEOUT(reader->currentMessage().data(Imap::Mailbox::RoleMessageUid).toUInt(), savedUid, 10000);
@@ -254,7 +254,7 @@ int main(int argc, char **argv)
     qputenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent/plasma-impresario-live-test");
     qunsetenv("TROJITA_PROFILE");
     QStandardPaths::setTestModeEnabled(true);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     Gui::WebEngineMessageProfile::registerScheme();
 #endif
     Common::registerMetaTypes();

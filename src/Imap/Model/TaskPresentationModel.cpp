@@ -30,7 +30,7 @@
 #include "ItemRoles.h"
 #include "Model.h"
 
-#ifdef TROJITA_DEBUG_TASK_TREE
+#ifdef IMPRESARIO_DEBUG_TASK_TREE
 #undef CHECK_TASK_TREE
 #define CHECK_TASK_TREE {m_model->checkTaskTreeConsistency();}
 #else
@@ -120,7 +120,7 @@ QModelIndex TaskPresentationModel::indexForTask(ImapTask *const task) const
         Q_ASSERT(task->parser);
         int index = m_model->accessParser(task->parser).activeTasks.indexOf(task);
         if (index == -1) {
-#ifdef TROJITA_DEBUG_TASK_TREE
+#ifdef IMPRESARIO_DEBUG_TASK_TREE
             m_model->checkTaskTreeConsistency();
             Q_ASSERT(index != -1);
 #endif

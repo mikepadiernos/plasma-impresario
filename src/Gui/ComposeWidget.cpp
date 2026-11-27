@@ -94,7 +94,7 @@ namespace
 {
 enum { OFFSET_OF_FIRST_ADDRESSEE = 1, MIN_MAX_VISIBLE_RECIPIENTS = 4 };
 
-static constexpr QLatin1StringView trojita_opacityAnimation("trojita_opacityAnimation");
+static constexpr QLatin1StringView impresario_opacityAnimation("impresario_opacityAnimation");
 }
 
 namespace Gui
@@ -250,7 +250,7 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
     ui->verticalLayout_2->insertWidget(1, m_fetchNotice);
 
     if (interactiveComposer()) {
-        interactiveComposer()->setReportTrojitaVersions(m_settings->value(Common::SettingsNames::interopRevealVersions, true).toBool());
+        interactiveComposer()->setReportImpresarioVersions(m_settings->value(Common::SettingsNames::interopRevealVersions, true).toBool());
         ui->attachmentsView->setComposer(interactiveComposer());
         m_remoteFetcher = new RemoteAttachmentFetcher(interactiveComposer().get(), m_fetchNotice, this);
     }
@@ -890,7 +890,7 @@ ComposeWidget *ComposeWidget::createFromReadOnly(MainWindow *mainWindow, const Q
     auto subject = messageRoot.data(Imap::Mailbox::RoleMessageSubject).toString();
     w->setWindowTitle(tr("Resend Mail: %1").arg(subject.isEmpty() ? tr("(no subject)") : subject));
 
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     // Show the full content of that e-mail as the "main body" within this widget
     CompleteMessageWidget *messageWidget = new CompleteMessageWidget(w, mainWindow->settings(), mainWindow->pluginManager(), mainWindow->favoriteTagsModel());
     messageWidget->messageView->setMessage(messageRoot);
@@ -1669,7 +1669,7 @@ void ComposeWidget::fadeIn(QWidget *w)
     w->setGraphicsEffect(effect);
     QPropertyAnimation *animation = new QPropertyAnimation(effect, "opacity", w);
     connect(animation, &QAbstractAnimation::finished, this, &ComposeWidget::slotFadeFinished);
-    animation->setObjectName(trojita_opacityAnimation);
+    animation->setObjectName(impresario_opacityAnimation);
     animation->setDuration(AppearanceManager::instance()->animationDuration(333));
     animation->setStartValue(0.0);
     animation->setEndValue(1.0);
@@ -1740,7 +1740,7 @@ void ComposeWidget::scrollRecipients(int value)
     Q_FOREACH (QWidget *w, visibleWidgets) {
         // was visible, is no longer -> stop animation so it won't conflict later ones
         w->setGraphicsEffect(nullptr); // deletes old one
-        if (QPropertyAnimation *pa = w->findChild<QPropertyAnimation*>(trojita_opacityAnimation))
+        if (QPropertyAnimation *pa = w->findChild<QPropertyAnimation*>(impresario_opacityAnimation))
             pa->stop();
     }
     connect(qApp, &QApplication::focusChanged, this, &ComposeWidget::handleFocusChange);
@@ -2126,14 +2126,14 @@ bool ComposeWidget::setReplyMode(const Composer::ReplyMode mode)
 
 void ComposeWidget::saveDraft(const QString &path)
 {
-    constexpr int trojitaDraftVersion = 5;
+    constexpr int impresarioDraftVersion = 5;
 
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly))
         return; // TODO: error message?
     QDataStream stream(&file);
     stream.setVersion(QDataStream::Qt_4_6);
-    stream << trojitaDraftVersion << m_explicitDraft << ui->sender->currentText() << m_accountId;
+    stream << impresarioDraftVersion << m_explicitDraft << ui->sender->currentText() << m_accountId;
     stream << (qint32)m_recipients.count();
     for (auto i = 0; i < m_recipients.count(); ++i) {
         stream << m_recipients.at(i).first->itemData(m_recipients.at(i).first->currentIndex()).toInt();

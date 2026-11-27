@@ -849,7 +849,7 @@ is no longer true when new messages arrive.
 void ImapModelSelectedMailboxUpdatesTest::testFetchAndConcurrentArrival()
 {
     using namespace Imap::Mailbox;
-    model->setProperty("trojita-imap-delayed-fetch-part", 0);
+    model->setProperty("impresario-imap-delayed-fetch-part", 0);
 
     initialMessages(1);
     QModelIndex msg1 = msgListA.model()->index(0, 0, msgListA);

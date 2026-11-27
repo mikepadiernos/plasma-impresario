@@ -20,8 +20,8 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef TROJITA_IMAP_SPECIALFLAGNAMES_H
-#define TROJITA_IMAP_SPECIALFLAGNAMES_H
+#ifndef IMPRESARIO_IMAP_SPECIALFLAGNAMES_H
+#define IMPRESARIO_IMAP_SPECIALFLAGNAMES_H
 
 #include <QString>
 #include <QHash>
@@ -53,4 +53,4 @@ struct FlagNames {
 }
 }
 
-#endif // TROJITA_IMAP_SPECIALFLAGNAMES_H
+#endif // IMPRESARIO_IMAP_SPECIALFLAGNAMES_H

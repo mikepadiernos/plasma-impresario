@@ -156,26 +156,26 @@ char *toString(const NetDataRegexp &x);
         QCoreApplication::processEvents(); \
 }
 
-#define TROJITA_CLIENT_LOOP \
+#define IMPRESARIO_CLIENT_LOOP \
     for (int i=0; i<5; ++i) \
         QCoreApplication::processEvents();
 
 #define cClient(data) \
 { \
-    TROJITA_CLIENT_LOOP \
+    IMPRESARIO_CLIENT_LOOP \
     QCOMPARE(QString::fromUtf8(SOCK->writtenStuff()), QString::fromUtf8(data));\
 }
 
 // Be careful with this; although we now use QRegularExpression, the underlying code is still based on QRegExp's limitation to single-line patterns.
 #define cClientRegExp(pattern) \
 { \
-    TROJITA_CLIENT_LOOP \
+    IMPRESARIO_CLIENT_LOOP \
     QCOMPARE(NetDataRegexp::fromData(SOCK->writtenStuff()), NetDataRegexp::fromPattern(pattern));\
 }
 
 #define cEmpty() \
 { \
-    TROJITA_CLIENT_LOOP \
+    IMPRESARIO_CLIENT_LOOP \
     QCOMPARE(QString::fromUtf8(SOCK->writtenStuff()), QString()); \
 }
 

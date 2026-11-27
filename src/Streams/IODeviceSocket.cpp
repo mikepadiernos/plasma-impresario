@@ -28,8 +28,8 @@
 #include <QSslConfiguration>
 #include <QSslSocket>
 #include <QTimer>
-#include "TrojitaZlibStatus.h"
-#if TROJITA_COMPRESS_DEFLATE
+#include "ImpresarioZlibStatus.h"
+#if IMPRESARIO_COMPRESS_DEFLATE
 #include "3rdparty/rfc1951.h"
 #endif
 #include "Common/InvokeMethod.h"
@@ -49,7 +49,7 @@ IODeviceSocket::IODeviceSocket(QIODevice *device): d(device), m_compressor(nullp
 IODeviceSocket::~IODeviceSocket()
 {
     d->deleteLater();
-#if TROJITA_COMPRESS_DEFLATE
+#if IMPRESARIO_COMPRESS_DEFLATE
     delete m_compressor;
     delete m_decompressor;
 #endif
@@ -57,7 +57,7 @@ IODeviceSocket::~IODeviceSocket()
 
 bool IODeviceSocket::canReadLine()
 {
-#if TROJITA_COMPRESS_DEFLATE
+#if IMPRESARIO_COMPRESS_DEFLATE
     if (m_decompressor) {
         return m_decompressor->canReadLine();
     }
@@ -67,7 +67,7 @@ bool IODeviceSocket::canReadLine()
 
 QByteArray IODeviceSocket::read(qint64 maxSize)
 {
-#if TROJITA_COMPRESS_DEFLATE
+#if IMPRESARIO_COMPRESS_DEFLATE
     if (m_decompressor) {
         return m_decompressor->read(maxSize);
     }
@@ -77,7 +77,7 @@ QByteArray IODeviceSocket::read(qint64 maxSize)
 
 QByteArray IODeviceSocket::readLine(qint64 maxSize)
 {
-#if TROJITA_COMPRESS_DEFLATE
+#if IMPRESARIO_COMPRESS_DEFLATE
     if (m_decompressor) {
         // FIXME: well, we apparently don't respect the maxSize argument...
         return m_decompressor->readLine();
@@ -88,7 +88,7 @@ QByteArray IODeviceSocket::readLine(qint64 maxSize)
 
 qint64 IODeviceSocket::write(const QByteArray &byteArray)
 {
-#if TROJITA_COMPRESS_DEFLATE
+#if IMPRESARIO_COMPRESS_DEFLATE
     if (m_compressor) {
         m_compressor->write(d, &const_cast<QByteArray&>(byteArray));
         return byteArray.size();
@@ -102,7 +102,7 @@ void IODeviceSocket::startTls()
     QSslSocket *sock = qobject_cast<QSslSocket *>(d);
     if (! sock)
         throw std::invalid_argument("This IODeviceSocket is not a QSslSocket, and therefore doesn't support STARTTLS.");
-#if TROJITA_COMPRESS_DEFLATE
+#if IMPRESARIO_COMPRESS_DEFLATE
     if (m_compressor || m_decompressor)
         throw std::invalid_argument("DEFLATE is already active, cannot STARTTLS");
 #endif
@@ -114,7 +114,7 @@ void IODeviceSocket::startDeflate()
     if (m_compressor || m_decompressor)
         throw std::invalid_argument("DEFLATE compression is already active");
 
-#if TROJITA_COMPRESS_DEFLATE
+#if IMPRESARIO_COMPRESS_DEFLATE
     m_compressor = new Rfc1951Compressor();
     m_decompressor = new Rfc1951Decompressor();
 #else
@@ -124,7 +124,7 @@ void IODeviceSocket::startDeflate()
 
 void IODeviceSocket::handleReadyRead()
 {
-#if TROJITA_COMPRESS_DEFLATE
+#if IMPRESARIO_COMPRESS_DEFLATE
     if (m_decompressor) {
         m_decompressor->consume(d);
     }

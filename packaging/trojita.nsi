@@ -43,7 +43,7 @@
 
 !define NAME "Trojita"
 !define NAME_UNICODE "Trojitá"
-!define VERSION "${TROJITA_VERSION}"
+!define VERSION "${IMPRESARIO_VERSION}"
 !define DESCRIPTION "Qt IMAP e-mail client"
 !define HOMEPAGE "http://apps.kde.org/trojita"
 !define LICENSE "GPLv2/GPLv3"
@@ -51,9 +51,9 @@
 
 ;--------------------------------
 
-!define ICON "${TROJITA_ICON_PATH}"
-!define EXE_PATH "${TROJITA_EXE_PATH}"
-!define EXE "${TROJITA_EXE}"
+!define ICON "${IMPRESARIO_ICON_PATH}"
+!define EXE_PATH "${IMPRESARIO_EXE_PATH}"
+!define EXE "${IMPRESARIO_EXE}"
 !define UNINSTALL "uninstall.exe"
 !define INSTALLER "${NAME}-Setup.exe"
 !define INSTALLDIR "$PROGRAMFILES\${NAME}\"
@@ -121,7 +121,7 @@ VIAddVersionKey /LANG=${LANG_ENGLISH} "Homepage" "${HOMEPAGE}"
 VIAddVersionKey /LANG=${LANG_ENGLISH} "OriginalFilename" "${INSTALLER}"
 VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductName" "${NAME_UNICODE} Setup"
 VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductVersion" "${VERSION}"
-VIProductVersion "${TROJITA_VERNUM1}.${TROJITA_VERNUM2}.${TROJITA_VERNUM3}.${TROJITA_VERNUM4}"
+VIProductVersion "${IMPRESARIO_VERNUM1}.${IMPRESARIO_VERNUM2}.${IMPRESARIO_VERNUM3}.${IMPRESARIO_VERNUM4}"
 
 ;--------------------------------
 
@@ -180,7 +180,7 @@ Section "${NAME}"
 
 	SetOutPath "$INSTDIR"
 	File "${EXE_PATH}"
-	!insertmacro TROJITA_INSTALL_FILES
+	!insertmacro IMPRESARIO_INSTALL_FILES
 
 	!insertmacro MUI_STARTMENU_WRITE_BEGIN Application
 	CreateDirectory "$SMPROGRAMS\$STARTMENUDIR"
@@ -218,7 +218,7 @@ Section "un.${NAME}"
 	Delete "$DESKTOP\${NAME_UNICODE}.lnk"
 
 	Delete "$INSTDIR\${EXE}"
-	!insertmacro TROJITA_UNINSTALL_FILES
+	!insertmacro IMPRESARIO_UNINSTALL_FILES
 
 	DeleteRegKey HKLM "${REGKEY}"
 

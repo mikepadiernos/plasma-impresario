@@ -20,8 +20,8 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef TROJITA_UIUTILS_PASSWORDWATCHER_H
-#define TROJITA_UIUTILS_PASSWORDWATCHER_H
+#ifndef IMPRESARIO_UIUTILS_PASSWORDWATCHER_H
+#define IMPRESARIO_UIUTILS_PASSWORDWATCHER_H
 
 #include <QObject>
 #include "Plugins/PasswordPlugin.h"
@@ -91,4 +91,4 @@ private:
 
 }
 
-#endif // TROJITA_UIUTILS_PASSWORDWATCHER_H
+#endif // IMPRESARIO_UIUTILS_PASSWORDWATCHER_H

@@ -25,7 +25,7 @@
 #include "test_Imap_Tasks_OpenConnection.h"
 #include "Common/MetaTypes.h"
 #include "Streams/FakeSocket.h"
-#include "Streams/TrojitaZlibStatus.h"
+#include "Streams/ImpresarioZlibStatus.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/MemoryCache.h"
 #include "Imap/Model/MailboxModel.h"
@@ -88,7 +88,7 @@ void ImapModelOpenConnectionTest::reinit(const TlsRequired tlsRequired)
     m_startTlsRequired = tlsRequired == TlsRequired::Yes;
     m_initialConnectionState = Imap::CONN_STATE_CONNECTED_PRETLS_PRECAPS;
     LibMailboxSync::init();
-    model->setProperty("trojita-imap-id-no-versions", QVariant(true));
+    model->setProperty("impresario-imap-id-no-versions", QVariant(true));
     connect(model, &Imap::Mailbox::Model::authRequested, this, &ImapModelOpenConnectionTest::provideAuthDetails, Qt::QueuedConnection);
     connect(model, &Imap::Mailbox::Model::needsSslDecision, this, &ImapModelOpenConnectionTest::acceptSsl, Qt::QueuedConnection);
     LibMailboxSync::setModelNetworkPolicy(model, Imap::Mailbox::NETWORK_ONLINE);
@@ -399,7 +399,7 @@ void ImapModelOpenConnectionTest::testCompressDeflateOk()
     cClient(t.mk("LOGIN luzr sikrit\r\n"));
     QCOMPARE(authSpy->size(), 1);
     cServer(t.last("OK [CAPABILITY IMAP4rev1 compress=deflate id] logged in\r\n"));
-#if TROJITA_COMPRESS_DEFLATE
+#if IMPRESARIO_COMPRESS_DEFLATE
     cClient(t.mk("COMPRESS DEFLATE\r\n"));
     cServer(t.last("OK compressing\r\n"));
     cClient("[*** DEFLATE ***]" + t.mk("ID (\"name\" \"Plasma Impresario\")\r\n"));
@@ -426,7 +426,7 @@ void ImapModelOpenConnectionTest::testCompressDeflateNo()
     cClient(t.mk("LOGIN luzr sikrit\r\n"));
     QCOMPARE(authSpy->size(), 1);
     cServer(t.last("OK [CAPABILITY IMAP4rev1 compress=deflate id] logged in\r\n"));
-#if TROJITA_COMPRESS_DEFLATE
+#if IMPRESARIO_COMPRESS_DEFLATE
     cClient(t.mk("COMPRESS DEFLATE\r\n"));
     cServer(t.last("NO I just don't want to\r\n"));
     cClient(t.mk("ID (\"name\" \"Plasma Impresario\")\r\n"));
@@ -456,7 +456,7 @@ void ImapModelOpenConnectionTest::testOpenConnectionShallBlock()
     cClient(t.mk("LOGIN luzr sikrit\r\n"));
     QCOMPARE(authSpy->size(), 1);
     cServer(t.last("OK [CAPABILITY IMAP4rev1 compress=deflate id] logged in\r\n"));
-#if TROJITA_COMPRESS_DEFLATE
+#if IMPRESARIO_COMPRESS_DEFLATE
     cClient(t.mk("COMPRESS DEFLATE\r\n"));
     cServer(t.last("NO I just don't want to\r\n"));
     QCoreApplication::processEvents();

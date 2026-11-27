@@ -86,7 +86,7 @@
 #include <KWindowSystem>
 
 #include "configure.cmake.h"
-#ifdef TROJITA_HAVE_KNOTIFICATIONS
+#ifdef IMPRESARIO_HAVE_KNOTIFICATIONS
 #include <KNotification>
 #endif
 #include "Common/Application.h"
@@ -98,8 +98,8 @@
 #include "Composer/AccountIdentities.h"
 #include "Composer/Mailto.h"
 #include "Composer/SenderIdentitiesModel.h"
-#ifdef TROJITA_HAVE_CRYPTO_MESSAGES
-#  ifdef TROJITA_HAVE_GPGMEPP
+#ifdef IMPRESARIO_HAVE_CRYPTO_MESSAGES
+#  ifdef IMPRESARIO_HAVE_GPGMEPP
 #    include "Cryptography/GpgMe++.h"
 #  endif
 #endif
@@ -176,7 +176,7 @@
 #include "MailTabBar.h"
 #include "VimMode.h"
 #include "ShortcutOverviewDialog.h"
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
 #include "SimplePartWidget.h"
 #endif
 #include "Streams/SocketFactory.h"
@@ -210,7 +210,7 @@
 #include "UiUtils/SearchSuggestions.h"
 #include "UiUtils/ServerDiscovery.h"
 #include "UiUtils/UnreadFolders.h"
-#ifdef TROJITA_HAVE_AKONADI_CALENDAR
+#ifdef IMPRESARIO_HAVE_AKONADI_CALENDAR
 #include "UiUtils/AkonadiAgendaSource.h"
 #endif
 
@@ -274,9 +274,9 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
 
     });
 
-#ifdef TROJITA_HAVE_CRYPTO_MESSAGES
+#ifdef IMPRESARIO_HAVE_CRYPTO_MESSAGES
     Plugins::PluginManager::MimePartReplacers replacers;
-#ifdef TROJITA_HAVE_GPGMEPP
+#ifdef IMPRESARIO_HAVE_GPGMEPP
     replacers.emplace_back(std::make_shared<Cryptography::GpgMeReplacer>());
 #endif
     m_pluginManager->setMimePartReplacers(replacers);
@@ -478,7 +478,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::reply(const Composer::ReplyMode mode)
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     const QModelIndex messageIndex = m_messageWidget->message();
     const bool isCryptoMessage = m_messageWidget->isCryptoMessage();
     QPointer<MainWindow> window(this);
@@ -951,7 +951,7 @@ void MainWindow::createActions()
     msgListWidget->tree->addAction(markAsRead);
     connect(markAsRead, &QAction::triggered, this, &MainWindow::handleMarkAsRead);
 
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_nextMessage = ShortcutHandler::instance()->createAction(QStringLiteral("action_go_to_next_unread"), this, SLOT(slotNextUnread()), this);
     msgListWidget->tree->addAction(m_nextMessage);
     m_messageWidget->messageView->addAction(m_nextMessage);
@@ -989,7 +989,7 @@ void MainWindow::createActions()
     });
     for (QAction *action : {m_nextInConversation, m_previousInConversation, m_expandAllConversations, m_collapseAllConversations})
         msgListWidget->tree->addAction(action);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_messageWidget->messageView->addAction(m_nextInConversation);
     m_messageWidget->messageView->addAction(m_previousInConversation);
 #endif
@@ -1477,7 +1477,7 @@ void MainWindow::createActions()
     AppearanceStyle::addMenuMarker(m_composeButton);
     AppearanceStyle::addMenuMarker(m_replyButton);
 
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     // The bar above the reader works on the open message, whatever is selected in the list
     m_readerActions = new ReaderActionBar();
     m_readerActions->setReplyMenu(m_replyMenu);
@@ -1489,7 +1489,7 @@ void MainWindow::createActions()
     // Escape leaves the reader or an embedded panel for the message list. The scopes leave out the find bar and
     // the quick search, which use Escape themselves.
     QList<QWidget *> escapeScopes;
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     escapeScopes << m_messageWidget->messageView << m_readerActions;
 #else
     escapeScopes << m_messageWidget;
@@ -1504,7 +1504,7 @@ void MainWindow::createActions()
         toList->setContext(Qt::WidgetWithChildrenShortcut);
         connect(toList, &QShortcut::activated, this, &MainWindow::slotReturnToMessageList);
     }
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     connect(m_readerActions, &ReaderActionBar::archiveRequested, this, [this]() {
         actOnOpenMessage([this]() { handleMoveToArchive(); });
     });
@@ -1820,7 +1820,7 @@ void MainWindow::createMenus()
             connect(action, &QAction::toggled, this, &MainWindow::updateSortButton);
         updateSortButton();
         mailboxMenu->addSeparator();
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
         ADD_ACTION(mailboxMenu, m_previousMessage);
         ADD_ACTION(mailboxMenu, m_nextMessage);
         ADD_ACTION(mailboxMenu, m_previousAnyMessage);
@@ -1859,7 +1859,7 @@ void MainWindow::createMenus()
         messageMenu->addSeparator();
         ADD_ACTION(messageMenu, markAsRead);
         ADD_ACTION(messageMenu, m_markAsUnread);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
         ADD_ACTION(messageMenu, m_markReadNextUnread);
 #endif
         ADD_ACTION(messageMenu, markAsFlagged);
@@ -2028,7 +2028,7 @@ void MainWindow::createWidgets()
 
     msgListWidget->tree->installEventFilter(this);
 
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_messageWidget = new CompleteMessageWidget(this, m_settings, m_pluginManager, m_favoriteTags);
     // The window's Find action hands the key to the reader while it has focus; two actions with the same key in one
     // window would be ambiguous, so that neither of them would run
@@ -2188,7 +2188,7 @@ void MainWindow::createWidgets()
     mailMimeTree->setHeaderHidden(true);
     mailMimeDock->setWidget(mailMimeTree);
     addDockWidget(Qt::RightDockWidgetArea, mailMimeDock);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     connect(m_messageWidget->messageView, &MessageView::messageModelChanged, this, &MainWindow::slotMessageModelChanged);
 #endif
     protocolLoggerDock = new QDockWidget(tr("Protocol log"), this);
@@ -2209,7 +2209,7 @@ void MainWindow::setupModels(bool reconnect)
         monitorAccount(m_accounts->activeAccount());
     }
 
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_messageWidget->messageView->setNetworkWatcher(qobject_cast<Imap::Mailbox::NetworkWatcher*>(m_imapAccess->networkWatcher()));
     m_relatedMessagesPanel->setMessageList(m_imapAccess->msgListModel());
     for (const QMetaObject::Connection &connection : std::as_const(m_agendaListConnections))
@@ -2710,7 +2710,7 @@ bool MainWindow::eventFilter(QObject *o, QEvent *e)
         fitPanelRegion(region);
         return false;
     }
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     if (msgListWidget && o == msgListWidget->tree && m_messageWidget->messageView) {
         if (e->type() == QEvent::KeyPress) {
             QKeyEvent *keyEvent = static_cast<QKeyEvent *>(e);
@@ -2836,7 +2836,7 @@ void MainWindow::slotMessageReplacedAfterRemoval(const QModelIndex &index)
     if (!qobject_cast<const Imap::Mailbox::Model *>(Imap::deproxifiedIndex(index).model()))
         return;
     saveMessageSelection(index);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     // As after keyboard navigation, the reader follows and marks the message as read according to the settings
     if ((m_messageWidget->isVisible() && !m_messageWidget->size().isEmpty()) || m_layoutMode == LAYOUT_ONE_AT_TIME)
         m_messageWidget->messageView->setMessage(index);
@@ -2858,7 +2858,7 @@ void MainWindow::msgListClicked(const QModelIndex &index)
         saveMessageSelection(index);
     if (! index.data(Imap::Mailbox::RoleMessageUid).isValid())
         return;
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     // Because it's quite possible that we have switched into another mailbox, make sure that we're in the "current" one so that
     // user will be notified about new arrivals, etc.
     QModelIndex translated = Imap::deproxifiedIndex(index);
@@ -2914,7 +2914,7 @@ void MainWindow::msgListClicked(const QModelIndex &index)
 
 void MainWindow::openCompleteMessageWidget()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     const QModelIndex index = msgListWidget->tree->currentIndex();
 
     if (! index.data(Imap::Mailbox::RoleMessageUid).isValid())
@@ -3078,7 +3078,7 @@ void MainWindow::showContextMenuMsgListTree(const QPoint &position)
         actionList.append(m_copyToMenu->menuAction());
         actionList.append(m_actionMarkMailboxAsRead);
         actionList.append(saveWholeMessage);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
         // They act on the message in the reader, so they are offered for that one only
         if (Imap::deproxifiedIndex(index) == Imap::deproxifiedIndex(m_messageWidget->messageView->currentMessage())) {
             for (QAction *action : {m_actionMessageToCalendar, m_actionMessageToNote}) {
@@ -3667,7 +3667,7 @@ void MainWindow::applyProductivitySettings()
 {
     if (!m_actionMessageToCalendar)
         return;
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
     auto setting = [&config, this](const char *key) {
         return UiUtils::SettingsStore::value(*config, m_settings, QLatin1String(key));
@@ -3691,7 +3691,7 @@ QString MainWindow::notesFolder() const
 
 void MainWindow::withReaderMessage(const std::function<void(const UiUtils::MailToProductivity::Message &)> &fn)
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     const QModelIndex index = Imap::deproxifiedIndex(m_messageWidget->messageView->currentMessage());
     if (!index.isValid())
         return;
@@ -4023,7 +4023,7 @@ UiUtils::MailTabs::Tab MainWindow::messageTab(const QModelIndex &message) const
 UiUtils::MailTabs::Tab MainWindow::currentLocationTab() const
 {
     const QString mailbox = m_unifiedInbox ? QString() : currentMailboxName();
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     if (m_messageWidget) {
         const UiUtils::MailTabs::Tab shown = messageTab(m_messageWidget->messageView->currentMessage());
         // A message of the folder, or one found by a search or in the Unified Inbox, which show other folders' mail
@@ -4407,7 +4407,7 @@ void MainWindow::setupMailAutomation()
                       QStringLiteral("showAutomationActivity"), [this]() { showActivity(); }}});
             }
         }
-#ifdef TROJITA_HAVE_KNOTIFICATIONS
+#ifdef IMPRESARIO_HAVE_KNOTIFICATIONS
         if (surfaces.testFlag(Surface::DesktopNotification)) {
             auto *notification = new KNotification(QStringLiteral("automationProblem"), KNotification::CloseOnTimeout);
             notification->setComponentName(QStringLiteral("plasma-impresario"));
@@ -5108,7 +5108,7 @@ void MainWindow::notifyBackgroundAccount(const QString &accountId)
     QString text = Common::AccountStatusTracker::label(status.kind);
     if (!status.detail.isEmpty())
         text += QLatin1String(": ") + status.detail;
-#ifdef TROJITA_HAVE_KNOTIFICATIONS
+#ifdef IMPRESARIO_HAVE_KNOTIFICATIONS
     auto *notification = new KNotification(QStringLiteral("accountNeedsAttention"), KNotification::CloseOnTimeout);
     notification->setComponentName(QStringLiteral("plasma-impresario"));
     notification->setTitle(title);
@@ -5445,7 +5445,7 @@ void MainWindow::slotPreviousAccount()
 
 void MainWindow::slotFocusMessageView()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_messageWidget->messageView->setFocus();
 #else
     m_messageWidget->setFocus();
@@ -5472,7 +5472,7 @@ void MainWindow::slotFocusPreviousRegion()
 
 void MainWindow::slotFind()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     QWidget *focus = focusWidget();
     const bool inReader = focus
         && (m_messageWidget->isAncestorOf(focus) || (m_readerActions && m_readerActions->isAncestorOf(focus)));
@@ -5503,7 +5503,7 @@ void MainWindow::cycleFocusRegion(int step)
         regions.append(Region{m_accountSwitcher, m_accountSwitcher});
     regions.append(Region{m_accountSidebar, mboxTree});
     regions.append(Region{msgListWidget, msgListWidget->tree});
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     regions.append(Region{m_messageWidget, m_messageWidget->messageView});
 #else
     regions.append(Region{m_messageWidget, m_messageWidget});
@@ -5876,7 +5876,7 @@ void MainWindow::checkSslPolicy(const QString &accountId)
 
 void MainWindow::nukeModels()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_messageWidget->messageView->setEmpty();
 #endif
     mboxTree->setModel(nullptr);
@@ -5941,7 +5941,7 @@ void MainWindow::handleMarkAsRead(bool value)
 {
     if (routeToMessageAccounts([this, value]() { handleMarkAsRead(value); }))
         return;
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     const QModelIndexList translatedIndexes = translatedSelection();
     if (translatedIndexes.isEmpty()) {
         qDebug() << "Model::handleMarkAsRead: no valid messages";
@@ -5974,7 +5974,7 @@ void MainWindow::handleMarkAsUnread()
 
 void MainWindow::slotNextUnread()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     QModelIndex current = msgListWidget->tree->currentIndex();
 
     UiUtils::gotoNext(msgListWidget->tree->model(), current,
@@ -5994,7 +5994,7 @@ void MainWindow::slotNextUnread()
 
 void MainWindow::slotMarkReadAndNextUnread()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     const QModelIndexList marked = translatedSelection();
     // Found before marking, because hiding read messages may remove the current one from the list
     QPersistentModelIndex next;
@@ -6033,7 +6033,7 @@ void MainWindow::goToAdjacentMessage(bool forward)
                                                         [tree](const QModelIndex &idx) { return tree->isExpanded(idx); });
     if (!target.isValid())
         return;
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_messageWidget->messageView->setMessage(target);
 #endif
     tree->setCurrentIndex(target);
@@ -6062,7 +6062,7 @@ void MainWindow::goToMessageInConversation(bool forward)
         return;
     // Expands a collapsed thread or group on the way
     tree->scrollTo(target);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_messageWidget->messageView->setMessage(target);
 #endif
     tree->setCurrentIndex(target);
@@ -6087,7 +6087,7 @@ QModelIndex MainWindow::revealMessage(const QModelIndex &message)
 
 void MainWindow::slotPreviousUnread()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     QModelIndex current = msgListWidget->tree->currentIndex();
 
     UiUtils::gotoPrevious(msgListWidget->tree->model(), current,
@@ -7200,7 +7200,7 @@ void MainWindow::updateActionsOnlineOffline(bool online)
 
 void MainWindow::slotUpdateMessageActions()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     // The identities of the account which received the message decide who a reply goes to
     const auto *messageModel = qobject_cast<const Imap::Mailbox::Model *>(
         Imap::deproxifiedIndex(m_messageWidget->messageView->currentMessage()).model());
@@ -7239,7 +7239,7 @@ void MainWindow::slotUpdateMessageActions()
 
 void MainWindow::scrollMessageUp()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_messageWidget->area->ensureVisible(0, 0, 0, 0);
 #endif
 }
@@ -7279,7 +7279,7 @@ void MainWindow::slotReplyGuess()
 
 void MainWindow::slotForwardAsAttachment()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     const QModelIndex messageIndex = m_messageWidget->message();
     auto forwardNow = [&]() { m_msgActionHandler.forward(messageIndex, Composer::ForwardMode::FORWARD_AS_ATTACHMENT); };
     if (!actOnModel(qobject_cast<const Imap::Mailbox::Model *>(Imap::deproxifiedIndex(messageIndex).model()), forwardNow))
@@ -7583,14 +7583,14 @@ void MainWindow::slotShowAboutTrojita()
 #endif
                        );
     features.emplace_back(tr("Encrypted and signed messages"),
-#ifdef TROJITA_HAVE_CRYPTO_MESSAGES
+#ifdef IMPRESARIO_HAVE_CRYPTO_MESSAGES
             true
 #else
             false
 #endif
                        );
     features.emplace_back(tr("IMAP compression"),
-#ifdef TROJITA_HAVE_ZLIB
+#ifdef IMPRESARIO_HAVE_ZLIB
             true
 #else
             false
@@ -7685,7 +7685,7 @@ void MainWindow::slotDownloadMessageFileNameRequested(QString *fileName)
 
 void MainWindow::slotViewMsgSource()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
 
     Q_FOREACH(const QModelIndex &item, msgListWidget->tree->selectionModel()->selectedIndexes()) {
         Q_ASSERT(item.isValid());
@@ -7706,7 +7706,7 @@ void MainWindow::slotViewMsgSource()
 
 QWidget *MainWindow::messageSourceWidget(const QModelIndex &message)
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     QModelIndex messageIndex = Imap::deproxifiedIndex(message);
     MessageSourceWidget *sourceWidget = new MessageSourceWidget(0, messageIndex);
     sourceWidget->setAttribute(Qt::WA_DeleteOnClose);
@@ -7721,7 +7721,7 @@ QWidget *MainWindow::messageSourceWidget(const QModelIndex &message)
 
 void MainWindow::slotViewMsgHeaders()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     Q_FOREACH(const QModelIndex &item, msgListWidget->tree->selectionModel()->selectedIndexes()) {
         Q_ASSERT(item.isValid());
         if (item.column() != 0)
@@ -7961,7 +7961,7 @@ void MainWindow::slotSearchRequested(const QStringList &searchConditions)
         && (inPanel || m_unifiedInbox || searchIndexOffline
             || msgListWidget->searchPlaces() != UiUtils::SearchScope::Places::CurrentFolder)) {
         startSearchAcross(searchConditions);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
         m_messageWidget->messageView->setHighlightTerm(UiUtils::searchHighlightTerm(searchConditions));
 #endif
         return;
@@ -7973,7 +7973,7 @@ void MainWindow::slotSearchRequested(const QStringList &searchConditions)
                                                              threadingMsgListModel->currentSortOrder());
     updateRelevanceSorting(searchConditions);
     scheduleMessageListStatus();
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_messageWidget->messageView->setHighlightTerm(UiUtils::searchHighlightTerm(searchConditions));
 #endif
 }
@@ -9656,7 +9656,7 @@ void MainWindow::activateRelatedMessage(const QModelIndex &message)
         msgListClicked(*match);
         return;
     }
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_messageWidget->messageView->setMessage(deproxified);
 #endif
 }
@@ -9700,7 +9700,7 @@ void MainWindow::updateAgendaSource()
     if (!m_agendaPanel)
         return;
     const bool enabled = m_agendaPanel->isPanelEnabled();
-#ifdef TROJITA_HAVE_AKONADI_CALENDAR
+#ifdef IMPRESARIO_HAVE_AKONADI_CALENDAR
     if (enabled && !m_agendaSource) {
         m_agendaSource = new UiUtils::AkonadiAgendaSource(this);
         m_agendaPanel->setCalendarSource(m_agendaSource);
@@ -9929,7 +9929,7 @@ void MainWindow::joinMeeting(const QUrl &url)
 
 void MainWindow::actOnOpenMessage(const std::function<void()> &fn)
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     const QModelIndex message = Imap::deproxifiedIndex(m_messageWidget->messageView->currentMessage());
     const QString accountId = accountOfModel(qobject_cast<const Imap::Mailbox::Model *>(message.model()));
     if (message.isValid() && !accountId.isEmpty())
@@ -9941,7 +9941,7 @@ void MainWindow::actOnOpenMessage(const std::function<void()> &fn)
 
 void MainWindow::updateReaderActions()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     if (!m_readerActions || !m_deleteMovesToTrash)
         return;
     const QModelIndex message = Imap::deproxifiedIndex(m_messageWidget->messageView->currentMessage());
@@ -11482,7 +11482,7 @@ void MainWindow::resizeEvent(QResizeEvent *)
 /** @short Make sure that the message gets loaded after the splitters have changed their position */
 void MainWindow::possiblyLoadMessageOnSplittersChanged()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     if (m_messageWidget->isVisible() && !m_messageWidget->size().isEmpty()) {
         // We do not have to check whether it's a different message; the setMessage() will do this or us
         // and there are multiple proxy models involved anyway

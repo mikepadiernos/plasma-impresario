@@ -26,7 +26,7 @@
 #include <QAction>
 #include <QTextDocument>
 
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
 #include <QWebEnginePage>
 #include <QWebEngineView>
 #endif
@@ -239,7 +239,7 @@ void HtmlFormattingTest::testPlainTextFormattingViaHtml_data()
 
 WebRenderingTester::WebRenderingTester()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_web = new QWebEngineView;
     m_loop = new QEventLoop(this);
     connect(m_web, &QWebEngineView::loadFinished, m_loop, &QEventLoop::quit);
@@ -248,7 +248,7 @@ WebRenderingTester::WebRenderingTester()
 
 WebRenderingTester::~WebRenderingTester()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     delete m_web;
 #endif
 }
@@ -256,7 +256,7 @@ WebRenderingTester::~WebRenderingTester()
 QString WebRenderingTester::asPlainText(const QString &input, const UiUtils::FlowedFormat format,
                                         const CollapsingFlags collapsing)
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
 
     // FIXME: bad pasted thing!
     static const QString stylesheet = QStringLiteral(
@@ -328,7 +328,7 @@ QString WebRenderingTester::asPlainText(const QString &input, const UiUtils::Flo
 
 void WebRenderingTester::doDelayedLoad()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_web->setHtml(sourceData);
 #endif
 }
@@ -362,7 +362,7 @@ void HtmlFormattingTest::testPlainTextFormattingViaPaste()
     if (expandedFlowed.isEmpty())
         expandedFlowed = formattedFlowed;
 
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
 #ifdef SKIP_WEBENGINE_TESTS
     QSKIP("ASAN build -- Qt WebEngine rendering is skipped");
 #else
@@ -389,7 +389,7 @@ void HtmlFormattingTest::testPlainTextFormattingViaPaste()
 
 void HtmlFormattingTest::testPlainTextFormattingViaPaste_data()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
 
     QTest::addColumn<QString>("source");
     QTest::addColumn<QString>("formattedFlowed");
@@ -654,7 +654,7 @@ void HtmlFormattingTest::testPlainTextFormattingViaPasteDelSp()
     QFETCH(QString, expandedFlowed);
     QFETCH(QString, expandedFlowedDelSp);
 
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
 #ifdef SKIP_WEBENGINE_TESTS
     QSKIP("ASAN build -- Qt WebEngine rendering is skipped");
 #else
@@ -675,7 +675,7 @@ void HtmlFormattingTest::testPlainTextFormattingViaPasteDelSp()
 
 void HtmlFormattingTest::testPlainTextFormattingViaPasteDelSp_data()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     QTest::addColumn<QString>("source");
     QTest::addColumn<QString>("expandedFlowed");
     QTest::addColumn<QString>("expandedFlowedDelSp");

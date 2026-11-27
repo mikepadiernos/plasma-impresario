@@ -36,7 +36,7 @@ void ComposerExistingTest::init()
     LibMailboxSync::init();
 
     // There's a default delay of 50ms which made the cEmpty() and justKeepTask() ignore these pending actions...
-    model->setProperty("trojita-imap-delayed-fetch-part", QVariant(0u));
+    model->setProperty("impresario-imap-delayed-fetch-part", QVariant(0u));
 
     existsA = 5;
     uidValidityA = 333666;

@@ -19,8 +19,8 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef TROJITA_IMAP_LOGGING_H
-#define TROJITA_IMAP_LOGGING_H
+#ifndef IMPRESARIO_IMAP_LOGGING_H
+#define IMPRESARIO_IMAP_LOGGING_H
 
 #include <QDateTime>
 #include <QVector>
@@ -67,4 +67,4 @@ struct LogMessage {
 // Both QString and QDateTime are movable, so our combination is movable as well
 Q_DECLARE_TYPEINFO(Common::LogMessage, Q_MOVABLE_TYPE);
 
-#endif // TROJITA_IMAP_LOGGING_H
+#endif // IMPRESARIO_IMAP_LOGGING_H

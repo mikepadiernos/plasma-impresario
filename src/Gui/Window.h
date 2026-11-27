@@ -20,8 +20,8 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef TROJITA_WINDOW_H
-#define TROJITA_WINDOW_H
+#ifndef IMPRESARIO_WINDOW_H
+#define IMPRESARIO_WINDOW_H
 
 #include <QHash>
 #include <QIcon>
@@ -1001,7 +1001,7 @@ private:
     QTreeView *mailMimeTree;
     QDockWidget *mailMimeDock;
 
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     CompleteMessageWidget *m_messageWidget;
 #else
     QLabel *m_messageWidget;

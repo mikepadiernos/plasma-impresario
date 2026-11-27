@@ -99,7 +99,7 @@ public:
     void setAttachmentContentDisposition(const QModelIndex &index, const ContentDisposition disposition);
     void setAttachmentName(const QModelIndex &index, const QString &newName);
 
-    void setReportTrojitaVersions(const bool reportVersion);
+    void setReportImpresarioVersions(const bool reportVersion);
 
 signals:
     /** A file on another computer was attached and should be fetched from @arg source into @arg localCopy */
@@ -120,7 +120,7 @@ private:
     void writeHeaderWithMsgIds(QIODevice *target, const QByteArray &headerName, const QList<QByteArray> &messageIds) const;
 
     bool validateDropImapMessage(QDataStream &stream, QString &mailbox, uint &uidValidity, QList<uint> &uids) const;
-    bool validateDropImapPart(QDataStream &stream, QString &mailbox, uint &uidValidity, uint &uid, QByteArray &trojitaPath) const;
+    bool validateDropImapPart(QDataStream &stream, QString &mailbox, uint &uidValidity, uint &uid, QByteArray &impresarioPath) const;
     bool dropImapMessage(QDataStream &stream);
     bool dropImapPart(QDataStream &stream);
     bool dropAttachmentList(QDataStream &stream);
@@ -141,7 +141,7 @@ private:
     QList<AttachmentItem *> m_attachments;
     QPointer<Imap::Mailbox::Model> m_model;
     bool m_shouldPreload;
-    bool m_reportTrojitaVersions;
+    bool m_reportImpresarioVersions;
 };
 
 }

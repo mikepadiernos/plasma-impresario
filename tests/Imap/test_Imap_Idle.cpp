@@ -48,7 +48,7 @@ The motivation here is to avoid being too fast, as reported in Redmine#275
 /** @short Test a NO reply to IDLE command */
 void ImapModelIdleTest::testIdleNo()
 {
-    model->setProperty("trojita-imap-idle-delayedEnter", QVariant(30));
+    model->setProperty("impresario-imap-idle-delayedEnter", QVariant(30));
     FakeCapabilitiesInjector injector(model);
     injector.injectCapability(QStringLiteral("IDLE"));
     existsA = 3;
@@ -68,7 +68,7 @@ void ImapModelIdleTest::testIdleNo()
 /** @short Test what happens when IDLE terminates by an OK, but without our "DONE" input */
 void ImapModelIdleTest::testIdleImmediateReturn()
 {
-    model->setProperty("trojita-imap-idle-delayedEnter", QVariant(30));
+    model->setProperty("impresario-imap-idle-delayedEnter", QVariant(30));
     FakeCapabilitiesInjector injector(model);
     injector.injectCapability(QStringLiteral("IDLE"));
     existsA = 3;
@@ -85,8 +85,8 @@ void ImapModelIdleTest::testIdleImmediateReturn()
 /** @short Test automatic IDLE renewal */
 void ImapModelIdleTest::testIdleRenewal()
 {
-    model->setProperty("trojita-imap-idle-delayedEnter", QVariant(30));
-    model->setProperty("trojita-imap-idle-renewal", QVariant(10));
+    model->setProperty("impresario-imap-idle-delayedEnter", QVariant(30));
+    model->setProperty("impresario-imap-idle-renewal", QVariant(10));
     FakeCapabilitiesInjector injector(model);
     injector.injectCapability(QStringLiteral("IDLE"));
     existsA = 3;
@@ -106,8 +106,8 @@ void ImapModelIdleTest::testIdleRenewal()
 /** @short Test that IDLE gets immediately interrupted by any Task */
 void ImapModelIdleTest::testIdleBreakTask()
 {
-    model->setProperty("trojita-imap-idle-delayedEnter", QVariant(30));
-    // Intentionally leave trojita-imap-idle-renewal at its rather high default value
+    model->setProperty("impresario-imap-idle-delayedEnter", QVariant(30));
+    // Intentionally leave impresario-imap-idle-renewal at its rather high default value
     FakeCapabilitiesInjector injector(model);
     injector.injectCapability(QStringLiteral("IDLE"));
     existsA = 3;
@@ -132,8 +132,8 @@ void ImapModelIdleTest::testIdleBreakTask()
 /** @short Test automatic IDLE renewal when server gets really slow to respond */
 void ImapModelIdleTest::testIdleSlowResponses()
 {
-    model->setProperty("trojita-imap-idle-delayedEnter", QVariant(30));
-    model->setProperty("trojita-imap-idle-renewal", QVariant(10));
+    model->setProperty("impresario-imap-idle-delayedEnter", QVariant(30));
+    model->setProperty("impresario-imap-idle-renewal", QVariant(10));
     FakeCapabilitiesInjector injector(model);
     injector.injectCapability(QStringLiteral("IDLE"));
     existsA = 3;
@@ -171,8 +171,8 @@ void ImapModelIdleTest::testIdleSlowResponses()
 void ImapModelIdleTest::testIdleNoPerpetuateRenewal()
 {
     // we shouldn't enter IDLE automatically
-    model->setProperty("trojita-imap-idle-delayedEnter", QVariant(1000 * 1000 ));
-    model->setProperty("trojita-imap-idle-renewal", QVariant(10));
+    model->setProperty("impresario-imap-idle-delayedEnter", QVariant(1000 * 1000 ));
+    model->setProperty("impresario-imap-idle-renewal", QVariant(10));
     FakeCapabilitiesInjector injector(model);
     injector.injectCapability(QStringLiteral("IDLE"));
     existsA = 3;
@@ -226,7 +226,7 @@ void ImapModelIdleTest::testIdleNoPerpetuateRenewal()
 void ImapModelIdleTest::testIdleMailboxChange()
 {
     // we shouldn't enter IDLE automatically
-    model->setProperty("trojita-imap-idle-delayedEnter", QVariant(1000 * 1000 ));
+    model->setProperty("impresario-imap-idle-delayedEnter", QVariant(1000 * 1000 ));
     FakeCapabilitiesInjector injector(model);
     injector.injectCapability(QStringLiteral("IDLE"));
     existsA = 3;

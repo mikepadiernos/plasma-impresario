@@ -89,7 +89,7 @@ SQLCache::~SQLCache()
     db.close();
 }
 
-#define TROJITA_SQL_CACHE_CREATE_THREADING \
+#define IMPRESARIO_SQL_CACHE_CREATE_THREADING \
 if ( ! q.exec( QLatin1String("CREATE TABLE msg_threading ( " \
                              "mailbox STRING NOT NULL PRIMARY KEY, " \
                              "threading BINARY" \
@@ -98,7 +98,7 @@ if ( ! q.exec( QLatin1String("CREATE TABLE msg_threading ( " \
     return false; \
 }
 
-#define TROJITA_SQL_CACHE_CREATE_SYNC_STATE \
+#define IMPRESARIO_SQL_CACHE_CREATE_SYNC_STATE \
 if ( ! q.exec( QLatin1String("CREATE TABLE mailbox_sync_state ( " \
                              "mailbox STRING NOT NULL PRIMARY KEY, " \
                              "sync_state BINARY " \
@@ -107,7 +107,7 @@ if ( ! q.exec( QLatin1String("CREATE TABLE mailbox_sync_state ( " \
     return false; \
 }
 
-#define TROJITA_SQL_CACHE_CREATE_MSG_METADATA \
+#define IMPRESARIO_SQL_CACHE_CREATE_MSG_METADATA \
     if (! q.exec(QLatin1String("CREATE TABLE msg_metadata (" \
                                "mailbox STRING NOT NULL, " \
                                "uid INT NOT NULL, " \
@@ -136,8 +136,8 @@ bool SQLCache::open(const QString &name, const QString &fileName)
 
     Common::SqlTransactionAutoAborter txn(&db);
 
-    QSqlRecord trojitaNames = db.record(QStringLiteral("trojita"));
-    if (! trojitaNames.contains(QStringLiteral("version"))) {
+    QSqlRecord impresarioNames = db.record(QStringLiteral("trojita"));
+    if (! impresarioNames.contains(QStringLiteral("version"))) {
         if (! createTables())
             return false;
     }
@@ -157,7 +157,7 @@ bool SQLCache::open(const QString &name, const QString &fileName)
 
     uint version = q.value(0).toUInt();
     if (version == 1) {
-        TROJITA_SQL_CACHE_CREATE_THREADING
+        IMPRESARIO_SQL_CACHE_CREATE_THREADING
         version = 2;
         if (! q.exec(QStringLiteral("UPDATE trojita SET version = 2;"))) {
             emitError(QObject::tr("Failed to update cache DB scheme from v1 to v2"), q);
@@ -172,7 +172,7 @@ bool SQLCache::open(const QString &name, const QString &fileName)
             emitError(QObject::tr("Failed to drop old table mailbox_sync_state"));
             return false;
         }
-        TROJITA_SQL_CACHE_CREATE_SYNC_STATE;
+        IMPRESARIO_SQL_CACHE_CREATE_SYNC_STATE;
         version = 4;
         if (! q.exec(QStringLiteral("UPDATE trojita SET version = 4;"))) {
             emitError(QObject::tr("Failed to update cache DB scheme from v2/v3 to v4"), q);
@@ -192,7 +192,7 @@ bool SQLCache::open(const QString &name, const QString &fileName)
             emitError(QObject::tr("Failed to drop old table msg_metadata"));
             return false;
         }
-        TROJITA_SQL_CACHE_CREATE_MSG_METADATA;
+        IMPRESARIO_SQL_CACHE_CREATE_MSG_METADATA;
         version = 8;
         if (! q.exec(QStringLiteral("UPDATE trojita SET version = 8;"))) {
             emitError(QObject::tr("Failed to update cache DB scheme from v4/v5/v6/v7 to v8"), q);
@@ -249,7 +249,7 @@ bool SQLCache::createTables()
         return false;
     }
 
-    TROJITA_SQL_CACHE_CREATE_MSG_METADATA;
+    IMPRESARIO_SQL_CACHE_CREATE_MSG_METADATA;
 
     if (! q.exec(QStringLiteral("CREATE TABLE flags ("
                                "mailbox STRING NOT NULL, "
@@ -270,8 +270,8 @@ bool SQLCache::createTables()
         emitError(QObject::tr("Can't create table parts"), q);
     }
 
-    TROJITA_SQL_CACHE_CREATE_THREADING;
-    TROJITA_SQL_CACHE_CREATE_SYNC_STATE;
+    IMPRESARIO_SQL_CACHE_CREATE_THREADING;
+    IMPRESARIO_SQL_CACHE_CREATE_SYNC_STATE;
 
     return true;
 }

@@ -598,7 +598,7 @@ PrivacyGroup::PrivacyGroup(GeneralPage *general, const SettingsContext &context,
     : SettingsGroupPage(Group::Privacy, context, parent)
 {
     QFormLayout *sharing = addSection(i18nc("@title:group", "What Is Shared"));
-    sharing->addRow(take<QCheckBox>(general, "revealTrojitaVersions"));
+    sharing->addRow(take<QCheckBox>(general, "revealImpresarioVersions"));
     sharing->addRow(take<QCheckBox>(general, "guiPlasmaSearchCheckbox"));
     sharing->addRow(take<QLabel>(general, "guiPlasmaWidgetsLabel"), take<QComboBox>(general, "guiPlasmaWidgetsBox"));
     QFormLayout *safety = addSection(i18nc("@title:group", "Safety"));

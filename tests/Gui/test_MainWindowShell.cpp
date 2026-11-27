@@ -23,7 +23,7 @@
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "IPC/MainWindowBridge.h"
 #include "configure.cmake.h"
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
 #include "Gui/WebEngineMessageProfile.h"
 #endif
 #include "static_plugins.h"
@@ -899,7 +899,7 @@ private slots:
   }
 
   void mailToNotesNeedsANotesFolder() {
-#ifndef TROJITA_HAVE_WEBENGINE
+#ifndef IMPRESARIO_HAVE_WEBENGINE
     QSKIP("The actions read the message from the reader");
 #endif
     QTemporaryDir directory;
@@ -1026,7 +1026,7 @@ int main(int argc, char **argv) {
           "unix:path=/nonexistent/plasma-impresario-test");
   qunsetenv("TROJITA_PROFILE");
   QStandardPaths::setTestModeEnabled(true);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
   Gui::WebEngineMessageProfile::registerScheme();
 #endif
   Common::registerMetaTypes();

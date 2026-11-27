@@ -20,8 +20,8 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef TROJITA_CRYPTO_LOCAL_MIME_PARSER_H
-#define TROJITA_CRYPTO_LOCAL_MIME_PARSER_H
+#ifndef IMPRESARIO_CRYPTO_LOCAL_MIME_PARSER_H
+#define IMPRESARIO_CRYPTO_LOCAL_MIME_PARSER_H
 
 #include <QObject>
 #include "Cryptography/PartReplacer.h"

@@ -20,13 +20,13 @@
 #include "plugin.h"
 #include "qdeclarativewebview_p.h"
 
-void TrojitaQNAMWebKitQmlPlugin::registerTypes(const char* uri)
+void ImpresarioQNAMWebKitQmlPlugin::registerTypes(const char* uri)
 {
     Q_ASSERT(QLatin1String(uri) == QLatin1String("net.flaska.QNAMWebView"));
-    qmlRegisterType<TrojitaQNAMDeclarativeWebView>(uri, 1, 0, "QNAMWebView");
+    qmlRegisterType<ImpresarioQNAMDeclarativeWebView>(uri, 1, 0, "QNAMWebView");
     qmlRegisterExtendedType<QNetworkAccessManager, QObject>();
-    qmlRegisterType<TrojitaDeclarativeWebSettings>();
+    qmlRegisterType<ImpresarioDeclarativeWebSettings>();
 }
 
-Q_EXPORT_PLUGIN2(trojitaqnamwebviewplugin, TrojitaQNAMWebKitQmlPlugin);
+Q_EXPORT_PLUGIN2(impresarioqnamwebviewplugin, ImpresarioQNAMWebKitQmlPlugin);
 
