@@ -966,6 +966,100 @@ SearchIndex::Result SearchIndex::search(const QStringList &conditions, const QSt
     return result;
 }
 
+QList<SearchIndex::Summary> SearchIndex::quickMatches(const QStringList &words, int limit) const
+{
+    QList<Summary> result;
+    if (!m_open || words.isEmpty() || limit <= 0)
+        return result;
+    QStringList conditions;
+    for (const QString &word : words)
+        conditions << QStringLiteral("OR") << QStringLiteral("SUBJECT") << word << QStringLiteral("FROM") << word;
+    QString condition;
+    QVariantList values;
+    QString problem;
+    if (!translate(conditions, &condition, &values, &problem)) {
+        fail(tr("The local index could not be searched"), problem);
+        return result;
+    }
+    return summaries(condition, values, limit, false);
+}
+
+QList<SearchIndex::Summary> SearchIndex::followUps(int limit) const
+{
+    if (!m_open || limit <= 0)
+        return {};
+    const QStringList conditions = {QStringLiteral("OR"), QStringLiteral("FLAGGED"), QStringLiteral("KEYWORD"),
+                                    QStringLiteral("$TODO"), QStringLiteral("UNDELETED")};
+    QString condition;
+    QVariantList values;
+    QString problem;
+    if (!translate(conditions, &condition, &values, &problem)) {
+        fail(tr("The local index could not be searched"), problem);
+        return {};
+    }
+    return summaries(condition, values, limit, true);
+}
+
+QList<SearchIndex::Summary> SearchIndex::unreadMessages(const QStringList &mailboxes, int limit) const
+{
+    if (!m_open || limit <= 0)
+        return {};
+    const QStringList conditions = {QStringLiteral("UNSEEN"), QStringLiteral("UNDELETED")};
+    QString condition;
+    QVariantList values;
+    QString problem;
+    if (!translate(conditions, &condition, &values, &problem)) {
+        fail(tr("The local index could not be searched"), problem);
+        return {};
+    }
+    if (!mailboxes.isEmpty()) {
+        QStringList placeholders;
+        for (const QString &mailbox : mailboxes) {
+            placeholders << QStringLiteral("?");
+            values << mailbox;
+        }
+        condition = QStringLiteral("(%1) AND mailbox IN (%2)").arg(condition, placeholders.join(QLatin1Char(',')));
+    }
+    return summaries(condition, values, limit, false);
+}
+
+QList<SearchIndex::Summary> SearchIndex::summaries(const QString &condition, const QVariantList &values, int limit,
+                                                   bool details) const
+{
+    QList<Summary> result;
+    QSqlQuery q(database());
+    q.setForwardOnly(true);
+    q.prepare(QStringLiteral("SELECT d.mailbox, d.uid, f.uidvalidity, d.sent, t.subject, t.sender, d.message_id, d.flags "
+                             "FROM search_docs d "
+                             "JOIN search_text t ON t.rowid = d.id LEFT JOIN search_folders f ON f.mailbox = d.mailbox "
+                             "WHERE d.id IN (SELECT id FROM search_docs WHERE %1) "
+                             "ORDER BY d.sent IS NULL, d.sent DESC, d.uid DESC "
+                             "LIMIT ?").arg(condition));
+    for (const QVariant &value : std::as_const(values))
+        q.addBindValue(value);
+    q.addBindValue(limit);
+    if (!q.exec()) {
+        fail(tr("The local index could not be searched"), q.lastError().text());
+        return result;
+    }
+    while (q.next()) {
+        Summary summary;
+        summary.location.mailbox = q.value(0).toString();
+        summary.location.uid = q.value(1).toUInt();
+        summary.location.uidValidity = q.value(2).toUInt();
+        if (!q.value(3).isNull())
+            summary.sent = QDate::fromJulianDay(q.value(3).toLongLong());
+        summary.subject = q.value(4).toString();
+        summary.sender = q.value(5).toString();
+        if (details) {
+            summary.messageId = q.value(6).toString();
+            summary.toDo = q.value(7).toString().contains(QLatin1String(" $todo "));
+        }
+        result << summary;
+    }
+    return result;
+}
+
 QString SearchIndex::plainTextOfHtml(const QString &html)
 {
     static const QRegularExpression hidden(QStringLiteral("<(script|style|head)\\b.*?</\\1\\s*>"),

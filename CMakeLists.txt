@@ -83,7 +83,7 @@ find_package(KF6 REQUIRED
 )
 
 if(WITH_DESKTOP)
-    find_package(KF6 REQUIRED COMPONENTS Config I18n KIO)
+    find_package(KF6 REQUIRED COMPONENTS ColorScheme Config CoreAddons I18n KIO WindowSystem)
     ki18n_install(po)
 endif()
 
@@ -92,7 +92,8 @@ if(WITH_WEBENGINE)
 endif()
 
 trojita_find_package(KPim6AkonadiContactCore "" "" "" "Required for building Akonadi address book plugin")
-trojita_plugin_option(WITH_AKONADIADDRESSBOOK_PLUGIN "Build AkonadiAddressbook plugin" KPim6AkonadiContactCore_FOUND)
+trojita_find_package(KPim6AkonadiContactWidgets "" "" "" "Required for opening and adding contacts in the Akonadi address book plugin")
+trojita_plugin_option(WITH_AKONADIADDRESSBOOK_PLUGIN "Build AkonadiAddressbook plugin" KPim6AkonadiContactCore_FOUND KPim6AkonadiContactWidgets_FOUND)
 
 trojita_plugin_option(WITH_ABOOKADDRESSBOOK_PLUGIN "Build AbookAddressbook plugin" STATIC)
 trojita_plugin_option(WITH_CLEARTEXT_PLUGIN "Build Cleartext password plugin" STATIC)
@@ -100,6 +101,8 @@ trojita_plugin_option(WITH_QTKEYCHAIN_PLUGIN "Build Qtkeychain password plugin" 
 trojita_plugin_option(WITH_SONNET_PLUGIN "Build a plugin for spellchecking via KDE's Sonnet" "WITH_DESKTOP")
 trojita_option(WITH_KNOTIFICATIONS "Report background account errors as desktop notifications" AUTO "WITH_DESKTOP")
 trojita_option(WITH_KFILEMETADATA "Index the text of downloaded attachments through KFileMetaData" AUTO)
+trojita_option(WITH_AKONADI_CALENDAR "Show KDE PIM events and tasks in the My Day panel" AUTO "WITH_DESKTOP")
+trojita_option(WITH_PLASMA_WIDGETS "Build the optional Plasma widgets" AUTO "WITH_DESKTOP;WITH_DBUS")
 
 trojita_find_package(Git "" "" "" "")
 
@@ -135,6 +138,10 @@ trojita_find_package(Qt6Keychain QUIET "https://github.com/frankosterfeld/qtkeyc
 trojita_find_package(KF6Sonnet ${SONNET_LIB_VERSION} "https://projects.kde.org/projects/frameworks/sonnet" "Qt6 Spell Checking Library from KDE" "Spell checking support" WITH_SONNET_PLUGIN)
 trojita_find_package(KF6Notifications "" "https://invent.kde.org/frameworks/knotifications" "KDE desktop notifications" "Report background account errors as desktop notifications" WITH_KNOTIFICATIONS)
 trojita_find_package(KF6FileMetaData "" "https://invent.kde.org/frameworks/kfilemetadata" "KDE file metadata and text extraction" "Index the text of downloaded attachments" WITH_KFILEMETADATA)
+trojita_find_package(KPim6AkonadiCalendar "" "https://invent.kde.org/pim/akonadi-calendar" "KDE PIM calendars" "Events and tasks in My Day" WITH_AKONADI_CALENDAR)
+trojita_find_package(Qt6Quick "" "https://doc.qt.io/qt-6/qtquick-index.html" "Qt Quick" "The Plasma widgets' shared views" WITH_PLASMA_WIDGETS)
+trojita_find_package(Qt6QuickTest "" "https://doc.qt.io/qt-6/qtquicktest-index.html" "Qt Quick Test" "Tests for the Plasma widgets' views")
+trojita_find_package(KF6Service "" "https://invent.kde.org/frameworks/kservice" "KDE service lookup" "Starting the application from the Plasma widgets" WITH_PLASMA_WIDGETS)
 if(Qt6Keychain_FOUND OR QtKeychain_FOUND)
     message(STATUS "Found QtKeychain library (includes at ${QTKEYCHAIN_INCLUDE_DIRS}, lib at ${QTKEYCHAIN_LIBRARIES})")
 else()
@@ -266,6 +273,12 @@ else()
     set(TROJITA_HAVE_KFILEMETADATA False)
 endif()
 
+if(WITH_AKONADI_CALENDAR)
+    set(TROJITA_HAVE_AKONADI_CALENDAR True)
+else()
+    set(TROJITA_HAVE_AKONADI_CALENDAR False)
+endif()
+
 if (WITH_WEBENGINE)
     set(TROJITA_HAVE_WEBENGINE True)
     message(STATUS "Support for viewing mails via Qt WebEngine is enabled")
@@ -291,6 +304,7 @@ set(libCommon_SOURCES
     ${path_Common}/FileLogger.cpp
     ${path_Common}/MetaTypes.cpp
     ${path_Common}/Paths.cpp
+    ${path_Common}/PrivateFiles.cpp
     ${path_Common}/SettingsNames.cpp
     ${path_Common}/StashingReverseIterator.h
 )
@@ -314,12 +328,17 @@ set(libOAuth_SOURCES
 
 set(path_UiUtils ${CMAKE_CURRENT_SOURCE_DIR}/src/UiUtils)
 set(libUiUtils_SOURCES
+    ${path_UiUtils}/AccountNotices.cpp
+    ${path_UiUtils}/ActivationToken.cpp
+    ${path_UiUtils}/Agenda.cpp
     ${path_UiUtils}/AttachmentCollector.cpp
+    ${path_UiUtils}/ClamdScanner.cpp
     ${path_UiUtils}/Color.cpp
     ${path_UiUtils}/Conversations.cpp
     ${path_UiUtils}/Formatting.cpp
     ${path_UiUtils}/IconLoader.cpp
     ${path_UiUtils}/LinkSafety.cpp
+    ${path_UiUtils}/MailSafety.cpp
     ${path_UiUtils}/MailingLists.cpp
     ${path_UiUtils}/MessageId.cpp
     ${path_UiUtils}/MessageIdLookup.cpp
@@ -336,9 +355,10 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/SearchQuery.cpp
     ${path_UiUtils}/SearchFacets.cpp
     ${path_UiUtils}/SearchScope.cpp
-    ${path_UiUtils}/SavedSearches.cpp
     ${path_UiUtils}/SearchSuggestions.cpp
     ${path_UiUtils}/SelectionAfterRemoval.cpp
+    ${path_UiUtils}/ServerDiscovery.cpp
+    ${path_UiUtils}/ServerDiscoveryNetwork.cpp
     ${path_UiUtils}/ShortcutOverview.cpp
     ${path_UiUtils}/UnreadFolders.cpp
     ${path_UiUtils}/ViewStateStore.cpp
@@ -354,11 +374,24 @@ if(WITH_WEBENGINE)
     )
 endif()
 
-if(WITH_DESKTOP)
-    set(libUiUtils_SOURCES
-        ${libUiUtils_SOURCES}
-        ${path_UiUtils}/DestructiveActions.cpp
-        ${path_UiUtils}/FileSearch.cpp
+# Helpers backed by KDE services (KConfig, Akonadi) form their own library, so that the mail core and UiUtils
+# stay free of desktop services; test_ArchitectureBoundaries keeps it that way.
+set(libDesktopServices_SOURCES
+    ${path_UiUtils}/BackgroundRunning.cpp
+    ${path_UiUtils}/DesktopFeedback.cpp
+    ${path_UiUtils}/DestructiveActions.cpp
+    ${path_UiUtils}/FileSearch.cpp
+    ${path_UiUtils}/MailSafetySettings.cpp
+    ${path_UiUtils}/MailStatus.cpp
+    ${path_UiUtils}/PlasmaSearch.cpp
+    ${path_UiUtils}/SavedSearches.cpp
+    ${path_UiUtils}/SleepMonitor.cpp
+)
+
+if(WITH_AKONADI_CALENDAR)
+    set(libDesktopServices_SOURCES
+        ${libDesktopServices_SOURCES}
+        ${path_UiUtils}/AkonadiAgendaSource.cpp
     )
 endif()
 
@@ -367,6 +400,8 @@ set(path_IPC ${CMAKE_CURRENT_SOURCE_DIR}/src/IPC)
 if(WITH_DBUS)
     set(libIPC_SOURCES
         ${path_IPC}/DBusInterface.cpp
+        ${path_IPC}/KRunnerBridge.cpp
+        ${path_IPC}/MailStatusBridge.cpp
         ${path_IPC}/MainWindowBridge.cpp
     )
 else()
@@ -379,8 +414,10 @@ set(path_Composer ${CMAKE_CURRENT_SOURCE_DIR}/src/Composer)
 set(libComposer_SOURCES
     ${path_Composer}/AbstractComposer.cpp
     ${path_Composer}/AccountIdentities.cpp
+    ${path_Composer}/AttachmentRequests.cpp
     ${path_Composer}/ComposerAttachments.cpp
     ${path_Composer}/ExistingMessageComposer.cpp
+    ${path_Composer}/HeaderSafety.cpp
     ${path_Composer}/Mailto.cpp
     ${path_Composer}/MessageComposer.cpp
     ${path_Composer}/QuoteText.cpp
@@ -408,6 +445,27 @@ set(libStreams_SOURCES
     ${path_Streams}/IODeviceSocket.cpp
     ${path_Streams}/Socket.cpp
     ${path_Streams}/SocketFactory.cpp
+)
+
+set(path_LocalMail ${CMAKE_CURRENT_SOURCE_DIR}/src/LocalMail)
+set(libLocalMail_SOURCES
+    ${path_LocalMail}/ImapSession.cpp
+    ${path_LocalMail}/LocalSocket.cpp
+    ${path_LocalMail}/Mime.cpp
+    ${path_LocalMail}/Store.cpp
+)
+
+set(path_Pop3 ${CMAKE_CURRENT_SOURCE_DIR}/src/Pop3)
+set(libPop3_SOURCES
+    ${path_Pop3}/FetchJob.cpp
+)
+
+set(path_Jmap ${CMAKE_CURRENT_SOURCE_DIR}/src/Jmap)
+set(libJmap_SOURCES
+    ${path_Jmap}/Client.cpp
+    ${path_Jmap}/Settings.cpp
+    ${path_Jmap}/Submission.cpp
+    ${path_Jmap}/SyncJob.cpp
 )
 
 set(path_Cryptography ${CMAKE_CURRENT_SOURCE_DIR}/src/Cryptography)
@@ -438,6 +496,8 @@ endif()
 set(path_DesktopGui ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui)
 set(libDesktopGui_SOURCES
     ${path_DesktopGui}/AccountSidebar.cpp
+    ${path_DesktopGui}/AddAccountDialog.cpp
+    ${path_DesktopGui}/AgendaPanel.cpp
     ${path_DesktopGui}/AttachmentPanel.cpp
     ${path_DesktopGui}/CapabilityActionGate.cpp
     ${path_DesktopGui}/ContactPanel.cpp
@@ -450,16 +510,21 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/EmbeddedPanel.cpp
     ${path_DesktopGui}/EmbeddedPanelsMenu.cpp
     ${path_DesktopGui}/ExternalElementsWidget.cpp
+    ${path_DesktopGui}/FileChooser.cpp
     ${path_DesktopGui}/FlowLayout.cpp
     ${path_DesktopGui}/FromAddressProxyModel.cpp
     ${path_DesktopGui}/InlineNotificationBar.cpp
     ${path_DesktopGui}/LineEdit.cpp
+    ${path_DesktopGui}/LinkTarget.cpp
+    ${path_DesktopGui}/MailSafetyPrompt.cpp
     ${path_DesktopGui}/MailBoxTreeView.cpp
     ${path_DesktopGui}/MailboxPickerDialog.cpp
+    ${path_DesktopGui}/RemoteAttachmentFetcher.cpp
     ${path_DesktopGui}/SearchBuilderDialog.cpp
     ${path_DesktopGui}/SavedSearchFolders.cpp
     ${path_DesktopGui}/SearchFoldersDialog.cpp
     ${path_DesktopGui}/SavedFilesSearchDialog.cpp
+    ${path_DesktopGui}/StartAfterLogin.cpp
     ${path_DesktopGui}/SearchIndexDialog.cpp
     ${path_DesktopGui}/SearchResultsPanel.cpp
     ${path_DesktopGui}/MessageActionHandler.cpp
@@ -472,6 +537,8 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/OnePanelAtTimeWidget.cpp
     ${path_DesktopGui}/OverlayWidget.cpp
     ${path_DesktopGui}/PasswordDialog.cpp
+    ${path_DesktopGui}/JmapSyncer.cpp
+    ${path_DesktopGui}/Pop3Fetcher.cpp
     ${path_DesktopGui}/ProgressPopUp.cpp
     ${path_DesktopGui}/ProtocolLoggerWidget.cpp
     ${path_DesktopGui}/ReaderActionBar.cpp
@@ -482,6 +549,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/ShellHeader.cpp
     ${path_DesktopGui}/ShortcutOverviewDialog.cpp
     ${path_DesktopGui}/Spinner.cpp
+    ${path_DesktopGui}/StateColors.cpp
     ${path_DesktopGui}/TagAddDialog.cpp
     ${path_DesktopGui}/TagHandler.cpp
     ${path_DesktopGui}/TagListWidget.cpp
@@ -605,6 +673,7 @@ set(libImap_SOURCES
     ${path_Imap}/Tasks/ExpungeMessagesTask.cpp
     ${path_Imap}/Tasks/Fake_ListChildMailboxesTask.cpp
     ${path_Imap}/Tasks/Fake_OpenConnectionTask.cpp
+    ${path_Imap}/Tasks/FetchGmailLabelsTask.cpp
     ${path_Imap}/Tasks/FetchMsgMetadataTask.cpp
     ${path_Imap}/Tasks/FetchMsgPartTask.cpp
     ${path_Imap}/Tasks/GenUrlAuthTask.cpp
@@ -732,11 +801,26 @@ target_link_libraries(UiUtils
     PUBLIC
         Qt::Core
         Qt::Gui
+        Qt::Network
         Imap
         Plugins
 )
+
 if(WITH_DESKTOP)
-    target_link_libraries(UiUtils PRIVATE KF6::ConfigCore)
+    add_library(DesktopServices STATIC ${libDesktopServices_SOURCES})
+    set_property(TARGET DesktopServices APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+    target_link_libraries(DesktopServices
+        PUBLIC
+            Qt::Core
+            Qt::DBus
+            Imap
+            UiUtils
+        PRIVATE
+            KF6::ConfigCore
+    )
+    if(WITH_AKONADI_CALENDAR)
+        target_link_libraries(DesktopServices PRIVATE KPim6::AkonadiCalendar KF6::CalendarCore KPim6::AkonadiCore)
+    endif()
 endif()
 
 add_library(Streams STATIC ${libStreams_SOURCES})
@@ -754,6 +838,29 @@ target_link_libraries(Streams
         Imap
 )
 
+add_library(LocalMail STATIC ${libLocalMail_SOURCES})
+set_property(TARGET LocalMail APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+target_link_libraries(LocalMail
+    PUBLIC
+        Qt::Core
+        Qt::Sql
+        Streams
+    PRIVATE
+        Common
+        Imap
+)
+
+add_library(Pop3 STATIC ${libPop3_SOURCES})
+set_property(TARGET Pop3 APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+target_link_libraries(Pop3
+    PUBLIC
+        Qt::Core
+        Qt::Network
+        LocalMail
+    PRIVATE
+        Common
+)
+
 add_library(IPC STATIC ${libIPC_SOURCES})
 set_property(TARGET IPC APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
 if(WITH_DBUS)
@@ -763,6 +870,8 @@ if(WITH_DBUS)
         PRIVATE
             Qt::DBus
             DesktopGui
+            DesktopServices
+            KF6::ConfigCore
     )
 else()
     target_link_libraries(IPC
@@ -775,6 +884,18 @@ target_link_libraries(qwwsmtpclient
     PUBLIC
         Qt::Core
         Qt::Network
+)
+
+add_library(Jmap STATIC ${libJmap_SOURCES})
+set_property(TARGET Jmap APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+target_link_libraries(Jmap
+    PUBLIC
+        Qt::Core
+        Qt::Network
+        LocalMail
+        MSA
+    PRIVATE
+        Common
 )
 
 add_library(MSA STATIC ${libMSA_SOURCES})
@@ -798,6 +919,7 @@ target_link_libraries(Composer
         Common
         Imap
     PRIVATE
+        Qt::Network
         MSA
         UiUtils
 )
@@ -815,6 +937,7 @@ target_link_libraries(Imap
     PRIVATE
         Qt::Gui
         KF6::ItemModels
+        LocalMail
         OAuth
         Streams
 )
@@ -925,11 +1048,13 @@ if(WITH_AKONADIADDRESSBOOK_PLUGIN)
     set(libAkonadiAddressbook_HEADERS
         ${path_AkonadiAddressbook}/AkonadiAddressbook.h
         ${path_AkonadiAddressbook}/AkonadiAddressbookCompletionJob.h
+        ${path_AkonadiAddressbook}/AkonadiAddressbookContactJob.h
         ${path_AkonadiAddressbook}/AkonadiAddressbookNamesJob.h
     )
     set(libAkonadiAddressbook_SOURCES
         ${path_AkonadiAddressbook}/AkonadiAddressbook.cpp
         ${path_AkonadiAddressbook}/AkonadiAddressbookCompletionJob.cpp
+        ${path_AkonadiAddressbook}/AkonadiAddressbookContactJob.cpp
         ${path_AkonadiAddressbook}/AkonadiAddressbookNamesJob.cpp
     )
 
@@ -937,6 +1062,7 @@ if(WITH_AKONADIADDRESSBOOK_PLUGIN)
     target_link_libraries(trojita_plugin_AkonadiAddressbookPlugin
         PUBLIC
             KPim6::AkonadiContactCore
+            KPim6::AkonadiContactWidgets
     )
     set_property(TARGET trojita_plugin_AkonadiAddressbookPlugin APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
 endif()
@@ -972,15 +1098,21 @@ if(WITH_DESKTOP)
             Qt::Widgets
             Common
             Composer
+            DesktopServices
             Imap
         PRIVATE
+            Qt::DBus
             Qt::Network
+            KF6::ColorScheme
             KF6::ConfigCore
             KF6::I18n
             KF6::KIOGui
             KF6::KIOWidgets
+            KF6::WindowSystem
             Cryptography
             IPC
+            Jmap
+            Pop3
             MSA
             OAuth
             UiUtils
@@ -1019,6 +1151,8 @@ if(WITH_DESKTOP)
             DesktopGui
             IPC
             UiUtils
+            KF6::ConfigCore
+            KF6::CoreAddons
             KF6::I18n
             ${STATIC_PLUGINS}
     )
@@ -1031,6 +1165,32 @@ if(WITH_DESKTOP)
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/docs/old/trojita.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
 endif()
 
+if(WITH_PLASMA_WIDGETS)
+    # Shared views and the D-Bus client for the status and ticker widgets; see docs/integrations/kde-plasma.md
+    include(ECMQmlModule)
+    # Plasma loads the module as a plugin, so it is shared even though the application's libraries are static
+    set(plasma_widgets_shared_libs ${BUILD_SHARED_LIBS})
+    set(BUILD_SHARED_LIBS ON)
+    ecm_add_qml_module(PlasmaImpresarioWidgets URI "io.github.mikepadiernos.plasmaimpresario" GENERATE_PLUGIN_SOURCE)
+    set(BUILD_SHARED_LIBS ${plasma_widgets_shared_libs})
+    target_sources(PlasmaImpresarioWidgets PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/PlasmaWidgets/MailStatusClient.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/PlasmaWidgets/MailStatusClient.h)
+    set(plasma_widgets_qml AccountChooser.qml MailTicker.qml StatusSummary.qml)
+    foreach(plasma_widgets_file ${plasma_widgets_qml})
+        set_source_files_properties(src/PlasmaWidgets/qml/${plasma_widgets_file} PROPERTIES QT_RESOURCE_ALIAS ${plasma_widgets_file})
+        ecm_target_qml_sources(PlasmaImpresarioWidgets SOURCES src/PlasmaWidgets/qml/${plasma_widgets_file})
+    endforeach()
+    target_compile_definitions(PlasmaImpresarioWidgets PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+    # The generated type registration includes the client's header by its file name
+    target_include_directories(PlasmaImpresarioWidgets PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/PlasmaWidgets)
+    target_link_libraries(PlasmaImpresarioWidgets PRIVATE Qt6::Quick Qt6::DBus KF6::WindowSystem KF6::KIOGui KF6::Service)
+    ecm_finalize_qml_module(PlasmaImpresarioWidgets DESTINATION ${KDE_INSTALL_QMLDIR})
+    install(DIRECTORY
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/PlasmaWidgets/applets/io.github.mikepadiernos.plasma_impresario.status
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/PlasmaWidgets/applets/io.github.mikepadiernos.plasma_impresario.ticker
+        DESTINATION ${KDE_INSTALL_DATADIR}/plasma/plasmoids)
+endif()
 
 if(WITH_SHARED_PLUGINS)
     install(TARGETS Plugins DESTINATION ${CMAKE_INSTALL_LIBDIR})
@@ -1065,6 +1225,11 @@ if(WITH_DESKTOP)
         install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/InstallDesktopLaunchers.cmake" COMPONENT DesktopLaunchers)
     endif()
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/io.github.mikepadiernos.plasma_impresario.metainfo.xml DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/metainfo/")
+    if(WITH_DBUS)
+        # Plasma Search asks the running application; the setting in the application decides whether it answers
+        install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/plasma-runner-plasma-impresario.desktop
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/krunner/dbusplugins/")
+    endif()
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/plasma-impresario.svg DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps/")
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/plasma-impresario.svg DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps/"
         RENAME io.github.mikepadiernos.plasma_impresario.svg COMPONENT ApplicationIcon)
@@ -1110,6 +1275,7 @@ if(BUILD_TESTING)
                 Composer
                 Cryptography
                 Imap
+                LocalMail
                 MSA
                 Streams
                 test_LibMailboxSync
@@ -1129,17 +1295,27 @@ if(BUILD_TESTING)
             src/Gui/DensityDelegate.cpp src/Gui/DensityDelegate.h
             src/Gui/DensityMenu.cpp src/Gui/DensityMenu.h)
         target_compile_definitions(test_DensityMenu PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
-        target_link_libraries(test_DensityMenu PRIVATE Qt6::Widgets Qt6::Test KF6::ConfigCore KF6::I18n)
+        target_link_libraries(test_DensityMenu PRIVATE UiUtils Qt6::Widgets Qt6::Test KF6::ConfigCore KF6::I18n)
         add_executable(test_AttachmentPanel tests/Gui/test_AttachmentPanel.cpp)
         target_link_libraries(test_AttachmentPanel PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_FileChooser tests/Gui/test_FileChooser.cpp)
+        target_link_libraries(test_FileChooser PRIVATE DesktopGui Qt6::DBus Qt6::Test)
         add_executable(test_SavedFilesSearchDialog tests/Gui/test_SavedFilesSearchDialog.cpp)
         target_link_libraries(test_SavedFilesSearchDialog PRIVATE DesktopGui UiUtils Qt6::Test KF6::ConfigCore KF6::I18n)
         add_executable(test_SearchIndexDialog tests/Gui/test_SearchIndexDialog.cpp)
         target_link_libraries(test_SearchIndexDialog PRIVATE DesktopGui UiUtils Qt6::Test KF6::I18n)
+        add_executable(test_TagListWidget tests/Gui/test_TagListWidget.cpp)
+        target_link_libraries(test_TagListWidget PRIVATE DesktopGui UiUtils Qt6::Test KF6::I18n)
         add_executable(test_ReaderActionBar tests/Gui/test_ReaderActionBar.cpp)
         target_link_libraries(test_ReaderActionBar PRIVATE DesktopGui UiUtils Qt6::Test KF6::I18n)
         add_executable(test_EmbeddedPanels tests/Gui/test_EmbeddedPanels.cpp)
         target_link_libraries(test_EmbeddedPanels PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_AgendaPanel tests/Gui/test_AgendaPanel.cpp)
+        target_link_libraries(test_AgendaPanel PRIVATE DesktopGui UiUtils Qt6::Test KF6::I18n)
+        if(WITH_ABOOKADDRESSBOOK_PLUGIN STREQUAL "STATIC")
+            add_executable(test_ContactPanelAddressBook tests/Gui/test_ContactPanelAddressBook.cpp)
+            target_link_libraries(test_ContactPanelAddressBook PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        endif()
         add_executable(test_MsgListViewTeardown tests/Gui/test_MsgListViewTeardown.cpp)
         target_link_libraries(test_MsgListViewTeardown PRIVATE DesktopGui Qt6::Test KF6::I18n)
         add_executable(test_MainWindowDensity tests/Gui/test_MainWindowDensity.cpp)
@@ -1152,8 +1328,14 @@ if(BUILD_TESTING)
         target_link_libraries(test_MainWindowAccounts PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_MainWindowShell tests/Gui/test_MainWindowShell.cpp)
         target_link_libraries(test_MainWindowShell PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_Accessibility tests/Gui/test_Accessibility.cpp)
+        target_link_libraries(test_Accessibility PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ColorScheme KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_EnvelopeView tests/Gui/test_EnvelopeView.cpp)
         target_link_libraries(test_EnvelopeView PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_LinkTarget tests/Gui/test_LinkTarget.cpp)
+        target_link_libraries(test_LinkTarget PRIVATE DesktopGui UiUtils Qt6::Test KF6::I18n)
+        add_executable(test_MailSafetyPrompt tests/Gui/test_MailSafetyPrompt.cpp)
+        target_link_libraries(test_MailSafetyPrompt PRIVATE DesktopGui UiUtils Qt6::Network Qt6::Test KF6::ConfigCore KF6::I18n)
         add_executable(test_SavedSearch tests/Gui/test_SavedSearch.cpp)
         target_link_libraries(test_SavedSearch PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_ClearTextPassword tests/Gui/test_ClearTextPassword.cpp)
@@ -1167,13 +1349,16 @@ if(BUILD_TESTING)
         add_executable(test_LiveImapPanels tests/Gui/test_LiveImapPanels.cpp)
         target_link_libraries(test_LiveImapPanels PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_LiveImapCompose tests/Gui/test_LiveImapCompose.cpp)
-        target_link_libraries(test_LiveImapCompose PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        target_link_libraries(test_LiveImapCompose PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Network Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_LiveImapOperations tests/Gui/test_LiveImapOperations.cpp)
         target_link_libraries(test_LiveImapOperations PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_LiveImapSearch tests/Gui/test_LiveImapSearch.cpp)
         target_link_libraries(test_LiveImapSearch PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Network Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_InlineNotificationBar tests/Gui/test_InlineNotificationBar.cpp)
         target_link_libraries(test_InlineNotificationBar PRIVATE DesktopGui Qt6::Test KF6::I18n)
+        add_executable(test_AddAccountDialog tests/Gui/test_AddAccountDialog.cpp)
+        target_link_libraries(test_AddAccountDialog PRIVATE DesktopGui OAuth UiUtils Qt6::Test KF6::I18n)
+        set_property(TARGET test_AddAccountDialog APPEND PROPERTY INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/tests)
         add_executable(test_MessageSelectionRestorer tests/Gui/test_MessageSelectionRestorer.cpp)
         target_link_libraries(test_MessageSelectionRestorer PRIVATE DesktopGui Qt6::Test)
         add_executable(test_MessageRows tests/Gui/test_MessageRows.cpp)
@@ -1183,28 +1368,44 @@ if(BUILD_TESTING)
         add_executable(test_SessionRestart tests/Gui/test_SessionRestart.cpp)
         target_link_libraries(test_SessionRestart PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_AccountSettingsDialog tests/Gui/test_AccountSettingsDialog.cpp)
-        target_link_libraries(test_AccountSettingsDialog PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        target_link_libraries(test_AccountSettingsDialog PRIVATE AppVersion DesktopGui IPC Pop3 Jmap UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         if(NOT CMAKE_CROSSCOMPILING)
             add_test(NAME test_DensityMenu COMMAND test_DensityMenu)
             set_tests_properties(test_DensityMenu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_AttachmentPanel COMMAND test_AttachmentPanel)
             set_tests_properties(test_AttachmentPanel PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_FileChooser COMMAND test_FileChooser)
+            set_tests_properties(test_FileChooser PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_SavedFilesSearchDialog COMMAND test_SavedFilesSearchDialog)
             set_tests_properties(test_SavedFilesSearchDialog PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_SearchIndexDialog COMMAND test_SearchIndexDialog)
             set_tests_properties(test_SearchIndexDialog PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_TagListWidget COMMAND test_TagListWidget)
+            set_tests_properties(test_TagListWidget PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_ReaderActionBar COMMAND test_ReaderActionBar)
             set_tests_properties(test_ReaderActionBar PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_EmbeddedPanels COMMAND test_EmbeddedPanels)
+            add_test(NAME test_AgendaPanel COMMAND test_AgendaPanel)
+            set_tests_properties(test_AgendaPanel PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             set_tests_properties(test_EmbeddedPanels PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            if(TARGET test_ContactPanelAddressBook)
+                add_test(NAME test_ContactPanelAddressBook COMMAND test_ContactPanelAddressBook)
+                set_tests_properties(test_ContactPanelAddressBook PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            endif()
             add_test(NAME test_MsgListViewTeardown COMMAND test_MsgListViewTeardown)
             set_tests_properties(test_MsgListViewTeardown PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MailBoxTreeView COMMAND test_MailBoxTreeView)
             set_tests_properties(test_MailBoxTreeView PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MailboxNavigation COMMAND test_MailboxNavigation)
             set_tests_properties(test_MailboxNavigation PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_Accessibility COMMAND test_Accessibility)
+            set_tests_properties(test_Accessibility PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_EnvelopeView COMMAND test_EnvelopeView)
             set_tests_properties(test_EnvelopeView PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_LinkTarget COMMAND test_LinkTarget)
+            set_tests_properties(test_LinkTarget PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_MailSafetyPrompt COMMAND test_MailSafetyPrompt)
+            set_tests_properties(test_MailSafetyPrompt PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_SavedSearch COMMAND test_SavedSearch)
             set_tests_properties(test_SavedSearch PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_ClearTextPassword COMMAND test_ClearTextPassword)
@@ -1212,6 +1413,8 @@ if(BUILD_TESTING)
             set_tests_properties(test_PasswordBackend PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_InlineNotificationBar COMMAND test_InlineNotificationBar)
             set_tests_properties(test_InlineNotificationBar PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_AddAccountDialog COMMAND test_AddAccountDialog)
+            set_tests_properties(test_AddAccountDialog PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MessageSelectionRestorer COMMAND test_MessageSelectionRestorer)
             set_tests_properties(test_MessageSelectionRestorer PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MessageRows COMMAND test_MessageRows)
@@ -1224,6 +1427,7 @@ if(BUILD_TESTING)
                 set(reader_account_cases focusFollowsScreenOrder escapeReturnsToMessageList findMovesToSearchOrFindsInMessage)
             endif()
             foreach(account_case ${reader_account_cases} migratesSingleProfileIntoFirstAccount switchingKeepsAccountsIndependent backgroundAccountStatusIsShown
+                    systemSleepReachesEveryAccount
                     removingAccountDeletesItsSettingsAndPasswords accountsSwitchFromTheKeyboard
                     savedSearchesAndFolderExpansionFollowTheAccount savedSearchesAreVirtualFoldersOfEveryAccount
                     savedSearchesCanBeManaged
@@ -1242,7 +1446,8 @@ if(BUILD_TESTING)
             foreach(shell_case capabilityGateHidesOnlyUnsupportedActions unsupportedActionsFollowTheActiveAccount
                     sidebarShowsHeadersOnlyForSeveralAccounts sidebarGroupsAccountsInTheWindow sidebarHeaderMenuActsOnItsAccount
                     headerRegionIsOptional headerShowsFolderAndStatus legacyCompactPaneSizesCarryOver
-                    legacyWidePaneSizesCarryOver)
+                    legacyWidePaneSizesCarryOver closingQuitsByDefault closingHidesWhenRunningInBackground
+                    requestsBringTheirWindowForward sessionEndSavesUnsentMessages)
                 add_test(NAME test_MainWindowShell_${shell_case} COMMAND test_MainWindowShell ${shell_case})
                 set_tests_properties(test_MainWindowShell_${shell_case} PROPERTIES
                     TIMEOUT 60
@@ -1255,7 +1460,9 @@ if(BUILD_TESTING)
                     accountSettingsEditOnlyTheActiveAccount cancellingAccountSettingsKeepsTheAccount
                     addingAnAccountOpensItsAccountSettings clientSecretStaysOutOfTheSettings
                     searchIndexIsChosenPerAccount searchIndexAttachmentsAreChosenPerAccount
-                    searchIndexPrivacyIsKeptPerAccount memoryOnlyCacheLeavesNoIndex)
+                    searchIndexPrivacyIsKeptPerAccount memoryOnlyCacheLeavesNoIndex startAfterLoginNeedsBackgroundRunning
+                    plasmaSearchIsOptIn pop3AccountsHaveTheirOwnSettings jmapAccountsHaveTheirOwnSettings
+                    jmapAccountsSynchronizeWithTheServer gmailKeepsItsOwnSentCopiesAndArchiveIsAutomatic)
                 add_test(NAME test_AccountSettingsDialog_${settings_case} COMMAND test_AccountSettingsDialog ${settings_case})
                 set_tests_properties(test_AccountSettingsDialog_${settings_case} PROPERTIES
                     TIMEOUT 60
@@ -1291,6 +1498,8 @@ if(BUILD_TESTING)
     endif()
     trojita_test(Composer Composer_Submission)
     trojita_test(Composer Composer_Existing)
+    trojita_test(Composer Composer_AttachmentRequests)
+    trojita_test(Composer Composer_HeaderSafety)
     trojita_test(Composer Composer_responses)
     target_link_libraries(test_Composer_responses)
     trojita_test(Composer Html_formatting)
@@ -1359,6 +1568,22 @@ if(BUILD_TESTING)
       add_dependencies(test_Cryptography_PGP crypto_test_data)
     endif()
 
+    trojita_test(Misc PrivateFiles)
+    trojita_test(LocalMail LocalMailMime)
+    trojita_test(LocalMail LocalMailStore)
+    trojita_test(LocalMail LocalImapServer)
+    trojita_test(Pop3 Pop3Fetch)
+    target_link_libraries(test_Pop3Fetch PRIVATE Pop3)
+    # Opt-in, outside ctest: tools/dev-container/live-pop3.sh starts the server it needs
+    add_executable(test_LivePop3 tests/Pop3/test_LivePop3.cpp)
+    target_link_libraries(test_LivePop3 PRIVATE LocalMail Pop3 Qt6::Network Qt6::Test)
+    trojita_test(Jmap JmapSync)
+    target_link_libraries(test_JmapSync PRIVATE Jmap)
+    trojita_test(Jmap JmapSubmission)
+    target_link_libraries(test_JmapSubmission PRIVATE Jmap)
+    # Opt-in, outside ctest: tools/dev-container/live-jmap.sh starts the server it needs
+    add_executable(test_LiveJmap tests/Jmap/test_LiveJmap.cpp)
+    target_link_libraries(test_LiveJmap PRIVATE Jmap LocalMail Qt6::Network Qt6::Test)
     trojita_test(Misc Rfc5322)
     trojita_test(Misc RingBuffer)
     trojita_test(Misc SenderIdentitiesModel)
@@ -1381,6 +1606,8 @@ if(BUILD_TESTING)
     target_link_libraries(test_AttachmentCollector PRIVATE UiUtils)
     trojita_test(Misc RelatedMessages)
     target_link_libraries(test_RelatedMessages PRIVATE UiUtils)
+    trojita_test(Misc Agenda)
+    target_link_libraries(test_Agenda PRIVATE UiUtils)
     trojita_test(Misc RelatedSearch)
     target_link_libraries(test_RelatedSearch PRIVATE UiUtils)
     trojita_test(Misc MessageId)
@@ -1415,8 +1642,6 @@ if(BUILD_TESTING)
     target_link_libraries(test_SearchQuery PRIVATE UiUtils)
     trojita_test(Misc SearchScope)
     target_link_libraries(test_SearchScope PRIVATE UiUtils)
-    trojita_test(Misc SavedSearches)
-    target_link_libraries(test_SavedSearches PRIVATE UiUtils KF6::ConfigCore)
     trojita_test(Misc SearchSuggestions)
     target_link_libraries(test_SearchSuggestions PRIVATE UiUtils)
     trojita_test(Misc SearchSupport)
@@ -1428,12 +1653,142 @@ if(BUILD_TESTING)
     target_link_libraries(test_SearchResultsModel PRIVATE UiUtils)
     trojita_test(Misc LinkSafety)
     target_link_libraries(test_LinkSafety PRIVATE UiUtils)
-    if(WITH_DESKTOP)
-        trojita_test(Misc DestructiveActions)
-        target_link_libraries(test_DestructiveActions PRIVATE UiUtils KF6::ConfigCore)
-        trojita_test(Misc FileSearch)
-        target_link_libraries(test_FileSearch PRIVATE UiUtils KF6::ConfigCore)
+    trojita_test(Misc MailSafety)
+    target_link_libraries(test_MailSafety PRIVATE UiUtils)
+    trojita_test(Misc ClamdScanner)
+    target_link_libraries(test_ClamdScanner PRIVATE UiUtils Qt6::Network)
+    trojita_test(Misc ServerDiscovery)
+    target_link_libraries(test_ServerDiscovery PRIVATE UiUtils Qt6::Network)
+    trojita_test(Misc ActivationToken)
+    target_link_libraries(test_ActivationToken PRIVATE UiUtils)
+    trojita_test(Misc Color)
+    target_link_libraries(test_Color PRIVATE UiUtils)
+    trojita_test(Misc AccountNotices)
+    target_link_libraries(test_AccountNotices PRIVATE UiUtils)
+    if(WITH_DBUS)
+        add_executable(test_KRunnerBridge tests/Misc/test_KRunnerBridge.cpp src/IPC/KRunnerBridge.cpp src/IPC/KRunnerBridge.h)
+        target_compile_definitions(test_KRunnerBridge PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+        target_include_directories(test_KRunnerBridge PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+        target_link_libraries(test_KRunnerBridge PRIVATE Qt6::DBus Qt6::Test)
+        if(NOT CMAKE_CROSSCOMPILING)
+            add_test(test_KRunnerBridge test_KRunnerBridge)
+        endif()
+        add_executable(test_MailStatusBridge tests/Misc/test_MailStatusBridge.cpp src/IPC/MailStatusBridge.cpp src/IPC/MailStatusBridge.h)
+        target_compile_definitions(test_MailStatusBridge PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+        target_include_directories(test_MailStatusBridge PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+        target_link_libraries(test_MailStatusBridge PRIVATE Qt6::DBus Qt6::Test)
+        if(NOT CMAKE_CROSSCOMPILING)
+            add_test(test_MailStatusBridge test_MailStatusBridge)
+        endif()
     endif()
+    if(WITH_PLASMA_WIDGETS)
+        # The client against a fake application on a private session bus
+        add_executable(test_MailStatusClient tests/PlasmaWidgets/test_MailStatusClient.cpp
+            src/PlasmaWidgets/MailStatusClient.cpp src/PlasmaWidgets/MailStatusClient.h
+            src/IPC/MailStatusBridge.cpp src/IPC/MailStatusBridge.h)
+        target_compile_definitions(test_MailStatusClient PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+        target_include_directories(test_MailStatusClient PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+        target_link_libraries(test_MailStatusClient PRIVATE Qt6::DBus Qt6::Qml Qt6::Gui KF6::WindowSystem KF6::KIOGui KF6::Service Qt6::Test)
+        find_program(DBUS_RUN_SESSION dbus-run-session)
+        if(NOT CMAKE_CROSSCOMPILING)
+            if(DBUS_RUN_SESSION)
+                add_test(NAME test_MailStatusClient COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_MailStatusClient>)
+            else()
+                add_test(NAME test_MailStatusClient COMMAND test_MailStatusClient)
+            endif()
+        endif()
+        if(Qt6QuickTest_FOUND)
+            # The shared views with a fake client
+            add_executable(test_PlasmaWidgetViews tests/PlasmaWidgets/test_PlasmaWidgetViews.cpp)
+            target_compile_definitions(test_PlasmaWidgetViews PRIVATE QUICK_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/PlasmaWidgets")
+            target_link_libraries(test_PlasmaWidgetViews PRIVATE Qt6::QuickTest)
+            add_dependencies(test_PlasmaWidgetViews PlasmaImpresarioWidgets)
+            if(NOT CMAKE_CROSSCOMPILING)
+                add_test(NAME test_PlasmaWidgetViews COMMAND test_PlasmaWidgetViews -import ${CMAKE_BINARY_DIR}/bin)
+                set_tests_properties(test_PlasmaWidgetViews PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            endif()
+        endif()
+    endif()
+    if(WITH_DESKTOP)
+        trojita_test(Misc SavedSearches)
+        target_link_libraries(test_SavedSearches PRIVATE DesktopServices KF6::ConfigCore)
+        trojita_test(Misc DestructiveActions)
+        target_link_libraries(test_DestructiveActions PRIVATE DesktopServices KF6::ConfigCore)
+        trojita_test(Misc FileSearch)
+        target_link_libraries(test_FileSearch PRIVATE DesktopServices KF6::ConfigCore)
+        trojita_test(Misc BackgroundRunning)
+        target_link_libraries(test_BackgroundRunning PRIVATE DesktopServices KF6::ConfigCore)
+        trojita_test(Misc PlasmaSearch)
+        target_link_libraries(test_PlasmaSearch PRIVATE DesktopServices KF6::ConfigCore)
+        trojita_test(Misc DesktopFeedback)
+        target_link_libraries(test_DesktopFeedback PRIVATE DesktopServices KF6::ConfigCore Qt6::DBus)
+        trojita_test(Misc SleepMonitor)
+        target_link_libraries(test_SleepMonitor PRIVATE DesktopServices Qt6::DBus)
+        trojita_test(Misc MailStatus)
+        target_link_libraries(test_MailStatus PRIVATE DesktopServices KF6::ConfigCore)
+    endif()
+
+    # The mail core neither includes nor links KDE desktop services; see docs/integrations/kde-plasma.md
+    set(boundary_core_targets AppVersion Common Composer Cryptography Imap Jmap LocalMail MSA OAuth Plugins Pop3 Streams UiUtils
+        qwwsmtpclient)
+    set(boundary_links "")
+    foreach(boundary_target ${boundary_core_targets})
+        string(APPEND boundary_links "${boundary_target}=$<JOIN:$<TARGET_PROPERTY:${boundary_target},LINK_LIBRARIES>,|>\n")
+    endforeach()
+    file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ArchitectureBoundaries-links.txt CONTENT "${boundary_links}")
+    set(boundary_desktop_sources "")
+    foreach(boundary_source ${libDesktopServices_SOURCES} ${path_UiUtils}/AkonadiAgendaSource.cpp)
+        file(RELATIVE_PATH boundary_relative ${CMAKE_CURRENT_SOURCE_DIR} ${boundary_source})
+        list(APPEND boundary_desktop_sources ${boundary_relative})
+    endforeach()
+    list(REMOVE_DUPLICATES boundary_desktop_sources)
+    string(REPLACE ";" "|" boundary_desktop_sources "${boundary_desktop_sources}")
+    add_test(NAME test_ArchitectureBoundaries
+        COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+            -DLINKS_FILE=${CMAKE_CURRENT_BINARY_DIR}/ArchitectureBoundaries-links.txt
+            "-DDESKTOP_SOURCES=${boundary_desktop_sources}"
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckArchitectureBoundaries.cmake)
+    # The check itself, on fixtures: allowed libraries, exempt files and plugins pass; violations are named
+    set(boundary_fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/ArchitectureBoundaries)
+    foreach(boundary_case "clean;clean-links.txt;Mail core is free of desktop services: 1 sources checked"
+            "source-violation;clean-links.txt;src/Imap/Violation.cpp includes a desktop service: #  include <KConfigGroup>"
+            "clean;link-violation.txt;Imap links the desktop service KF6::ConfigCore.*UiUtils links the integration target DesktopServices.*Composer links the desktop service Qt6::DBus")
+        list(GET boundary_case 0 boundary_tree)
+        list(GET boundary_case 1 boundary_links_fixture)
+        list(GET boundary_case 2 boundary_expected)
+        string(REGEX REPLACE "\\.txt$" "" boundary_name "${boundary_tree}_${boundary_links_fixture}")
+        add_test(NAME test_ArchitectureBoundaries_${boundary_name}
+            COMMAND ${CMAKE_COMMAND}
+                -DSOURCE_DIR=${boundary_fixtures}/${boundary_tree}
+                -DLINKS_FILE=${boundary_fixtures}/${boundary_links_fixture}
+                -DDESKTOP_SOURCES=src/UiUtils/Exempt.cpp
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckArchitectureBoundaries.cmake)
+        set_tests_properties(test_ArchitectureBoundaries_${boundary_name} PROPERTIES PASS_REGULAR_EXPRESSION "${boundary_expected}")
+    endforeach()
+
+    # Every source file which sends something out of the application is in the reviewed register; see
+    # docs/integrations/external-services.md
+    add_test(NAME test_ExternalExposure
+        COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+            -DREGISTER=${CMAKE_CURRENT_SOURCE_DIR}/docs/integrations/external-services.md
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckExternalExposure.cmake)
+    # The check itself, on fixtures: a matching register passes, comments and bundled code are ignored, and
+    # missing and stale entries are named
+    set(exposure_fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/ExternalExposure)
+    foreach(exposure_case "clean;External exposure register matches the sources: 1 of 2 sources send something out"
+            "missing;src/Net/Fetch.cpp sends something out of the application [(]line 6: QNetworkRequest request,[)] but is not in the register"
+            "stale;src/Net/Quiet.cpp is in the register but sends nothing out of the application")
+        list(GET exposure_case 0 exposure_name)
+        list(GET exposure_case 1 exposure_expected)
+        add_test(NAME test_ExternalExposure_${exposure_name}
+            COMMAND ${CMAKE_COMMAND}
+                -DSOURCE_DIR=${exposure_fixtures}/tree
+                -DREGISTER=${exposure_fixtures}/register-${exposure_name}.txt
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckExternalExposure.cmake)
+        set_tests_properties(test_ExternalExposure_${exposure_name} PROPERTIES PASS_REGULAR_EXPRESSION "${exposure_expected}")
+    endforeach()
 
 endif()
 

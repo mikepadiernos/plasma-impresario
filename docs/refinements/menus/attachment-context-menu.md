@@ -53,7 +53,7 @@ desktop file handling available while keeping the user aware of potential risk.
 | Add to notes           | —        | ![Planned][planned]                                         |                                                                       |
 | Forward as attachment  | —        | ![Planned][planned]                                         | **Forward** sends the whole message as an attachment                  |
 | Inspect security state | —        | ![Planned][planned]                                         |                                                                       |
-| Scan with ClamAV       | —        | ![Planned][planned]                                         | No ClamAV integration exists in `src/`                                |
+| Scan with ClamAV       | —        | ![Planned][planned]                                         | **Open** scans when turned on in the settings; no separate action     |
 
 ## Current menu
 

@@ -89,9 +89,11 @@ private:
     void findScrollParent();
     void loadColorScheme();
     void setColorScheme(const ColorScheme colorScheme);
+protected slots:
+    /** Opens a link from the message, asking first if it may not go where it appears to */
+    void slotLinkClicked(const QUrl &url, const QString &text);
 private slots:
     void autoScroll();
-    void slotLinkClicked(const QUrl &url, const QString &text);
     void handlePageLoadFinished(bool success);
 private:
     WebEngineMessagePage *m_page;

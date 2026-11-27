@@ -27,6 +27,7 @@
 #include <QPersistentModelIndex>
 #include <QPointer>
 #include <QSharedPointer>
+#include <QUrl>
 #include "Composer/ContentDisposition.h"
 
 namespace Imap {
@@ -172,6 +173,33 @@ private:
     QString fileName;
     QString preferredName;
     mutable QByteArray m_cachedMime;
+};
+
+/** @short A file on another computer, attached from a private local copy once that has been fetched
+
+Until setFetched() is called the item is not available, so the message cannot be sent without it. The copy, and the
+folder created for it, are removed together with the item, as soon as the message being composed no longer needs them.
+*/
+class RemoteFileAttachmentItem: public FileAttachmentItem {
+public:
+    RemoteFileAttachmentItem(const QUrl &source, const QString &localCopy, const QString &copiesFolder);
+    ~RemoteFileAttachmentItem() override;
+    QString caption() const override;
+    QString tooltip() const override;
+    QByteArray mimeType() const override;
+    QSharedPointer<QIODevice> rawData() const override;
+    bool isAvailableLocally() const override;
+
+    QUrl source() const;
+    QString localCopy() const;
+    bool isFetched() const;
+    void setFetched();
+
+private:
+    QUrl m_source;
+    QString m_localCopy;
+    QString m_copiesFolder;
+    bool m_fetched = false;
 };
 
 }

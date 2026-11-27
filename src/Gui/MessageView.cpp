@@ -42,6 +42,7 @@
 #include "Gui/EnvelopeView.h"
 #include "Gui/ExternalElementsWidget.h"
 #include "Gui/InlineNotificationBar.h"
+#include "Gui/MailSafetyPrompt.h"
 #include "Gui/OverlayWidget.h"
 #include "Gui/PartWidgetFactoryVisitor.h"
 #include "Gui/ShortcutHandler/ShortcutHandler.h"
@@ -55,6 +56,8 @@
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/NetworkWatcher.h"
 #include "Imap/Model/SearchIndexer.h"
+#include "Imap/Model/SpecialFlagNames.h"
+#include "Imap/Tasks/ImapTask.h"
 #include "Imap/Model/Utils.h"
 #include "Imap/Network/MsgPartNetAccessManager.h"
 #include "Plugins/PluginManager.h"
@@ -62,6 +65,34 @@
 
 namespace Gui
 {
+
+namespace {
+
+/** @short The message's Gmail labels, without the one that names the folder it is shown in */
+QStringList visibleGmailLabels(const QModelIndex &message)
+{
+    const QStringList labels = message.data(Imap::Mailbox::RoleMessageGmailLabels).toStringList();
+    if (labels.isEmpty())
+        return labels;
+    const QString mailbox = message.data(Imap::Mailbox::RoleMailboxName).toString();
+    const auto *model = qobject_cast<const Imap::Mailbox::Model *>(message.model());
+    using Imap::Mailbox::SpecialUse;
+    const SpecialUse kind = model ? model->mailboxSpecialUse(mailbox) : SpecialUse::None;
+    QStringList out;
+    for (const QString &label : labels) {
+        const QString system = label.startsWith(QLatin1Char('\\')) ? label.mid(1).toLower() : QString();
+        const bool namesThisFolder = label == mailbox
+            || (system == QLatin1String("inbox") && kind == SpecialUse::Inbox)
+            || (system == QLatin1String("sent") && kind == SpecialUse::Sent)
+            || (system == QLatin1String("trash") && kind == SpecialUse::Trash)
+            || (system == QLatin1String("spam") && kind == SpecialUse::Junk);
+        if (!namesThisFolder)
+            out << label;
+    }
+    return out;
+}
+
+}
 
 MessageView::MessageView(QWidget *parent, QSettings *settings, Plugins::PluginManager *pluginManager,
         Imap::Mailbox::FavoriteTagsModel *m_favoriteTags)
@@ -142,6 +173,13 @@ MessageView::MessageView(QWidget *parent, QSettings *settings, Plugins::PluginMa
     auto fullMsgLayout = new QVBoxLayout(m_messageWidget);
     m_stack->addWidget(m_messageWidget);
 
+    m_junkBanner = new InlineNotificationBar(m_messageWidget);
+    m_junkBanner->setObjectName(QStringLiteral("junkBanner"));
+    m_junkBanner->setAccessibleName(i18nc("@info:accessible", "Junk warning"));
+    m_junkBanner->hide();
+    connect(m_junkBanner, &InlineNotificationBar::dismissed, this, [this]() { m_junkBannerClosed = true; });
+    fullMsgLayout->addWidget(m_junkBanner);
+
     m_envelope = new EnvelopeView(m_messageWidget, pluginManager);
     fullMsgLayout->addWidget(m_envelope, 1);
 
@@ -197,6 +235,8 @@ void MessageView::unsetPreviousMessage()
     m_highlightPart = nullptr;
     m_failedParts.clear();
     m_partErrors->hide();
+    m_junkBanner->hide();
+    m_junkBannerClosed = false;
     message = QModelIndex();
     markAsReadTimer->stop();
     if (auto w = bodyWidget()) {
@@ -313,10 +353,15 @@ void MessageView::showMessageNow()
     m_envelope->setMessage(message);
 
     auto updateTagList = [this]() {
+        tags->setLabelList(visibleGmailLabels(message));
         tags->setTagList(m_taghandler.tags(message));
+        updateJunkBanner();
     };
     connect(messageModel, &QAbstractItemModel::dataChanged, this, updateTagList);
     updateTagList();
+    // Labels change without notice, so they are asked for again each time the message is shown
+    if (auto *model = const_cast<Imap::Mailbox::Model *>(qobject_cast<const Imap::Mailbox::Model *>(message.model())))
+        model->requestGmailLabels(message);
 
     UiUtils::PartLoadingOptions loadingMode;
     if (m_settings->value(Common::SettingsNames::guiPreferPlaintextRendering, QVariant(true)).toBool())
@@ -347,6 +392,42 @@ void MessageView::clearWaitingConns()
         disconnect(conn);
     }
     m_waitingMessageConns.clear();
+}
+
+void MessageView::updateJunkBanner()
+{
+    const bool junk = message.isValid()
+        && UiUtils::MailSafety::junkVerdict(message.data(Imap::Mailbox::RoleMessageFlags).toStringList())
+            == UiUtils::MailSafety::JunkVerdict::Junk;
+    if (!junk) {
+        m_junkBanner->hide();
+        return;
+    }
+    if (!m_junkBanner->isHidden() || m_junkBannerClosed)
+        return;
+    m_junkBanner->showWarning(MailSafetyPrompt::junkBannerText(),
+                              {{i18nc("@action:button", "Not Junk"), QStringLiteral("mail-mark-notjunk"), QStringLiteral("junkBannerNotJunk"),
+                                [this]() { markAsNotJunk(); }}});
+}
+
+void MessageView::markAsNotJunk()
+{
+    if (!message.isValid())
+        return;
+    auto *model = const_cast<Imap::Mailbox::Model *>(dynamic_cast<const Imap::Mailbox::Model *>(message.model()));
+    if (!model)
+        return;
+    const QPersistentModelIndex overridden = message;
+    for (auto *task : {model->setMessageFlags({message}, Imap::Mailbox::FlagNames::junk, Imap::Mailbox::FLAG_REMOVE),
+                       model->setMessageFlags({message}, Imap::Mailbox::FlagNames::notjunk, Imap::Mailbox::FLAG_ADD)}) {
+        if (!task)
+            continue;
+        connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, overridden](const QString &error) {
+            if (message != overridden)
+                return;
+            m_junkBanner->showError(i18nc("@info", "Could not mark the message as not junk: %1", error));
+        });
+    }
 }
 
 void MessageView::markAsRead()
@@ -613,8 +694,7 @@ void MessageView::partContextMenuRequested(const QPoint &point)
 void MessageView::partLinkHovered(const QString &link, const QString &title, const QString &textContent)
 {
     Q_UNUSED(title);
-    Q_UNUSED(textContent);
-    emit linkHovered(link);
+    emit linkHovered(link, textContent);
 }
 
 QSettings* MessageView::profileSettings() const

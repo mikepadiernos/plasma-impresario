@@ -4,16 +4,21 @@
 #include "Common/AccountRegistry.h"
 #include "Common/AccountStatus.h"
 #include "Common/MetaTypes.h"
+#include "Common/Paths.h"
 #include "Common/SettingsNames.h"
 #include "Gui/AccountSidebar.h"
+#include "Gui/ComposeWidget.h"
 #include "Gui/CapabilityActionGate.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MsgListView.h"
 #include "Gui/ShellHeader.h"
 #include "Gui/Window.h"
+#include "UiUtils/BackgroundRunning.h"
+#include "UiUtils/DesktopFeedback.h"
 #include "Imap/Model/AccountCapabilities.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
+#include "IPC/MainWindowBridge.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
 #include "Gui/WebEngineMessageProfile.h"
@@ -23,7 +28,12 @@
 #include <KConfigGroup>
 #include <KLocalizedString>
 #include <KSharedConfig>
+#include <QAbstractButton>
+#include <QAbstractItemView>
+#include <QAbstractSpinBox>
+#include <QAccessible>
 #include <QAction>
+#include <QComboBox>
 #include <QApplication>
 #include <QScreen>
 #include <QMenu>
@@ -35,6 +45,8 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QDialog>
+#include <QDir>
+#include <QLineEdit>
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QPushButton>
@@ -176,6 +188,30 @@ void verifyLegacyKeysRemoved(QSettings &settings, const QString &group) {
   QVERIFY(!settings.contains(Common::SettingsNames::mainHSplitterState));
   QVERIFY(!settings.contains(Common::SettingsNames::mainVSplitterState));
   settings.endGroup();
+}
+
+void verifyClose(bool background) {
+  auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+  QTemporaryDir directory;
+  QVERIFY(directory.isValid());
+  QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                     QSettings::IniFormat);
+  configureOffline(settings, QStringLiteral("work.example.test"));
+  settings.setValue(Common::SettingsNames::settingsVersion, 2);
+  // The notice about running on is answered as if told not to ask again
+  settings.setValue(Common::SettingsNames::guiOnSystrayClose,
+                    int(QMessageBox::Ok));
+  UiUtils::BackgroundRunning::setRunsInBackground(*config, background);
+  Gui::MainWindow window(&settings);
+  window.show();
+  QVERIFY(QTest::qWaitForWindowExposed(&window));
+  // Off by default, closing the last window quits, also with a tray icon
+  QCOMPARE(qApp->quitOnLastWindowClosed(), !background);
+  // In the background the close is refused and the window only hidden, so the
+  // accounts stay connected
+  QCOMPARE(window.close(), !background);
+  QVERIFY(window.isHidden());
+  UiUtils::BackgroundRunning::setRunsInBackground(*config, false);
 }
 
 } // namespace
@@ -687,6 +723,132 @@ private slots:
     verifyLegacyKeysRemoved(settings, group);
   }
 
+  void requestsBringTheirWindowForward() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                       QSettings::IniFormat);
+    configureOffline(settings, QStringLiteral("work.example.test"));
+    settings.setValue(Common::SettingsNames::settingsVersion, 2);
+    settings.setValue(Common::SettingsNames::guiShowSystray, false);
+    Gui::MainWindow window(&settings);
+    window.accountSettings()->setValue(Common::SettingsNames::msaMethodKey,
+                                       Common::SettingsNames::methodSENDMAIL);
+    window.accountSettings()->setValue(Common::SettingsNames::sendmailKey,
+                                       QStringLiteral("/bin/false"));
+    // As registered on the session bus for requests from other processes
+    auto *bridge = new IPC::MainWindowBridge(&window);
+
+    // Unusable tokens are not kept
+    bridge->setActivationToken(QStringLiteral("not a token"));
+    QVERIFY(!window.hasActivationToken());
+
+    // A launch of the application shows the hidden window and spends the token
+    QVERIFY(window.isHidden());
+    bridge->setActivationToken(QStringLiteral("launcher-token"));
+    QVERIFY(window.hasActivationToken());
+    bridge->showMainWindow();
+    QVERIFY(QTest::qWaitForWindowExposed(&window));
+    QVERIFY(!window.hasActivationToken());
+    QTRY_COMPARE(QApplication::activeWindow(), &window);
+
+    // A mailto: request brings its composer forward, not the main window
+    bridge->setActivationToken(QStringLiteral("portal-token"));
+    bridge->composeMail(QStringLiteral("mailto:bob@example.test?subject=Hello"));
+    QVERIFY(!window.hasActivationToken());
+    Gui::ComposeWidget *composer = nullptr;
+    for (QWidget *widget : QApplication::topLevelWidgets()) {
+      if (auto *found = qobject_cast<Gui::ComposeWidget *>(widget))
+        composer = found;
+    }
+    QVERIFY(composer);
+    QVERIFY(QTest::qWaitForWindowExposed(composer));
+    QTRY_COMPARE(QApplication::activeWindow(), composer);
+
+    // Plasma Search and notifications show the main window again
+    bridge->setActivationToken(QStringLiteral("runner-token"));
+    window.showMainWindow();
+    QVERIFY(!window.hasActivationToken());
+    QTRY_COMPARE(QApplication::activeWindow(), &window);
+    delete composer;
+  }
+
+  void sessionEndSavesUnsentMessages() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                       QSettings::IniFormat);
+    configureOffline(settings, QStringLiteral("work.example.test"));
+    settings.setValue(Common::SettingsNames::settingsVersion, 2);
+    settings.setValue(Common::SettingsNames::guiShowSystray, false);
+    Gui::MainWindow window(&settings);
+    window.accountSettings()->setValue(Common::SettingsNames::msaMethodKey,
+                                       Common::SettingsNames::methodSENDMAIL);
+    window.accountSettings()->setValue(Common::SettingsNames::sendmailKey,
+                                       QStringLiteral("/bin/false"));
+    const QDir drafts(Common::writablePath(Common::LOCATION_CACHE) +
+                      QLatin1String("Drafts/"));
+    const QStringList filter{QStringLiteral("*.draft")};
+    const QStringList before = drafts.entryList(filter, QDir::Files);
+    const auto newDrafts = [&]() {
+      QStringList found = drafts.entryList(filter, QDir::Files);
+      found.removeIf(
+          [&](const QString &name) { return before.contains(name); });
+      return found;
+    };
+
+    // One composer has an unsent message; another was never edited
+    auto *edited = Gui::ComposeWidget::createBlank(&window);
+    QVERIFY(edited);
+    QTest::qWait(2);
+    auto *untouched = Gui::ComposeWidget::createBlank(&window);
+    QVERIFY(untouched);
+    auto *subject = edited->findChild<QLineEdit *>(QStringLiteral("subject"));
+    QVERIFY(subject);
+    subject->setText(QStringLiteral("Unsent at logout"));
+
+    // The session ends: only the unsent message is saved, without asking
+    window.saveUnsentMessages();
+    const QStringList saved = newDrafts();
+    QCOMPARE(saved.size(), 1);
+    const QString path = drafts.filePath(saved.first());
+
+    // The draft reopens with the message
+    auto *recovered = Gui::ComposeWidget::createDraft(&window, path);
+    QVERIFY(recovered);
+    QCOMPARE(recovered->findChild<QLineEdit *>(QStringLiteral("subject"))->text(),
+             QStringLiteral("Unsent at logout"));
+    delete recovered;
+
+    // Nothing changed since, so nothing is written again
+    QVERIFY(QFile::remove(path));
+    window.saveUnsentMessages();
+    QVERIFY(newDrafts().isEmpty());
+    delete edited;
+    delete untouched;
+  }
+
+  void taskManagerShowsTheUnreadCount() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                       QSettings::IniFormat);
+    configureOffline(settings, QStringLiteral("work.example.test"));
+    settings.setValue(Common::SettingsNames::settingsVersion, 2);
+    settings.setValue(Common::SettingsNames::guiShowSystray, false);
+    auto config =
+        KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    QVERIFY(UiUtils::DesktopFeedback::showsUnreadCount(*config));
+    Gui::MainWindow window(&settings);
+    // Nothing is known offline, so the first count clears whatever an earlier
+    // run left on the task manager entry
+    QTRY_COMPARE(window.unreadCountOnTaskManager(), 0);
+  }
+
+  void closingQuitsByDefault() { verifyClose(false); }
+
+  void closingHidesWhenRunningInBackground() { verifyClose(true); }
+
   void headerShowsFolderAndStatus() {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
@@ -715,6 +877,44 @@ private slots:
     QVERIFY(header.statusText().isEmpty());
     header.setFolder(QString());
     QCOMPARE(header.contextText(), QStringLiteral("Work"));
+  }
+
+  void everyVisibleControlHasAnAccessibleName() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                       QSettings::IniFormat);
+    seedTwoAccounts(directory, settings);
+
+    Gui::MainWindow window(&settings);
+    window.resize(1200, 800);
+    window.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&window));
+
+    QStringList unnamed;
+    const auto widgets = window.findChildren<QWidget *>();
+    for (QWidget *widget : widgets) {
+      if (!widget->isVisibleTo(&window) ||
+          !(widget->focusPolicy() & Qt::TabFocus))
+        continue;
+      if (!qobject_cast<QAbstractButton *>(widget) &&
+          !qobject_cast<QLineEdit *>(widget) &&
+          !qobject_cast<QComboBox *>(widget) &&
+          !qobject_cast<QAbstractItemView *>(widget) &&
+          !qobject_cast<QAbstractSpinBox *>(widget))
+        continue;
+      QAccessibleInterface *accessible =
+          QAccessible::queryAccessibleInterface(widget);
+      if (!accessible ||
+          accessible->text(QAccessible::Name).trimmed().isEmpty())
+        unnamed << QStringLiteral("%1 \"%2\" in %3").arg(
+            QString::fromLatin1(widget->metaObject()->className()),
+            widget->objectName(),
+            QString::fromLatin1(
+                widget->parentWidget()->metaObject()->className()));
+    }
+    QVERIFY2(unnamed.isEmpty(),
+             qPrintable(unnamed.join(QStringLiteral(", "))));
   }
 };
 

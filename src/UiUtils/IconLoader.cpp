@@ -23,7 +23,7 @@
 
 #include "IconLoader.h"
 #include <QCoreApplication>
-#include <QFileInfo>
+#include <QFile>
 #include <QHash>
 
 namespace UiUtils {
@@ -49,11 +49,8 @@ static void cleanup_icon_cache()
 
 /** @short Wrapper around the QIcon::fromTheme with sane fallback
  *
- * The issue with the QIcon::fromTheme is that it does not really work on non-X11
- * platforms, unless you ship your own theme index and specify your theme name.
- * In Trojitá, we do not really want to hardcode anything, because the
- * preference is to use whatever is available from the current theme, but *also*
- * provide an icon as a fallback. And that is exactly why this function is here.
+ * The active icon theme, which Plasma sets, always wins. The bundled copy under
+ * :/icons is used only for names the theme does not have.
  * */
 QIcon loadIcon(const QString &name)
 {
@@ -61,24 +58,27 @@ QIcon loadIcon(const QString &name)
     if (it != iconDict()->constEnd())
         return *it;
 
-    auto overrideIcon = QStringLiteral(":/icons/%1/%2.svg").arg(QIcon::themeName(), name);
-    if (QFileInfo::exists(overrideIcon)) {
-        QIcon icon(overrideIcon);
-        iconDict()->insert(name, icon);
-        return icon;
-    }
-
     // A QIcon(QString) constructor creates non-null QIcons, even though the resulting icon will
     // not ever return a valid and usable pixmap. This means that we have to actually look at the
     // icon's pixmap to find out what to return.
     // If we do not do that, the GUI shows empty pixmaps instead of a text fallback, which is
     // clearly suboptimal.
-    QIcon res = QIcon::fromTheme(name, QIcon(QStringLiteral(":/icons/%1").arg(name)));
+    const QString bundled = QStringLiteral(":/icons/%1.svg").arg(name);
+    QIcon res = QIcon::fromTheme(name, QFile::exists(bundled) ? QIcon(bundled) : QIcon());
     if (res.pixmap(QSize(16, 16)).isNull()) {
         res = QIcon();
     }
     iconDict()->insert(name, res);
     return res;
+}
+
+QIcon SymbolicIcon::fromTheme(const QString &name, const QIcon &fallback)
+{
+    const QString symbolic = name + QLatin1String("-symbolic");
+    if (QIcon::hasThemeIcon(symbolic))
+        return QIcon::fromTheme(symbolic);
+    const QIcon icon = loadIcon(name);
+    return icon.isNull() ? fallback : icon;
 }
 
 }

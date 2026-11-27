@@ -1,0 +1,11 @@
+# Fixture register
+
+## Register
+
+| Destination | Sources |
+| --- | --- |
+| A server | `src/Net/Fetch.cpp` |
+
+## Elsewhere
+
+Paths outside the register section, such as `src/Net/Quiet.cpp`, do not count.

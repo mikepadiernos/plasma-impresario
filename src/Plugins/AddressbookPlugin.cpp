@@ -35,12 +35,27 @@ AddressbookNamesJob::AddressbookNamesJob(QObject *parent) : AddressbookJob(paren
 {
 }
 
+AddressbookContactJob::AddressbookContactJob(QObject *parent) : AddressbookJob(parent)
+{
+}
+
 AddressbookJob::AddressbookJob(QObject *parent) : PluginJob(parent)
 {
 }
 
 AddressbookPlugin::AddressbookPlugin(QObject *parent) : QObject(parent)
 {
+}
+
+AddressbookContactJob *AddressbookPlugin::requestContactDetails(const QString &email)
+{
+    Q_UNUSED(email);
+    return nullptr;
+}
+
+void AddressbookPlugin::addContact(const QString &email, const QString &displayName)
+{
+    openContactWindow(email, displayName);
 }
 
 }

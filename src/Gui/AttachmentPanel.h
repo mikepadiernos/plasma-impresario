@@ -55,6 +55,8 @@ public slots:
 
 signals:
     void transferError(const QString &errorString);
+    /** The current attachment was saved to @arg fileName */
+    void fileSaved(const QString &fileName);
     /** The user wants to find saved copies of an attachment named @arg fileName */
     void findSavedCopiesRequested(const QString &fileName);
     /** The number of attachments of the shown message changed, for example when its structure arrived */

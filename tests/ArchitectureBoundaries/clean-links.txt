@@ -1,0 +1,2 @@
+Imap=Qt6::Core|KF6::ItemModels|KF6::FileMetaData|UiUtils
+UiUtils=Qt6::Core|Imap

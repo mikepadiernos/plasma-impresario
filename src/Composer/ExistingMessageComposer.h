@@ -45,8 +45,9 @@ public:
     ~ExistingMessageComposer() override;
 
     bool isReadyForSerialization() const override;
-    bool asRawMessage(QIODevice *target, QString *errorMessage) const override;
-    bool asCatenateData(QList<Imap::Mailbox::CatenatePair> &target, QString *errorMessage) const override;
+    bool asRawMessage(QIODevice *target, QString *errorMessage, BccMode bcc = BccMode::Omit) const override;
+    bool asCatenateData(QList<Imap::Mailbox::CatenatePair> &target, QString *errorMessage,
+                        BccMode bcc = BccMode::Omit) const override;
     QDateTime timestamp() const override;
     QByteArray rawFromAddress() const override;
     QList<QByteArray> rawRecipientAddresses() const override;
@@ -54,7 +55,7 @@ public:
     void setFrom(const Imap::Message::MailAddress &from) override;
     void setPreloadEnabled(const bool preload) override;
 private:
-    QByteArray resentChunk() const;
+    QByteArray resentChunk(const BccMode bcc) const;
     std::unique_ptr<Imap::Mailbox::FullMessageCombiner> m_combiner;
     QPersistentModelIndex m_root;
     QString m_errorMessage;

@@ -22,6 +22,7 @@
 
 #include "UiUtils/Color.h"
 #include <QColor>
+#include <cmath>
 
 namespace UiUtils {
 
@@ -47,6 +48,52 @@ QColor tintColor(const QColor &color, const QColor &tintColor)
                            a + inv_a * color.alphaF());
     }
     return finalColor;
+}
+
+namespace {
+
+qreal linearChannel(qreal value)
+{
+    return value <= 0.04045 ? value / 12.92 : std::pow((value + 0.055) / 1.055, 2.4);
+}
+
+}
+
+qreal relativeLuminance(const QColor &color)
+{
+    const QColor rgb = color.toRgb();
+    return 0.2126 * linearChannel(rgb.redF()) + 0.7152 * linearChannel(rgb.greenF()) + 0.0722 * linearChannel(rgb.blueF());
+}
+
+qreal contrastRatio(const QColor &first, const QColor &second)
+{
+    const qreal a = relativeLuminance(first);
+    const qreal b = relativeLuminance(second);
+    return (qMax(a, b) + 0.05) / (qMin(a, b) + 0.05);
+}
+
+QColor readableTextColor(const QColor &background)
+{
+    const QColor black(Qt::black);
+    const QColor white(Qt::white);
+    return contrastRatio(black, background) >= contrastRatio(white, background) ? black : white;
+}
+
+QColor ensureContrast(const QColor &preferred, const QColor &background, qreal minimum)
+{
+    if (contrastRatio(preferred, background) >= minimum)
+        return preferred;
+    const bool darken = contrastRatio(QColor(Qt::black), background) >= contrastRatio(QColor(Qt::white), background);
+    const QColor hsl = preferred.toHsl();
+    const qreal hue = qMax<qreal>(0, hsl.hslHueF());
+    qreal lightness = hsl.lightnessF();
+    for (int step = 0; step < 20; ++step) {
+        lightness = qBound<qreal>(0, lightness + (darken ? -0.05 : 0.05), 1);
+        const QColor candidate = QColor::fromHslF(hue, hsl.hslSaturationF(), lightness, preferred.alphaF()).toRgb();
+        if (contrastRatio(candidate, background) >= minimum)
+            return candidate;
+    }
+    return readableTextColor(background);
 }
 
 }

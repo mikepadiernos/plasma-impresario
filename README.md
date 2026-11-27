@@ -93,17 +93,18 @@ As of 2026-11-26. **Done** counts roadmap features whose issues are
 [project board](https://github.com/users/mikepadiernos/projects/4); **Board**
 is the milestone's parent issue.
 
-| Milestone                                                                                | Branch | Done                                                                 | Board                       | Notes                                                                                                   |
-| ---------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------- |
-| [M01](docs/ROADMAP.md#m01-kde--qt6-compatibility-baseline) KDE / Qt 6 baseline           | `main` | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]           | Builds, installs and launches with Qt 6 and KF6                                                         |
-| [M02](docs/ROADMAP.md#m02-shell-accounts-and-core-mailbox-foundation) Shell and accounts | `main` | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]           | Checks in a real Plasma session moved to M15                                                            |
-| [M03](docs/ROADMAP.md#m03-mail-operations-sorting-and-folder-management) Mail operations | `main` | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]           | Destructive actions verified against a live server                                                      |
-| [M04](docs/ROADMAP.md#m04-reading-and-conversation-flow) Reading and conversations       | `main` | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #451](https://github.com/mikepadiernos/plasma-impresario/pull/451)                        |
-| [M05](docs/ROADMAP.md#m05-search-and-indexing) Search and indexing                       | `main` | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #455](https://github.com/mikepadiernos/plasma-impresario/pull/455)                        |
-| M06–M08: desktop integration, automation, settings                                       | —      | —                                                                    | ![Backlog][backlog]         | Not started                                                                                             |
-| [M09](docs/ROADMAP.md#m09-themes-and-branding-foundation) Themes and branding            | —      | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development] | Started with the product rename ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)) |
-| M10–M14: reliability, release, Nextcloud, Microsoft, refinements                         | —      | —                                                                    | ![Backlog][backlog]         | Not started                                                                                             |
-| [M15](docs/ROADMAP.md#m15-real-plasma-session-verification) Real Plasma session checks   | —      | ![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781)       | ![Defined][defined]         | Needs a real Plasma session                                                                             |
+| Milestone                                                                                | Branch                | Done                                                                 | Board                       | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------------------------------------------------------------------------------------- | --------------------- | -------------------------------------------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [M01](docs/ROADMAP.md#m01-kde--qt6-compatibility-baseline) KDE / Qt 6 baseline           | `main`                | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]           | Builds, installs and launches with Qt 6 and KF6                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| [M02](docs/ROADMAP.md#m02-shell-accounts-and-core-mailbox-foundation) Shell and accounts | `main`                | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]           | Checks in a real Plasma session moved to M15                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| [M03](docs/ROADMAP.md#m03-mail-operations-sorting-and-folder-management) Mail operations | `main`                | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]           | Destructive actions verified against a live server                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| [M04](docs/ROADMAP.md#m04-reading-and-conversation-flow) Reading and conversations       | `main`                | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #451](https://github.com/mikepadiernos/plasma-impresario/pull/451)                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| [M05](docs/ROADMAP.md#m05-search-and-indexing) Search and indexing                       | `main`                | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #455](https://github.com/mikepadiernos/plasma-impresario/pull/455)                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| [M06](docs/ROADMAP.md#m06-desktop-integration-and-provider-support) Desktop integration  | `feature/m06-desktop` | ![26 of 26 done](https://img.shields.io/badge/26%2F26-100%25-1a7f37) | ![Completed][completed]     | Background running, start after login, user-only local data, header hardening, link targets, Show in Folder, file handoff, remote files, Plasma Search, address book contacts, My Day, server-settings discovery, window activation, service boundaries, KDE services, portal file chooser and desktop feedback, accessibility and theming, provider guide, junk and attachment safety, external services rules, ClamAV and spam hooks, KDE system services and account lifecycle, Plasma widgets, Gmail, POP3 and JMAP done |
+| M07–M08: automation, settings                                                            | —                     | —                                                                    | ![Backlog][backlog]         | Not started                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| [M09](docs/ROADMAP.md#m09-themes-and-branding-foundation) Themes and branding            | —                     | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development] | Started with the product rename ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221))                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| M10–M14: reliability, release, Nextcloud, Microsoft, refinements                         | —                     | —                                                                    | ![Backlog][backlog]         | Not started                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| [M15](docs/ROADMAP.md#m15-real-plasma-session-verification) Real Plasma session checks   | —                     | ![0 of 4 done](https://img.shields.io/badge/0%2F4-0%25-6e7781)       | ![Defined][defined]         | Needs a real Plasma session                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 The [roadmap overview](docs/ROADMAP.md#milestones-at-a-glance) tracks every
 milestone, and [pending tasks](docs/TODO.md#in-progress) record what each one
@@ -203,7 +204,7 @@ Reading and conversation flow
 | Subjects         | Replies without links join their conversation by subject within 30 days, ignoring localized prefixes and list tags; References can merge conversations                                                                                      | ![Verified][verified]         |
 | Keyboard         | <kbd>F6</kbd> follows the screen order of panes and panels, also in right-to-left layouts; <kbd>Esc</kbd> returns from the reader or a panel to the message list                                                                            | ![Verified][verified]         |
 | Search highlight | A message opened from a quick search shows the term in the find bar; <kbd>F3</kbd> steps through the matches (key not exercised live)                                                                                                       | ![Verified][verified]         |
-| Reading privacy  | The remote-content bar names the blocked servers; deceptive links ask before opening                                                                                                                                                        | ![Verified][verified]         |
+| Reading privacy  | The remote-content bar names the blocked servers; hovering a link or opening its menu shows the full target and reasons for caution, and deceptive links ask before opening                                                                 | ![Verified][verified]         |
 | Load on demand   | Parts which cannot be loaded, for example offline, are reported in the reader and load again on reconnect or **Try Again**                                                                                                                  | ![Verified][verified]         |
 | Message security | Message Details shows the reader's signature and decryption results, with the signer, an icon and an accessible name                                                                                                                        | ![Offscreen tests][offscreen] |
 | Dark schemes     | Plain text follows the color scheme; HTML without its own background is shown on a light page                                                                                                                                               | ![Offscreen tests][offscreen] |
@@ -266,8 +267,30 @@ the disposable server, and `test_LiveImapPanels` the keyboard row.
   Settings…** are in the application menu; each account's header in the folder
   sidebar has a menu with the last three. Account Settings edits the account's
   identities, IMAP, offline and SMTP settings in its own dialog.
+- **Add Account** asks for your name and email address. **Find Settings**
+  looks up the IMAP and SMTP servers from built-in providers, the domain's
+  autoconfig file, Thunderbird's database of mail providers, DNS records and
+  common host names, without signing in. It shows where the servers came from
+  and any provider guidance, such as app passwords or OAuth sign-in, and asks
+  you to confirm servers found through unsigned DNS outside your mail domain.
+  The account settings open next so you can sign in. See
+  [Server settings discovery](docs/CAVEATS.md#server-settings-discovery).
+- [Mail providers](docs/integrations/providers.md) explains how Gmail,
+  Outlook.com, Microsoft 365, the other built-in providers and any IMAP and
+  SMTP server sign in and which server features are used. On Gmail,
+  **Archive** uses **All Mail**, sent messages are not uploaded twice, and the
+  open message shows its labels. See [Provider setup and Gmail](docs/CAVEATS.md#provider-setup-and-gmail).
+- **Add Account** can also create a POP3 account, which downloads mail into a
+  store on this computer, keeps it on the server or removes it as you choose,
+  and shows it as a single inbox. See
+  [POP3 accounts](docs/CAVEATS.md#pop3-accounts).
+- **Add Account** can also create a JMAP account, which keeps a copy of the
+  server's folders and messages on this computer, synchronizes it both ways
+  and sends through the JMAP server or SMTP. See
+  [JMAP accounts](docs/CAVEATS.md#jmap-accounts).
 - Removing an account deletes its settings, stored passwords and offline
-  cache, but not any mail on the server.
+  cache, but not any mail on the server. Removing a POP3 account also deletes
+  the mail it downloaded.
 - All accounts connect at startup. An account with a network error, a missing
   password or failed authentication shows a warning in the selector, on its
   sidebar header and in the footer, and raises one desktop notification.
@@ -305,6 +328,17 @@ the disposable server, and `test_LiveImapPanels` the keyboard row.
   other mail from the loaded list. **Search the Server**, in the panel's search
   menu, also finds them on the server in the message's folder, up to 20 folders
   of the account or chosen folders, without leaving the shown folder.
+- Contacts lists everyone in the open message once, with their roles. With an
+  address book that can describe contacts, it shows the contact's name,
+  organization and stored photo, opens known contacts and adds unknown ones;
+  nothing is looked up online. See
+  [Contacts from the address book](docs/CAVEATS.md#contacts-from-the-address-book).
+- My Day lists today's events and tasks due today or overdue from KDE PIM
+  calendars, then flagged and `$TODO` messages from the shown folder and each
+  account's search index. Events with an online meeting link offer **Join**,
+  and **Open in Calendar** starts KOrganizer or Merkuro Calendar. Without
+  calendars, it lists the messages only. See
+  [My Day calendars and follow-up mail](docs/CAVEATS.md#my-day-calendars-and-follow-up-mail).
 - **View › Show Header** adds a header above the columns with the active
   account, the folder and the account's status. It is off by default.
 - <kbd>F6</kbd> and <kbd>Shift</kbd>+<kbd>F6</kbd> move focus through the
@@ -314,6 +348,32 @@ the disposable server, and `test_LiveImapPanels` the keyboard row.
 - The Navigation toolbar docks at the left window edge by default. The menu
   bar is hidden; open the menus from the toolbar's main menu button or turn the
   bar on with **View › Show Main Menu Bar**.
+- Closing the window quits. **Settings › General › Run in the background**
+  keeps mail checked with the window closed; open it again from the tray icon
+  or the launcher. **Start after login** then starts it hidden when you log in.
+  See [desktop integration](docs/CAVEATS.md#desktop-integration).
+- The offline cache is readable only by you. An attachment opened in another
+  application is a read-only copy in the cache that is removed after a day;
+  use **Save Attachment** to keep it. See
+  [local data](docs/CAVEATS.md#local-data-and-opened-attachments).
+- After an attachment or message is saved, the notice above the message list
+  offers **Show in Folder**, which opens the folder in your file manager with
+  the file selected. See
+  [saved files](docs/CAVEATS.md#saved-files-in-the-file-manager).
+- File managers can start a message with files attached, through KDE's e-mail
+  sharing or `plasma-impresario --attach <file>`. A notice in the composer
+  names each file so you can check them before sending, and lists any that
+  could not be attached. Links inside messages cannot attach files.
+  See [handed-over files](docs/CAVEATS.md#files-handed-over-by-file-managers).
+- Files on other computers, such as `sftp:` or `smb:` URLs, can be dropped on
+  the composer, chosen with **Attach** or handed over. Each is fetched into a
+  private copy, with progress and **Cancel**, and a notice lists what was
+  fetched and what failed. Web links dropped into the text stay links. See
+  [fetched files](docs/CAVEATS.md#files-fetched-from-other-computers).
+- Line breaks pasted into a subject or name become spaces. Bcc recipients are
+  hidden from everyone who receives the message but kept in Sent and drafts,
+  and Message-IDs use your mail domain rather than the computer's name. See
+  [outgoing headers](docs/CAVEATS.md#outgoing-headers-and-bcc).
 
 ### Searching and saved searches
 
@@ -427,6 +487,14 @@ the index first. **Search Server**, next to the status line, then adds the
 messages found on the server, such as older mail the account does not keep
 offline, without listing any message twice.
 
+**Settings › General › Show indexed mail in Plasma Search** lets Plasma
+Search (KRunner) find mail in the offline search index. Every word of three or
+more letters must appear in a message's subject or sender; message text is not
+searched. Each result shows the subject, the sender and the date, and choosing
+one opens the message. The option is off by default; results come only from
+accounts with an index, and only while the app is running. See
+[Plasma Search mail](docs/CAVEATS.md#plasma-search-mail).
+
 **Mailbox › Find Saved Files…** finds attachments and messages you saved, with
 Plasma's File Search in your file manager, such as Dolphin or Plasma Opus. It
 starts in the folder you last saved to, or Downloads, and says whether File
@@ -444,18 +512,64 @@ asks before searching every folder on your mail servers, which you can stop,
 and says when no message was found. When there are several copies, the first
 one opens and the bar names the folders of the others.
 
+Requests from a launcher, a `mailto:` or `mid:` link, a file manager, Plasma
+Search or a notification go to the running window of the same profile and
+bring the window they are about to the front: the main window, or the composer
+for new mail. They pass on Plasma's activation token, so Plasma's focus
+stealing prevention lets the window come forward. Windows are never pinned to a
+virtual desktop, Activity or screen. See
+[Window activation for requests](docs/CAVEATS.md#window-activation-for-requests).
+
+When the Plasma session ends, open composers save their unsent messages as
+drafts without asking, and the next start reopens them. Attachments are not
+saved with drafts. See
+[Saving unsent messages at session end](docs/CAVEATS.md#saving-unsent-messages-at-session-end).
+
+Files to attach, drafts to edit and folders for saved-file search are chosen
+through the XDG desktop portal's file chooser, so the dialog comes from
+whichever program serves the portal, such as Plasma or, once it does, Plasma
+Opus. When no portal answers, the KDE dialog appears. Save dialogs still use
+the KDE dialog directly. See
+[Portal file chooser](docs/CAVEATS.md#portal-file-chooser).
+
+The task manager entry shows how many messages are unread in the inboxes of
+all accounts. Only the number leaves the application; turn it off under
+**Settings → General**. Feedback on the desktop never takes the focus or raises
+a window. See
+[Desktop feedback](docs/integrations/kde-plasma.md#desktop-feedback) and
+[Unread count on the task manager](docs/CAVEATS.md#unread-count-on-the-task-manager).
+
+Two optional Plasma widgets follow the running app. **Mail Status** puts an
+unread badge on the panel and, opened, lists each account's unread count and
+state with **Compose** and **Open Plasma Impresario**. **Mail Ticker** scrolls
+or pages through the newest unread mail; it pauses under the pointer, steps
+with Left and Right, and opens a message with Enter or a click.
+**Settings › General › Plasma widgets may show** chooses what they learn:
+nothing, unread counts and account status (the default), or also the senders,
+or the senders and subjects, of unread mail in accounts with an offline search
+index. See [Plasma widgets](docs/integrations/kde-plasma.md#plasma-widgets) and
+the [caveat](docs/CAVEATS.md#plasma-widgets).
+
+Icons come from the active Plasma icon theme, with symbolic variants for small
+action icons, and error, warning and success states take their colors from the
+Plasma color scheme. The main controls have names for screen readers and can
+be reached with the keyboard. See
+[Appearance and accessibility](docs/integrations/kde-plasma.md#appearance-and-accessibility)
+and [Accessibility and theming](docs/CAVEATS.md#accessibility-and-theming).
+
 ### Command line
 
-| Option                | Effect                                                  |
-| --------------------- | ------------------------------------------------------- |
-| `-p`, `--profile`     | Use a separate configuration with its own accounts      |
-| `-c`, `--compose`     | Open the composer                                       |
-| `mailto:…`            | Open the composer with the address and fields prefilled |
-| `--message-id <id>`   | Open the message with this Message-ID                   |
-| `mid:…`               | Open the message named by a `mid:` URL                  |
-| `-a`, `--addressbook` | Open the address book, when a plugin provides one       |
-| `-l`, `--log-to-disk` | Log IMAP traffic to disk from startup                   |
-| `-v`, `--version`     | Print the version                                       |
+| Option                | Effect                                                         |
+| --------------------- | -------------------------------------------------------------- |
+| `-p`, `--profile`     | Use a separate configuration with its own accounts             |
+| `-c`, `--compose`     | Open the composer                                              |
+| `mailto:…`            | Open the composer with the address and fields prefilled        |
+| `--message-id <id>`   | Open the message with this Message-ID                          |
+| `mid:…`               | Open the message named by a `mid:` URL                         |
+| `-a`, `--addressbook` | Open the address book, when a plugin provides one              |
+| `-l`, `--log-to-disk` | Log IMAP traffic to disk from startup                          |
+| `--background`        | Start without the window, when running in the background is on |
+| `-v`, `--version`     | Print the version                                              |
 
 Run `plasma-impresario --help` for the full list.
 

@@ -3,6 +3,8 @@
 */
 #include "EmbeddedPanel.h"
 
+#include "UiUtils/IconLoader.h"
+
 #include <algorithm>
 
 #include <KLocalizedString>
@@ -66,7 +68,7 @@ QString EmbeddedPanel::placementTitle(Placement placement)
 
 QIcon EmbeddedPanel::themedIcon(const QString &name)
 {
-    return QIcon::fromTheme(name + QLatin1String("-symbolic"), QIcon::fromTheme(name));
+    return UiUtils::SymbolicIcon::fromTheme(name);
 }
 
 EmbeddedPanel::EmbeddedPanel(const Descriptor &descriptor, const QString &objectName, QWidget *parent)

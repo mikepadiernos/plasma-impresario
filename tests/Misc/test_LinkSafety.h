@@ -18,6 +18,7 @@ private slots:
   void comparesSites();
   void assessesLinks_data();
   void assessesLinks();
+  void readsMailtoAddresses();
   void listsRemoteHosts();
 };
 

@@ -29,7 +29,9 @@
 #include "Imap/Model/SpecialFolder.h"
 #include "Imap/Model/Utils.h"
 #include "MsgListView.h"
+#include "UiUtils/Color.h"
 #include "UiUtils/IconLoader.h"
+#include "UiUtils/MailSafety.h"
 #include <KLocalizedString>
 #include <QApplication>
 #include <QRegularExpression>
@@ -227,6 +229,11 @@ MsgItemDelegate::RowLayout MsgItemDelegate::multiLineLayout(const QStyleOptionVi
         layout.attachment = QRect(textRight - iconSize, iconTop, iconSize, iconSize);
         textRight = layout.attachment.left() - margin / 2;
     }
+    if (UiUtils::MailSafety::junkVerdict(index.data(Imap::Mailbox::RoleMessageFlags).toStringList())
+        == UiUtils::MailSafety::JunkVerdict::Junk) {
+        layout.junk = QRect(textRight - iconSize, iconTop, iconSize, iconSize);
+        textRight = layout.junk.left() - margin / 2;
+    }
     first.setRight(qMax(first.left(), textRight - margin / 2));
 
     if (index.data(Imap::Mailbox::RoleMessageIsMarkedReplied).toBool() ||
@@ -246,7 +253,7 @@ MsgItemDelegate::RowLayout MsgItemDelegate::multiLineLayout(const QStyleOptionVi
 
     // Mirror the layout in right-to-left languages
     for (QRect *part : {&layout.readState, &layout.avatar, &layout.firstLine, &layout.date, &layout.flag, &layout.attachment,
-                        &layout.status, &layout.secondLine, &layout.source, &layout.snippet}) {
+                        &layout.junk, &layout.status, &layout.secondLine, &layout.source, &layout.snippet}) {
         if (part->isValid())
             *part = QStyle::visualRect(option.direction, rect, *part);
     }
@@ -256,10 +263,8 @@ MsgItemDelegate::RowLayout MsgItemDelegate::multiLineLayout(const QStyleOptionVi
 QIcon MsgItemDelegate::indicatorIcon(const QString &name) const
 {
     auto it = m_icons.constFind(name);
-    if (it == m_icons.constEnd()) {
-        const QString symbolic = name + QLatin1String("-symbolic");
-        it = m_icons.insert(name, QIcon::hasThemeIcon(symbolic) ? QIcon::fromTheme(symbolic) : UiUtils::loadIcon(name));
-    }
+    if (it == m_icons.constEnd())
+        it = m_icons.insert(name, UiUtils::SymbolicIcon::fromTheme(name));
     return *it;
 }
 
@@ -326,7 +331,7 @@ void MsgItemDelegate::paintMultiLineRow(QPainter *painter, const QStyleOptionVie
         badgeFont.setBold(true);
         badgeFont.setPixelSize(qMax(6, layout.avatar.height() * 2 / 5));
         painter->setFont(badgeFont);
-        painter->setPen(darkBase ? QColor(Qt::white) : QColor(Qt::black));
+        painter->setPen(UiUtils::readableTextColor(fill));
         painter->drawText(layout.avatar, Qt::AlignCenter, initials);
     }
 
@@ -352,6 +357,8 @@ void MsgItemDelegate::paintMultiLineRow(QPainter *painter, const QStyleOptionVie
     }
     if (layout.attachment.isValid())
         indicatorIcon(QStringLiteral("mail-attachment")).paint(painter, layout.attachment, Qt::AlignCenter, iconMode);
+    if (layout.junk.isValid())
+        indicatorIcon(QStringLiteral("mail-mark-junk")).paint(painter, layout.junk, Qt::AlignCenter, iconMode);
     if (layout.status.isValid()) {
         const bool replied = index.data(RoleMessageIsMarkedReplied).toBool();
         const bool forwarded = index.data(RoleMessageIsMarkedForwarded).toBool();

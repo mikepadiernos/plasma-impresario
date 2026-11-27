@@ -1,0 +1,7 @@
+# Fixture register
+
+## Register
+
+| Destination | Sources |
+| --- | --- |
+| A server | `src/Net/Fetch.cpp`, `src/Net/Quiet.cpp` |

@@ -3,6 +3,8 @@
 */
 #include "SavedSearchFolders.h"
 
+#include "UiUtils/IconLoader.h"
+
 #include <QAction>
 #include <QDropEvent>
 #include <QHeaderView>
@@ -39,7 +41,7 @@ const int maximumRows = 8;
 
 QIcon themedIcon(const QString &name, const QIcon &fallback = QIcon())
 {
-    return QIcon::fromTheme(name + QLatin1String("-symbolic"), QIcon::fromTheme(name, fallback));
+    return UiUtils::SymbolicIcon::fromTheme(name, fallback);
 }
 
 const char viewKeyProperty[] = "savedSearchViewKey";

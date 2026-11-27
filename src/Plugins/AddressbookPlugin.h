@@ -23,6 +23,7 @@
 #ifndef ADDRESSBOOK_INTERFACE
 #define ADDRESSBOOK_INTERFACE
 
+#include <QByteArray>
 #include <QList>
 #include <QObject>
 #include <QPair>
@@ -42,6 +43,19 @@ struct PLUGINMANAGER_EXPORT NameEmail
 };
 
 typedef QList<NameEmail> NameEmailList;
+
+/** @short What the address book knows about one e-mail address, read from local data only */
+struct PLUGINMANAGER_EXPORT ContactDetails
+{
+    /** The address which was looked up */
+    QString email;
+    /** Whether the address book has a contact with this address; the other fields are empty when not */
+    bool known = false;
+    QString name;
+    QString organization;
+    /** The contact's photo as stored in the address book (an encoded image), never fetched from a URL */
+    QByteArray photo;
+};
 
 class PLUGINMANAGER_EXPORT AddressbookJob : public PluginJob
 {
@@ -86,6 +100,18 @@ protected:
     AddressbookNamesJob(QObject *parent);
 };
 
+class PLUGINMANAGER_EXPORT AddressbookContactJob : public AddressbookJob
+{
+    Q_OBJECT
+
+signals:
+    /** @short Emitted with the details of the address, which are not known when the address book has no such contact */
+    void contactDetailsAvailable(const Plugins::ContactDetails &details);
+
+protected:
+    AddressbookContactJob(QObject *parent);
+};
+
 class PLUGINMANAGER_EXPORT AddressbookPlugin : public QObject
 {
     Q_OBJECT
@@ -98,7 +124,8 @@ public:
         FeatureAddContact = 1 << 2, /**< Plugin has support for adding new contact via openContactWindow */
         FeatureEditContact = 1 << 3, /**< Plugin has support for editing existing contact via openContactWindow */
         FeatureCompletion = 1 << 4, /**< Plugin has support for completion via requestCompletion */
-        FeaturePrettyNames = 1 << 5 /**< Plugin has support for display names via requestPrettyNamesForAddress */
+        FeaturePrettyNames = 1 << 5, /**< Plugin has support for display names via requestPrettyNamesForAddress */
+        FeatureContactDetails = 1 << 6 /**< Plugin has support for names, organizations and photos via requestContactDetails */
     };
 
     Q_DECLARE_FLAGS(Features, Feature)
@@ -127,6 +154,20 @@ public slots:
      *  if contact not exist, open window for adding new contact and fill name and email strings
      */
     virtual void openContactWindow(const QString &email, const QString &displayName) = 0;
+
+    /** @short Request the name, organization and photo of the contact with the given e-mail address
+     *  Returns nullptr when the plugin has no FeatureContactDetails. Only the local address book is read.
+     */
+    virtual Plugins::AddressbookContactJob *requestContactDetails(const QString &email);
+
+    /** @short Add a contact with the given address and name, letting the user review it
+     *  The default opens the contact window, which offers to add an unknown address.
+     */
+    virtual void addContact(const QString &email, const QString &displayName);
+
+signals:
+    /** @short Emitted when contacts were added, changed or removed, as far as the plugin can tell */
+    void contactsChanged();
 
 protected:
     AddressbookPlugin(QObject *parent);

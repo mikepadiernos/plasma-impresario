@@ -34,6 +34,7 @@ private slots:
     void infoHidesAfterTimeout();
     void infoStaysWhileFocused();
     void errorPersists();
+    void warningPersists();
     void zeroTimeoutKeepsInfo();
     void accessibleNames();
     void busyShowsProgressUntilReplaced();
@@ -186,6 +187,17 @@ void InlineNotificationBarTest::errorPersists()
     Fixture f;
     f.bar->setAutoHideTimeout(50);
     f.bar->showError(QStringLiteral("Cannot archive: Mailbox does not exist"));
+    QVERIFY(!f.bar->isAutoHideActive());
+    QTest::qWait(200);
+    QVERIFY(f.bar->isVisible());
+}
+
+void InlineNotificationBarTest::warningPersists()
+{
+    Fixture f;
+    f.bar->setAutoHideTimeout(50);
+    f.bar->showWarning(QStringLiteral("This message is marked as junk."));
+    QCOMPARE(f.bar->kind(), InlineNotificationBar::Kind::Warning);
     QVERIFY(!f.bar->isAutoHideActive());
     QTest::qWait(200);
     QVERIFY(f.bar->isVisible());

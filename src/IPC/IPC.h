@@ -23,6 +23,8 @@
 #ifndef IPC_H
 #define IPC_H
 
+#include <QStringList>
+
 class QString;
 
 namespace Gui {
@@ -34,12 +36,19 @@ namespace IPC {
     namespace Instance {
         /** Return true if Trojita instance is running. This is blocking function. */
         bool isRunning();
+        /** @short Hand the token which lets the next window of the running instance come to the front over to it
+
+        Call before the request which shows the window; an empty token is not sent.
+        */
+        void handOverActivationToken(const QString &token);
         /** Show main window of running instance. */
         void showMainWindow();
         /** Show addressbook window of running instance. */
         void showAddressbookWindow();
         /** Invoke compose window from mailto: url */
         void composeMail(const QString &url);
+        /** Invoke compose window from a mailto: url, attaching the absolute paths or file: URLs in @arg files */
+        void composeMail(const QString &url, const QStringList &files);
         /** Open the message with a Message-ID, or named by a mid: URL */
         void openMessage(const QString &messageId);
     }

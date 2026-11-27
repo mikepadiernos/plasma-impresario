@@ -12,9 +12,8 @@ Plasma Impresario is an in-development IMAP mail client for the KDE Plasma
 desktop only, forked from Trojitá and built with C++20, Qt 6 and KDE
 Frameworks 6. This roadmap is the source of truth for milestone order, scope
 and feature completion. It orders foundational mailbox work before desktop
-integration, productivity features and release-quality refinements. Each
-item links to its own issue. Board statuses and checkboxes are as of
-2026-11-25.
+integration, productivity features and release-quality refinements. Board
+statuses and checkboxes are as of 2026-11-25.
 
 Legend: ![Backlog][backlog] · ![Defined][defined] ·
 ![Development][development] · ![Review][review] · ![Completed][completed] ·
@@ -71,7 +70,7 @@ and gray before. **Board** is the parent issue's status.
 | [M03](#m03-mail-operations-sorting-and-folder-management) | Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)     | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
 | [M04](#m04-reading-and-conversation-flow)                 | Reading and conversation flow                  | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6)     | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
 | [M05](#m05-search-and-indexing)                           | Search and indexing                            | [#324](https://github.com/mikepadiernos/plasma-impresario/issues/324) | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Merged][merged]: merged in [PR #455](https://github.com/mikepadiernos/plasma-impresario/pull/455)                                      |
-| [M06](#m06-desktop-integration-and-provider-support)      | Desktop integration and provider support       | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)     | ![0 of 27 done](https://img.shields.io/badge/0%2F27-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
+| [M06](#m06-desktop-integration-and-provider-support)      | Desktop integration and provider support       | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)     | ![26 of 26 done](https://img.shields.io/badge/26%2F26-100%25-1a7f37) | ![Completed][completed]: on `feature/m06-desktop`                                                                                        |
 | [M07](#m07-output-notifications-and-rules-automation)     | Output, notifications and rules automation     | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8)     | ![0 of 11 done](https://img.shields.io/badge/0%2F11-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
 | [M08](#m08-settings-and-workspace-configuration)          | Settings and workspace configuration           | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9)     | ![0 of 15 done](https://img.shields.io/badge/0%2F15-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
 | [M09](#m09-themes-and-branding-foundation)                | Themes and branding foundation                 | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)   | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development]: M09.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
@@ -79,17 +78,17 @@ and gray before. **Board** is the parent issue's status.
 | [M11](#m11-release-readiness-and-polish)                  | Release readiness and polish                   | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12)   | ![0 of 10 done](https://img.shields.io/badge/0%2F10-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
 | [M12](#m12-nextcloud-and-digital-asset-management)        | Nextcloud and digital asset management         | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31)   | ![0 of 7 done](https://img.shields.io/badge/0%2F7-0%25-6e7781)       | ![Backlog][backlog]                                                                                                                      |
 | [M13](#m13-microsoft-accounts-and-exchange)               | Microsoft accounts and Exchange                | [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388) | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
-| [M14](#m14-refinements)                                   | Refinements                                    | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)   | ![0 of 84 done](https://img.shields.io/badge/0%2F84-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
-| [M15](#m15-real-plasma-session-verification)              | Real Plasma session verification               | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781)       | ![Defined][defined]                                                                                                                      |
+| [M14](#m14-refinements)                                   | Refinements                                    | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)   | ![0 of 86 done](https://img.shields.io/badge/0%2F86-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
+| [M15](#m15-real-plasma-session-verification)              | Real Plasma session verification               | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ![0 of 4 done](https://img.shields.io/badge/0%2F4-0%25-6e7781)       | ![Defined][defined]                                                                                                                      |
 
 ## Recommended priority
 
-| Priority | Focus                            | Recommended next work                                                                                                                                                                                 | Where it stands (2026-11-25)                                                                                                                                                                                                                                                                                                                                                                                        |
+| Priority | Focus                            | Recommended next work                                                                                                                                                                                 | Where it stands (2026-11-26)                                                                                                                                                                                                                                                                                                                                                                                        |
 | -------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **P0**   | Reproducible, safe baseline      | Confirm product identity and supported build matrix; establish verified TLS and safe credential defaults; document cache and logging behavior; add focused connection/security and launch smoke tests | Build matrix, installer and launch smoke tests merged with M01 ([#1](https://github.com/mikepadiernos/plasma-impresario/issues/1)); the product rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) is merged. Other distribution families and protected prefixes are [pending](TODO.md#m01-release-gate-and-integration)                                                                  |
 | **P1**   | Rendering and account boundaries | Verify live reader workflows; design stable per-account settings, cache and credentials before adding simultaneous accounts                                                                           | Per-account settings, cache and credentials merged with M02 ([#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)), together with simultaneous accounts ([#222](https://github.com/mikepadiernos/plasma-impresario/issues/222)); live reader workflows verified against synthetic Dovecot in M04 ([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)). Real-session checks are in M15 |
 | **P2**   | Shell and reliability            | Prototype the Plasma Impresario layout over existing mailbox/list/reader behavior; validate accessibility, keyboard use, responsive layouts and partial-failure recovery                              | Shell merged with M02 ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); accessibility, responsive layouts and recovery continue in M09, M10, M11 and M14                                                                                                                                                                                                                                       |
-| **P3**   | Optional productivity features   | Add provider APIs, rules, Nextcloud, calendar/contacts and workspace features only after core reliability, permissions and privacy behavior are defined                                               | M05 is merged; planned in M06–M08, M12 and M13, whose parent issues are in the Backlog                                                                                                                                                                                                                                                                                                                              |
+| **P3**   | Optional productivity features   | Add provider APIs, rules, Nextcloud, calendar/contacts and workspace features only after core reliability, permissions and privacy behavior are defined                                               | M05 is merged and M06 is feature-complete; planned in M07, M08, M12 and M13, whose parent issues are in the Backlog                                                                                                                                                                                                                                                                                                 |
 
 These are sequencing priorities, not issue statuses or completion markers.
 Follow the [board workflow](../CONTRIBUTING.md#board-statuses) before updating
@@ -120,7 +119,7 @@ merged. The deferred live account and message-reading checks were since
 completed against a disposable Dovecot server in M02
 ([#479](https://github.com/mikepadiernos/plasma-impresario/issues/479)) and M04
 ([#480](https://github.com/mikepadiernos/plasma-impresario/issues/480)).
-Plasma-session checks remain deferred to M06 and M15. See
+Plasma-session checks remain deferred to M15. See
 [TODO](TODO.md#m01-release-gate-and-integration).
 
 Work through the supported environment, renderer, installer, and verification
@@ -456,9 +455,7 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 
   **Decision:** the index lives in each account's SQLite cache and uses FTS5
   with the `trigram` tokenizer, which needs SQLite 3.34 or later; limits are in
-  [Search caveats](CAVEATS.md#search). Indexing mail in Baloo and a GraphQL
-  layer were considered and
-  [rejected](integrations/kde-plasma.md#search-and-indexing).
+  [Search caveats](CAVEATS.md#search).
 
   - [x] Offer an opt-in, per-account full-text index of headers and downloaded
         message bodies in the existing SQLite cache, evaluating SQLite FTS5 first.
@@ -519,8 +516,8 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 
 ### M06: Desktop integration and provider support
 
-**Status:** ![Backlog][backlog]
-![0 of 27 done](https://img.shields.io/badge/0%2F27-0%25-6e7781) ·
+**Status:** ![Completed][completed]
+![26 of 26 done](https://img.shields.io/badge/26%2F26-100%25-1a7f37) ·
 **Parent issue:** [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)
 
 **Project:** M06 milestone [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)
@@ -529,19 +526,29 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 
   **Project:** KDE and Plasma [#42](https://github.com/mikepadiernos/plasma-impresario/issues/42)
 
-  - [ ] Connect the app to KDE and Plasma system services, notifications, and account lifecycle behavior [#42](https://github.com/mikepadiernos/plasma-impresario/issues/42)
-  - [ ] Use KDE-native file, credential, session, and notification services where supported [#100](https://github.com/mikepadiernos/plasma-impresario/issues/100)
-  - [ ] Implement KDE Plasma desktop integration for session lifecycle, file dialogs, KIO, KConfig, KWallet, and Plasma notification conventions. Open files through the XDG portal file chooser so that Plasma Opus can provide the file open dialog when it serves the portal, falling back to the standard KDE dialog [#101](https://github.com/mikepadiernos/plasma-impresario/issues/101)
-  - [ ] Verify live desktop-session startup, recovery, and integration behavior
-        as the M01.04 Plasma-session smoke handoff. [#469](https://github.com/mikepadiernos/plasma-impresario/issues/469)
-  - [ ] Define workspace-aware behavior for cross-context desktop usage and Plasma conventions [#98](https://github.com/mikepadiernos/plasma-impresario/issues/98)
-  - [ ] Support accessibility and theming parity with KDE/Plasma, including contrast, focus visibility, localization, and icon consistency [#103](https://github.com/mikepadiernos/plasma-impresario/issues/103)
-  - [ ] Keep service integrations in this milestone so provider and desktop features are not mixed into core app deliverables [#99](https://github.com/mikepadiernos/plasma-impresario/issues/99)
-  - [ ] Provide an opt-in KRunner (Plasma Search) provider for mail from the
+  - [x] Connect the app to KDE and Plasma system services, notifications, and account lifecycle behavior. See
+        [KDE services in use](integrations/kde-plasma.md#kde-services-in-use).
+        [#42](https://github.com/mikepadiernos/plasma-impresario/issues/42)
+  - [x] Use KDE-native file, credential, session, and notification services where supported. See
+        [KDE services in use](integrations/kde-plasma.md#kde-services-in-use).
+        [#100](https://github.com/mikepadiernos/plasma-impresario/issues/100)
+  - [x] Implement KDE Plasma desktop integration for session lifecycle, file dialogs, KIO, KConfig, KWallet, and Plasma notification conventions. Open files through the XDG portal file chooser so that Plasma Opus can provide the file open dialog when it serves the portal, falling back to the standard KDE dialog. See
+        [Files and attachments](integrations/kde-plasma.md#files-and-attachments).
+        [#101](https://github.com/mikepadiernos/plasma-impresario/issues/101)
+  - [x] Define workspace-aware behavior for cross-context desktop usage and Plasma conventions. See
+        [Workspaces and window activation](integrations/kde-plasma.md#workspaces-and-window-activation).
+        [#98](https://github.com/mikepadiernos/plasma-impresario/issues/98)
+  - [x] Support accessibility and theming parity with KDE/Plasma, including contrast, focus visibility, localization, and icon consistency. See
+        [Appearance and accessibility](integrations/kde-plasma.md#appearance-and-accessibility).
+        [#103](https://github.com/mikepadiernos/plasma-impresario/issues/103)
+  - [x] Keep service integrations in this milestone so provider and desktop features are not mixed into core app deliverables. See
+        [Service boundaries](integrations/kde-plasma.md#service-boundaries).
+        [#99](https://github.com/mikepadiernos/plasma-impresario/issues/99)
+  - [x] Provide an opt-in KRunner (Plasma Search) provider for mail from the
         local search index, showing only subject, sender and date, and staying
         silent when the index is off. See [M05](#m05-search-and-indexing).
         [#354](https://github.com/mikepadiernos/plasma-impresario/issues/354)
-  - [ ] Offer opt-in background running and starting after login through the XDG
+  - [x] Offer opt-in background running and starting after login through the XDG
         Background portal or an XDG autostart entry, keeping sync, notifications and
         the tray icon active while the window is closed. See
         [E-Mail](philosophy/inspirations.md#e-mail).
@@ -551,28 +558,31 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 
   **Project:** Subsection [#308](https://github.com/mikepadiernos/plasma-impresario/issues/308)
 
-  - [ ] Provide optional Plasma desktop and panel widgets, including an
+  - [x] Provide optional Plasma desktop and panel widgets, including an
         unread-mail marquee inspired by The Bat!'s MailTicker. Support configurable
         scope, privacy, accessibility, and unavailable-service feedback; consider
         unread-count, sync-status, and compose widgets. See the
-        [integration design](integrations/kde-plasma.md#plasma-widgets).
+        [integration design](integrations/kde-plasma.md#plasma-widgets) and
+        [caveat](CAVEATS.md#plasma-widgets).
         [#245](https://github.com/mikepadiernos/plasma-impresario/issues/245)
-  - [ ] Define Plasma mail integration expectations for rich desktop feedback without interrupting the reading workflow [#102](https://github.com/mikepadiernos/plasma-impresario/issues/102)
+  - [x] Define Plasma mail integration expectations for rich desktop feedback without interrupting the reading workflow. See
+        [Desktop feedback](integrations/kde-plasma.md#desktop-feedback).
+        [#102](https://github.com/mikepadiernos/plasma-impresario/issues/102)
 
 - **M06.03: File manager handoff**
 
   **Project:** Subsection [#309](https://github.com/mikepadiernos/plasma-impresario/issues/309)
 
-  - [ ] Accept attachments in compose requests from file managers such as Plasma Opus, through the XDG Email portal and a supported command-line handoff, and open them in an unsent draft [#263](https://github.com/mikepadiernos/plasma-impresario/issues/263)
-  - [ ] Attach remote files dropped or handed off from file managers such as Plasma Opus, fetching them through KIO with progress and cancellation [#265](https://github.com/mikepadiernos/plasma-impresario/issues/265)
-  - [ ] After the user saves an attachment, offer to show it in the default file manager, such as Plasma Opus, through the `org.freedesktop.FileManager1` service [#266](https://github.com/mikepadiernos/plasma-impresario/issues/266)
+  - [x] Accept attachments in compose requests from file managers such as Plasma Opus, through the XDG Email portal and a supported command-line handoff, and open them in an unsent draft [#263](https://github.com/mikepadiernos/plasma-impresario/issues/263)
+  - [x] Attach remote files dropped or handed off from file managers such as Plasma Opus, fetching them through KIO with progress and cancellation [#265](https://github.com/mikepadiernos/plasma-impresario/issues/265)
+  - [x] After the user saves an attachment, offer to show it in the default file manager, such as Plasma Opus, through the `org.freedesktop.FileManager1` service [#266](https://github.com/mikepadiernos/plasma-impresario/issues/266)
 
 - **M06.04: Agenda and contacts**
 
   **Project:** Subsection [#310](https://github.com/mikepadiernos/plasma-impresario/issues/310)
 
-  - [ ] Provide a My Day / Agenda embedded panel with today's events, due tasks, and flagged or follow-up mail, using KDE PIM and Akonadi when available and mail-derived items otherwise. See the [design](philosophy/designs.md#embedded-panels). [#304](https://github.com/mikepadiernos/plasma-impresario/issues/304)
-  - [ ] Show KDE address-book names, photos, and organizations in the contacts panel, with open and add actions, without remote lookups [#305](https://github.com/mikepadiernos/plasma-impresario/issues/305)
+  - [x] Provide a My Day / Agenda embedded panel with today's events, due tasks, and flagged or follow-up mail, using KDE PIM and Akonadi when available and mail-derived items otherwise. See the [design](philosophy/designs.md#embedded-panels). [#304](https://github.com/mikepadiernos/plasma-impresario/issues/304)
+  - [x] Show KDE address-book names, photos, and organizations in the contacts panel, with open and add actions, without remote lookups [#305](https://github.com/mikepadiernos/plasma-impresario/issues/305)
 
 - **M06.05: Mail providers**
 
@@ -581,11 +591,15 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   Microsoft accounts, Microsoft 365 and Exchange are planned in
   [M13](#m13-microsoft-accounts-and-exchange).
 
-  - [ ] Add provider support for Gmail, Outlook, and other major mail services alongside IMAP [#43](https://github.com/mikepadiernos/plasma-impresario/issues/43)
-  - [ ] Support POP3 mail retrieval with SMTP submission, secure authentication and transport, and explicit local-storage and server-retention behavior [#216](https://github.com/mikepadiernos/plasma-impresario/issues/216)
-  - [ ] Support JMAP mail accounts with capability discovery, secure authentication, mailbox and message synchronization, and supported sending options [#217](https://github.com/mikepadiernos/plasma-impresario/issues/217)
-  - [ ] Document provider authentication, capabilities, limitations, and setup for Gmail, Outlook, and generic IMAP/SMTP [#104](https://github.com/mikepadiernos/plasma-impresario/issues/104)
-  - [ ] Discover IMAP and SMTP settings from the email address through built-in
+  - [x] Add provider support for Gmail, Outlook, and other major mail services alongside IMAP. See
+        [Mail providers](integrations/providers.md#gmail).
+        [#43](https://github.com/mikepadiernos/plasma-impresario/issues/43)
+  - [x] Support POP3 mail retrieval with SMTP submission, secure authentication and transport, and explicit local-storage and server-retention behavior [#216](https://github.com/mikepadiernos/plasma-impresario/issues/216)
+  - [x] Support JMAP mail accounts with capability discovery, secure authentication, mailbox and message synchronization, and supported sending options [#217](https://github.com/mikepadiernos/plasma-impresario/issues/217)
+  - [x] Document provider authentication, capabilities, limitations, and setup for Gmail, Outlook, and generic IMAP/SMTP. See
+        [Mail providers](integrations/providers.md).
+        [#104](https://github.com/mikepadiernos/plasma-impresario/issues/104)
+  - [x] Discover IMAP and SMTP settings from the email address through built-in
         providers, autoconfig and ISPDB, DNS SRV (RFC 6186), MX hosts and common
         host names; show app-password guidance for known providers, and confirm
         servers found through unsigned DNS outside the mail domain before sending a
@@ -596,23 +610,96 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 
   **Project:** Security and privacy [#44](https://github.com/mikepadiernos/plasma-impresario/issues/44)
 
-  - [ ] Add ClamAV and spam-handling hooks for safer mail processing and filtering [#44](https://github.com/mikepadiernos/plasma-impresario/issues/44)
-  - [ ] Define how scan results, unavailable scanners, spam classification, and user overrides are surfaced [#105](https://github.com/mikepadiernos/plasma-impresario/issues/105)
-  - [ ] Avoid exposing message content or attachments to external services without informed user action [#106](https://github.com/mikepadiernos/plasma-impresario/issues/106)
-  - [ ] Strip line breaks and control characters from header input, remove Bcc
+  - [x] Add ClamAV and spam-handling hooks for safer mail processing and filtering [#44](https://github.com/mikepadiernos/plasma-impresario/issues/44)
+  - [x] Define how scan results, unavailable scanners, spam classification, and user overrides are surfaced. See
+        [Junk and attachment safety](CAVEATS.md#junk-and-attachment-safety).
+        [#105](https://github.com/mikepadiernos/plasma-impresario/issues/105)
+  - [x] Avoid exposing message content or attachments to external services without informed user action. See
+        [External services](integrations/external-services.md).
+        [#106](https://github.com/mikepadiernos/plasma-impresario/issues/106)
+  - [x] Strip line breaks and control characters from header input, remove Bcc
         before sending while keeping it in Sent and drafts, and create Message-IDs
         without the computer's host name. See
         [E-Mail](philosophy/inspirations.md#e-mail).
         [#373](https://github.com/mikepadiernos/plasma-impresario/issues/373)
-  - [ ] Show a link's real target before it opens, pointing out user information
+  - [x] Show a link's real target before it opens, pointing out user information
         in the address, punycode host names and link text that names a different
         address. See [E-Mail](philosophy/inspirations.md#e-mail).
         [#374](https://github.com/mikepadiernos/plasma-impresario/issues/374)
-  - [ ] Keep the offline cache and opened attachments user-only (folders 0700,
+  - [x] Keep the offline cache and opened attachments user-only (folders 0700,
         files 0600, never executable), keep attachment names inside their folder,
         and remove opened attachment copies after a day. See
         [E-Mail](philosophy/inspirations.md#e-mail).
         [#375](https://github.com/mikepadiernos/plasma-impresario/issues/375)
+
+**Caveats:**
+
+- [Desktop integration](CAVEATS.md#desktop-integration)
+  ([#457](https://github.com/mikepadiernos/plasma-impresario/issues/457))
+  ![Backlog][backlog]
+- [Local data and opened attachments](CAVEATS.md#local-data-and-opened-attachments)
+  ([#458](https://github.com/mikepadiernos/plasma-impresario/issues/458))
+  ![Backlog][backlog]
+- [Outgoing headers and Bcc](CAVEATS.md#outgoing-headers-and-bcc)
+  ([#459](https://github.com/mikepadiernos/plasma-impresario/issues/459))
+  ![Backlog][backlog]
+- [Saved files in the file manager](CAVEATS.md#saved-files-in-the-file-manager)
+  ([#460](https://github.com/mikepadiernos/plasma-impresario/issues/460))
+  ![Backlog][backlog]
+- [Files handed over by file managers](CAVEATS.md#files-handed-over-by-file-managers)
+  ([#461](https://github.com/mikepadiernos/plasma-impresario/issues/461))
+  ![Backlog][backlog]
+- [Files fetched from other computers](CAVEATS.md#files-fetched-from-other-computers)
+  ([#462](https://github.com/mikepadiernos/plasma-impresario/issues/462))
+  ![Backlog][backlog]
+- [Plasma Search mail](CAVEATS.md#plasma-search-mail)
+  ([#463](https://github.com/mikepadiernos/plasma-impresario/issues/463))
+  ![Backlog][backlog]
+- [Contacts from the address book](CAVEATS.md#contacts-from-the-address-book)
+  ([#464](https://github.com/mikepadiernos/plasma-impresario/issues/464))
+  ![Backlog][backlog]
+- [My Day calendars and follow-up mail](CAVEATS.md#my-day-calendars-and-follow-up-mail)
+  ([#465](https://github.com/mikepadiernos/plasma-impresario/issues/465))
+  ![Backlog][backlog]
+- [Server settings discovery](CAVEATS.md#server-settings-discovery)
+  ([#466](https://github.com/mikepadiernos/plasma-impresario/issues/466))
+  ![Backlog][backlog]
+- [Window activation for requests](CAVEATS.md#window-activation-for-requests)
+  ([#467](https://github.com/mikepadiernos/plasma-impresario/issues/467))
+  ![Backlog][backlog]
+- [Saving unsent messages at session end](CAVEATS.md#saving-unsent-messages-at-session-end)
+  ([#468](https://github.com/mikepadiernos/plasma-impresario/issues/468))
+  ![Backlog][backlog]
+- [Portal file chooser](CAVEATS.md#portal-file-chooser)
+  ([#470](https://github.com/mikepadiernos/plasma-impresario/issues/470))
+  ![Backlog][backlog]
+- [Unread count on the task manager](CAVEATS.md#unread-count-on-the-task-manager)
+  ([#471](https://github.com/mikepadiernos/plasma-impresario/issues/471))
+  ![Backlog][backlog]
+- [Accessibility and theming](CAVEATS.md#accessibility-and-theming)
+  ([#472](https://github.com/mikepadiernos/plasma-impresario/issues/472))
+  ![Backlog][backlog]
+- [Provider setup and Gmail](CAVEATS.md#provider-setup-and-gmail)
+  ([#473](https://github.com/mikepadiernos/plasma-impresario/issues/473))
+  ![Backlog][backlog]
+- [Junk and attachment safety](CAVEATS.md#junk-and-attachment-safety)
+  ([#474](https://github.com/mikepadiernos/plasma-impresario/issues/474))
+  ![Backlog][backlog]
+- [External services and outbound calls](CAVEATS.md#external-services-and-outbound-calls)
+  ([#475](https://github.com/mikepadiernos/plasma-impresario/issues/475))
+  ![Backlog][backlog]
+- [System sleep and account notifications](CAVEATS.md#system-sleep-and-account-notifications)
+  ([#476](https://github.com/mikepadiernos/plasma-impresario/issues/476))
+  ![Backlog][backlog]
+- [Plasma widgets](CAVEATS.md#plasma-widgets)
+  ([#477](https://github.com/mikepadiernos/plasma-impresario/issues/477))
+  ![Backlog][backlog]
+- [POP3 accounts](CAVEATS.md#pop3-accounts)
+  ([#478](https://github.com/mikepadiernos/plasma-impresario/issues/478))
+  ![Backlog][backlog]
+- [JMAP accounts](CAVEATS.md#jmap-accounts)
+  ([#488](https://github.com/mikepadiernos/plasma-impresario/issues/488))
+  ![Backlog][backlog]
 
 ### M07: Output, notifications, and rules automation
 
@@ -1179,7 +1266,7 @@ M06.04 agenda and contacts panels and M06.05 account discovery. Pending tasks:
 ### M14: Refinements
 
 **Status:** ![Backlog][backlog]
-![0 of 84 done](https://img.shields.io/badge/0%2F84-0%25-6e7781) ·
+![0 of 86 done](https://img.shields.io/badge/0%2F86-0%25-6e7781) ·
 **Parent issue:** [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)
 
 **Project:** M14 milestone [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)
@@ -1230,6 +1317,14 @@ to mail workflows without blocking this milestone on unavailable features.
         [#151](https://github.com/mikepadiernos/plasma-impresario/issues/151)
   - [ ] Build the designed header with search, compose, the account switcher, and connection status, as a toolbar region in the shared customization mode [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306)
   - [ ] Add sliding and floating panel placements, and rearrange sidebar and embedded panels between regions in the customization mode [#307](https://github.com/mikepadiernos/plasma-impresario/issues/307)
+  - [ ] Represent icon menus on the main side toolbar with a small accent-colored
+        corner on the icon instead of a caret, in every toolbar placement and
+        layout direction, with keyboard access and an accessible description of
+        the menu. Refines the M09 corner marker. [#486](https://github.com/mikepadiernos/plasma-impresario/issues/486)
+  - [ ] Keep spacing and theme in sync with Plasma Opus: share its spacing scale
+        (50 to 200 percent of the widget style), accent color, corner radius and
+        divider style, and optionally follow its theme profile, falling back to
+        Plasma without it. Builds on M09.07 and the M09 theme sharing. [#487](https://github.com/mikepadiernos/plasma-impresario/issues/487)
   - [ ] Verify keyboard-only navigation, visible focus, and predictable focus restoration after dialogs and actions [#152](https://github.com/mikepadiernos/plasma-impresario/issues/152)
   - [ ] Validate compact, comfortable, and focus modes at narrow window sizes and different display scales [#153](https://github.com/mikepadiernos/plasma-impresario/issues/153)
   - [ ] Keep menu and toolbar actions synchronized with the active account, folder, and selection, including while views refresh [#154](https://github.com/mikepadiernos/plasma-impresario/issues/154)
@@ -1363,7 +1458,7 @@ implemented features here and document criteria for potential future work.
 ### M15: Real Plasma session verification
 
 **Status:** ![Defined][defined]
-![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781) ·
+![0 of 4 done](https://img.shields.io/badge/0%2F4-0%25-6e7781) ·
 **Parent issue:** [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)
 
 **Project:** M15 milestone [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)
@@ -1381,6 +1476,9 @@ verifies a feature that is already implemented and tested headless.
 - [ ] Verify OAuth authorization, token renewal, and recovery with a real
       provider account in a Plasma session.
       [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317)
+- [ ] Verify live desktop-session startup, recovery, and integration behavior
+      as the M01.04 Plasma-session smoke handoff (moved from M06.01).
+      [#469](https://github.com/mikepadiernos/plasma-impresario/issues/469)
 
 This milestone is blocked by M02 but does not block later milestones. Pending
 checks: [M15 handoff](TODO.md#m15-real-plasma-session-verification).

@@ -15,6 +15,7 @@
 
 #include "Common/AccountRegistry.h"
 #include "Common/AccountStatus.h"
+#include "UiUtils/IconLoader.h"
 
 namespace {
 const char accountIdProperty[] = "accountId";
@@ -206,15 +207,11 @@ void AccountSidebar::updateHeaderStates() {
     const bool attention = header->property(attentionProperty).toBool();
     QIcon icon;
     if (attention)
-      icon =
-          QIcon::fromTheme(QStringLiteral("dialog-warning-symbolic"),
-                           QIcon::fromTheme(QStringLiteral("dialog-warning")));
+      icon = UiUtils::SymbolicIcon::fromTheme(QStringLiteral("dialog-warning"));
     else if (open)
-      icon = QIcon::fromTheme(QStringLiteral("go-down-symbolic"),
-                              QIcon::fromTheme(QStringLiteral("go-down")));
+      icon = UiUtils::SymbolicIcon::fromTheme(QStringLiteral("go-down"));
     else
-      icon = QIcon::fromTheme(QStringLiteral("go-next-symbolic"),
-                              QIcon::fromTheme(QStringLiteral("go-next")));
+      icon = UiUtils::SymbolicIcon::fromTheme(QStringLiteral("go-next"));
     header->setIcon(icon);
     header->setAccessibleDescription(
         open ? i18nc("@info:accessibility account folders", "Folders shown")

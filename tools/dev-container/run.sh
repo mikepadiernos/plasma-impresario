@@ -1,11 +1,13 @@
 #!/bin/sh
 # Run a command in the headless Linux development container.
 #
-# Usage: tools/dev-container/run.sh [--rebuild] [--publish PORT] [command [args...]]
+# Usage: tools/dev-container/run.sh [--rebuild] [--publish PORT] [--network NET] [command [args...]]
 #
 # Without a command, this opens an interactive shell. The repository is mounted
 # at /src, and ccache data persists in a named Docker volume. --publish makes the
 # container's PORT reachable as PORT on the host's loopback interface only.
+# --network joins a Docker network, such as container:NAME to share a server's
+# loopback interface.
 #
 # Set EXTRA_CA_CERT to a PEM file when a TLS-intercepting proxy requires an
 # extra root certificate. NODE_EXTRA_CA_CERTS is used when EXTRA_CA_CERT is unset.
@@ -19,6 +21,7 @@ root=$(cd "$here/../.." && pwd)
 
 rebuild=0
 publish=
+network=
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --rebuild)
@@ -27,6 +30,10 @@ while [ "$#" -gt 0 ]; do
             ;;
         --publish)
             publish=${2:?--publish needs a port}
+            shift 2
+            ;;
+        --network)
+            network=${2:?--network needs a network}
             shift 2
             ;;
         *)
@@ -61,6 +68,7 @@ exec docker run --rm "$tty_flags" \
     --platform "$platform" \
     --shm-size=1g \
     ${publish:+-p "127.0.0.1:$publish:$publish"} \
+    ${network:+--network "$network"} \
     -v "$root:/src" \
     -v "$ccache_volume:/ccache" \
     "$image" "$@"

@@ -74,12 +74,14 @@ flowchart TD
 
 ## Integrations
 
-| Guide                                                        | What it covers                                                    |
-| ------------------------------------------------------------ | ----------------------------------------------------------------- |
-| [Integrations overview](integrations/README.md)              | Which roadmap milestones each integration guide feeds             |
-| [KDE Plasma integration](integrations/kde-plasma.md)         | Desktop services, Plasma widgets and KDE conventions              |
-| [Plasma Opus integration](integrations/plasma-opus.md)       | File dialogs, attachments, workspaces, shared themes and Vim mode |
-| [Microsoft accounts and Exchange](integrations/microsoft.md) | Outlook.com, Microsoft 365 and Exchange Server planning           |
+| Guide                                                        | What it covers                                                                  |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| [Integrations overview](integrations/README.md)              | Which roadmap milestones each integration guide feeds                           |
+| [KDE Plasma integration](integrations/kde-plasma.md)         | Desktop services, Plasma widgets and KDE conventions                            |
+| [Plasma Opus integration](integrations/plasma-opus.md)       | File dialogs, attachments, workspaces, shared themes and Vim mode               |
+| [Microsoft accounts and Exchange](integrations/microsoft.md) | Outlook.com, Microsoft 365 and Exchange Server planning                         |
+| [Mail providers](integrations/providers.md)                  | Setting up Gmail, Outlook.com, Microsoft 365 and generic IMAP and SMTP accounts |
+| [External services](integrations/external-services.md)       | What leaves the application, where it goes and which user action comes first    |
 
 ## Specifications and references
 

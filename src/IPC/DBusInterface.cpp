@@ -23,8 +23,16 @@
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusInterface>
+#include <QDebug>
+#include <QUrl>
 
+#include <KSharedConfig>
+
+#include "Gui/Window.h"
+#include "KRunnerBridge.h"
+#include "MailStatusBridge.h"
 #include "MainWindowBridge.h"
+#include "UiUtils/MailStatus.h"
 
 #include "IPC.h"
 
@@ -55,6 +63,13 @@ bool isRunning()
         QDBusConnection::sessionBus().interface()->isServiceRegistered(service());
 }
 
+void handOverActivationToken(const QString &token)
+{
+    // Messages on one connection arrive in order, so the token is there before the request it belongs to
+    if (!token.isEmpty())
+        interface().call(QDBus::NoBlock, QStringLiteral("setActivationToken"), token);
+}
+
 void showMainWindow()
 {
     interface().call(QDBus::NoBlock, QStringLiteral("showMainWindow"));
@@ -68,6 +83,11 @@ void showAddressbookWindow()
 void composeMail(const QString &url)
 {
     interface().call(QDBus::NoBlock, QStringLiteral("composeMail"), url);
+}
+
+void composeMail(const QString &url, const QStringList &files)
+{
+    interface().call(QDBus::NoBlock, QStringLiteral("composeMailWithFiles"), url, files);
 }
 
 void openMessage(const QString &messageId)
@@ -98,6 +118,72 @@ bool registerInstance(Gui::MainWindow *window, QString &error)
         delete object;
         conn.unregisterService(service());
         return false;
+    }
+
+    // Plasma Search asks the same service; the window answers only once the user turned it on
+    auto *runner = new KRunnerBridge(
+        [window](const QString &query) {
+            RunnerMatches result;
+            const auto matches = window->plasmaSearchMatches(query);
+            for (const auto &match : matches) {
+                RunnerMatch shown;
+                shown.id = match.id;
+                shown.text = match.title;
+                shown.iconName = QStringLiteral("mail-message");
+                shown.categoryRelevance = KRunnerBridge::categoryRelevanceLow;
+                shown.relevance = match.relevance;
+                shown.properties.insert(QStringLiteral("subtext"), match.subtext);
+                result << shown;
+            }
+            return result;
+        },
+        [window](const QString &matchId) { window->openPlasmaSearchMatch(matchId); },
+        [window](const QString &token) { window->setActivationToken(token); }, window);
+    if (!conn.registerObject(KRunnerBridge::objectPath(), runner, QDBusConnection::ExportAllSlots)) {
+        // Only Plasma Search goes without mail
+        qWarning() << "Cannot offer mail to Plasma Search:" << conn.lastError().message();
+        delete runner;
+    }
+
+    // The Plasma widgets follow the mail through their own object; the sharing setting limits what they learn
+    MailStatusBridge::registerTypes();
+    const auto sharing = []() {
+        return UiUtils::MailStatus::sharing(*KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")));
+    };
+    MailStatusBridge::Handlers handlers;
+    handlers.sharing = [sharing]() { return UiUtils::MailStatus::sharingName(sharing()); };
+    handlers.accounts = [window, sharing]() {
+        StatusEntries entries;
+        const auto shared = sharing();
+        const auto accounts = window->mailStatusAccounts();
+        for (const auto &account : accounts) {
+            const QVariantMap entry = UiUtils::MailStatus::toMap(account, shared);
+            if (!entry.isEmpty())
+                entries << entry;
+        }
+        return entries;
+    };
+    handlers.unreadMessages = [window, sharing](const QStringList &accounts, const QStringList &folders, int limit) {
+        StatusEntries entries;
+        const auto shared = sharing();
+        if (shared != UiUtils::MailStatus::Sharing::Senders && shared != UiUtils::MailStatus::Sharing::Subjects)
+            return entries;
+        const auto messages = window->mailStatusUnread(accounts, folders, limit);
+        for (const auto &message : messages)
+            entries << UiUtils::MailStatus::toMap(message, shared);
+        return entries;
+    };
+    handlers.openMessage = [window](const QString &messageId) { window->openPlasmaSearchMatch(messageId); };
+    handlers.compose = [window]() { window->composeMailFromOtherApplication(QUrl(), {}); };
+    handlers.showAccount = [window](const QString &accountId) { window->showAccountFromWidget(accountId); };
+    handlers.handOverToken = [window](const QString &token) { window->setActivationToken(token); };
+    auto *status = new MailStatusBridge(std::move(handlers), window);
+    QObject::connect(window, &Gui::MainWindow::mailStatusChanged, status, &MailStatusBridge::notifyChanged);
+    if (!conn.registerObject(MailStatusBridge::objectPath(), status,
+                             QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals)) {
+        // Only the widgets go without mail
+        qWarning() << "Cannot offer the mail status to Plasma widgets:" << conn.lastError().message();
+        delete status;
     }
 
     return true;

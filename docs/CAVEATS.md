@@ -7,7 +7,7 @@
 
 This page is the source of truth for known limitations of implemented
 features, including security and privacy behavior, as verified in the current
-source; caveat statuses match the project board as of 2026-11-25. The
+source; caveat statuses match the project board as of 2026-11-26. The
 [backend](parity/backend.md) and [UI](parity/ui.md) parity references describe
 the implemented baseline alongside recommended parity goals.
 
@@ -35,6 +35,28 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Mail operations](#mail-operations)
   - [Composing and sending](#composing-and-sending)
   - [Search](#search)
+  - [Desktop integration](#desktop-integration)
+  - [Local data and opened attachments](#local-data-and-opened-attachments)
+  - [Outgoing headers and Bcc](#outgoing-headers-and-bcc)
+  - [Saved files in the file manager](#saved-files-in-the-file-manager)
+  - [Files handed over by file managers](#files-handed-over-by-file-managers)
+  - [Files fetched from other computers](#files-fetched-from-other-computers)
+  - [Plasma Search mail](#plasma-search-mail)
+  - [Contacts from the address book](#contacts-from-the-address-book)
+  - [My Day calendars and follow-up mail](#my-day-calendars-and-follow-up-mail)
+  - [Server settings discovery](#server-settings-discovery)
+  - [Window activation for requests](#window-activation-for-requests)
+  - [Saving unsent messages at session end](#saving-unsent-messages-at-session-end)
+  - [Portal file chooser](#portal-file-chooser)
+  - [Unread count on the task manager](#unread-count-on-the-task-manager)
+  - [Accessibility and theming](#accessibility-and-theming)
+  - [Provider setup and Gmail](#provider-setup-and-gmail)
+  - [Junk and attachment safety](#junk-and-attachment-safety)
+  - [External services and outbound calls](#external-services-and-outbound-calls)
+  - [System sleep and account notifications](#system-sleep-and-account-notifications)
+  - [Plasma widgets](#plasma-widgets)
+  - [POP3 accounts](#pop3-accounts)
+  - [JMAP accounts](#jmap-accounts)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -50,7 +72,7 @@ issue comment that holds the current recommendation.
 | ------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | ![Resolved][resolved]     | Accounts          | One window holds several IMAP accounts, grouped by account in the folder sidebar; the limitations recorded for them are resolved ([details](#multiple-accounts))                                                                                                                                                                                                                                                                                      | [#262](https://github.com/mikepadiernos/plasma-impresario/issues/262)                                                                        |
 | ![Limitation][limitation] | Embedded panels   | Related messages search only loaded messages unless the bounded server search is turned on ([details](#related-messages-and-message-details-panels)); message details do not verify inline PGP ([details](#message-security))                                                                                                                                                                                                                         | [#264](https://github.com/mikepadiernos/plasma-impresario/issues/264), [#442](https://github.com/mikepadiernos/plasma-impresario/issues/442) |
-| ![Limitation][limitation] | Reading privacy   | Link warnings are heuristic and remote content consent applies to the open message only ([details](#reading-privacy))                                                                                                                                                                                                                                                                                                                                 | [#443](https://github.com/mikepadiernos/plasma-impresario/issues/443)                                                                        |
+| ![Limitation][limitation] | Reading privacy   | Link warnings are heuristic, a link reached with the keyboard shows no tooltip, and remote content consent applies to the open message only ([details](#reading-privacy))                                                                                                                                                                                                                                                                             | [#443](https://github.com/mikepadiernos/plasma-impresario/issues/443)                                                                        |
 | ![Limitation][limitation] | Loading on demand | Parts that failed after a server error load again only on Try Again; the unavailable-message page is not verified live ([details](#loading-on-demand))                                                                                                                                                                                                                                                                                                | [#444](https://github.com/mikepadiernos/plasma-impresario/issues/444)                                                                        |
 | ![Limitation][limitation] | Reader actions    | The action bar is in the main window only, zoom is not saved, and Archive and Trash from the bar are not verified live ([details](#reader-actions))                                                                                                                                                                                                                                                                                                   | [#445](https://github.com/mikepadiernos/plasma-impresario/issues/445)                                                                        |
 | ![Limitation][limitation] | Conversations     | A search in a threaded list splits threads, conversations cover the loaded messages of the current folder only, and the Unified Inbox has no conversation steps ([details](#conversations))                                                                                                                                                                                                                                                           | [#449](https://github.com/mikepadiernos/plasma-impresario/issues/449)                                                                        |
@@ -58,11 +80,32 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Mail operations   | Special folders need server attributes or English names, Go to Folder and related searches use loaded data only, and Undo after a move needs server COPYUID support ([details](#mail-operations))                                                                                                                                                                                                                                                     | [#312](https://github.com/mikepadiernos/plasma-impresario/issues/312)                                                                        |
 | ![Limitation][limitation] | Composing         | Each refused send files another copy in Sent, a forward sent before its message downloads is refused, forwards are attachment-only and drafts are local without attachments ([details](#composing-and-sending))                                                                                                                                                                                                                                       | [#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)                                                                        |
 | ![Limitation][limitation] | Search            | Date ranges follow the day in each message's Date header, in the sender's time zone, and a search of several folders selects each folder of the account in turn and loads every result's headers; `has:attachment` approximates by message type, folder suggestions cover only the shown account's listed folders, virtual folders count only while shown, and offline search covers only mail kept and indexed on this computer ([details](#search)) | [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454)                                                                        |
+| ![Limitation][limitation] | Desktop           | Closing the window quits unless running in the background is on, even with the tray icon shown; both options apply to every profile, and starting after login is not verified in a Plasma session or through the sandbox portal ([details](#desktop-integration))                                                                                                                                                                                     | [#457](https://github.com/mikepadiernos/plasma-impresario/issues/457)                                                                        |
+| ![Limitation][limitation] | Saved files       | **Show in Folder** is offered in the main window only, and is not checked with Dolphin or Plasma Opus in a real Plasma session ([details](#saved-files-in-the-file-manager))                                                                                                                                                                                                                                                                          | [#460](https://github.com/mikepadiernos/plasma-impresario/issues/460)                                                                        |
+| ![Limitation][limitation] | Handed-over files | A `mailto:` URL may not attach hidden or system files or name this computer through the network, drafts drop the files, and nothing is checked with the portal, Dolphin or Plasma Opus in a real Plasma session ([details](#files-handed-over-by-file-managers))                                                                                                                                                                                      | [#461](https://github.com/mikepadiernos/plasma-impresario/issues/461)                                                                        |
+| ![Limitation][limitation] | Fetched files     | Only HTTP is tested, SFTP, SMB and WebDAV are not, drafts drop fetched files, and nothing is checked in a real Plasma session ([details](#files-fetched-from-other-computers))                                                                                                                                                                                                                                                                        | [#462](https://github.com/mikepadiernos/plasma-impresario/issues/462)                                                                        |
+| ![Limitation][limitation] | Plasma Search     | Mail appears only while the app runs, for the default profile, by subject or sender; nothing is checked with KRunner or in a Plasma session ([details](#plasma-search-mail))                                                                                                                                                                                                                                                                          | [#463](https://github.com/mikepadiernos/plasma-impresario/issues/463)                                                                        |
+| ![Limitation][limitation] | Contacts panel    | abook has no organizations and Akonadi is not run against a server; photos come only from the address book ([details](#contacts-from-the-address-book))                                                                                                                                                                                                                                                                                               | [#464](https://github.com/mikepadiernos/plasma-impresario/issues/464)                                                                        |
+| ![Limitation][limitation] | My Day            | Every Akonadi calendar is shown and the Akonadi path is not run against a server; follow-up mail comes from search indexes and the shown folder, up to 50 messages ([details](#my-day-calendars-and-follow-up-mail))                                                                                                                                                                                                                                  | [#465](https://github.com/mikepadiernos/plasma-impresario/issues/465)                                                                        |
+| ![Limitation][limitation] | Add Account       | Found servers are not tried against real providers, guessed servers are only probed for a connection, and most resolvers do not validate DNSSEC, so servers outside the mail domain usually need confirmation ([details](#server-settings-discovery))                                                                                                                                                                                                 | [#466](https://github.com/mikepadiernos/plasma-impresario/issues/466)                                                                        |
+| ![Limitation][limitation] | Window activation | Requests pass Plasma's activation token to the window they open, but nothing is checked in a Plasma session; a composer opened by a first launch and the address book window may only be marked as wanting attention ([details](#window-activation-for-requests))                                                                                                                                                                                     | [#467](https://github.com/mikepadiernos/plasma-impresario/issues/467)                                                                        |
+| ![Limitation][limitation] | Session end       | Open composers save unsent messages as drafts when the session ends, but nothing is checked in a Plasma session; attachments are not saved, and on Wayland **Save Draft?** may hold up logging out ([details](#saving-unsent-messages-at-session-end))                                                                                                                                                                                                | [#468](https://github.com/mikepadiernos/plasma-impresario/issues/468)                                                                        |
+| ![Limitation][limitation] | File chooser      | Files are chosen through the XDG portal file chooser, falling back to the KDE dialog, but nothing is checked in a Plasma session or with Plasma Opus; save dialogs still use the KDE dialog, and remote locations in the portal depend on kio-fuse ([details](#portal-file-chooser))                                                                                                                                                                  | [#470](https://github.com/mikepadiernos/plasma-impresario/issues/470)                                                                        |
+| ![Limitation][limitation] | Task manager      | The task manager entry shows the unread messages in every account's INBOX, but nothing is checked in a Plasma session; the tray icon counts other folders, and accounts not yet connected add nothing ([details](#unread-count-on-the-task-manager))                                                                                                                                                                                                  | [#471](https://github.com/mikepadiernos/plasma-impresario/issues/471)                                                                        |
+| ![Limitation][limitation] | Accessibility     | Icons, state colors and contrast follow Plasma's theme and the main controls have accessible names, but nothing is checked with a screen reader, a high-contrast scheme or in a Plasma session, and there are no translations yet ([details](#accessibility-and-theming))                                                                                                                                                                             | [#472](https://github.com/mikepadiernos/plasma-impresario/issues/472)                                                                        |
+| ![Limitation][limitation] | Providers         | The provider guide is untried with real accounts; Gmail labels are read-only chips and still appear as folders ([details](#provider-setup-and-gmail))                                                                                                                                                                                                                                                                                                 | [#473](https://github.com/mikepadiernos/plasma-impresario/issues/473)                                                                        |
+| ![Limitation][limitation] | Security          | Junk comes only from IMAP keywords, the optional ClamAV scan needs a local `clamd` socket and runs only on **Open**, and the reader banner's **Not Junk** does not move mail ([details](#junk-and-attachment-safety))                                                                                                                                                                                                                                 | [#474](https://github.com/mikepadiernos/plasma-impresario/issues/474)                                                                        |
+| ![Limitation][limitation] | Privacy           | The outbound-call check works per file, GnuPG may fetch keys by its own settings, and version details are sent by default ([details](#external-services-and-outbound-calls))                                                                                                                                                                                                                                                                          | [#475](https://github.com/mikepadiernos/plasma-impresario/issues/475)                                                                        |
+| ![Limitation][limitation] | Sleep             | Connections close before sleep and reopen on wake only through logind, without delaying sleep; account notifications close when the app quits, and KDE Online Accounts is not used ([details](#system-sleep-and-account-notifications))                                                                                                                                                                                                               | [#476](https://github.com/mikepadiernos/plasma-impresario/issues/476)                                                                        |
+| ![Limitation][limitation] | Plasma widgets    | The Mail Status and Mail Ticker widgets are untried in a Plasma session; senders and subjects come only from indexed accounts, counts cover INBOX only, and there are no data while the app is not running ([details](#plasma-widgets))                                                                                                                                                                                                               | [#477](https://github.com/mikepadiernos/plasma-impresario/issues/477)                                                                        |
+| ![Limitation][limitation] | POP3              | Mail removed from the server exists only on this computer and goes with the account; one inbox, no offline search index and no sent copies ([details](#pop3-accounts))                                                                                                                                                                                                                                                                                | [#478](https://github.com/mikepadiernos/plasma-impresario/issues/478)                                                                        |
+| ![Limitation][limitation] | JMAP              | No push, so new mail waits for the next synchronization; messages download one at a time; folders made before the first synchronization stay local; no offline search index ([details](#jmap-accounts))                                                                                                                                                                                                                                               | [#488](https://github.com/mikepadiernos/plasma-impresario/issues/488)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
 | ![Security][security]     | Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used ([details](#security-and-data-protection))                                                                                                                                                                                                                                                                                                                    | —                                                                                                                                            |
-| ![Security][security]     | Local data        | Persistent SQL cache stores message metadata and fetched parts; the application does not encrypt cache contents ([details](#security-and-data-protection))                                                                                                                                                                                                                                                                                            | —                                                                                                                                            |
+| ![Security][security]     | Local data        | The cache and opened attachments are kept user-only, and opened copies are removed after a day, but the application does not encrypt the cache, and files created between starts are tightened at the next start ([details](#local-data-and-opened-attachments))                                                                                                                                                                                      | [#458](https://github.com/mikepadiernos/plasma-impresario/issues/458)                                                                        |
+| ![Security][security]     | Outgoing headers  | Header input is cleaned and Bcc is left out of delivered mail, but Sent copies delivered through BURL or the IMAP SENDMAIL Extension also omit Bcc, and cleaned input is not pointed out ([details](#outgoing-headers-and-bcc))                                                                                                                                                                                                                       | [#459](https://github.com/mikepadiernos/plasma-impresario/issues/459)                                                                        |
 | ![Planned][planned]       | Integrations      | Plasma new-mail notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                                                                                                                                                                                                                                                                                       | —                                                                                                                                            |
 | ![Limitation][limitation] | Compatibility     | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                                                                                                                                                                                                                                                          | —                                                                                                                                            |
 | ![Limitation][limitation] | Quality evidence  | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded; nothing has been checked in a real Plasma session yet                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
@@ -208,11 +251,23 @@ Plasma session; that check is
   Content**; the bar names the servers it would contact. Links that look
   deceptive ask before opening
   ([#97](https://github.com/mikepadiernos/plasma-impresario/issues/97)).
+- ![Resolved][resolved] Hovering a link shows its full target, fully encoded
+  with the host in its punycode form, and the link's context menu starts with
+  the same description and an **Open Link** entry. User names or passwords
+  before the host, internationalized host names with both of their forms,
+  numeric addresses, link text that shows another site and mailto: links whose
+  text is another address are pointed out there
+  ([#374](https://github.com/mikepadiernos/plasma-impresario/issues/374)).
 - ![Limitation][limitation] Link warnings are heuristics. Sites are compared by
   name, without the public suffix list: a subdomain counts as its parent's
   site.
-- ![Limitation][limitation] Links whose text is not an address, such as "Sign
-  in", never warn; their target shows only in the hover tooltip.
+- ![Limitation][limitation] Link text which is not an address, such as "Sign
+  in", is never compared with the target.
+- ![Limitation][limitation] A link reached with the keyboard shows no tooltip;
+  its context menu shows the target. A target longer than 1000 characters is
+  shortened from the middle; **Copy Link Address** copies all of it.
+- ![Limitation][limitation] A mailto: link whose text is another address is
+  pointed out but opens the composer without asking.
 - ![Limitation][limitation] Newsletters that route links through a tracking
   server while showing the destination as the link text warn on every link.
 - ![Limitation][limitation] Consent is all or nothing for the open message and
@@ -222,7 +277,8 @@ Plasma session; that check is
 
 **Workarounds:**
 
-- Hover over a link to see its target before clicking.
+- Hover over a link, or open its context menu, to see its whole target before
+  clicking.
 - For a warning caused by a tracking server, check that the named site is the
   sender's mail service before choosing **Open Link**.
 - Load remote content only for senders you trust.
@@ -232,8 +288,9 @@ Plasma session; that check is
 - Compare sites with the public suffix list.
 - Remember remote-content consent per sender, with a way to review and revoke
   it (M14.07).
-- Show the target in the status bar as well, for links whose text is not an
-  address.
+- Show the target of the focused link in the status bar, so that keyboard
+  users see it without opening a menu.
+- Ask before writing to a mailto: address that differs from the link text.
 
 ### Loading on demand
 
@@ -1251,6 +1308,1186 @@ Plasma session; that check is
   settings
   ([#352](https://github.com/mikepadiernos/plasma-impresario/issues/352)).
 
+### Desktop integration
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                         |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#457](https://github.com/mikepadiernos/plasma-impresario/issues/457) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/457#issuecomment-7208324176) | **Run in the background** and **Start after login** in **Settings › General**, closing the main window, the tray icon's menu and the `--background` option ([#371](https://github.com/mikepadiernos/plasma-impresario/issues/371)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] **Settings › General** has **Run in the background**
+  and **Start after login**, both off by default. Starting after login needs
+  running in the background, and turning that off turns it off as well. With
+  running in the background on, closing the window hides it while mail is
+  still checked, and a notice says to open it again from the tray icon, or
+  from the application launcher when the tray icon is off. Starting the
+  application again shows the running window instead of a second copy. The
+  tray icon's menu has **Show Plasma Impresario** and **Quit**
+  ([#371](https://github.com/mikepadiernos/plasma-impresario/issues/371)).
+- ![Resolved][resolved] Outside a sandbox, **Start after login** writes
+  `io.github.mikepadiernos.plasma_impresario.desktop` to the user's autostart
+  folder, starting with `--background` and the current profile, and turning it
+  off removes only an entry the application wrote. Inside a Flatpak or Snap
+  sandbox it asks the XDG Background portal instead. An entry that cannot be
+  written or removed, or a portal that cannot be reached, is explained and the
+  earlier choice is kept.
+- ![Limitation][limitation] Closing the window now quits unless **Run in the
+  background** is on, even while the tray icon is shown; before, a visible tray
+  icon kept the application running.
+- ![Limitation][limitation] The close notice reuses the earlier "don't show
+  again" choice, so someone who dismissed the old tray notice is not told that
+  the application keeps running.
+- ![Limitation][limitation] With the tray icon off, nothing on screen shows
+  that a closed window is still running.
+- ![Limitation][limitation] Both options apply to every profile. The autostart
+  entry starts the profile it was turned on from, and turning it on from
+  another profile replaces it.
+- ![Limitation][limitation] In a sandbox the choice is saved once the portal
+  request is sent; a refusal arrives later, shows a warning and leaves **Start
+  after login** checked. The development image has no portal, so this path is
+  covered by tests of the request options only.
+- ![Limitation][limitation] Starting after login, a hidden start with
+  `--background` and the tray icon of a hidden start have not been checked in a
+  real Plasma session; that is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- To keep closing to the tray, turn on **Run in the background**.
+- If the close notice was dismissed before and running in the background is
+  on, a closed window is still running: open it from the tray icon or the
+  launcher, or quit from the tray icon's menu.
+- To start another profile after login, turn **Start after login** off and on
+  again from that profile, or edit the `Exec` line of the autostart entry.
+- In a sandbox, if the portal refuses, allow background running for the
+  application in **System Settings › Applications**, then turn **Start after
+  login** off and on again.
+
+**Proposed improvements:**
+
+- Show the new close notice once, rather than reusing the old choice.
+- Store both options per profile and name the profile in the autostart entry's
+  file name.
+- Show the background state in the tray icon's tooltip and offer **Check Mail
+  Now** in its menu.
+- Save the sandboxed choice only after the portal accepts it, and read the
+  portal's answer at startup.
+
+### Local data and opened attachments
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                                                 |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#458](https://github.com/mikepadiernos/plasma-impresario/issues/458) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/458#issuecomment-7208481426) | The offline cache of each account, automatic drafts and connection logs in the cache, attachments opened from the reader or the Attachments panel, and names suggested when saving ([#375](https://github.com/mikepadiernos/plasma-impresario/issues/375)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Cache folders are created readable only by the user
+  (0700). At each start the cache is tightened in the background, folders to
+  0700 and files to 0600, read-only files staying read-only; linked files and
+  folders are left alone. New message parts are written 0600
+  ([#375](https://github.com/mikepadiernos/plasma-impresario/issues/375)).
+- ![Resolved][resolved] An attachment opened in another application is copied
+  to `Opened Attachments/<random>/<name>` in the profile's cache. The copy is
+  created 0600, made read-only once downloaded and never executable, and is
+  removed if the download fails. Copies whose newest change is more than a day
+  old are removed at startup and every hour, also while running in the
+  background.
+- ![Resolved][resolved] The name comes from the message without folder parts,
+  control characters, bidirectional overrides or leading dots, and is
+  shortened to 255 bytes with its extension kept. Names suggested when saving
+  attachments and messages are cleaned the same way.
+- ![Limitation][limitation] The cache, including the offline search index and
+  any decrypted text it holds, is not encrypted. Folder permissions do not
+  protect it from a compromised account or an unencrypted disk, and removed
+  files are not overwritten.
+- ![Limitation][limitation] Files that SQLite creates between starts may be
+  readable by others until the next start; their user-only folders keep others
+  out meanwhile.
+- ![Limitation][limitation] A copy still open after a day is removed while the
+  other application uses it, together with anything that application wrote
+  beside it, such as lock or backup files. Copies are read-only, so an edited
+  attachment has to be saved elsewhere.
+- ![Limitation][limitation] Drafts saved with **Save Draft** in the
+  application's data folder, and attachments saved with **Save Attachment**,
+  are not tightened.
+
+**Workarounds:**
+
+- To keep or edit an attachment, use **Save Attachment** rather than opening it.
+- Use full-disk or home-folder encryption when keeping mail offline, or choose
+  **Don't use cache** in an account's offline settings.
+- Keep saved drafts and attachments in a folder that only you can read.
+
+**Proposed improvements:**
+
+- Create the SQLite cache and index files 0600 from the start.
+- Tighten the drafts folder in the data folder, or keep drafts on the server
+  ([#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)).
+- Remove a copy once the other application no longer has it open, and offer a
+  setting for how long copies are kept.
+- Offer encryption of the offline cache and index with a key from the wallet.
+
+### Outgoing headers and Bcc
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                           |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [#459](https://github.com/mikepadiernos/plasma-impresario/issues/459) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/459#issuecomment-7208697224) | New messages, replies, forwards, redirected messages, mailto: links, the copy filed in Sent and saved drafts ([#373](https://github.com/mikepadiernos/plasma-impresario/issues/373)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Every value written to a header is cleaned first. In
+  the subject, organization, names and attachment names, each run of line
+  breaks, tabs, C0 and C1 controls, NEL and the Unicode line and paragraph
+  separators becomes one space. In addresses, the SMTP envelope, In-Reply-To,
+  References and MIME types these characters are removed. A mailto: subject is
+  cleaned when the link opens.
+- ![Resolved][resolved] The copy handed to the outgoing server never lists Bcc
+  or Resent-Bcc; the server still delivers to those recipients.
+- ![Resolved][resolved] The copy filed in Sent lists Bcc, and drafts keep each
+  recipient with its kind, Bcc included.
+- ![Resolved][resolved] Message-IDs are a random UUID at the sender's domain,
+  IDN-encoded, and never contain the computer's host name. Without a usable
+  domain, such as an IP address literal, `localhost` is used.
+- ![Limitation][limitation] When **Send with BURL** or the **IMAP SENDMAIL
+  Extension** delivers the copy stored in Sent, that copy omits Bcc, so Sent
+  does not show who was blind-copied.
+- ![Limitation][limitation] Cleaned input is not pointed out; pasted line
+  breaks silently become spaces.
+
+**Workarounds:**
+
+- To keep Bcc in the Sent folder, turn off **Send with BURL** and choose SMTP
+  or a local sendmail instead of the **IMAP SENDMAIL Extension** in the
+  account's outgoing settings.
+- Check the subject after pasting multi-line text.
+- Use a sender address with a domain name rather than an IP address literal.
+- If others can read your Sent folder, send a separate message instead of a
+  blind copy.
+
+**Proposed improvements:**
+
+- Show a short note under a field whose pasted text was cleaned.
+- With BURL or the IMAP SENDMAIL Extension, record Bcc recipients through a
+  private keyword or a local note instead of a header.
+- Offer a setting to leave Bcc out of the Sent copy for shared Sent folders.
+- Use the domain of the account's outgoing server for Message-IDs when the
+  sender address has none.
+
+### Saved files in the file manager
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                 |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [#460](https://github.com/mikepadiernos/plasma-impresario/issues/460) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/460#issuecomment-7209307644) | **Save Attachment** in the reader and the Attachments panel, saving from the attachment list, and **Save Message** ([#266](https://github.com/mikepadiernos/plasma-impresario/issues/266)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] After an attachment or message is saved, the main
+  window's notice bar says where it went and offers **Show in Folder**. Nothing
+  is offered when saving was cancelled or failed
+  ([#266](https://github.com/mikepadiernos/plasma-impresario/issues/266)).
+- ![Resolved][resolved] **Show in Folder** asks the desktop's file manager
+  through `org.freedesktop.FileManager1` to open the folder with the file
+  selected, so any file manager that registers the service works. A file
+  moved or deleted since it was saved, and a file manager that cannot be
+  reached, are reported instead.
+- ![Limitation][limitation] Attachments saved from a message opened in its own
+  window offer no **Show in Folder**; that window has no notice bar.
+- ![Limitation][limitation] Without the service, KIO opens the folder in the
+  default application for folders, which may not select the file.
+- ![Limitation][limitation] A later notice in the same bar, such as a download
+  error, replaces the offer.
+- ![Limitation][limitation] It has not been checked with Dolphin or Plasma Opus
+  in a real Plasma session; tests replace the file manager. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- For attachments saved from a separate message window, open the folder
+  chosen in the save dialog, or save from the main window.
+- If the folder opens without the file selected, install a file manager that
+  provides `org.freedesktop.FileManager1`, such as Dolphin.
+- If another notice replaced the offer, use **Find Saved Copies…** in the
+  Attachments panel.
+
+**Proposed improvements:**
+
+- Give separate message windows their own notice bar, so saves and download
+  errors there are reported too.
+- Keep the offer available after another notice replaces it, for example in a
+  list of recent saves.
+
+### Files handed over by file managers
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                           |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [#461](https://github.com/mikepadiernos/plasma-impresario/issues/461) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/461#issuecomment-7209609909) | `mailto:` URLs with `attach=` or `attachment=` items from another application, `plasma-impresario --attach <file>` and the `composeMailWithFiles` D-Bus call ([#263](https://github.com/mikepadiernos/plasma-impresario/issues/263)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Files that another application hands over, such as a
+  file manager through KDE's e-mail launcher or the XDG Email portal, a second
+  start of the application, or `--attach`, are attached to a new unsent
+  message. Nothing is sent until you send it
+  ([#263](https://github.com/mikepadiernos/plasma-impresario/issues/263)).
+- ![Resolved][resolved] A notice at the top of the composer names every
+  attached file and stays until dismissed. Files that could not be attached
+  are listed with the reason instead of being dropped.
+- ![Resolved][resolved] A `mailto:` link clicked inside a message attaches
+  nothing; the composer says that it asked for files.
+- ![Limitation][limitation] A `mailto:` URL may not attach hidden files, files
+  in hidden folders or files in `/proc`, `/sys`, `/dev`, `/etc`, `/boot` and
+  `/root`, also through links. The list is fixed. Files named with `--attach`
+  only have to be readable regular files.
+- ![Resolved][resolved] Files on other computers are fetched through KIO
+  ([#265](https://github.com/mikepadiernos/plasma-impresario/issues/265)). A `mailto:` URL may only name them
+  through sftp, fish, smb, ftp, ftps, webdav, webdavs, http or https on another
+  computer; see [fetched files](#files-fetched-from-other-computers).
+- ![Limitation][limitation] Drafts do not keep attachments
+  ([#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)), so handed-over files must be attached again after
+  reopening a draft or recovering an unsent message.
+- ![Limitation][limitation] It has not been checked with the XDG Email portal,
+  Dolphin or Plasma Opus in a real Plasma session; tests build the URLs the way
+  KDE's e-mail launcher does and call the D-Bus entry point directly. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- To send a hidden or system file, attach it with **Attach** in the composer,
+  or name it with `--attach`.
+- After reopening a draft or recovering an unsent message, attach the files
+  again.
+
+**Proposed improvements:**
+
+- Keep attachments with drafts ([#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)).
+- Ask before reading files that an unknown application requests.
+
+### Files fetched from other computers
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                          |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#462](https://github.com/mikepadiernos/plasma-impresario/issues/462) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/462#issuecomment-7209981171) | Remote URLs dropped on the composer, chosen with **Attach**, named with `--attach` or D-Bus, or requested by a file manager's `mailto:` URL ([#265](https://github.com/mikepadiernos/plasma-impresario/issues/265)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Files on other computers can be dropped on the
+  attachment list or the message text, chosen with **Attach**, or handed over.
+  Each is fetched through KIO, one at a time, into a private copy in the cache
+  ([#265](https://github.com/mikepadiernos/plasma-impresario/issues/265)). The source is only read.
+- ![Resolved][resolved] A notice names the file and server being fetched,
+  shows progress and has **Cancel**. Afterwards it lists what was fetched with
+  sizes, what failed with the reason and what was cancelled. Failed and
+  cancelled files are removed, and the message cannot be sent until fetching
+  ends.
+- ![Resolved][resolved] Addresses are shown without user name, password, query
+  or fragment. Copies are removed with their attachment or composer, and
+  leftovers from a crash at the next start.
+- ![Limitation][limitation] Only HTTP is tested, against a loopback server.
+  SFTP, SMB and WebDAV are untested because the development image has no such
+  KIO workers.
+- ![Limitation][limitation] Drafts do not keep attachments
+  ([#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)), so fetched files are not recovered
+  with a draft.
+- ![Limitation][limitation] Files are fetched one at a time, with no size limit
+  or warning. Web links (http, https) dropped into the text stay links.
+- ![Limitation][limitation] Not checked in a real Plasma session: drags from
+  Dolphin or Plasma Opus, browsing remote places from **Attach**, and KIO's
+  password prompts. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- If a server fails or asks for a password that never appears, copy the file
+  to a local folder in the file manager first, then attach it.
+- To attach a web file, drop its link on the attachment list or choose it with
+  **Attach**.
+- After reopening a draft or recovering an unsent message, attach the files
+  again.
+
+**Proposed improvements:**
+
+- Add the KIO SFTP and WebDAV workers to the development image and cover them
+  in the live test.
+- Keep attachments with drafts ([#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)).
+- Warn before fetching a very large file, and fetch several at once.
+
+### Plasma Search mail
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                    |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#463](https://github.com/mikepadiernos/plasma-impresario/issues/463) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/463#issuecomment-7210363971) | Mail offered to Plasma Search (KRunner) from the offline search index ([#354](https://github.com/mikepadiernos/plasma-impresario/issues/354)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] **Settings › General › Show indexed mail in Plasma
+  Search** is off by default. When it is on, the running app answers
+  KRunner's `org.kde.krunner1` calls at `/runner`
+  ([#354](https://github.com/mikepadiernos/plasma-impresario/issues/354)).
+- ![Resolved][resolved] Only accounts with an offline search index are
+  searched. Every word of three or more letters must appear in the subject or
+  the sender; message text is never searched. At most ten matches are shown,
+  newest first, each with the subject, the sender and the date.
+- ![Resolved][resolved] Choosing a match shows the window and opens the
+  message. A match names the account, folder, UIDVALIDITY and UID; other IDs
+  are ignored.
+- ![Limitation][limitation] Results appear only while the app is running;
+  KRunner does not start it.
+- ![Limitation][limitation] Only the default profile answers, because the
+  plugin names its D-Bus service.
+- ![Limitation][limitation] KRunner lists the plugin as enabled, but it shows
+  nothing until the option in the app is on.
+- ![Limitation][limitation] Not checked with KRunner itself or in a Plasma
+  session: the plugin's metadata under KF6, the second line with the sender and
+  date, and whether the window comes to the front on Wayland. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- Turn on **Run in the background** so that the app is there to answer.
+- Keep the accounts whose mail should appear in Plasma Search in the default
+  profile.
+- If the window stays behind after choosing a match, open it from the tray
+  icon or the launcher; the message is already selected.
+
+**Proposed improvements:**
+
+- Let KRunner start the app in the background through a D-Bus service file,
+  still answering nothing while the option is off.
+- Answer for named profiles too.
+- Pass KRunner's activation token so that Wayland raises the window.
+- Check the plugin with KRunner in a Plasma 6 session, and add KRunner to the
+  development image for an end-to-end test.
+
+### Contacts from the address book
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                          |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#464](https://github.com/mikepadiernos/plasma-impresario/issues/464) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/464#issuecomment-7210647420) | Names, organizations and photos from the address book in the Contacts panel ([#305](https://github.com/mikepadiernos/plasma-impresario/issues/305)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] With an address book that can describe contacts, the
+  Contacts panel looks up each address in the background. Known contacts show
+  the address book's name, organization and stored photo; unknown addresses
+  offer **Add to Address Book** next to **Open in Address Book**, in the
+  panel's header button and context menu.
+- ![Resolved][resolved] Lookups read only the local address book. They are
+  cancelled when the message changes and repeated when the address book
+  changes. Photos and states have accessible descriptions.
+- ![Resolved][resolved] Without an address book, or with one that cannot
+  describe contacts, the panel lists the addresses from the headers only.
+- ![Limitation][limitation] abook, the default address book, has no
+  organization field. Its photos are read only from a file next to the address
+  book or a local path, up to 2 MiB.
+- ![Limitation][limitation] Akonadi (**KDE Addressbook (Akonadi)**) supplies
+  the name, the organization and photos stored in the contact. It opens
+  contacts in the KDE contact viewer and adds them through Akonadi's dialog.
+  It is built and compiled but has not been run against an Akonadi server.
+- ![Limitation][limitation] No photo is fetched from a URL, Gravatar or a
+  server.
+- ![Limitation][limitation] Not checked in a Plasma session: photo size, theme
+  icons and how Akonadi's dialogs are parented on Wayland. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- To see organizations, choose **KDE Addressbook (Akonadi)** under
+  **Settings › General › Addressbook**, and keep the organization in the
+  contact.
+- For abook contacts, store the photo as a file next to the address book and
+  name it in the contact's photo field.
+- If Akonadi's dialog opens behind the window, bring it forward from the task
+  manager.
+
+**Proposed improvements:**
+
+- Test the Akonadi plugin against an isolated Akonadi instance (`akonaditest`
+  with the knut resource).
+- Check photo size, icons and dialog parenting in a Plasma 6 session.
+- Let abook contacts keep an organization in a custom field.
+
+### My Day calendars and follow-up mail
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                   |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| [#465](https://github.com/mikepadiernos/plasma-impresario/issues/465) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/465#issuecomment-7211205968) | Events, tasks and follow-up mail in the My Day panel ([#304](https://github.com/mikepadiernos/plasma-impresario/issues/304)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] **View › Embedded Panels › My Day** lists today's
+  events, including multi-day events that started in the last 14 days, and
+  tasks due today or overdue, from KDE PIM calendars through Akonadi. The
+  Akonadi source runs only while the panel is on, and the build option
+  `WITH_AKONADI_CALENDAR` leaves it out.
+- ![Resolved][resolved] Follow-up mail is flagged mail and mail with the
+  `$TODO` keyword, from the shown folder and each account's offline search
+  index, newest first, up to 50 messages. Opening one looks for it in the shown
+  folder, then in loaded mail, then by Message-ID in its folder; if it is not
+  found, a notice offers **Show in Folder**.
+- ![Resolved][resolved] **Join** opens an event's online meeting link through
+  KIO. **Open in Calendar** starts KOrganizer, or Merkuro Calendar when
+  KOrganizer is not installed. Without calendars, the panel says so and lists
+  the messages only. The day changes at midnight in the system time zone.
+- ![Limitation][limitation] Every calendar Akonadi offers is shown; the
+  calendars chosen in KOrganizer or Merkuro are not followed. A multi-day event
+  that started more than 14 days ago is left out.
+- ![Limitation][limitation] Accounts without an offline search index add only
+  the shown folder's messages. Other clients may not set `$TODO`.
+- ![Limitation][limitation] **Open in Calendar** does not open the selected
+  event or task. **Join** accepts only `https`, `http`, `sip`, `sips` and
+  `tel` links.
+- ![Limitation][limitation] Opening a message from another folder stops a
+  search across folders that is running.
+- ![Limitation][limitation] The Akonadi calendar source is built and compiled
+  but has not been run against an Akonadi server. Opening messages from the
+  panel and the calendar hand-off have no direct automated test, and nothing is
+  checked in a Plasma session. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- Unchecking a calendar in KOrganizer or Merkuro does not hide it from My Day;
+  only calendars removed from Akonadi are left out. Turn the panel off if
+  unwanted calendars crowd it.
+- Turn on the offline search index for each account so that follow-up mail from
+  every folder is listed.
+- Flag messages, rather than relying on keywords set by other clients.
+- Finish a search across folders before opening messages from My Day.
+- For meeting links in other schemes, open the event in the calendar
+  application.
+
+**Proposed improvements:**
+
+- Test the Akonadi calendar source against an isolated Akonadi instance
+  (`akonaditest`) with a calendar resource.
+- Follow the calendar selection made in KOrganizer or Merkuro.
+- Open the selected event or task in the calendar application, and check the
+  application names in a Plasma 6 session.
+- Add a window-level test for opening follow-up messages and for the calendar
+  hand-off.
+- Let a follow-up lookup run without stopping a search across folders.
+
+### Server settings discovery
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| [#466](https://github.com/mikepadiernos/plasma-impresario/issues/466) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/466#issuecomment-7212352050) | Finding IMAP and SMTP settings in **Add Account** ([#372](https://github.com/mikepadiernos/plasma-impresario/issues/372)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] **Add Account** asks for a name, an email address and
+  an optional account name. **Find Settings** tries the providers built into
+  the application, the domain's autoconfig file over HTTPS, Thunderbird's ISP
+  database (ISPDB), DNS SRV records (RFC 6186 and RFC 8314), the domain's MX
+  hosts and common host names, in that order, and stops at the first source
+  that names an IMAP server. Nothing signs in and no password is sent.
+- ![Resolved][resolved] The dialog shows the provider, the servers, where they
+  were found, and guidance for app passwords, turning on IMAP or OAuth-only
+  providers. Servers found through unsigned DNS outside the mail domain and the
+  known providers must be confirmed before the account can be added. After
+  adding, the settings and an identity are saved and the account settings
+  open.
+- ![Limitation][limitation] The autoconfig request sends the full email address
+  to `autoconfig.<domain>`, as Thunderbird does. The ISPDB request sends only
+  the domain.
+- ![Limitation][limitation] An ISPDB lookup through MX hosts takes the last two
+  labels of the MX host as the provider's domain. This fails for suffixes such
+  as `co.uk`, which then fall back to guessed host names.
+- ![Limitation][limitation] DNS replies count as signed only when the system
+  resolver sets the DNSSEC authenticated-data bit. Most resolvers do not
+  validate, so most SRV or MX servers outside the mail domain need
+  confirmation.
+- ![Limitation][limitation] Guessed servers count as found after a TCP or TLS
+  connection succeeds, even with a certificate error. The IMAP or SMTP greeting
+  and STARTTLS are not checked. Servers without encryption and single-label
+  domains such as `localhost` are not used.
+- ![Limitation][limitation] Nine providers are built in, and the Apple help
+  link is unchecked. Settings can be found only in **Add Account**, and
+  cancelling the account settings that open next keeps the account and the
+  settings found.
+- ![Limitation][limitation] Automated tests use a fake network, apart from
+  probes and fetches against local servers. Nothing is tried against real
+  providers, a validating resolver or in a Plasma session. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- Check the servers shown before adding the account. If they are wrong or
+  missing, add the account anyway and enter the servers in its settings.
+- Confirm servers outside your mail domain only if you recognise them as your
+  provider's.
+- If a guessed server is wrong, or its certificate is rejected when signing in,
+  enter the server named in your provider's help pages.
+- To look up settings again for an existing account, add a new account with the
+  same address and remove the old one.
+- If your domain's autoconfig server should not see your address, enter the
+  settings by hand instead of using **Find Settings**.
+
+**Proposed improvements:**
+
+- Add a live test with Dovecot and a locally served autoconfig file, and check
+  real providers in a Plasma 6 session.
+- Use the public suffix list to find the registered domain of MX hosts.
+- Check the IMAP and SMTP greetings, and STARTTLS, when probing guessed
+  servers, and report certificate errors.
+- Offer **Find Settings** in the settings of existing accounts.
+- Check the Apple help link and extend the built-in providers.
+
+### Window activation for requests
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                        |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#467](https://github.com/mikepadiernos/plasma-impresario/issues/467) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/467#issuecomment-7212676193) | Bringing windows forward for requests from launchers, links, file managers, Plasma Search and notifications ([#98](https://github.com/mikepadiernos/plasma-impresario/issues/98)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] A second launch of the same profile hands its
+  activation token to the running instance over D-Bus before its request.
+  Plasma Search hands its token over before `Run`, and a notification's
+  **Open Account** passes the notification's token.
+- ![Resolved][resolved] The window a request is about comes forward: the main
+  window, or the composer for a `mailto:` link, a file manager's request to
+  send files, or **New Message**. A token is used once and dropped after 20
+  seconds. Windows are never pinned to a virtual desktop, Activity or screen,
+  and never moved.
+- ![Limitation][limitation] On a first launch, Qt applies the launch token to
+  the first window it activates. When a `mailto:` link starts the application,
+  that is probably the main window, so the composer may only be marked as
+  wanting attention.
+- ![Limitation][limitation] The address book window, opened with
+  `--addressbook`, takes no token. The tray icon relies on Qt to pass on the
+  token of its click, which is unchecked.
+- ![Limitation][limitation] On X11, the startup notification is not explicitly
+  ended, so the launch feedback may stay until it times out.
+- ![Limitation][limitation] Plasma Search hands its token only to the default
+  profile ([Plasma Search mail](#plasma-search-mail)). A token unused for 20
+  seconds, for example while an account is being set up, is dropped.
+- ![Limitation][limitation] Automated tests run on Qt's offscreen platform,
+  where no token is applied, and do not cover the session-bus hand-over or the
+  notification token. Nothing is tried in a Plasma session on Wayland or X11.
+  That is [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- If a window is only marked as wanting attention, click its task manager
+  entry, or lower KWin's focus stealing prevention level in the window behavior
+  settings.
+- To open the composer from a `mailto:` link without focus problems, start the
+  application first.
+
+**Proposed improvements:**
+
+- Check every request path in a Plasma 6 session on Wayland and X11, from a
+  hidden, minimized, covered and other-desktop window.
+- On a first launch with a `mailto:` link, keep the launch token for the
+  composer instead of the main window.
+- Pass the token to the address book window, and end the X11 startup
+  notification explicitly.
+- Add a session-bus test for the second-launch hand-over and a test for the
+  notification token.
+
+### Saving unsent messages at session end
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                 |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| [#468](https://github.com/mikepadiernos/plasma-impresario/issues/468) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/468#issuecomment-7213042207) | Saving open composers when the Plasma session ends ([#100](https://github.com/mikepadiernos/plasma-impresario/issues/100)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Composers save changes every 30 seconds. When the
+  session ends, through the X11 session manager's request to save or a
+  `SIGTERM`, each open composer also saves the changes made since then, without
+  asking, and the application quits.
+- ![Resolved][resolved] Messages that were sent or never edited are not saved.
+  The next start reopens the saved messages from the cache, as after a crash.
+- ![Limitation][limitation] Attachments are not saved with drafts, so they are
+  missing from a recovered message.
+- ![Limitation][limitation] A message opened from a saved draft is written back
+  to that draft, which does not reopen at the next start; it opens through
+  **Edit Draft…**.
+- ![Limitation][limitation] A message still being sent when the session ends is
+  saved too, so it can reopen even if the server accepted it.
+- ![Limitation][limitation] On Wayland, if Plasma closes the windows before it
+  ends the process, a composer with changes asks **Save Draft?** and can hold up
+  logging out.
+- ![Limitation][limitation] Only composers come back; Plasma's session restore
+  is not used. The test saves directly and exercises neither the session
+  manager's request nor `SIGTERM`, and nothing is tried in a Plasma session.
+  That is [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- Send or save messages with attachments before logging out, and attach the
+  files again after a recovery.
+- If **Save Draft?** holds up logging out on Wayland, choose **Save** or
+  **Discard** so that the window can close.
+- Open a message that was opened from a saved draft through **Edit Draft…**
+  after the next start.
+
+**Proposed improvements:**
+
+- Log out of Plasma 6 on Wayland and X11 with an edited composer, and check
+  that the message reopens and that no prompt holds up logging out.
+- Save without asking when Plasma closes the windows to end the session.
+- Keep the attached files' locations in drafts, or warn when a recovered message
+  had attachments.
+- Do not save a message whose sending is under way, or mark it as possibly
+  sent.
+
+### Portal file chooser
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                         |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#470](https://github.com/mikepadiernos/plasma-impresario/issues/470) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/470#issuecomment-7213372472) | Choosing files to attach, drafts to edit and folders for saved-file search ([#101](https://github.com/mikepadiernos/plasma-impresario/issues/101)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Attaching files, **Edit Draft…** and choosing a folder
+  for **Find Saved Files…** ask the XDG desktop portal's file chooser first,
+  with the app window as its parent, so whichever program serves the portal,
+  such as Plasma or Plasma Opus, shows its dialog. Filters and the starting
+  folder are passed on.
+- ![Resolved][resolved] When no portal answers, or the portal says it cannot
+  show the dialog, the KDE dialog appears, as before. Cancelling either dialog
+  changes nothing.
+- ![Limitation][limitation] Only the window that asked is disabled while the
+  portal's dialog is open; the app's other windows stay usable.
+- ![Limitation][limitation] Saving attachments and messages still uses the KDE
+  dialog directly.
+- ![Limitation][limitation] Plasma's portal returns local paths, so remote
+  locations chosen in it depend on kio-fuse. Remote URIs a portal returns are
+  fetched through KIO for attachments; **Edit Draft…** and the saved-file
+  search folder take local paths only.
+- ![Limitation][limitation] On Wayland, handing the window to the portal needs
+  KDE Frameworks 6.28 or later. The tests use a fake portal on a private D-Bus
+  connection; nothing is tried in a Plasma session or with Plasma Opus. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- If the portal's dialog does not appear over the app window on Wayland, find
+  it in the task manager; the app window stays disabled until a file is chosen
+  or the dialog is cancelled.
+- To attach a file from a remote location the portal cannot show, drop it on
+  the composer, or install kio-fuse so that the portal offers it as a local
+  path.
+
+**Proposed improvements:**
+
+- Open files in a Plasma 6 session on Wayland and X11, with and without Plasma
+  Opus serving the portal, and check the parent window, filters, starting
+  folder, cancelling and multiple selection.
+- Ask the portal's `SaveFile` for save dialogs as well.
+- Disable every app window while the portal's dialog is open, as a modal
+  dialog would.
+
+### Unread count on the task manager
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                         |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| [#471](https://github.com/mikepadiernos/plasma-impresario/issues/471) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/471#issuecomment-7213633218) | The unread count on the task manager entry ([#102](https://github.com/mikepadiernos/plasma-impresario/issues/102)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] The task manager entry shows the unread messages in the
+  INBOX of every account, through the `com.canonical.Unity.LauncherEntry`
+  signal. Only the number is sent, and only when it changes; nothing unread
+  hides it, and the first count clears what an earlier run left.
+- ![Resolved][resolved] It is on by default and can be turned off under
+  **Settings → General → Show the unread count on the task manager entry**,
+  which hides the count.
+- ![Limitation][limitation] The tray icon counts the watched folders of the
+  current account, so its number can differ.
+- ![Limitation][limitation] Accounts that are offline or not yet connected add
+  nothing until their count is known, so the number can grow after start.
+- ![Limitation][limitation] Plasma's task manager matches the signal to an
+  installed desktop entry, so a build run without installing shows no count.
+- ![Limitation][limitation] The tests receive the signal over a private D-Bus
+  connection and check a live total with two Dovecot accounts; nothing is tried
+  in a Plasma session. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- To hide the count, turn off the setting, or turn off **Show progress and
+  status information in task buttons** in the Plasma task manager's settings.
+- For the count of a single account, see the account selector or the sidebar
+  header.
+
+**Proposed improvements:**
+
+- Check the count in Plasma 6 on Wayland and X11 with several accounts,
+  offline and after quitting.
+- Count the same folders for the tray icon and the task manager entry, with one
+  setting for both.
+- Let the count include other watched folders or only selected accounts.
+
+### Accessibility and theming
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                           |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| [#472](https://github.com/mikepadiernos/plasma-impresario/issues/472) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/472#issuecomment-7214151837) | Accessibility and theming parity with Plasma ([#103](https://github.com/mikepadiernos/plasma-impresario/issues/103)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Icons come from the active icon theme, which always
+  wins over the few bundled copies; small action icons prefer the theme's
+  `-symbolic` variants.
+- ![Resolved][resolved] Field and text states, such as an invalid address, a
+  search with or without results, a sorting error, warnings and the offline
+  tray badge, use the color scheme's positive, neutral and negative roles.
+  Avatar initials, selected tag text and the protocol log keep at least 4.5:1
+  contrast.
+- ![Resolved][resolved] The address expander is a focusable button that opens
+  with Return or Enter and shows a focus rectangle, and address links take the
+  keyboard. The message list, quick search, folder tree, network access and
+  main menu controls have accessible names, and a test checks that every
+  visible focusable control in the main window has one.
+- ![Limitation][limitation] Every source file is scanned for translatable
+  strings, but no `.po` catalog exists for the `plasma-impresario` domain, so
+  the interface is in English only.
+- ![Limitation][limitation] Small icons built from sources other than the
+  theme are not converted to symbolic ones; there is no `SymbolicIcon::wrap`.
+- ![Limitation][limitation] The protocol log inserts each entry's source label
+  without HTML escaping; the labels are internal names today.
+- ![Limitation][limitation] The tests use Qt's accessibility interfaces
+  offscreen. Nothing is tried with a screen reader such as Orca, with a
+  high-contrast scheme, at large scales, in right-to-left languages or in a
+  Plasma session. That is
+  [M09.08](ROADMAP.md#m09-themes-and-branding-foundation) and
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- For more contrast, choose a high-contrast Plasma color scheme; the state
+  colors follow it.
+- To reach an address or a collapsed address list without a mouse, Tab through
+  the message header.
+
+**Proposed improvements:**
+
+- Check the shell with Orca, keyboard only, at 200% scaling, in right-to-left
+  languages and with Breeze High Contrast in a Plasma 6 session.
+- Add `SymbolicIcon::wrap` for icons built from other sources, and escape the
+  protocol log's source label.
+- Start translations for the `plasma-impresario` domain once the strings
+  settle.
+
+### Provider setup and Gmail
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                       |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [#473](https://github.com/mikepadiernos/plasma-impresario/issues/473) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/473#issuecomment-7214308273) | The [Mail providers](integrations/providers.md) guide ([#104](https://github.com/mikepadiernos/plasma-impresario/issues/104)) and Gmail accounts |
+
+**Current behavior:**
+
+- ![Resolved][resolved] [Mail providers](integrations/providers.md) lists the
+  servers, sign-in and first steps of the nine built-in providers, OAuth and
+  app passwords, the IMAP extensions the client uses, sending options and
+  troubleshooting.
+- ![Resolved][resolved] On Gmail, with **Archive Folder Name** empty,
+  **Archive** moves messages to the `\All` folder, **All Mail**, instead of
+  creating an `Archive` label
+  ([#43](https://github.com/mikepadiernos/plasma-impresario/issues/43)).
+- ![Resolved][resolved] Messages sent through `smtp.gmail.com` or
+  `smtp.googlemail.com` are not uploaded to **Sent Mail**, because Gmail keeps
+  its own copy; **Save Outgoing Mail** is shown off and disabled for them.
+- ![Limitation][limitation] An archive folder name stored by an earlier
+  version, usually `Archive`, still wins over **All Mail**.
+- ![Limitation][limitation] Gmail labels still appear as folders. A message
+  with several labels appears in each, and removing it from one removes only
+  that label. The open message shows its other labels as chips, but they are
+  read-only and are fetched only when the message is opened online.
+- ![Limitation][limitation] Only Google and Microsoft offer OAuth; Yahoo,
+  iCloud and AOL need app passwords. POP3 and JMAP accounts have their own
+  limits: see [POP3 accounts](#pop3-accounts) and
+  [JMAP accounts](#jmap-accounts).
+- ![Limitation][limitation] Nothing in the guide is tried with real provider
+  accounts; the tests use a fake network and local Dovecot servers. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- For Gmail, clear **Archive Folder Name** under **Account Settings › IMAP**
+  if it still holds `Archive`.
+- To change a message's labels, copy it to or delete it from the label
+  folders.
+- For Yahoo, iCloud and AOL, create an app password.
+- For providers that offer POP3 besides IMAP, use IMAP. For JMAP, see
+  [JMAP accounts](#jmap-accounts).
+
+**Proposed improvements:**
+
+- Edit labels from the chips with `STORE X-GM-LABELS`, and optionally hide
+  label folders from the folder tree
+  ([#43](https://github.com/mikepadiernos/plasma-impresario/issues/43)).
+- Check each built-in provider with a real account in a Plasma 6 session.
+
+### Junk and attachment safety
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                 |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#474](https://github.com/mikepadiernos/plasma-impresario/issues/474) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/474#issuecomment-7214741902) | Junk verdicts and attachment opening ([#105](https://github.com/mikepadiernos/plasma-impresario/issues/105)), and the ClamAV and spam-handling hooks ([#44](https://github.com/mikepadiernos/plasma-impresario/issues/44)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] A message with a `$Junk` or `Junk` keyword shows a
+  warning banner above the reader. Its **Not Junk** button removes `$Junk` and
+  adds `$NotJunk` on the server. A `$NotJunk`, `NotJunk` or `NonJunk` keyword
+  always wins over a junk mark.
+- ![Resolved][resolved] Junk rows show the `mail-mark-junk` icon, and screen
+  readers hear "Marked as junk".
+- ![Resolved][resolved] Opening an attachment of junk mail from the reader or
+  the attachments panel asks first. **Cancel** is the default, and nothing is
+  downloaded until the user agrees.
+- ![Resolved][resolved] Scan results have fixed meanings: an infected
+  attachment is blocked, and a failed or unavailable scan asks first and is
+  never shown as clean.
+- ![Limitation][limitation] The verdict comes only from IMAP keywords. Spam
+  headers such as `X-Spam-Status` are not read, so mail that the server files
+  into the Junk folder without a keyword is not marked.
+- ![Resolved][resolved] With **Scan attachments with ClamAV before opening
+  them** turned on under **Settings › General**, **Open** streams the
+  downloaded copy to the local `clamd` before another application receives
+  it. A threat blocks opening and names the signature. A `clamd` that cannot
+  be reached, an error reply such as its stream size limit, or no answer
+  within a minute asks first. Scanning is off by default.
+- ![Resolved][resolved] With **Move messages marked as junk to the Junk
+  folder** turned on, **Mark as Junk** also moves the message to the
+  account's Junk folder, and **Mark as Not Junk** on a message in the Junk
+  folder moves it to the inbox, so a spam filter on the server can learn from
+  the move. Moving is off by default.
+- ![Limitation][limitation] Only a `clamd` Unix socket is supported. It is
+  found at the usual distribution paths, or set as `ClamdSocket` in the
+  `[MailSafety]` group of `plasma-impresariorc`; there is no setting for it in
+  the dialog. A `clamd` over TCP and `clamscan` are not used.
+- ![Limitation][limitation] The scan was checked against a real `clamd` with a
+  test signature only, not with ClamAV's own signatures or in a Plasma
+  session. A busy cursor is the only sign of a running scan.
+- ![Limitation][limitation] Only **Open** asks first and scans. Saving or
+  dragging an attachment does neither, and there is no separate **Scan**
+  action.
+- ![Limitation][limitation] The reader banner's **Not Junk** button changes
+  only keywords. Mail selected from several folders, accounts without a Junk
+  folder, and **Not Junk** outside the Junk folder are not moved.
+- ![Limitation][limitation] With column rows, the junk mark replaces the
+  replied and forwarded icon in the subject column. Closing the reader's junk
+  banner hides it until another message is shown.
+
+**Workarounds:**
+
+- Let the server's spam filter set `$Junk`, for example Dovecot with Rspamd
+  or SpamAssassin and a Sieve `addflag`, so its verdict reaches the reader.
+- To move mail as well, use **Mark as Not Junk** from the toolbar or menu
+  instead of the reader banner, or use **Move to**.
+- Scan saved attachments with `clamscan` before opening them.
+- For a `clamd` that listens only on TCP, add a `LocalSocket` to its
+  `clamd.conf`, or set `ClamdSocket` to the socket it uses.
+
+**Proposed improvements:**
+
+- Read the server's spam headers when they are cached, and treat mail in the
+  Junk folder as junk.
+- Ask and scan before saving or dragging attachments as well, and add a
+  **Scan** action to the attachment menu and toolbar.
+- Let the reader banner's **Not Junk** move the message as well, with
+  **Undo**.
+- Show the scan's progress, and offer the socket in the settings dialog.
+- Check the scan with ClamAV's own signatures in a Plasma session
+  ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
+
+### External services and outbound calls
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                     |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| [#475](https://github.com/mikepadiernos/plasma-impresario/issues/475) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/475#issuecomment-7214973305) | [External services](integrations/external-services.md) ([#106](https://github.com/mikepadiernos/plasma-impresario/issues/106)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Message content goes only to the account's own IMAP
+  and SMTP servers, or the configured `sendmail` program. Every other outbound
+  call is listed in the [register](integrations/external-services.md#register)
+  with what it sends and the user action that comes first.
+- ![Resolved][resolved] `test_ExternalExposure` fails when a source file sends
+  something out without a register entry, or an entry no longer does.
+- ![Limitation][limitation] The check works per file and by known calls. A new
+  outbound call in a file that is already listed, such as
+  `src/Gui/Window.cpp`, passes without a register change, and calls made by
+  other means, such as QML `XMLHttpRequest` or sockets opened by a library,
+  are not found.
+- ![Limitation][limitation] Libraries follow their own settings. With
+  `auto-key-retrieve` in `gpg.conf`, verifying a signature can fetch the
+  signer's key from a key server.
+- ![Limitation][limitation] The IMAP `ID` command and the `User-Agent` header
+  include the version and operating system by default.
+- ![Limitation][limitation] A remote image the user allows still tells its
+  server the time and the reader's network address.
+- ![Limitation][limitation] What notifications, Plasma Search and the portals
+  show has not been checked in a real Plasma session.
+
+**Workarounds:**
+
+- Turn off **Reveal Plasma Impresario's version and platform information** in
+  the **General** settings to send only the application name.
+- Leave `auto-key-retrieve` out of `~/.gnupg/gpg.conf`.
+- Keep **Load Remote Content** for senders you trust.
+- When reviewing a change to a file that is already in the register, check its
+  new outbound calls by hand.
+
+**Proposed improvements:**
+
+- Record outbound calls by function rather than by file, so that a new call in
+  a listed file needs a register change too.
+- Add a runtime test that runs the application's network uses against a local
+  server with a marker in a message, and fails if the marker appears in any
+  request.
+- Check notifications, Plasma Search and the portals in a real Plasma session
+  ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
+
+### System sleep and account notifications
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                            |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#476](https://github.com/mikepadiernos/plasma-impresario/issues/476) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/476#issuecomment-7215881903) | [Windows and session lifecycle](integrations/kde-plasma.md#windows-and-session-lifecycle), [notifications](integrations/kde-plasma.md#notifications-and-status) ([#42](https://github.com/mikepadiernos/plasma-impresario/issues/42)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] When logind announces sleep with `PrepareForSleep`,
+  every account goes offline and closes its connection. On wake, each account
+  returns to the network policy the user chose; an account set to **Offline**
+  stays offline, and the chosen policy is never overwritten.
+- ![Resolved][resolved] A background account with a connection problem has at
+  most one desktop notification. A later failure replaces it, and it closes
+  when the account connects again, is opened or is removed; **Open Account**
+  does nothing for a removed account.
+- ![Limitation][limitation] No logind sleep-delay inhibitor is taken, so the
+  IMAP `LOGOUT` may not reach the server before the system sleeps; the server
+  then drops the session on its own time-out.
+- ![Limitation][limitation] Without logind or a system bus, as on systems
+  without systemd, sleep is not noticed; connections recover through time-outs
+  and the normal reconnect.
+- ![Limitation][limitation] Account notifications close when the application
+  quits.
+- ![Limitation][limitation] KDE Online Accounts (KAccounts) is not used;
+  accounts are not shared with the system or other applications.
+- ![Limitation][limitation] New-mail notifications are not part of this item;
+  they come with
+  [M07](ROADMAP.md#m07-output-notifications-and-rules-automation).
+- ![Limitation][limitation] Sleep, wake and notifications have not been
+  checked in a real Plasma session.
+
+**Workarounds:**
+
+- A stale server session after sleep is dropped by the server's time-out;
+  nothing needs to be done in the application.
+- On systems without logind, choose **Offline** in the network menu before
+  suspending and **Free Access** or **Expensive Connection** afterwards.
+- Open the account from its notification, or switch to it, to dismiss the
+  notice.
+
+**Proposed improvements:**
+
+- Take a logind `delay` inhibitor while connections log out, and release it
+  once they close or after a short limit.
+- Follow `org.freedesktop.login1` appearing and disappearing on the bus, so
+  that a restarted logind is noticed.
+- Offer KDE Online Accounts as an account source.
+- Add new-mail notifications
+  ([M07](ROADMAP.md#m07-output-notifications-and-rules-automation)).
+- Check sleep, wake and notifications in a real Plasma session
+  ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
+
+### Plasma widgets
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                          |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| [#477](https://github.com/mikepadiernos/plasma-impresario/issues/477) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/477#issuecomment-7217492341) | [Plasma widgets](integrations/kde-plasma.md#plasma-widgets) ([#245](https://github.com/mikepadiernos/plasma-impresario/issues/245)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] The optional **Mail Status** and **Mail Ticker**
+  widgets follow the running application over D-Bus and never read mail
+  storage or credentials. **Plasma widgets may show** in Settings, General
+  decides what they learn: nothing, unread counts and account status (the
+  default), or the senders, and also the subjects, of unread mail. Message
+  text is never shared.
+- ![Resolved][resolved] Both widgets say when the application is not running
+  or not answering and never show old data as current; the ticker pages
+  instead of scrolling when animations are off or it has the keyboard focus.
+- ![Limitation][limitation] Senders and subjects come only from accounts with
+  an offline search index and follow its last pass, so a message read
+  elsewhere can stay in the ticker until the index catches up.
+- ![Limitation][limitation] Unread counts cover each account's INBOX only.
+- ![Limitation][limitation] The ticker shows either unread messages or one
+  count per account, not both together.
+- ![Limitation][limitation] While the application is not running there are no
+  data; the status widget keeps the last counts, marked as out of date.
+- ![Limitation][limitation] The application is found under its legacy D-Bus
+  service name, `net.flaska.trojita`.
+- ![Limitation][limitation] The shared views and the D-Bus client are tested
+  outside Plasma; the widgets have not been loaded on a panel or the desktop
+  of a real Plasma session. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- To see senders or subjects in the ticker, choose a sharing level that allows
+  them and turn on the offline search index for the account.
+- If a read message stays in the ticker, let the index finish its next pass,
+  or open the folder so that it is reindexed.
+- Keep the application running, for example with **Run in the background**, so
+  that the widgets stay current.
+
+**Proposed improvements:**
+
+- Load and check both widgets in a real Plasma 6 session, on the panel and the
+  desktop ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
+- Update the index's flags when messages are read in the application, so that
+  the ticker follows at once.
+- Offer counts for folders other than INBOX.
+- Register the application under its own D-Bus service name.
+- Let the ticker mix messages from indexed accounts with counts from the
+  others.
+
+### POP3 accounts
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                              |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| [#478](https://github.com/mikepadiernos/plasma-impresario/issues/478) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/478#issuecomment-7219265960) | [POP3 accounts](integrations/providers.md#pop3) ([#216](https://github.com/mikepadiernos/plasma-impresario/issues/216)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] **Add Account** can create a POP3 account. It
+  downloads mail over TLS or STLS into a store on this computer, signing in
+  with AUTH PLAIN when offered or USER and PASS, and never sends the password
+  when the chosen protection is not available.
+- ![Resolved][resolved] **Account Settings › POP3** chooses whether mail stays
+  on the server, is removed once downloaded, or is removed after a number of
+  days, and how often to check. Each message is stored before the server is
+  asked to remove it, and a broken connection removes nothing. A message is
+  never downloaded twice: it is known by its UIDL, or by a digest of its
+  headers on servers without UIDL.
+- ![Resolved][resolved] Read, flagged and deleted states, and searching in the
+  window, work on the local copy.
+- ![Limitation][limitation] Mail removed from the server exists only on this
+  computer. Removing the account deletes it with the account's other local
+  data, and nothing backs it up.
+- ![Limitation][limitation] The window shows a single inbox: folder
+  management, moving, archive, junk and tags are hidden, although the local
+  store could hold folders.
+- ![Limitation][limitation] There is no offline search index for POP3
+  accounts, so Plasma Search and the Plasma widgets' senders and subjects do
+  not cover them.
+- ![Limitation][limitation] SMTP cannot reuse the POP3 password or sign in
+  with OAuth, and no sent copy is kept, as there is no Sent folder.
+- ![Limitation][limitation] APOP and SASL mechanisms other than PLAIN are not
+  used.
+- ![Limitation][limitation] A certificate the system does not trust can be
+  accepted only when the check was asked for, by opening the account or
+  reloading its folders; background checks only report it.
+- ![Limitation][limitation] A password typed at the prompt is kept for the
+  session only; a password stored under **Account Settings › POP3** is used
+  across restarts.
+- ![Limitation][limitation] Tested against Dovecot in the development
+  container, not against real providers or in a Plasma session. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- Prefer IMAP when the provider offers it: it keeps folders, flags and sent
+  copies on the server, and the offline search index covers it.
+- Keep mail on the server, or remove it only after some days, until the local
+  mail is backed up.
+- Back up `~/.local/share/flaska.net/trojita/local-mail/`, which holds one
+  folder of mail per POP3 account.
+- Open the account or reload its folders to answer a certificate prompt.
+- Store the POP3 password under **Account Settings › POP3** so that
+  background checks can sign in after a restart.
+
+**Proposed improvements:**
+
+- Offer local folders, moving and tags on POP3 accounts, since the local store
+  supports them.
+- Index POP3 mail for offline search, Plasma Search and the widgets.
+- Keep sent copies in a local Sent folder, and let SMTP reuse the POP3
+  sign-in.
+- Export and import the local store, and offer to keep it when the account is
+  removed.
+- Try real providers in a Plasma 6 session.
+
+### JMAP accounts
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                              |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| [#488](https://github.com/mikepadiernos/plasma-impresario/issues/488) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/488#issuecomment-7221227815) | [JMAP accounts](integrations/providers.md#jmap) ([#217](https://github.com/mikepadiernos/plasma-impresario/issues/217)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] **Add Account** can create a JMAP account, and
+  **Account Settings › JMAP** takes the server (a host name or a session
+  URL), the user name, a password or an access token, how often to check and
+  how to send. Only HTTPS is used, or HTTP to this computer for testing.
+- ![Resolved][resolved] Folders and messages are kept in a store on this
+  computer and synchronized both ways: read, flagged and other keywords,
+  moves, copies, new, renamed and removed folders, and removals go up; the
+  server's changes come down, through `Email/changes` when the server can
+  tell them. Folders, moving, archive, junk and tags stay available.
+- ![Resolved][resolved] The account synchronizes when it is opened or its
+  folders are reloaded, at the chosen interval, five seconds after a change
+  on this computer, and after sending.
+- ![Resolved][resolved] Sending goes through the JMAP server, which keeps the
+  copy in Sent and removes it again if sending is refused, or through the
+  account's SMTP server.
+- ![Limitation][limitation] There is no push: mail the server receives
+  appears with the next synchronization. Changes made here while a
+  synchronization runs go up with the next one.
+- ![Limitation][limitation] Messages are downloaded one at a time, so the
+  first synchronization of a large mailbox is slow.
+- ![Limitation][limitation] Folders that were on this computer before the
+  first synchronization stay here only, and moving a message into one removes
+  it from the server. Renaming a special folder (Inbox, Sent, Drafts, Trash,
+  Junk, Archive) is undone at the next synchronization, and a `/` in a server
+  folder name becomes `_` here.
+- ![Limitation][limitation] There is no offline search index for JMAP
+  accounts, so Plasma Search and the Plasma widgets' senders and subjects do
+  not cover them; searching in the window works on the local copy.
+- ![Limitation][limitation] Sending through JMAP needs a sending identity for
+  the sender's address on the server. Some servers create one per address;
+  others need it added in their own settings.
+- ![Limitation][limitation] A certificate the system does not trust can be
+  accepted only when the synchronization was asked for; a password typed at
+  the prompt is kept for the session only.
+- ![Limitation][limitation] Tested against Stalwart in the development
+  container (`live-jmap.sh`), not against hosted providers such as Fastmail
+  or in a Plasma session. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- For mail that must arrive at once, lower **Check for new mail every** under
+  **Account Settings › JMAP**, or reload the folders.
+- Let the first synchronization of a large mailbox finish before working in
+  the account.
+- Create folders after the first synchronization so that they exist on the
+  server, and rename special folders on the server.
+- If the server may not send as your address, add the address as a sending
+  identity in the server's settings, or set **Send messages** to **Through
+  the SMTP server on the SMTP page**.
+- Use IMAP when the provider offers it and Plasma Search or the Plasma
+  widgets should cover the account.
+- Open the account or reload its folders to answer a certificate prompt, and
+  store the password under **Account Settings › JMAP** so that background
+  synchronization can sign in after a restart.
+
+**Proposed improvements:**
+
+- Synchronize on the server's push (EventSource or WebSocket).
+- Download several messages per request, within the server's limits.
+- Run another synchronization when changes were made during one.
+- Index JMAP mail for offline search, Plasma Search and the widgets.
+- Try hosted providers such as Fastmail in a Plasma 6 session.
+
 ## Before reporting results
 
 - [ ] Confirm the desktop environment and display server.
@@ -1274,7 +2511,8 @@ Plasma session; that check is
 | SMTP transport    | Supports cleartext, STARTTLS and dedicated TLS. Certificate errors prompt the user in the composer; an accepted public key is remembered per account and forgotten when the SMTP host changes. A key accepted for the same host by any account, over IMAP or SMTP, is accepted without asking.                                                     | Cleartext is selectable. Certificates the system trusts are accepted without remembering their key, so only the system's policy applies to them. There is no way yet to review or forget accepted keys.                                                                                                                     |
 | Credentials       | The password-plugin interface supports retrieval, storage and deletion. QtKeychain can provide encrypted storage when built and selected, and is the default for new profiles. Each account keeps its own stored passwords, which are deleted when the account is removed.                                                                         | QtKeychain is optional. Profiles that already have saved cleartext passwords keep the cleartext plugin, which stores IMAP/SMTP secrets in `QSettings`.                                                                                                                                                                      |
 | Message rendering | The reader uses a private profile per message, disables scripts, plugins and persistent storage, blocks local-file and remote requests by default, and delegates permitted external links. Remote images require explicit per-message consent. Switching messages destroys the profile, discarding loaded content and cancelling pending requests. | Renderer behavior has not been smoke-tested in a live Plasma session or across the documented distribution matrix.                                                                                                                                                                                                          |
-| Cached data       | Persistent SQL cache can hold message metadata and fetched parts; cache directory permissions are restricted on supported Unix systems.                                                                                                                                                                                                            | Application-level cache encryption is not present, and the offline search index, with decrypted text when chosen, is stored unencrypted in the cache. Directory permissions do not protect mail from a compromised account or unencrypted disk. Removing an account deletes its cache files without overwriting them first. |
+| Cached data       | Persistent SQL cache can hold message metadata and fetched parts. Cache folders are 0700 and files 0600, tightened at each start; copies of opened attachments are user-only and removed after a day ([details](#local-data-and-opened-attachments)).                                                                                              | Application-level cache encryption is not present, and the offline search index, with decrypted text when chosen, is stored unencrypted in the cache. Directory permissions do not protect mail from a compromised account or unencrypted disk. Removing an account deletes its cache files without overwriting them first. |
+| Outgoing mail     | Header values are stripped of line breaks and control characters, Bcc and Resent-Bcc are removed from the delivered copy, and Message-IDs use the sender's domain instead of the host name ([details](#outgoing-headers-and-bcc)).                                                                                                                 | Sent copies delivered through BURL or the IMAP SENDMAIL Extension omit Bcc; cleaned input is not pointed out.                                                                                                                                                                                                               |
 | OpenPGP           | Optional GpgME++/Mimetic MIME handling and decryption tests are present.                                                                                                                                                                                                                                                                           | Availability depends on build options; complete signature-status UX and verification policy are not established.                                                                                                                                                                                                            |
 | Diagnostics       | Persistent protocol logging is opt-in at startup; an in-app protocol log is available.                                                                                                                                                                                                                                                             | Treat protocol logs as sensitive and review them before sharing.                                                                                                                                                                                                                                                            |
 

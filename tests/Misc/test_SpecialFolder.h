@@ -24,6 +24,9 @@ private slots:
     void configuredArchiveSuppressesArchiveGuess();
     void archiveAttributeAndConfiguredArchive();
     void nonSelectableIsNotATarget();
+    void gmailAllMailArchives();
+    void gmailConfiguredArchiveWins();
+    void gmailWithoutAllMail();
     void rankAndNavigableKinds();
 };
 

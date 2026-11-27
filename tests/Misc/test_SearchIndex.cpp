@@ -486,6 +486,81 @@ void SearchIndexTest::testMessagesWithId()
     QCOMPARE(both.at(1).mailbox, inbox);
 }
 
+void SearchIndexTest::testQuickMatches()
+{
+    const auto locations = [this](const QStringList &words, int limit = 10) {
+        QStringList result;
+        const auto found = m_indexer->index()->quickMatches(words, limit);
+        for (const auto &summary : found)
+            result << QStringLiteral("%1:%2:%3").arg(summary.location.mailbox).arg(summary.location.uid).arg(summary.location.uidValidity);
+        return result;
+    };
+
+    // Newest first, across folders, with the folder's UIDVALIDITY
+    QCOMPARE(locations({QStringLiteral("report")}),
+             (QStringList{QStringLiteral("INBOX:1:100"), QStringLiteral("Archive:5:7")}));
+    QCOMPARE(locations({QStringLiteral("REPORT")}),
+             (QStringList{QStringLiteral("INBOX:1:100"), QStringLiteral("Archive:5:7")}));
+    QCOMPARE(locations({QStringLiteral("report")}, 1), QStringList{QStringLiteral("INBOX:1:100")});
+    QVERIFY(locations({QStringLiteral("report")}, 0).isEmpty());
+
+    // The text of the messages is not searched: the archived report mentions plans and the lunch a café
+    QCOMPARE(locations({QStringLiteral("plans")}), QStringList{QStringLiteral("INBOX:3:100")});
+    QVERIFY(locations({QStringLiteral("café")}).isEmpty());
+    QVERIFY(locations({QStringLiteral("Zürich")}).isEmpty());
+
+    // The sender is, and every word must match the subject or the sender
+    QCOMPARE(locations({QStringLiteral("alice")}),
+             (QStringList{QStringLiteral("INBOX:1:100"), QStringLiteral("Archive:5:7")}));
+    QCOMPARE(locations({QStringLiteral("alice"), QStringLiteral("quarterly")}), QStringList{QStringLiteral("INBOX:1:100")});
+    QVERIFY(locations({QStringLiteral("alice"), QStringLiteral("lunch")}).isEmpty());
+    QVERIFY(locations({}).isEmpty());
+
+    const auto found = m_indexer->index()->quickMatches({QStringLiteral("lunch")}, 10);
+    QCOMPARE(found.size(), 1);
+    QCOMPARE(found.first().subject, QStringLiteral("Lunch"));
+    QVERIFY(found.first().sender.contains(QLatin1String("Bob")));
+    QCOMPARE(found.first().sent, QDate(2026, 2, 5));
+}
+
+void SearchIndexTest::testFollowUps()
+{
+    SearchIndex *index = m_indexer->index();
+    const auto locations = [index](int limit = 10) {
+        QStringList result;
+        const auto found = index->followUps(limit);
+        for (const auto &summary : found) {
+            result << QStringLiteral("%1:%2:%3:%4")
+                          .arg(summary.location.mailbox, QString::number(summary.location.uid),
+                               QString::number(summary.location.uidValidity),
+                               summary.toDo ? QStringLiteral("todo") : QStringLiteral("flag"));
+        }
+        return result;
+    };
+
+    // Only the lunch is flagged
+    QCOMPARE(locations(), QStringList{QStringLiteral("INBOX:2:100:flag")});
+    const auto lunch = index->followUps(10);
+    QCOMPARE(lunch.constFirst().subject, QStringLiteral("Lunch"));
+    QVERIFY(lunch.constFirst().sender.contains(QLatin1String("Bob")));
+    QCOMPARE(lunch.constFirst().sent, QDate(2026, 2, 5));
+    QVERIFY(lunch.constFirst().messageId.contains(QLatin1String("2@example.org")));
+    // Other lookups leave the details out
+    QVERIFY(index->quickMatches({QStringLiteral("lunch")}, 10).constFirst().messageId.isEmpty());
+
+    // $TODO in any case counts, and a deleted message does not
+    m_cache->setMsgFlags(archive, 5, {QStringLiteral("$ToDo"), QStringLiteral("\\Seen")});
+    m_cache->setMsgFlags(inbox, 3, {QStringLiteral("\\Flagged"), QStringLiteral("\\Deleted")});
+    runIndexer();
+    QCOMPARE(locations(), (QStringList{QStringLiteral("INBOX:2:100:flag"), QStringLiteral("Archive:5:7:todo")}));
+    QCOMPARE(locations(1), QStringList{QStringLiteral("INBOX:2:100:flag")});
+    QVERIFY(locations(0).isEmpty());
+
+    m_cache->setMsgFlags(inbox, 2, {QStringLiteral("\\Seen")});
+    runIndexer();
+    QCOMPARE(locations(), QStringList{QStringLiteral("Archive:5:7:todo")});
+}
+
 void SearchIndexTest::testRemovedFolder()
 {
     m_cache->setChildMailboxes(QString(), {MailboxMetadata(inbox, QStringLiteral("/"), {QStringLiteral("\\HasNoChildren")})});

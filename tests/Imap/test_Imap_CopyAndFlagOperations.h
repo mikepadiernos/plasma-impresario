@@ -51,6 +51,8 @@ private slots:
     void testEmptyMailboxFailure();
     void testMarkReadReportsCompletion();
     void testMarkReadReportsFailure();
+    void testGmailLabels();
+    void testNoGmailLabelsWithoutExtension();
 
 private:
     void helperSyncThreeMessages();

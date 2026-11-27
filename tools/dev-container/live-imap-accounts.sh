@@ -27,7 +27,8 @@ synthetic_dovecot_start
 
 status=0
 # One main window per process: the shortcut handler is a singleton.
-for case in accountsConnectAndSwitchIndependently newProfilesKeepPasswordsOutOfSettings repliesSendFromTheMessagesAccount; do
+for case in accountsConnectAndSwitchIndependently newProfilesKeepPasswordsOutOfSettings repliesSendFromTheMessagesAccount \
+    sleepClosesTheConnectionAndWakingReconnects; do
     QT_QPA_PLATFORM=offscreen \
         QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu \
         QTWEBENGINE_DISABLE_SANDBOX=1 \

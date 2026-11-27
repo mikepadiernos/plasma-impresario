@@ -32,6 +32,7 @@
 #include <QTimer>
 #include <QUrl>
 
+#include "Composer/AttachmentRequests.h"
 #include "Gui/Util.h"
 #include "UiUtils/Color.h"
 
@@ -78,11 +79,25 @@ void ComposerTextEdit::resetNotification()
     notify(QString());
 }
 
+/** Whether @arg url is a file to attach rather than a link to insert as text
+
+Web links are usually dragged from a browser to be quoted, so only files on other computers reached through other
+protocols are attached; web files can still be attached from the attachment list.
+*/
+static bool isFileToAttach(const QUrl &url)
+{
+    if (url.isLocalFile())
+        return true;
+    const QString scheme = url.scheme().toLower();
+    return scheme != QLatin1String("http") && scheme != QLatin1String("https")
+            && Composer::AttachmentRequests::isFetchable(url);
+}
+
 bool ComposerTextEdit::canInsertFromMimeData( const QMimeData * source ) const
 {
-    QList<QUrl> urls = source->urls();
-    foreach (const QUrl &url, urls) {
-        if (url.isLocalFile())
+    const QList<QUrl> urls = source->urls();
+    for (const QUrl &url : urls) {
+        if (isFileToAttach(url))
             return true;
     }
     return QTextEdit::canInsertFromMimeData(source);
@@ -90,9 +105,9 @@ bool ComposerTextEdit::canInsertFromMimeData( const QMimeData * source ) const
 
 void ComposerTextEdit::insertFromMimeData(const QMimeData *source)
 {
-    QList<QUrl> urls = source->urls();
-    foreach (const QUrl &url, urls) {
-        if (url.isLocalFile()) {
+    const QList<QUrl> urls = source->urls();
+    for (const QUrl &url : urls) {
+        if (isFileToAttach(url)) {
             emit urlsAdded(urls);
             return;
         }

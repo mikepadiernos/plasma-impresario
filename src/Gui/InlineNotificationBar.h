@@ -20,7 +20,7 @@ namespace Gui {
 
 Used for feedback after operations which change messages on the server, such as "Moved 3 messages to Trash" with an
 Undo button, or for reporting an error message from the server. Information disappears on its own after
-autoHideTimeout() unless the pointer or the keyboard focus is inside the bar; errors stay until closed.
+autoHideTimeout() unless the pointer or the keyboard focus is inside the bar; errors and warnings stay until closed.
 While a longer operation runs, showBusy() shows its description with an indeterminate progress indicator until
 the result replaces it.
 */
@@ -31,6 +31,8 @@ public:
     enum class Kind {
         Info,
         Error,
+        /** Something the user should know before going on, such as a message marked as junk; stays until closed */
+        Warning,
         /** An operation is still running; replaced by its result */
         Busy,
     };
@@ -48,6 +50,7 @@ public:
     void showMessage(Kind kind, const QString &text, const QList<Action> &actions = {});
     void showInfo(const QString &text, const QList<Action> &actions = {});
     void showError(const QString &text, const QList<Action> &actions = {});
+    void showWarning(const QString &text, const QList<Action> &actions = {});
     /** @short Show @arg text with a progress indicator and without a timeout; returns an id for dismissBusy() */
     quint64 showBusy(const QString &text);
     /** @short Hide the bar if it still shows the busy message @arg id rather than something newer */

@@ -33,6 +33,11 @@ bool isRunning()
     return false;
 }
 
+void handOverActivationToken(const QString &)
+{
+    Q_ASSERT(false);
+}
+
 void showMainWindow()
 {
     Q_ASSERT(false);
@@ -44,6 +49,11 @@ void showAddressbookWindow()
 }
 
 void composeMail(const QString &)
+{
+    Q_ASSERT(false);
+}
+
+void composeMail(const QString &, const QStringList &)
 {
     Q_ASSERT(false);
 }

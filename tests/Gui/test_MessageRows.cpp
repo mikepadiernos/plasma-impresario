@@ -257,6 +257,33 @@ private slots:
         QCOMPARE(pretty.index(1, MsgListModel::FLAGGED).data(Qt::AccessibleTextRole).toString(), QStringLiteral("Not flagged"));
         QVERIFY(!pretty.index(1, MsgListModel::ATTACHMENT).data(Qt::AccessibleTextRole).isValid());
     }
+
+    void junkRowsAreMarked()
+    {
+        const auto setFlags = [this](int row, const QStringList &flags) {
+            for (int column = 0; column < MsgListModel::COLUMN_COUNT; ++column)
+                m_model->item(row, column)->setData(flags, Imap::Mailbox::RoleMessageFlags);
+        };
+        Imap::Mailbox::PrettyMsgListModel pretty(this);
+        pretty.setSourceModel(m_model);
+        const auto description = [&pretty](int row) {
+            return pretty.index(row, MsgListModel::SUBJECT).data(Qt::AccessibleDescriptionRole).toString();
+        };
+        QVERIFY(description(0).isEmpty());
+
+        setFlags(0, {QStringLiteral("$Junk")});
+        QCOMPARE(description(0), QStringLiteral("Marked as junk"));
+        QVERIFY(description(1).isEmpty());
+        // Both row styles paint the mark
+        m_view->setMultiLineRows(true);
+        QVERIFY(!m_view->viewport()->grab().isNull());
+        m_view->setMultiLineRows(false);
+        QVERIFY(!m_view->viewport()->grab().isNull());
+
+        // The user's override wins
+        setFlags(0, {QStringLiteral("$Junk"), QStringLiteral("$NotJunk")});
+        QVERIFY(description(0).isEmpty());
+    }
 };
 
 QTEST_MAIN(MessageRowsTest)

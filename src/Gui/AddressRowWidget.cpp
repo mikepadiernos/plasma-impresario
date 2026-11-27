@@ -24,10 +24,14 @@
 #include "Gui/OneEnvelopeAddress.h"
 #include "Plugins/PluginManager.h"
 
+#include <QKeyEvent>
 #include <QLabel>
-#include <QMouseEvent>
 #include <QPainter>
+#include <QStyle>
+#include <QStyleOptionFocusRect>
 #include <QTextDocument>
+
+#include <KLocalizedString>
 
 namespace Gui {
 
@@ -115,9 +119,10 @@ void AddressRowWidget::toggle()
     }
 }
 
-Expander::Expander(QWidget *parent, int count) : QLabel(parent)
+Expander::Expander(QWidget *parent, int count) : QAbstractButton(parent)
 {
     setCursor(Qt::PointingHandCursor);
+    setFocusPolicy(Qt::StrongFocus);
     setExpanding(count);
 }
 
@@ -128,20 +133,25 @@ int Expander::expanding() const {
 void Expander::setExpanding(const int expanding)
 {
     m_expanding = expanding;
-    setToolTip(expanding ? tr("Click to see %1 more items").arg(expanding) : tr("Click to collapse"));
+    const QString label = expanding ? i18ncp("@action:button", "Show %1 more address", "Show %1 more addresses", expanding)
+                                    : i18nc("@action:button", "Show fewer addresses");
+    setToolTip(label);
+    setAccessibleName(label);
 }
 
 QSize Expander::sizeHint() const
 {
-    QSize s = QLabel::sizeHint();
-    s.setWidth(m_expanding ? 2*s.height() : s.height());
-    return s;
+    const int side = fontMetrics().height();
+    return QSize(m_expanding ? 2 * side : side, side);
 }
 
-void Expander::mouseReleaseEvent(QMouseEvent *me)
+void Expander::keyPressEvent(QKeyEvent *event)
 {
-    if (me->button() == Qt::LeftButton)
-        emit clicked();
+    if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
+        click();
+        return;
+    }
+    QAbstractButton::keyPressEvent(event);
 }
 
 void Expander::paintEvent(QPaintEvent *pe)
@@ -150,17 +160,18 @@ void Expander::paintEvent(QPaintEvent *pe)
     p.setRenderHint(QPainter::Antialiasing);
     QRectF r(rect());
     r.setWidth(height());
+    const QColor foreground = palette().color(QPalette::WindowText);
     if (m_expanding) {
         // ellipsis
-        p.setPen(palette().color(foregroundRole()));
+        p.setPen(foreground);
         p.setBrush(Qt::NoBrush);
         p.drawText(r, Qt::AlignCenter, QStringLiteral("\u2026"));
         r.moveRight(rect().right());
     }
-    p.setBrush(palette().color(foregroundRole()));
+    p.setBrush(foreground);
     p.setPen(Qt::NoPen);
     p.drawEllipse(r);
-    p.setBrush(palette().color(backgroundRole()));
+    p.setBrush(palette().color(QPalette::Window));
     float d = r.height()/4.0f;
     r.adjust(d,d,-d,-d);
     // the unicode triangles are not necessarily centered - looks crap
@@ -172,6 +183,11 @@ void Expander::paintEvent(QPaintEvent *pe)
         r.translate(-r.width()/8.0f,0); // fix gravity
         const QPointF points[3] = { r.topRight(), r.bottomRight(), QPointF(r.left(), r.y() + r.height()/2.0) };
         p.drawConvexPolygon(points, 3);
+    }
+    if (hasFocus()) {
+        QStyleOptionFocusRect focus;
+        focus.initFrom(this);
+        style()->drawPrimitive(QStyle::PE_FrameFocusRect, &focus, &p, this);
     }
     p.end();
 }

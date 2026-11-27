@@ -76,6 +76,8 @@ private:
         QRect date;
         QRect flag;
         QRect attachment;
+        /** Shown while the message is marked as junk */
+        QRect junk;
         QRect status;
         QRect secondLine;
         /** The account of a message in a list which shows several accounts */

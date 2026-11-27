@@ -42,7 +42,8 @@ namespace Gui {
 OneEnvelopeAddress::OneEnvelopeAddress(QWidget *parent, const Imap::Message::MailAddress &address, Plugins::PluginManager *pluginManager, const Position lastOneInRow):
     QLabel(parent), m_address(address), m_lastOneInRow(lastOneInRow), m_pluginManager(pluginManager)
 {
-    setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::LinksAccessibleByMouse);
+    // Tab moves through the address and contact links, Enter opens them
+    setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::LinksAccessibleByMouse | Qt::LinksAccessibleByKeyboard);
     setIndent(5);
     connect(this, &QLabel::linkHovered, this, &OneEnvelopeAddress::onLinkHovered);
 
@@ -87,6 +88,7 @@ void OneEnvelopeAddress::finishProcessAddress(const QStringList &matchingDisplay
                 matchingDisplayNames.isEmpty() ? contactUnknownUrl : contactKnownUrl);
     QString address = m_address.prettyName(Imap::Message::MailAddress::FORMAT_SHORT_CLICKABLE);
     setText(address + icon + (m_lastOneInRow == Position::Middle ? tr(",") : QString()));
+    setAccessibleName(m_address.prettyName(Imap::Message::MailAddress::FORMAT_READABLE));
 }
 
 void OneEnvelopeAddress::onLinkHovered(const QString &target)

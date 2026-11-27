@@ -1,17 +1,27 @@
 /* Copyright (C) 2026 Plasma Impresario contributors
    SPDX-License-Identifier: GPL-2.0-or-later
 */
+#include "Common/AccountStatus.h"
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
 #include "Composer/AccountIdentities.h"
 #include "Composer/SenderIdentitiesModel.h"
+#include "Gui/AddAccountDialog.h"
+#include "Gui/JmapSyncer.h"
 #include "Gui/SearchIndexDialog.h"
 #include "Gui/Window.h"
+#include "UiUtils/BackgroundRunning.h"
+#include "UiUtils/PlasmaSearch.h"
+#include "Imap/Model/AccountCapabilities.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/Model.h"
 #include "Imap/Model/SearchIndexer.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "OAuth/TokenSource.h"
+#include "Jmap/Submission.h"
+#include "LocalMail/Store.h"
+#include "../Jmap/FakeJmapServer.h"
+#include "Pop3/FetchJob.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
 #include "Gui/WebEngineMessageProfile.h"
@@ -26,6 +36,7 @@
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QFileInfo>
+#include <QFormLayout>
 #include <QFile>
 #include <QInputDialog>
 #include <QLabel>
@@ -39,9 +50,12 @@
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <QTemporaryDir>
+#include <KSharedConfig>
+#include <QGuiApplication>
 #include <QTest>
 #include <QTimer>
 #include <functional>
+#include <memory>
 
 namespace {
 
@@ -81,13 +95,29 @@ QStringList tabTitles(QDialog *dialog)
 }
 
 /** @short Run @arg handler on the first settings dialog that appears while @arg
- * trigger blocks in exec() */
-bool handleDialog(const std::function<void()> &trigger, const std::function<void(QDialog *)> &handler)
+ * trigger blocks in exec()
+
+An Add Account dialog on the way is filled in by @arg addAccount, or named "Travel" without one, and accepted.
+*/
+bool handleDialog(const std::function<void()> &trigger, const std::function<void(QDialog *)> &handler,
+                  const std::function<void(Gui::AddAccountDialog *)> &addAccount = {})
 {
     bool handled = false;
+    bool added = false;
     QTimer poll;
     QObject::connect(&poll, &QTimer::timeout, [&]() {
         auto *modal = QApplication::activeModalWidget();
+        if (auto *add = qobject_cast<Gui::AddAccountDialog *>(modal)) {
+            if (added)
+                return;
+            added = true;
+            if (addAccount)
+                addAccount(add);
+            else
+                add->findChild<QLineEdit *>(QStringLiteral("accountName"))->setText(QStringLiteral("Travel"));
+            add->accept();
+            return;
+        }
         if (auto *input = qobject_cast<QInputDialog *>(modal)) {
             input->setTextValue(QStringLiteral("Travel"));
             input->accept();
@@ -178,6 +208,87 @@ private slots:
         QCOMPARE(window.imapModel(), model);
     }
 
+    void startAfterLoginNeedsBackgroundRunning()
+    {
+        namespace Background = UiUtils::BackgroundRunning;
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        Gui::MainWindow window(&settings);
+        auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        const QString entry = Background::autostartPath(QGuiApplication::desktopFileName());
+        QVERIFY(!QFile::exists(entry));
+
+        auto checkBoxes = [](QDialog *dialog) {
+            return std::pair(dialog->findChild<QCheckBox *>(QStringLiteral("guiRunInBackgroundCheckbox")),
+                             dialog->findChild<QCheckBox *>(QStringLiteral("guiStartAfterLoginCheckbox")));
+        };
+        QVERIFY(handleDialog([&]() { QMetaObject::invokeMethod(&window, "slotShowSettings", Qt::DirectConnection); },
+            [&](QDialog *dialog) {
+                auto [background, login] = checkBoxes(dialog);
+                QVERIFY(background && login);
+                // Both are off by default, and starting after login waits for running in the background
+                QVERIFY(!background->isChecked());
+                QVERIFY(!login->isChecked());
+                QVERIFY(!login->isEnabled());
+                background->setChecked(true);
+                QVERIFY(login->isEnabled());
+                login->setChecked(true);
+                save(dialog);
+            }));
+        QVERIFY(Background::runsInBackground(*config));
+        QVERIFY(Background::startsAfterLogin(*config));
+        QVERIFY(!qApp->quitOnLastWindowClosed());
+        QVERIFY(QFile::exists(entry));
+        QVERIFY(Background::isOwnAutostartEntry(entry));
+        QFile file(entry);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QVERIFY(file.readAll().contains("--background"));
+        file.close();
+
+        // Turning running in the background off also stops starting after login and removes the entry
+        QVERIFY(handleDialog([&]() { QMetaObject::invokeMethod(&window, "slotShowSettings", Qt::DirectConnection); },
+            [&](QDialog *dialog) {
+                auto [background, login] = checkBoxes(dialog);
+                QVERIFY(background && login);
+                QVERIFY(background->isChecked());
+                QVERIFY(login->isChecked());
+                background->setChecked(false);
+                QVERIFY(!login->isChecked());
+                QVERIFY(!login->isEnabled());
+                save(dialog);
+            }));
+        QVERIFY(!Background::runsInBackground(*config));
+        QVERIFY(!Background::startsAfterLogin(*config));
+        QVERIFY(qApp->quitOnLastWindowClosed());
+        QVERIFY(!QFile::exists(entry));
+    }
+
+    void plasmaSearchIsOptIn()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        Gui::MainWindow window(&settings);
+        auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        QVERIFY(!UiUtils::PlasmaSearch::isEnabled(*config));
+        QVERIFY(window.plasmaSearchMatches(QStringLiteral("report")).isEmpty());
+
+        for (const bool enable : {true, false}) {
+            QVERIFY(handleDialog([&]() { QMetaObject::invokeMethod(&window, "slotShowSettings", Qt::DirectConnection); },
+                [&](QDialog *dialog) {
+                    auto *checkBox = dialog->findChild<QCheckBox *>(QStringLiteral("guiPlasmaSearchCheckbox"));
+                    QVERIFY(checkBox);
+                    QCOMPARE(checkBox->isChecked(), !enable);
+                    checkBox->setChecked(enable);
+                    save(dialog);
+                }));
+            QCOMPARE(UiUtils::PlasmaSearch::isEnabled(*config), enable);
+        }
+    }
+
     void accountSettingsEditOnlyTheActiveAccount()
     {
         QTemporaryDir directory;
@@ -256,6 +367,48 @@ private slots:
             QVERIFY(!settings.contains(key));
         }
         QVERIFY(OAuth::TokenSource::find(window.imapModel()));
+    }
+
+    void gmailKeepsItsOwnSentCopiesAndArchiveIsAutomatic()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        Gui::MainWindow window(&settings);
+
+        bool archiveAutomatic = false;
+        bool offForGmail = false;
+        bool backElsewhere = false;
+        QVERIFY(
+            handleDialog([&]() { window.findChild<QAction *>(QStringLiteral("action_account_settings"))->trigger(); },
+                [&](QDialog *dialog) {
+                    auto *archive = dialog->findChild<QLineEdit *>(QStringLiteral("archiveFolderName"));
+                    auto *smtpHost = dialog->findChild<QLineEdit *>(QStringLiteral("smtpHost"));
+                    auto *saveToImap = dialog->findChild<QCheckBox *>(QStringLiteral("saveToImap"));
+                    QVERIFY(archive && smtpHost && saveToImap);
+                    archiveAutomatic = archive->text().isEmpty() && !archive->placeholderText().isEmpty();
+                    archive->setText(QStringLiteral("  "));
+                    auto setHost = [smtpHost](const QString &host) {
+                        smtpHost->setText(host);
+                        emit smtpHost->editingFinished();
+                    };
+                    // Gmail files sent mail itself, so the option is shown off without being changed
+                    setHost(QStringLiteral("SMTP.gmail.com"));
+                    offForGmail = !saveToImap->isChecked() && !saveToImap->isEnabled() && !saveToImap->toolTip().isEmpty();
+                    setHost(QStringLiteral("smtp.work.example.test"));
+                    backElsewhere = saveToImap->isChecked() && saveToImap->isEnabled() && saveToImap->toolTip().isEmpty();
+                    setHost(QStringLiteral("smtp.gmail.com"));
+                    save(dialog);
+                }));
+        QVERIFY(archiveAutomatic);
+        QVERIFY(offForGmail);
+        QVERIFY(backElsewhere);
+        QSettings work(directory.filePath(QStringLiteral("main-account-1.conf")), QSettings::IniFormat);
+        QCOMPARE(work.value(Common::SettingsNames::imapArchiveFolderName).toString(), QString());
+        QCOMPARE(work.value(Common::SettingsNames::smtpHostKey).toString(), QStringLiteral("smtp.gmail.com"));
+        QVERIFY(work.value(Common::SettingsNames::composerSaveToImapKey, true).toBool());
+        QCOMPARE(window.imapModel()->archiveFolderName(), QString());
     }
 
     void searchIndexIsChosenPerAccount()
@@ -515,16 +668,331 @@ private slots:
 
         QStringList titles;
         QString windowTitle;
+        QString shownHost;
+        QString foundIn;
+        bool oauthOffered = false;
         QVERIFY(handleDialog([&]() { QMetaObject::invokeMethod(&window, "slotAddAccount", Qt::DirectConnection); },
             [&](QDialog *dialog) {
                 titles = tabTitles(dialog);
                 windowTitle = dialog->windowTitle();
+                if (auto *host = dialog->findChild<QLineEdit *>(QStringLiteral("imapHost")))
+                    shownHost = host->text();
                 dialog->reject();
+            },
+            [&](Gui::AddAccountDialog *add) {
+                add->findChild<QLineEdit *>(QStringLiteral("realName"))->setText(QStringLiteral("Tess Traveller"));
+                add->findChild<QLineEdit *>(QStringLiteral("emailAddress"))->setText(QStringLiteral("tess@gmail.com"));
+                add->findChild<QLineEdit *>(QStringLiteral("accountName"))->setText(QStringLiteral("Travel"));
+                // A built-in provider needs no network
+                add->findChild<QPushButton *>(QStringLiteral("findSettings"))->click();
+                QTRY_VERIFY(add->result().isValid());
+                foundIn = add->findChild<QLabel *>(QStringLiteral("settingsSource"))->text();
+                oauthOffered = !add->findChild<QCheckBox *>(QStringLiteral("useOAuth"))->isHidden();
+                add->findChild<QCheckBox *>(QStringLiteral("useOAuth"))->setChecked(false);
             }));
         QVERIFY(titles.contains(QStringLiteral("IMAP")));
         QVERIFY(!titles.contains(QStringLiteral("General")));
         QVERIFY(windowTitle.contains(QStringLiteral("Travel")));
+        QVERIFY(!foundIn.isEmpty());
+        QVERIFY(oauthOffered);
         QCOMPARE(window.imapAccess()->credentialAccountId(), QStringLiteral("account-3"));
+        // The settings dialog opens with the servers that were found
+        QCOMPARE(shownHost, QStringLiteral("imap.gmail.com"));
+
+        QSettings travel(directory.filePath(QStringLiteral("main-account-3.conf")), QSettings::IniFormat);
+        QCOMPARE(travel.value(Common::SettingsNames::imapHostKey).toString(), QStringLiteral("imap.gmail.com"));
+        QCOMPARE(travel.value(Common::SettingsNames::imapPortKey).toInt(), 993);
+        QCOMPARE(travel.value(Common::SettingsNames::imapMethodKey).toString(), Common::SettingsNames::methodSSL);
+        QCOMPARE(travel.value(Common::SettingsNames::imapUserKey).toString(), QStringLiteral("tess@gmail.com"));
+        QCOMPARE(travel.value(Common::SettingsNames::smtpHostKey).toString(), QStringLiteral("smtp.gmail.com"));
+        QCOMPARE(travel.value(Common::SettingsNames::msaMethodKey).toString(), Common::SettingsNames::methodSSMTP);
+        // OAuth was turned off, so the account signs in with a password
+        QVERIFY(!travel.contains(Common::SettingsNames::imapAuthMethodKey));
+        Composer::SenderIdentitiesModel identities;
+        identities.loadFromSettings(travel);
+        QCOMPARE(identities.rowCount(), 1);
+        QCOMPARE(identities.data(identities.index(0, Composer::SenderIdentitiesModel::COLUMN_NAME)).toString(),
+                 QStringLiteral("Tess Traveller"));
+        QCOMPARE(identities.data(identities.index(0, Composer::SenderIdentitiesModel::COLUMN_EMAIL)).toString(),
+                 QStringLiteral("tess@gmail.com"));
+    }
+
+    void pop3AccountsHaveTheirOwnSettings()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        Gui::MainWindow window(&settings);
+
+        QStringList titles;
+        QString shownUser;
+        QString shownSmtpUser;
+        bool imapOnlySmtpHidden = false;
+        bool daysFollowRetention = false;
+        bool noneWarns = false;
+        QVERIFY(handleDialog([&]() { QMetaObject::invokeMethod(&window, "slotAddAccount", Qt::DirectConnection); },
+            [&](QDialog *dialog) {
+                titles = tabTitles(dialog);
+                QVERIFY(!dialog->findChild<QLineEdit *>(QStringLiteral("imapHost")));
+                auto *host = dialog->findChild<QLineEdit *>(QStringLiteral("pop3Host"));
+                auto *user = dialog->findChild<QLineEdit *>(QStringLiteral("pop3User"));
+                auto *password = dialog->findChild<QLineEdit *>(QStringLiteral("pop3Password"));
+                auto *security = dialog->findChild<QComboBox *>(QStringLiteral("pop3Security"));
+                auto *warning = dialog->findChild<QLabel *>(QStringLiteral("pop3SecurityWarning"));
+                auto *retention = dialog->findChild<QComboBox *>(QStringLiteral("pop3Retention"));
+                auto *days = dialog->findChild<QSpinBox *>(QStringLiteral("pop3RetentionDays"));
+                auto *interval = dialog->findChild<QSpinBox *>(QStringLiteral("pop3Interval"));
+                auto *reuse = dialog->findChild<QCheckBox *>(QStringLiteral("smtpAuthReuseImapCreds"));
+                auto *saveToImap = dialog->findChild<QCheckBox *>(QStringLiteral("saveToImap"));
+                auto *smtpHost = dialog->findChild<QLineEdit *>(QStringLiteral("smtpHost"));
+                QVERIFY(host && user && password && security && warning && retention && days && interval && reuse
+                        && saveToImap && smtpHost);
+                auto *smtpUser = dialog->findChild<QLineEdit *>(QStringLiteral("smtpUser"));
+                QVERIFY(smtpUser);
+                shownUser = user->text();
+                shownSmtpUser = smtpUser->text();
+                // A POP3 account has no IMAP sign-in to reuse, and no Sent folder to keep copies in
+                auto *smtpAuth = dialog->findChild<QCheckBox *>(QStringLiteral("smtpAuth"));
+                QVERIFY(smtpAuth);
+                smtpAuth->setChecked(true);
+                imapOnlySmtpHidden = reuse->isHidden() && saveToImap->isHidden();
+                daysFollowRetention = !days->isEnabled();
+                retention->setCurrentIndex(retention->findData(static_cast<int>(Pop3::Retention::AfterDays)));
+                daysFollowRetention = daysFollowRetention && days->isEnabled();
+                days->setValue(30);
+                noneWarns = warning->isHidden();
+                security->setCurrentIndex(security->findData(static_cast<int>(Pop3::Security::None)));
+                noneWarns = noneWarns && !warning->isHidden();
+                security->setCurrentIndex(security->findData(static_cast<int>(Pop3::Security::StartTls)));
+                interval->setValue(0);
+                // Nothing listens there, so the first check fails at once instead of asking for anything
+                host->setText(QStringLiteral("127.0.0.1"));
+                dialog->findChild<QSpinBox *>(QStringLiteral("pop3Port"))->setValue(1);
+                password->setText(QStringLiteral("secret"));
+                smtpHost->setText(QStringLiteral("smtp.example.test"));
+                save(dialog);
+            },
+            [&](Gui::AddAccountDialog *add) {
+                add->findChild<QLineEdit *>(QStringLiteral("emailAddress"))->setText(QStringLiteral("tess@example.test"));
+                auto *protocol = add->findChild<QComboBox *>(QStringLiteral("accountProtocol"));
+                protocol->setCurrentIndex(protocol->findData(static_cast<int>(Imap::AccountProtocol::Pop3)));
+            }));
+        QCOMPARE(titles, (QStringList{QStringLiteral("Identities"), QStringLiteral("POP3"), QStringLiteral("SMTP")}));
+        QCOMPARE(shownUser, QStringLiteral("tess@example.test"));
+        QCOMPARE(shownSmtpUser, QStringLiteral("tess@example.test"));
+        QVERIFY(imapOnlySmtpHidden);
+        QVERIFY(daysFollowRetention);
+        QVERIFY(noneWarns);
+        for (auto *widget : QApplication::topLevelWidgets()) {
+            auto *box = qobject_cast<QMessageBox *>(widget);
+            QVERIFY2(!box || !box->isVisible(), qPrintable(box ? box->text() : QString()));
+        }
+
+        QSettings travel(directory.filePath(QStringLiteral("main-account-3.conf")), QSettings::IniFormat);
+        QCOMPARE(Imap::AccountCapabilities::forAccount(travel).protocol(), Imap::AccountProtocol::Pop3);
+        const Pop3::Settings saved = Pop3::Settings::fromSettings(travel);
+        QCOMPARE(saved.host, QStringLiteral("127.0.0.1"));
+        QCOMPARE(saved.port, quint16(1));
+        QCOMPARE(saved.security, Pop3::Security::StartTls);
+        QCOMPARE(saved.user, QStringLiteral("tess@example.test"));
+        QCOMPARE(saved.retention, Pop3::Retention::AfterDays);
+        QCOMPARE(saved.retentionDays, 30);
+        QCOMPARE(saved.interval, 0);
+        QVERIFY(!travel.contains(Common::SettingsNames::imapMethodKey));
+        QVERIFY(!travel.contains(Common::SettingsNames::imapHostKey));
+
+        // The mail views read the account's local store
+        QCOMPARE(window.imapAccess()->protocol(), Imap::AccountProtocol::Pop3);
+        QVERIFY(window.imapAccess()->isConfigured());
+        QVERIFY(window.imapAccess()->localStore());
+        QTRY_VERIFY(window.imapModel()
+                    && window.imapModel()->mailboxIndexByName(QStringLiteral("INBOX")).isValid());
+        // Without a password store the shown account asks for the password, and the check's failure becomes its status
+        auto *status = window.findChild<Common::AccountStatusTracker *>();
+        QVERIFY(status);
+        QDialog *ask = nullptr;
+        QTRY_VERIFY((ask = window.findChild<QDialog *>(QStringLiteral("PasswordDialog"))) && ask->isVisible());
+        QVERIFY(ask->findChild<QLabel *>(QStringLiteral("descriptionLabel"))->text().contains(QStringLiteral("POP3")));
+        ask->findChild<QLineEdit *>(QStringLiteral("passwordLineEdit"))->setText(QStringLiteral("secret"));
+        ask->accept();
+        QTRY_COMPARE(status->status(QStringLiteral("account-3")).kind, Common::AccountStatusKind::NetworkError);
+    }
+
+    void jmapAccountsHaveTheirOwnSettings()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        Gui::MainWindow window(&settings);
+
+        QStringList titles;
+        QString shownUser;
+        bool plainHttpRefused = false;
+        bool tokenRelabels = false;
+        bool smtpNoteFollowsSending = false;
+        bool imapOnlySmtpHidden = false;
+        QVERIFY(handleDialog([&]() { QMetaObject::invokeMethod(&window, "slotAddAccount", Qt::DirectConnection); },
+            [&](QDialog *dialog) {
+                titles = tabTitles(dialog);
+                QVERIFY(!dialog->findChild<QLineEdit *>(QStringLiteral("imapHost")));
+                QVERIFY(!dialog->findChild<QLineEdit *>(QStringLiteral("pop3Host")));
+                auto *url = dialog->findChild<QLineEdit *>(QStringLiteral("jmapUrl"));
+                auto *urlStatus = dialog->findChild<QLabel *>(QStringLiteral("jmapUrlStatus"));
+                auto *user = dialog->findChild<QLineEdit *>(QStringLiteral("jmapUser"));
+                auto *authentication = dialog->findChild<QComboBox *>(QStringLiteral("jmapAuthentication"));
+                auto *password = dialog->findChild<QLineEdit *>(QStringLiteral("jmapPassword"));
+                auto *interval = dialog->findChild<QSpinBox *>(QStringLiteral("jmapInterval"));
+                auto *sending = dialog->findChild<QComboBox *>(QStringLiteral("jmapSending"));
+                auto *smtpNote = dialog->findChild<QLabel *>(QStringLiteral("smtpJmapNote"));
+                auto *reuse = dialog->findChild<QCheckBox *>(QStringLiteral("smtpAuthReuseImapCreds"));
+                auto *smtpAuth = dialog->findChild<QCheckBox *>(QStringLiteral("smtpAuth"));
+                QVERIFY(url && urlStatus && user && authentication && password && interval && sending && smtpNote
+                        && reuse && smtpAuth);
+                shownUser = user->text();
+
+                url->setText(QStringLiteral("http://mail.example.test"));
+                plainHttpRefused = !urlStatus->isHidden() && urlStatus->text().contains(QStringLiteral("https"));
+
+                auto *form = qobject_cast<QFormLayout *>(password->parentWidget()->layout());
+                QVERIFY(form);
+                auto *label = qobject_cast<QLabel *>(form->labelForField(password));
+                QVERIFY(label);
+                authentication->setCurrentIndex(authentication->findData(static_cast<int>(Jmap::Authentication::Bearer)));
+                tokenRelabels = label->text().contains(QStringLiteral("Token"));
+
+                // Sending through JMAP needs nothing from the SMTP page, which says so
+                smtpNoteFollowsSending = !smtpNote->isHidden();
+                sending->setCurrentIndex(sending->findData(static_cast<int>(Jmap::Sending::Smtp)));
+                smtpNoteFollowsSending = smtpNoteFollowsSending && smtpNote->isHidden();
+                sending->setCurrentIndex(sending->findData(static_cast<int>(Jmap::Sending::Jmap)));
+                smtpNoteFollowsSending = smtpNoteFollowsSending && !smtpNote->isHidden();
+                smtpAuth->setChecked(true);
+                imapOnlySmtpHidden = reuse->isHidden();
+
+                interval->setValue(0);
+                // Nothing listens there, so the first synchronization fails at once
+                url->setText(QStringLiteral("http://127.0.0.1:1"));
+                password->setText(QStringLiteral("secret"));
+                save(dialog);
+            },
+            [&](Gui::AddAccountDialog *add) {
+                add->findChild<QLineEdit *>(QStringLiteral("emailAddress"))->setText(QStringLiteral("tess@example.test"));
+                auto *protocol = add->findChild<QComboBox *>(QStringLiteral("accountProtocol"));
+                protocol->setCurrentIndex(protocol->findData(static_cast<int>(Imap::AccountProtocol::Jmap)));
+            }));
+        QCOMPARE(titles, (QStringList{QStringLiteral("Identities"), QStringLiteral("JMAP"), QStringLiteral("SMTP")}));
+        QCOMPARE(shownUser, QStringLiteral("tess@example.test"));
+        QVERIFY(plainHttpRefused);
+        QVERIFY(tokenRelabels);
+        QVERIFY(smtpNoteFollowsSending);
+        QVERIFY(imapOnlySmtpHidden);
+        for (auto *widget : QApplication::topLevelWidgets()) {
+            auto *box = qobject_cast<QMessageBox *>(widget);
+            QVERIFY2(!box || !box->isVisible(), qPrintable(box ? box->text() : QString()));
+        }
+
+        QSettings travel(directory.filePath(QStringLiteral("main-account-3.conf")), QSettings::IniFormat);
+        QCOMPARE(Imap::AccountCapabilities::forAccount(travel).protocol(), Imap::AccountProtocol::Jmap);
+        const Jmap::Settings saved = Jmap::Settings::fromSettings(travel);
+        QCOMPARE(saved.url, QStringLiteral("http://127.0.0.1:1"));
+        QCOMPARE(saved.user, QStringLiteral("tess@example.test"));
+        QCOMPARE(saved.authentication, Jmap::Authentication::Bearer);
+        QCOMPARE(saved.interval, 0);
+        QCOMPARE(saved.sending, Jmap::Sending::Jmap);
+        QVERIFY(!travel.contains(Common::SettingsNames::imapMethodKey));
+
+        QCOMPARE(window.imapAccess()->protocol(), Imap::AccountProtocol::Jmap);
+        QVERIFY(window.imapAccess()->isConfigured());
+        QVERIFY(window.imapAccess()->localStore());
+        QTRY_VERIFY(window.imapModel()
+                    && window.imapModel()->mailboxIndexByName(QStringLiteral("INBOX")).isValid());
+        // Without an SMTP server the account still sends, through its JMAP server
+        std::unique_ptr<MSA::MSAFactory> factory(window.msaFactory());
+        QVERIFY(dynamic_cast<Jmap::SubmissionFactory *>(factory.get()));
+
+        auto *status = window.findChild<Common::AccountStatusTracker *>();
+        QVERIFY(status);
+        QDialog *ask = nullptr;
+        QTRY_VERIFY((ask = window.findChild<QDialog *>(QStringLiteral("PasswordDialog"))) && ask->isVisible());
+        QVERIFY(ask->findChild<QLabel *>(QStringLiteral("descriptionLabel"))->text().contains(QStringLiteral("token")));
+        ask->findChild<QLineEdit *>(QStringLiteral("passwordLineEdit"))->setText(QStringLiteral("secret"));
+        ask->accept();
+        QTRY_COMPARE(status->status(QStringLiteral("account-3")).kind, Common::AccountStatusKind::NetworkError);
+    }
+
+    void jmapAccountsSynchronizeWithTheServer()
+    {
+        FakeJmapServer server;
+        server.canSubmit = false;
+        const QString inbox = server.addMailbox(QStringLiteral("Inbox"), QStringLiteral("inbox"));
+        const QString email = server.addEmail("Subject: hello\r\n\r\nHi\r\n", {inbox});
+
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        settings.setValue(QStringLiteral("accounts/ids"),
+                          QStringList{QStringLiteral("account-1"), QStringLiteral("account-2"), QStringLiteral("account-3")});
+        settings.setValue(QStringLiteral("accounts/active"), QStringLiteral("account-3"));
+        settings.setValue(QStringLiteral("accounts/next"), 4);
+        settings.setValue(QStringLiteral("accounts/names/account-3"), QStringLiteral("Web"));
+        {
+            QSettings third(directory.filePath(QStringLiteral("main-account-3.conf")), QSettings::IniFormat);
+            Imap::AccountCapabilities::setProtocol(third, Imap::AccountProtocol::Jmap);
+            Jmap::Settings jmap;
+            jmap.url = server.address();
+            jmap.user = server.user;
+            jmap.interval = 0;
+            jmap.save(third);
+            third.sync();
+        }
+        Gui::MainWindow window(&settings);
+        QCOMPARE(window.imapAccess()->protocol(), Imap::AccountProtocol::Jmap);
+
+        // Without a password store the shown account asks, and then the server's mail comes down
+        QDialog *ask = nullptr;
+        QTRY_VERIFY((ask = window.findChild<QDialog *>(QStringLiteral("PasswordDialog"))) && ask->isVisible());
+        QVERIFY(ask->findChild<QLabel *>(QStringLiteral("descriptionLabel"))->text().contains(QStringLiteral("JMAP")));
+        ask->findChild<QLineEdit *>(QStringLiteral("passwordLineEdit"))->setText(server.password);
+        ask->accept();
+        auto *status = window.findChild<Common::AccountStatusTracker *>();
+        QVERIFY(status);
+        QTRY_COMPARE(status->status(QStringLiteral("account-3")).kind, Common::AccountStatusKind::Connected);
+        const auto store = window.imapAccess()->localStore();
+        QVERIFY(store);
+        QCOMPARE(store->messages(QStringLiteral("INBOX")).size(), 1);
+
+        // What the server said about sending is remembered for the settings
+        QSettings third(directory.filePath(QStringLiteral("main-account-3.conf")), QSettings::IniFormat);
+        QTRY_VERIFY(!Jmap::Settings::fromSettings(third).canSubmit);
+
+        // A change made here goes to the server by itself, shortly afterwards
+        const LocalMail::MessageInfo message = store->messages(QStringLiteral("INBOX")).first();
+        const int requestsBefore = server.requests;
+        QVERIFY(store->setFlags(QStringLiteral("INBOX"), message.uid, {QStringLiteral("\\Seen")}));
+        QTRY_VERIFY_WITH_TIMEOUT(server.emails.value(email).keywords.contains(QStringLiteral("$seen")), 20000);
+        // ...and what that synchronization wrote here does not start another one
+        QTRY_COMPARE(status->status(QStringLiteral("account-3")).kind, Common::AccountStatusKind::Connected);
+        const int requestsAfter = server.requests;
+        QVERIFY(requestsAfter > requestsBefore);
+        QTest::qWait(Gui::JmapSyncer::changeDelay() + 1000);
+        QCOMPARE(server.requests, requestsAfter);
+
+        // A folder made on the server appears after checking for new mail
+        server.addMailbox(QStringLiteral("Projects"));
+        auto *check = window.findChild<QAction *>(QStringLiteral("action_resync_mailbox"));
+        if (!check) {
+            const auto actions = window.findChildren<QAction *>();
+            for (QAction *action : actions) {
+                if (action->text().remove(QLatin1Char('&')) == QLatin1String("Check for New Messages"))
+                    check = action;
+            }
+        }
+        QVERIFY(check);
+        check->trigger();
+        QTRY_VERIFY_WITH_TIMEOUT(window.imapModel()->mailboxIndexByName(QStringLiteral("Projects")).isValid(), 10000);
     }
 };
 

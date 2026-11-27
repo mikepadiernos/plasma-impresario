@@ -21,6 +21,7 @@
 */
 
 #include <QObject>
+#include <QStringList>
 #include <QUrl>
 
 #include "Gui/Window.h"
@@ -34,6 +35,11 @@ MainWindowBridge::MainWindowBridge(Gui::MainWindow *window) : QObject(window), m
 
 }
 
+void MainWindowBridge::setActivationToken(const QString &token)
+{
+    m_window->setActivationToken(token);
+}
+
 void MainWindowBridge::showMainWindow()
 {
     m_window->showMainWindow();
@@ -45,10 +51,13 @@ void MainWindowBridge::showAddressbookWindow() {
 
 void MainWindowBridge::composeMail(const QString &url)
 {
-    if (url.isEmpty())
-        m_window->slotComposeMail();
-    else
-        m_window->slotComposeMailUrl(QUrl::fromEncoded(url.toUtf8()));
+    composeMailWithFiles(url, {});
+}
+
+void MainWindowBridge::composeMailWithFiles(const QString &url, const QStringList &files)
+{
+    // Another application asked, so the attachments a mailto: URL requests are honored, unlike links in messages
+    m_window->composeMailFromOtherApplication(url.isEmpty() ? QUrl() : QUrl::fromEncoded(url.toUtf8()), files);
 }
 
 void MainWindowBridge::openMessage(const QString &messageId)

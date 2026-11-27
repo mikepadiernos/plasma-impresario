@@ -78,6 +78,13 @@ TagWidget *TagWidget::systemFlag(const QString &flagName)
     return res;
 }
 
+TagWidget *TagWidget::serverLabel(const QString &labelName, const QString &displayName)
+{
+    auto res = new TagWidget(Mode::SystemFlag, labelName, Qt::blue);
+    res->setText(displayName);
+    return res;
+}
+
 bool TagWidget::event(QEvent *e)
 {
     if (e->type() == QEvent::MouseMove) {

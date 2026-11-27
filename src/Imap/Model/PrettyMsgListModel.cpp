@@ -26,6 +26,7 @@
 #include "ThreadingMsgListModel.h"
 #include "UiUtils/Formatting.h"
 #include "UiUtils/IconLoader.h"
+#include "UiUtils/MailSafety.h"
 #include "UiUtils/Relevance.h"
 
 
@@ -34,6 +35,15 @@ namespace Imap
 
 namespace Mailbox
 {
+
+namespace {
+
+bool isJunk(const QModelIndex &message)
+{
+    return UiUtils::MailSafety::junkVerdict(message.data(RoleMessageFlags).toStringList()) == UiUtils::MailSafety::JunkVerdict::Junk;
+}
+
+}
 
 PrettyMsgListModel::PrettyMsgListModel(QObject *parent):
     QSortFilterProxyModel(parent), m_filters(NoFilter), m_snippets(new SearchSnippets(this))
@@ -148,6 +158,11 @@ std::optional<QVariant> PrettyMsgListModel::presentationData(const QModelIndex &
         }
         break;
 
+    case Qt::AccessibleDescriptionRole:
+        if (column == MsgListModel::SUBJECT && translated.data(RoleIsFetched).toBool() && isJunk(translated))
+            return tr("Marked as junk");
+        break;
+
 
     case Qt::TextAlignmentRole:
         switch (column) {
@@ -172,7 +187,10 @@ std::optional<QVariant> PrettyMsgListModel::presentationData(const QModelIndex &
             bool isForwarded = translated.data(RoleMessageIsMarkedForwarded).toBool();
             bool isReplied = translated.data(RoleMessageIsMarkedReplied).toBool();
 
-            if (isForwarded && isReplied)
+            // Junk is a warning, so it comes before the message's state
+            if (isJunk(translated))
+                return UiUtils::loadIcon(QStringLiteral("mail-mark-junk"));
+            else if (isForwarded && isReplied)
                 return UiUtils::loadIcon(QStringLiteral("mail-forwarded-replied"));
             else if (isReplied)
                 return UiUtils::loadIcon(QStringLiteral("mail-replied"));

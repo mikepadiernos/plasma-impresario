@@ -30,6 +30,7 @@
 
 #include "Mailto.h"
 #include "Recipients.h"
+#include "HeaderSafety.h"
 
 #include "Imap/Encoders.h"
 
@@ -96,7 +97,7 @@ void parseRFC6068Mailto(const QUrl &url, QString &subject, QString &body,
             Q_FOREACH(const QString &addr, stringListFromRFC2047PercentEncoding(items[i].second))
                 recipients << qMakePair(Composer::ADDRESS_BCC, addr);
         } else if (items[i].first.toLower() == "subject") {
-            subject = fromRFC2047PercentEncoding(items[i].second);
+            subject = HeaderSafety::text(fromRFC2047PercentEncoding(items[i].second));
         } else if (items[i].first.toLower() == "body") {
             // RFC 6068: Body does not contain MIME encoded words
             body = QUrl::fromPercentEncoding(items[i].second);

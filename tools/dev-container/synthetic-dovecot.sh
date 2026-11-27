@@ -19,9 +19,16 @@
 # Variables set by synthetic_dovecot_init: work (temporary directory), port
 # (PLASMA_TEST_IMAPS_PORT or 10993), password (shared by every user) and
 # dovecot_version.
+#
+# POP3 is off unless synthetic_pop3=1 is set before synthetic_dovecot_start.
+# It then listens on pop3_port (PLASMA_TEST_POP3_PORT or 10110, STLS before
+# sign-in) and pop3s_port (PLASMA_TEST_POP3S_PORT or 10995, TLS from the
+# start), serving the same users and INBOX maildirs as IMAP.
 
 synthetic_dovecot_init() {
     port=${PLASMA_TEST_IMAPS_PORT:-10993}
+    pop3_port=${PLASMA_TEST_POP3_PORT:-10110}
+    pop3s_port=${PLASMA_TEST_POP3S_PORT:-10995}
     password=synthetic-test-only
     if ! command -v dovecot >/dev/null 2>&1 || ! command -v openssl >/dev/null 2>&1; then
         dnf -y -q install --setopt=install_weak_deps=False dovecot openssl >/dev/null
@@ -88,13 +95,27 @@ synthetic_dovecot_log() {
 
 synthetic_dovecot_start() {
     chown -R pimail:pimail "$work/home"
+    protocols=imap
+    pop3_config=
+    if [ "${synthetic_pop3-}" = 1 ]; then
+        protocols="imap pop3"
+        pop3_config="service pop3-login {
+  inet_listener pop3 {
+    port = $pop3_port
+  }
+  inet_listener pop3s {
+    port = $pop3s_port
+    ssl = yes
+  }
+}"
+    fi
     cat >"$work/dovecot.conf" <<EOF
 dovecot_config_version = 2.4.0
 dovecot_storage_version = 2.4.0
 base_dir = $work/run
 state_dir = $work/state
 log_path = $work/dovecot.log
-protocols = imap
+protocols = $protocols
 listen = 127.0.0.1
 mail_driver = maildir
 mail_path = ~/Maildir
@@ -121,6 +142,7 @@ namespace inbox {
   inbox = yes
   separator = /
 }
+$pop3_config
 ${synthetic_extra_config-}
 EOF
 

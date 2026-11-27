@@ -47,10 +47,20 @@ public:
     NetworkPolicy desiredNetworkPolicy() const;
     NetworkPolicy effectiveNetworkPolicy() const;
 
+    /** @short Whether the system is going to sleep or sleeping; see setSystemSleeping() */
+    bool isSystemSleeping() const;
+
 public slots:
     virtual void setNetworkOffline();
     virtual void setNetworkExpensive();
     virtual void setNetworkOnline();
+
+    /** @short Log out before the system sleeps and connect again once it wakes
+
+    The user's network policy is kept, so desiredNetworkPolicyChanged() is not emitted. Connections which
+    would not survive the sleep are closed rather than left to time out after waking.
+    */
+    void setSystemSleeping(bool sleeping);
 
 signals:
     void effectiveNetworkPolicyChanged();
@@ -63,6 +73,7 @@ protected:
     ImapAccess *m_imapAccess;
     Model *m_model;
     NetworkPolicy m_desiredPolicy;
+    bool m_systemSleeping = false;
 
 protected slots:
     void attemptReconnect();

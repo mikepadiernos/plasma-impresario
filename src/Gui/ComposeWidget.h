@@ -79,6 +79,9 @@ class InhibitComposerDirtying;
 
 class ComposerSaveState;
 
+class InlineNotificationBar;
+class RemoteAttachmentFetcher;
+
 /** @short A "Compose New Mail..." dialog
 
   Implements a widget which can act as a standalone window for composing e-mail messages.
@@ -93,7 +96,19 @@ public:
     static ComposeWidget *warnIfMsaNotConfigured(ComposeWidget *widget, MainWindow *mainWindow);
     static ComposeWidget *createDraft(MainWindow *mainWindow, const QString &path);
     static ComposeWidget *createBlank(MainWindow *mainWindow);
-    static ComposeWidget *createFromUrl(MainWindow *mainWindow, const QUrl &url);
+    /** Who opened a mailto: URL */
+    enum class UrlOrigin {
+        /** A link in a message or a panel; it may not attach files */
+        ThisApplication,
+        /** Another application, such as a file manager handing over files through the e-mail portal */
+        OtherApplication,
+    };
+    /** @short Compose from a mailto: @arg url; from another application, also attach the files it and @arg files request
+
+    Requested files are listed in a notice above the message, together with any that could not be attached and why.
+    */
+    static ComposeWidget *createFromUrl(MainWindow *mainWindow, const QUrl &url, UrlOrigin origin = UrlOrigin::ThisApplication,
+                                        const QStringList &files = {});
     static ComposeWidget *createReply(MainWindow *mainWindow, const Composer::ReplyMode &mode, const QModelIndex &replyingToMessage,
                                       const QList<QPair<Composer::RecipientKind, QString> > &recipients, const QString &subject,
                                       const QString &body, const QList<QByteArray> &inReplyTo, const QList<QByteArray> &references);
@@ -107,6 +122,12 @@ public:
     bool setAccount(const QString &accountId);
     /** @short The account the draft at @p path was written from, or an empty string for older drafts */
     static QString draftAccountId(const QString &path);
+    /** @short Save changes made since the last save to the draft now, without asking
+
+    Used when the desktop session ends, so that the next start recovers them. Messages that were sent or never edited
+    are not saved.
+    */
+    void saveDraftNow();
 protected:
     void changeEvent(QEvent *e) override;
     void closeEvent(QCloseEvent *ce) override;
@@ -185,6 +206,8 @@ private:
     void loadDraft(const QString &path);
 
     std::shared_ptr<Composer::MessageComposer> interactiveComposer();
+    /** Attach the files another application asked for and list them, and those refused, in the notice */
+    void attachRequestedFiles(const QStringList &fromUrl, const QStringList &fromCommandLine);
 
     Ui::ComposeWidget *ui;
     QPushButton *sendButton;
@@ -243,6 +266,11 @@ private:
     QString m_accountProblem;
     QComboBox *m_account;
     QLabel *m_accountWarning;
+    /** Reports the files another application asked to attach */
+    InlineNotificationBar *m_handoffNotice;
+    /** Reports the files being fetched from other computers to be attached */
+    InlineNotificationBar *m_fetchNotice;
+    RemoteAttachmentFetcher *m_remoteFetcher = nullptr;
 
     std::shared_ptr<Composer::AbstractComposer> m_composer;
     Composer::Submission *m_submission;

@@ -28,6 +28,7 @@
 #include <QActionGroup>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDBusConnection>
 #include <QFileInfo>
 #include <QInputDialog>
 #include <QDesktopServices>
@@ -57,6 +58,7 @@
 #include <QStackedWidget>
 #include <QStandardItemModel>
 #include <QStatusBar>
+#include <QThreadPool>
 #include <QTimer>
 #include <QTextDocument>
 #include <QToolBar>
@@ -67,8 +69,14 @@
 #include <QWheelEvent>
 
 #include <KConfigGroup>
+#include <KIO/ApplicationLauncherJob>
+#include <KIO/JobUiDelegateFactory>
+#include <KIO/OpenFileManagerWindowJob>
+#include <KIO/OpenUrlJob>
 #include <KLocalizedString>
+#include <KService>
 #include <KSharedConfig>
+#include <KWindowSystem>
 
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_KNOTIFICATIONS
@@ -78,6 +86,7 @@
 #include "Common/InvokeMethod.h"
 #include "Common/Paths.h"
 #include "Common/PortNumbers.h"
+#include "Common/PrivateFiles.h"
 #include "Common/SettingsNames.h"
 #include "Composer/AccountIdentities.h"
 #include "Composer/Mailto.h"
@@ -106,6 +115,7 @@
 #include "Imap/Model/FavoriteTagsModel.h"
 #include "Imap/Model/GroupingMsgListModel.h"
 #include "Imap/Model/Utils.h"
+#include "Imap/Parser/MailAddress.h"
 #include "Imap/Tasks/CopyMoveMessagesTask.h"
 #include "Imap/Tasks/ImapTask.h"
 #include "Imap/Network/FileDownloadManager.h"
@@ -120,6 +130,7 @@
 #include "DensityDelegate.h"
 #include "Common/AccountRegistry.h"
 #include "Common/AccountStatus.h"
+#include "AgendaPanel.h"
 #include "AttachmentPanel.h"
 #include "ContactPanel.h"
 #include "DensityMenu.h"
@@ -135,11 +146,17 @@
 #include "MessageRowsMenu.h"
 #include "MessageView.h"
 #include "MessageSourceWidget.h"
+#include "Gui/FileChooser.h"
+#include "Gui/LinkTarget.h"
 #include "Gui/MessageHeadersWidget.h"
 #include "MsgListView.h"
 #include "MessageSelectionRestorer.h"
 #include "OnePanelAtTimeWidget.h"
 #include "PasswordDialog.h"
+#include "Pop3Fetcher.h"
+#include "JmapSyncer.h"
+#include "Jmap/Submission.h"
+#include "Common/TrustedCertificates.h"
 #include "ReaderActionBar.h"
 #include "RelatedMessagesPanel.h"
 #include "SearchResultsPanel.h"
@@ -151,6 +168,7 @@
 #endif
 #include "Streams/SocketFactory.h"
 #include "TaskProgressIndicator.h"
+#include "StateColors.h"
 #include "Util.h"
 #include "Window.h"
 #include "ShortcutHandler/ShortcutHandler.h"
@@ -160,21 +178,31 @@
 #include "ui_ImapInfoDialog.h"
 
 #include "Imap/Model/ModelTest/modeltest.h"
+#include "UiUtils/AccountNotices.h"
+#include "UiUtils/BackgroundRunning.h"
 #include "UiUtils/IconLoader.h"
+#include "UiUtils/MailSafetySettings.h"
 #include "UiUtils/MessageId.h"
 #include "UiUtils/MessageIdLookup.h"
+#include "UiUtils/PlasmaSearch.h"
 #include "UiUtils/QaimDfsIterator.h"
 #include "UiUtils/RelatedMessages.h"
 #include "UiUtils/Relevance.h"
 #include "UiUtils/SavedSearches.h"
+#include "UiUtils/SleepMonitor.h"
 #include "UiUtils/SearchSuggestions.h"
+#include "UiUtils/ServerDiscovery.h"
 #include "UiUtils/UnreadFolders.h"
+#ifdef TROJITA_HAVE_AKONADI_CALENDAR
+#include "UiUtils/AkonadiAgendaSource.h"
+#endif
 
 #include <QVBoxLayout>
 #include "Imap/Model/AccountCapabilities.h"
 #include "OAuth/OAuth.h"
 #include "OAuth/Session.h"
 #include "AccountSidebar.h"
+#include "AddAccountDialog.h"
 #include "CapabilityActionGate.h"
 #include "SavedSearchFolders.h"
 #include "ShellHeader.h"
@@ -254,7 +282,9 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     for (const QString &accountId : m_accounts->accountIds())
         Composer::AccountIdentities::migrateAccount(*m_settings, *m_accounts->settings(accountId));
 
-    if (! accountSettings()->contains(Common::SettingsNames::imapMethodKey)) {
+    // POP3 and JMAP accounts have no IMAP method; each protocol knows what it needs
+    if (m_imapAccess ? !m_imapAccess->isConfigured()
+                     : !accountSettings()->contains(Common::SettingsNames::imapMethodKey)) {
         QTimer::singleShot(0, this, SLOT(slotShowAccountSettings()));
     }
 
@@ -337,6 +367,7 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     });
     slotToggleSysTray();
     slotPluginsChanged();
+    keepPrivateFilesTidy();
 
     slotFavoriteTagsChanged();
     connect(m_favoriteTags, &QAbstractItemModel::modelReset, this, &MainWindow::slotFavoriteTagsChanged);
@@ -399,6 +430,7 @@ MainWindow::~MainWindow()
     for (const QPointer<Imap::Mailbox::FolderSearch> &search : std::as_const(m_folderSearches))
         delete search.data();
     m_folderSearches.clear();
+    delete m_agendaSearch.data();
 }
 
 void MainWindow::reply(const Composer::ReplyMode mode)
@@ -430,8 +462,7 @@ namespace {
 /** @short Icon for an action shown at toolbar size, where Plasma prefers the -symbolic variant */
 QIcon quickActionIcon(const QString &name)
 {
-    const QString symbolic = name + QLatin1String("-symbolic");
-    return QIcon::hasThemeIcon(symbolic) ? QIcon::fromTheme(symbolic) : UiUtils::loadIcon(name);
+    return UiUtils::SymbolicIcon::fromTheme(name);
 }
 
 /** @short Sort indicator stored in a saved QHeaderView state, or (-1, ascending) when there is none */
@@ -678,7 +709,15 @@ void MainWindow::createActions()
     connect(resyncMbox, &QAction::triggered, this, &MainWindow::slotResyncMbox);
 
     reloadAllMailboxes = new QAction(tr("&Reload Everything"), this);
-    // connect later
+    // connect later; POP3 and JMAP accounts visit their server instead, as their folders are on this computer
+    for (QAction *check : {resyncMbox, reloadAllMailboxes}) {
+        connect(check, &QAction::triggered, this, [this]() {
+            if (Pop3Fetcher *fetcher = m_pop3Fetchers.value(m_accounts->activeAccount()))
+                fetcher->check(true);
+            if (JmapSyncer *syncer = m_jmapSyncers.value(m_accounts->activeAccount()))
+                syncer->sync(true);
+        });
+    }
 
     exitAction = ShortcutHandler::instance()->createAction(QStringLiteral("action_application_exit"), qApp, SLOT(quit()), this);
     exitAction->setStatusTip(tr("Exit the application"));
@@ -1435,11 +1474,13 @@ void MainWindow::createActions()
     networkIndicator = new QToolButton(this);
     // This is deliberate; we want to show this button in the same style as the other ones in the toolbar
     networkIndicator->setPopupMode(QToolButton::MenuButtonPopup);
+    networkIndicator->setAccessibleName(i18nc("@action:button", "Network access"));
     m_mainToolbar->addWidget(networkIndicator);
 
     m_menuFromToolBar = new QToolButton(this);
     m_menuFromToolBar->setIcon(UiUtils::loadIcon(QStringLiteral("menu_new")));
     m_menuFromToolBar->setText(QChar(0x205d)); // Unicode 'TRICOLON'
+    m_menuFromToolBar->setAccessibleName(i18nc("@action:button", "Main menu"));
     m_menuFromToolBar->setPopupMode(QToolButton::MenuButtonPopup);
     connect(m_menuFromToolBar, &QAbstractButton::clicked, m_menuFromToolBar, &QToolButton::showMenu);
     m_mainToolbar->addWidget(m_menuFromToolBar);
@@ -1737,8 +1778,7 @@ void MainWindow::createWidgets()
     m_backgroundAlerts->setAccessibleName(i18nc("@label", "Other accounts needing attention"));
     m_backgroundAlerts->setAutoRaise(true);
     m_backgroundAlerts->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-    m_backgroundAlerts->setIcon(QIcon::fromTheme(QStringLiteral("dialog-warning-symbolic"),
-                                                 QIcon::fromTheme(QStringLiteral("dialog-warning"))));
+    m_backgroundAlerts->setIcon(UiUtils::SymbolicIcon::fromTheme(QStringLiteral("dialog-warning")));
     m_backgroundAlerts->hide();
     connect(m_backgroundAlerts, &QToolButton::clicked, this, [this]() {
         switchAccount(m_backgroundAlerts->property("accountId").toString());
@@ -1750,8 +1790,7 @@ void MainWindow::createWidgets()
     m_oauthSignIn->setObjectName(QStringLiteral("oauthSignInButton"));
     m_oauthSignIn->setAutoRaise(true);
     m_oauthSignIn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-    m_oauthSignIn->setIcon(QIcon::fromTheme(QStringLiteral("dialog-password-symbolic"),
-                                            QIcon::fromTheme(QStringLiteral("dialog-password"))));
+    m_oauthSignIn->setIcon(UiUtils::SymbolicIcon::fromTheme(QStringLiteral("dialog-password")));
     m_oauthSignIn->setText(i18nc("@action:button", "Sign In…"));
     m_oauthSignIn->setToolTip(i18nc("@info:tooltip", "Sign in to this account again in your web browser"));
     m_oauthSignIn->hide();
@@ -1772,6 +1811,7 @@ void MainWindow::createWidgets()
     connect(qApp, &QCoreApplication::aboutToQuit, this, &MainWindow::flushUiState);
 
     mboxTree = new MailBoxTreeView(nullptr, m_settings);
+    mboxTree->setAccessibleName(i18nc("@info:accessible", "Folders"));
     mboxTree->setItemDelegate(new DensityDelegate(mboxTree));
     mboxTree->setDesiredExpansion(expandedMailboxes());
     connect(mboxTree, &QWidget::customContextMenuRequested, this, &MainWindow::showContextMenuMboxTree);
@@ -1846,17 +1886,22 @@ void MainWindow::createWidgets()
     m_messageWidget->messageView->setAccountResolver(accountName);
     connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::scrollMessageUp);
     connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::slotUpdateMessageActions);
-    connect(m_messageWidget->messageView, &MessageView::linkHovered, [](const QString &url) {
+    connect(m_messageWidget->messageView, &MessageView::linkHovered, this, [this](const QString &url, const QString &text) {
+        // A tooltip still waiting for the previous link is dropped
+        ++m_hoveredLinkGeneration;
         if (url.isEmpty()) {
             QToolTip::hideText();
         } else {
             // indirection due to https://bugs.kde.org/show_bug.cgi?id=363783
-            QTimer::singleShot(250, [url]() {
-                QToolTip::showText(QCursor::pos(), QObject::tr("Link target: %1").arg(UiUtils::Formatting::htmlEscaped(url)));
+            const unsigned generation = m_hoveredLinkGeneration;
+            QTimer::singleShot(250, this, [this, url, text, generation]() {
+                if (generation == m_hoveredLinkGeneration)
+                    QToolTip::showText(QCursor::pos(), linkTargetDescription(QUrl(url), text));
             });
         }
     });
     connect(m_messageWidget->messageView, &MessageView::transferError, this, &MainWindow::slotDownloadTransferError);
+    connect(m_messageWidget->messageView, &MessageView::fileSaved, this, &MainWindow::slotFileSaved);
     // Space pages through the open message, then continues with the next unread one
     connect(m_messageWidget, &CompleteMessageWidget::pagedPastEnd, this, [this]() {
         if (m_messageWidget->messageView->currentMessage().isValid())
@@ -1867,6 +1912,7 @@ void MainWindow::createWidgets()
     m_attachmentPanel->setNetworkAccessManager(m_messageWidget->messageView->networkAccessManager());
     connect(m_messageWidget->messageView, &MessageView::messageModelChanged, m_attachmentPanel, &AttachmentPanel::setMessageModel);
     connect(m_attachmentPanel, &AttachmentPanel::transferError, this, &MainWindow::slotDownloadTransferError);
+    connect(m_attachmentPanel, &AttachmentPanel::fileSaved, this, &MainWindow::slotFileSaved);
     connect(m_attachmentPanel, &AttachmentPanel::findSavedCopiesRequested, this, &MainWindow::findSavedFiles);
 
     m_messageDetailsPanel = new MessageDetailsPanel();
@@ -1881,6 +1927,7 @@ void MainWindow::createWidgets()
     }
     connect(m_contactPanel, &ContactPanel::composeRequested, this, &MainWindow::slotComposeMailUrl);
     connect(m_contactPanel, &ContactPanel::manageContactRequested, this, &MainWindow::slotManageContact);
+    connect(m_contactPanel, &ContactPanel::addContactRequested, this, &MainWindow::slotAddContact);
     connect(m_relatedMessagesPanel, &RelatedMessagesPanel::messageActivated, this, &MainWindow::activateRelatedMessage);
     const auto messageAccount = [this](const QModelIndex &message) {
         return accountOfModel(qobject_cast<const Imap::Mailbox::Model *>(Imap::deproxifiedIndex(message).model()));
@@ -1892,6 +1939,8 @@ void MainWindow::createWidgets()
             return i18nc("@info", "The account of the message is not known");
         if (const Imap::Mailbox::FolderSearch *search = m_folderSearches.value(accountId); search && search->isRunning())
             return i18nc("@info", "The server is searched once the search across folders is done");
+        if (m_agendaSearch && m_agendaSearch->isRunning() && m_agendaSearchItem.accountId == accountId)
+            return i18nc("@info", "The server is searched once the message from My Day is open");
         return QString();
     });
     m_relatedMessagesPanel->setConfig(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")));
@@ -1906,7 +1955,17 @@ void MainWindow::createWidgets()
     connect(m_searchResultsPanel, &SearchResultsPanel::retryRequested, this, &MainWindow::retrySearchAcross);
     connect(m_searchResultsPanel, &SearchResultsPanel::searchServerRequested, this, &MainWindow::continueSearchOnServer);
     connect(m_searchResultsPanel, &SearchResultsPanel::enabledChanged, this, &MainWindow::moveSearchResults);
-    m_embeddedPanels = {m_attachmentPanel, m_messageDetailsPanel, m_contactPanel, m_relatedMessagesPanel, m_searchResultsPanel};
+    m_agendaMessagesTimer = new QTimer(this);
+    m_agendaMessagesTimer->setSingleShot(true);
+    m_agendaMessagesTimer->setInterval(500);
+    connect(m_agendaMessagesTimer, &QTimer::timeout, this, &MainWindow::refreshAgendaMessages);
+    m_agendaPanel = new AgendaPanel();
+    connect(m_agendaPanel, &AgendaPanel::messageActivated, this, &MainWindow::openAgendaMessage);
+    connect(m_agendaPanel, &AgendaPanel::joinRequested, this, &MainWindow::joinMeeting);
+    connect(m_agendaPanel, &AgendaPanel::calendarRequested, this, &MainWindow::openCalendarApplication);
+    connect(m_agendaPanel, &AgendaPanel::enabledChanged, this, &MainWindow::updateAgendaSource);
+    m_embeddedPanels = {m_attachmentPanel, m_messageDetailsPanel, m_contactPanel, m_relatedMessagesPanel, m_searchResultsPanel,
+                        m_agendaPanel};
 #else
    m_messageWidget = new QLabel(QStringLiteral("Message Widget placeholder"));
 #endif
@@ -1980,6 +2039,19 @@ void MainWindow::setupModels(bool reconnect)
 #ifdef TROJITA_HAVE_WEBENGINE
     m_messageWidget->messageView->setNetworkWatcher(qobject_cast<Imap::Mailbox::NetworkWatcher*>(m_imapAccess->networkWatcher()));
     m_relatedMessagesPanel->setMessageList(m_imapAccess->msgListModel());
+    for (const QMetaObject::Connection &connection : std::as_const(m_agendaListConnections))
+        disconnect(connection);
+    m_agendaListConnections.clear();
+    if (QAbstractItemModel *list = m_imapAccess->msgListModel()) {
+        m_agendaListConnections = {
+            connect(list, &QAbstractItemModel::dataChanged, this, &MainWindow::scheduleAgendaMessages),
+            connect(list, &QAbstractItemModel::rowsInserted, this, &MainWindow::scheduleAgendaMessages),
+            connect(list, &QAbstractItemModel::rowsRemoved, this, &MainWindow::scheduleAgendaMessages),
+            connect(list, &QAbstractItemModel::modelReset, this, &MainWindow::scheduleAgendaMessages),
+            connect(list, &QAbstractItemModel::layoutChanged, this, &MainWindow::scheduleAgendaMessages),
+        };
+    }
+    scheduleAgendaMessages();
 #endif
 
     auto realThreadingModel = qobject_cast<Imap::Mailbox::ThreadingMsgListModel*>(m_imapAccess->threadingMsgListModel());
@@ -2249,15 +2321,18 @@ void MainWindow::createSysTray()
     if (m_trayIcon)
         return;
 
-    qApp->setQuitOnLastWindowClosed(false);
-
     m_trayIcon = new QSystemTrayIcon(this);
     handleTrayIconChange();
 
-    QAction* quitAction = new QAction(tr("&Quit"), m_trayIcon);
+    QAction *showAction = new QAction(i18nc("@action:inmenu", "&Show Plasma Impresario"), m_trayIcon);
+    connect(showAction, &QAction::triggered, this, &MainWindow::showMainWindow);
+    // Quitting ends every background task, also while the window is closed
+    QAction* quitAction = new QAction(i18nc("@action:inmenu", "&Quit"), m_trayIcon);
     connect(quitAction, &QAction::triggered, qApp, &QApplication::quit);
 
     QMenu *trayIconMenu = new QMenu(this);
+    trayIconMenu->addAction(showAction);
+    trayIconMenu->addSeparator();
     trayIconMenu->addAction(quitAction);
     m_trayIcon->setContextMenu(trayIconMenu);
 
@@ -2274,8 +2349,40 @@ void MainWindow::removeSysTray()
 {
     delete m_trayIcon;
     m_trayIcon = nullptr;
+}
 
-    qApp->setQuitOnLastWindowClosed(true);
+void MainWindow::keepPrivateFilesTidy()
+{
+    // Caches written before they were kept private are tightened once at startup, away from the GUI thread
+    // The paths are looked up here, since looking them up is not thread-safe
+    const QString cache = Common::writablePath(Common::LOCATION_CACHE);
+    const QString opened = Common::PrivateFiles::openedAttachmentsFolder();
+    const QString fetched = Common::PrivateFiles::fetchedAttachmentsFolder();
+    // Copies fetched for a message being composed before this started were left behind when the application ended
+    // unexpectedly; those of a composer opened meanwhile are newer
+    const QDateTime started = QDateTime::currentDateTimeUtc();
+    const bool hasProfile = !qEnvironmentVariableIsEmpty("TROJITA_PROFILE");
+    QThreadPool::globalInstance()->start([cache, opened, fetched, started, hasProfile]() {
+        namespace Private = Common::PrivateFiles;
+        // A profile's cache is inside the application's, which holds the other profiles' caches
+        if (hasProfile && QFileInfo::exists(cache))
+            Private::makeFolder(QFileInfo(QDir::cleanPath(cache)).path());
+        Private::tighten(cache);
+        Private::removeOldOpenedAttachments(opened);
+        Private::removeCopiesChangedBefore(fetched, started);
+    });
+    // Running in the background can last for days, so the copies of opened attachments are checked every hour
+    auto *timer = new QTimer(this);
+    timer->setInterval(std::chrono::hours(1));
+    connect(timer, &QTimer::timeout, this, []() {
+        Common::PrivateFiles::removeOldOpenedAttachments(Common::PrivateFiles::openedAttachmentsFolder());
+    });
+    timer->start();
+}
+
+bool MainWindow::runsInBackground() const
+{
+    return UiUtils::BackgroundRunning::runsInBackground(*KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")));
 }
 
 void MainWindow::slotToggleSysTray()
@@ -2286,6 +2393,8 @@ void MainWindow::slotToggleSysTray()
     } else if (!showSystray && m_trayIcon) {
         removeSysTray();
     }
+    // Only running in the background keeps the application alive without a window, not the tray icon alone
+    qApp->setQuitOnLastWindowClosed(!runsInBackground());
 }
 
 void MainWindow::handleTrayIconChange()
@@ -2365,7 +2474,7 @@ void MainWindow::handleTrayIconChange()
         QPainter painter(&pixmap);
         painter.setRenderHint(QPainter::Antialiasing);
         painter.setPen(QColor(255,255,255, 180));
-        painter.setBrush(isOffline ? Qt::red : Qt::black);
+        painter.setBrush(isOffline ? StateColors::text(StateColors::State::Negative) : QColor(Qt::black));
         painter.drawPath(path);
 
         //: This is a tooltip for the tray icon. It will be prefixed by something like "Trojita" or "Trojita [work]"
@@ -2383,9 +2492,15 @@ void MainWindow::handleTrayIconChange()
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     flushUiState();
-    if (m_trayIcon && m_trayIcon->isVisible()) {
-        Util::askForSomethingUnlessTold(tr("Plasma Impresario"),
-                                        tr("The application will continue in systray. This can be disabled within the settings."),
+    if (runsInBackground()) {
+        const QString reopen = m_trayIcon && m_trayIcon->isVisible()
+                ? i18nc("@info", "Plasma Impresario keeps running in the background, checking for new mail and showing "
+                                 "notifications. Open it again from its icon in the system tray, or quit it there. Running "
+                                 "in the background can be turned off in the settings.")
+                : i18nc("@info", "Plasma Impresario keeps running in the background, checking for new mail and showing "
+                                 "notifications. Open it again from the application launcher. Running in the background "
+                                 "can be turned off in the settings.");
+        Util::askForSomethingUnlessTold(i18nc("@title:window", "Plasma Impresario"), reopen,
                                         Common::SettingsNames::guiOnSystrayClose, QMessageBox::Ok, this, m_settings);
         hide();
         event->ignore();
@@ -2454,9 +2569,49 @@ void MainWindow::slotIconActivated(const QSystemTrayIcon::ActivationReason reaso
 
 void MainWindow::showMainWindow()
 {
-    setVisible(true);
-    activateWindow();
-    raise();
+    activateForRequest(this);
+}
+
+void MainWindow::setActivationToken(const QString &token)
+{
+    m_activationToken.handOver(token, QDateTime::currentDateTimeUtc());
+}
+
+bool MainWindow::hasActivationToken() const
+{
+    return m_activationToken.isPending();
+}
+
+void MainWindow::saveUnsentMessages()
+{
+    const auto windows = QApplication::topLevelWidgets();
+    for (QWidget *window : windows) {
+        if (auto *composer = qobject_cast<ComposeWidget *>(window))
+            composer->saveDraftNow();
+    }
+}
+
+void MainWindow::activateForRequest(QWidget *window)
+{
+    window->setVisible(true);
+    window->raise();
+    window->activateWindow();
+    const QString token = m_activationToken.take(QDateTime::currentDateTimeUtc());
+    QWindow *handle = window->windowHandle();
+    if (!handle)
+        return;
+    if (!token.isEmpty()) {
+        if (KWindowSystem::isPlatformWayland()) {
+            KWindowSystem::setCurrentXdgActivationToken(token);
+        } else if (KWindowSystem::isPlatformX11()) {
+            // KWindowSystem reads the startup ID of a request handled by a running instance from the environment
+            qputenv("DESKTOP_STARTUP_ID", token.toLatin1());
+            KWindowSystem::updateStartupId(handle);
+            qunsetenv("DESKTOP_STARTUP_ID");
+        }
+    }
+    // Without a token, Plasma may only mark the window as wanting attention instead of raising it
+    KWindowSystem::activateWindow(handle);
 }
 
 void MainWindow::saveMessageSelection(const QModelIndex &index)
@@ -3038,6 +3193,7 @@ void MainWindow::slotShowSettings()
     if (dialog.exec() == QDialog::Accepted) {
         removeSysTray();
         slotToggleSysTray();
+        scheduleAccountUnreadRefresh();
     }
 }
 
@@ -3099,6 +3255,10 @@ void MainWindow::slotShowAccountSettings()
                                  m_accounts->displayName(m_accounts->activeAccount())));
     if (dialog->exec() == QDialog::Accepted) {
         setUnifiedInbox(false, false);
+        if (Pop3Fetcher *fetcher = m_pop3Fetchers.value(m_accounts->activeAccount()))
+            fetcher->settingsChanged();
+        if (JmapSyncer *syncer = m_jmapSyncers.value(m_accounts->activeAccount()))
+            syncer->settingsChanged();
         // FIXME: wipe cache in case we're moving between servers
         commitFolderPosition();
         nukeModels();
@@ -3109,7 +3269,17 @@ void MainWindow::slotShowAccountSettings()
         slotToggleSysTray();
     }
     QString method = accountSettings()->value(Common::SettingsNames::imapMethodKey).toString();
-    if (method != Common::SettingsNames::methodTCP && method != Common::SettingsNames::methodSSL &&
+    if (m_imapAccess->protocol() == Imap::AccountProtocol::Pop3) {
+        if (accountSettings()->value(Common::SettingsNames::pop3HostKey).toString().isEmpty())
+            Gui::Util::messageBoxCritical(this, i18nc("@title:window", "No Configuration"),
+                                          i18nc("@info", "No POP3 server is configured. Plasma Impresario cannot "
+                                                         "download mail for this account without one."));
+    } else if (m_imapAccess->protocol() == Imap::AccountProtocol::Jmap) {
+        if (accountSettings()->value(Common::SettingsNames::jmapUrlKey).toString().isEmpty())
+            Gui::Util::messageBoxCritical(this, i18nc("@title:window", "No Configuration"),
+                                          i18nc("@info", "No JMAP server is configured. Plasma Impresario cannot "
+                                                         "synchronize mail for this account without one."));
+    } else if (method != Common::SettingsNames::methodTCP && method != Common::SettingsNames::methodSSL &&
             method != Common::SettingsNames::methodProcess ) {
         Gui::Util::messageBoxCritical(this, tr("No Configuration"),
                                       tr("No IMAP account is configured. Plasma Impresario cannot do much without one."));
@@ -3180,9 +3350,23 @@ void MainWindow::setupAccounts()
         return std::make_unique<QSettings>(prefix + accountId + QStringLiteral(".conf"), QSettings::IniFormat);
     }, this);
     m_accountStatus = new Common::AccountStatusTracker(this);
-    connect(m_accountStatus, &Common::AccountStatusTracker::statusChanged, this, [this]() {
+    m_accountNotices = new UiUtils::AccountNotices(this);
+    m_accountNotices->setObjectName(QStringLiteral("accountNotices"));
+    connect(m_accountStatus, &Common::AccountStatusTracker::statusChanged, this, &MainWindow::mailStatusChanged);
+    connect(this, &MainWindow::accountsChanged, this, &MainWindow::mailStatusChanged);
+    connect(m_accountStatus, &Common::AccountStatusTracker::statusChanged, this, [this](const QString &accountId) {
         if (m_accountSwitcher)
             refreshAccountSwitcher();
+        // A notification about a problem which is solved would only mislead
+        if (m_accountStatus->status(accountId).kind == Common::AccountStatusKind::Connected)
+            m_accountNotices->close(accountId);
+    });
+    m_sleepMonitor = new UiUtils::SleepMonitor(this);
+    m_sleepMonitor->setObjectName(QStringLiteral("sleepMonitor"));
+    m_sleepMonitor->startOnSystemBus();
+    connect(m_sleepMonitor, &UiUtils::SleepMonitor::sleepingChanged, this, [this]() {
+        for (Imap::ImapAccess *access : std::as_const(m_accountAccess))
+            applySystemSleep(access);
     });
     // The shown account reports its own errors in the footer and in dialogs.
     connect(m_accountStatus, &Common::AccountStatusTracker::attentionRaised, this, [this](const QString &accountId) {
@@ -3239,9 +3423,13 @@ Imap::ImapAccess *MainWindow::accountAccess(const QString &accountId)
     };
     connect(access, &Imap::ImapAccess::modelsChanged, this, watchMailboxes);
     watchMailboxes();
+    connect(access, &Imap::ImapAccess::modelsChanged, this, &MainWindow::scheduleAgendaMessages);
+    scheduleAgendaMessages();
     connect(access, &Imap::ImapAccess::checkSslPolicy, this, [this, accountId]() { checkSslPolicy(accountId); },
             Qt::QueuedConnection);
+    connect(access, &Imap::ImapAccess::modelsChanged, this, [this, access]() { applySystemSleep(access); });
     m_accountAccess.insert(accountId, access);
+    applySystemSleep(access);
     return access;
 }
 
@@ -3629,6 +3817,12 @@ void MainWindow::updateBackgroundAlerts()
     m_backgroundAlerts->setAccessibleDescription(lines.join(QLatin1Char('\n')));
 }
 
+void MainWindow::applySystemSleep(Imap::ImapAccess *access)
+{
+    if (auto *watcher = qobject_cast<Imap::Mailbox::NetworkWatcher *>(access->networkWatcher()))
+        watcher->setSystemSleeping(m_sleepMonitor && m_sleepMonitor->isSleeping());
+}
+
 void MainWindow::notifyBackgroundAccount(const QString &accountId)
 {
     const Common::AccountStatus status = m_accountStatus->status(accountId);
@@ -3644,7 +3838,10 @@ void MainWindow::notifyBackgroundAccount(const QString &accountId)
     notification->setText(text.toHtmlEscaped());
     notification->setWindow(windowHandle());
     KNotificationAction *open = notification->addDefaultAction(i18nc("@action:button", "Open Account"));
-    connect(open, &KNotificationAction::activated, this, [this, accountId]() {
+    connect(open, &KNotificationAction::activated, this, [this, accountId, notification]() {
+        if (!m_accounts->accountIds().contains(accountId))
+            return;
+        setActivationToken(notification->xdgActivationToken());
         switchAccount(accountId);
         showMainWindow();
     });
@@ -3652,6 +3849,7 @@ void MainWindow::notifyBackgroundAccount(const QString &accountId)
         KNotificationAction *signIn = notification->addAction(i18nc("@action:button", "Sign In"));
         connect(signIn, &KNotificationAction::activated, this, [this, accountId]() { signInAccount(accountId); });
     }
+    m_accountNotices->show(accountId, notification);
     notification->sendEvent();
 #else
     if (m_trayIcon && m_trayIcon->isVisible())
@@ -3684,6 +3882,45 @@ void MainWindow::monitorAccount(const QString &accountId)
     auto *model = qobject_cast<Imap::Mailbox::Model *>(access->imapModel());
     Q_ASSERT(model);
     using Common::AccountStatusKind;
+    if (access->protocol() != Imap::AccountProtocol::Imap) {
+        // The folders are on this computer and always open; the status is that of the last visit to the server
+        Pop3Fetcher *fetcher = nullptr;
+        JmapSyncer *syncer = nullptr;
+        if (access->protocol() == Imap::AccountProtocol::Pop3) {
+            fetcher = m_pop3Fetchers.value(accountId);
+            if (!fetcher) {
+                fetcher = new Pop3Fetcher(accountId, access, m_accounts->settings(accountId), m_settings,
+                                          pluginManager(), m_accountStatus, this);
+                m_pop3Fetchers.insert(accountId, fetcher);
+            }
+        } else {
+            syncer = m_jmapSyncers.value(accountId);
+            if (!syncer) {
+                syncer = new JmapSyncer(accountId, access, m_accounts->settings(accountId), m_settings,
+                                        pluginManager(), m_accountStatus, this);
+                m_jmapSyncers.insert(accountId, syncer);
+                // Folders made, renamed or removed on the server appear without asking the folder list again
+                connect(syncer, &JmapSyncer::foldersChanged, model, &Imap::Mailbox::Model::reloadMailboxList);
+            }
+        }
+        for (auto signal : {&Imap::Mailbox::Model::networkPolicyOnline, &Imap::Mailbox::Model::networkPolicyExpensive})
+            connect(model, signal, model, &Imap::Mailbox::Model::reloadMailboxList, Qt::SingleShotConnection);
+        connect(model, &Imap::Mailbox::Model::messageCountPossiblyChanged, access, [this]() { scheduleAccountUnreadRefresh(); });
+        connect(model, &QAbstractItemModel::rowsInserted, access, [this](const QModelIndex &parent) {
+            if (!parent.isValid())
+                scheduleAccountUnreadRefresh();
+        });
+        scheduleAccountUnreadRefresh();
+        QPointer<Pop3Fetcher> guard = fetcher;
+        QPointer<JmapSyncer> syncerGuard = syncer;
+        QMetaObject::invokeMethod(this, [this, guard, syncerGuard, accountId]() {
+            if (guard)
+                guard->check(accountId == m_accounts->activeAccount());
+            if (syncerGuard)
+                syncerGuard->sync(accountId == m_accounts->activeAccount());
+        }, Qt::QueuedConnection);
+        return;
+    }
     connect(model, &Imap::Mailbox::Model::connectionStateChanged, access,
             [this, accountId](uint, const Imap::ConnectionState state) {
         const AccountStatusKind current = m_accountStatus->status(accountId).kind;
@@ -3740,8 +3977,7 @@ void MainWindow::scheduleAccountUnreadRefresh()
 
 void MainWindow::refreshAccountUnread()
 {
-    if (!m_accountSidebar)
-        return;
+    QList<int> counts;
     for (const QString &accountId : m_accounts->accountIds()) {
         Imap::ImapAccess *access = m_accountAccess.value(accountId);
         auto *model = access ? qobject_cast<Imap::Mailbox::Model *>(access->imapModel()) : nullptr;
@@ -3752,8 +3988,35 @@ void MainWindow::refreshAccountUnread()
             if (unread.isValid())
                 count = unread.toInt();
         }
-        m_accountSidebar->setUnreadCount(accountId, count);
+        if (m_accountSidebar)
+            m_accountSidebar->setUnreadCount(accountId, count);
+        counts.append(count);
+        m_inboxUnread.insert(accountId, count);
+        // The widgets' unread messages come from the index, which catches up after the counts
+        if (Imap::Mailbox::SearchIndexer *indexer = access ? access->searchIndexer() : nullptr)
+            connect(indexer, &Imap::Mailbox::SearchIndexer::finished, this, &MainWindow::mailStatusChanged,
+                    Qt::UniqueConnection);
     }
+    publishUnreadCount(UiUtils::DesktopFeedback::totalUnread(counts));
+    emit mailStatusChanged();
+}
+
+void MainWindow::publishUnreadCount(int unread)
+{
+    namespace DesktopFeedback = UiUtils::DesktopFeedback;
+    // Turning the setting off hides the count instead of leaving the last one on the task manager entry
+    if (!DesktopFeedback::showsUnreadCount(*KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"))))
+        unread = 0;
+    if (!m_unreadBadge.update(unread))
+        return;
+    const QString desktopFileName = QGuiApplication::desktopFileName();
+    if (!desktopFileName.isEmpty())
+        QDBusConnection::sessionBus().send(DesktopFeedback::launcherEntryUpdate(desktopFileName, unread));
+}
+
+int MainWindow::unreadCountOnTaskManager() const
+{
+    return m_unreadBadge.shown();
 }
 
 void MainWindow::requestStoredPassword(const QString &accountId)
@@ -3807,6 +4070,8 @@ void MainWindow::switchAccount(const QString &accountId)
     detachAccountModels();
     nukeModels();
     m_accounts->setActiveAccount(accountId);
+    // The shown account reports its problems in the window
+    m_accountNotices->close(accountId);
     m_imapAccess = accountAccess(accountId);
     mboxTree->setDesiredExpansion(expandedMailboxes());
     msgListWidget->setAccountId(m_imapAccess->credentialAccountId());
@@ -3820,7 +4085,14 @@ void MainWindow::switchAccount(const QString &accountId)
     refreshAccountSwitcher();
     slotUpdateWindowTitle();
     const Common::AccountStatus status = m_accountStatus->status(accountId);
-    if (status.kind == Common::AccountStatusKind::AuthRequired) {
+    if (Pop3Fetcher *fetcher = m_pop3Fetchers.value(accountId)) {
+        // Shown now, so a check may ask for the password or the certificate it could not ask for before
+        if (Common::AccountStatusTracker::needsAttention(status.kind))
+            fetcher->check(true);
+    } else if (JmapSyncer *syncer = m_jmapSyncers.value(accountId)) {
+        if (Common::AccountStatusTracker::needsAttention(status.kind))
+            syncer->sync(true);
+    } else if (status.kind == Common::AccountStatusKind::AuthRequired) {
         m_ignoreStoredPassword = !status.detail.isEmpty();
         authenticationRequested();
     }
@@ -3828,14 +4100,43 @@ void MainWindow::switchAccount(const QString &accountId)
 
 void MainWindow::slotAddAccount()
 {
-    bool accepted = false;
-    const QString name = QInputDialog::getText(this, i18n("Add Account"), i18n("Account name:"),
-                                               QLineEdit::Normal, QString(), &accepted).trimmed();
-    if (!accepted || name.isEmpty())
+    AddAccountDialog dialog(this);
+    if (dialog.exec() != QDialog::Accepted || dialog.accountName().isEmpty())
         return;
-    const QString accountId = m_accounts->addAccount(name);
-    Composer::AccountIdentities::initializeNewAccount(*m_accounts->settings(accountId));
+    const QString accountId = m_accounts->addAccount(dialog.accountName());
+    QSettings *settings = m_accounts->settings(accountId);
+    Composer::AccountIdentities::initializeNewAccount(*settings);
+    if (dialog.protocol() == Imap::AccountProtocol::Pop3) {
+        Imap::AccountCapabilities::setProtocol(*settings, Imap::AccountProtocol::Pop3);
+        // Most providers sign in with the address, and sending cannot borrow an IMAP sign-in
+        if (UiUtils::ServerDiscovery::parseAddress(dialog.emailAddress()).isValid()) {
+            settings->setValue(Common::SettingsNames::pop3UserKey, dialog.emailAddress());
+            settings->setValue(Common::SettingsNames::smtpUserKey, dialog.emailAddress());
+        }
+    } else if (dialog.protocol() == Imap::AccountProtocol::Jmap) {
+        Imap::AccountCapabilities::setProtocol(*settings, Imap::AccountProtocol::Jmap);
+        if (UiUtils::ServerDiscovery::parseAddress(dialog.emailAddress()).isValid()) {
+            settings->setValue(Common::SettingsNames::jmapUserKey, dialog.emailAddress());
+            settings->setValue(Common::SettingsNames::smtpUserKey, dialog.emailAddress());
+        }
+    }
+    // The account is switched to before it has servers, so that nothing connects until its settings are saved
     switchAccount(accountId);
+    const UiUtils::ServerDiscovery::Result found = dialog.result();
+    if (found.isValid())
+        UiUtils::ServerDiscovery::applyTo(*settings, found, dialog.useOAuth());
+    if (UiUtils::ServerDiscovery::parseAddress(dialog.emailAddress()).isValid()) {
+        Composer::SenderIdentitiesModel identities;
+        identities.loadFromSettings(*settings);
+        if (identities.rowCount() == 0) {
+            identities.appendIdentity(Composer::ItemSenderIdentity(dialog.realName(), dialog.emailAddress(), QString(), QString()));
+            identities.saveToSettings(*settings);
+        }
+        if (Composer::SenderIdentitiesModel *loaded = m_accountIdentities.value(accountId))
+            loaded->loadFromSettings(*settings);
+    }
+    settings->sync();
+    m_imapAccess->reloadConfiguration();
     emit accountsChanged();
     slotShowAccountSettings();
 }
@@ -4013,6 +4314,14 @@ void MainWindow::confirmRemoveAccount(const QString &accountId)
                             "computer for it are deleted too. Messages on the server are not affected.",
                             m_accounts->displayName(accountId));
     const QSettings &settings = *m_accounts->settings(accountId);
+    if (Imap::AccountCapabilities::forAccount(settings).protocol() == Imap::AccountProtocol::Pop3)
+        question += QLatin1String("\n\n")
+            + i18n("This is a POP3 account: mail already removed from the server exists only on this computer and "
+                   "cannot be recovered after the account is removed.");
+    else if (Imap::AccountCapabilities::forAccount(settings).protocol() == Imap::AccountProtocol::Jmap)
+        question += QLatin1String("\n\n")
+            + i18n("This is a JMAP account: folders that exist only on this computer, and the messages in them, "
+                   "cannot be recovered after the account is removed.");
     if (usesOAuth(settings)) {
         const OAuth::Provider provider = OAuth::AccountConfig::fromSettings(settings, accountId).provider;
         if (provider.isValid() && !provider.revocationEndpoint.isValid())
@@ -4071,7 +4380,8 @@ void MainWindow::removeAccountNow(const QString &accountId)
     const bool revokeOAuth = usesOAuth(removed) && !sharesOAuthGrant(accountId);
     const OAuth::AccountConfig oauthConfig = OAuth::AccountConfig::fromSettings(removed, access->credentialAccountId());
     if (Plugins::PasswordPlugin *password = pluginManager()->password()) {
-        QStringList types{QStringLiteral("imap"), QStringLiteral("smtp")};
+        QStringList types{QStringLiteral("imap"), QStringLiteral("smtp"), Pop3Fetcher::passwordType(),
+                          JmapSyncer::passwordType()};
         // Revoking deletes the stored grant once the provider has answered
         if (!revokeOAuth)
             types << OAuth::credentialType();
@@ -4085,12 +4395,20 @@ void MainWindow::removeAccountNow(const QString &accountId)
     if (revokeOAuth)
         revokeDetached(oauthConfig, pluginManager());
     const QString cacheDirectory = access->cacheDirectory();
+    const QString localStoreFolder = access->protocol() == Imap::AccountProtocol::Imap
+        ? QString()
+        : Imap::ImapAccess::localStoreFolder(access->credentialAccountId());
+    m_pop3Fetchers.remove(accountId);
+    m_jmapSyncers.remove(accountId);
     if (m_unifiedModel)
         m_unifiedModel->removeAccount(accountId);
     if (m_searchResultsPanel)
         m_searchResultsPanel->results()->removeAccount(accountId);
+    if (m_agendaSearch && m_agendaSearchItem.accountId == accountId)
+        cancelAgendaSearch();
     // Deleting the account's models also closes its cache database, so the files can be removed.
     delete m_accountAccess.take(accountId);
+    scheduleAgendaMessages();
     if (!Imap::removeAccountCache(cacheDirectory, Common::writablePath(Common::LOCATION_CACHE))) {
         qWarning() << "Could not delete the offline cache of the removed account in" << cacheDirectory;
         Gui::Util::messageBoxWarning(this, i18n("Offline Mail Not Deleted"),
@@ -4098,8 +4416,18 @@ void MainWindow::removeAccountNow(const QString &accountId)
                                           "could not be deleted. Remove the folder %1 to delete them.",
                                           cacheDirectory));
     }
+    // The access held the last reference to the local store, so its database is closed by now
+    if (!localStoreFolder.isEmpty() && QFileInfo::exists(localStoreFolder)
+        && !Imap::removeAccountCache(localStoreFolder, QFileInfo(localStoreFolder).path())) {
+        qWarning() << "Could not delete the mail of the removed account in" << localStoreFolder;
+        Gui::Util::messageBoxWarning(this, i18n("Mail Not Deleted"),
+                                     i18n("The mail kept on this computer for the removed account could not be "
+                                          "deleted. Remove the folder %1 to delete it.",
+                                          localStoreFolder));
+    }
     // Open composers may still list this account's identities, so the model lives until the window closes.
     m_accountIdentities.remove(accountId);
+    m_accountNotices->close(accountId);
     m_accountStatus->forget(accountId);
     m_accounts->removeAccount(accountId);
     if (m_unifiedInbox)
@@ -4275,7 +4603,11 @@ void MainWindow::slotEditDraft()
 {
     QString path(Common::writablePath(Common::LOCATION_DATA) + tr("Drafts"));
     QDir().mkpath(path);
-    path = QFileDialog::getOpenFileName(this, tr("Edit draft"), path, tr("Drafts") + QLatin1String(" (*.draft)"));
+    FileChooser::Request request;
+    request.title = tr("Edit draft");
+    request.folder = QUrl::fromLocalFile(path);
+    request.filters = {{tr("Drafts"), {QStringLiteral("*.draft")}}};
+    path = FileChooser::chooseLocalPath(this, request);
     if (!path.isNull()) {
         ComposeWidget::warnIfMsaNotConfigured(ComposeWidget::createDraft(this, path), this);
     }
@@ -4575,6 +4907,8 @@ void MainWindow::handleMarkAsJunk(const bool value)
                               : i18ncp("@info", "Removing the junk mark from %1 message…", "Removing the junk mark from %1 messages…",
                                        count),
                         done, failed);
+        if (value)
+            moveAfterJunkMark(translatedIndexes, true);
     }
 }
 
@@ -4607,7 +4941,30 @@ void MainWindow::handleMarkAsNotJunk(const bool value)
                               : i18ncp("@info", "Removing the not-junk mark from %1 message…",
                                        "Removing the not-junk mark from %1 messages…", count),
                         done, failed);
+        if (value)
+            moveAfterJunkMark(translatedIndexes, false);
     }
+}
+
+void MainWindow::moveAfterJunkMark(const QModelIndexList &messages, const bool junk)
+{
+    Imap::Mailbox::Model *model = imapModel();
+    if (!model || messages.isEmpty() || !model->isNetworkAvailable()
+        || !UiUtils::MailSafetySettings::movesJunk(*KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"))))
+        return;
+    const QString junkFolder = model->specialFolderMailbox(Imap::Mailbox::SpecialUse::Junk);
+    const QString source = messages.constFirst().data(Imap::Mailbox::RoleMailboxName).toString();
+    if (junkFolder.isEmpty() || source.isEmpty()
+        || !std::all_of(messages.cbegin(), messages.cend(), [&source](const QModelIndex &message) {
+               return message.data(Imap::Mailbox::RoleMailboxName).toString() == source;
+           }))
+        return;
+    // Junk leaves any other folder for the Junk folder; not junk leaves only the Junk folder, for the inbox
+    if ((source == junkFolder) == junk)
+        return;
+    const QString target = junk ? junkFolder : QStringLiteral("INBOX");
+    trackMove(model->copyMoveMessages(target, messages, Imap::Mailbox::CopyMoveOperation::MOVE), source, target, messages.size(),
+              MoveKind::Folder);
 }
 
 void MainWindow::slotMoveToArchiveFailed(const QString &error, const int count)
@@ -4713,6 +5070,54 @@ void MainWindow::handleDeletePermanently()
 void MainWindow::setConfirmationPrompt(const ConfirmationPrompt &prompt)
 {
     m_confirmationPrompt = prompt;
+}
+
+void MainWindow::setFileManagerLauncher(const FileManagerLauncher &launcher)
+{
+    m_fileManagerLauncher = launcher;
+}
+
+void MainWindow::slotFileSaved(const QString &fileName)
+{
+    if (fileName.isEmpty())
+        return;
+    // Only reports where the file went; saving says nothing about whether its content is safe to open
+    m_notificationBar->showInfo(
+        i18nc("@info %1 is a file name", "Saved \"%1\".", QFileInfo(fileName).fileName()),
+        {{i18nc("@action:button", "Show in Folder"), QStringLiteral("document-open-folder"),
+          QStringLiteral("showSavedFileInFolder"), [this, fileName]() { showSavedFileInFolder(fileName); }}});
+}
+
+void MainWindow::showSavedFileInFolder(const QString &fileName)
+{
+    const QFileInfo file(fileName);
+    if (!file.exists()) {
+        m_notificationBar->showError(i18nc("@info %1 is a file name, %2 a folder",
+                                           "\"%1\" is no longer in %2; it was moved or deleted.", file.fileName(),
+                                           QDir::toNativeSeparators(file.absolutePath())));
+        return;
+    }
+    const QPointer<MainWindow> self(this);
+    const auto failed = [self, fileName](const QString &error) {
+        if (self)
+            self->m_notificationBar->showError(i18nc("@info %1 is a file name, %2 an error message",
+                                                     "No file manager could show \"%1\": %2",
+                                                     QFileInfo(fileName).fileName(), error));
+    };
+    const QUrl url = QUrl::fromLocalFile(file.absoluteFilePath());
+    if (m_fileManagerLauncher) {
+        m_fileManagerLauncher(url, failed);
+        return;
+    }
+    // Asks the desktop's file manager through org.freedesktop.FileManager1, so that whichever one is registered
+    // selects the file; without that service KIO opens the folder in the default application for folders
+    auto *job = new KIO::OpenFileManagerWindowJob(this);
+    job->setHighlightUrls({url});
+    connect(job, &KJob::result, this, [failed](KJob *finished) {
+        if (finished->error())
+            failed(finished->errorString());
+    });
+    job->start();
 }
 
 bool MainWindow::confirmPermanentAction(const UiUtils::DestructiveActions::Confirmation kind, const QString &title,
@@ -5582,6 +5987,19 @@ void MainWindow::slotComposeMailUrl(const QUrl &url)
     ComposeWidget::warnIfMsaNotConfigured(ComposeWidget::createFromUrl(this, url), this);
 }
 
+void MainWindow::composeMailFromOtherApplication(const QUrl &url, const QStringList &files)
+{
+    ComposeWidget *composer = url.isEmpty() && files.isEmpty()
+        ? ComposeWidget::warnIfMsaNotConfigured(ComposeWidget::createBlank(this), this)
+        : ComposeWidget::warnIfMsaNotConfigured(
+              ComposeWidget::createFromUrl(this, url.isEmpty() ? QUrl(QStringLiteral("mailto:")) : url,
+                                           ComposeWidget::UrlOrigin::OtherApplication, files),
+              this);
+    // The composer is the window the request is about, so it comes to the front rather than the main window
+    if (composer)
+        activateForRequest(composer);
+}
+
 void MainWindow::slotManageContact(const QUrl &url)
 {
     Imap::Message::MailAddress addr;
@@ -5593,6 +6011,19 @@ void MainWindow::slotManageContact(const QUrl &url)
         return;
 
     addressbook->openContactWindow(addr.mailbox + QLatin1Char('@') + addr.host, addr.name);
+}
+
+void MainWindow::slotAddContact(const QUrl &url)
+{
+    Imap::Message::MailAddress addr;
+    if (!Imap::Message::MailAddress::fromUrl(addr, url, QStringLiteral("x-trojita-manage-contact")))
+        return;
+
+    Plugins::AddressbookPlugin *addressbook = pluginManager()->addressbook();
+    if (!addressbook)
+        return;
+
+    addressbook->addContact(addr.mailbox + QLatin1Char('@') + addr.host, addr.name);
 }
 
 void MainWindow::invokeContactEditor()
@@ -5608,6 +6039,20 @@ void MainWindow::invokeContactEditor()
 MSA::MSAFactory *MainWindow::msaFactory()
 {
     using namespace Common;
+    if (JmapSyncer::sendsThroughJmap(*accountSettings())) {
+        QPointer<QSettings> profile = m_settings;
+        // The server files the message in Sent; the next synchronization brings that copy here
+        QPointer<JmapSyncer> syncer = m_jmapSyncers.value(m_accounts->activeAccount());
+        return new Jmap::SubmissionFactory(
+            Jmap::Settings::fromSettings(*accountSettings()),
+            [profile](const QString &host, const QSslCertificate &certificate) {
+                return profile && Common::TrustedCertificates::isTrusted(*profile, host, certificate);
+            },
+            [syncer]() {
+                if (syncer)
+                    syncer->sync(false);
+            });
+    }
     QString method = accountSettings()->value(SettingsNames::msaMethodKey).toString();
     MSA::MSAFactory *msaFactory = nullptr;
     if (method == SettingsNames::methodSMTP || method == SettingsNames::methodSSMTP) {
@@ -5846,6 +6291,9 @@ void MainWindow::slotSaveCurrentMessageBody()
         netAccess->setModelMessage(messageIndex);
         Imap::Network::FileDownloadManager *fileDownloadManager =
             new Imap::Network::FileDownloadManager(this, netAccess, messageIndex);
+        connect(fileDownloadManager, &Imap::Network::FileDownloadManager::succeeded, this, [this, fileDownloadManager]() {
+            slotFileSaved(fileDownloadManager->savedFileName());
+        });
         connect(fileDownloadManager, &Imap::Network::FileDownloadManager::succeeded, fileDownloadManager, &QObject::deleteLater);
         connect(fileDownloadManager, &Imap::Network::FileDownloadManager::transferError, fileDownloadManager, &QObject::deleteLater);
         connect(fileDownloadManager, &Imap::Network::FileDownloadManager::fileNameRequested,
@@ -5867,7 +6315,7 @@ void MainWindow::slotDownloadTransferError(const QString &errorString)
 
 void MainWindow::slotDownloadMessageFileNameRequested(QString *fileName)
 {
-    *fileName = QFileDialog::getSaveFileName(this, tr("Save Message"), QDir(Util::savedFilesFolder()).filePath(*fileName),
+    *fileName = QFileDialog::getSaveFileName(this, tr("Save Message"), QDir(Util::savedFilesFolder()).filePath(Common::PrivateFiles::safeFileName(*fileName)),
                                              QString(), nullptr, QFileDialog::HideNameFilterDetails);
     Util::rememberSavedFile(*fileName);
 }
@@ -7856,6 +8304,238 @@ void MainWindow::revealLocation(const QString &accountId, const QString &mailbox
     }
 }
 
+void MainWindow::updateAgendaSource()
+{
+    if (!m_agendaPanel)
+        return;
+    const bool enabled = m_agendaPanel->isPanelEnabled();
+#ifdef TROJITA_HAVE_AKONADI_CALENDAR
+    if (enabled && !m_agendaSource) {
+        m_agendaSource = new UiUtils::AkonadiAgendaSource(this);
+        m_agendaPanel->setCalendarSource(m_agendaSource);
+    } else if (!enabled && m_agendaSource) {
+        m_agendaPanel->setCalendarSource(nullptr);
+        delete std::exchange(m_agendaSource, nullptr);
+    }
+#endif
+    if (enabled) {
+        scheduleAgendaMessages();
+    } else {
+        if (m_agendaMessagesTimer)
+            m_agendaMessagesTimer->stop();
+        m_agendaPanel->setMessages({});
+    }
+}
+
+void MainWindow::scheduleAgendaMessages()
+{
+    if (m_agendaPanel && m_agendaPanel->isPanelEnabled() && m_agendaMessagesTimer && !m_agendaMessagesTimer->isActive())
+        m_agendaMessagesTimer->start();
+}
+
+void MainWindow::refreshAgendaMessages()
+{
+    using namespace UiUtils::Agenda;
+    if (!m_agendaPanel || !m_agendaPanel->isPanelEnabled())
+        return;
+    QList<MessageSource> sources;
+    for (auto it = m_accountAccess.cbegin(); it != m_accountAccess.cend(); ++it) {
+        Imap::Mailbox::SearchIndexer *indexer = it.value() ? it.value()->searchIndexer() : nullptr;
+        if (!indexer)
+            continue;
+        connect(indexer, &Imap::Mailbox::SearchIndexer::finished, this, &MainWindow::scheduleAgendaMessages, Qt::UniqueConnection);
+        if (indexer->isAvailable())
+            sources.append({it.key(), indexer->index()});
+    }
+
+    // The shown folder knows the latest flags of the messages it has loaded, before the index catches up
+    ShownFolder shown;
+    auto *list = !m_unifiedInbox && m_imapAccess ? qobject_cast<Imap::Mailbox::MsgListModel *>(m_imapAccess->msgListModel()) : nullptr;
+    const QModelIndex mailbox = list ? list->currentMailbox() : QModelIndex();
+    if (mailbox.isValid()) {
+        shown.accountId = m_accounts->activeAccount();
+        shown.mailbox = mailbox.data(Imap::Mailbox::RoleMailboxName).toString();
+        shown.uidValidity = mailbox.data(Imap::Mailbox::RoleMailboxUidValidity).toUInt();
+        for (int row = 0; row < list->rowCount(); ++row) {
+            const QModelIndex message = list->index(row, 0);
+            const uint uid = message.data(Imap::Mailbox::RoleMessageUid).toUInt();
+            // Asking an envelope which is not loaded yet would fetch it
+            if (!uid || !message.data(Imap::Mailbox::RoleIsFetched).toBool())
+                continue;
+            shown.loaded.insert(uid);
+            const QStringList flags = message.data(Imap::Mailbox::RoleMessageFlags).toStringList();
+            const bool flagged = flags.contains(Imap::Mailbox::FlagNames::flagged, Qt::CaseInsensitive);
+            const bool toDo = flags.contains(QStringLiteral("$TODO"), Qt::CaseInsensitive);
+            if ((!flagged && !toDo) || flags.contains(Imap::Mailbox::FlagNames::deleted, Qt::CaseInsensitive))
+                continue;
+            Item item;
+            item.kind = Kind::Message;
+            item.title = message.data(Imap::Mailbox::RoleMessageSubject).toString();
+            item.accountId = shown.accountId;
+            item.mailbox = shown.mailbox;
+            item.uidValidity = shown.uidValidity;
+            item.uid = uid;
+            item.messageId = QString::fromUtf8(message.data(Imap::Mailbox::RoleMessageMessageId).toByteArray());
+            item.sender = Imap::Message::MailAddress::prettyList(message.data(Imap::Mailbox::RoleMessageFrom).toList(),
+                                                                 Imap::Message::MailAddress::FORMAT_JUST_NAME);
+            item.sent = message.data(Imap::Mailbox::RoleMessageDate).toDateTime().toLocalTime().date();
+            item.toDo = toDo;
+            shown.followUps << item;
+        }
+    }
+
+    QList<Item> messages = followUps(sources, shown, maximumMessages);
+    for (Item &item : messages) {
+        item.source = i18nc("@item:intext %1 is an account, %2 a folder", "%1, %2", m_accounts->displayName(item.accountId),
+                            item.mailbox);
+    }
+    m_agendaPanel->setMessages(messages);
+}
+
+void MainWindow::openAgendaMessage(const UiUtils::Agenda::Item &message)
+{
+    using Imap::Mailbox::FolderSearch;
+    Imap::ImapAccess *access = m_accountAccess.value(message.accountId);
+    auto *model = access ? qobject_cast<Imap::Mailbox::Model *>(access->imapModel()) : nullptr;
+    if (!model || message.mailbox.isEmpty() || !message.uid)
+        return;
+    const auto sameMessage = [model, &message](const QModelIndex &candidate) {
+        const QModelIndex found = Imap::deproxifiedIndex(candidate);
+        if (found.data(Imap::Mailbox::RoleMailboxName).toString() != message.mailbox
+            || found.data(Imap::Mailbox::RoleMessageUid).toUInt() != message.uid)
+            return false;
+        const uint uidValidity = model->knownUidValidity(found);
+        return !message.uidValidity || !uidValidity || uidValidity == message.uidValidity;
+    };
+
+    if (!m_unifiedInbox && message.accountId == m_accounts->activeAccount() && currentMailboxName() == message.mailbox) {
+        if (auto *list = qobject_cast<Imap::Mailbox::MsgListModel *>(access->msgListModel())) {
+            for (int row = 0; row < list->rowCount(); ++row) {
+                const QModelIndex candidate = list->index(row, 0);
+                if (candidate.data(Imap::Mailbox::RoleMessageUid).toUInt() == message.uid && sameMessage(candidate)) {
+                    activateRelatedMessage(candidate);
+                    return;
+                }
+            }
+        }
+    }
+    const QByteArray messageId = UiUtils::MessageId::parse(message.messageId).messageId;
+    if (!messageId.isEmpty()) {
+        const QModelIndexList loaded = model->findLoadedMessagesById(messageId);
+        for (const QModelIndex &candidate : loaded) {
+            if (sameMessage(candidate)) {
+                activateRelatedMessage(candidate);
+                return;
+            }
+        }
+    }
+
+    // The message has to be looked up in its folder, which selects that folder on the account's connection
+    if (const FolderSearch *search = m_folderSearches.value(message.accountId); search && search->isRunning())
+        stopSearchAcross();
+    if (m_messageLookup && m_messageLookup->state() == UiUtils::MessageIdLookup::State::SearchingServers) {
+        m_messageLookupStopped = true;
+        m_messageLookup->cancel();
+    }
+    cancelAgendaSearch();
+    auto *search = new FolderSearch(model, this);
+    search->setSearchIndex(access->searchIndexer());
+    m_agendaSearch = search;
+    m_agendaSearchItem = message;
+    connect(search, &FolderSearch::finished, this, &MainWindow::agendaSearchFinished);
+    m_agendaBusy = m_notificationBar->showBusy(i18nc("@info", "Opening the message…"));
+    search->start({message.mailbox}, false,
+                  messageId.isEmpty() ? QStringList{QStringLiteral("UID"), QString::number(message.uid)}
+                                      : UiUtils::MessageId::searchConditions(messageId));
+    if (m_relatedMessagesPanel && m_relatedMessagesPanel->serverSearch()->isRunning()
+        && Imap::deproxifiedIndex(m_relatedMessagesPanel->serverSearch()->message()).model() == model)
+        m_relatedMessagesPanel->restartServerSearch();
+}
+
+void MainWindow::agendaSearchFinished()
+{
+    Imap::Mailbox::FolderSearch *search = m_agendaSearch;
+    if (!search)
+        return;
+    const UiUtils::Agenda::Item item = m_agendaSearchItem;
+    const QModelIndexList results = search->results()->messages();
+    // The local index may not have the message yet
+    if (results.isEmpty() && search->canContinueOnServer() && !search->continuedOnServer()) {
+        search->continueOnServer();
+        return;
+    }
+    QPersistentModelIndex found;
+    for (const QModelIndex &result : results) {
+        const QModelIndex message = Imap::deproxifiedIndex(result);
+        if (message.data(Imap::Mailbox::RoleMailboxName).toString() != item.mailbox)
+            continue;
+        // A Message-ID found in the folder names the message even when the index knew it under an older UID
+        if (!found.isValid() || message.data(Imap::Mailbox::RoleMessageUid).toUInt() == item.uid)
+            found = message;
+    }
+    const QList<Imap::Mailbox::FolderSearch::Failure> failures = search->failures();
+    const QString reason = failures.isEmpty() ? QString() : failures.constFirst().reason;
+    m_agendaSearch = nullptr;
+    search->deleteLater();
+    reselectShownFolder(m_accountAccess.value(item.accountId));
+    m_notificationBar->dismissBusy(std::exchange(m_agendaBusy, 0));
+    resumeRelatedSearch();
+    if (found.isValid()) {
+        activateRelatedMessage(found);
+        return;
+    }
+    const QString title = item.title.isEmpty() ? i18nc("@info message without subject", "(no subject)") : item.title;
+    const QString text = reason.isEmpty()
+        ? i18nc("@info %1 is a subject, %2 a folder", "The message \"%1\" is no longer in %2.", title, item.mailbox)
+        : i18nc("@info %1 is a subject, %2 a reason", "The message \"%1\" could not be opened: %2", title, reason);
+    m_notificationBar->showError(text, {{i18nc("@action:button", "Show in Folder"), QStringLiteral("folder-open"),
+                                         QStringLiteral("agendaShowInFolder"), [this, item]() {
+                                             revealLocation(item.accountId, item.mailbox, item.uidValidity, item.uid);
+                                         }}});
+}
+
+void MainWindow::cancelAgendaSearch()
+{
+    Imap::Mailbox::FolderSearch *search = m_agendaSearch;
+    if (!search)
+        return;
+    m_agendaSearch = nullptr;
+    search->cancel();
+    search->deleteLater();
+    reselectShownFolder(m_accountAccess.value(m_agendaSearchItem.accountId));
+    if (m_agendaBusy)
+        m_notificationBar->dismissBusy(std::exchange(m_agendaBusy, 0));
+    resumeRelatedSearch();
+}
+
+void MainWindow::openCalendarApplication()
+{
+    // My Day never changes calendars; editing belongs to the KDE PIM application
+    const QStringList applications{QStringLiteral("org.kde.korganizer"), QStringLiteral("org.kde.merkuro.calendar")};
+    for (const QString &name : applications) {
+        if (const KService::Ptr service = KService::serviceByDesktopName(name)) {
+            auto *job = new KIO::ApplicationLauncherJob(service);
+            job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, this));
+            job->start();
+            return;
+        }
+    }
+    m_notificationBar->showError(i18nc("@info", "No calendar application was found. Install KOrganizer or Merkuro "
+                                                "Calendar to see and edit events and tasks."));
+}
+
+void MainWindow::joinMeeting(const QUrl &url)
+{
+    // Calendar data comes from other people; only links to a meeting are opened, never local files or programs
+    static const QStringList schemes{QStringLiteral("https"), QStringLiteral("http"), QStringLiteral("sip"),
+                                     QStringLiteral("sips"), QStringLiteral("tel")};
+    if (!url.isValid() || !schemes.contains(url.scheme().toLower()))
+        return;
+    auto *job = new KIO::OpenUrlJob(url);
+    job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, this));
+    job->start();
+}
+
 void MainWindow::actOnOpenMessage(const std::function<void()> &fn)
 {
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -8479,7 +9159,7 @@ void MainWindow::searchAccount(const QString &accountId, const QStringList &mail
         problem = i18nc("@info account name", "%1 is not set up", name);
     } else if (!local && (status.kind == AccountStatusKind::Offline || !model->isNetworkAvailable())) {
         problem = i18nc("@info account name", "%1 is offline", name);
-    } else if (!local
+    } else if (!local && access->protocol() == Imap::AccountProtocol::Imap
                && ((status.kind == AccountStatusKind::NetworkError && !retrying) || status.kind == AccountStatusKind::AuthRequired
                    || status.kind == AccountStatusKind::AuthFailed)) {
         problem = i18nc("@info account name, reason", "%1: %2", name,
@@ -8497,6 +9177,8 @@ void MainWindow::searchAccount(const QString &accountId, const QStringList &mail
         m_messageLookupStopped = true;
         m_messageLookup->cancel();
     }
+    if (m_agendaSearch && m_agendaSearch->model() == model)
+        cancelAgendaSearch();
     if (FolderSearch *search = m_folderSearches.value(accountId); search && search->model() == model) {
         search->setSearchIndex(indexer);
         search->retry(mailboxes, allFolders);
@@ -8864,6 +9546,112 @@ void MainWindow::openMessageById(const QString &messageId)
           [this]() { searchServersForMessage(); }}});
 }
 
+QList<UiUtils::MailStatus::Account> MainWindow::mailStatusAccounts() const
+{
+    namespace MailStatus = UiUtils::MailStatus;
+    using Kind = Common::AccountStatusKind;
+    QList<MailStatus::Account> result;
+    const QStringList accountIds = m_accounts->accountIds();
+    for (const QString &accountId : accountIds) {
+        MailStatus::Account account;
+        account.id = accountId;
+        account.name = m_accounts->displayName(accountId);
+        account.unread = m_inboxUnread.value(accountId, -1);
+        switch (m_accountStatus->status(accountId).kind) {
+        case Kind::Idle:
+            account.state = MailStatus::State::Idle;
+            break;
+        case Kind::Connecting:
+            account.state = MailStatus::State::Connecting;
+            break;
+        case Kind::Connected:
+            account.state = MailStatus::State::Online;
+            break;
+        case Kind::Offline:
+            account.state = MailStatus::State::Offline;
+            break;
+        case Kind::NetworkError:
+            account.state = MailStatus::State::Failed;
+            break;
+        case Kind::AuthRequired:
+        case Kind::AuthFailed:
+            account.state = MailStatus::State::SignInNeeded;
+            break;
+        }
+        result << account;
+    }
+    return result;
+}
+
+QList<UiUtils::MailStatus::Message> MainWindow::mailStatusUnread(const QStringList &accounts, const QStringList &folders,
+                                                                 int limit) const
+{
+    namespace MailStatus = UiUtils::MailStatus;
+    QList<MailStatus::Source> sources;
+    const QStringList accountIds = m_accounts->accountIds();
+    for (const QString &accountId : accountIds) {
+        Imap::ImapAccess *access = m_accountAccess.value(accountId);
+        if (!access || !access->isConfigured())
+            continue;
+        // As for Plasma Search, an account whose index is off gives only its count
+        const Imap::Mailbox::SearchIndexer *indexer = access->searchIndexer();
+        if (indexer && indexer->isAvailable() && indexer->index())
+            sources << MailStatus::Source{accountId, m_accounts->displayName(accountId), indexer->index()};
+    }
+    auto messages = MailStatus::unreadMessages(sources, accounts, folders, limit);
+    for (auto &message : messages) {
+        if (message.sender.isEmpty())
+            message.sender = i18nc("@item a message without a sender", "(Unknown sender)");
+        if (message.subject.isEmpty())
+            message.subject = i18nc("@item a message without a subject", "(No subject)");
+    }
+    return messages;
+}
+
+void MainWindow::showAccountFromWidget(const QString &accountId)
+{
+    if (m_accounts->accountIds().contains(accountId))
+        switchAccount(accountId);
+    showMainWindow();
+}
+
+QList<UiUtils::PlasmaSearch::Match> MainWindow::plasmaSearchMatches(const QString &query) const
+{
+    namespace PlasmaSearch = UiUtils::PlasmaSearch;
+    if (!PlasmaSearch::isEnabled(*KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"))))
+        return {};
+    QList<PlasmaSearch::Source> sources;
+    const QStringList accountIds = m_accounts->accountIds();
+    for (const QString &accountId : accountIds) {
+        Imap::ImapAccess *access = m_accountAccess.value(accountId);
+        if (!access || !access->isConfigured())
+            continue;
+        // An account whose index is off has no indexer, and its mail is never offered
+        const Imap::Mailbox::SearchIndexer *indexer = access->searchIndexer();
+        if (indexer && indexer->isAvailable() && indexer->index())
+            sources << PlasmaSearch::Source{accountId, indexer->index()};
+    }
+    auto matches = PlasmaSearch::matches(query, sources);
+    for (auto &match : matches) {
+        match.title = match.subject.isEmpty() ? i18nc("@item a message without a subject", "(No subject)") : match.subject;
+        const QString sender = match.sender.isEmpty() ? i18nc("@item a message without a sender", "(Unknown sender)") : match.sender;
+        match.subtext = match.sent.isValid()
+            ? i18nc("@item %1 is the sender of a message, %2 the date it was sent", "%1, %2", sender,
+                    QLocale().toString(match.sent, QLocale::ShortFormat))
+            : sender;
+    }
+    return matches;
+}
+
+void MainWindow::openPlasmaSearchMatch(const QString &matchId)
+{
+    UiUtils::PlasmaSearch::Target target;
+    if (!UiUtils::PlasmaSearch::parseMatchId(matchId, &target) || !m_accounts->accountIds().contains(target.accountId))
+        return;
+    showMainWindow();
+    revealLocation(target.accountId, target.mailbox, target.uidValidity, target.uid);
+}
+
 void MainWindow::searchServersForMessage()
 {
     if (!m_messageLookup || m_messageLookup->state() != UiUtils::MessageIdLookup::State::NeedsServer)
@@ -8873,6 +9661,7 @@ void MainWindow::searchServersForMessage()
         stopSearchAcross();
     if (m_relatedMessagesPanel && m_relatedMessagesPanel->serverSearch()->isRunning())
         m_relatedMessagesPanel->restartServerSearch();
+    cancelAgendaSearch();
     if (!m_messageLookup->searchServers())
         return;
     m_notificationBar->showMessage(
@@ -9311,7 +10100,7 @@ void MainWindow::slotPluginsChanged()
     else
         m_actionContactEditor->setEnabled(true);
     if (m_contactPanel)
-        m_contactPanel->setAddressBookAvailable(addressbook != nullptr);
+        m_contactPanel->setAddressBook(addressbook);
 }
 
 /** @short Update the default action to make sure that we show a correct status of the network connection */
@@ -9335,6 +10124,7 @@ void MainWindow::updateConnectionStatus(const QString &message)
 void MainWindow::showStatusMessage(const QString &message)
 {
     networkIndicator->setToolTip(message);
+    networkIndicator->setAccessibleDescription(message);
     if (isActiveWindow())
         QToolTip::showText(networkIndicator->mapToGlobal(QPoint(0, 0)), message);
 }

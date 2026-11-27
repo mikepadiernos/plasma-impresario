@@ -84,6 +84,22 @@ bool isSameSite(const QString &host, const QString &site) {
 
 LinkAssessment assessLink(const QUrl &target, const QString &text) {
   LinkAssessment result;
+  const QString scheme = target.scheme().toLower();
+  if (scheme == QLatin1String("mailto")) {
+    static const QRegularExpression address(
+        QStringLiteral("^(?:mailto:)?([^\\s@<>(),;:\"]+@[^\\s@<>(),;:\"]+)$"),
+        QRegularExpression::CaseInsensitiveOption);
+    result.address = target.path().section(QLatin1Char(','), 0, 0).trimmed();
+    const auto match = address.match(text.trimmed());
+    if (match.hasMatch())
+      result.textAddress = match.captured(1);
+    if (!result.textAddress.isEmpty() &&
+        result.textAddress.compare(result.address, Qt::CaseInsensitive) != 0)
+      result.warnings << LinkWarning::TextShowsOtherAddress;
+    return result;
+  }
+  if (scheme != QLatin1String("http") && scheme != QLatin1String("https"))
+    return result;
   result.host = asciiHost(target.host());
   result.textHost = linkTextHost(text);
   if (!result.textHost.isEmpty() && !isSameSite(result.host, result.textHost))

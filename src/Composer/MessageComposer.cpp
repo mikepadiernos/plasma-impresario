@@ -27,7 +27,10 @@
 #include <QUrl>
 #include <QUuid>
 #include "Common/Application.h"
+#include "Common/PrivateFiles.h"
+#include "Composer/AttachmentRequests.h"
 #include "Composer/ComposerAttachments.h"
+#include "Composer/HeaderSafety.h"
 #include "Imap/Encoders.h"
 #include "Imap/Model/DragAndDrop.h"
 #include "Imap/Model/ItemRoles.h"
@@ -170,6 +173,8 @@ bool MessageComposer::dropMimeData(const QMimeData *data, Qt::DropAction action,
                 // Careful here -- we definitely don't want the boolean evaluation shortcuts taking effect!
                 // At the same time, any file being recognized and attached is enough to "satisfy" the drop
                 attached = addFileAttachment(url.path()) || attached;
+            } else if (AttachmentRequests::isFetchable(url)) {
+                attached = !addRemoteFileAttachment(url).isEmpty() || attached;
             }
         }
         return attached;
@@ -406,12 +411,14 @@ QStringList MessageComposer::mimeTypes() const
 
 void MessageComposer::setFrom(const Imap::Message::MailAddress &from)
 {
-    m_from = from;
+    m_from = HeaderSafety::address(from);
 }
 
 void MessageComposer::setRecipients(const QList<QPair<Composer::RecipientKind, Imap::Message::MailAddress> > &recipients)
 {
-    m_recipients = recipients;
+    m_recipients.clear();
+    for (const auto &recipient : recipients)
+        m_recipients.append(qMakePair(recipient.first, HeaderSafety::address(recipient.second)));
 }
 
 /** @short Set the value for the In-Reply-To header as per RFC 5322, section 3.6.4
@@ -440,12 +447,12 @@ void MessageComposer::setTimestamp(const QDateTime &timestamp)
 
 void MessageComposer::setSubject(const QString &subject)
 {
-    m_subject = subject;
+    m_subject = HeaderSafety::text(subject);
 }
 
 void MessageComposer::setOrganization(const QString &organization)
 {
-    m_organization = organization;
+    m_organization = HeaderSafety::text(organization);
 }
 
 void MessageComposer::setText(const QString &text)
@@ -500,14 +507,14 @@ static void processListOfRecipientsIntoHeader(const QByteArray &prefix, const QL
 
 }
 
-void MessageComposer::writeCommonMessageBeginning(QIODevice *target) const
+void MessageComposer::writeCommonMessageBeginning(QIODevice *target, BccMode bcc) const
 {
     // The From header
     target->write(QByteArray("From: ").append(m_from.asMailHeader()).append("\r\n"));
 
     // All recipients
     // Got to group the headers so that both of (To, Cc) are present at most once
-    QList<QByteArray> rcptTo, rcptCc;
+    QList<QByteArray> rcptTo, rcptCc, rcptBcc;
     for (auto it = m_recipients.begin(); it != m_recipients.end(); ++it) {
         switch(it->first) {
         case Composer::ADDRESS_TO:
@@ -517,6 +524,8 @@ void MessageComposer::writeCommonMessageBeginning(QIODevice *target) const
             rcptCc << it->second.asMailHeader();
             break;
         case Composer::ADDRESS_BCC:
+            if (bcc == BccMode::Keep)
+                rcptBcc << it->second.asMailHeader();
             break;
         case Composer::ADDRESS_FROM:
         case Composer::ADDRESS_SENDER:
@@ -535,6 +544,7 @@ void MessageComposer::writeCommonMessageBeginning(QIODevice *target) const
     QByteArray recipientHeaders;
     processListOfRecipientsIntoHeader("To: ", rcptTo, recipientHeaders);
     processListOfRecipientsIntoHeader("Cc: ", rcptCc, recipientHeaders);
+    processListOfRecipientsIntoHeader("Bcc: ", rcptBcc, recipientHeaders);
     target->write(recipientHeaders);
 
     // Other message metadata
@@ -576,21 +586,27 @@ The header name must not contain the colon, it is added automatically.
 void MessageComposer::writeHeaderWithMsgIds(QIODevice *target, const QByteArray &headerName,
                                             const QList<QByteArray> &messageIds) const
 {
-    if (messageIds.isEmpty())
+    QList<QByteArray> safeIds;
+    for (const QByteArray &id : messageIds) {
+        const QByteArray safe = HeaderSafety::messageId(id);
+        if (!safe.isEmpty())
+            safeIds << safe;
+    }
+    if (safeIds.isEmpty())
         return;
 
     target->write(headerName + ":");
     int charCount = headerName.length() + 1;
-    for (int i = 0; i < messageIds.size(); ++i) {
+    for (const QByteArray &id : safeIds) {
         // Wrapping shall happen at 78 columns, three bytes are eaten by "space < >"
-        if (i != 0 && charCount != 0 && charCount + messageIds[i].length() > 78 - 3) {
+        if (charCount > headerName.length() + 1 && charCount + id.length() > 78 - 3) {
             // got to wrap the header to respect a reasonably small line size
             charCount = 0;
             target->write("\r\n");
         }
         // and now just append one more item
-        target->write(" <" + messageIds[i] + ">");
-        charCount += messageIds[i].length() + 3;
+        target->write(" <" + id + ">");
+        charCount += id.length() + 3;
     }
     target->write("\r\n");
 }
@@ -601,8 +617,11 @@ bool MessageComposer::writeAttachmentHeader(QIODevice *target, QString *errorMes
         *errorMessage = tr("Attachment %1 is not available").arg(attachment->caption());
         return false;
     }
+    QByteArray mimeType = HeaderSafety::token(attachment->mimeType());
+    if (mimeType.isEmpty())
+        mimeType = QByteArrayLiteral("application/octet-stream");
     target->write("\r\n--" + m_mimeBoundary + "\r\n"
-                  "Content-Type: " + attachment->mimeType() + "\r\n");
+                  "Content-Type: " + mimeType + "\r\n");
     target->write(attachment->contentDispositionHeader());
 
     switch (attachment->suggestedCTE()) {
@@ -657,11 +676,11 @@ bool MessageComposer::writeAttachmentBody(QIODevice *target, QString *errorMessa
     return true;
 }
 
-bool MessageComposer::asRawMessage(QIODevice *target, QString *errorMessage) const
+bool MessageComposer::asRawMessage(QIODevice *target, QString *errorMessage, BccMode bcc) const
 {
     ensureRandomStrings();
 
-    writeCommonMessageBeginning(target);
+    writeCommonMessageBeginning(target, bcc);
 
     if (!m_attachments.isEmpty()) {
         Q_FOREACH(const AttachmentItem *attachment, m_attachments) {
@@ -675,7 +694,8 @@ bool MessageComposer::asRawMessage(QIODevice *target, QString *errorMessage) con
     return true;
 }
 
-bool MessageComposer::asCatenateData(QList<Imap::Mailbox::CatenatePair> &target, QString *errorMessage) const
+bool MessageComposer::asCatenateData(QList<Imap::Mailbox::CatenatePair> &target, QString *errorMessage,
+                                     BccMode bcc) const
 {
     ensureRandomStrings();
 
@@ -687,7 +707,7 @@ bool MessageComposer::asCatenateData(QList<Imap::Mailbox::CatenatePair> &target,
     {
         QBuffer io(&target.back().second);
         io.open(QIODevice::ReadWrite);
-        writeCommonMessageBeginning(&io);
+        writeCommonMessageBeginning(&io, bcc);
     }
 
     if (!m_attachments.isEmpty()) {
@@ -753,16 +773,60 @@ QList<QByteArray> MessageComposer::rawRecipientAddresses() const
 
 bool MessageComposer::addFileAttachment(const QString &path)
 {
-    beginInsertRows(QModelIndex(), m_attachments.size(), m_attachments.size());
     auto attachment = std::make_unique<FileAttachmentItem>(path);
 
+    // Checked before the rows are announced, which a refused file would leave unfinished
     if (!attachment->isAvailableLocally())
         return false;
+    beginInsertRows(QModelIndex(), m_attachments.size(), m_attachments.size());
     if (m_shouldPreload)
         attachment->preload();
     m_attachments << attachment.release();
     endInsertRows();
     return true;
+}
+
+QString MessageComposer::addRemoteFileAttachment(const QUrl &source, QString *error)
+{
+    const QString folder = Common::PrivateFiles::fetchedAttachmentsFolder();
+    QString name = QUrl::fromPercentEncoding(source.adjusted(QUrl::StripTrailingSlash).fileName().toUtf8());
+    if (name.isEmpty())
+        name = source.host();
+    const QString copy = Common::PrivateFiles::createOpenedAttachment(folder, name, error);
+    if (copy.isEmpty())
+        return {};
+    beginInsertRows(QModelIndex(), m_attachments.size(), m_attachments.size());
+    m_attachments << new RemoteFileAttachmentItem(source, copy, folder);
+    endInsertRows();
+    emit remoteFileAttachmentAdded(source, copy);
+    return copy;
+}
+
+int MessageComposer::remoteFileRow(const QString &localCopy) const
+{
+    for (int row = 0; row < m_attachments.size(); ++row) {
+        const auto *remote = dynamic_cast<const RemoteFileAttachmentItem *>(m_attachments[row]);
+        if (remote && remote->localCopy() == localCopy)
+            return row;
+    }
+    return -1;
+}
+
+bool MessageComposer::setRemoteFileFetched(const QString &localCopy)
+{
+    const int row = remoteFileRow(localCopy);
+    if (row < 0)
+        return false;
+    static_cast<RemoteFileAttachmentItem *>(m_attachments[row])->setFetched();
+    emit dataChanged(index(row), index(row));
+    return true;
+}
+
+void MessageComposer::removeRemoteFileAttachment(const QString &localCopy)
+{
+    const int row = remoteFileRow(localCopy);
+    if (row >= 0)
+        removeAttachment(index(row));
 }
 
 void MessageComposer::removeAttachment(const QModelIndex &index)
@@ -771,8 +835,13 @@ void MessageComposer::removeAttachment(const QModelIndex &index)
         return;
 
     beginRemoveRows(QModelIndex(), index.row(), index.row());
-    delete m_attachments.takeAt(index.row());
+    std::unique_ptr<AttachmentItem> removed(m_attachments.takeAt(index.row()));
     endRemoveRows();
+    if (const auto *remote = dynamic_cast<const RemoteFileAttachmentItem *>(removed.get())) {
+        const QString copy = remote->localCopy();
+        removed.reset();
+        emit remoteFileAttachmentRemoved(copy);
+    }
 }
 
 void MessageComposer::setAttachmentName(const QModelIndex &index, const QString &newName)

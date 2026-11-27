@@ -132,6 +132,29 @@ private slots:
         QCOMPARE(links.at(2).at(0).toUrl(), QUrl(QStringLiteral("https://evil.test/login")));
         QCOMPARE(links.at(2).at(1).toString().trimmed(), QStringLiteral("https://bank.example.com/login"));
         QCOMPARE(page.url(), QUrl(QStringLiteral("trojita-imap://msg/0")));
+
+        // The text of the link under the mouse is found too, before anything is clicked
+        const auto linkText = [&page](const QString &href, Gui::WebEngineMessagePage::LinkSource source) {
+            QString result;
+            bool done = false;
+            page.linkText(href, source, [&](const QString &text) {
+                result = text;
+                done = true;
+            });
+            if (!QTest::qWaitFor([&done]() { return done; }, 10000))
+                return QStringLiteral("(no answer)");
+            return result.trimmed();
+        };
+        const QString evil = QStringLiteral("https://evil.test/login");
+        QCOMPARE(linkText(evil, Gui::WebEngineMessagePage::LinkSource::Clicked), QStringLiteral("https://bank.example.com/login"));
+        page.runJavaScript(QStringLiteral("document.getElementById('same').dispatchEvent("
+                                          "new MouseEvent('mouseover', {bubbles: true}))"),
+                           QWebEngineScript::ApplicationWorld);
+        QTRY_COMPARE_WITH_TIMEOUT(linkText(evil, Gui::WebEngineMessagePage::LinkSource::Hovered), QStringLiteral("Second"), 10000);
+        QCOMPARE(linkText(evil, Gui::WebEngineMessagePage::LinkSource::Clicked), QStringLiteral("https://bank.example.com/login"));
+        QCOMPARE(linkText(QStringLiteral("https://example.org/path"), Gui::WebEngineMessagePage::LinkSource::Hovered),
+                 QStringLiteral("Web"));
+        QCOMPARE(linkText(QStringLiteral("https://nowhere.test/"), Gui::WebEngineMessagePage::LinkSource::Hovered), QString());
     }
 
     void delegatesUserInitiatedNewWindow_data()

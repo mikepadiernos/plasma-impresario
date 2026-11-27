@@ -29,6 +29,16 @@ namespace UiUtils {
 
 QIcon loadIcon(const QString &name);
 
+namespace SymbolicIcon {
+
+/** @short The active theme's -symbolic variant of @arg name, for icons of 24 logical pixels or less
+
+Falls back to the full-color @arg name through loadIcon(), then to @arg fallback.
+*/
+QIcon fromTheme(const QString &name, const QIcon &fallback = QIcon());
+
+}
+
 }
 
 #endif

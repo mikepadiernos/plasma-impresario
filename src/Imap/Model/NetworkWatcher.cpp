@@ -93,6 +93,8 @@ void NetworkWatcher::handleConnectionStateChanged(uint parserId, Imap::Connectio
 /** @short Set model's network policy to the desiredPolicy */
 void NetworkWatcher::tryReconnect()
 {
+    if (m_systemSleeping)
+        return;
     m_model->setNetworkPolicy(m_desiredPolicy);
 }
 
@@ -129,6 +131,27 @@ void NetworkWatcher::setNetworkOnline()
 NetworkPolicy NetworkWatcher::desiredNetworkPolicy() const
 {
     return m_desiredPolicy;
+}
+
+bool NetworkWatcher::isSystemSleeping() const
+{
+    return m_systemSleeping;
+}
+
+void NetworkWatcher::setSystemSleeping(bool sleeping)
+{
+    if (sleeping == m_systemSleeping)
+        return;
+    m_systemSleeping = sleeping;
+    resetReconnectTimer();
+    m_model->logTrace(0, Common::LOG_OTHER, QStringLiteral("Network Session"),
+                      sleeping ? QStringLiteral("System is going to sleep") : QStringLiteral("System woke up"));
+    if (sleeping) {
+        if (m_model->networkPolicy() != NETWORK_OFFLINE)
+            m_model->setNetworkPolicy(NETWORK_OFFLINE);
+    } else if (m_desiredPolicy != NETWORK_OFFLINE) {
+        setDesiredNetworkPolicy(m_desiredPolicy);
+    }
 }
 
 }

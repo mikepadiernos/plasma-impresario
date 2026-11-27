@@ -80,11 +80,6 @@
         <file>icons/zoom-original.svg</file>
         <file>icons/zoom-out.svg</file>
         <file>icons/zoom.svg</file>
-        <file>icons/breeze/folder-bookmark.svg</file>
-        <file>icons/breeze/mail-reply-sender.svg</file>
-        <file>icons/breeze/mail-reply-list.svg</file>
-        <file>icons/breeze/mail-reply-all.svg</file>
-        <file>icons/breeze/mail-forward.svg</file>
         <file>icons/Built_with_Qt_logo_RGB.svg</file>
     </qresource>
 </RCC>

@@ -23,11 +23,14 @@
 #ifndef TROJITA_IMAPACCESS_H
 #define TROJITA_IMAPACCESS_H
 
+#include <memory>
+
 #include <QObject>
 #include <QSslError>
 
 #include "Common/ConnectionMethod.h"
 #include "Common/Logging.h"
+#include "Imap/Model/AccountCapabilities.h"
 #include "Imap/Model/NetworkPolicy.h"
 #include "UiUtils/Formatting.h"
 #include "UiUtils/PasswordWatcher.h"
@@ -35,6 +38,10 @@
 class QModelIndex;
 class QNetworkAccessManager;
 class QSettings;
+
+namespace LocalMail {
+class Store;
+}
 
 namespace Plugins {
 class PluginManager;
@@ -89,6 +96,15 @@ public:
                QSettings *appSettings = nullptr);
 
     bool isConfigured() const;
+    /** The protocol of the account; POP3 and JMAP accounts read their mail from @ref localStore() */
+    AccountProtocol protocol() const;
+    /**
+     * The mail kept on this computer for a POP3 or JMAP account, opened when first asked for; nullptr for IMAP
+     * accounts or when it cannot be opened
+     */
+    std::shared_ptr<LocalMail::Store> localStore();
+    /** The folder that holds the mail kept on this computer for the account @arg accountId */
+    static QString localStoreFolder(const QString &accountId);
     QAbstractItemModel *imapModel() const;
     QAbstractItemModel *mailboxModel() const;
     QAbstractItemModel *msgListModel() const;
@@ -209,6 +225,8 @@ private:
 
     QString m_accountName;
     QString m_cacheDir;
+    AccountProtocol m_protocol = AccountProtocol::Imap;
+    std::shared_ptr<LocalMail::Store> m_localStore;
 };
 
 }

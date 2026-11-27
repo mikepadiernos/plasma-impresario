@@ -60,6 +60,11 @@ FileDownloadManager::FileDownloadManager(QObject *parent, Imap::Network::MsgPart
     }
 }
 
+QString FileDownloadManager::savedFileName() const
+{
+    return saving.fileName();
+}
+
 QString FileDownloadManager::toRealFileName(const QModelIndex &index)
 {
     QString fileName = index.data(Imap::Mailbox::RolePartFileName).toString();

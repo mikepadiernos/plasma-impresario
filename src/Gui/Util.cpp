@@ -42,6 +42,7 @@
 #include "UiUtils/FileSearch.h"
 #include <Imap/Model/DragAndDrop.h>
 #include "Util.h"
+#include "StateColors.h"
 #include "Window.h"
 
 namespace {
@@ -136,8 +137,7 @@ bool isFromDistinctImapAccount(QDropEvent* de)
 
 QString cssWarningBorder()
 {
-    static QString border = QStringLiteral("border: 2px solid red; background-color: #E7C575; color: black; padding: 5px; margin: 5px; text-align: center;");
-    return border;
+    return StateColors::warningStyleSheet();
 }
 
 QString savedFilesFolder()

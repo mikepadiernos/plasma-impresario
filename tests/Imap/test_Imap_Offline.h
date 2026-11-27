@@ -35,6 +35,8 @@ private slots:
     void init() override;
     void testStatusVsExistsCached();
     void testFinishedFetchDoesNotLeaveLogout();
+    void testSystemSleepKeepsThePolicy();
+    void testSystemSleepWhileOffline();
 };
 
 #endif

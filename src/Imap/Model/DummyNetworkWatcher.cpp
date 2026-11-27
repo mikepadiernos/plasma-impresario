@@ -34,6 +34,8 @@ DummyNetworkWatcher::DummyNetworkWatcher(ImapAccess *parent, Model *model):
 void DummyNetworkWatcher::setDesiredNetworkPolicy(const NetworkPolicy policy)
 {
     m_desiredPolicy = policy;
+    if (m_systemSleeping && policy != NETWORK_OFFLINE)
+        return;
     m_model->setNetworkPolicy(policy);
 }
 

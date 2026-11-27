@@ -21,15 +21,23 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include <QApplication>
+#include <QSessionManager>
 #include <QCommandLineOption>
 #include <QCommandLineParser>
 #include <QFile>
+#include <QFileInfo>
 #include <QLibraryInfo>
 #include <QObject>
+#include <QProcessEnvironment>
 #include <QSettings>
 #include <QTimer>
 #include <QTextStream>
+#include <QUrl>
 #include <KLocalizedString>
+#include <KSharedConfig>
+#include <KSignalHandler>
+
+#include <csignal>
 
 #include "AppVersion/SetCoreApplication.h"
 #include "Common/Application.h"
@@ -43,6 +51,8 @@
 #endif
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "IPC/IPC.h"
+#include "UiUtils/ActivationToken.h"
+#include "UiUtils/BackgroundRunning.h"
 #include "UiUtils/IconLoader.h"
 
 #include "static_plugins.h"
@@ -53,6 +63,9 @@ int main(int argc, char **argv)
     Gui::WebEngineMessageProfile::registerScheme();
 #endif
     Common::registerMetaTypes();
+
+    // Read before Qt clears the startup ID; a running instance needs it to come to the front for this launch
+    const QString activationToken = UiUtils::ActivationToken::fromEnvironment(QProcessEnvironment::systemEnvironment());
 
     QApplication app(argc, argv);
 
@@ -98,6 +111,16 @@ int main(int argc, char **argv)
                                        QObject::tr("Open the message with this Message-ID."), QObject::tr("Message-ID"));
     parser.addOption(messageIdOption);
 
+    QCommandLineOption backgroundOption(UiUtils::BackgroundRunning::backgroundOption(),
+                                        QObject::tr("Start without showing the window, when running in the background "
+                                                    "is turned on in the settings."));
+    parser.addOption(backgroundOption);
+
+    QCommandLineOption attachOption(QStringList() << QLatin1String("attach"),
+                                    QObject::tr("Compose a new e-mail with this file attached; may be given more than once."),
+                                    QObject::tr("file"));
+    parser.addOption(attachOption);
+
     parser.addPositionalArgument(QLatin1String("url"),
                                  QObject::tr("Mailto: URL address for composing new e-mail, or mid: URL of a message to open."),
                                  QObject::tr("[url]"));
@@ -123,10 +146,20 @@ int main(int argc, char **argv)
     showAddressbookWindow = parser.isSet(addressbookOption);
     showComposeWindow = parser.isSet(composeOption);
     showMainWindow = parser.isSet(mainwindowOption);
+    const bool startInBackground = parser.isSet(backgroundOption);
     if (parser.isSet(profileOption))
         profileName = parser.value(profileOption);
     if (parser.isSet(messageIdOption))
         messageId = parser.value(messageIdOption);
+    QStringList attachments;
+    const QStringList attachValues = parser.values(attachOption);
+    for (const QString &file : attachValues) {
+        // A running copy has another working folder, so relative paths are resolved here
+        const bool isUrl = file.startsWith(QLatin1String("file:")) || file.contains(QLatin1String("://"));
+        attachments << (isUrl ? file : QFileInfo(file).absoluteFilePath());
+    }
+    if (!attachments.isEmpty())
+        showComposeWindow = true;
     if (parser.positionalArguments().size() > 0) {
         if (parser.positionalArguments().size() == 1) {
             url = parser.positionalArguments().at(0);
@@ -144,7 +177,7 @@ int main(int argc, char **argv)
         }
     }
 
-    if (!showMainWindow && !showComposeWindow && !showAddressbookWindow && messageId.isEmpty())
+    if (!showMainWindow && !showComposeWindow && !showAddressbookWindow && messageId.isEmpty() && !startInBackground)
         showMainWindow = true;
 
     if (error) {
@@ -167,12 +200,13 @@ int main(int argc, char **argv)
     }
 
     if (IPC::Instance::isRunning()) {
+        IPC::Instance::handOverActivationToken(activationToken);
         if (showMainWindow)
             IPC::Instance::showMainWindow();
         if (showAddressbookWindow)
             IPC::Instance::showAddressbookWindow();
         if (showComposeWindow)
-            IPC::Instance::composeMail(url);
+            IPC::Instance::composeMail(url, attachments);
         if (!messageId.isEmpty())
             IPC::Instance::openMessage(messageId);
         return 0;
@@ -193,7 +227,12 @@ int main(int argc, char **argv)
     if (!IPC::registerInstance(&win, errmsg))
         qErr << QObject::tr("Error: Registering IPC instance failed: %1").arg(errmsg) << Qt::endl;
 
-    if ( settings.value(Common::SettingsNames::guiStartMinimized, QVariant(false)).toBool() ) {
+    // An autostart entry left from before running in the background was turned off shows the window as usual
+    const bool hideWindow = startInBackground && !showMainWindow
+            && UiUtils::BackgroundRunning::runsInBackground(*KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")));
+    if (hideWindow) {
+        // The tray icon and notifications work without the window; opening the application again shows it
+    } else if ( settings.value(Common::SettingsNames::guiStartMinimized, QVariant(false)).toBool() ) {
         if ( !settings.value(Common::SettingsNames::guiShowSystray, QVariant(true)).toBool() ) {
             win.show();
             win.setWindowState(Qt::WindowMinimized);
@@ -206,10 +245,8 @@ int main(int argc, char **argv)
         win.invokeContactEditor();
 
     if (showComposeWindow) {
-        if (url.isEmpty())
-            win.slotComposeMail();
-        else
-            win.slotComposeMailUrl(QUrl::fromEncoded(url.toUtf8()));
+        // Launched by the user or another application, such as the e-mail portal, which may hand over files
+        win.composeMailFromOtherApplication(url.isEmpty() ? QUrl() : QUrl::fromEncoded(url.toUtf8()), attachments);
     }
 
     if (!messageId.isEmpty()) {
@@ -220,6 +257,19 @@ int main(int argc, char **argv)
     if (parser.isSet(logtodiskOption)) {
         win.enableLoggingToDisk();
     }
+
+    // When the Plasma session ends, unsent messages are kept as drafts and reopen at the next start. Plasma asks X11
+    // clients to save their data through the session manager; on Wayland, the session's processes get SIGTERM.
+    QObject::connect(&app, &QGuiApplication::commitDataRequest, &win, [&win](QSessionManager &) {
+        win.saveUnsentMessages();
+    });
+    KSignalHandler::self()->watchSignal(SIGTERM);
+    QObject::connect(KSignalHandler::self(), &KSignalHandler::signalReceived, &win, [&win](int signal) {
+        if (signal != SIGTERM)
+            return;
+        win.saveUnsentMessages();
+        QCoreApplication::quit();
+    });
 
     return app.exec();
 }

@@ -213,6 +213,60 @@ void SpecialFolderTest::nonSelectableIsNotATarget()
     QCOMPARE(res.mailboxFor(SpecialUse::Junk), QStringLiteral("Spam"));
 }
 
+void SpecialFolderTest::gmailAllMailArchives()
+{
+    const QList<SF::Candidate> tree{
+        candidate(QStringLiteral("INBOX")),
+        candidate(QStringLiteral("Archive")),
+        candidate(QStringLiteral("[Gmail]"), {}, false),
+        candidate(QStringLiteral("[Gmail]/All Mail"), {QStringLiteral("\\All")}),
+        candidate(QStringLiteral("[Gmail]/Sent Mail"), {QStringLiteral("\\Sent")}),
+    };
+    // On Gmail a folder called "Archive" is only a label; archiving means leaving the Inbox for All Mail
+    const auto res = SF::resolve(tree, QString(), true);
+    QCOMPARE(res.kindOf(QStringLiteral("Archive")), SpecialUse::None);
+    QCOMPARE(res.kindOf(QStringLiteral("[Gmail]/All Mail")), SpecialUse::All);
+    QCOMPARE(res.mailboxFor(SpecialUse::Archive), QStringLiteral("[Gmail]/All Mail"));
+    QCOMPARE(res.mailboxFor(SpecialUse::All), QStringLiteral("[Gmail]/All Mail"));
+    QCOMPARE(res.mailboxFor(SpecialUse::Sent), QStringLiteral("[Gmail]/Sent Mail"));
+
+    // Elsewhere the same tree keeps the name guess
+    const auto plain = SF::resolve(tree, QString());
+    QCOMPARE(plain.kindOf(QStringLiteral("Archive")), SpecialUse::Archive);
+    QCOMPARE(plain.mailboxFor(SpecialUse::Archive), QStringLiteral("Archive"));
+}
+
+void SpecialFolderTest::gmailConfiguredArchiveWins()
+{
+    const auto res = SF::resolve({
+        candidate(QStringLiteral("INBOX")),
+        candidate(QStringLiteral("Old Mail")),
+        candidate(QStringLiteral("[Gmail]/All Mail"), {QStringLiteral("\\All")}),
+    }, QStringLiteral("Old Mail"), true);
+    QCOMPARE(res.kindOf(QStringLiteral("Old Mail")), SpecialUse::Archive);
+    QCOMPARE(res.mailboxFor(SpecialUse::Archive), QStringLiteral("Old Mail"));
+    QCOMPARE(res.mailboxFor(SpecialUse::All), QStringLiteral("[Gmail]/All Mail"));
+
+    // So does a server's own \Archive attribute
+    const auto attributed = SF::resolve({
+        candidate(QStringLiteral("Kept"), {QStringLiteral("\\Archive")}),
+        candidate(QStringLiteral("[Gmail]/All Mail"), {QStringLiteral("\\All")}),
+    }, QString(), true);
+    QCOMPARE(attributed.mailboxFor(SpecialUse::Archive), QStringLiteral("Kept"));
+}
+
+void SpecialFolderTest::gmailWithoutAllMail()
+{
+    // All Mail hidden from IMAP in Gmail's settings: there is nothing to archive into
+    const auto res = SF::resolve({
+        candidate(QStringLiteral("INBOX")),
+        candidate(QStringLiteral("Archive")),
+    }, QString(), true);
+    QCOMPARE(res.kindOf(QStringLiteral("Archive")), SpecialUse::None);
+    QVERIFY(res.mailboxFor(SpecialUse::Archive).isEmpty());
+    QVERIFY(res.mailboxFor(SpecialUse::All).isEmpty());
+}
+
 void SpecialFolderTest::rankAndNavigableKinds()
 {
     QVERIFY(SF::sortRank(SpecialUse::Inbox) < SF::sortRank(SpecialUse::Drafts));

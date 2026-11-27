@@ -38,6 +38,8 @@ public:
     static TagWidget *addingWidget();
     static TagWidget *userKeyword(const QString &tagName, Imap::Mailbox::FavoriteTagsModel *m_favoriteTags);
     static TagWidget *systemFlag(const QString &flagName);
+    /** @short A read-only label kept by the server, such as one of Gmail's labels */
+    static TagWidget *serverLabel(const QString &labelName, const QString &displayName);
 
     QString tagName() const;
 

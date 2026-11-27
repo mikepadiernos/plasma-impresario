@@ -24,9 +24,12 @@
 */
 
 #include "AbookAddressbook.h"
+#include <algorithm>
 #include "be-contacts.h"
 
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QFileSystemWatcher>
 #include <QRegularExpression>
 #include <QSettings>
@@ -89,6 +92,30 @@ private:
 
 };
 
+class AbookAddressbookContactJob : public AddressbookContactJob
+{
+public:
+    AbookAddressbookContactJob(const QString &email, AbookAddressbook *parent) :
+        AddressbookContactJob(parent), m_email(email), m_parent(parent) {}
+
+public slots:
+    void doStart() override
+    {
+        emit contactDetailsAvailable(m_parent->contactDetails(m_email));
+        finished();
+    }
+
+    void doStop() override
+    {
+        emit error(AddressbookJob::Stopped);
+        finished();
+    }
+
+private:
+    QString m_email;
+    AbookAddressbook *m_parent;
+};
+
 AbookAddressbook::AbookAddressbook(QObject *parent): AddressbookPlugin(parent), m_updateTimer(nullptr)
 {
 #define ADD(TYPE, KEY) \
@@ -131,7 +158,13 @@ AbookAddressbook::~AbookAddressbook()
 
 AddressbookPlugin::Features AbookAddressbook::features() const
 {
-    return FeatureAddressbookWindow | FeatureContactWindow | FeatureAddContact | FeatureEditContact | FeatureCompletion | FeaturePrettyNames;
+    return FeatureAddressbookWindow | FeatureContactWindow | FeatureAddContact | FeatureEditContact | FeatureCompletion | FeaturePrettyNames
+        | FeatureContactDetails;
+}
+
+AddressbookContactJob *AbookAddressbook::requestContactDetails(const QString &email)
+{
+    return new AbookAddressbookContactJob(email, this);
 }
 
 AddressbookCompletionJob *AbookAddressbook::requestCompletion(const QString &input, const QStringList &ignores, int max)
@@ -273,6 +306,7 @@ void AbookAddressbook::updateAbook()
     readAbook(true);
     // QFileSystemWatcher will usually unhook from the file when it's re/written - the entire watcher ain't so great :-(
     m_filesystemWatcher->addPath(dbFileName());
+    emit contactsChanged();
 }
 
 void AbookAddressbook::readAbook(bool update)
@@ -374,6 +408,7 @@ void AbookAddressbook::saveContacts()
     }
     abook.sync();
     m_filesystemWatcher->blockSignals(false);
+    emit contactsChanged();
 }
 
 static inline bool ignore(const QString &string, const QStringList &ignores)
@@ -425,6 +460,35 @@ NameEmailList AbookAddressbook::complete(const QString &string, const QStringLis
         }
     }
     return list;
+}
+
+ContactDetails AbookAddressbook::contactDetails(const QString &mail) const
+{
+    ContactDetails details;
+    details.email = mail;
+    for (int i = 0; i < m_contacts->rowCount(); ++i) {
+        const QStandardItem *item = m_contacts->item(i);
+        const QStringList mails = item->data(Mail).toString().split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        const bool matches = std::any_of(mails.cbegin(), mails.cend(), [&mail](const QString &candidate) {
+            return QString::compare(candidate.trimmed(), mail, Qt::CaseInsensitive) == 0;
+        });
+        if (!matches)
+            continue;
+        details.known = true;
+        details.name = item->data(Name).toString();
+        QString photo = item->data(Photo).toString();
+        // BE::Contacts stores a file name in the abook folder; abook itself may hold a path. Anything else, such
+        // as a URL, is not followed.
+        if (!photo.isEmpty() && !photo.contains(QLatin1String("://"))) {
+            if (QDir::isRelativePath(photo))
+                photo = abookDirPath() + QLatin1Char('/') + photo;
+            QFile file(photo);
+            if (QFileInfo(file).isFile() && file.size() <= maximumPhotoSize && file.open(QIODevice::ReadOnly))
+                details.photo = file.readAll();
+        }
+        break;
+    }
+    return details;
 }
 
 QStringList AbookAddressbook::prettyNamesForAddress(const QString &mail) const

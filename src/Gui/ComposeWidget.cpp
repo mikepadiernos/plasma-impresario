@@ -26,11 +26,13 @@
 #include <QActionGroup>
 #include <QBuffer>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFormLayout>
 #include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QLocale>
 #include <QMenu>
 #include <QMessageBox>
 #include <QProgressDialog>
@@ -38,6 +40,7 @@
 #include <QRegularExpression>
 #include <QSettings>
 #include <QScreen>
+#include <QSet>
 #include <QSignalBlocker>
 #include <QSslKey>
 #include <QTimer>
@@ -47,6 +50,7 @@
 #include "configure.cmake.h"
 #include "ui_ComposeWidget.h"
 #include "Composer/AccountIdentities.h"
+#include "Composer/AttachmentRequests.h"
 #include "Composer/ExistingMessageComposer.h"
 #include "Composer/MessageComposer.h"
 #include "Composer/ReplaceSignature.h"
@@ -55,16 +59,21 @@
 #include "Composer/Submission.h"
 #include "Common/InvokeMethod.h"
 #include "Common/Paths.h"
+#include "Common/PrivateFiles.h"
 #include "Common/SettingsNames.h"
 #include "Common/TrustedCertificates.h"
 #include "Gui/CompleteMessageWidget.h"
 #include "Gui/ComposeWidget.h"
+#include "Gui/FileChooser.h"
 #include "Gui/FromAddressProxyModel.h"
+#include "Gui/InlineNotificationBar.h"
 #include "Gui/LineEdit.h"
 #include "Gui/MessageView.h"
 #include "Gui/OverlayWidget.h"
 #include "Gui/PasswordDialog.h"
+#include "Gui/RemoteAttachmentFetcher.h"
 #include "Gui/ProgressPopUp.h"
+#include "Gui/StateColors.h"
 #include "Gui/Util.h"
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
@@ -75,9 +84,10 @@
 #include "Plugins/AddressbookPlugin.h"
 #include "Plugins/PluginManager.h"
 #include "ShortcutHandler/ShortcutHandler.h"
-#include "UiUtils/Color.h"
 #include "UiUtils/Formatting.h"
+#include "JmapSyncer.h"
 #include "UiUtils/IconLoader.h"
+#include "UiUtils/ServerDiscovery.h"
 
 namespace
 {
@@ -178,6 +188,7 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
     , m_sourceModel(mainWindow->imapModel())
     , m_account(nullptr)
     , m_accountWarning(nullptr)
+    , m_handoffNotice(nullptr)
     , m_composer(messageComposer)
     , m_submission(nullptr)
     , m_completionPopup(nullptr)
@@ -225,9 +236,22 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
     m_accountWarning->hide();
     ui->verticalLayout_2->insertWidget(0, m_accountWarning);
 
+    m_handoffNotice = new InlineNotificationBar(this);
+    m_handoffNotice->setObjectName(QStringLiteral("composerHandoffNotice"));
+    // Stays until dismissed, so that the requested files are checked before sending
+    m_handoffNotice->setAutoHideTimeout(0);
+    ui->verticalLayout_2->insertWidget(0, m_handoffNotice);
+
+    m_fetchNotice = new InlineNotificationBar(this);
+    m_fetchNotice->setObjectName(QStringLiteral("composerFetchNotice"));
+    // Names what was fetched and what failed, which is checked before sending
+    m_fetchNotice->setAutoHideTimeout(0);
+    ui->verticalLayout_2->insertWidget(1, m_fetchNotice);
+
     if (interactiveComposer()) {
         interactiveComposer()->setReportTrojitaVersions(m_settings->value(Common::SettingsNames::interopRevealVersions, true).toBool());
         ui->attachmentsView->setComposer(interactiveComposer());
+        m_remoteFetcher = new RemoteAttachmentFetcher(interactiveComposer().get(), m_fetchNotice, this);
     }
 
     sendButton = ui->buttonBox->addButton(tr("Send"), QDialogButtonBox::AcceptRole);
@@ -367,7 +391,7 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
 
     // these are for the automatically saved drafts, i.e. no i18n for the dir name
     m_autoSavePath = QString(Common::writablePath(Common::LOCATION_CACHE) + QLatin1String("Drafts/"));
-    QDir().mkpath(m_autoSavePath);
+    Common::PrivateFiles::makeFolder(m_autoSavePath);
 
     m_autoSavePath += QString::number(QDateTime::currentMSecsSinceEpoch()) + QLatin1String(".draft");
 
@@ -388,6 +412,8 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
 
 ComposeWidget::~ComposeWidget()
 {
+    // The child widgets are destroyed after this destructor; a focused one moves the application focus then
+    disconnect(qApp, &QApplication::focusChanged, this, &ComposeWidget::handleFocusChange);
     delete ui;
 }
 
@@ -647,7 +673,8 @@ ComposeWidget *ComposeWidget::createDraft(MainWindow *mainWindow, const QString 
 }
 
 /** @short Create a composer window with data from a URL */
-ComposeWidget *ComposeWidget::createFromUrl(MainWindow *mainWindow, const QUrl &url)
+ComposeWidget *ComposeWidget::createFromUrl(MainWindow *mainWindow, const QUrl &url, const UrlOrigin origin,
+                                            const QStringList &files)
 {
     MSA::MSAFactory *msaFactory = mainWindow->msaFactory();
     if (!msaFactory)
@@ -690,9 +717,91 @@ ComposeWidget *ComposeWidget::createFromUrl(MainWindow *mainWindow, const QUrl &
       // We don't need to expose any UI here, but we want the in-reply-to and references information to be carried with this message
       w->m_actionInReplyTo->setChecked(true);
     }
+
+    const QStringList requested = Composer::AttachmentRequests::fromMailto(url);
+    if (origin == UrlOrigin::OtherApplication) {
+        if (!requested.isEmpty() || !files.isEmpty())
+            w->attachRequestedFiles(requested, files);
+    } else if (!requested.isEmpty()) {
+        // A link in a message could otherwise pick any file of the user's to send
+        w->m_handoffNotice->showError(
+            i18ncp("@info", "The link asked to attach a file, which links in messages may not do. Use Attach to add it yourself.",
+                   "The link asked to attach %1 files, which links in messages may not do. Use Attach to add them yourself.",
+                   requested.size()));
+    }
     w->placeOnMainWindow();
     w->show();
     return w;
+}
+
+/** A requested file as it may be shown: URLs of other computers lose their user name, password and query */
+static QString shownRequest(const QString &requested)
+{
+    const QUrl url(requested);
+    if (url.isValid() && url.scheme().size() > 1 && !url.isLocalFile())
+        return Composer::AttachmentRequests::displayUrl(url);
+    return requested;
+}
+
+void ComposeWidget::attachRequestedFiles(const QStringList &fromUrl, const QStringList &fromCommandLine)
+{
+    using namespace Composer::AttachmentRequests;
+    auto composer = interactiveComposer();
+    if (!composer)
+        return;
+    InhibitComposerDirtying inhibitor(this);
+    const QList<Request> requests = resolveAll(fromCommandLine, Source::CommandLine)
+            + resolveAll(fromUrl, Source::MailtoUrl);
+    QStringList attached;
+    QStringList refused;
+    QSet<QString> seen;
+    for (const Request &request : requests) {
+        if (request.accepted() && !request.remote.isEmpty()) {
+            // Both sources are resolved separately, so the same file may be requested twice
+            const QString key = request.remote.adjusted(QUrl::NormalizePathSegments).toString();
+            if (seen.contains(key))
+                continue;
+            seen.insert(key);
+            QString error;
+            if (!composer->addRemoteFileAttachment(request.remote, &error).isEmpty()) {
+                attached << displayUrl(request.remote);
+                continue;
+            }
+            refused << i18nc("@item %1 is a requested file, %2 why it was not attached", "%1: %2",
+                             displayUrl(request.remote), error);
+        } else if (request.accepted()) {
+            const QString key = QFileInfo(request.path).canonicalFilePath();
+            if (seen.contains(key))
+                continue;
+            seen.insert(key);
+            if (composer->addFileAttachment(request.path)) {
+                attached << QFileInfo(request.path).fileName();
+                continue;
+            }
+            refused << i18nc("@item %1 is a requested file, %2 why it was not attached", "%1: %2", request.requested,
+                             i18nc("@info", "It cannot be read."));
+        } else {
+            refused << i18nc("@item %1 is a requested file, %2 why it was not attached", "%1: %2",
+                             shownRequest(request.requested), request.problem);
+        }
+    }
+
+    // The files were chosen elsewhere, so they are named here to be checked before sending
+    const QString done = attached.isEmpty() ? QString()
+            : i18ncp("@info %2 is a list of file names", "Attached %2 at another application's request; check it before sending.",
+                     "Attached %1 files at another application's request: %2. Check them before sending.", attached.size(),
+                     QLocale().createSeparatedList(attached));
+    if (refused.isEmpty()) {
+        m_handoffNotice->showInfo(done);
+        return;
+    }
+    QString text = i18ncp("@info", "A requested file could not be attached:", "%1 requested files could not be attached:",
+                          refused.size());
+    for (const QString &line : std::as_const(refused))
+        text += QLatin1Char('\n') + line;
+    if (!done.isEmpty())
+        text += QLatin1Char('\n') + done;
+    m_handoffNotice->showError(text);
 }
 
 /** @short Create a composer window for a reply */
@@ -853,7 +962,8 @@ void ComposeWidget::passwordRequested(const QString &user, const QString &host)
         m_submission->cancelPassword();
         return;
     }
-    if (m_accountSettings->value(Common::SettingsNames::smtpAuthReuseImapCredsKey, false).toBool()) {
+    const bool jmap = JmapSyncer::sendsThroughJmap(*m_accountSettings);
+    if (!jmap && m_accountSettings->value(Common::SettingsNames::smtpAuthReuseImapCredsKey, false).toBool()) {
         auto password = qobject_cast<const Imap::Mailbox::Model*>(m_imapAccess->imapModel())->imapPassword();
         if (password.isNull()) {
             // This can happen for example when we've always been offline since the last profile change,
@@ -875,7 +985,8 @@ void ComposeWidget::passwordRequested(const QString &user, const QString &host)
         return;
     }
 
-    Plugins::PasswordJob *job = password->requestPassword(m_submission->accountId(), QStringLiteral("smtp"));
+    Plugins::PasswordJob *job = password->requestPassword(m_submission->accountId(),
+                                                          jmap ? JmapSyncer::passwordType() : QStringLiteral("smtp"));
     if (!job) {
         askPassword(user, host);
         return;
@@ -900,29 +1011,34 @@ void ComposeWidget::passwordError()
 
 void ComposeWidget::certificateCheckRequested(const QList<QSslCertificate> &chain, const QList<QSslError> &errors)
 {
-    const QString host = m_accountSettings ? m_accountSettings->value(Common::SettingsNames::smtpHostKey).toString()
-                                           : QString();
+    // A JMAP account sending through its server has no SMTP host; its key is kept with the trusted certificates only
+    const bool jmap = m_accountSettings && JmapSyncer::sendsThroughJmap(*m_accountSettings);
+    QSettings *pinned = jmap ? nullptr : m_accountSettings.data();
+    const QString host = !m_accountSettings ? QString()
+        : jmap ? Jmap::Settings::fromSettings(*m_accountSettings).host()
+               : m_accountSettings->value(Common::SettingsNames::smtpHostKey).toString();
     QSettings *profile = m_mainWindow ? m_mainWindow->settings() : nullptr;
     if (profile && !chain.isEmpty() && Common::TrustedCertificates::isTrusted(*profile, host, chain.first())) {
         // Another account, or this host's IMAP service, already got the user's approval for this key
-        if (m_accountSettings)
-            m_accountSettings->setValue(Common::SettingsNames::smtpSslPemPubKey, chain.first().publicKey().toPem());
+        if (pinned)
+            pinned->setValue(Common::SettingsNames::smtpSslPemPubKey, chain.first().publicKey().toPem());
         m_submission->setCertificateAccepted(true);
         return;
     }
-    const QByteArray oldPubKey = m_accountSettings ?
-                m_accountSettings->value(Common::SettingsNames::smtpSslPemPubKey).toByteArray() : QByteArray();
+    const QByteArray oldPubKey = pinned ? pinned->value(Common::SettingsNames::smtpSslPemPubKey).toByteArray()
+                                        : QByteArray();
     QString title, message;
     UiUtils::Formatting::IconType icon;
     UiUtils::Formatting::formatSslState(chain, oldPubKey, errors, &title, &message, &icon,
-                                        UiUtils::Formatting::ServerKind::Smtp);
+                                        jmap ? UiUtils::Formatting::ServerKind::Jmap
+                                             : UiUtils::Formatting::ServerKind::Smtp);
     QPointer<ComposeWidget> guard(this);
     const bool accepted = QMessageBox(static_cast<QMessageBox::Icon>(icon), title, message,
                                       QMessageBox::Yes | QMessageBox::No, this).exec() == QMessageBox::Yes;
     if (!guard)
         return;
-    if (accepted && m_accountSettings && !chain.isEmpty())
-        m_accountSettings->setValue(Common::SettingsNames::smtpSslPemPubKey, chain.first().publicKey().toPem());
+    if (accepted && pinned && m_accountSettings && !chain.isEmpty())
+        pinned->setValue(Common::SettingsNames::smtpSslPemPubKey, chain.first().publicKey().toPem());
     if (accepted && profile && !chain.isEmpty())
         Common::TrustedCertificates::trust(*profile, host, chain.first());
     m_submission->setCertificateAccepted(accepted);
@@ -930,8 +1046,10 @@ void ComposeWidget::certificateCheckRequested(const QList<QSslCertificate> &chai
 
 void ComposeWidget::askPassword(const QString &user, const QString &host)
 {
+    const bool jmap = m_accountSettings && JmapSyncer::sendsThroughJmap(*m_accountSettings);
     auto w = Gui::PasswordDialog::getPassword(this, tr("Authentication Required"),
-                                              tr("<p>Please provide SMTP password for user <b>%1</b> on <b>%2</b>:</p>").arg(
+                                              (jmap ? tr("<p>Please provide the JMAP password for user <b>%1</b> on <b>%2</b>:</p>")
+                                                    : tr("<p>Please provide SMTP password for user <b>%1</b> on <b>%2</b>:</p>")).arg(
                                                   user.toHtmlEscaped(),
                                                   host.toHtmlEscaped()));
     connect(w, &Gui::PasswordDialog::gotPassword, m_submission, &Composer::Submission::setPassword);
@@ -1070,6 +1188,12 @@ bool ComposeWidget::buildMessageData()
         }
     }
 
+    if (m_remoteFetcher && m_remoteFetcher->pendingCount() > 0) {
+        gotError(tr("Some attached files are still being fetched from other computers. Send the message once they "
+                    "are fetched, or cancel fetching them."));
+        return false;
+    }
+
     if (!m_composer->isReadyForSerialization()) {
         gotError(tr("Cannot prepare this e-mail for sending: some parts are not available"));
         return false;
@@ -1103,7 +1227,16 @@ void ComposeWidget::send()
     // Send with the account this composer was opened from, even if another account is active now.
     QSettings &account = *m_accountSettings;
     const bool reuseImapCreds = account.value(Common::SettingsNames::smtpAuthReuseImapCredsKey, false).toBool();
-    m_submission->setImapOptions(account.value(Common::SettingsNames::composerSaveToImapKey, true).toBool(),
+    const QString method = account.value(Common::SettingsNames::msaMethodKey).toString();
+    // Gmail's SMTP server files every message it sends into Sent Mail; a second copy would show up twice
+    const bool serverKeepsCopy = (method == Common::SettingsNames::methodSMTP || method == Common::SettingsNames::methodSSMTP)
+        && UiUtils::ServerDiscovery::keepsSentCopies(account.value(Common::SettingsNames::smtpHostKey).toString());
+    // A POP3 account has only its inbox, so there is no Sent folder to keep a copy in
+    const bool hasSentFolder = Imap::AccountCapabilities::forAccount(account).supports(Imap::AccountOperation::ServerFolders);
+    // A JMAP server files what it sends in Sent itself, and the next synchronization brings that copy here
+    const bool jmapKeepsCopy = JmapSyncer::sendsThroughJmap(account);
+    m_submission->setImapOptions(account.value(Common::SettingsNames::composerSaveToImapKey, true).toBool() && !serverKeepsCopy
+                                     && hasSentFolder && !jmapKeepsCopy,
                                  account.value(Common::SettingsNames::composerImapSentKey, QStringLiteral("Sent")).toString(),
                                  account.value(Common::SettingsNames::imapHostKey).toString(),
                                  account.value(Common::SettingsNames::imapUserKey).toString(),
@@ -1405,13 +1538,10 @@ void ComposeWidget::slotCheckAddressOfSender()
 void ComposeWidget::slotCheckAddress(QLineEdit *edit)
 {
     Imap::Message::MailAddress addr;
-    if (edit->text().isEmpty() || Imap::Message::MailAddress::fromPrettyString(addr, edit->text())) {
-        edit->setPalette(QPalette());
-    } else {
-        QPalette p;
-        p.setColor(QPalette::Base, UiUtils::tintColor(p.color(QPalette::Base), QColor(0xff, 0, 0, 0x20)));
-        edit->setPalette(p);
-    }
+    const bool valid = edit->text().isEmpty() || Imap::Message::MailAddress::fromPrettyString(addr, edit->text());
+    StateColors::applyToField(edit, valid ? StateColors::State::Normal : StateColors::State::Negative);
+    // The tint alone does not reach screen readers
+    edit->setAccessibleDescription(valid ? QString() : i18nc("@info:accessibility", "Not a valid e-mail address"));
 }
 
 void ComposeWidget::removeRecipient(int pos)
@@ -1867,22 +1997,43 @@ bool ComposeWidget::eventFilter(QObject *o, QEvent *e)
 
 void ComposeWidget::slotAskForFileAttachment()
 {
-    static QDir directory = QDir::home();
-    QString fileName = QFileDialog::getOpenFileName(this, tr("Attach File..."), directory.absolutePath(), QString(), nullptr,
-                                                    QFileDialog::DontResolveSymlinks);
-    if (!fileName.isEmpty()) {
-        directory = QFileInfo(fileName).absoluteDir();
-        interactiveComposer()->addFileAttachment(fileName);
-    }
+    static QUrl directory = QUrl::fromLocalFile(QDir::homePath());
+    // KDE's file dialog also browses other computers through KIO; their files are fetched once chosen
+    FileChooser::Request request;
+    request.title = tr("Attach File...");
+    request.mode = FileChooser::Mode::Files;
+    request.folder = directory;
+    request.fallbackOptions = QFileDialog::DontResolveSymlinks;
+    const QList<QUrl> urls = FileChooser::choose(this, request);
+    if (urls.isEmpty())
+        return;
+    directory = urls.constFirst().adjusted(QUrl::RemoveFilename);
+    slotAttachFiles(urls);
 }
 
 void ComposeWidget::slotAttachFiles(QList<QUrl> urls)
 {
-    foreach (const QUrl &url, urls) {
-        if (url.isLocalFile()) {
-            interactiveComposer()->addFileAttachment(url.path());
+    using namespace Composer::AttachmentRequests;
+    auto composer = interactiveComposer();
+    if (!composer)
+        return;
+    QStringList refused;
+    for (const QUrl &url : std::as_const(urls)) {
+        // The user chose these, like files named on the command line
+        const Request request = resolve(url.toString(QUrl::FullyEncoded), Source::CommandLine);
+        QString problem = request.problem;
+        if (request.accepted() && !request.remote.isEmpty()) {
+            QString error;
+            if (composer->addRemoteFileAttachment(request.remote, &error).isEmpty())
+                problem = error;
+        } else if (request.accepted() && !composer->addFileAttachment(request.path)) {
+            problem = i18nc("@info", "It cannot be read.");
         }
+        if (!problem.isEmpty())
+            refused << i18nc("@item %1 is a file, %2 why it was not attached", "%1: %2", displayUrl(url), problem);
     }
+    if (!refused.isEmpty())
+        m_remoteFetcher->reportRefused(refused);
 }
 
 void ComposeWidget::slotUpdateSignature()
@@ -2130,6 +2281,12 @@ void ComposeWidget::autoSaveDraft()
         m_saveState->setMessageUpdated(false);
         saveDraft(m_autoSavePath);
     }
+}
+
+void ComposeWidget::saveDraftNow()
+{
+    if (!m_sentMail)
+        autoSaveDraft();
 }
 
 void ComposeWidget::setMessageUpdated()

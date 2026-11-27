@@ -58,6 +58,7 @@
 #include "MsgListView.h"
 #include "ReplaceCharValidator.h"
 #include "SearchBuilderDialog.h"
+#include "StateColors.h"
 #include "Util.h"
 #include "UiUtils/IconLoader.h"
 #include "UiUtils/MailingLists.h"
@@ -138,7 +139,7 @@ public:
 
 QIcon suggestionIcon(const QString &name)
 {
-    return QIcon::fromTheme(name + QLatin1String("-symbolic"), QIcon::fromTheme(name));
+    return UiUtils::SymbolicIcon::fromTheme(name);
 }
 
 /** @short Whether to remember searches and suggest while typing, as chosen in the search options */
@@ -202,9 +203,11 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
 {
     tree = new MsgListView(this, m_favoriteTagsModel);
     tree->setObjectName(QStringLiteral("messageListView"));
+    tree->setAccessibleName(i18nc("@info:accessible", "Messages"));
 
     m_quickSearchText = new LineEdit(this);
     m_quickSearchText->setObjectName(QStringLiteral("quickSearch"));
+    m_quickSearchText->setAccessibleName(i18nc("@info:accessible", "Quick search"));
     // Filter out newline. It will wreak havoc into the direct IMAP passthrough and could lead to data loss.
     QValidator *validator = new ReplaceCharValidator(QLatin1Char('\n'), QLatin1Char(' '), m_quickSearchText);
     m_quickSearchText->setValidator(validator);
@@ -1732,16 +1735,13 @@ void MessageListWidget::slotAutoEnableDisableSearch()
 
 void MessageListWidget::slotSortingFailed()
 {
-    QPalette pal = m_quickSearchText->palette();
-    pal.setColor(m_quickSearchText->backgroundRole(), Qt::red);
-    pal.setColor(m_quickSearchText->foregroundRole(), Qt::white);
-    m_quickSearchText->setPalette(pal);
+    StateColors::applyToField(m_quickSearchText, StateColors::State::Negative);
     QTimer::singleShot(500, this, SLOT(slotResetSortingFailed()));
 }
 
 void MessageListWidget::slotResetSortingFailed()
 {
-    m_quickSearchText->setPalette(QPalette());
+    StateColors::applyToField(m_quickSearchText, StateColors::State::Normal);
 }
 
 void MessageListWidget::slotConditionalSearchReset()

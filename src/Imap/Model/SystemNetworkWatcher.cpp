@@ -113,6 +113,10 @@ void SystemNetworkWatcher::setDesiredNetworkPolicy(const NetworkPolicy policy)
                           QStringLiteral("User's preference changed: %1").arg(policyToString(policy)));
         m_desiredPolicy = policy;
     }
+    if (m_systemSleeping && policy != NETWORK_OFFLINE) {
+        // Waking up connects with the policy recorded here
+        return;
+    }
     if (m_model->networkPolicy() == NETWORK_OFFLINE && policy != NETWORK_OFFLINE) {
         // We are asked to connect, the model is not connected yet
         if (isOnline()) {
@@ -167,7 +171,7 @@ void SystemNetworkWatcher::onIsMeteredChanged(bool isMetered)
 {
     m_model->logTrace(0, Common::LOG_OTHER, QStringLiteral("Network Session"),
                       QStringLiteral("Metered is changed to %0").arg(meteredToString(isMetered)));
-    if (isMetered) {
+    if (isMetered && !m_systemSleeping) {
         m_model->setNetworkPolicy(NETWORK_EXPENSIVE);
     }
 }

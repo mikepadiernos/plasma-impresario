@@ -40,9 +40,13 @@ public:
     MainWindowBridge(Gui::MainWindow *window);
 
 public slots:
+    /** The token which lets the window shown for the next request come to the front */
+    void setActivationToken(const QString &token);
     void showMainWindow();
     void showAddressbookWindow();
     void composeMail(const QString &url);
+    /** Compose from a mailto: @arg url, or a blank message, attaching @arg files given on the command line */
+    void composeMailWithFiles(const QString &url, const QStringList &files);
     void openMessage(const QString &messageId);
 
 private:

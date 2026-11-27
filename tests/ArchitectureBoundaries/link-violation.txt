@@ -1,0 +1,3 @@
+Imap=Qt6::Core|KF6::ConfigCore
+UiUtils=Qt6::Core|DesktopServices
+Composer=Qt6::DBus

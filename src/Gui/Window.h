@@ -41,7 +41,12 @@
 #include "Imap/Model/GroupingMsgListModel.h"
 #include "Imap/Model/SpecialFolder.h"
 #include "Imap/Parser/Uids.h"
+#include "UiUtils/ActivationToken.h"
+#include "UiUtils/Agenda.h"
+#include "UiUtils/DesktopFeedback.h"
 #include "UiUtils/DestructiveActions.h"
+#include "UiUtils/MailStatus.h"
+#include "UiUtils/PlasmaSearch.h"
 #include "UiUtils/QuickFilters.h"
 #include "UiUtils/RecentFolders.h"
 #include "UiUtils/SavedSearches.h"
@@ -108,7 +113,9 @@ class PluginManager;
 
 namespace UiUtils
 {
+class AccountNotices;
 class MessageIdLookup;
+class SleepMonitor;
 }
 
 namespace MSA
@@ -125,6 +132,7 @@ class SavedFilesSearchDialog;
 class SearchIndexDialog;
 class CapabilityActionGate;
 class ShellHeader;
+class AgendaPanel;
 class AttachmentPanel;
 class ReaderActionBar;
 class ContactPanel;
@@ -141,6 +149,8 @@ class InlineNotificationBar;
 class MailBoxTreeView;
 class MessageListWidget;
 class MessageSelectionRestorer;
+class JmapSyncer;
+class Pop3Fetcher;
 class ProtocolLoggerWidget;
 class ShortcutOverviewDialog;
 class TaskProgressIndicator;
@@ -154,7 +164,23 @@ class MainWindow: public QMainWindow
 public:
     MainWindow(QSettings *settings);
     ~MainWindow() override;
+    /** @short Show the window and bring it to the front, with the activation token handed over for a request */
     void showMainWindow();
+    /** @short Keep the token which lets the next window shown for a request come to the front
+
+    Requests from launchers, other applications and Plasma Search hand their token over before they are handled; see
+    UiUtils::ActivationToken.
+    */
+    void setActivationToken(const QString &token);
+    /** @short Whether a handed-over activation token waits for a window */
+    bool hasActivationToken() const;
+    /** @short Save the unsent messages of every open composer as drafts, without asking
+
+    Called when the desktop session ends; the next start reopens them, as after a crash.
+    */
+    void saveUnsentMessages();
+    /** The unread count last shown on the task manager entry, or -1 before the first one */
+    int unreadCountOnTaskManager() const;
     QSize sizeHint() const override;
 
     Imap::Mailbox::Model *imapModel() const;
@@ -203,12 +229,42 @@ public:
     /** @short Replace the confirmation dialog, for example in tests; an empty function restores the dialog */
     void setConfirmationPrompt(const ConfirmationPrompt &prompt);
 
+    /** @short Show a file in the file manager; calls the second argument with an error message if that fails */
+    using FileManagerLauncher = std::function<void(const QUrl &, const std::function<void(const QString &)> &)>;
+    /** @short Replace the desktop's file manager service, for example in tests; an empty function restores it */
+    void setFileManagerLauncher(const FileManagerLauncher &launcher);
+
+    /** @short Messages for Plasma Search: none unless it is turned on, and only from accounts with an offline search index
+
+    Matches the subject and the sender of the indexed messages; the title and the subtext of each match are filled in.
+    */
+    QList<UiUtils::PlasmaSearch::Match> plasmaSearchMatches(const QString &query) const;
+    /** @short Show the message which Plasma Search named by @arg matchId; unknown IDs are ignored */
+    void openPlasmaSearchMatch(const QString &matchId);
+
+    /** @short Every account for the Plasma widgets, with the unread count of its INBOX and its state */
+    QList<UiUtils::MailStatus::Account> mailStatusAccounts() const;
+    /** @short The newest unread messages for the Plasma widgets, only from accounts with an offline search index */
+    QList<UiUtils::MailStatus::Message> mailStatusUnread(const QStringList &accounts, const QStringList &folders,
+                                                         int limit) const;
+    /** @short Show the window with @arg accountId, as a Plasma widget asked; an unknown account only shows the window */
+    void showAccountFromWidget(const QString &accountId);
+
 signals:
     /** @short An account was added, renamed or removed */
     void accountsChanged();
+    /** @short Unread counts, account states or indexed messages may have changed, as the Plasma widgets show them */
+    void mailStatusChanged();
 
 public slots:
+    /** @short Compose from a mailto: link inside the application; attachments it asks for are refused */
     void slotComposeMailUrl(const QUrl &url);
+    /** @short Compose what another application asked for, such as a file manager through the e-mail portal
+
+    The attachments requested by the mailto: @arg url, which may be empty, and the @arg files named on the command line
+    are attached and listed in the composer. Nothing is sent without the user.
+    */
+    void composeMailFromOtherApplication(const QUrl &url, const QStringList &files);
     /** @short Open the message with @arg messageId, a Message-ID or a mid: URL, from the command line or another program
 
     The messages loaded and indexed on this computer are looked at first; the servers are searched only if the user
@@ -260,6 +316,10 @@ private slots:
     void authenticationRequested();
     void authenticationContinue(const QString &pass, const QString &errorMessage = QString());
     void slotManageContact(const QUrl &url);
+    void slotAddContact(const QUrl &url);
+    /** Report a saved file and offer to show it in the file manager */
+    void slotFileSaved(const QString &fileName);
+    void showSavedFileInFolder(const QString &fileName);
     void slotEditDraft();
     void slotReplyTo();
     void slotReplyAllButMe();
@@ -387,6 +447,8 @@ protected:
     void resizeEvent(QResizeEvent *) override;
 
 private:
+    /** Show @arg window and bring it to the front with the activation token, which is spent */
+    void activateForRequest(QWidget *window);
     void reply(const Composer::ReplyMode mode);
     /** @short Select and open a mailbox of the active account, showing the message list */
     void goToMailbox(const QString &mailbox);
@@ -426,6 +488,7 @@ private:
     /** Update the unread INBOX counts in the account sidebar soon, coalescing repeated requests. */
     void scheduleAccountUnreadRefresh();
     void refreshAccountUnread();
+    void publishUnreadCount(int unread);
 
     /** Supply the stored password to an account that is not shown, or mark it as needing one. */
     void requestStoredPassword(const QString &accountId);
@@ -476,6 +539,8 @@ private:
 
     /** Tell the user that an account other than the shown one needs attention. */
     void notifyBackgroundAccount(const QString &accountId);
+    /** Pass the system's sleep state to the network watcher of an account */
+    void applySystemSleep(Imap::ImapAccess *access);
 
     /** @param reconnect connect the account to its server; false when its models already exist */
     void setupModels(bool reconnect = true);
@@ -554,6 +619,23 @@ private:
     void fitPanelRegion(QSplitter *region);
     /** Select a message picked in the related messages panel. */
     void activateRelatedMessage(const QModelIndex &message);
+    /** @short Read calendars for My Day only while the panel is on */
+    void updateAgendaSource();
+    /** @short Collect the messages to follow up for My Day soon, once a burst of changes is over */
+    void scheduleAgendaMessages();
+    /** @short Give My Day the flagged and $TODO messages of the local indexes and of the shown folder */
+    void refreshAgendaMessages();
+    /** @short Open a message listed in My Day in the reader, without leaving the shown folder
+
+    A message which no list has loaded is looked up in its folder first, by its Message-ID or its UID.
+    */
+    void openAgendaMessage(const UiUtils::Agenda::Item &message);
+    void agendaSearchFinished();
+    /** @short Stop looking up a message of My Day, and select the shown folder again */
+    void cancelAgendaSearch();
+    /** @short Hand an event or task of My Day off to the KDE PIM calendar application */
+    void openCalendarApplication();
+    void joinMeeting(const QUrl &url);
     /** @short Run @p fn while actions work on the message open in the reader, and on its account */
     void actOnOpenMessage(const std::function<void()> &fn);
     /** Bring the reader's action bar in line with the open message and its account */
@@ -576,6 +658,10 @@ private:
 
     void createSysTray();
     void removeSysTray();
+    /** Whether closing the window keeps the application running, as chosen in the settings */
+    bool runsInBackground() const;
+    /** Keep the cache user-only and remove copies of opened attachments after a day */
+    void keepPrivateFilesTidy();
 
     /** @short The selected messages as indexes of the MsgListModel, without the headers of groups */
     Q_INVOKABLE QModelIndexList translatedSelection() const;
@@ -644,6 +730,8 @@ private:
     QString currentMailboxName() const;
     /** @short The mailbox holding all of @arg messages, such as a message opened from another folder, else the list's */
     QString sourceMailboxName(const QModelIndexList &messages) const;
+    /** @short Move @arg messages just marked as @arg junk or not junk between the Junk folder and the inbox, if turned on */
+    void moveAfterJunkMark(const QModelIndexList &messages, bool junk);
     /** @short Ask before a permanent operation unless the user opted out; true means go ahead */
     bool confirmPermanentAction(UiUtils::DestructiveActions::Confirmation kind, const QString &title, const QString &text,
                                 const QString &acceptText);
@@ -759,7 +847,16 @@ private:
 
     Common::AccountRegistry *m_accounts = nullptr;
     Common::AccountStatusTracker *m_accountStatus = nullptr;
+    /** One desktop notification per background account that needs attention */
+    UiUtils::AccountNotices *m_accountNotices = nullptr;
+    /** Closes the connections before the system sleeps and reconnects after it wakes */
+    UiUtils::SleepMonitor *m_sleepMonitor = nullptr;
+    UiUtils::ActivationToken m_activationToken;
     QHash<QString, Imap::ImapAccess *> m_accountAccess;
+    /** Checks the servers of the POP3 accounts; each belongs to its account's access */
+    QHash<QString, QPointer<Pop3Fetcher>> m_pop3Fetchers;
+    /** Synchronize the JMAP accounts with their mail on this computer; each belongs to its account's access */
+    QHash<QString, QPointer<JmapSyncer>> m_jmapSyncers;
     QComboBox *m_accountSwitcher = nullptr;
     Imap::ImapAccess *m_imapAccess;
 
@@ -775,6 +872,8 @@ private:
     QString m_viewMailbox;
     /** Nonzero while the message list is arranged from m_view rather than by the user */
     int m_applyingView = 0;
+    /** Counts link hovers, so that a delayed tooltip for a link left meanwhile is not shown */
+    unsigned m_hoveredLinkGeneration = 0;
     /** Sorting from the saved header state, the default of all accounts */
     std::optional<std::pair<int, Qt::SortOrder>> m_globalSort;
     /** Positions in the message lists, per account ID */
@@ -821,6 +920,16 @@ private:
     ContactPanel *m_contactPanel = nullptr;
     RelatedMessagesPanel *m_relatedMessagesPanel = nullptr;
     SearchResultsPanel *m_searchResultsPanel = nullptr;
+    AgendaPanel *m_agendaPanel = nullptr;
+    /** Events and tasks for My Day, while the panel is on and calendars can be read */
+    UiUtils::AgendaSource *m_agendaSource = nullptr;
+    QTimer *m_agendaMessagesTimer = nullptr;
+    /** Looks up a message of My Day which no list has loaded */
+    QPointer<Imap::Mailbox::FolderSearch> m_agendaSearch;
+    UiUtils::Agenda::Item m_agendaSearchItem;
+    quint64 m_agendaBusy = 0;
+    /** Connections to the shown message list, which may change My Day */
+    QList<QMetaObject::Connection> m_agendaListConnections;
     /** All embedded panels, in their canonical order within a region */
     QList<EmbeddedPanel *> m_embeddedPanels;
 
@@ -1024,6 +1133,9 @@ private:
     QAction *m_goToNextUnreadFolder = nullptr;
     QAction *m_checkMail = nullptr;
     QTimer *m_accountUnreadTimer = nullptr;
+    UiUtils::DesktopFeedback::UnreadBadge m_unreadBadge;
+    /** The unread INBOX count of each account last read, negative while not known */
+    QHash<QString, int> m_inboxUnread;
     QMenu *m_goToFolderMenu;
     QMap<Imap::Mailbox::SpecialUse, QAction *> m_goToSpecialFolderActions;
 
@@ -1050,6 +1162,7 @@ private:
     /** @short Feedback about operations on messages and folders, above the message list */
     InlineNotificationBar *m_notificationBar = nullptr;
     ConfirmationPrompt m_confirmationPrompt;
+    FileManagerLauncher m_fileManagerLauncher;
     /** @short For each folder being renamed, the new name of the open mailbox which the rename affects */
     QHash<QString, QString> m_renamedCurrentMailbox;
 

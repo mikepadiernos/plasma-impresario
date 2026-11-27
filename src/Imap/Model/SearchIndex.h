@@ -116,6 +116,20 @@ public:
         uint uidValidity = 0;
     };
 
+    /** @short The headers of an indexed message which a quick search shows */
+    struct Summary {
+        Location location;
+        QString subject;
+        /** The From addresses, as indexed */
+        QString sender;
+        /** Day of the Date header; invalid when the message has none */
+        QDate sent;
+        /** The Message-ID header as indexed; filled in by followUps() only */
+        QString messageId;
+        /** Whether the message carries the $TODO keyword; filled in by followUps() only */
+        bool toDo = false;
+    };
+
     struct Result {
         /** Why the index could not answer, or empty */
         QString problem;
@@ -187,6 +201,25 @@ public:
     /** @short Messages matching the IMAP SEARCH keys @arg conditions in @arg mailboxes, or in all folders if empty */
     Result search(const QStringList &conditions, const QStringList &mailboxes) const;
 
+    /** @short The newest messages whose subject or sender contains every one of @arg words, at most @arg limit
+
+    Only the subject and the sender are searched, never the text of the messages. Each word matches any part of the
+    subject or the sender regardless of case, as SUBJECT and FROM do.
+    */
+    QList<Summary> quickMatches(const QStringList &words, int limit) const;
+
+    /** @short The newest flagged messages and those with the $TODO keyword, at most @arg limit
+
+    $TODO is the keyword which KMail sets on messages marked as action items. Deleted messages are left out.
+    */
+    QList<Summary> followUps(int limit) const;
+
+    /** @short The newest unread messages in @arg mailboxes, or in all folders if empty, at most @arg limit
+
+    Deleted messages are left out. The flags are those of the last indexing pass.
+    */
+    QList<Summary> unreadMessages(const QStringList &mailboxes, int limit) const;
+
     /** @short Translate IMAP SEARCH keys to an SQL condition on the messages, binding @arg values in order
 
     Returns false and sets @arg problem for keys the index cannot answer. @arg usesText tells whether a BODY or TEXT
@@ -200,6 +233,8 @@ public:
 
 private:
     QSqlDatabase database() const;
+    /** @short The newest messages matching the SQL @arg condition, with @arg values bound in order */
+    QList<Summary> summaries(const QString &condition, const QVariantList &values, int limit, bool details) const;
     bool fail(const QString &what, const QString &detail) const;
 
     QString m_connection;

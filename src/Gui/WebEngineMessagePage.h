@@ -40,6 +40,21 @@ public:
      */
     void quoteText(const std::function<void(const QString &)> &callback);
 
+    /** Which link to prefer when several have the same target. */
+    enum class LinkSource {
+        /** The link under the mouse pointer */
+        Hovered,
+        /** The link clicked or opened in a context menu last */
+        Clicked,
+    };
+
+    /** Asynchronously returns the text of the link to @p href.
+     * @param href The link target as the page reports it.
+     * @param source Which of several links with this target is meant.
+     * @param callback Receives the text, or an empty string if no such link is found.
+     */
+    void linkText(const QString &href, LinkSource source, const std::function<void(const QString &)> &callback);
+
     /** Colors for the reader's stylesheet. */
     struct Colors {
         QColor background;

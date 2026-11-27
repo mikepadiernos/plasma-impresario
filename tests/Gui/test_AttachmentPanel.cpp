@@ -4,6 +4,8 @@
 #include "Gui/AttachmentPanel.h"
 #include "Gui/EmbeddedPanelsMenu.h"
 #include "Imap/Model/ItemRoles.h"
+#include "Imap/Network/FileDownloadManager.h"
+#include "Imap/Network/MsgPartNetAccessManager.h"
 
 #include <KConfigGroup>
 #include <KLocalizedString>
@@ -11,12 +13,14 @@
 #include <QApplication>
 #include <QLabel>
 #include <QListWidget>
+#include <QMessageBox>
 #include <QSignalSpy>
 #include <QStackedWidget>
 #include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -138,6 +142,34 @@ private slots:
         host.panel->setMessageModel(nullptr);
         host.panel->findSavedCopiesOfCurrent();
         QCOMPARE(requested.size(), 1);
+    }
+
+    void junkMessageAsksBeforeOpening()
+    {
+        Host host;
+        Imap::Network::MsgPartNetAccessManager netAccess;
+        host.panel->setNetworkAccessManager(&netAccess);
+        QStandardItemModel model;
+        mixedWithTwoFiles(model);
+        model.item(0)->setData(QStringList{QStringLiteral("$Junk")}, Imap::Mailbox::RoleMessageFlags);
+        host.panel->setMessageModel(&model);
+
+        QString asked;
+        QTimer answer;
+        connect(&answer, &QTimer::timeout, &answer, [&]() {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            if (!box)
+                return;
+            asked = box->objectName() + QLatin1Char('\n') + box->text();
+            box->button(QMessageBox::Cancel)->click();
+        });
+        answer.start(10);
+        host.panel->openCurrent();
+        answer.stop();
+        QVERIFY2(asked.startsWith(QLatin1String("attachmentConfirmation\n")) && asked.contains(QLatin1String("report.pdf")),
+                 qPrintable(asked));
+        // Cancelled before anything was downloaded
+        QVERIFY(host.panel->findChildren<Imap::Network::FileDownloadManager *>().isEmpty());
     }
 
     void autoHideFollowsTheCurrentMessage()

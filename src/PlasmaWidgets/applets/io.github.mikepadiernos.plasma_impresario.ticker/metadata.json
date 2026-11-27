@@ -1,0 +1,18 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "Plasma Impresario contributors"
+            }
+        ],
+        "Category": "Online Services",
+        "Description": "A scrolling line of the newest unread mail in Plasma Impresario",
+        "Icon": "mail-unread",
+        "Id": "io.github.mikepadiernos.plasma_impresario.ticker",
+        "License": "GPL-2.0-or-later",
+        "Name": "Mail Ticker",
+        "Website": "https://github.com/mikepadiernos/plasma-impresario"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}
