@@ -48,8 +48,8 @@ Opus. Plasma Opus status was checked against its roadmap on 2026-11-25.
 Milestone numbers in the first column are Plasma Opus milestones; those in the
 Tracking column are Plasma Impresario milestones. As of 2026-11-26, the M05
 issues listed are Defined or further along, and the others are in the Backlog.
-Plasma Impresario opens files with `QFileDialog`, accepts only dropped local
-files, opens Plasma's file search through KIO, shows a saved file through
+Plasma Impresario opens files with `QFileDialog`, attaches dropped local files
+and fetches remote ones through KIO, opens Plasma's file search through KIO, shows a saved file through
 `org.freedesktop.FileManager1`, and attaches files handed over in a `mailto:`
 URL or with `--attach`.
 
@@ -57,7 +57,7 @@ URL or with `--attach`.
 | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | XDG portal file chooser (M27.01)                                                                                            | ![Planned][planned]                                       | Its dialog opens files and attachments; the KDE dialog is the fallback         | [M06.01](../ROADMAP.md#m06-desktop-integration-and-provider-support), [#101](https://github.com/mikepadiernos/plasma-impresario/issues/101)                                                                                                                          |
 | Compose with selected files                                                                                                 | ![Planned][planned]                                       | Start a draft with the files selected in the file manager                      | [M06.03](../ROADMAP.md#m06-desktop-integration-and-provider-support), [#263](https://github.com/mikepadiernos/plasma-impresario/issues/263)                                                                                                                          |
-| Drag and drop into a draft                                                                                                  | ![Planned][planned]                                       | Attach dropped local and remote files; only local files work today             | [M06.03](../ROADMAP.md#m06-desktop-integration-and-provider-support), [#265](https://github.com/mikepadiernos/plasma-impresario/issues/265)                                                                                                                          |
+| Drag and drop into a draft                                                                                                  | ![Planned][planned]                                       | Attach dropped local and remote files; remote files are fetched through KIO    | [M06.03](../ROADMAP.md#m06-desktop-integration-and-provider-support), [#265](https://github.com/mikepadiernos/plasma-impresario/issues/265)                                                                                                                          |
 | `org.freedesktop.FileManager1` service (M27.01, [plasma-opus#279](https://github.com/mikepadiernos/plasma-opus/issues/279)) | ![Planned][planned]                                       | Show saved attachments in the file manager                                     | [M06.03](../ROADMAP.md#m06-desktop-integration-and-provider-support), [#266](https://github.com/mikepadiernos/plasma-impresario/issues/266)                                                                                                                          |
 | KDE Online Accounts (M27.06) and Nextcloud shares (M29)                                                                     | ![Planned][planned]                                       | Reuse the same Nextcloud identity and insert reviewed share links into drafts  | [M12](../ROADMAP.md#m12-nextcloud-and-digital-asset-management), [#267](https://github.com/mikepadiernos/plasma-impresario/issues/267)                                                                                                                               |
 | Workspaces (M15) and Plasma Activities (M27.01)                                                                             | ![Done][done] Workspaces · ![Planned][planned] Activities | Follow the same Activities so mail and file workspaces switch together         | [M08](../ROADMAP.md#m08-settings-and-workspace-configuration) workspace settings                                                                                                                                                                                     |
@@ -134,9 +134,9 @@ Planned in M06.01 and M06.03 in
 [#263](https://github.com/mikepadiernos/plasma-impresario/issues/263),
 [#265](https://github.com/mikepadiernos/plasma-impresario/issues/265),
 [#266](https://github.com/mikepadiernos/plasma-impresario/issues/266)).
-**Show in Folder** after saving (#266) and composing with handed-over files
-(#263) are implemented; remote files (#265) and the portal file chooser (#101)
-are planned.
+**Show in Folder** after saving (#266), composing with handed-over files
+(#263) and fetching remote files (#265) are implemented; the portal file
+chooser (#101) is planned.
 
 - **What:** Open, share or forward attachments and related documents through
   suitable desktop or companion applications.

@@ -40,6 +40,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Outgoing headers and Bcc](#outgoing-headers-and-bcc)
   - [Saved files in the file manager](#saved-files-in-the-file-manager)
   - [Files handed over by file managers](#files-handed-over-by-file-managers)
+  - [Files fetched from other computers](#files-fetched-from-other-computers)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -65,7 +66,8 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Search            | Date ranges follow the day in each message's Date header, in the sender's time zone, and a search of several folders selects each folder of the account in turn and loads every result's headers; `has:attachment` approximates by message type, folder suggestions cover only the shown account's listed folders, virtual folders count only while shown, and offline search covers only mail kept and indexed on this computer ([details](#search)) | [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454)                                                                        |
 | ![Limitation][limitation] | Desktop           | Closing the window quits unless running in the background is on, even with the tray icon shown; both options apply to every profile, and starting after login is not verified in a Plasma session or through the sandbox portal ([details](#desktop-integration))                                                                                                                                                                                     | [#457](https://github.com/mikepadiernos/plasma-impresario/issues/457)                                                                        |
 | ![Limitation][limitation] | Saved files       | **Show in Folder** is offered in the main window only, and is not checked with Dolphin or Plasma Opus in a real Plasma session ([details](#saved-files-in-the-file-manager))                                                                                                                                                                                                                                                                          | [#460](https://github.com/mikepadiernos/plasma-impresario/issues/460)                                                                        |
-| ![Limitation][limitation] | Handed-over files | A `mailto:` URL may not attach hidden or system files, remote files are refused, drafts drop the files, and nothing is checked with the portal, Dolphin or Plasma Opus in a real Plasma session ([details](#files-handed-over-by-file-managers))                                                                                                                                                                                                      | [#461](https://github.com/mikepadiernos/plasma-impresario/issues/461)                                                                        |
+| ![Limitation][limitation] | Handed-over files | A `mailto:` URL may not attach hidden or system files or name this computer through the network, drafts drop the files, and nothing is checked with the portal, Dolphin or Plasma Opus in a real Plasma session ([details](#files-handed-over-by-file-managers))                                                                                                                                                                                      | [#461](https://github.com/mikepadiernos/plasma-impresario/issues/461)                                                                        |
+| ![Limitation][limitation] | Fetched files     | Only HTTP is tested, SFTP, SMB and WebDAV are not, drafts drop fetched files, and nothing is checked in a real Plasma session ([details](#files-fetched-from-other-computers))                                                                                                                                                                                                                                                                        | [#462](https://github.com/mikepadiernos/plasma-impresario/issues/462)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -1505,9 +1507,10 @@ Plasma session; that check is
   in hidden folders or files in `/proc`, `/sys`, `/dev`, `/etc`, `/boot` and
   `/root`, also through links. The list is fixed. Files named with `--attach`
   only have to be readable regular files.
-- ![Limitation][limitation] Remote files, such as `sftp:` or `smb:` URLs, are
-  refused and listed; fetching them is
-  [#265](https://github.com/mikepadiernos/plasma-impresario/issues/265).
+- ![Resolved][resolved] Files on other computers are fetched through KIO
+  ([#265](https://github.com/mikepadiernos/plasma-impresario/issues/265)). A `mailto:` URL may only name them
+  through sftp, fish, smb, ftp, ftps, webdav, webdavs, http or https on another
+  computer; see [fetched files](#files-fetched-from-other-computers).
 - ![Limitation][limitation] Drafts do not keep attachments
   ([#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)), so handed-over files must be attached again after
   reopening a draft or recovering an unsent message.
@@ -1520,16 +1523,62 @@ Plasma session; that check is
 
 - To send a hidden or system file, attach it with **Attach** in the composer,
   or name it with `--attach`.
-- For a remote file, copy it to a local folder first, then attach it.
 - After reopening a draft or recovering an unsent message, attach the files
   again.
 
 **Proposed improvements:**
 
-- Fetch remote files through KIO with progress and cancellation
-  ([#265](https://github.com/mikepadiernos/plasma-impresario/issues/265)).
 - Keep attachments with drafts ([#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)).
 - Ask before reading files that an unknown application requests.
+
+### Files fetched from other computers
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                          |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#462](https://github.com/mikepadiernos/plasma-impresario/issues/462) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/462#issuecomment-7209981171) | Remote URLs dropped on the composer, chosen with **Attach**, named with `--attach` or D-Bus, or requested by a file manager's `mailto:` URL ([#265](https://github.com/mikepadiernos/plasma-impresario/issues/265)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Files on other computers can be dropped on the
+  attachment list or the message text, chosen with **Attach**, or handed over.
+  Each is fetched through KIO, one at a time, into a private copy in the cache
+  ([#265](https://github.com/mikepadiernos/plasma-impresario/issues/265)). The source is only read.
+- ![Resolved][resolved] A notice names the file and server being fetched,
+  shows progress and has **Cancel**. Afterwards it lists what was fetched with
+  sizes, what failed with the reason and what was cancelled. Failed and
+  cancelled files are removed, and the message cannot be sent until fetching
+  ends.
+- ![Resolved][resolved] Addresses are shown without user name, password, query
+  or fragment. Copies are removed with their attachment or composer, and
+  leftovers from a crash at the next start.
+- ![Limitation][limitation] Only HTTP is tested, against a loopback server.
+  SFTP, SMB and WebDAV are untested because the development image has no such
+  KIO workers.
+- ![Limitation][limitation] Drafts do not keep attachments
+  ([#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)), so fetched files are not recovered
+  with a draft.
+- ![Limitation][limitation] Files are fetched one at a time, with no size limit
+  or warning. Web links (http, https) dropped into the text stay links.
+- ![Limitation][limitation] Not checked in a real Plasma session: drags from
+  Dolphin or Plasma Opus, browsing remote places from **Attach**, and KIO's
+  password prompts. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- If a server fails or asks for a password that never appears, copy the file
+  to a local folder in the file manager first, then attach it.
+- To attach a web file, drop its link on the attachment list or choose it with
+  **Attach**.
+- After reopening a draft or recovering an unsent message, attach the files
+  again.
+
+**Proposed improvements:**
+
+- Add the KIO SFTP and WebDAV workers to the development image and cover them
+  in the live test.
+- Keep attachments with drafts ([#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)).
+- Warn before fetching a very large file, and fetch several at once.
 
 ## Before reporting results
 
