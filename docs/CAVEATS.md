@@ -45,6 +45,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Contacts from the address book](#contacts-from-the-address-book)
   - [My Day calendars and follow-up mail](#my-day-calendars-and-follow-up-mail)
   - [Server settings discovery](#server-settings-discovery)
+  - [Window activation for requests](#window-activation-for-requests)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -76,6 +77,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Contacts panel    | abook has no organizations and Akonadi is not run against a server; photos come only from the address book ([details](#contacts-from-the-address-book))                                                                                                                                                                                                                                                                                               | [#464](https://github.com/mikepadiernos/plasma-impresario/issues/464)                                                                        |
 | ![Limitation][limitation] | My Day            | Every Akonadi calendar is shown and the Akonadi path is not run against a server; follow-up mail comes from search indexes and the shown folder, up to 50 messages ([details](#my-day-calendars-and-follow-up-mail))                                                                                                                                                                                                                                  | [#465](https://github.com/mikepadiernos/plasma-impresario/issues/465)                                                                        |
 | ![Limitation][limitation] | Add Account       | Found servers are not tried against real providers, guessed servers are only probed for a connection, and most resolvers do not validate DNSSEC, so servers outside the mail domain usually need confirmation ([details](#server-settings-discovery))                                                                                                                                                                                                 | [#466](https://github.com/mikepadiernos/plasma-impresario/issues/466)                                                                        |
+| ![Limitation][limitation] | Window activation | Requests pass Plasma's activation token to the window they open, but nothing is checked in a Plasma session; a composer opened by a first launch and the address book window may only be marked as wanting attention ([details](#window-activation-for-requests))                                                                                                                                                                                     | [#467](https://github.com/mikepadiernos/plasma-impresario/issues/467)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -1809,6 +1811,59 @@ Plasma session; that check is
   servers, and report certificate errors.
 - Offer **Find Settings** in the settings of existing accounts.
 - Check the Apple help link and extend the built-in providers.
+
+### Window activation for requests
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                        |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#467](https://github.com/mikepadiernos/plasma-impresario/issues/467) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/467#issuecomment-7212676193) | Bringing windows forward for requests from launchers, links, file managers, Plasma Search and notifications ([#98](https://github.com/mikepadiernos/plasma-impresario/issues/98)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] A second launch of the same profile hands its
+  activation token to the running instance over D-Bus before its request.
+  Plasma Search hands its token over before `Run`, and a notification's
+  **Open Account** passes the notification's token.
+- ![Resolved][resolved] The window a request is about comes forward: the main
+  window, or the composer for a `mailto:` link, a file manager's request to
+  send files, or **New Message**. A token is used once and dropped after 20
+  seconds. Windows are never pinned to a virtual desktop, Activity or screen,
+  and never moved.
+- ![Limitation][limitation] On a first launch, Qt applies the launch token to
+  the first window it activates. When a `mailto:` link starts the application,
+  that is probably the main window, so the composer may only be marked as
+  wanting attention.
+- ![Limitation][limitation] The address book window, opened with
+  `--addressbook`, takes no token. The tray icon relies on Qt to pass on the
+  token of its click, which is unchecked.
+- ![Limitation][limitation] On X11, the startup notification is not explicitly
+  ended, so the launch feedback may stay until it times out.
+- ![Limitation][limitation] Plasma Search hands its token only to the default
+  profile ([Plasma Search mail](#plasma-search-mail)). A token unused for 20
+  seconds, for example while an account is being set up, is dropped.
+- ![Limitation][limitation] Automated tests run on Qt's offscreen platform,
+  where no token is applied, and do not cover the session-bus hand-over or the
+  notification token. Nothing is tried in a Plasma session on Wayland or X11.
+  That is [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- If a window is only marked as wanting attention, click its task manager
+  entry, or lower KWin's focus stealing prevention level in the window behavior
+  settings.
+- To open the composer from a `mailto:` link without focus problems, start the
+  application first.
+
+**Proposed improvements:**
+
+- Check every request path in a Plasma 6 session on Wayland and X11, from a
+  hidden, minimized, covered and other-desktop window.
+- On a first launch with a `mailto:` link, keep the launch token for the
+  composer instead of the main window.
+- Pass the token to the address book window, and end the X11 startup
+  notification explicitly.
+- Add a session-bus test for the second-launch hand-over and a test for the
+  notification token.
 
 ## Before reporting results
 

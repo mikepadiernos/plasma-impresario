@@ -22,6 +22,7 @@ Legend: ![Needs verification][needs-verification] · ![Planned][planned] ·
 
 - [Status](#status)
 - [Windows and session lifecycle](#windows-and-session-lifecycle)
+- [Workspaces and window activation](#workspaces-and-window-activation)
 - [Notifications and status](#notifications-and-status)
 - [Plasma widgets](#plasma-widgets)
 - [Files and attachments](#files-and-attachments)
@@ -46,6 +47,7 @@ whose branding work is in Development.
 | Area                                                                  | Status                                    | Current behavior                                                                                                                                                                                                                   | Roadmap        |
 | --------------------------------------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
 | [Windows and session lifecycle](#windows-and-session-lifecycle)       | ![Needs verification][needs-verification] | Shell layout, panel and density preferences are stored with KConfig; the selected folder and message with `KSharedConfig::openStateConfig()`. Opt-in background running and start after login. No Plasma session-restore hooks     | M06.01         |
+| [Workspaces and window activation](#workspaces-and-window-activation) | ![Needs verification][needs-verification] | Requests from launchers, other applications, Plasma Search and notifications bring the window they are about to the front with Plasma's activation token. Windows are not pinned to desktops, Activities or screens                | M06.01         |
 | [Notifications and status](#notifications-and-status)                 | ![Limitation][limitation]                 | The footer shows connection status; an optional tray icon shows unread counts and network errors. KNotification is used only for background-account errors; there are no new-mail notifications                                    | M06.01, M07    |
 | [Plasma widgets](#plasma-widgets)                                     | ![Planned][planned]                       | None                                                                                                                                                                                                                               | M06.02         |
 | [Files and attachments](#files-and-attachments)                       | ![Limitation][limitation]                 | `QFileDialog` for open and save; attachments open through desktop file associations; the composer attaches dropped local files and fetches remote ones through KIO. KIO opens Plasma's file search for saved files                 | M06.01, M06.03 |
@@ -74,6 +76,47 @@ whose branding work is in Development.
 - **Verify:** Restart and restore multiple windows, unavailable accounts and
   interrupted drafts in a Plasma session; log in with the autostart entry in
   place.
+
+## Workspaces and window activation
+
+Defined in **M06.01**
+([#98](https://github.com/mikepadiernos/plasma-impresario/issues/98)).
+
+- **What:** Behave predictably when the user works across virtual desktops,
+  Activities and screens, and when mail is opened from somewhere other than the
+  window: an application launcher, a `mailto:` or `mid:` link, a file manager,
+  Plasma Search or a notification.
+- **How:** Leave window placement to KWin and the user's window rules. Bring a
+  window to the front only for a request the user made, with the XDG activation
+  token (Wayland) or startup ID (X11) of that request, as Plasma's
+  focus-stealing prevention expects.
+- **Defined behavior:**
+  - One instance runs per profile. A second launch hands its request, and its
+    activation token, to the running instance of the same profile over D-Bus
+    and exits.
+  - The window a request is about comes to the front: the main window for a
+    plain launch, a `mid:` link, a Plasma Search match or a notification's
+    **Open Account**; the composer for a `mailto:` link, a file manager's request to send
+    files, or **New Message**. Other windows stay where they are.
+  - A token is spent on the first window shown for its request, and is
+    dropped after 20 seconds if no window used it. Without a token, Plasma may
+    mark the window as wanting attention instead of raising it.
+  - The application never pins its windows to a virtual desktop, an Activity
+    or a screen, and never moves them. Activating a window on another desktop
+    or Activity follows Plasma's settings.
+  - New composer windows open centered on the main window, offset so that they
+    do not fully cover another composer.
+- **Recommendations:** Do not raise windows for background events such as new
+  mail or sync errors; use notifications. Keep per-Activity behavior, such as
+  showing different accounts in different Activities, out of scope until users
+  ask for it.
+- **Today:** As defined above. The launcher's token is read before Qt clears
+  it, and Plasma Search hands its token over through `SetActivationToken`
+  before `Run`. The address book window does not take a token
+  ([caveat #467](../CAVEATS.md#window-activation-for-requests)).
+- **Verify:** On Wayland and X11, open mail from a launcher, a `mailto:` link,
+  Dolphin, Plasma Search and a notification while the window is hidden,
+  minimized, behind another window and on another desktop or Activity.
 
 ## Notifications and status
 
