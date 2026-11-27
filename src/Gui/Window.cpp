@@ -279,7 +279,9 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     for (const QString &accountId : m_accounts->accountIds())
         Composer::AccountIdentities::migrateAccount(*m_settings, *m_accounts->settings(accountId));
 
-    if (! accountSettings()->contains(Common::SettingsNames::imapMethodKey)) {
+    // POP3 and JMAP accounts have no IMAP method; each protocol knows what it needs
+    if (m_imapAccess ? !m_imapAccess->isConfigured()
+                     : !accountSettings()->contains(Common::SettingsNames::imapMethodKey)) {
         QTimer::singleShot(0, this, SLOT(slotShowAccountSettings()));
     }
 
