@@ -536,7 +536,9 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   - [x] Define workspace-aware behavior for cross-context desktop usage and Plasma conventions. See
         [Workspaces and window activation](integrations/kde-plasma.md#workspaces-and-window-activation).
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569584)
-  - [ ] Support accessibility and theming parity with KDE/Plasma, including contrast, focus visibility, localization, and icon consistency [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569771)
+  - [ ] Support accessibility and theming parity with KDE/Plasma, including contrast, focus visibility, localization, and icon consistency. See
+        [Appearance and accessibility](integrations/kde-plasma.md#appearance-and-accessibility).
+        [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569771)
   - [x] Keep service integrations in this milestone so provider and desktop features are not mixed into core app deliverables. See
         [Service boundaries](integrations/kde-plasma.md#service-boundaries).
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569594)
@@ -662,6 +664,9 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   ![Backlog][backlog]
 - [Unread count on the task manager](CAVEATS.md#unread-count-on-the-task-manager)
   ([#471](https://github.com/mikepadiernos/plasma-impresario/issues/471))
+  ![Backlog][backlog]
+- [Accessibility and theming](CAVEATS.md#accessibility-and-theming)
+  ([#472](https://github.com/mikepadiernos/plasma-impresario/issues/472))
   ![Backlog][backlog]
 
 ### M07: Output, notifications, and rules automation

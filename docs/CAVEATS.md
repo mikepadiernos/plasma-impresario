@@ -49,6 +49,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Saving unsent messages at session end](#saving-unsent-messages-at-session-end)
   - [Portal file chooser](#portal-file-chooser)
   - [Unread count on the task manager](#unread-count-on-the-task-manager)
+  - [Accessibility and theming](#accessibility-and-theming)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -84,6 +85,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Session end       | Open composers save unsent messages as drafts when the session ends, but nothing is checked in a Plasma session; attachments are not saved, and on Wayland **Save Draft?** may hold up logging out ([details](#saving-unsent-messages-at-session-end))                                                                                                                                                                                                | [#468](https://github.com/mikepadiernos/plasma-impresario/issues/468)                                                                        |
 | ![Limitation][limitation] | File chooser      | Files are chosen through the XDG portal file chooser, falling back to the KDE dialog, but nothing is checked in a Plasma session or with Plasma Opus; save dialogs still use the KDE dialog, and remote locations in the portal depend on kio-fuse ([details](#portal-file-chooser))                                                                                                                                                                  | [#470](https://github.com/mikepadiernos/plasma-impresario/issues/470)                                                                        |
 | ![Limitation][limitation] | Task manager      | The task manager entry shows the unread messages in every account's INBOX, but nothing is checked in a Plasma session; the tray icon counts other folders, and accounts not yet connected add nothing ([details](#unread-count-on-the-task-manager))                                                                                                                                                                                                  | [#471](https://github.com/mikepadiernos/plasma-impresario/issues/471)                                                                        |
+| ![Limitation][limitation] | Accessibility     | Icons, state colors and contrast follow Plasma's theme and the main controls have accessible names, but nothing is checked with a screen reader, a high-contrast scheme or in a Plasma session, and there are no translations yet ([details](#accessibility-and-theming))                                                                                                                                                                             | [#472](https://github.com/mikepadiernos/plasma-impresario/issues/472)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -2006,6 +2008,57 @@ Plasma session; that check is
 - Count the same folders for the tray icon and the task manager entry, with one
   setting for both.
 - Let the count include other watched folders or only selected accounts.
+
+### Accessibility and theming
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                           |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| [#472](https://github.com/mikepadiernos/plasma-impresario/issues/472) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/472#issuecomment-7214151837) | Accessibility and theming parity with Plasma ([#103](https://github.com/mikepadiernos/plasma-impresario/issues/103)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Icons come from the active icon theme, which always
+  wins over the few bundled copies; small action icons prefer the theme's
+  `-symbolic` variants.
+- ![Resolved][resolved] Field and text states, such as an invalid address, a
+  search with or without results, a sorting error, warnings and the offline
+  tray badge, use the color scheme's positive, neutral and negative roles.
+  Avatar initials, selected tag text and the protocol log keep at least 4.5:1
+  contrast.
+- ![Resolved][resolved] The address expander is a focusable button that opens
+  with Return or Enter and shows a focus rectangle, and address links take the
+  keyboard. The message list, quick search, folder tree, network access and
+  main menu controls have accessible names, and a test checks that every
+  visible focusable control in the main window has one.
+- ![Limitation][limitation] Every source file is scanned for translatable
+  strings, but no `.po` catalog exists for the `plasma-impresario` domain, so
+  the interface is in English only.
+- ![Limitation][limitation] Small icons built from sources other than the
+  theme are not converted to symbolic ones; there is no `SymbolicIcon::wrap`.
+- ![Limitation][limitation] The protocol log inserts each entry's source label
+  without HTML escaping; the labels are internal names today.
+- ![Limitation][limitation] The tests use Qt's accessibility interfaces
+  offscreen. Nothing is tried with a screen reader such as Orca, with a
+  high-contrast scheme, at large scales, in right-to-left languages or in a
+  Plasma session. That is
+  [M09.08](ROADMAP.md#m09-themes-and-branding-foundation) and
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- For more contrast, choose a high-contrast Plasma color scheme; the state
+  colors follow it.
+- To reach an address or a collapsed address list without a mouse, Tab through
+  the message header.
+
+**Proposed improvements:**
+
+- Check the shell with Orca, keyboard only, at 200% scaling, in right-to-left
+  languages and with Breeze High Contrast in a Plasma 6 session.
+- Add `SymbolicIcon::wrap` for icons built from other sources, and escape the
+  protocol log's source label.
+- Start translations for the `plasma-impresario` domain once the strings
+  settle.
 
 ## Before reporting results
 

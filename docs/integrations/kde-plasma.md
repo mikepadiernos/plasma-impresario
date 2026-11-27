@@ -57,7 +57,7 @@ whose branding work is in Development.
 | [Files and attachments](#files-and-attachments)                       | ![Limitation][limitation]                 | The XDG portal file chooser for open, falling back to the KDE dialog; `QFileDialog` for save; attachments open through desktop file associations; the composer attaches dropped local files and fetches remote ones through KIO. KIO opens Plasma's file search for saved files     | M06.01, M06.03 |
 | [Search and indexing](#search-and-indexing)                           | ![Limitation][limitation]                 | Search runs on the IMAP server or in an opt-in index in the app's cache; saved files are found with Baloo or a live search in the file manager. Plasma Search (KRunner) can show indexed mail by subject or sender, off by default                                                  | M05, M06.01    |
 | [Settings and credentials](#settings-and-credentials)                 | ![Limitation][limitation]                 | Account settings use `QSettings`; app preferences use KConfig; passwords use the QtKeychain or cleartext plugin ([details](../CAVEATS.md#security-and-data-protection))                                                                                                             | M06.01         |
-| [Appearance and accessibility](#appearance-and-accessibility)         | ![Needs verification][needs-verification] | Theme icons and a row density selector; accessibility, high-contrast and scaling checks are not recorded                                                                                                                                                                            | M06.01, M09    |
+| [Appearance and accessibility](#appearance-and-accessibility)         | ![Needs verification][needs-verification] | Theme icons with symbolic variants at small sizes, color-scheme state colors, contrast checks, keyboard access and accessible names; no screen-reader, high-contrast or translation checks yet                                                                                      | M06.02, M09    |
 | [Desktop actions and availability](#desktop-actions-and-availability) | ![Needs verification][needs-verification] | The desktop entry registers the `mailto:` and `mid:` scheme handlers and a Composer action                                                                                                                                                                                          | M06.01         |
 | [KDE services in use](#kde-services-in-use)                           | ![Needs verification][needs-verification] | Session end, notifications, file handoff, KIO, KConfig and credential plugins, as listed below; files are opened through the XDG portal file chooser                                                                                                                                | M06.01         |
 | [Service boundaries](#service-boundaries)                             | ![Tested][tested]                         | The mail core links no KDE desktop service; helpers that use KConfig or Akonadi are built into `DesktopServices`, and `test_ArchitectureBoundaries` checks the boundary                                                                                                             | M06.01         |
@@ -316,8 +316,22 @@ sender and date of matching messages
 - **Recommendations:** Do not rely on color alone for focus, selection or
   status. Keep layout density and optional symbolic tray icons configurable;
   preserve meaningful tree disclosure indicators.
+- **Status:** Done in **M06.02**
+  ([#103](https://github.com/mikepadiernos/plasma-impresario/issues/103)), with
+  the [caveat](../CAVEATS.md#accessibility-and-theming):
+
+  | Area | Behavior | Status |
+  | --- | --- | --- |
+  | Icons | The active icon theme always wins; the few bundled icons only fill gaps. `UiUtils::SymbolicIcon::fromTheme` picks a theme's `-symbolic` variant for action icons of 24 pixels or less | ![Tested][tested] |
+  | State colors | `Gui::StateColors` takes positive, neutral and negative field and text colors from `KColorScheme`, for invalid addresses, find results, sorting errors, warnings and the offline tray badge | ![Tested][tested] |
+  | Contrast | `UiUtils::Color` measures contrast and keeps avatar initials, selected tag text and the protocol log at 4.5:1 or more against their background | ![Tested][tested] |
+  | Keyboard and focus | The address expander is a focusable button with Return and Enter and a focus rectangle; address links take the keyboard | ![Tested][tested] |
+  | Accessible names | The main window's visible focusable controls are named, including the message list, quick search, folder tree, network access and main menu; an invalid address is described | ![Tested][tested] |
+  | Localization | New strings use `i18nc`, and `Messages.sh` extracts every source file; no translations exist yet | ![Limitation][limitation] |
+
 - **Verify:** Check keyboard focus, screen-reader names, localized labels,
-  scaling and light, dark and high-contrast themes.
+  scaling and light, dark and high-contrast themes in a Plasma 6 session
+  ([M15](../ROADMAP.md#m15-real-plasma-session-verification)).
 
 ## Desktop actions and availability
 
