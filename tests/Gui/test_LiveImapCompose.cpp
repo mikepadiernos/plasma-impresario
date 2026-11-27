@@ -9,6 +9,7 @@
 #include "Gui/CompleteMessageWidget.h"
 #include "Gui/ComposeWidget.h"
 #include "Gui/EmbeddedWebView.h"
+#include "Gui/InlineNotificationBar.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MessageDetailsPanel.h"
 #include "Gui/MsgListView.h"
@@ -392,6 +393,60 @@ private slots:
             QVERIFY(file.open(QIODevice::ReadOnly));
             QCOMPARE(file.readAll(), QByteArray("quarter,amount\nQ1,1200\nQ2,1350\nQ3,990\nQ4,1500\n"));
         }
+
+        // Only after it was saved, the file can be shown in the file manager, which selects it in its folder
+        auto *notice = window.findChild<Gui::InlineNotificationBar *>(QStringLiteral("messageNotificationBar"));
+        QVERIFY(notice);
+        QList<QUrl> shown;
+        QString launchError;
+        window.setFileManagerLauncher([&](const QUrl &url, const std::function<void(const QString &)> &failed) {
+            shown << url;
+            if (!launchError.isEmpty())
+                failed(launchError);
+        });
+        const auto showInFolder = [notice]() -> QPushButton * {
+            const auto buttons = notice->actionButtons();
+            for (QPushButton *button : buttons) {
+                if (button->objectName() == QLatin1String("showSavedFileInFolder") && button->isVisible())
+                    return button;
+            }
+            return nullptr;
+        };
+        QTRY_VERIFY_WITH_TIMEOUT(notice->isVisible() && showInFolder(), 5000);
+        QCOMPARE(notice->kind(), Gui::InlineNotificationBar::Kind::Info);
+        QVERIFY2(notice->text().contains(QLatin1String("budget.csv")), qPrintable(notice->text()));
+        QVERIFY(shown.isEmpty());
+        showInFolder()->click();
+        QCOMPARE(shown, QList<QUrl>{QUrl::fromLocalFile(QFileInfo(saved).absoluteFilePath())});
+
+        // A file manager which cannot be reached is reported
+        launchError = QStringLiteral("The name org.freedesktop.FileManager1 was not provided by any .service files");
+        notice->dismiss();
+        // Saved anew rather than over itself, which would ask to replace it
+        QVERIFY(QFile::remove(saved));
+        dialogs.nextFile = saved;
+        attachments->saveCurrent();
+        QTRY_VERIFY_WITH_TIMEOUT(notice->isVisible() && showInFolder(), 15000);
+        showInFolder()->click();
+        QCOMPARE(shown.size(), 2);
+        QCOMPARE(notice->kind(), Gui::InlineNotificationBar::Kind::Error);
+        QVERIFY2(notice->text().contains(QLatin1String("FileManager1")), qPrintable(notice->text()));
+
+        // A file removed since is reported instead of being shown
+        launchError.clear();
+        notice->dismiss();
+        // Saved anew rather than over itself, which would ask to replace it
+        QVERIFY(QFile::remove(saved));
+        dialogs.nextFile = saved;
+        attachments->saveCurrent();
+        QTRY_VERIFY_WITH_TIMEOUT(notice->isVisible() && showInFolder(), 15000);
+        QVERIFY(QFile::remove(saved));
+        showInFolder()->click();
+        QCOMPARE(shown.size(), 2);
+        QCOMPARE(notice->kind(), Gui::InlineNotificationBar::Kind::Error);
+        QVERIFY2(notice->text().contains(QLatin1String("moved or deleted")), qPrintable(notice->text()));
+        notice->dismiss();
+        window.setFileManagerLauncher({});
 
         // Reply to all but me: the sender in To, the other recipient in Cc, the original quoted
         auto *replyAll = window.findChild<QAction *>(QStringLiteral("action_reply_all_but_me"));
