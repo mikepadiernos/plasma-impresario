@@ -70,7 +70,7 @@ and gray before. **Board** is the parent issue's status.
 | [M03](#m03-mail-operations-sorting-and-folder-management) | Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)     | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
 | [M04](#m04-reading-and-conversation-flow)                 | Reading and conversation flow                  | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6)     | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
 | [M05](#m05-search-and-indexing)                           | Search and indexing                            | [#324](https://github.com/mikepadiernos/plasma-impresario/issues/324) | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Merged][merged]: merged in [PR #455](https://github.com/mikepadiernos/plasma-impresario/pull/455)                                      |
-| [M06](#m06-desktop-integration-and-provider-support)      | Desktop integration and provider support       | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)     | ![23 of 26 done](https://img.shields.io/badge/23%2F26-88%25-9a6700)  | ![Development][development]: on `feature/m06-desktop`                                                                                    |
+| [M06](#m06-desktop-integration-and-provider-support)      | Desktop integration and provider support       | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)     | ![26 of 26 done](https://img.shields.io/badge/26%2F26-100%25-1a7f37) | ![Completed][completed]: on `feature/m06-desktop`                                                                                        |
 | [M07](#m07-output-notifications-and-rules-automation)     | Output, notifications and rules automation     | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8)     | ![0 of 11 done](https://img.shields.io/badge/0%2F11-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
 | [M08](#m08-settings-and-workspace-configuration)          | Settings and workspace configuration           | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9)     | ![0 of 15 done](https://img.shields.io/badge/0%2F15-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
 | [M09](#m09-themes-and-branding-foundation)                | Themes and branding foundation                 | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)   | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development]: M09.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
@@ -88,7 +88,7 @@ and gray before. **Board** is the parent issue's status.
 | **P0**   | Reproducible, safe baseline      | Confirm product identity and supported build matrix; establish verified TLS and safe credential defaults; document cache and logging behavior; add focused connection/security and launch smoke tests | Build matrix, installer and launch smoke tests merged with M01 ([#1](https://github.com/mikepadiernos/plasma-impresario/issues/1)); the product rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) is merged. Other distribution families and protected prefixes are [pending](TODO.md#m01-release-gate-and-integration)                                                                  |
 | **P1**   | Rendering and account boundaries | Verify live reader workflows; design stable per-account settings, cache and credentials before adding simultaneous accounts                                                                           | Per-account settings, cache and credentials merged with M02 ([#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)), together with simultaneous accounts ([#222](https://github.com/mikepadiernos/plasma-impresario/issues/222)); live reader workflows verified against synthetic Dovecot in M04 ([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)). Real-session checks are in M15 |
 | **P2**   | Shell and reliability            | Prototype the Plasma Impresario layout over existing mailbox/list/reader behavior; validate accessibility, keyboard use, responsive layouts and partial-failure recovery                              | Shell merged with M02 ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); accessibility, responsive layouts and recovery continue in M09, M10, M11 and M14                                                                                                                                                                                                                                       |
-| **P3**   | Optional productivity features   | Add provider APIs, rules, Nextcloud, calendar/contacts and workspace features only after core reliability, permissions and privacy behavior are defined                                               | M05 is merged and M06 is in Development; planned in M07, M08, M12 and M13, whose parent issues are in the Backlog                                                                                                                                                                                                                                                                                                   |
+| **P3**   | Optional productivity features   | Add provider APIs, rules, Nextcloud, calendar/contacts and workspace features only after core reliability, permissions and privacy behavior are defined                                               | M05 is merged and M06 is feature-complete; planned in M07, M08, M12 and M13, whose parent issues are in the Backlog                                                                                                                                                                                                                                                                                                 |
 
 These are sequencing priorities, not issue statuses or completion markers.
 Follow the [board workflow](../CONTRIBUTING.md#board-statuses) before updating
@@ -516,8 +516,8 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 
 ### M06: Desktop integration and provider support
 
-**Status:** ![Development][development]
-![23 of 26 done](https://img.shields.io/badge/23%2F26-88%25-9a6700) ·
+**Status:** ![Completed][completed]
+![26 of 26 done](https://img.shields.io/badge/26%2F26-100%25-1a7f37) ·
 **Parent issue:** [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)
 
 **Project:** M06 milestone [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)
@@ -591,11 +591,11 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   Microsoft accounts, Microsoft 365 and Exchange are planned in
   [M13](#m13-microsoft-accounts-and-exchange).
 
-  - [ ] Add provider support for Gmail, Outlook, and other major mail services alongside IMAP. See
+  - [x] Add provider support for Gmail, Outlook, and other major mail services alongside IMAP. See
         [Mail providers](integrations/providers.md#gmail).
         [#43](https://github.com/mikepadiernos/plasma-impresario/issues/43)
-  - [ ] Support POP3 mail retrieval with SMTP submission, secure authentication and transport, and explicit local-storage and server-retention behavior [#216](https://github.com/mikepadiernos/plasma-impresario/issues/216)
-  - [ ] Support JMAP mail accounts with capability discovery, secure authentication, mailbox and message synchronization, and supported sending options [#217](https://github.com/mikepadiernos/plasma-impresario/issues/217)
+  - [x] Support POP3 mail retrieval with SMTP submission, secure authentication and transport, and explicit local-storage and server-retention behavior [#216](https://github.com/mikepadiernos/plasma-impresario/issues/216)
+  - [x] Support JMAP mail accounts with capability discovery, secure authentication, mailbox and message synchronization, and supported sending options [#217](https://github.com/mikepadiernos/plasma-impresario/issues/217)
   - [x] Document provider authentication, capabilities, limitations, and setup for Gmail, Outlook, and generic IMAP/SMTP. See
         [Mail providers](integrations/providers.md).
         [#104](https://github.com/mikepadiernos/plasma-impresario/issues/104)
@@ -696,6 +696,9 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   ![Backlog][backlog]
 - [POP3 accounts](CAVEATS.md#pop3-accounts)
   ([#478](https://github.com/mikepadiernos/plasma-impresario/issues/478))
+  ![Backlog][backlog]
+- [JMAP accounts](CAVEATS.md#jmap-accounts)
+  ([#488](https://github.com/mikepadiernos/plasma-impresario/issues/488))
   ![Backlog][backlog]
 
 ### M07: Output, notifications, and rules automation
