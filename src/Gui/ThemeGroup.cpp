@@ -194,6 +194,56 @@ ThemeGroup::ThemeGroup(const SettingsContext &context, QWidget *parent)
     fillProfiles();
 }
 
+QString ThemeGroup::optionLabel(const QString &entry)
+{
+    static const QHash<QString, KLazyLocalizedString> labels{
+        {QStringLiteral("FollowStyle"), kli18nc("@item appearance option", "Follow the widget style")},
+        {QStringLiteral("ColorScheme"), kli18nc("@item appearance option", "Colour scheme")},
+        {QStringLiteral("AccentColor"), kli18nc("@item appearance option", "Accent colour")},
+        {QStringLiteral("CustomColors"), kli18nc("@item appearance option", "Custom colours")},
+        {QStringLiteral("PaneTint"), kli18nc("@item appearance option", "Pane tint")},
+        {QStringLiteral("PaneTintColor"), kli18nc("@item appearance option", "Pane tint colour")},
+        {QStringLiteral("PaneTintStrength"), kli18nc("@item appearance option", "Pane tint strength")},
+        {QStringLiteral("BackgroundBlur"), kli18nc("@item appearance option", "Background blur")},
+        {QStringLiteral("WindowOpacity"), kli18nc("@item appearance option", "Window opacity")},
+        {QStringLiteral("PaneOpacity"), kli18nc("@item appearance option", "Pane opacity")},
+        {QStringLiteral("PanelOpacity"), kli18nc("@item appearance option", "Panel opacity")},
+        {QStringLiteral("CornerRadius"), kli18nc("@item appearance option", "Corner radius")},
+        {QStringLiteral("CustomCornerRadius"), kli18nc("@item appearance option", "Custom corner radius")},
+        {QStringLiteral("Dividers"), kli18nc("@item appearance option", "Divider visibility")},
+        {QStringLiteral("RevealDividersOnHover"), kli18nc("@item appearance option", "Reveal dividers on hover")},
+        {QStringLiteral("TreeLines"), kli18nc("@item appearance option", "Tree lines")},
+        {QStringLiteral("TreeLineColors"), kli18nc("@item appearance option", "Tree line colouring")},
+        {QStringLiteral("TreeLineColor"), kli18nc("@item appearance option", "Tree line colour")},
+        {QStringLiteral("TreeLinePalette"), kli18nc("@item appearance option", "Tree line colours by level")},
+        {QStringLiteral("MessageListStyle"), kli18nc("@item appearance option", "Message rows or cards")},
+        {QStringLiteral("StripeRows"), kli18nc("@item appearance option", "Striped message list")},
+        {QStringLiteral("StripeFolderTree"), kli18nc("@item appearance option", "Striped folder tree")},
+        {QStringLiteral("HoverHighlight"), kli18nc("@item appearance option", "Hover highlight")},
+        {QStringLiteral("SelectionStyle"), kli18nc("@item appearance option", "Selection style")},
+        {QStringLiteral("FolderColorStyle"), kli18nc("@item appearance option", "Folder colour style")},
+        {QStringLiteral("FolderColorRules"), kli18nc("@item appearance option", "Folder colour rules")},
+        {QStringLiteral("MessageListFont"), kli18nc("@item appearance option", "Message list font")},
+        {QStringLiteral("FolderTreeFont"), kli18nc("@item appearance option", "Folder tree font")},
+        {QStringLiteral("MessageHeaderFont"), kli18nc("@item appearance option", "Message header font")},
+        {QStringLiteral("PlainTextFont"), kli18nc("@item appearance option", "Plain-text message font")},
+        {QStringLiteral("TabFont"), kli18nc("@item appearance option", "Tab font")},
+        {QStringLiteral("StatusBarFont"), kli18nc("@item appearance option", "Status bar font")},
+        {QStringLiteral("SpacingScale"), kli18nc("@item appearance option", "Spacing")},
+        {QStringLiteral("TabShape"), kli18nc("@item appearance option", "Tab shape")},
+        {QStringLiteral("TabIndicator"), kli18nc("@item appearance option", "Active tab indicator")},
+        {QStringLiteral("TabColorStrength"), kli18nc("@item appearance option", "Colour strength on tabs")},
+        {QStringLiteral("StatusBarStyle"), kli18nc("@item appearance option", "Status bar style")},
+        {QStringLiteral("Animations"), kli18nc("@item appearance option", "Animation speed")},
+        {QStringLiteral("UseCustomStyleSheet"), kli18nc("@item appearance option", "Custom stylesheet in use")},
+        {QStringLiteral("CustomStyleSheet"), kli18nc("@item appearance option", "Custom stylesheet")},
+        {QStringLiteral("SuspendEffectsInHighContrast"),
+         kli18nc("@item appearance option", "Suspend effects with high contrast")},
+    };
+    const auto it = labels.constFind(entry);
+    return it == labels.constEnd() ? entry : it->toString();
+}
+
 ThemeGroup::~ThemeGroup()
 {
     // Back to the saved appearance; the window applies its workspace's appearance

@@ -219,6 +219,61 @@ private slots:
         QCOMPARE(saved.size(), 1);
         QCOMPARE(saved.first().name, QStringLiteral("Office"));
         QCOMPARE(saved.first().accounts, QStringList{QStringLiteral("work")});
+        QCOMPARE(saved.first().appearance, UiUtils::Workspaces::Workspace::Appearance::None);
+    }
+
+    void workspaceAppearanceIsAttached()
+    {
+        UiUtils::Theme::Values global;
+        global.insert(QStringLiteral("MessageListStyle"), QStringLiteral("Cards"));
+        SettingsStore::setTheme(*config(), global);
+        UiUtils::ThemeProfiles::Profile calm = UiUtils::ThemeProfiles::fromValues(QStringLiteral("Calm"), {});
+        calm.id = QStringLiteral("calm");
+        SettingsStore::setThemeProfiles(*config(), {calm});
+        UiUtils::Workspaces::Workspace office;
+        office.id = QStringLiteral("office");
+        office.name = QStringLiteral("Office");
+        office.accounts = {QStringLiteral("work")};
+        office.appearance = UiUtils::Workspaces::Workspace::Appearance::All;
+        office.themeProfile = QStringLiteral("gone");
+        SettingsStore::setWorkspaces(*config(), {office});
+        config()->sync();
+
+        WorkspacesGroup group(m_context, nullptr);
+        auto *profile = child<QComboBox>(&group, QStringLiteral("workspaceThemeProfile"));
+        QVERIFY(profile);
+        QCOMPARE(profile->currentData().toString(), QStringLiteral("gone"));
+        QVERIFY(!child<QLabel>(&group, QStringLiteral("workspaceProblems"))->text().isEmpty());
+        profile->setCurrentIndex(profile->findData(QStringLiteral("calm")));
+
+        auto *mode = child<QComboBox>(&group, QStringLiteral("workspaceAppearance"));
+        mode->setCurrentIndex(mode->findData(static_cast<int>(UiUtils::Workspaces::Workspace::Appearance::Selected)));
+        auto *options = child<QListWidget>(&group, QStringLiteral("workspaceAppearanceOptions"));
+        QCOMPARE(options->count(), UiUtils::Theme::overrideEntries().size());
+        for (int i = 0; i < options->count(); ++i) {
+            if (options->item(i)->data(Qt::UserRole).toString() == QLatin1String("MessageListStyle"))
+                options->item(i)->setCheckState(Qt::Checked);
+        }
+        auto *clear = child<QPushButton>(&group, QStringLiteral("clearWorkspaceOverrides"));
+        QVERIFY(!clear->isEnabled());
+        child<QPushButton>(&group, QStringLiteral("captureWorkspaceAppearance"))->click();
+        QVERIFY(clear->isEnabled());
+
+        QSettings unused;
+        group.save(unused);
+        const auto saved = SettingsStore::workspaces(*config());
+        QCOMPARE(saved.size(), 1);
+        QCOMPARE(saved.first().appearance, UiUtils::Workspaces::Workspace::Appearance::Selected);
+        QCOMPARE(saved.first().themeProfile, QStringLiteral("calm"));
+        QCOMPARE(saved.first().selectedAppearance, QStringList{QStringLiteral("MessageListStyle")});
+        QCOMPARE(saved.first().appearanceOverrides.value(QStringLiteral("MessageListStyle")).toString(),
+                 QStringLiteral("Cards"));
+    }
+
+    void everyThemeOptionHasALabel()
+    {
+        for (const QString &entry : UiUtils::Theme::entries())
+            QVERIFY2(ThemeGroup::optionLabel(entry) != entry, qPrintable(entry));
     }
 
     void keymapExportImportAndUndo()

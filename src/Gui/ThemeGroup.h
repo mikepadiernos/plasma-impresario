@@ -31,6 +31,9 @@ public:
     /** @short The options as the page shows them, validated */
     UiUtils::Theme::Values values() const;
 
+    /** @short A short name of the appearance option stored as @arg entry, for lists of options */
+    static QString optionLabel(const QString &entry);
+
 protected:
     void saveSettings() override;
 
