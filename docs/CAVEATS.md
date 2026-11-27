@@ -54,6 +54,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Junk and attachment safety](#junk-and-attachment-safety)
   - [External services and outbound calls](#external-services-and-outbound-calls)
   - [System sleep and account notifications](#system-sleep-and-account-notifications)
+  - [Plasma widgets](#plasma-widgets)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -94,6 +95,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Security          | Junk comes only from IMAP keywords, the optional ClamAV scan needs a local `clamd` socket and runs only on **Open**, and the reader banner's **Not Junk** does not move mail ([details](#junk-and-attachment-safety))                                                                                                                                                                                                                                 | [#474](https://github.com/mikepadiernos/plasma-impresario/issues/474)                                                                        |
 | ![Limitation][limitation] | Privacy           | The outbound-call check works per file, GnuPG may fetch keys by its own settings, and version details are sent by default ([details](#external-services-and-outbound-calls))                                                                                                                                                                                                                                                                          | [#475](https://github.com/mikepadiernos/plasma-impresario/issues/475)                                                                        |
 | ![Limitation][limitation] | Sleep             | Connections close before sleep and reopen on wake only through logind, without delaying sleep; account notifications close when the app quits, and KDE Online Accounts is not used ([details](#system-sleep-and-account-notifications))                                                                                                                                                                                                               | [#476](https://github.com/mikepadiernos/plasma-impresario/issues/476)                                                                        |
+| ![Limitation][limitation] | Plasma widgets    | The Mail Status and Mail Ticker widgets are untried in a Plasma session; senders and subjects come only from indexed accounts, counts cover INBOX only, and there are no data while the app is not running ([details](#plasma-widgets))                                                                                                                                                                                                               | [#477](https://github.com/mikepadiernos/plasma-impresario/issues/477)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -2289,6 +2291,58 @@ Plasma session; that check is
   ([M07](ROADMAP.md#m07-output-notifications-and-rules-automation)).
 - Check sleep, wake and notifications in a real Plasma session
   ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
+
+### Plasma widgets
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                          |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| [#477](https://github.com/mikepadiernos/plasma-impresario/issues/477) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/477#issuecomment-7217492341) | [Plasma widgets](integrations/kde-plasma.md#plasma-widgets) ([#245](https://github.com/mikepadiernos/plasma-impresario/issues/245)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] The optional **Mail Status** and **Mail Ticker**
+  widgets follow the running application over D-Bus and never read mail
+  storage or credentials. **Plasma widgets may show** in Settings, General
+  decides what they learn: nothing, unread counts and account status (the
+  default), or the senders, and also the subjects, of unread mail. Message
+  text is never shared.
+- ![Resolved][resolved] Both widgets say when the application is not running
+  or not answering and never show old data as current; the ticker pages
+  instead of scrolling when animations are off or it has the keyboard focus.
+- ![Limitation][limitation] Senders and subjects come only from accounts with
+  an offline search index and follow its last pass, so a message read
+  elsewhere can stay in the ticker until the index catches up.
+- ![Limitation][limitation] Unread counts cover each account's INBOX only.
+- ![Limitation][limitation] The ticker shows either unread messages or one
+  count per account, not both together.
+- ![Limitation][limitation] While the application is not running there are no
+  data; the status widget keeps the last counts, marked as out of date.
+- ![Limitation][limitation] The application is found under its legacy D-Bus
+  service name, `net.flaska.trojita`.
+- ![Limitation][limitation] The shared views and the D-Bus client are tested
+  outside Plasma; the widgets have not been loaded on a panel or the desktop
+  of a real Plasma session. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- To see senders or subjects in the ticker, choose a sharing level that allows
+  them and turn on the offline search index for the account.
+- If a read message stays in the ticker, let the index finish its next pass,
+  or open the folder so that it is reindexed.
+- Keep the application running, for example with **Run in the background**, so
+  that the widgets stay current.
+
+**Proposed improvements:**
+
+- Load and check both widgets in a real Plasma 6 session, on the panel and the
+  desktop ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
+- Update the index's flags when messages are read in the application, so that
+  the ticker follows at once.
+- Offer counts for folders other than INBOX.
+- Register the application under its own D-Bus service name.
+- Let the ticker mix messages from indexed accounts with counts from the
+  others.
 
 ## Before reporting results
 

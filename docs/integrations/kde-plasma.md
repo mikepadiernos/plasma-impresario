@@ -54,7 +54,7 @@ whose branding work is in Development.
 | [Workspaces and window activation](#workspaces-and-window-activation) | ![Needs verification][needs-verification] | Requests from launchers, other applications, Plasma Search and notifications bring the window they are about to the front with Plasma's activation token. Windows are not pinned to desktops, Activities or screens                                                                 | M06.01         |
 | [Notifications and status](#notifications-and-status)                 | ![Limitation][limitation]                 | The footer shows connection status; an optional tray icon shows unread counts and network errors. KNotification is used only for background-account errors; there are no new-mail notifications                                                                                     | M06.01, M07    |
 | [Desktop feedback](#desktop-feedback)                                 | ![Needs verification][needs-verification] | Rules for every surface outside the window; the task manager entry shows the unread count of all inboxes, on by default                                                                                                                                                             | M06.02         |
-| [Plasma widgets](#plasma-widgets)                                     | ![Planned][planned]                       | None                                                                                                                                                                                                                                                                                | M06.02         |
+| [Plasma widgets](#plasma-widgets)                                     | ![Needs verification][needs-verification] | Optional Mail Status and Mail Ticker widgets follow the running application over D-Bus; counts and account states are shared by default, senders and subjects of indexed unread mail only when chosen                                                                               | M06.02         |
 | [Files and attachments](#files-and-attachments)                       | ![Limitation][limitation]                 | The XDG portal file chooser for open, falling back to the KDE dialog; `QFileDialog` for save; attachments open through desktop file associations; the composer attaches dropped local files and fetches remote ones through KIO. KIO opens Plasma's file search for saved files     | M06.01, M06.03 |
 | [Search and indexing](#search-and-indexing)                           | ![Limitation][limitation]                 | Search runs on the IMAP server or in an opt-in index in the app's cache; saved files are found with Baloo or a live search in the file manager. Plasma Search (KRunner) can show indexed mail by subject or sender, off by default                                                  | M05, M06.01    |
 | [Settings and credentials](#settings-and-credentials)                 | ![Limitation][limitation]                 | Account settings use `QSettings`; app preferences use KConfig; passwords use the QtKeychain or cleartext plugin ([details](../CAVEATS.md#security-and-data-protection))                                                                                                             | M06.01         |
@@ -176,7 +176,7 @@ reflects mail without interrupting reading.
 | Account notifications  | One notification per background account with a failure, with **Open Account**; replaced by later failures and closed when the account recovers, is opened or is removed | A Plasma popup, which never takes the focus | ![Tested][tested] [#262](https://github.com/mikepadiernos/plasma-impresario/issues/262)                  |
 | Plasma Search          | The subject, sender and date of indexed mail                                                                                                                            | Only when searched                          | ![Tested][tested] Off by default ([#354](https://github.com/mikepadiernos/plasma-impresario/issues/354)) |
 | New-mail notifications | Planned                                                                                                                                                                 | Planned to be grouped per account           | ![Planned][planned] [M07](../ROADMAP.md#m07-output-notifications-and-rules-automation)                   |
-| Plasma widgets         | Planned                                                                                                                                                                 | Never                                       | ![Planned][planned] [#245](https://github.com/mikepadiernos/plasma-impresario/issues/245)                |
+| Plasma widgets         | Unread counts and account states; the senders and subjects of indexed unread mail only when **Plasma widgets may show** allows them                                     | Never                                       | ![Tested][tested] Optional ([caveat](../CAVEATS.md#plasma-widgets))                                      |
 
 1. **Never take the focus.** Feedback does not raise, activate or focus a
    window and does not open a dialog. Only the user's action, such as a
@@ -189,7 +189,7 @@ reflects mail without interrupting reading.
 3. **Numbers before content.** Passive surfaces show counts and states, not
    senders, subjects or message text. Subjects and senders leave the
    application only through surfaces the user turns on, such as Plasma Search
-   and the planned widgets; message text never does.
+   and the Plasma widgets; message text never does.
 4. **Report changes, once.** Counts are sent only when they change, after
    coalescing bursts, and a failure raises one notification rather than one
    per retry. New mail will update one notification per account (M07).
@@ -211,27 +211,57 @@ reflects mail without interrupting reading.
 
 ## Plasma widgets
 
-Planned in **M06.02** (Plasma widgets and desktop feedback,
+Part of **M06.02** (Plasma widgets and desktop feedback,
 [#245](https://github.com/mikepadiernos/plasma-impresario/issues/245)).
 
-- **What:** Offer optional Plasma widgets for the desktop or panel, such as an
-  unread-count summary, account sync status, a compose shortcut and a scrolling
-  unread-mail marquee. The marquee can draw inspiration from [The Bat!'s
-  MailTicker](https://www.ritlabs.com/en/support/tips-and-tricks/7593/), which
-  displays sender and subject information for unread messages.
-- **How:** Design Plasma widget interfaces around a verified, minimal
-  application service rather than direct access to mail storage or credentials.
-  Allow users to choose accounts and folders, visible fields, display timing and
-  whether the ticker scrolls. A message action opens the corresponding message
-  in the mail client.
+- **What:** Offer optional Plasma widgets for the desktop or panel: an
+  unread-count summary with account status and a compose shortcut, and a
+  scrolling line of unread mail inspired by [The Bat!'s
+  MailTicker](https://www.ritlabs.com/en/support/tips-and-tricks/7593/).
+- **How:** The widgets ask the running application over D-Bus and never read
+  mail storage or credentials. The application offers the object
+  `/MailStatus` with the interface
+  `io.github.mikepadiernos.PlasmaImpresario.MailStatus1`: `Sharing`,
+  `Accounts`, `UnreadMessages`, `OpenMessage`, `Compose`, `ShowAccount` and a
+  `Changed` signal, coalesced over bursts. Requests that bring a window forward
+  carry Plasma's activation token.
+- **Today:** The build option `WITH_PLASMA_WIDGETS` (on when Qt Quick and
+  KService are found) installs two widgets and a shared QML module,
+  `io.github.mikepadiernos.plasmaimpresario`:
+  - **Mail Status** shows an icon with the unread count on the panel. Opened,
+    it lists each chosen account with its INBOX unread count and state, and
+    offers **Compose** and **Open Plasma Impresario**. Clicking an account
+    shows it in the window.
+  - **Mail Ticker** scrolls through the newest unread messages, or pages
+    through them when animations are off in Plasma or the line has the
+    keyboard focus. It pauses under the pointer, Left and Right step through
+    the entries, and Enter or a click opens the message. Its settings choose
+    accounts, folders (INBOX by default), the sender, subject, account, folder
+    and date, and the scrolling speed or paging interval. Messages come from
+    accounts with an offline search index; when there are none to show, the
+    line gives each account's unread count instead.
+  - **Plasma widgets may show** in Settings, General decides what the
+    application shares: **Nothing**, **Unread counts and account status** (the
+    default), **Also the senders of unread mail**, or **Also the senders and
+    subjects of unread mail**. Message text is never shared.
+  - When the application is not running, both widgets say so and offer to
+    start it; the status widget keeps the last counts, marked as out of date.
+    When it stops answering, the data are dimmed and a notice says why.
 - **Recommendations:** Keep widgets optional and respect Plasma themes, panel
-  sizes, keyboard access and reduced-motion preferences. Do not expose sender or
-  subject details by default without a privacy choice. Show unavailable or stale
-  status clearly when the client or its service is not running; never report
-  failed synchronization as successful.
-- **Verify:** Test account and folder filtering, message navigation, privacy
-  settings, non-scrolling operation, panel and desktop layouts, service shutdown
-  and recovery using isolated mail data.
+  sizes, keyboard access and reduced-motion preferences. Never report failed
+  synchronization as successful.
+- **Verify:** `test_MailStatus` covers the sharing setting and the newest
+  unread indexed mail across accounts and folders; `test_MailStatusBridge`
+  the D-Bus interface; `test_MailStatusClient` the client against a fake
+  application on a private session bus, including a stopped application,
+  failed and late answers; and `test_PlasmaWidgetViews` the shared views with
+  a fake client. Loading the widgets on a panel and the desktop of a real
+  Plasma 6 session belongs to
+  [M15](../ROADMAP.md#m15-real-plasma-session-verification).
+- **Caveat:** Untried in Plasma, senders and subjects only from indexed
+  accounts, INBOX counts only; see
+  [Plasma widgets](../CAVEATS.md#plasma-widgets)
+  ([#477](https://github.com/mikepadiernos/plasma-impresario/issues/477)).
 
 ## Files and attachments
 
@@ -405,18 +435,19 @@ Recorded in **M06.01**
 table lists the KDE and freedesktop services the application uses for files,
 credentials, the session and notifications, and what it does without them.
 
-| Need              | Service used                                                                                                                    | Without it                                                                                     |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Session end       | Qt's X11 session manager request and `SIGTERM`, watched with `KSignalHandler`, save unsent messages as drafts                   | Drafts saved every 30 seconds are still recovered                                              |
-| Background start  | An XDG autostart entry, or the XDG Background portal in a sandbox                                                               | Starting after login is unavailable                                                            |
-| Notifications     | KNotifications for account errors, with actions                                                                                 | A tray message while the tray icon is shown                                                    |
-| File dialogs      | The XDG portal file chooser for opening files; `QFileDialog`, which Plasma's platform theme shows as the KDE dialog, for saving | The KDE dialog for opening files too                                                           |
-| Files and links   | KIO for remote attachments and saved-file search; desktop file associations open attachments                                    | Local files only                                                                               |
-| Settings          | KConfig for app preferences and `KSharedConfig::openStateConfig()` for session state; account settings stay in `QSettings`      | Not optional                                                                                   |
-| Credentials       | The QtKeychain plugin, which stores passwords in KWallet or the Secret Service                                                  | The cleartext plugin, only with consent ([caveat](../CAVEATS.md#security-and-data-protection)) |
-| Window activation | KWindowSystem with the request's activation token                                                                               | The window may only be marked as wanting attention                                             |
-| Task manager      | The `com.canonical.Unity.LauncherEntry` signal for the unread count                                                             | No count on the entry; the window and the tray still show it                                   |
-| Sleep             | logind's `PrepareForSleep` signal on the system bus closes connections before sleep and reconnects on wake                      | Connections time out after wake and reconnect                                                  |
+| Need              | Service used                                                                                                                                  | Without it                                                                                         |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Session end       | Qt's X11 session manager request and `SIGTERM`, watched with `KSignalHandler`, save unsent messages as drafts                                 | Drafts saved every 30 seconds are still recovered                                                  |
+| Background start  | An XDG autostart entry, or the XDG Background portal in a sandbox                                                                             | Starting after login is unavailable                                                                |
+| Notifications     | KNotifications for account errors, with actions                                                                                               | A tray message while the tray icon is shown                                                        |
+| File dialogs      | The XDG portal file chooser for opening files; `QFileDialog`, which Plasma's platform theme shows as the KDE dialog, for saving               | The KDE dialog for opening files too                                                               |
+| Files and links   | KIO for remote attachments and saved-file search; desktop file associations open attachments                                                  | Local files only                                                                                   |
+| Settings          | KConfig for app preferences and `KSharedConfig::openStateConfig()` for session state; account settings stay in `QSettings`                    | Not optional                                                                                       |
+| Credentials       | The QtKeychain plugin, which stores passwords in KWallet or the Secret Service                                                                | The cleartext plugin, only with consent ([caveat](../CAVEATS.md#security-and-data-protection))     |
+| Window activation | KWindowSystem with the request's activation token                                                                                             | The window may only be marked as wanting attention                                                 |
+| Task manager      | The `com.canonical.Unity.LauncherEntry` signal for the unread count                                                                           | No count on the entry; the window and the tray still show it                                       |
+| Sleep             | logind's `PrepareForSleep` signal on the system bus closes connections before sleep and reconnects on wake                                    | Connections time out after wake and reconnect                                                      |
+| Plasma widgets    | The application's `/MailStatus` object on the session bus, Qt Quick and Kirigami for the views, and KService and KIO to start the application | The widgets are not built (`WITH_PLASMA_WIDGETS`), or they say that the application is not running |
 
 [limitation]: https://img.shields.io/badge/Limitation-bc4c00
 [needs-verification]: https://img.shields.io/badge/Needs_verification-0969da
