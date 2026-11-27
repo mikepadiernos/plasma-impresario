@@ -330,6 +330,7 @@ set(path_UiUtils ${CMAKE_CURRENT_SOURCE_DIR}/src/UiUtils)
 set(libUiUtils_SOURCES
     ${path_UiUtils}/AccountNotices.cpp
     ${path_UiUtils}/ActivationToken.cpp
+    ${path_UiUtils}/ActivityLog.cpp
     ${path_UiUtils}/Agenda.cpp
     ${path_UiUtils}/AttachmentCollector.cpp
     ${path_UiUtils}/ClamdScanner.cpp
@@ -338,11 +339,15 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/Formatting.cpp
     ${path_UiUtils}/IconLoader.cpp
     ${path_UiUtils}/LinkSafety.cpp
+    ${path_UiUtils}/MailRules.cpp
     ${path_UiUtils}/MailSafety.cpp
     ${path_UiUtils}/MailingLists.cpp
     ${path_UiUtils}/MessageId.cpp
     ${path_UiUtils}/MessageIdLookup.cpp
     ${path_UiUtils}/MessageSecurity.cpp
+    ${path_UiUtils}/NewMail.cpp
+    ${path_UiUtils}/NewMailWatcher.cpp
+    ${path_UiUtils}/OutputSurfaces.cpp
     ${path_UiUtils}/PasswordWatcher.cpp
     ${path_UiUtils}/PlainTextFormatter.cpp
     ${path_UiUtils}/QaimDfsIterator.cpp
@@ -381,8 +386,10 @@ set(libDesktopServices_SOURCES
     ${path_UiUtils}/DesktopFeedback.cpp
     ${path_UiUtils}/DestructiveActions.cpp
     ${path_UiUtils}/FileSearch.cpp
+    ${path_UiUtils}/MailRulesSettings.cpp
     ${path_UiUtils}/MailSafetySettings.cpp
     ${path_UiUtils}/MailStatus.cpp
+    ${path_UiUtils}/NewMailSettings.cpp
     ${path_UiUtils}/PlasmaSearch.cpp
     ${path_UiUtils}/SavedSearches.cpp
     ${path_UiUtils}/SleepMonitor.cpp
@@ -1665,6 +1672,16 @@ if(BUILD_TESTING)
     target_link_libraries(test_Color PRIVATE UiUtils)
     trojita_test(Misc AccountNotices)
     target_link_libraries(test_AccountNotices PRIVATE UiUtils)
+    trojita_test(Misc MailRules)
+    target_link_libraries(test_MailRules PRIVATE UiUtils)
+    trojita_test(Misc NewMail)
+    target_link_libraries(test_NewMail PRIVATE UiUtils)
+    trojita_test(Misc NewMailWatcher)
+    target_link_libraries(test_NewMailWatcher PRIVATE UiUtils)
+    trojita_test(Misc ActivityLog)
+    target_link_libraries(test_ActivityLog PRIVATE UiUtils)
+    trojita_test(Misc OutputSurfaces)
+    target_link_libraries(test_OutputSurfaces PRIVATE UiUtils)
     if(WITH_DBUS)
         add_executable(test_KRunnerBridge tests/Misc/test_KRunnerBridge.cpp src/IPC/KRunnerBridge.cpp src/IPC/KRunnerBridge.h)
         target_compile_definitions(test_KRunnerBridge PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
