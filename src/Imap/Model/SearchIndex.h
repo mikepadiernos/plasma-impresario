@@ -214,6 +214,12 @@ public:
     */
     QList<Summary> followUps(int limit) const;
 
+    /** @short The newest unread messages in @arg mailboxes, or in all folders if empty, at most @arg limit
+
+    Deleted messages are left out. The flags are those of the last indexing pass.
+    */
+    QList<Summary> unreadMessages(const QStringList &mailboxes, int limit) const;
+
     /** @short Translate IMAP SEARCH keys to an SQL condition on the messages, binding @arg values in order
 
     Returns false and sets @arg problem for keys the index cannot answer. @arg usesText tells whether a BODY or TEXT

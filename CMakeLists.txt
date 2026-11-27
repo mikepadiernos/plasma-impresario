@@ -378,6 +378,7 @@ set(libDesktopServices_SOURCES
     ${path_UiUtils}/DestructiveActions.cpp
     ${path_UiUtils}/FileSearch.cpp
     ${path_UiUtils}/MailSafetySettings.cpp
+    ${path_UiUtils}/MailStatus.cpp
     ${path_UiUtils}/PlasmaSearch.cpp
     ${path_UiUtils}/SavedSearches.cpp
     ${path_UiUtils}/SleepMonitor.cpp
@@ -1577,6 +1578,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_DesktopFeedback PRIVATE DesktopServices KF6::ConfigCore Qt6::DBus)
         trojita_test(Misc SleepMonitor)
         target_link_libraries(test_SleepMonitor PRIVATE DesktopServices Qt6::DBus)
+        trojita_test(Misc MailStatus)
+        target_link_libraries(test_MailStatus PRIVATE DesktopServices KF6::ConfigCore)
     endif()
 
     # The mail core neither includes nor links KDE desktop services; see docs/integrations/kde-plasma.md

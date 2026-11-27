@@ -1000,6 +1000,29 @@ QList<SearchIndex::Summary> SearchIndex::followUps(int limit) const
     return summaries(condition, values, limit, true);
 }
 
+QList<SearchIndex::Summary> SearchIndex::unreadMessages(const QStringList &mailboxes, int limit) const
+{
+    if (!m_open || limit <= 0)
+        return {};
+    const QStringList conditions = {QStringLiteral("UNSEEN"), QStringLiteral("UNDELETED")};
+    QString condition;
+    QVariantList values;
+    QString problem;
+    if (!translate(conditions, &condition, &values, &problem)) {
+        fail(tr("The local index could not be searched"), problem);
+        return {};
+    }
+    if (!mailboxes.isEmpty()) {
+        QStringList placeholders;
+        for (const QString &mailbox : mailboxes) {
+            placeholders << QStringLiteral("?");
+            values << mailbox;
+        }
+        condition = QStringLiteral("(%1) AND mailbox IN (%2)").arg(condition, placeholders.join(QLatin1Char(',')));
+    }
+    return summaries(condition, values, limit, false);
+}
+
 QList<SearchIndex::Summary> SearchIndex::summaries(const QString &condition, const QVariantList &values, int limit,
                                                    bool details) const
 {
