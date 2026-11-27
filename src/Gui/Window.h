@@ -214,6 +214,8 @@ public:
     QString composerAccountId() const;
     /** @short The name of the account which @p message belongs to while several accounts are set up, otherwise empty */
     QString messageAccountName(const QModelIndex &message) const;
+    /** @short A setting of UiUtils::SettingsSchema for the account and folder of @arg message, overrides included */
+    QVariant messageSetting(const QString &key, const QModelIndex &message) const;
     /** @short Run @p fn while accountSettings(), imapAccess(), imapModel(), senderIdentitiesModel() and msaFactory()
     refer to @p accountId
 

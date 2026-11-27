@@ -189,6 +189,7 @@
 #include "UiUtils/RelatedMessages.h"
 #include "UiUtils/Relevance.h"
 #include "UiUtils/SavedSearches.h"
+#include "UiUtils/SettingsStore.h"
 #include "UiUtils/SleepMonitor.h"
 #include "UiUtils/SearchSuggestions.h"
 #include "UiUtils/ServerDiscovery.h"
@@ -1927,6 +1928,8 @@ void MainWindow::createWidgets()
     m_messageWidget->messageView->findAction()->setShortcut(QKeySequence());
     const auto accountName = [this](const QModelIndex &message) { return messageAccountName(message); };
     m_messageWidget->messageView->setAccountResolver(accountName);
+    m_messageWidget->messageView->setSettingResolver(
+            [this](const QString &key, const QModelIndex &message) { return messageSetting(key, message); });
     connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::scrollMessageUp);
     connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::slotUpdateMessageActions);
     // Replies to the conversation being read are not announced
@@ -2798,6 +2801,10 @@ void MainWindow::openCompleteMessageWidget()
     widget->messageView->setAccountResolver([window = QPointer<MainWindow>(this)](const QModelIndex &message) {
         return window ? window->messageAccountName(message) : QString();
     });
+    widget->messageView->setSettingResolver(
+            [window = QPointer<MainWindow>(this)](const QString &key, const QModelIndex &message) {
+                return window ? window->messageSetting(key, message) : QVariant();
+            });
     widget->messageView->setMessage(index);
     widget->messageView->setNetworkWatcher(qobject_cast<Imap::Mailbox::NetworkWatcher*>(m_imapAccess->networkWatcher()));
     widget->setFocusPolicy(Qt::StrongFocus);
@@ -9047,6 +9054,21 @@ QString MainWindow::messageAccountName(const QModelIndex &message) const
     return accountId.isEmpty() ? QString() : m_accounts->displayName(accountId);
 }
 
+QVariant MainWindow::messageSetting(const QString &key, const QModelIndex &message) const
+{
+    QString accountId;
+    QString folder;
+    if (message.isValid()) {
+        const QModelIndex source = Imap::deproxifiedIndex(message);
+        accountId = accountOfModel(qobject_cast<const Imap::Mailbox::Model *>(source.model()));
+        folder = message.data(Imap::Mailbox::RoleMailboxName).toString();
+    }
+    if (accountId.isEmpty())
+        accountId = currentAccountId();
+    const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    return UiUtils::SettingsStore::value(*config, m_settings, key, accountId, folder);
+}
+
 bool MainWindow::withAccount(const QString &accountId, const std::function<void()> &fn)
 {
     Imap::ImapAccess *access = m_accountAccess.value(accountId);
@@ -9535,6 +9557,13 @@ void MainWindow::searchAccount(const QString &accountId, const QStringList &mail
     }
     // Without a connection, the mail indexed on this computer is searched instead
     const bool local = model && !model->isNetworkAvailable() && indexer && indexer->isAvailable();
+    // Searching on the server only leaves the index out while the server can be reached
+    if (!local && model && model->isNetworkAvailable()
+        && UiUtils::SettingsStore::value(*KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), nullptr,
+                                         QStringLiteral("Search/UseIndex"))
+                           .toString()
+                   == QLatin1String("server"))
+        indexer = nullptr;
     QString problem;
     if (!model) {
         problem = i18nc("@info account name", "%1 is not set up", name);
