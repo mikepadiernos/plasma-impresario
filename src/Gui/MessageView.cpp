@@ -42,6 +42,7 @@
 #include "Gui/EnvelopeView.h"
 #include "Gui/ExternalElementsWidget.h"
 #include "Gui/InlineNotificationBar.h"
+#include "Gui/MailSafetyPrompt.h"
 #include "Gui/OverlayWidget.h"
 #include "Gui/PartWidgetFactoryVisitor.h"
 #include "Gui/ShortcutHandler/ShortcutHandler.h"
@@ -55,6 +56,8 @@
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/NetworkWatcher.h"
 #include "Imap/Model/SearchIndexer.h"
+#include "Imap/Model/SpecialFlagNames.h"
+#include "Imap/Tasks/ImapTask.h"
 #include "Imap/Model/Utils.h"
 #include "Imap/Network/MsgPartNetAccessManager.h"
 #include "Plugins/PluginManager.h"
@@ -142,6 +145,13 @@ MessageView::MessageView(QWidget *parent, QSettings *settings, Plugins::PluginMa
     auto fullMsgLayout = new QVBoxLayout(m_messageWidget);
     m_stack->addWidget(m_messageWidget);
 
+    m_junkBanner = new InlineNotificationBar(m_messageWidget);
+    m_junkBanner->setObjectName(QStringLiteral("junkBanner"));
+    m_junkBanner->setAccessibleName(i18nc("@info:accessible", "Junk warning"));
+    m_junkBanner->hide();
+    connect(m_junkBanner, &InlineNotificationBar::dismissed, this, [this]() { m_junkBannerClosed = true; });
+    fullMsgLayout->addWidget(m_junkBanner);
+
     m_envelope = new EnvelopeView(m_messageWidget, pluginManager);
     fullMsgLayout->addWidget(m_envelope, 1);
 
@@ -197,6 +207,8 @@ void MessageView::unsetPreviousMessage()
     m_highlightPart = nullptr;
     m_failedParts.clear();
     m_partErrors->hide();
+    m_junkBanner->hide();
+    m_junkBannerClosed = false;
     message = QModelIndex();
     markAsReadTimer->stop();
     if (auto w = bodyWidget()) {
@@ -314,6 +326,7 @@ void MessageView::showMessageNow()
 
     auto updateTagList = [this]() {
         tags->setTagList(m_taghandler.tags(message));
+        updateJunkBanner();
     };
     connect(messageModel, &QAbstractItemModel::dataChanged, this, updateTagList);
     updateTagList();
@@ -347,6 +360,42 @@ void MessageView::clearWaitingConns()
         disconnect(conn);
     }
     m_waitingMessageConns.clear();
+}
+
+void MessageView::updateJunkBanner()
+{
+    const bool junk = message.isValid()
+        && UiUtils::MailSafety::junkVerdict(message.data(Imap::Mailbox::RoleMessageFlags).toStringList())
+            == UiUtils::MailSafety::JunkVerdict::Junk;
+    if (!junk) {
+        m_junkBanner->hide();
+        return;
+    }
+    if (!m_junkBanner->isHidden() || m_junkBannerClosed)
+        return;
+    m_junkBanner->showWarning(MailSafetyPrompt::junkBannerText(),
+                              {{i18nc("@action:button", "Not Junk"), QStringLiteral("mail-mark-notjunk"), QStringLiteral("junkBannerNotJunk"),
+                                [this]() { markAsNotJunk(); }}});
+}
+
+void MessageView::markAsNotJunk()
+{
+    if (!message.isValid())
+        return;
+    auto *model = const_cast<Imap::Mailbox::Model *>(dynamic_cast<const Imap::Mailbox::Model *>(message.model()));
+    if (!model)
+        return;
+    const QPersistentModelIndex overridden = message;
+    for (auto *task : {model->setMessageFlags({message}, Imap::Mailbox::FlagNames::junk, Imap::Mailbox::FLAG_REMOVE),
+                       model->setMessageFlags({message}, Imap::Mailbox::FlagNames::notjunk, Imap::Mailbox::FLAG_ADD)}) {
+        if (!task)
+            continue;
+        connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, overridden](const QString &error) {
+            if (message != overridden)
+                return;
+            m_junkBanner->showError(i18nc("@info", "Could not mark the message as not junk: %1", error));
+        });
+    }
 }
 
 void MessageView::markAsRead()

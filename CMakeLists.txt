@@ -332,6 +332,7 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/Formatting.cpp
     ${path_UiUtils}/IconLoader.cpp
     ${path_UiUtils}/LinkSafety.cpp
+    ${path_UiUtils}/MailSafety.cpp
     ${path_UiUtils}/MailingLists.cpp
     ${path_UiUtils}/MessageId.cpp
     ${path_UiUtils}/MessageIdLookup.cpp
@@ -484,6 +485,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/InlineNotificationBar.cpp
     ${path_DesktopGui}/LineEdit.cpp
     ${path_DesktopGui}/LinkTarget.cpp
+    ${path_DesktopGui}/MailSafetyPrompt.cpp
     ${path_DesktopGui}/MailBoxTreeView.cpp
     ${path_DesktopGui}/MailboxPickerDialog.cpp
     ${path_DesktopGui}/RemoteAttachmentFetcher.cpp

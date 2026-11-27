@@ -40,6 +40,7 @@
 #include <QToolButton>
 
 #include "Common/PrivateFiles.h"
+#include "Gui/MailSafetyPrompt.h"
 #include "Gui/MessageView.h" // so that the compiler knows it's a QObject
 #include "Gui/Window.h"
 #include "Imap/Network/FileDownloadManager.h"
@@ -210,6 +211,10 @@ void AttachmentView::slotDownloadAttachment()
 
 void AttachmentView::slotOpenAttachment()
 {
+    if (!MailSafetyPrompt::confirmOpening(this, MailSafetyPrompt::junkVerdictOfPart(m_partIndex),
+                                          UiUtils::MailSafety::ScanResult::NotScanned,
+                                          Imap::Network::FileDownloadManager::toRealFileName(m_partIndex)))
+        return;
     m_openAttachment->setEnabled(false);
 
     Imap::Network::FileDownloadManager *manager = new Imap::Network::FileDownloadManager(this, m_netAccess, m_partIndex);

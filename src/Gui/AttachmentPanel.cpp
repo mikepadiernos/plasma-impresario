@@ -21,6 +21,7 @@
 #include "Imap/Model/DragAndDrop.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Network/FileDownloadManager.h"
+#include "MailSafetyPrompt.h"
 #include "UiUtils/AttachmentCollector.h"
 #include "UiUtils/Formatting.h"
 #include "Util.h"
@@ -267,6 +268,9 @@ void AttachmentPanel::openCurrent()
 {
     const QPersistentModelIndex part = currentPart();
     if (!part.isValid() || !m_netAccess)
+        return;
+    if (!MailSafetyPrompt::confirmOpening(this, MailSafetyPrompt::junkVerdictOfPart(part), UiUtils::MailSafety::ScanResult::NotScanned,
+                                          Imap::Network::FileDownloadManager::toRealFileName(part)))
         return;
 
     auto *manager = new Imap::Network::FileDownloadManager(this, m_netAccess, part);

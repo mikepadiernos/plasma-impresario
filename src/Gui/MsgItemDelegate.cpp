@@ -31,6 +31,7 @@
 #include "MsgListView.h"
 #include "UiUtils/Color.h"
 #include "UiUtils/IconLoader.h"
+#include "UiUtils/MailSafety.h"
 #include <KLocalizedString>
 #include <QApplication>
 #include <QRegularExpression>
@@ -228,6 +229,11 @@ MsgItemDelegate::RowLayout MsgItemDelegate::multiLineLayout(const QStyleOptionVi
         layout.attachment = QRect(textRight - iconSize, iconTop, iconSize, iconSize);
         textRight = layout.attachment.left() - margin / 2;
     }
+    if (UiUtils::MailSafety::junkVerdict(index.data(Imap::Mailbox::RoleMessageFlags).toStringList())
+        == UiUtils::MailSafety::JunkVerdict::Junk) {
+        layout.junk = QRect(textRight - iconSize, iconTop, iconSize, iconSize);
+        textRight = layout.junk.left() - margin / 2;
+    }
     first.setRight(qMax(first.left(), textRight - margin / 2));
 
     if (index.data(Imap::Mailbox::RoleMessageIsMarkedReplied).toBool() ||
@@ -247,7 +253,7 @@ MsgItemDelegate::RowLayout MsgItemDelegate::multiLineLayout(const QStyleOptionVi
 
     // Mirror the layout in right-to-left languages
     for (QRect *part : {&layout.readState, &layout.avatar, &layout.firstLine, &layout.date, &layout.flag, &layout.attachment,
-                        &layout.status, &layout.secondLine, &layout.source, &layout.snippet}) {
+                        &layout.junk, &layout.status, &layout.secondLine, &layout.source, &layout.snippet}) {
         if (part->isValid())
             *part = QStyle::visualRect(option.direction, rect, *part);
     }
@@ -351,6 +357,8 @@ void MsgItemDelegate::paintMultiLineRow(QPainter *painter, const QStyleOptionVie
     }
     if (layout.attachment.isValid())
         indicatorIcon(QStringLiteral("mail-attachment")).paint(painter, layout.attachment, Qt::AlignCenter, iconMode);
+    if (layout.junk.isValid())
+        indicatorIcon(QStringLiteral("mail-mark-junk")).paint(painter, layout.junk, Qt::AlignCenter, iconMode);
     if (layout.status.isValid()) {
         const bool replied = index.data(RoleMessageIsMarkedReplied).toBool();
         const bool forwarded = index.data(RoleMessageIsMarkedForwarded).toBool();

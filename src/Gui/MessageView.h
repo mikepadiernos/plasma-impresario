@@ -156,6 +156,10 @@ private:
     void findHighlightTerm(EmbeddedWebView *view, int retries);
     void showMessageUnavailable();
     void updateFailedParts();
+    /** @short Show the junk banner while the current message is marked as junk */
+    void updateJunkBanner();
+    /** @short Override the junk mark of the current message */
+    void markAsNotJunk();
 
     bool isOffline() const;
 
@@ -169,6 +173,10 @@ private:
     QPushButton *m_retryMessage;
     /** Reports parts of the shown message which could not be loaded */
     InlineNotificationBar *m_partErrors;
+    /** Warns while the shown message is marked as junk, and offers to override the mark */
+    InlineNotificationBar *m_junkBanner;
+    /** The user closed the junk banner of the shown message */
+    bool m_junkBannerClosed = false;
     QList<QPointer<SimplePartWidget>> m_failedParts;
 
     QWidget *m_messageWidget;

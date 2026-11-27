@@ -36,6 +36,8 @@ QColor accentColor(const QPalette &palette, Gui::InlineNotificationBar::Kind kin
         // The palette has no error role; the color scheme has
         return Gui::StateColors::text(Gui::StateColors::State::Negative);
     }
+    if (kind == Gui::InlineNotificationBar::Kind::Warning)
+        return Gui::StateColors::text(Gui::StateColors::State::Neutral);
     return palette.color(QPalette::Highlight);
 }
 
@@ -114,8 +116,9 @@ void InlineNotificationBar::showMessage(Kind kind, const QString &text, const QL
     m_text->setAccessibleName(text);
     setAccessibleDescription(text);
 
-    const QString iconName = kind == Kind::Error ? QStringLiteral("dialog-error")
-                                                 : QStringLiteral("dialog-information");
+    const QString iconName = kind == Kind::Error     ? QStringLiteral("dialog-error")
+                             : kind == Kind::Warning ? QStringLiteral("dialog-warning")
+                                                     : QStringLiteral("dialog-information");
     m_icon->setPixmap(themedIcon(iconName).pixmap(m_icon->size()));
 
     // A button's callback may show the next message, so never delete a button from within its own signal
@@ -151,6 +154,11 @@ void InlineNotificationBar::showMessage(Kind kind, const QString &text, const QL
 
     QAccessibleEvent alert(this, QAccessible::Alert);
     QAccessible::updateAccessibility(&alert);
+}
+
+void InlineNotificationBar::showWarning(const QString &text, const QList<Action> &actions)
+{
+    showMessage(Kind::Warning, text, actions);
 }
 
 void InlineNotificationBar::showInfo(const QString &text, const QList<Action> &actions)
