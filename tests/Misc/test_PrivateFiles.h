@@ -31,6 +31,7 @@ private slots:
     void removingAFileOutsideKeepsItsFolder();
     void oldCopiesAreRemovedAfterADay();
     void cacheFolderIsInsideTheCache();
+    void copiesChangedBeforeAreRemoved();
 
 private:
     QTemporaryDir m_dir;

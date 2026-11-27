@@ -280,4 +280,28 @@ void PrivateFilesTest::cacheFolderIsInsideTheCache()
     QVERIFY(!folder.endsWith(QLatin1Char('/')));
 }
 
+void PrivateFilesTest::copiesChangedBeforeAreRemoved()
+{
+    const QString folder = m_dir.filePath(QStringLiteral("fetched"));
+    const QString left = Private::createOpenedAttachment(folder, QStringLiteral("left.txt"));
+    const QString current = Private::createOpenedAttachment(folder, QStringLiteral("current.txt"));
+    QVERIFY(!left.isEmpty());
+    QVERIFY(!current.isEmpty());
+    const QDateTime started = QDateTime::currentDateTimeUtc();
+    // Left behind before the start, and written to by a composer opened after it
+    for (const QString &copy : {left, current}) {
+        QFile file(copy);
+        QVERIFY(file.open(QIODevice::ReadWrite));
+        QVERIFY(file.setFileTime(started.addSecs(copy == left ? -3600 : 5), QFileDevice::FileModificationTime));
+    }
+
+    QCOMPARE(Private::removeCopiesChangedBefore(folder, started), 1);
+    QVERIFY(!QFileInfo::exists(left));
+    QVERIFY(!QFileInfo::exists(QFileInfo(left).path()));
+    QVERIFY(QFileInfo::exists(current));
+    QCOMPARE(Private::removeCopiesChangedBefore(m_dir.filePath(QStringLiteral("missing")), started), 0);
+    QVERIFY(Private::fetchedAttachmentsFolder().startsWith(Common::writablePath(Common::LOCATION_CACHE)));
+    QVERIFY(Private::fetchedAttachmentsFolder() != Private::openedAttachmentsFolder());
+}
+
 QTEST_GUILESS_MAIN(PrivateFilesTest)

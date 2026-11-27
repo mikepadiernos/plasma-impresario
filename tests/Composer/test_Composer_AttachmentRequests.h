@@ -20,14 +20,22 @@ private slots:
     void attachmentKeys();
     void otherSchemesIgnored();
     void absolutePathsAndFileUrls();
-    void refusesRemoteAndRelative_data();
-    void refusesRemoteAndRelative();
+    void acceptsRemote_data();
+    void acceptsRemote();
+    void mailtoRemoteRules_data();
+    void mailtoRemoteRules();
+    void notFiles();
+    void displayUrlHidesCredentials();
+    void refusesRelative_data();
+    void refusesRelative();
     void refusesMissingFoldersAndLinks();
     void hiddenFilesOnlyFromCommandLine();
     void linkIntoHiddenFolder();
     void systemFiles();
     void unreadableFile();
     void duplicatesDropped();
+    void remoteAttachmentCopies();
+    void remoteAttachmentRemoved();
 
 private:
     QString makeFile(const QString &relativePath, const QByteArray &content = "data");

@@ -3,6 +3,7 @@
 */
 #include "Common/MetaTypes.h"
 #include "Common/Paths.h"
+#include "Common/PrivateFiles.h"
 #include "Common/SettingsNames.h"
 #include "Composer/SenderIdentitiesModel.h"
 #include "Gui/AttachmentPanel.h"
@@ -26,7 +27,9 @@
 #include "static_plugins.h"
 
 #include <KLocalizedString>
+#include <QAbstractButton>
 #include <QApplication>
+#include <QClipboard>
 #include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -38,10 +41,13 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QPointer>
 #include <QPushButton>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QTcpServer>
+#include <QTcpSocket>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTextEdit>
@@ -337,6 +343,68 @@ QStringList attachmentNames(Gui::ComposeWidget *composer)
     for (int row = 0; row < view->model()->rowCount(); ++row)
         result << view->model()->index(row, 0).data().toString();
     return result;
+}
+
+/** Serves files over HTTP on the loopback interface, standing in for a file server on another computer */
+class FileServer : public QObject
+{
+public:
+    /** The content of each path; others are not found */
+    QHash<QByteArray, QByteArray> files;
+    /** A path whose response starts and then stalls, so that fetching it can be cancelled */
+    QByteArray stalledPath;
+    /** The requested paths, in order */
+    QList<QByteArray> requests;
+
+    bool listen()
+    {
+        connect(&m_server, &QTcpServer::newConnection, this, [this]() {
+            while (QTcpSocket *socket = m_server.nextPendingConnection()) {
+                socket->setParent(this);
+                connect(socket, &QTcpSocket::readyRead, this, [this, socket]() { handle(socket); });
+                connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
+            }
+        });
+        return m_server.listen(QHostAddress::LocalHost);
+    }
+
+    QString url(const QString &userInfo, const QString &path) const
+    {
+        return QLatin1String("http://") + userInfo + QLatin1String("127.0.0.1:") + QString::number(m_server.serverPort()) + path;
+    }
+
+private:
+    void handle(QTcpSocket *socket)
+    {
+        QByteArray &buffer = m_buffers[socket];
+        buffer += socket->readAll();
+        if (!buffer.contains("\r\n\r\n"))
+            return;
+        const QByteArray path = buffer.split(' ').value(1).split('?').value(0);
+        m_buffers.remove(socket);
+        requests << path;
+        if (path == stalledPath) {
+            socket->write("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: 1000000\r\n\r\nstarted");
+            return;
+        }
+        const auto file = files.constFind(path);
+        if (file == files.constEnd()) {
+            socket->write("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+        } else {
+            socket->write("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + QByteArray::number(file->size())
+                          + "\r\nConnection: close\r\n\r\n" + *file);
+        }
+        socket->disconnectFromHost();
+    }
+
+    QTcpServer m_server;
+    QHash<QTcpSocket *, QByteArray> m_buffers;
+};
+
+/** The entries in the folder of files fetched to be attached */
+QStringList fetchedCopies()
+{
+    return QDir(Common::PrivateFiles::fetchedAttachmentsFolder()).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot);
 }
 
 bool writeFile(const QString &path, const QByteArray &content)
@@ -768,7 +836,7 @@ private slots:
         // A file manager's request: the files are attached, the hidden and remote ones refused and listed, and the
         // file also named on the command line attached once
         const QUrl request = launcherUrl(QStringLiteral("subject=Synthetic%20handoff&body=Files%20attached."),
-                                         {notes, spaced, hidden, QStringLiteral("sftp://host.example.test/files/remote.txt"), chosen});
+                                         {notes, spaced, hidden, QStringLiteral("sftp://localhost/files/remote.txt"), chosen});
         window.composeMailFromOtherApplication(QUrl::fromEncoded(request.toEncoded()), {chosen});
         QPointer<Gui::ComposeWidget> composer;
         QTRY_VERIFY_WITH_TIMEOUT((composer = visibleComposer()), 10000);
@@ -780,7 +848,7 @@ private slots:
         QVERIFY(notice);
         QVERIFY(notice->isVisible());
         QCOMPARE(notice->kind(), Gui::InlineNotificationBar::Kind::Error);
-        for (const QString &expected : {QStringLiteral(".hidden-secret"), QStringLiteral("sftp://host.example.test/files/remote.txt"),
+        for (const QString &expected : {QStringLiteral(".hidden-secret"), QStringLiteral("sftp://localhost/files/remote.txt"),
                                         QStringLiteral("handoff-notes.txt"), QStringLiteral("chosen-on-command-line.txt")})
             QVERIFY2(notice->text().contains(expected), qPrintable(notice->text()));
         QVERIFY2(notice->text().contains(QLatin1String("2 requested files could not be attached")), qPrintable(notice->text()));
@@ -842,6 +910,115 @@ private slots:
         QVERIFY2(notice->text().contains(QLatin1String("5 files")), qPrintable(notice->text()));
         composer->close();
         QTRY_VERIFY_WITH_TIMEOUT(!composer, 10000);
+        QCOMPARE(dialogs.passwordPrompts, 0);
+        QVERIFY2(dialogs.errors.isEmpty(), qPrintable(dialogs.errors.join(QLatin1Char('\n'))));
+    }
+
+    /** Files on other computers are fetched through KIO into private copies, with progress and cancellation; failures
+     * are reported and removed, credentials in their URLs are never shown, and the copies go with the composer */
+    void remoteFiles()
+    {
+        bool ok = false;
+        const int port = qEnvironmentVariableIntValue("PLASMA_TEST_IMAPS_PORT", &ok);
+        QVERIFY(ok && port > 0 && port <= 65535);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        Profile profile(directory, port);
+        Dialogs dialogs;
+        while (QPointer<Gui::ComposeWidget> leftover = visibleComposer())
+            delete leftover;
+
+        FileServer server;
+        server.files.insert("/files/report.txt", "Synthetic remote report\n");
+        server.stalledPath = "/files/stalled.bin";
+        QVERIFY(server.listen());
+        const QString credentials = QStringLiteral("alice:hunter2@");
+        const auto showsCredentials = [](const QString &text) {
+            return text.contains(QLatin1String("hunter2")) || text.contains(QLatin1String("alice"));
+        };
+
+        Gui::MainWindow window(&profile.settings);
+        window.resize(1400, 900);
+        window.show();
+        QVERIFY(addIdentity(window));
+        auto *tree = window.findChild<Gui::MailBoxTreeView *>();
+        QVERIFY(tree);
+        QTRY_VERIFY_WITH_TIMEOUT(findMailbox(tree->model(), QStringLiteral("INBOX")).isValid(), 20000);
+        QVERIFY(fetchedCopies().isEmpty());
+
+        // Handed over on the command line, which may name this computer; it is fetched and named
+        IPC::MainWindowBridge bridge(&window);
+        bridge.composeMailWithFiles(QStringLiteral("mailto:carol@example.test?subject=Remote"),
+                                    {server.url(credentials, QStringLiteral("/files/report.txt"))});
+        QPointer<Gui::ComposeWidget> composer;
+        QTRY_VERIFY_WITH_TIMEOUT((composer = visibleComposer()), 10000);
+        auto *handoff = composer->findChild<Gui::InlineNotificationBar *>(QStringLiteral("composerHandoffNotice"));
+        auto *fetching = composer->findChild<Gui::InlineNotificationBar *>(QStringLiteral("composerFetchNotice"));
+        QVERIFY(handoff);
+        QVERIFY(fetching);
+        QVERIFY2(handoff->text().contains(server.url(QString(), QStringLiteral("/files/report.txt"))), qPrintable(handoff->text()));
+        QVERIFY2(!showsCredentials(handoff->text()), qPrintable(handoff->text()));
+        QTRY_COMPARE_WITH_TIMEOUT(attachmentNames(composer), QStringList{QStringLiteral("report.txt")}, 20000);
+        QTRY_COMPARE_WITH_TIMEOUT(fetching->kind(), Gui::InlineNotificationBar::Kind::Info, 5000);
+        QVERIFY(fetching->isVisible());
+        QVERIFY2(fetching->text().contains(QLatin1String("report.txt")), qPrintable(fetching->text()));
+        QVERIFY2(fetching->text().contains(QLatin1String("127.0.0.1")), qPrintable(fetching->text()));
+        QVERIFY2(!showsCredentials(fetching->text()), qPrintable(fetching->text()));
+        auto *view = composer->findChild<QAbstractItemView *>(QStringLiteral("attachmentsView"));
+        QVERIFY(view);
+        const QString tooltip = view->model()->index(0, 0).data(Qt::ToolTipRole).toString();
+        QVERIFY2(tooltip.contains(QLatin1String("127.0.0.1")), qPrintable(tooltip));
+        QVERIFY2(!showsCredentials(tooltip), qPrintable(tooltip));
+        QCOMPARE(fetchedCopies().size(), 1);
+
+        // A web link pasted into the text stays a link
+        auto *text = composer->findChild<QTextEdit *>(QStringLiteral("mailText"));
+        QVERIFY(text);
+        auto *link = new QMimeData;
+        link->setUrls({QUrl(server.url(QString(), QStringLiteral("/files/page.html")))});
+        link->setText(server.url(QString(), QStringLiteral("/files/page.html")));
+        QApplication::clipboard()->setMimeData(link);
+        text->paste();
+        QVERIFY2(text->toPlainText().contains(QLatin1String("/files/page.html")), qPrintable(text->toPlainText()));
+        QCOMPARE(attachmentNames(composer).size(), 1);
+
+        // A missing file is reported and removed; the next one waits for it, then can be cancelled
+        const QList<QUrl> more{QUrl(server.url(credentials, QStringLiteral("/files/missing.txt"))),
+                               QUrl(server.url(QString(), QStringLiteral("/files/stalled.bin")))};
+        QVERIFY(QMetaObject::invokeMethod(composer, "slotAttachFiles", Q_ARG(QList<QUrl>, more)));
+        QTRY_VERIFY_WITH_TIMEOUT(fetching->isBusy() && fetching->text().contains(QLatin1String("stalled.bin")), 20000);
+        QVERIFY2(fetching->text().contains(QLatin1String("2 of 2")), qPrintable(fetching->text()));
+        QCOMPARE(server.requests.count("/files/missing.txt"), 1);
+        QTRY_VERIFY_WITH_TIMEOUT(attachmentNames(composer).size() == 2, 5000);
+        QVERIFY2(attachmentNames(composer).last().contains(QLatin1String("fetching")), qPrintable(attachmentNames(composer).join(u',')));
+
+        // Not sent while a file is missing
+        QVERIFY(QMetaObject::invokeMethod(composer, "send"));
+        QTRY_COMPARE_WITH_TIMEOUT(dialogs.errors.size(), 1, 5000);
+        QVERIFY2(dialogs.errors.first().contains(QLatin1String("fetched")), qPrintable(dialogs.errors.first()));
+        dialogs.errors.clear();
+        QVERIFY(composer);
+
+        auto *cancel = fetching->findChild<QAbstractButton *>(QStringLiteral("cancelRemoteAttachments"));
+        QVERIFY(cancel);
+        cancel->click();
+        QCOMPARE(attachmentNames(composer), QStringList{QStringLiteral("report.txt")});
+        QCOMPARE(fetching->kind(), Gui::InlineNotificationBar::Kind::Error);
+        for (const QString &expected : {QStringLiteral("missing.txt"), QStringLiteral("stalled.bin"), QStringLiteral("cancelled")})
+            QVERIFY2(fetching->text().contains(expected), qPrintable(fetching->text()));
+        QVERIFY2(!showsCredentials(fetching->text()), qPrintable(fetching->text()));
+        QCOMPARE(fetchedCopies().size(), 1);
+
+        // The fetched copy is sent, and goes with the composer
+        QVERIFY(QMetaObject::invokeMethod(composer, "send"));
+        QTRY_VERIFY2_WITH_TIMEOUT(!composer, qPrintable(dialogs.errors.join(QLatin1Char('\n'))), 20000);
+        const QByteArray sent = profile.lastSent();
+        QVERIFY2(sent.contains("filename=report.txt"), sent.constData());
+        QVERIFY2(sent.contains("Synthetic remote report") || sent.contains(QByteArray("Synthetic remote report\n").toBase64()),
+                 sent.constData());
+        QVERIFY2(!sent.contains("hunter2"), sent.constData());
+        QVERIFY2(!sent.contains("stalled.bin"), sent.constData());
+        QTRY_VERIFY_WITH_TIMEOUT(fetchedCopies().isEmpty(), 5000);
         QCOMPARE(dialogs.passwordPrompts, 0);
         QVERIFY2(dialogs.errors.isEmpty(), qPrintable(dialogs.errors.join(QLatin1Char('\n'))));
     }

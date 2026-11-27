@@ -2,16 +2,21 @@
    SPDX-License-Identifier: GPL-2.0-or-later
 */
 
+#include <QBuffer>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTest>
 #include <QUrl>
 #include <QUrlQuery>
 
 #include "test_Composer_AttachmentRequests.h"
+#include "Common/PrivateFiles.h"
 #include "Composer/AttachmentRequests.h"
+#include "Composer/MessageComposer.h"
+#include "Imap/Parser/MailAddress.h"
 
 using namespace Composer::AttachmentRequests;
 
@@ -136,19 +141,100 @@ void ComposerAttachmentRequestsTest::absolutePathsAndFileUrls()
     }
 }
 
-void ComposerAttachmentRequestsTest::refusesRemoteAndRelative_data()
+void ComposerAttachmentRequestsTest::acceptsRemote_data()
 {
     QTest::addColumn<QString>("requested");
     QTest::newRow("sftp") << QStringLiteral("sftp://host.example.org/home/user/file.txt");
     QTest::newRow("https") << QStringLiteral("https://example.org/file.txt");
     QTest::newRow("smb") << QStringLiteral("smb://server/share/file.txt");
+    QTest::newRow("webdavs with port") << QStringLiteral("webdavs://cloud.example.org:8443/remote.php/f%20g.txt");
+    QTest::newRow("upper-case scheme") << QStringLiteral("SFTP://host.example.org/file.txt");
+}
+
+void ComposerAttachmentRequestsTest::acceptsRemote()
+{
+    QFETCH(QString, requested);
+    for (const auto source : {Source::MailtoUrl, Source::CommandLine}) {
+        const Request request = resolve(requested, source);
+        QVERIFY2(request.accepted(), qPrintable(request.problem));
+        QVERIFY(request.path.isEmpty());
+        QCOMPARE(request.remote, QUrl(requested));
+        QCOMPARE(request.requested, requested);
+    }
+}
+
+void ComposerAttachmentRequestsTest::mailtoRemoteRules_data()
+{
+    QTest::addColumn<QString>("requested");
+    QTest::addColumn<bool>("fromCommandLine");
+    // A web page could otherwise reach this computer's own files through a network protocol
+    QTest::newRow("localhost") << QStringLiteral("sftp://localhost/etc/passwd") << true;
+    QTest::newRow("loopback IPv4") << QStringLiteral("http://127.0.0.1:8080/secret.txt") << true;
+    QTest::newRow("loopback IPv6") << QStringLiteral("sftp://[::1]/home/user/file.txt") << true;
+    QTest::newRow("any address") << QStringLiteral("ftp://0.0.0.0/file.txt") << true;
+    QTest::newRow("localhost subdomain") << QStringLiteral("smb://files.localhost/share/file.txt") << true;
+    QTest::newRow("fish to localhost") << QStringLiteral("fish://localhost/home/user/file.txt") << true;
+    // Local KIO places and unknown protocols are not other computers
+    QTest::newRow("trash") << QStringLiteral("trash:/file.txt") << true;
+    QTest::newRow("desktop") << QStringLiteral("desktop:/file.txt") << true;
+    QTest::newRow("unknown") << QStringLiteral("gopher://example.org/file.txt") << true;
+    QTest::newRow("no host") << QStringLiteral("sftp:///home/user/file.txt") << true;
+}
+
+void ComposerAttachmentRequestsTest::mailtoRemoteRules()
+{
+    QFETCH(QString, requested);
+    QFETCH(bool, fromCommandLine);
+    const Request fromUrl = resolve(requested, Source::MailtoUrl);
+    QVERIFY(!fromUrl.accepted());
+    QVERIFY(fromUrl.remote.isEmpty());
+    QVERIFY(fromUrl.path.isEmpty());
+    const Request typed = resolve(requested, Source::CommandLine);
+    QCOMPARE(typed.accepted(), fromCommandLine);
+    QCOMPARE(typed.remote.isEmpty(), !fromCommandLine);
+}
+
+void ComposerAttachmentRequestsTest::notFiles()
+{
+    for (const QString &requested : {QStringLiteral("mailto:someone@example.org"), QStringLiteral("data:text/plain,hello"),
+                                     QStringLiteral("javascript:alert(1)"), QStringLiteral("about:blank"),
+                                     QStringLiteral("cid:part1@example.org"), QStringLiteral("tel:+15551234"),
+                                     QStringLiteral("sftp://host.example.org")}) {
+        for (const auto source : {Source::MailtoUrl, Source::CommandLine}) {
+            const Request request = resolve(requested, source);
+            QVERIFY2(!request.accepted(), qPrintable(requested));
+            QVERIFY(request.remote.isEmpty());
+        }
+        QVERIFY(!isFetchable(QUrl(requested)));
+    }
+    QVERIFY(!isFetchable(QUrl::fromLocalFile(QStringLiteral("/tmp/file.txt"))));
+    QVERIFY(isFetchable(QUrl(QStringLiteral("trash:/file.txt"))));
+}
+
+void ComposerAttachmentRequestsTest::displayUrlHidesCredentials()
+{
+    const QString shown = displayUrl(QUrl(QStringLiteral("sftp://alice:hunter2@host.example.org:2222/docs/a%20b.txt?token=t0ps3cret#part")));
+    QCOMPARE(shown, QStringLiteral("sftp://host.example.org:2222/docs/a b.txt"));
+    for (const char *secret : {"alice", "hunter2", "t0ps3cret", "part"})
+        QVERIFY2(!shown.contains(QLatin1String(secret)), secret);
+    QCOMPARE(displayUrl(QUrl::fromLocalFile(QStringLiteral("/tmp/a b.txt"))), QStringLiteral("/tmp/a b.txt"));
+
+    // Refused requests are reported without them as well
+    const Request refused = resolve(QStringLiteral("sftp://alice:hunter2@localhost/etc/shadow"), Source::MailtoUrl);
+    QVERIFY(!refused.accepted());
+    QVERIFY(!refused.problem.contains(QLatin1String("hunter2")));
+}
+
+void ComposerAttachmentRequestsTest::refusesRelative_data()
+{
+    QTest::addColumn<QString>("requested");
     QTest::newRow("relative") << QStringLiteral("forms/file.txt");
     QTest::newRow("dot relative") << QStringLiteral("./file.txt");
     QTest::newRow("home") << QStringLiteral("~/file.txt");
     QTest::newRow("empty") << QString();
 }
 
-void ComposerAttachmentRequestsTest::refusesRemoteAndRelative()
+void ComposerAttachmentRequestsTest::refusesRelative()
 {
     QFETCH(QString, requested);
     for (const auto source : {Source::MailtoUrl, Source::CommandLine}) {
@@ -272,14 +358,126 @@ void ComposerAttachmentRequestsTest::duplicatesDropped()
     const QString link = m_dir.filePath(QStringLiteral("twice/link.txt"));
     QVERIFY(QFile::link(path, link));
     const QList<Request> resolved = resolveAll({path, QUrl::fromLocalFile(path).toString(), link, other,
-                                                QStringLiteral("sftp://host/file.txt"), QStringLiteral("sftp://host/file.txt")},
+                                                QStringLiteral("sftp://host/file.txt"), QStringLiteral("sftp://host/dir/../file.txt"),
+                                                QStringLiteral("sftp://localhost/file.txt"), QStringLiteral("sftp://localhost/file.txt")},
                                                Source::MailtoUrl);
-    QCOMPARE(resolved.size(), 4);
+    QCOMPARE(resolved.size(), 5);
     QCOMPARE(resolved[0].path, path);
     QCOMPARE(resolved[1].path, other);
+    QCOMPARE(resolved[2].remote, QUrl(QStringLiteral("sftp://host/file.txt")));
     // Refused requests are each reported, as they were asked for
-    QVERIFY(!resolved[2].accepted());
     QVERIFY(!resolved[3].accepted());
+    QVERIFY(!resolved[4].accepted());
+}
+
+namespace {
+
+std::unique_ptr<Composer::MessageComposer> makeComposer()
+{
+    auto composer = std::make_unique<Composer::MessageComposer>(nullptr);
+    composer->setFrom(Imap::Message::MailAddress(QString(), QString(), QStringLiteral("me"), QStringLiteral("example.org")));
+    composer->setSubject(QStringLiteral("files"));
+    composer->setText(QStringLiteral("Attached"));
+    composer->setReportTrojitaVersions(false);
+    return composer;
+}
+
+QByteArray serialize(const Composer::MessageComposer &composer)
+{
+    QByteArray message;
+    QBuffer buffer(&message);
+    buffer.open(QIODevice::WriteOnly);
+    QString error;
+    if (!composer.asRawMessage(&buffer, &error))
+        qWarning() << "Serialization failed:" << error;
+    return message;
+}
+
+}
+
+void ComposerAttachmentRequestsTest::remoteAttachmentCopies()
+{
+    auto composer = makeComposer();
+    QSignalSpy added(composer.get(), &Composer::MessageComposer::remoteFileAttachmentAdded);
+    const QUrl source(QStringLiteral("sftp://alice:hunter2@host.example.org/docs/annual%20report.txt?token=t0ps3cret"));
+    QString error;
+    const QString copy = composer->addRemoteFileAttachment(source, &error);
+    QVERIFY2(!copy.isEmpty(), qPrintable(error));
+    QCOMPARE(added.size(), 1);
+    QCOMPARE(added[0][0].toUrl(), source);
+    QCOMPARE(added[0][1].toString(), copy);
+
+    // A private copy, in a private folder, which the source is never written to
+    const QFileInfo info(copy);
+    QCOMPARE(info.fileName(), QStringLiteral("annual report.txt"));
+    // Each copy has a folder of its own, so that files of the same name do not collide
+    QCOMPARE(QFileInfo(QFileInfo(info.absolutePath()).absolutePath()).canonicalFilePath(),
+             QFileInfo(Common::PrivateFiles::fetchedAttachmentsFolder()).canonicalFilePath());
+    QCOMPARE(info.permissions() & ~(QFileDevice::ReadUser | QFileDevice::WriteUser),
+             QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+    QCOMPARE(QFileInfo(info.absolutePath()).permissions() & (QFileDevice::ReadGroup | QFileDevice::ReadOther
+                                                             | QFileDevice::ExeGroup | QFileDevice::ExeOther),
+             QFileDevice::Permissions());
+
+    // Shown as being fetched, without the credentials of its URL, and not sent before it is complete
+    const QModelIndex index = composer->index(0, 0);
+    QVERIFY(index.data(Qt::DisplayRole).toString().contains(QLatin1String("annual report.txt")));
+    QVERIFY(index.data(Qt::DisplayRole).toString().contains(QLatin1String("fetching")));
+    const QString tooltip = index.data(Qt::ToolTipRole).toString();
+    QVERIFY(tooltip.contains(QLatin1String("host.example.org")));
+    for (const char *secret : {"alice", "hunter2", "t0ps3cret"})
+        QVERIFY2(!tooltip.contains(QLatin1String(secret)), secret);
+    QVERIFY(!composer->isReadyForSerialization());
+
+    {
+        QFile file(copy);
+        QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::ExistingOnly));
+        file.write("fetched content\n");
+    }
+    QSignalSpy changed(composer.get(), &QAbstractItemModel::dataChanged);
+    QVERIFY(composer->setRemoteFileFetched(copy));
+    QCOMPARE(changed.size(), 1);
+    QVERIFY(composer->isReadyForSerialization());
+    QCOMPARE(index.data(Qt::DisplayRole).toString(), QStringLiteral("annual report.txt"));
+    QVERIFY(!index.data(Qt::ToolTipRole).toString().contains(QLatin1String("hunter2")));
+    const QByteArray message = serialize(*composer);
+    QVERIFY(message.contains("annual report.txt") || message.contains("annual%20report.txt"));
+    QVERIFY(message.contains("fetched content") || message.contains(QByteArray("fetched content\n").toBase64()));
+    QVERIFY(!message.contains("hunter2"));
+
+    QVERIFY(!composer->setRemoteFileFetched(copy + QStringLiteral(".other")));
+    composer.reset();
+    QVERIFY(!QFile::exists(copy));
+}
+
+void ComposerAttachmentRequestsTest::remoteAttachmentRemoved()
+{
+    auto composer = makeComposer();
+    QSignalSpy removed(composer.get(), &Composer::MessageComposer::remoteFileAttachmentRemoved);
+    const QString local = makeFile(QStringLiteral("remote/local.txt"));
+    QVERIFY(composer->addFileAttachment(local));
+    const QString first = composer->addRemoteFileAttachment(QUrl(QStringLiteral("smb://server/share/same.txt")));
+    const QString second = composer->addRemoteFileAttachment(QUrl(QStringLiteral("ftp://other.example.org/same.txt")));
+    QVERIFY(!first.isEmpty());
+    QVERIFY(!second.isEmpty());
+    // Files of the same name get copies of their own
+    QVERIFY(first != second);
+    QCOMPARE(composer->rowCount(), 3);
+
+    composer->removeAttachment(composer->index(1, 0));
+    QVERIFY(!QFile::exists(first));
+    QCOMPARE(removed.size(), 1);
+    QCOMPARE(removed[0][0].toString(), first);
+
+    composer->removeRemoteFileAttachment(second);
+    QVERIFY(!QFile::exists(second));
+    QCOMPARE(removed.size(), 2);
+    QCOMPARE(composer->rowCount(), 1);
+
+    // Local files are never removed with their attachment
+    composer->removeAttachment(composer->index(0, 0));
+    QCOMPARE(removed.size(), 2);
+    QVERIFY(QFile::exists(local));
 }
 
 QTEST_GUILESS_MAIN(ComposerAttachmentRequestsTest)
