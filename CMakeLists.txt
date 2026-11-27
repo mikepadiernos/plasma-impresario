@@ -568,6 +568,8 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/ReplaceCharValidator.cpp
     ${path_DesktopGui}/SettingsDialog.cpp
     ${path_DesktopGui}/SettingsGroups.cpp
+    ${path_DesktopGui}/AppearanceManager.cpp
+    ${path_DesktopGui}/AppearanceStyle.cpp
     ${path_DesktopGui}/PlasmaActivities.cpp
     ${path_DesktopGui}/MailTabBar.cpp
     ${path_DesktopGui}/VimMode.cpp
