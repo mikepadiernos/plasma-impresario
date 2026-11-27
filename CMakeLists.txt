@@ -461,6 +461,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/LinkTarget.cpp
     ${path_DesktopGui}/MailBoxTreeView.cpp
     ${path_DesktopGui}/MailboxPickerDialog.cpp
+    ${path_DesktopGui}/RemoteAttachmentFetcher.cpp
     ${path_DesktopGui}/SearchBuilderDialog.cpp
     ${path_DesktopGui}/SavedSearchFolders.cpp
     ${path_DesktopGui}/SearchFoldersDialog.cpp
@@ -804,6 +805,7 @@ target_link_libraries(Composer
         Common
         Imap
     PRIVATE
+        Qt::Network
         MSA
         UiUtils
 )
@@ -1181,7 +1183,7 @@ if(BUILD_TESTING)
         add_executable(test_LiveImapOperations tests/Gui/test_LiveImapOperations.cpp)
         target_link_libraries(test_LiveImapOperations PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_LiveImapSearch tests/Gui/test_LiveImapSearch.cpp)
-        target_link_libraries(test_LiveImapSearch PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Network Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        target_link_libraries(test_LiveImapSearch PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_InlineNotificationBar tests/Gui/test_InlineNotificationBar.cpp)
         target_link_libraries(test_InlineNotificationBar PRIVATE DesktopGui Qt6::Test KF6::I18n)
         add_executable(test_MessageSelectionRestorer tests/Gui/test_MessageSelectionRestorer.cpp)

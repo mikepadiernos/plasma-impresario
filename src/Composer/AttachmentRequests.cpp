@@ -5,6 +5,7 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QHostAddress>
 #include <QFileInfo>
 #include <QSet>
 #include <QUrl>
@@ -49,6 +50,43 @@ bool isSystemPath(const QString &path)
     return false;
 }
 
+/** Network protocols through which a mailto: URL may ask for a file on another computer */
+bool isNetworkScheme(const QString &scheme)
+{
+    static const QStringList schemes{QStringLiteral("sftp"), QStringLiteral("fish"), QStringLiteral("smb"),
+                                     QStringLiteral("ftp"), QStringLiteral("ftps"), QStringLiteral("webdav"),
+                                     QStringLiteral("webdavs"), QStringLiteral("http"), QStringLiteral("https")};
+    return schemes.contains(scheme.toLower());
+}
+
+/** Whether @arg host names this computer, through which a remote protocol could reach its private files */
+bool isThisComputer(const QString &host)
+{
+    const QString name = host.toLower();
+    if (name.isEmpty() || name == QLatin1String("localhost") || name.endsWith(QLatin1String(".localhost"))
+        || name == QLatin1String("localhost.localdomain"))
+        return true;
+    QHostAddress address;
+    if (address.setAddress(name))
+        return address.isLoopback() || address == QHostAddress::AnyIPv4 || address == QHostAddress::AnyIPv6;
+    return false;
+}
+
+}
+
+bool isFetchable(const QUrl &url)
+{
+    if (!url.isValid() || url.isLocalFile() || url.scheme().size() < 2)
+        return false;
+    static const QStringList notFiles{QStringLiteral("mailto"), QStringLiteral("data"), QStringLiteral("javascript"),
+                                      QStringLiteral("about"), QStringLiteral("mid"), QStringLiteral("cid"),
+                                      QStringLiteral("news"), QStringLiteral("tel")};
+    return !notFiles.contains(url.scheme().toLower()) && !url.path().isEmpty();
+}
+
+QString displayUrl(const QUrl &url)
+{
+    return url.toDisplayString(QUrl::RemoveUserInfo | QUrl::RemoveQuery | QUrl::RemoveFragment | QUrl::PreferLocalFile);
 }
 
 QStringList fromMailto(const QUrl &url)
@@ -85,7 +123,15 @@ Request resolve(const QString &requested, const Source source)
         path = url.toLocalFile();
     } else if (url.isValid() && url.scheme().size() > 1) {
         // A single letter would be a Windows drive rather than a scheme
-        request.problem = tr("It is not a local file; files on other computers cannot be attached this way.");
+        if (!isFetchable(url)) {
+            request.problem = tr("It does not name a file.");
+        } else if (source == Source::MailtoUrl && !isNetworkScheme(url.scheme())) {
+            request.problem = tr("A mailto: link may not ask for files through %1:.").arg(url.scheme());
+        } else if (source == Source::MailtoUrl && isThisComputer(url.host())) {
+            request.problem = tr("It names this computer through the network, which a mailto: link may not do.");
+        } else {
+            request.remote = url;
+        }
         return request;
     }
     if (path.isEmpty() || !QDir::isAbsolutePath(path)) {
@@ -133,7 +179,8 @@ QList<Request> resolveAll(const QStringList &requested, const Source source)
     for (const QString &one : requested) {
         Request request = resolve(one, source);
         if (request.accepted()) {
-            const QString key = QFileInfo(request.path).canonicalFilePath();
+            const QString key = request.remote.isEmpty() ? QFileInfo(request.path).canonicalFilePath()
+                                                         : request.remote.adjusted(QUrl::NormalizePathSegments).toString();
             if (seen.contains(key))
                 continue;
             seen.insert(key);

@@ -57,6 +57,17 @@ Returns the number of copies removed.
 */
 int removeOldOpenedAttachments(const QString &folder, const QDateTime &now = QDateTime::currentDateTimeUtc());
 
+/** The folder which holds private copies of files fetched from other computers to be attached, inside the cache of
+the current profile; each is created with createOpenedAttachment() and removed with removeOpenedAttachment() */
+QString fetchedAttachmentsFolder();
+
+/** Remove the copies in @arg folder which were last changed before @arg time, such as those left by a message being
+composed when the application ended unexpectedly
+
+Returns the number of copies removed.
+*/
+int removeCopiesChangedBefore(const QString &folder, const QDateTime &time);
+
 }
 
 }

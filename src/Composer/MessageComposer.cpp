@@ -27,6 +27,8 @@
 #include <QUrl>
 #include <QUuid>
 #include "Common/Application.h"
+#include "Common/PrivateFiles.h"
+#include "Composer/AttachmentRequests.h"
 #include "Composer/ComposerAttachments.h"
 #include "Composer/HeaderSafety.h"
 #include "Imap/Encoders.h"
@@ -171,6 +173,8 @@ bool MessageComposer::dropMimeData(const QMimeData *data, Qt::DropAction action,
                 // Careful here -- we definitely don't want the boolean evaluation shortcuts taking effect!
                 // At the same time, any file being recognized and attached is enough to "satisfy" the drop
                 attached = addFileAttachment(url.path()) || attached;
+            } else if (AttachmentRequests::isFetchable(url)) {
+                attached = !addRemoteFileAttachment(url).isEmpty() || attached;
             }
         }
         return attached;
@@ -782,14 +786,62 @@ bool MessageComposer::addFileAttachment(const QString &path)
     return true;
 }
 
+QString MessageComposer::addRemoteFileAttachment(const QUrl &source, QString *error)
+{
+    const QString folder = Common::PrivateFiles::fetchedAttachmentsFolder();
+    QString name = QUrl::fromPercentEncoding(source.adjusted(QUrl::StripTrailingSlash).fileName().toUtf8());
+    if (name.isEmpty())
+        name = source.host();
+    const QString copy = Common::PrivateFiles::createOpenedAttachment(folder, name, error);
+    if (copy.isEmpty())
+        return {};
+    beginInsertRows(QModelIndex(), m_attachments.size(), m_attachments.size());
+    m_attachments << new RemoteFileAttachmentItem(source, copy, folder);
+    endInsertRows();
+    emit remoteFileAttachmentAdded(source, copy);
+    return copy;
+}
+
+int MessageComposer::remoteFileRow(const QString &localCopy) const
+{
+    for (int row = 0; row < m_attachments.size(); ++row) {
+        const auto *remote = dynamic_cast<const RemoteFileAttachmentItem *>(m_attachments[row]);
+        if (remote && remote->localCopy() == localCopy)
+            return row;
+    }
+    return -1;
+}
+
+bool MessageComposer::setRemoteFileFetched(const QString &localCopy)
+{
+    const int row = remoteFileRow(localCopy);
+    if (row < 0)
+        return false;
+    static_cast<RemoteFileAttachmentItem *>(m_attachments[row])->setFetched();
+    emit dataChanged(index(row), index(row));
+    return true;
+}
+
+void MessageComposer::removeRemoteFileAttachment(const QString &localCopy)
+{
+    const int row = remoteFileRow(localCopy);
+    if (row >= 0)
+        removeAttachment(index(row));
+}
+
 void MessageComposer::removeAttachment(const QModelIndex &index)
 {
     if (!index.isValid() || index.column() != 0 || index.row() < 0 || index.row() >= m_attachments.size())
         return;
 
     beginRemoveRows(QModelIndex(), index.row(), index.row());
-    delete m_attachments.takeAt(index.row());
+    std::unique_ptr<AttachmentItem> removed(m_attachments.takeAt(index.row()));
     endRemoveRows();
+    if (const auto *remote = dynamic_cast<const RemoteFileAttachmentItem *>(removed.get())) {
+        const QString copy = remote->localCopy();
+        removed.reset();
+        emit remoteFileAttachmentRemoved(copy);
+    }
 }
 
 void MessageComposer::setAttachmentName(const QModelIndex &index, const QString &newName)

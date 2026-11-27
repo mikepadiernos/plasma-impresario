@@ -221,5 +221,24 @@ int removeOldOpenedAttachments(const QString &folder, const QDateTime &now)
     return removed;
 }
 
+QString fetchedAttachmentsFolder()
+{
+    return writablePath(LOCATION_CACHE) + QLatin1String("Fetched Attachments");
+}
+
+int removeCopiesChangedBefore(const QString &folder, const QDateTime &time)
+{
+    const QFileInfo folderInfo(folder);
+    if (!folderInfo.isDir() || folderInfo.isSymLink())
+        return 0;
+    int removed = 0;
+    const auto entries = QDir(folder).entryInfoList(QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot);
+    for (const QFileInfo &entry : entries) {
+        if (newestChange(entry) < time && removeEntry(entry))
+            ++removed;
+    }
+    return removed;
+}
+
 }
 }

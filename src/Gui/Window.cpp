@@ -2297,14 +2297,19 @@ void MainWindow::keepPrivateFilesTidy()
     // The paths are looked up here, since looking them up is not thread-safe
     const QString cache = Common::writablePath(Common::LOCATION_CACHE);
     const QString opened = Common::PrivateFiles::openedAttachmentsFolder();
+    const QString fetched = Common::PrivateFiles::fetchedAttachmentsFolder();
+    // Copies fetched for a message being composed before this started were left behind when the application ended
+    // unexpectedly; those of a composer opened meanwhile are newer
+    const QDateTime started = QDateTime::currentDateTimeUtc();
     const bool hasProfile = !qEnvironmentVariableIsEmpty("TROJITA_PROFILE");
-    QThreadPool::globalInstance()->start([cache, opened, hasProfile]() {
+    QThreadPool::globalInstance()->start([cache, opened, fetched, started, hasProfile]() {
         namespace Private = Common::PrivateFiles;
         // A profile's cache is inside the application's, which holds the other profiles' caches
         if (hasProfile && QFileInfo::exists(cache))
             Private::makeFolder(QFileInfo(QDir::cleanPath(cache)).path());
         Private::tighten(cache);
         Private::removeOldOpenedAttachments(opened);
+        Private::removeCopiesChangedBefore(fetched, started);
     });
     // Running in the background can last for days, so the copies of opened attachments are checked every hour
     auto *timer = new QTimer(this);

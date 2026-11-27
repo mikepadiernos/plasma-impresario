@@ -84,13 +84,32 @@ public:
     QModelIndex forwardingMessage() const override;
 
     bool addFileAttachment(const QString &path);
+    /** @short Attach the file at @arg source on another computer, once it has been fetched
+
+    A private, empty local copy is created at once, and the attachment shows in the list, unavailable until
+    setRemoteFileFetched() reports that the copy is complete. remoteFileAttachmentAdded() asks for it to be fetched.
+    Returns the copy's path, or an empty string after setting @arg error.
+    */
+    QString addRemoteFileAttachment(const QUrl &source, QString *error = nullptr);
+    /** @short The local copy at @arg localCopy is complete; returns false when its attachment was removed meanwhile */
+    bool setRemoteFileFetched(const QString &localCopy);
+    /** @short Remove the attachment whose local copy is @arg localCopy, as when fetching it failed or was cancelled */
+    void removeRemoteFileAttachment(const QString &localCopy);
     void removeAttachment(const QModelIndex &index);
     void setAttachmentContentDisposition(const QModelIndex &index, const ContentDisposition disposition);
     void setAttachmentName(const QModelIndex &index, const QString &newName);
 
     void setReportTrojitaVersions(const bool reportVersion);
 
+signals:
+    /** A file on another computer was attached and should be fetched from @arg source into @arg localCopy */
+    void remoteFileAttachmentAdded(const QUrl &source, const QString &localCopy);
+    /** The attachment fetched into @arg localCopy was removed, so fetching it is no longer needed */
+    void remoteFileAttachmentRemoved(const QString &localCopy);
+
 private:
+    int remoteFileRow(const QString &localCopy) const;
+
     static QByteArray encodeHeaderField(const QString &text);
 
     void ensureRandomStrings() const;

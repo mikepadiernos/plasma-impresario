@@ -80,6 +80,7 @@ class InhibitComposerDirtying;
 class ComposerSaveState;
 
 class InlineNotificationBar;
+class RemoteAttachmentFetcher;
 
 /** @short A "Compose New Mail..." dialog
 
@@ -261,6 +262,9 @@ private:
     QLabel *m_accountWarning;
     /** Reports the files another application asked to attach */
     InlineNotificationBar *m_handoffNotice;
+    /** Reports the files being fetched from other computers to be attached */
+    InlineNotificationBar *m_fetchNotice;
+    RemoteAttachmentFetcher *m_remoteFetcher = nullptr;
 
     std::shared_ptr<Composer::AbstractComposer> m_composer;
     Composer::Submission *m_submission;

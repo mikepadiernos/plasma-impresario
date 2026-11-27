@@ -27,6 +27,8 @@
 #include <QMimeDatabase>
 #include <QProcess>
 #include <QUrl>
+#include "Common/PrivateFiles.h"
+#include "Composer/AttachmentRequests.h"
 #include "Composer/HeaderSafety.h"
 #include "Composer/MessageComposer.h"
 #include "Imap/Encoders.h"
@@ -227,6 +229,72 @@ void FileAttachmentItem::preload() const
 void FileAttachmentItem::asDroppableMimeData(QDataStream &stream) const
 {
     stream << ATTACHMENT_FILE << fileName;
+}
+
+RemoteFileAttachmentItem::RemoteFileAttachmentItem(const QUrl &source, const QString &localCopy, const QString &copiesFolder)
+    : FileAttachmentItem(localCopy)
+    , m_source(source)
+    , m_localCopy(localCopy)
+    , m_copiesFolder(copiesFolder)
+{
+}
+
+RemoteFileAttachmentItem::~RemoteFileAttachmentItem()
+{
+    Common::PrivateFiles::removeOpenedAttachment(m_copiesFolder, m_localCopy);
+}
+
+QString RemoteFileAttachmentItem::caption() const
+{
+    if (m_fetched)
+        return FileAttachmentItem::caption();
+    //: Translators: %1 is the name of a file which is still being copied from another computer
+    return MessageComposer::tr("%1 (fetching…)").arg(FileAttachmentItem::caption());
+}
+
+QString RemoteFileAttachmentItem::tooltip() const
+{
+    const QString source = UiUtils::Formatting::htmlEscaped(AttachmentRequests::displayUrl(m_source));
+    if (!m_fetched)
+        return MessageComposer::tr("Fetching from %1").arg(source);
+    //: Translators: %1 describes the local copy of an attachment and %2 is where it was copied from
+    return MessageComposer::tr("%1, from %2").arg(FileAttachmentItem::tooltip(), source);
+}
+
+QByteArray RemoteFileAttachmentItem::mimeType() const
+{
+    // Until it is fetched, the copy is empty and would always look like an empty file
+    return m_fetched ? FileAttachmentItem::mimeType() : QByteArrayLiteral("application/octet-stream");
+}
+
+QSharedPointer<QIODevice> RemoteFileAttachmentItem::rawData() const
+{
+    return m_fetched ? FileAttachmentItem::rawData() : QSharedPointer<QIODevice>();
+}
+
+bool RemoteFileAttachmentItem::isAvailableLocally() const
+{
+    return m_fetched && FileAttachmentItem::isAvailableLocally();
+}
+
+QUrl RemoteFileAttachmentItem::source() const
+{
+    return m_source;
+}
+
+QString RemoteFileAttachmentItem::localCopy() const
+{
+    return m_localCopy;
+}
+
+bool RemoteFileAttachmentItem::isFetched() const
+{
+    return m_fetched;
+}
+
+void RemoteFileAttachmentItem::setFetched()
+{
+    m_fetched = true;
 }
 
 

@@ -70,6 +70,7 @@
 #include "Gui/MessageView.h"
 #include "Gui/OverlayWidget.h"
 #include "Gui/PasswordDialog.h"
+#include "Gui/RemoteAttachmentFetcher.h"
 #include "Gui/ProgressPopUp.h"
 #include "Gui/Util.h"
 #include "Gui/Window.h"
@@ -238,9 +239,16 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
     m_handoffNotice->setAutoHideTimeout(0);
     ui->verticalLayout_2->insertWidget(0, m_handoffNotice);
 
+    m_fetchNotice = new InlineNotificationBar(this);
+    m_fetchNotice->setObjectName(QStringLiteral("composerFetchNotice"));
+    // Names what was fetched and what failed, which is checked before sending
+    m_fetchNotice->setAutoHideTimeout(0);
+    ui->verticalLayout_2->insertWidget(1, m_fetchNotice);
+
     if (interactiveComposer()) {
         interactiveComposer()->setReportTrojitaVersions(m_settings->value(Common::SettingsNames::interopRevealVersions, true).toBool());
         ui->attachmentsView->setComposer(interactiveComposer());
+        m_remoteFetcher = new RemoteAttachmentFetcher(interactiveComposer().get(), m_fetchNotice, this);
     }
 
     sendButton = ui->buttonBox->addButton(tr("Send"), QDialogButtonBox::AcceptRole);
@@ -721,6 +729,15 @@ ComposeWidget *ComposeWidget::createFromUrl(MainWindow *mainWindow, const QUrl &
     return w;
 }
 
+/** A requested file as it may be shown: URLs of other computers lose their user name, password and query */
+static QString shownRequest(const QString &requested)
+{
+    const QUrl url(requested);
+    if (url.isValid() && url.scheme().size() > 1 && !url.isLocalFile())
+        return Composer::AttachmentRequests::displayUrl(url);
+    return requested;
+}
+
 void ComposeWidget::attachRequestedFiles(const QStringList &fromUrl, const QStringList &fromCommandLine)
 {
     using namespace Composer::AttachmentRequests;
@@ -734,7 +751,20 @@ void ComposeWidget::attachRequestedFiles(const QStringList &fromUrl, const QStri
     QStringList refused;
     QSet<QString> seen;
     for (const Request &request : requests) {
-        if (request.accepted()) {
+        if (request.accepted() && !request.remote.isEmpty()) {
+            // Both sources are resolved separately, so the same file may be requested twice
+            const QString key = request.remote.adjusted(QUrl::NormalizePathSegments).toString();
+            if (seen.contains(key))
+                continue;
+            seen.insert(key);
+            QString error;
+            if (!composer->addRemoteFileAttachment(request.remote, &error).isEmpty()) {
+                attached << displayUrl(request.remote);
+                continue;
+            }
+            refused << i18nc("@item %1 is a requested file, %2 why it was not attached", "%1: %2",
+                             displayUrl(request.remote), error);
+        } else if (request.accepted()) {
             const QString key = QFileInfo(request.path).canonicalFilePath();
             if (seen.contains(key))
                 continue;
@@ -746,7 +776,8 @@ void ComposeWidget::attachRequestedFiles(const QStringList &fromUrl, const QStri
             refused << i18nc("@item %1 is a requested file, %2 why it was not attached", "%1: %2", request.requested,
                              i18nc("@info", "It cannot be read."));
         } else {
-            refused << i18nc("@item %1 is a requested file, %2 why it was not attached", "%1: %2", request.requested, request.problem);
+            refused << i18nc("@item %1 is a requested file, %2 why it was not attached", "%1: %2",
+                             shownRequest(request.requested), request.problem);
         }
     }
 
@@ -1141,6 +1172,12 @@ bool ComposeWidget::buildMessageData()
             composer->setReferences(QList<QByteArray>());
             composer->setReplyingToMessage(QModelIndex());
         }
+    }
+
+    if (m_remoteFetcher && m_remoteFetcher->pendingCount() > 0) {
+        gotError(tr("Some attached files are still being fetched from other computers. Send the message once they "
+                    "are fetched, or cancel fetching them."));
+        return false;
     }
 
     if (!m_composer->isReadyForSerialization()) {
@@ -1940,22 +1977,39 @@ bool ComposeWidget::eventFilter(QObject *o, QEvent *e)
 
 void ComposeWidget::slotAskForFileAttachment()
 {
-    static QDir directory = QDir::home();
-    QString fileName = QFileDialog::getOpenFileName(this, tr("Attach File..."), directory.absolutePath(), QString(), nullptr,
-                                                    QFileDialog::DontResolveSymlinks);
-    if (!fileName.isEmpty()) {
-        directory = QFileInfo(fileName).absoluteDir();
-        interactiveComposer()->addFileAttachment(fileName);
-    }
+    static QUrl directory = QUrl::fromLocalFile(QDir::homePath());
+    // KDE's file dialog also browses other computers through KIO; their files are fetched once chosen
+    const QList<QUrl> urls = QFileDialog::getOpenFileUrls(this, tr("Attach File..."), directory, QString(), nullptr,
+                                                          QFileDialog::DontResolveSymlinks);
+    if (urls.isEmpty())
+        return;
+    directory = urls.constFirst().adjusted(QUrl::RemoveFilename);
+    slotAttachFiles(urls);
 }
 
 void ComposeWidget::slotAttachFiles(QList<QUrl> urls)
 {
-    foreach (const QUrl &url, urls) {
-        if (url.isLocalFile()) {
-            interactiveComposer()->addFileAttachment(url.path());
+    using namespace Composer::AttachmentRequests;
+    auto composer = interactiveComposer();
+    if (!composer)
+        return;
+    QStringList refused;
+    for (const QUrl &url : std::as_const(urls)) {
+        // The user chose these, like files named on the command line
+        const Request request = resolve(url.toString(QUrl::FullyEncoded), Source::CommandLine);
+        QString problem = request.problem;
+        if (request.accepted() && !request.remote.isEmpty()) {
+            QString error;
+            if (composer->addRemoteFileAttachment(request.remote, &error).isEmpty())
+                problem = error;
+        } else if (request.accepted() && !composer->addFileAttachment(request.path)) {
+            problem = i18nc("@info", "It cannot be read.");
         }
+        if (!problem.isEmpty())
+            refused << i18nc("@item %1 is a file, %2 why it was not attached", "%1: %2", displayUrl(url), problem);
     }
+    if (!refused.isEmpty())
+        m_remoteFetcher->reportRefused(refused);
 }
 
 void ComposeWidget::slotUpdateSignature()
