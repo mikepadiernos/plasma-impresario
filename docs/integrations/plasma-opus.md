@@ -160,7 +160,13 @@ KRunner provider in M06.01 and search settings in M08. **Find Saved Files…**
 already opens `baloosearch:` and `filenamesearch:` URLs in the default file
 manager, which is Plasma Opus when it is the default; this is not yet tested
 with Plasma Opus. A `mid:` URL or `--message-id` opens a message by its
-Message-ID, which the `.eml` preview can use once it offers that action.
+Message-ID, which the `.eml` preview can use once it offers that action. The
+query syntax follows Plasma Opus M21 where it fits mail and reads its
+`content:`, `contents:` and `tags:`; its parser is built into Plasma Opus
+rather than published, so it is not reused. The
+[README](../../README.md#searching-and-saved-searches) lists the shared and
+mail-only terms. **Find Saved Files…** words its notices as Plasma Opus does,
+saying what File Search is set to index.
 
 - **What:** Find mail-related files with Plasma Opus and Baloo, open a message
   from the Plasma Opus `.eml` preview, and keep search behavior familiar across

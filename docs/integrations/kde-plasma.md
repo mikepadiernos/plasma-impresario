@@ -152,7 +152,8 @@ Mail search and the optional local index are part of
 KRunner provider is part of **M06.01** (see [Plasma Opus search and
 indexing](plasma-opus.md#search-and-indexing)). Today, **Find Saved Files…**
 opens a `baloosearch:` or `filenamesearch:` URL in the default file manager and
-explains, from File Search's settings, whether it indexes the chosen folder.
+explains, from File Search's settings, whether it is set to index the chosen
+folder or a folder inside it.
 
 - **What:** Find saved attachments and exported messages with Plasma's file
   search, and optionally find mail from KRunner (Plasma Search).

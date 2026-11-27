@@ -839,6 +839,13 @@ Plasma session; that check is
   progress with **Stop**, and lists the folders it could not search. Invalid
   IDs are explained without searching
   ([#351](https://github.com/mikepadiernos/plasma-impresario/issues/351)).
+- ![Resolved][resolved] The query syntax follows the advanced search of Plasma
+  Opus where it fits mail, and reads its `content:`, `contents:` and `tags:` as
+  `body:` and `tag:`. **Find Saved Files…** words its notices as Plasma Opus
+  does, saying what File Search is set to index rather than confirming that it
+  has, and searches the index for an indexed folder inside a folder that is not
+  indexed or is excluded. Search needs nothing from Plasma Opus
+  ([#352](https://github.com/mikepadiernos/plasma-impresario/issues/352)).
 - ![Limitation][limitation] The server compares the calendar day in each
   message's Date header, in the sender's time zone, because IMAP's `SENTSINCE`
   and `SENTBEFORE` disregard the time and zone. The list shows local time, so a
@@ -978,6 +985,17 @@ Plasma session; that check is
   message deleted since the last update opens its folder without selecting
   anything or saying why
   ([#351](https://github.com/mikepadiernos/plasma-impresario/issues/351)).
+- ![Limitation][limitation] The query parser of Plasma Opus is built into it
+  rather than published as a library, so the syntax is shared by convention
+  and kept in step by hand. The two differ where mail and files differ: bare
+  words search the chosen mail fields instead of file names; `-` before a
+  parenthesis negates the group here but is a plain minus there; sizes need
+  `<`, `<=`, `>` or `>=` and stop at 4 GB, the IMAP limit; and file fields such
+  as `name:` or `type:` are refused. `Content:` or `Tags:` followed by a space
+  is now read as an empty field rather than as text. Saved searches run as
+  virtual folders when chosen, while Plasma Opus loads them for review first,
+  and neither app reads the other's
+  ([#352](https://github.com/mikepadiernos/plasma-impresario/issues/352)).
 - ![Limitation][limitation] Decrypted text is added only when a message is
   opened and decrypted in the reader with the option on; messages decrypted
   earlier are not added until they are opened again. Inline PGP is indexed as
@@ -1137,6 +1155,11 @@ Plasma session; that check is
 - If a message opened by Message-ID is not found, open its account online and
   answer **Search Servers** again, or turn on the offline search index for the
   account so that later lookups do not need the server.
+- To search for text that reads as a field, such as `Content: draft` or
+  `name:report`, quote it: `"Content:" draft`. For a query that behaves the
+  same in Plasma Opus, keep to the shared terms: words, phrases, operators,
+  `date`, `size` with a comparison, `content:` and `tag:`
+  ([#352](https://github.com/mikepadiernos/plasma-impresario/issues/352)).
 - Leave decrypted indexing off unless the disk is encrypted, and exclude
   folders whose text should not be copied into the index. To free the space
   as well, remove the account, which deletes its cache files, and add it
@@ -1222,6 +1245,11 @@ Plasma session; that check is
   found, search the folders most likely to hold the message first, keep the
   question until it is answered, and report a stale index entry
   ([#351](https://github.com/mikepadiernos/plasma-impresario/issues/351)).
+- Use the Plasma Opus query parser if it is published as a library, accept
+  `size:` and `=` as a size range, share saved searches with Plasma Opus in a
+  common format, and confirm coverage from File Search's index rather than its
+  settings
+  ([#352](https://github.com/mikepadiernos/plasma-impresario/issues/352)).
 
 ## Before reporting results
 
