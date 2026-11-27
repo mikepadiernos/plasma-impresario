@@ -90,7 +90,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | File chooser      | Files are chosen through the XDG portal file chooser, falling back to the KDE dialog, but nothing is checked in a Plasma session or with Plasma Opus; save dialogs still use the KDE dialog, and remote locations in the portal depend on kio-fuse ([details](#portal-file-chooser))                                                                                                                                                                  | [#470](https://github.com/mikepadiernos/plasma-impresario/issues/470)                                                                        |
 | ![Limitation][limitation] | Task manager      | The task manager entry shows the unread messages in every account's INBOX, but nothing is checked in a Plasma session; the tray icon counts other folders, and accounts not yet connected add nothing ([details](#unread-count-on-the-task-manager))                                                                                                                                                                                                  | [#471](https://github.com/mikepadiernos/plasma-impresario/issues/471)                                                                        |
 | ![Limitation][limitation] | Accessibility     | Icons, state colors and contrast follow Plasma's theme and the main controls have accessible names, but nothing is checked with a screen reader, a high-contrast scheme or in a Plasma session, and there are no translations yet ([details](#accessibility-and-theming))                                                                                                                                                                             | [#472](https://github.com/mikepadiernos/plasma-impresario/issues/472)                                                                        |
-| ![Limitation][limitation] | Providers         | The provider guide is untried with real accounts; on Gmail, **Archive** creates an `Archive` label and sent messages are uploaded twice unless set otherwise ([details](#provider-setup-and-gmail))                                                                                                                                                                                                                                                   | [#473](https://github.com/mikepadiernos/plasma-impresario/issues/473)                                                                        |
+| ![Limitation][limitation] | Providers         | The provider guide is untried with real accounts; Gmail labels are read-only chips and still appear as folders ([details](#provider-setup-and-gmail))                                                                                                                                                                                                                                                                                                 | [#473](https://github.com/mikepadiernos/plasma-impresario/issues/473)                                                                        |
 | ![Limitation][limitation] | Security          | Junk comes only from IMAP keywords, the optional ClamAV scan needs a local `clamd` socket and runs only on **Open**, and the reader banner's **Not Junk** does not move mail ([details](#junk-and-attachment-safety))                                                                                                                                                                                                                                 | [#474](https://github.com/mikepadiernos/plasma-impresario/issues/474)                                                                        |
 | ![Limitation][limitation] | Privacy           | The outbound-call check works per file, GnuPG may fetch keys by its own settings, and version details are sent by default ([details](#external-services-and-outbound-calls))                                                                                                                                                                                                                                                                          | [#475](https://github.com/mikepadiernos/plasma-impresario/issues/475)                                                                        |
 | ![Limitation][limitation] | Sleep             | Connections close before sleep and reopen on wake only through logind, without delaying sleep; account notifications close when the app quits, and KDE Online Accounts is not used ([details](#system-sleep-and-account-notifications))                                                                                                                                                                                                               | [#476](https://github.com/mikepadiernos/plasma-impresario/issues/476)                                                                        |
@@ -2080,16 +2080,19 @@ Plasma session; that check is
   servers, sign-in and first steps of the nine built-in providers, OAuth and
   app passwords, the IMAP extensions the client uses, sending options and
   troubleshooting.
-- ![Limitation][limitation] On Gmail, **Archive** moves messages to the folder
-  named by **Archive Folder Name**, or to a folder named `Archive`, which Gmail
-  turns into a new label. Gmail has no `\Archive` folder, and **All Mail** is
-  not used.
-- ![Limitation][limitation] Gmail keeps a copy of every message sent through
-  its SMTP server, so **Save Outgoing Mail**, on by default, uploads each
-  message again.
-- ![Limitation][limitation] Gmail labels appear as folders. A message with
-  several labels appears in each, and removing it from one removes only that
-  label.
+- ![Resolved][resolved] On Gmail, with **Archive Folder Name** empty,
+  **Archive** moves messages to the `\All` folder, **All Mail**, instead of
+  creating an `Archive` label
+  ([#43](https://github.com/mikepadiernos/plasma-impresario/issues/43)).
+- ![Resolved][resolved] Messages sent through `smtp.gmail.com` or
+  `smtp.googlemail.com` are not uploaded to **Sent Mail**, because Gmail keeps
+  its own copy; **Save Outgoing Mail** is shown off and disabled for them.
+- ![Limitation][limitation] An archive folder name stored by an earlier
+  version, usually `Archive`, still wins over **All Mail**.
+- ![Limitation][limitation] Gmail labels still appear as folders. A message
+  with several labels appears in each, and removing it from one removes only
+  that label. The open message shows its other labels as chips, but they are
+  read-only and are fetched only when the message is opened online.
 - ![Limitation][limitation] Only Google and Microsoft offer OAuth; Yahoo,
   iCloud and AOL need app passwords. POP3 and JMAP accounts cannot connect
   yet.
@@ -2099,18 +2102,18 @@ Plasma session; that check is
 
 **Workarounds:**
 
-- For Gmail, set **Archive Folder Name** to `[Gmail]/All Mail` under
-  **Account Settings › IMAP**, and turn off **Save Outgoing Mail** under
-  **Account Settings › SMTP**.
+- For Gmail, clear **Archive Folder Name** under **Account Settings › IMAP**
+  if it still holds `Archive`.
+- To change a message's labels, copy it to or delete it from the label
+  folders.
 - For Yahoo, iCloud and AOL, create an app password.
 - For providers that offer POP3 or JMAP besides IMAP, use IMAP.
 
 **Proposed improvements:**
 
-- Recognize Gmail in provider support
-  ([#43](https://github.com/mikepadiernos/plasma-impresario/issues/43)):
-  archive to `\All`, turn off saving sent copies, and show labels as labels
-  rather than duplicate folders.
+- Edit labels from the chips with `STORE X-GM-LABELS`, and optionally hide
+  label folders from the folder tree
+  ([#43](https://github.com/mikepadiernos/plasma-impresario/issues/43)).
 - Check each built-in provider with a real account in a Plasma 6 session.
 
 ### Junk and attachment safety

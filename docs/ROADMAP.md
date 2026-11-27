@@ -590,7 +590,9 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   Microsoft accounts, Microsoft 365 and Exchange are planned in
   [M13](#m13-microsoft-accounts-and-exchange).
 
-  - [ ] Add provider support for Gmail, Outlook, and other major mail services alongside IMAP [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540857)
+  - [ ] Add provider support for Gmail, Outlook, and other major mail services alongside IMAP. See
+        [Mail providers](integrations/providers.md#gmail).
+        [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540857)
   - [ ] Support POP3 mail retrieval with SMTP submission, secure authentication and transport, and explicit local-storage and server-retention behavior [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314594687)
   - [ ] Support JMAP mail accounts with capability discovery, secure authentication, mailbox and message synchronization, and supported sending options [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314594740)
   - [x] Document provider authentication, capabilities, limitations, and setup for Gmail, Outlook, and generic IMAP/SMTP. See

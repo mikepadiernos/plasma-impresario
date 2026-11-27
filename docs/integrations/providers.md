@@ -37,15 +37,15 @@ Legend: ![Done][done] · ![Needs verification][needs-verification] ·
 
 ## Status
 
-| Area                           | Status                                    | Today                                                                                                                                                                                      | Roadmap                                                                                                                                      |
-| ------------------------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Finding server settings        | ![Needs verification][needs-verification] | **Find Settings** in **Add Account** looks up the servers from the email address ([#372](https://github.com/mikepadiernos/plasma-impresario/issues/372)); not tried against real providers | M06.05                                                                                                                                       |
-| Passwords and app passwords    | ![Done][done]                             | IMAP and SMTP sign in with the account or app password, kept by the password plugin                                                                                                        | —                                                                                                                                            |
-| OAuth for Google and Microsoft | ![Needs verification][needs-verification] | Browser sign-in with PKCE; XOAUTH2 or OAUTHBEARER for IMAP and SMTP ([#218](https://github.com/mikepadiernos/plasma-impresario/issues/218)); no client ID is built in                      | M13.01                                                                                                                                       |
-| Gmail                          | ![Limitation][limitation]                 | Works over IMAP and SMTP; Gmail search keys are offered. Labels appear as folders and **Archive** does not use **All Mail** ([caveat](../CAVEATS.md#provider-setup-and-gmail))             | M06.05 [#43](https://github.com/mikepadiernos/plasma-impresario/issues/43)                                                                   |
-| Outlook.com and Microsoft 365  | ![Needs verification][needs-verification] | IMAP and SMTP with OAuth only; see the [Microsoft guide](microsoft.md)                                                                                                                     | [M13](../ROADMAP.md#m13-microsoft-accounts-and-exchange)                                                                                     |
-| Generic IMAP and SMTP          | ![Done][done]                             | Any server with IMAP4rev1 and SMTP submission; optional extensions are used when offered                                                                                                   | —                                                                                                                                            |
-| POP3 and JMAP                  | ![Planned][planned]                       | The account model knows which actions they support, but they cannot connect yet                                                                                                            | [#216](https://github.com/mikepadiernos/plasma-impresario/issues/216), [#217](https://github.com/mikepadiernos/plasma-impresario/issues/217) |
+| Area                           | Status                                    | Today                                                                                                                                                                                                                                                       | Roadmap                                                                                                                                      |
+| ------------------------------ | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Finding server settings        | ![Needs verification][needs-verification] | **Find Settings** in **Add Account** looks up the servers from the email address ([#372](https://github.com/mikepadiernos/plasma-impresario/issues/372)); not tried against real providers                                                                  | M06.05                                                                                                                                       |
+| Passwords and app passwords    | ![Done][done]                             | IMAP and SMTP sign in with the account or app password, kept by the password plugin                                                                                                                                                                         | —                                                                                                                                            |
+| OAuth for Google and Microsoft | ![Needs verification][needs-verification] | Browser sign-in with PKCE; XOAUTH2 or OAUTHBEARER for IMAP and SMTP ([#218](https://github.com/mikepadiernos/plasma-impresario/issues/218)); no client ID is built in                                                                                       | M13.01                                                                                                                                       |
+| Gmail                          | ![Needs verification][needs-verification] | Works over IMAP and SMTP; Gmail search keys are offered. Labels show as chips on the open message, **Archive** uses **All Mail**, and sent messages are not uploaded twice. Not tried against real Gmail ([caveat](../CAVEATS.md#provider-setup-and-gmail)) | M06.05 [#43](https://github.com/mikepadiernos/plasma-impresario/issues/43)                                                                   |
+| Outlook.com and Microsoft 365  | ![Needs verification][needs-verification] | IMAP and SMTP with OAuth only; see the [Microsoft guide](microsoft.md)                                                                                                                                                                                      | [M13](../ROADMAP.md#m13-microsoft-accounts-and-exchange)                                                                                     |
+| Generic IMAP and SMTP          | ![Done][done]                             | Any server with IMAP4rev1 and SMTP submission; optional extensions are used when offered                                                                                                                                                                    | —                                                                                                                                            |
+| POP3 and JMAP                  | ![Planned][planned]                       | The account model knows which actions they support, but they cannot connect yet                                                                                                                                                                             | [#216](https://github.com/mikepadiernos/plasma-impresario/issues/216), [#217](https://github.com/mikepadiernos/plasma-impresario/issues/217) |
 
 ## Adding an account
 
@@ -133,24 +133,22 @@ The limitations are in [OAuth sign-in](../CAVEATS.md#oauth-sign-in).
 
 ## Gmail
 
-| Topic           | Behavior                                                                                                                                                                                                                  | Status                                    |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| Sign-in         | An app password, with 2-Step Verification on, or Google OAuth with your own client ID                                                                                                                                     | ![Done][done]                             |
-| IMAP access     | Gmail accounts have IMAP on; Google Workspace administrators can turn it off for a domain                                                                                                                                 | ![Done][done]                             |
-| Labels          | Each label is a folder, and a message with several labels appears in each. Removing a message from a label folder removes only that label; it stays in **[Gmail]/All Mail**                                               | ![Limitation][limitation]                 |
-| Special folders | **Sent Mail**, **Drafts**, **Spam**, **Trash** and **All Mail** are recognized from Gmail's special-use attributes                                                                                                        | ![Done][done]                             |
-| Archive         | **Archive** moves messages to **Archive Folder Name** under **Account Settings › IMAP**, or to a folder named `Archive`, which Gmail turns into a new label. Gmail has no `\Archive` folder, and **All Mail** is not used | ![Limitation][limitation]                 |
-| Sent copies     | Gmail keeps a copy of every message sent through `smtp.gmail.com`, so saving a copy to **Sent Mail** uploads it again                                                                                                     | ![Limitation][limitation]                 |
-| Search          | When the server offers `X-GM-EXT-1`, Gmail's own search syntax (`X-GM-RAW`), message and thread IDs, and labels can be searched                                                                                           | ![Done][done]                             |
-| Limits          | Gmail limits IMAP bandwidth and simultaneous connections per account; very large first syncs can be throttled                                                                                                             | ![Needs verification][needs-verification] |
+| Topic           | Behavior                                                                                                                                                                                                                                                                       | Status                                    |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
+| Sign-in         | An app password, with 2-Step Verification on, or Google OAuth with your own client ID                                                                                                                                                                                          | ![Done][done]                             |
+| IMAP access     | Gmail accounts have IMAP on; Google Workspace administrators can turn it off for a domain                                                                                                                                                                                      | ![Done][done]                             |
+| Labels          | Each label is still a folder, and a message with several labels appears in each. The open message shows its other labels as chips beside its tags, read with `X-GM-LABELS`; **Starred**, **Draft** and the current folder's label are left out. The chips cannot change labels | ![Limitation][limitation]                 |
+| Special folders | **Sent Mail**, **Drafts**, **Spam**, **Trash** and **All Mail** are recognized from Gmail's special-use attributes                                                                                                                                                             | ![Done][done]                             |
+| Archive         | With **Archive Folder Name** empty, the default, **Archive** moves messages to the folder Gmail marks `\All`, which is **All Mail** in any interface language; this removes the **Inbox** label without adding another. A name entered in the field still wins                 | ![Done][done]                             |
+| Sent copies     | Gmail keeps a copy of every message sent through `smtp.gmail.com` or `smtp.googlemail.com`, so none is uploaded to **Sent Mail**; **Save Outgoing Mail** is shown off and disabled for these servers                                                                           | ![Done][done]                             |
+| Search          | When the server offers `X-GM-EXT-1`, Gmail's own search syntax (`X-GM-RAW`), message and thread IDs, and labels can be searched                                                                                                                                                | ![Done][done]                             |
+| Limits          | Gmail limits IMAP bandwidth and simultaneous connections per account; very large first syncs can be throttled                                                                                                                                                                  | ![Needs verification][needs-verification] |
 
 **Recommended setup:**
 
-- Under **Account Settings › IMAP**, set **Archive Folder Name** to
-  `[Gmail]/All Mail`, so that **Archive** removes the **Inbox** label without
-  adding another. The folder name depends on the Gmail interface language.
-- Turn off **Save Outgoing Mail** under **Account Settings › SMTP**, to avoid
-  uploading each message twice.
+- Leave **Archive Folder Name** under **Account Settings › IMAP** empty. An
+  account saved by an earlier version may have `Archive` stored there; clear
+  the field so that **Archive** uses **All Mail**.
 - Leave Gmail's **Auto-Expunge** on, the default, so that deleted messages
   leave the label folder at once.
 
@@ -228,24 +226,28 @@ connect yet. Use IMAP for providers that offer both.
 
 ## Troubleshooting
 
-| Problem                                           | Likely cause                                    | What to do                                                                               |
-| ------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Gmail, Yahoo, iCloud or AOL rejects the password  | The provider needs an app password              | Create an app password in the provider's security settings and enter it                  |
-| Outlook.com or Microsoft 365 rejects the password | Microsoft accepts only OAuth                    | Choose OAuth under **Account Settings › IMAP**, enter a client ID and sign in            |
-| **Sign In…** reports that OAuth is not configured | No client ID is built in or entered             | Enter a client ID from your own app registration                                         |
-| OAuth is refused                                  | The cleartext password plugin is in use         | Switch to QtKeychain under **Settings › General › Passwords**                            |
-| GMX or WEB.DE refuses to connect                  | IMAP access is off in the web settings          | Turn on IMAP access in the provider's web settings                                       |
-| Microsoft 365 connects but cannot send            | The tenant turned off authenticated SMTP        | Ask the administrator to allow SMTP AUTH for the mailbox                                 |
-| **Archive** in Gmail creates an `Archive` label   | No archive folder is set                        | Set **Archive Folder Name** to `[Gmail]/All Mail`                                        |
-| Every sent Gmail message is uploaded twice        | Saving to the server and Gmail both keep a copy | Turn off **Save Outgoing Mail** under **Account Settings › SMTP**                        |
-| The server misbehaves after connecting            | An extension is advertised but broken           | Add it to the **Extension Blacklist** and reconnect; the protocol log shows the exchange |
+| Problem                                           | Likely cause                                     | What to do                                                                               |
+| ------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Gmail, Yahoo, iCloud or AOL rejects the password  | The provider needs an app password               | Create an app password in the provider's security settings and enter it                  |
+| Outlook.com or Microsoft 365 rejects the password | Microsoft accepts only OAuth                     | Choose OAuth under **Account Settings › IMAP**, enter a client ID and sign in            |
+| **Sign In…** reports that OAuth is not configured | No client ID is built in or entered              | Enter a client ID from your own app registration                                         |
+| OAuth is refused                                  | The cleartext password plugin is in use          | Switch to QtKeychain under **Settings › General › Passwords**                            |
+| GMX or WEB.DE refuses to connect                  | IMAP access is off in the web settings           | Turn on IMAP access in the provider's web settings                                       |
+| Microsoft 365 connects but cannot send            | The tenant turned off authenticated SMTP         | Ask the administrator to allow SMTP AUTH for the mailbox                                 |
+| **Archive** in Gmail creates an `Archive` label   | An archive folder name is stored for the account | Clear **Archive Folder Name** under **Account Settings › IMAP**                          |
+| The server misbehaves after connecting            | An extension is advertised but broken            | Add it to the **Extension Blacklist** and reconnect; the protocol log shows the exchange |
 
 ## Verification
 
 - **Offscreen tests:** `test_ServerDiscovery` covers the built-in providers,
   autoconfig, ISPDB, SRV, MX and guessed servers with a fake network;
   `test_OAuth` covers the requests, token parsing, grants and error messages;
-  `test_AccountCapabilities` covers the actions of each protocol.
+  `test_AccountCapabilities` covers the actions of each protocol. For Gmail,
+  `test_SpecialFolder` covers archiving to **All Mail**,
+  `test_Imap_Parser_parse` and `test_Imap_CopyAndFlagOperations` cover reading
+  labels, `test_TagListWidget` covers the chips, and
+  `test_AccountSettingsDialog` covers the Sent and archive settings. Dovecot
+  has no `X-GM-EXT-1`, so these run against a scripted server.
 - **Live tests:** the Dovecot accounts in `tools/dev-container` cover generic
   IMAP and SMTP with passwords.
 - **Not yet tried:** real Gmail, Outlook.com, Microsoft 365, Yahoo, iCloud,

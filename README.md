@@ -277,8 +277,9 @@ the disposable server, and `test_LiveImapPanels` the keyboard row.
   [Server settings discovery](docs/CAVEATS.md#server-settings-discovery).
 - [Mail providers](docs/integrations/providers.md) explains how Gmail,
   Outlook.com, Microsoft 365, the other built-in providers and any IMAP and
-  SMTP server sign in, which server features are used, and what to set for
-  Gmail. See [Provider setup and Gmail](docs/CAVEATS.md#provider-setup-and-gmail).
+  SMTP server sign in and which server features are used. On Gmail,
+  **Archive** uses **All Mail**, sent messages are not uploaded twice, and the
+  open message shows its labels. See [Provider setup and Gmail](docs/CAVEATS.md#provider-setup-and-gmail).
 - Removing an account deletes its settings, stored passwords and offline
   cache, but not any mail on the server.
 - All accounts connect at startup. An account with a network error, a missing
