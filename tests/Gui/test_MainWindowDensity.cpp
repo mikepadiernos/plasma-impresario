@@ -300,13 +300,13 @@ private slots:
                  qPrintable(QStringLiteral("%1 instead of %2").arg(rightColumn->sizes().at(detailsIndex)).arg(rememberedDetailsHeight)));
 #endif
 
-        const QByteArray initialProfile = qgetenv("TROJITA_PROFILE");
-        qputenv("TROJITA_PROFILE", "different-profile");
+        const QByteArray initialProfile = qgetenv("PLASMA_IMPRESARIO_PROFILE");
+        qputenv("PLASMA_IMPRESARIO_PROFILE", "different-profile");
         auto *composer = Gui::ComposeWidget::createBlank(&window);
         if (initialProfile.isEmpty())
-            qunsetenv("TROJITA_PROFILE");
+            qunsetenv("PLASMA_IMPRESARIO_PROFILE");
         else
-            qputenv("TROJITA_PROFILE", initialProfile);
+            qputenv("PLASMA_IMPRESARIO_PROFILE", initialProfile);
         QVERIFY(composer);
         auto *submission = composer->findChild<Composer::Submission *>();
         QVERIFY(submission);
@@ -344,7 +344,7 @@ int main(int argc, char **argv)
     qputenv("XDG_DATA_HOME", home.filePath(QStringLiteral("data")).toUtf8());
     qputenv("XDG_CACHE_HOME", home.filePath(QStringLiteral("cache")).toUtf8());
     qputenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent/plasma-impresario-test");
-    qputenv("TROJITA_PROFILE", qgetenv("PLASMA_TEST_PROFILE") == "named" ? QByteArray("work-profile") : QByteArray());
+    qputenv("PLASMA_IMPRESARIO_PROFILE", qgetenv("PLASMA_TEST_PROFILE") == "named" ? QByteArray("work-profile") : QByteArray());
     QStandardPaths::setTestModeEnabled(true);
 #ifdef IMPRESARIO_HAVE_WEBENGINE
     Gui::WebEngineMessageProfile::registerScheme();

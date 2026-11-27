@@ -2535,7 +2535,7 @@ void MainWindow::keepPrivateFilesTidy()
     // Copies fetched for a message being composed before this started were left behind when the application ended
     // unexpectedly; those of a composer opened meanwhile are newer
     const QDateTime started = QDateTime::currentDateTimeUtc();
-    const bool hasProfile = !qEnvironmentVariableIsEmpty("TROJITA_PROFILE");
+    const bool hasProfile = !Common::Application::profileName().isEmpty();
     QThreadPool::globalInstance()->start([cache, opened, fetched, started, hasProfile]() {
         namespace Private = Common::PrivateFiles;
         // A profile's cache is inside the application's, which holds the other profiles' caches
@@ -2581,7 +2581,7 @@ void MainWindow::handleTrayIconChange()
     auto pixmap = qApp->windowIcon()
                 .pixmap(QSize(32, 32), isOffline ? QIcon::Disabled : QIcon::Normal);
     QString tooltip;
-    auto profileName = QString::fromUtf8(qgetenv("TROJITA_PROFILE"));
+    auto profileName = Common::Application::profileName();
     if (profileName.isEmpty()) {
         tooltip = QStringLiteral("Plasma Impresario");
     } else {
@@ -4672,7 +4672,7 @@ Imap::ImapAccess *MainWindow::accountAccess(const QString &accountId)
         return existing;
     // The migrated account keeps the profile name so its stored passwords and cache stay reachable.
     const QString name = accountId == m_settings->value(legacyAccountKey).toString()
-        ? QString::fromUtf8(qgetenv("TROJITA_PROFILE")) : accountId;
+        ? Common::Application::profileName() : accountId;
     auto *access = new Imap::ImapAccess(this, m_accounts->settings(accountId), m_pluginManager, name, m_settings);
     connect(access, &Imap::ImapAccess::cacheError, this, &MainWindow::cacheError);
     // Folders chosen for saved searches are only known to be gone once their account's folders were listed
@@ -4715,7 +4715,7 @@ QString MainWindow::savedSearchOwner(const QString &accountId) const
     // As ImapAccess::credentialAccountId(), without creating the access of an account which is not running
     if (accountId != m_settings->value(legacyAccountKey).toString())
         return accountId;
-    const QString profile = QString::fromUtf8(qgetenv("TROJITA_PROFILE"));
+    const QString profile = Common::Application::profileName();
     return profile.isEmpty() ? QStringLiteral("account-0") : profile;
 }
 
@@ -9161,7 +9161,7 @@ QSize MainWindow::sizeHint() const
 void MainWindow::slotUpdateWindowTitle()
 {
     QModelIndex mailbox = qobject_cast<Imap::Mailbox::MsgListModel *>(m_imapAccess->msgListModel())->currentMailbox();
-    QString profileName = QString::fromUtf8(qgetenv("TROJITA_PROFILE"));
+    QString profileName = Common::Application::profileName();
     if (!profileName.isEmpty())
         profileName = QLatin1String(" [") + profileName + QLatin1Char(']');
     if (m_accounts->accountIds().size() > 1)

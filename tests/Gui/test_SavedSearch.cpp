@@ -1224,7 +1224,7 @@ private slots:
             QCOMPARE(widget.searchHistory(), remembered);
 
             // Other profiles have their own history
-            qputenv("TROJITA_PROFILE", "work");
+            qputenv("PLASMA_IMPRESARIO_PROFILE", "work");
             {
                 Gui::MessageListWidget work(nullptr, &tags, QStringLiteral("account-h"));
                 QStandardItemModel workModel;
@@ -1232,7 +1232,7 @@ private slots:
                 QVERIFY(work.searchHistory().isEmpty());
                 run(work, QStringLiteral("budget"));
             }
-            qunsetenv("TROJITA_PROFILE");
+            qunsetenv("PLASMA_IMPRESARIO_PROFILE");
             QCOMPARE(history.readEntry("work", QStringList()), QStringList{QStringLiteral("budget")});
             QCOMPARE(history.readEntry("default", QStringList()), remembered);
 
@@ -1267,12 +1267,12 @@ private slots:
             QCOMPARE(widget.searchHistory(), QStringList{QStringLiteral("invoice")});
             widget.findChild<QAction *>(QStringLiteral("clearSearchHistory"))->trigger();
         }
-        qputenv("TROJITA_PROFILE", "work");
+        qputenv("PLASMA_IMPRESARIO_PROFILE", "work");
         {
             Gui::MessageListWidget work(nullptr, &tags, QStringLiteral("account-h"));
             work.findChild<QAction *>(QStringLiteral("clearSearchHistory"))->trigger();
         }
-        qunsetenv("TROJITA_PROFILE");
+        qunsetenv("PLASMA_IMPRESARIO_PROFILE");
         QVERIFY(history.keyList().isEmpty());
     }
 

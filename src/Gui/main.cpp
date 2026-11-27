@@ -208,19 +208,8 @@ int main(int argc, char **argv)
     // Toolbar menu markers, dividers and the other appearance options are drawn by this style
     Gui::AppearanceStyle::ensureInstalled();
 
-    // Hack: support multiple "profiles"
-    if (!profileName.isEmpty()) {
-        // We are abusing the env vars here. Yes, it's a hidden global. Yes, it's ugly.
-        // Take it or leave it, this is a time-limited hack.
-        // The env var is also in UTF-8. I like UTF-8.
-        qputenv("TROJITA_PROFILE", profileName.toUtf8());
-    } else {
-#ifndef Q_OS_WIN32
-        unsetenv("TROJITA_PROFILE");
-#else
-        putenv("TROJITA_PROFILE=");
-#endif
-    }
+    // Settings, the cache and helper processes all follow the chosen profile
+    Common::Application::setProfileName(profileName);
 
     if (IPC::Instance::isRunning()) {
         IPC::Instance::handOverActivationToken(activationToken);

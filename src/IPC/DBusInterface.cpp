@@ -28,6 +28,7 @@
 
 #include <KSharedConfig>
 
+#include "Common/Application.h"
 #include "Gui/Window.h"
 #include "KRunnerBridge.h"
 #include "MailStatusBridge.h"
@@ -43,7 +44,7 @@ static constexpr QLatin1StringView path("/Trojita");
 QString service()
 {
     QString str = QStringLiteral("net.flaska.trojita");
-    QString profileName = QString::fromUtf8(qgetenv("TROJITA_PROFILE"));
+    QString profileName = Common::Application::profileName();
     return profileName.isEmpty() ? str : str + QLatin1Char('-') + profileName;
 }
 }

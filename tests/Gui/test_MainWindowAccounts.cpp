@@ -491,7 +491,7 @@ private slots:
         QVERIFY(panel->isHidden());
 
         // The migrated first account keeps the profile's key; searches of removed accounts stay to be moved or deleted
-        const QByteArray profile = qgetenv("TROJITA_PROFILE");
+        const QByteArray profile = qgetenv("PLASMA_IMPRESARIO_PROFILE");
         const QString workKey = profile.isEmpty() ? QStringLiteral("account-0") : QString::fromUtf8(profile);
         KConfigGroup alerts = searches.group(workKey).group(QStringLiteral("alerts"));
         alerts.writeEntry("Name", QStringLiteral("Alerts"));
@@ -591,7 +591,7 @@ private slots:
         searches.deleteGroup();
         KConfigGroup counts(KSharedConfig::openStateConfig(), QStringLiteral("SavedSearchCounts"));
         counts.deleteGroup();
-        const QByteArray profile = qgetenv("TROJITA_PROFILE");
+        const QByteArray profile = qgetenv("PLASMA_IMPRESARIO_PROFILE");
         const QString workKey = profile.isEmpty() ? QStringLiteral("account-0") : QString::fromUtf8(profile);
         const auto store = [&searches](const QString &owner, const QString &id, const QString &name,
                                        const QString &places = QString(), const QStringList &folders = {}) {
@@ -2839,7 +2839,7 @@ int main(int argc, char **argv)
     qputenv("XDG_DATA_HOME", home.filePath(QStringLiteral("data")).toUtf8());
     qputenv("XDG_CACHE_HOME", home.filePath(QStringLiteral("cache")).toUtf8());
     qputenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent/plasma-impresario-test");
-    qunsetenv("TROJITA_PROFILE");
+    qunsetenv("PLASMA_IMPRESARIO_PROFILE");
     QStandardPaths::setTestModeEnabled(true);
 #ifdef IMPRESARIO_HAVE_WEBENGINE
     Gui::WebEngineMessageProfile::registerScheme();

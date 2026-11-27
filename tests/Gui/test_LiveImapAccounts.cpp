@@ -686,7 +686,7 @@ int main(int argc, char **argv)
     qputenv("XDG_DATA_HOME", (homePath + QStringLiteral("/data")).toUtf8());
     qputenv("XDG_CACHE_HOME", (homePath + QStringLiteral("/cache")).toUtf8());
     qputenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent/plasma-impresario-live-test");
-    qunsetenv("TROJITA_PROFILE");
+    qunsetenv("PLASMA_IMPRESARIO_PROFILE");
     QStandardPaths::setTestModeEnabled(true);
 #ifdef IMPRESARIO_HAVE_WEBENGINE
     Gui::WebEngineMessageProfile::registerScheme();

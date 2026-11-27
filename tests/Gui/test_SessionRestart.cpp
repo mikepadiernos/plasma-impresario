@@ -67,7 +67,7 @@ private slots:
             env.insert(QStringLiteral("DBUS_SESSION_BUS_ADDRESS"), QStringLiteral("unix:path=/nonexistent/plasma-restart-test"));
             env.insert(QStringLiteral("PLASMA_TEST_RESTART_PHASE"), phase);
             env.insert(QStringLiteral("PLASMA_TEST_RESTART_LAYOUT"), layout);
-            env.remove(QStringLiteral("TROJITA_PROFILE"));
+            env.remove(QStringLiteral("PLASMA_IMPRESARIO_PROFILE"));
             child.setProcessEnvironment(env);
             child.start(QCoreApplication::applicationFilePath());
             QVERIFY(child.waitForStarted());

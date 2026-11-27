@@ -52,6 +52,7 @@
 #include <QUuid>
 #include <QVBoxLayout>
 #include <QWidgetAction>
+#include "Common/Application.h"
 #include "FlowLayout.h"
 #include "InlineNotificationBar.h"
 #include "LineEdit.h"
@@ -157,7 +158,7 @@ KConfigGroup searchHistoryGroup()
 
 QString searchHistoryKey()
 {
-    return UiUtils::SearchHistory::profileKey(QString::fromUtf8(qgetenv("TROJITA_PROFILE")));
+    return UiUtils::SearchHistory::profileKey(Common::Application::profileName());
 }
 
 QString dateRangeText(const DateRange &range)
