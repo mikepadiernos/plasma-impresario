@@ -23,7 +23,9 @@ Passwords go through a password plugin: QtKeychain
 (`src/Plugins/ClearTextPassword`); which one a given build selects was not
 checked for this plan. Remote content in a message stays blocked until the
 user chooses **Load Remote Content**, and the message list offers **Mark as
-Junk** and **Mark as Not Junk**. No ClamAV integration exists in `src/` yet.
+Junk** and **Mark as Not Junk**. **Open** can first scan an attachment
+with the local ClamAV daemon, and **Mark as Junk** can move mail to the Junk
+folder; both are off by default.
 Known limitations are tracked in
 [Caveats: security and data protection](../CAVEATS.md#security-and-data-protection).
 A real Plasma session has not been verified.

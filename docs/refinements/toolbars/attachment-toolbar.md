@@ -42,21 +42,21 @@ clarity.
 
 The Availability column names where an equivalent action exists today.
 
-| Action                 | Shortcut | Availability                                            | Notes                                              |
-| ---------------------- | -------- | ------------------------------------------------------- | -------------------------------------------------- |
-| Open                   | —        | ![Exists][exists] Attachments panel header              | **Open Attachment**                                |
-| Save as                | —        | ![Exists][exists] Attachments panel header              | **Save Attachment As…**                            |
-| Preview                | —        | ![Exists][exists] Inline attachment menu                | **Show Preview** for previewable types             |
-| Download               | —        | ![Exists][exists] Inline attachment menu                | **Download**                                       |
-| Open with              | —        | ![Planned][planned]                                     |                                                    |
-| Add attachment         | —        | ![Exists][exists] Composer **Attach…** button           | Files dropped on the message text are attached too |
-| Remove attachment      | —        | ![Exists][exists] Composer attachment list context menu | **Remove**                                         |
-| Rename attachment      | —        | ![Exists][exists] Composer attachment list context menu | **Rename…**                                        |
-| Inspect security state | —        | ![Planned][planned]                                     |                                                    |
-| Save all attachments   | —        | ![Planned][planned]                                     |                                                    |
-| Share                  | —        | ![Planned][planned]                                     |                                                    |
-| Show in file manager   | —        | ![Planned][planned]                                     |                                                    |
-| Scan with ClamAV       | —        | ![Planned][planned]                                     | No ClamAV integration exists in `src/`             |
+| Action                 | Shortcut | Availability                                            | Notes                                                             |
+| ---------------------- | -------- | ------------------------------------------------------- | ----------------------------------------------------------------- |
+| Open                   | —        | ![Exists][exists] Attachments panel header              | **Open Attachment**                                               |
+| Save as                | —        | ![Exists][exists] Attachments panel header              | **Save Attachment As…**                                           |
+| Preview                | —        | ![Exists][exists] Inline attachment menu                | **Show Preview** for previewable types                            |
+| Download               | —        | ![Exists][exists] Inline attachment menu                | **Download**                                                      |
+| Open with              | —        | ![Planned][planned]                                     |                                                                   |
+| Add attachment         | —        | ![Exists][exists] Composer **Attach…** button           | Files dropped on the message text are attached too                |
+| Remove attachment      | —        | ![Exists][exists] Composer attachment list context menu | **Remove**                                                        |
+| Rename attachment      | —        | ![Exists][exists] Composer attachment list context menu | **Rename…**                                                       |
+| Inspect security state | —        | ![Planned][planned]                                     |                                                                   |
+| Save all attachments   | —        | ![Planned][planned]                                     |                                                                   |
+| Share                  | —        | ![Planned][planned]                                     |                                                                   |
+| Show in file manager   | —        | ![Planned][planned]                                     |                                                                   |
+| Scan with ClamAV       | —        | ![Planned][planned]                                     | **Open** scans when turned on in the settings; no separate action |
 
 ## Current toolbar
 

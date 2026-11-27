@@ -383,12 +383,12 @@ Defined in **M06.01**
   [External services](external-services.md); `test_ExternalExposure` keeps
   its register in step with the sources.
 
-| Layer            | Libraries                                                                                                                                            | May use                                                                              |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Mail core        | `Common`, `AppVersion`, `Imap`, `Streams`, `Composer`, `MSA`, `qwwsmtpclient`, `Cryptography`, `OAuth`, `Plugins` (interfaces), `UiUtils`            | Qt, the MIME and GnuPG libraries, KItemModels, and KFileMetaData for attachment text |
-| Desktop services | `DesktopServices`: background running, saved searches, Plasma Search, file search, delete and confirmation settings, and the Akonadi calendar source | KConfig and Akonadi, in addition to the core                                         |
-| Integration      | `IPC` (D-Bus, KRunner), `DesktopGui` (windows, KIO, KNotifications, KWindowSystem), the message renderer                                             | Any KDE Framework the feature needs                                                  |
-| Plugins          | Address books (Akonadi, abook), passwords (QtKeychain, cleartext), spell checking (Sonnet)                                                           | The service they wrap, loaded through the plugin interfaces                          |
+| Layer            | Libraries                                                                                                                                                                  | May use                                                                              |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Mail core        | `Common`, `AppVersion`, `Imap`, `Streams`, `Composer`, `MSA`, `qwwsmtpclient`, `Cryptography`, `OAuth`, `Plugins` (interfaces), `UiUtils`                                  | Qt, the MIME and GnuPG libraries, KItemModels, and KFileMetaData for attachment text |
+| Desktop services | `DesktopServices`: background running, saved searches, Plasma Search, file search, delete and confirmation settings, mail safety settings, and the Akonadi calendar source | KConfig and Akonadi, in addition to the core                                         |
+| Integration      | `IPC` (D-Bus, KRunner), `DesktopGui` (windows, KIO, KNotifications, KWindowSystem), the message renderer                                                                   | Any KDE Framework the feature needs                                                  |
+| Plugins          | Address books (Akonadi, abook), passwords (QtKeychain, cleartext), spell checking (Sonnet)                                                                                 | The service they wrap, loaded through the plugin interfaces                          |
 
 ## KDE services in use
 

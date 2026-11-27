@@ -90,7 +90,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Task manager      | The task manager entry shows the unread messages in every account's INBOX, but nothing is checked in a Plasma session; the tray icon counts other folders, and accounts not yet connected add nothing ([details](#unread-count-on-the-task-manager))                                                                                                                                                                                                  | [#471](https://github.com/mikepadiernos/plasma-impresario/issues/471)                                                                        |
 | ![Limitation][limitation] | Accessibility     | Icons, state colors and contrast follow Plasma's theme and the main controls have accessible names, but nothing is checked with a screen reader, a high-contrast scheme or in a Plasma session, and there are no translations yet ([details](#accessibility-and-theming))                                                                                                                                                                             | [#472](https://github.com/mikepadiernos/plasma-impresario/issues/472)                                                                        |
 | ![Limitation][limitation] | Providers         | The provider guide is untried with real accounts; on Gmail, **Archive** creates an `Archive` label and sent messages are uploaded twice unless set otherwise ([details](#provider-setup-and-gmail))                                                                                                                                                                                                                                                   | [#473](https://github.com/mikepadiernos/plasma-impresario/issues/473)                                                                        |
-| ![Limitation][limitation] | Security          | Junk comes only from IMAP keywords, **Mark as Junk** does not move mail, no virus scanner is connected, and only **Open** asks first ([details](#junk-and-attachment-safety))                                                                                                                                                                                                                                                                         | [#474](https://github.com/mikepadiernos/plasma-impresario/issues/474)                                                                        |
+| ![Limitation][limitation] | Security          | Junk comes only from IMAP keywords, the optional ClamAV scan needs a local `clamd` socket and runs only on **Open**, and the reader banner's **Not Junk** does not move mail ([details](#junk-and-attachment-safety))                                                                                                                                                                                                                                 | [#474](https://github.com/mikepadiernos/plasma-impresario/issues/474)                                                                        |
 | ![Limitation][limitation] | Privacy           | The outbound-call check works per file, GnuPG may fetch keys by its own settings, and version details are sent by default ([details](#external-services-and-outbound-calls))                                                                                                                                                                                                                                                                          | [#475](https://github.com/mikepadiernos/plasma-impresario/issues/475)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
@@ -2113,9 +2113,9 @@ Plasma session; that check is
 
 ### Junk and attachment safety
 
-| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                   |
-| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| [#474](https://github.com/mikepadiernos/plasma-impresario/issues/474) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/474#issuecomment-7214741902) | Junk verdicts and attachment opening ([#105](https://github.com/mikepadiernos/plasma-impresario/issues/105)) |
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                 |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#474](https://github.com/mikepadiernos/plasma-impresario/issues/474) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/474#issuecomment-7214741902) | Junk verdicts and attachment opening ([#105](https://github.com/mikepadiernos/plasma-impresario/issues/105)), and the ClamAV and spam-handling hooks ([#44](https://github.com/mikepadiernos/plasma-impresario/issues/44)) |
 
 **Current behavior:**
 
@@ -2134,12 +2134,30 @@ Plasma session; that check is
 - ![Limitation][limitation] The verdict comes only from IMAP keywords. Spam
   headers such as `X-Spam-Status` are not read, so mail that the server files
   into the Junk folder without a keyword is not marked.
-- ![Limitation][limitation] **Mark as Junk** and **Not Junk** change only
-  keywords; neither moves the message into or out of the Junk folder.
-- ![Limitation][limitation] No virus scanner is connected yet, so every
-  attachment is "not scanned".
-- ![Limitation][limitation] Only **Open** asks first. Saving or dragging an
-  attachment of junk mail does not.
+- ![Resolved][resolved] With **Scan attachments with ClamAV before opening
+  them** turned on under **Settings › General**, **Open** streams the
+  downloaded copy to the local `clamd` before another application receives
+  it. A threat blocks opening and names the signature. A `clamd` that cannot
+  be reached, an error reply such as its stream size limit, or no answer
+  within a minute asks first. Scanning is off by default.
+- ![Resolved][resolved] With **Move messages marked as junk to the Junk
+  folder** turned on, **Mark as Junk** also moves the message to the
+  account's Junk folder, and **Mark as Not Junk** on a message in the Junk
+  folder moves it to the inbox, so a spam filter on the server can learn from
+  the move. Moving is off by default.
+- ![Limitation][limitation] Only a `clamd` Unix socket is supported. It is
+  found at the usual distribution paths, or set as `ClamdSocket` in the
+  `[MailSafety]` group of `plasma-impresariorc`; there is no setting for it in
+  the dialog. A `clamd` over TCP and `clamscan` are not used.
+- ![Limitation][limitation] The scan was checked against a real `clamd` with a
+  test signature only, not with ClamAV's own signatures or in a Plasma
+  session. A busy cursor is the only sign of a running scan.
+- ![Limitation][limitation] Only **Open** asks first and scans. Saving or
+  dragging an attachment does neither, and there is no separate **Scan**
+  action.
+- ![Limitation][limitation] The reader banner's **Not Junk** button changes
+  only keywords. Mail selected from several folders, accounts without a Junk
+  folder, and **Not Junk** outside the Junk folder are not moved.
 - ![Limitation][limitation] With column rows, the junk mark replaces the
   replied and forwarded icon in the subject column. Closing the reader's junk
   banner hides it until another message is shown.
@@ -2148,18 +2166,23 @@ Plasma session; that check is
 
 - Let the server's spam filter set `$Junk`, for example Dovecot with Rspamd
   or SpamAssassin and a Sieve `addflag`, so its verdict reaches the reader.
-- To file junk away, use **Move to** after **Mark as Junk**.
-- Save suspicious attachments and scan them with ClamAV (`clamscan`) before
-  opening them.
+- To move mail as well, use **Mark as Not Junk** from the toolbar or menu
+  instead of the reader banner, or use **Move to**.
+- Scan saved attachments with `clamscan` before opening them.
+- For a `clamd` that listens only on TCP, add a `LocalSocket` to its
+  `clamd.conf`, or set `ClamdSocket` to the socket it uses.
 
 **Proposed improvements:**
 
-- Scan with a local `clamd` before an attachment opens, and optionally move
-  junk to the Junk folder
-  ([#44](https://github.com/mikepadiernos/plasma-impresario/issues/44)).
 - Read the server's spam headers when they are cached, and treat mail in the
   Junk folder as junk.
-- Ask before saving or dragging attachments of junk mail as well.
+- Ask and scan before saving or dragging attachments as well, and add a
+  **Scan** action to the attachment menu and toolbar.
+- Let the reader banner's **Not Junk** move the message as well, with
+  **Undo**.
+- Show the scan's progress, and offer the socket in the settings dialog.
+- Check the scan with ClamAV's own signatures in a Plasma session
+  ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
 
 ### External services and outbound calls
 
