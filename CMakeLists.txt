@@ -371,6 +371,7 @@ endif()
 # stay free of desktop services; test_ArchitectureBoundaries keeps it that way.
 set(libDesktopServices_SOURCES
     ${path_UiUtils}/BackgroundRunning.cpp
+    ${path_UiUtils}/DesktopFeedback.cpp
     ${path_UiUtils}/DestructiveActions.cpp
     ${path_UiUtils}/FileSearch.cpp
     ${path_UiUtils}/PlasmaSearch.cpp
@@ -774,6 +775,7 @@ if(WITH_DESKTOP)
     target_link_libraries(DesktopServices
         PUBLIC
             Qt::Core
+            Qt::DBus
             Imap
             UiUtils
         PRIVATE

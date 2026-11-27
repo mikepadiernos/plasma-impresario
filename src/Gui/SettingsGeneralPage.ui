@@ -204,6 +204,16 @@
       </property>
      </widget>
     </item>
+    <item row="14" column="0" colspan="2">
+     <widget class="QCheckBox" name="guiUnreadCountCheckbox">
+      <property name="toolTip">
+       <string>The task manager entry shows how many messages are unread in the inboxes of all accounts. Only the number is shown.</string>
+      </property>
+      <property name="text">
+       <string>Show the unread count on the task manager entry</string>
+      </property>
+     </widget>
+    </item>
     <item row="4" column="0" colspan="2">
      <widget class="Line" name="line">
       <property name="orientation">

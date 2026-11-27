@@ -28,6 +28,7 @@
 #include <QActionGroup>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDBusConnection>
 #include <QFileInfo>
 #include <QInputDialog>
 #include <QDesktopServices>
@@ -3174,6 +3175,7 @@ void MainWindow::slotShowSettings()
     if (dialog.exec() == QDialog::Accepted) {
         removeSysTray();
         slotToggleSysTray();
+        scheduleAccountUnreadRefresh();
     }
 }
 
@@ -3879,8 +3881,7 @@ void MainWindow::scheduleAccountUnreadRefresh()
 
 void MainWindow::refreshAccountUnread()
 {
-    if (!m_accountSidebar)
-        return;
+    QList<int> counts;
     for (const QString &accountId : m_accounts->accountIds()) {
         Imap::ImapAccess *access = m_accountAccess.value(accountId);
         auto *model = access ? qobject_cast<Imap::Mailbox::Model *>(access->imapModel()) : nullptr;
@@ -3891,8 +3892,29 @@ void MainWindow::refreshAccountUnread()
             if (unread.isValid())
                 count = unread.toInt();
         }
-        m_accountSidebar->setUnreadCount(accountId, count);
+        if (m_accountSidebar)
+            m_accountSidebar->setUnreadCount(accountId, count);
+        counts.append(count);
     }
+    publishUnreadCount(UiUtils::DesktopFeedback::totalUnread(counts));
+}
+
+void MainWindow::publishUnreadCount(int unread)
+{
+    namespace DesktopFeedback = UiUtils::DesktopFeedback;
+    // Turning the setting off hides the count instead of leaving the last one on the task manager entry
+    if (!DesktopFeedback::showsUnreadCount(*KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"))))
+        unread = 0;
+    if (!m_unreadBadge.update(unread))
+        return;
+    const QString desktopFileName = QGuiApplication::desktopFileName();
+    if (!desktopFileName.isEmpty())
+        QDBusConnection::sessionBus().send(DesktopFeedback::launcherEntryUpdate(desktopFileName, unread));
+}
+
+int MainWindow::unreadCountOnTaskManager() const
+{
+    return m_unreadBadge.shown();
 }
 
 void MainWindow::requestStoredPassword(const QString &accountId)

@@ -43,6 +43,7 @@
 #include "Imap/Parser/Uids.h"
 #include "UiUtils/ActivationToken.h"
 #include "UiUtils/Agenda.h"
+#include "UiUtils/DesktopFeedback.h"
 #include "UiUtils/DestructiveActions.h"
 #include "UiUtils/PlasmaSearch.h"
 #include "UiUtils/QuickFilters.h"
@@ -173,6 +174,8 @@ public:
     Called when the desktop session ends; the next start reopens them, as after a crash.
     */
     void saveUnsentMessages();
+    /** The unread count last shown on the task manager entry, or -1 before the first one */
+    int unreadCountOnTaskManager() const;
     QSize sizeHint() const override;
 
     Imap::Mailbox::Model *imapModel() const;
@@ -470,6 +473,7 @@ private:
     /** Update the unread INBOX counts in the account sidebar soon, coalescing repeated requests. */
     void scheduleAccountUnreadRefresh();
     void refreshAccountUnread();
+    void publishUnreadCount(int unread);
 
     /** Supply the stored password to an account that is not shown, or mark it as needing one. */
     void requestStoredPassword(const QString &accountId);
@@ -1102,6 +1106,7 @@ private:
     QAction *m_goToNextUnreadFolder = nullptr;
     QAction *m_checkMail = nullptr;
     QTimer *m_accountUnreadTimer = nullptr;
+    UiUtils::DesktopFeedback::UnreadBadge m_unreadBadge;
     QMenu *m_goToFolderMenu;
     QMap<Imap::Mailbox::SpecialUse, QAction *> m_goToSpecialFolderActions;
 
