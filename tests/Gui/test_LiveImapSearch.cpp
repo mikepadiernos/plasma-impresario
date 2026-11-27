@@ -28,6 +28,7 @@
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "Imap/Model/Utils.h"
 #include "UiUtils/MailingLists.h"
+#include "UiUtils/MailStatus.h"
 #include "UiUtils/MessageIdLookup.h"
 #include "UiUtils/PlasmaSearch.h"
 #include "UiUtils/SavedSearches.h"
@@ -1313,6 +1314,50 @@ private slots:
             QTRY_COMPARE_WITH_TIMEOUT(current(), QStringLiteral("Quarterly report"), 10000);
             UiUtils::PlasmaSearch::setEnabled(*config, false);
             QVERIFY(window.plasmaSearchMatches(QStringLiteral("release")).isEmpty());
+        }
+
+        // The Plasma widgets see both accounts, Gamma's INBOX count, and its unread indexed mail
+        {
+            const auto gamma = [&window]() {
+                const auto accounts = window.mailStatusAccounts();
+                return accounts.isEmpty() ? UiUtils::MailStatus::Account{} : accounts.constFirst();
+            };
+            const auto accounts = window.mailStatusAccounts();
+            QCOMPARE(accounts.size(), 2);
+            QCOMPARE(accounts.at(0).id, QStringLiteral("account-1"));
+            QCOMPARE(accounts.at(0).name, QStringLiteral("Gamma"));
+            QCOMPARE(accounts.at(1).id, QStringLiteral("account-2"));
+            QCOMPARE(accounts.at(1).name, QStringLiteral("Alpha"));
+            const QModelIndex gammaInbox = findMailbox(tree->model(), QStringLiteral("INBOX"));
+            QVERIFY(gammaInbox.isValid());
+            QTRY_VERIFY_WITH_TIMEOUT(gamma().unread >= 0, 10000);
+            QTRY_COMPARE_WITH_TIMEOUT(gamma().unread, gammaInbox.data(Imap::Mailbox::RoleUnreadMessageCount).toInt(), 10000);
+
+            QStringList unreadRows;
+            for (int row = 0; row < messages->model()->rowCount(); ++row) {
+                const QModelIndex index = messages->model()->index(row, 0);
+                if (!index.data(Imap::Mailbox::RoleMessageIsMarkedRead).toBool())
+                    unreadRows << index.data(Imap::Mailbox::RoleMessageSubject).toString();
+            }
+            QVERIFY(!unreadRows.isEmpty());
+            QCOMPARE(gamma().unread, unreadRows.size());
+            const auto unread = window.mailStatusUnread({}, {QStringLiteral("inbox")}, 10);
+            QStringList subjects;
+            for (const auto &message : unread) {
+                QCOMPARE(message.accountId, QStringLiteral("account-1"));
+                QCOMPARE(message.accountName, QStringLiteral("Gamma"));
+                QCOMPARE(message.folder, QStringLiteral("INBOX"));
+                subjects << message.subject;
+            }
+            subjects.sort();
+            unreadRows.sort();
+            QCOMPARE(subjects, unreadRows);
+            QVERIFY(window.mailStatusUnread({QStringLiteral("account-2")}, {}, 10).isEmpty());
+            QCOMPARE(window.mailStatusUnread({}, {}, 1).size(), 1);
+
+            // Choosing an unread message from a widget shows it
+            window.openPlasmaSearchMatch(unread.constFirst().id);
+            QTRY_COMPARE_WITH_TIMEOUT(current(), unread.constFirst().subject, 10000);
         }
 
         // A message which is only on a server is searched for after the user agrees, from a mid: URL
