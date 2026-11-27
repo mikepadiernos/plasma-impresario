@@ -180,6 +180,7 @@
 #include "UiUtils/Relevance.h"
 #include "UiUtils/SavedSearches.h"
 #include "UiUtils/SearchSuggestions.h"
+#include "UiUtils/ServerDiscovery.h"
 #include "UiUtils/UnreadFolders.h"
 #ifdef TROJITA_HAVE_AKONADI_CALENDAR
 #include "UiUtils/AkonadiAgendaSource.h"
@@ -190,6 +191,7 @@
 #include "OAuth/OAuth.h"
 #include "OAuth/Session.h"
 #include "AccountSidebar.h"
+#include "AddAccountDialog.h"
 #include "CapabilityActionGate.h"
 #include "SavedSearchFolders.h"
 #include "ShellHeader.h"
@@ -3922,14 +3924,29 @@ void MainWindow::switchAccount(const QString &accountId)
 
 void MainWindow::slotAddAccount()
 {
-    bool accepted = false;
-    const QString name = QInputDialog::getText(this, i18n("Add Account"), i18n("Account name:"),
-                                               QLineEdit::Normal, QString(), &accepted).trimmed();
-    if (!accepted || name.isEmpty())
+    AddAccountDialog dialog(this);
+    if (dialog.exec() != QDialog::Accepted || dialog.accountName().isEmpty())
         return;
-    const QString accountId = m_accounts->addAccount(name);
-    Composer::AccountIdentities::initializeNewAccount(*m_accounts->settings(accountId));
+    const QString accountId = m_accounts->addAccount(dialog.accountName());
+    QSettings *settings = m_accounts->settings(accountId);
+    Composer::AccountIdentities::initializeNewAccount(*settings);
+    // The account is switched to before it has servers, so that nothing connects until its settings are saved
     switchAccount(accountId);
+    const UiUtils::ServerDiscovery::Result found = dialog.result();
+    if (found.isValid())
+        UiUtils::ServerDiscovery::applyTo(*settings, found, dialog.useOAuth());
+    if (UiUtils::ServerDiscovery::parseAddress(dialog.emailAddress()).isValid()) {
+        Composer::SenderIdentitiesModel identities;
+        identities.loadFromSettings(*settings);
+        if (identities.rowCount() == 0) {
+            identities.appendIdentity(Composer::ItemSenderIdentity(dialog.realName(), dialog.emailAddress(), QString(), QString()));
+            identities.saveToSettings(*settings);
+        }
+        if (Composer::SenderIdentitiesModel *loaded = m_accountIdentities.value(accountId))
+            loaded->loadFromSettings(*settings);
+    }
+    settings->sync();
+    m_imapAccess->reloadConfiguration();
     emit accountsChanged();
     slotShowAccountSettings();
 }

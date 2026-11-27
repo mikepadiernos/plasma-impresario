@@ -350,6 +350,8 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/SavedSearches.cpp
     ${path_UiUtils}/SearchSuggestions.cpp
     ${path_UiUtils}/SelectionAfterRemoval.cpp
+    ${path_UiUtils}/ServerDiscovery.cpp
+    ${path_UiUtils}/ServerDiscoveryNetwork.cpp
     ${path_UiUtils}/ShortcutOverview.cpp
     ${path_UiUtils}/UnreadFolders.cpp
     ${path_UiUtils}/ViewStateStore.cpp
@@ -461,6 +463,7 @@ endif()
 set(path_DesktopGui ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui)
 set(libDesktopGui_SOURCES
     ${path_DesktopGui}/AccountSidebar.cpp
+    ${path_DesktopGui}/AddAccountDialog.cpp
     ${path_DesktopGui}/AgendaPanel.cpp
     ${path_DesktopGui}/AttachmentPanel.cpp
     ${path_DesktopGui}/CapabilityActionGate.cpp
@@ -759,6 +762,7 @@ target_link_libraries(UiUtils
     PUBLIC
         Qt::Core
         Qt::Gui
+        Qt::Network
         Imap
         Plugins
 )
