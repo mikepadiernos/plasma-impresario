@@ -40,6 +40,8 @@ namespace IPC {
         void showAddressbookWindow();
         /** Invoke compose window from mailto: url */
         void composeMail(const QString &url);
+        /** Open the message with a Message-ID, or named by a mid: URL */
+        void openMessage(const QString &messageId);
     }
 
     /**

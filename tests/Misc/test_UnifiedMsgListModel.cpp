@@ -13,6 +13,7 @@
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/UnifiedMsgListModel.h"
+#include "UiUtils/SearchFacets.h"
 #include "test_UnifiedMsgListModel.h"
 
 using Imap::Mailbox::MsgListModel;
@@ -42,6 +43,7 @@ QList<QStandardItem *> row(const Message &message) {
   for (int column = 0; column < MsgListModel::COLUMN_COUNT; ++column) {
     auto *item = new QStandardItem(message.subject);
     item->setData(true, RoleIsFetched);
+    item->setData(1u, RoleMessageUid);
     item->setData(message.subject, RoleMessageSubject);
     item->setData(message.date, RoleMessageDate);
     item->setData(message.date, RoleMessageInternalDate);
@@ -171,6 +173,34 @@ void UnifiedMsgListModelTest::tellsWhereAMessageComesFrom() {
   // Other roles come from the account's own message
   QCOMPARE(first.data(RoleMessageSubject).toString(), QStringLiteral("new"));
   QVERIFY(unified.roleNames().contains(RoleMessageSourceLabel));
+}
+
+void UnifiedMsgListModelTest::rowLabelNamesFoldersOfSearchResults() {
+  using namespace Imap::Mailbox;
+  Message archived{QStringLiteral("old"), at(1)};
+  archived.mailbox = QStringLiteral("Archive");
+  auto work = inbox({{QStringLiteral("new"), at(2)}, archived});
+  UnifiedMsgListModel unified;
+  unified.setAccountSource(QStringLiteral("work"), QStringLiteral("Work"),
+                           work.get());
+
+  // The Unified Inbox names only the account
+  QVERIFY(!unified.showsFolders());
+  QCOMPARE(unified.index(1, 0).data(RoleMessageRowLabel).toString(),
+           QStringLiteral("Work"));
+
+  QSignalSpy changed(&unified, &QAbstractItemModel::dataChanged);
+  unified.setShowsFolders(true);
+  QCOMPARE(changed.count(), 1);
+  QCOMPARE(changed.at(0).at(2).value<QList<int>>(),
+           QList<int>{RoleMessageRowLabel});
+  QCOMPARE(unified.index(0, 0).data(RoleMessageRowLabel).toString(),
+           QStringLiteral("Work \u00B7 Inbox"));
+  QCOMPARE(unified.index(1, 0).data(RoleMessageRowLabel).toString(),
+           QStringLiteral("Work \u00B7 Archive"));
+  unified.setShowsFolders(true);
+  QCOMPARE(changed.count(), 1);
+  QVERIFY(unified.roleNames().contains(RoleMessageRowLabel));
 }
 
 void UnifiedMsgListModelTest::renamingAnAccountUpdatesItsLabels() {
@@ -443,6 +473,47 @@ void UnifiedMsgListModelTest::sortsBySubject() {
       QStringLiteral("work"));
 }
 
+void UnifiedMsgListModelTest::sortsByRelevance() {
+  auto work = inbox(
+      {{QStringLiteral("budget"), at(1)}, {QStringLiteral("lunch"), at(4)}});
+  auto home = inbox(
+      {{QStringLiteral("budget"), at(3)}, {QStringLiteral("news"), at(2)}});
+  // Relevance is only known for messages with a UID
+  for (QStandardItemModel *model : {work.get(), home.get()}) {
+    for (int message = 0; message < model->rowCount(); ++message) {
+      for (int column = 0; column < model->columnCount(); ++column)
+        model->item(message, column)
+            ->setData(message + 1, Imap::Mailbox::RoleMessageUid);
+    }
+  }
+  UnifiedMsgListModel unified;
+  unified.setAccountSource(QStringLiteral("work"), QStringLiteral("Work"),
+                           work.get());
+  unified.setAccountSource(QStringLiteral("home"), QStringLiteral("Home"),
+                           home.get());
+  PrettyUnifiedMsgListModel pretty;
+  pretty.setSourceModel(&unified);
+  pretty.sort(MsgListModel::DATE, Qt::DescendingOrder);
+
+  pretty.setRelevanceTerms({QStringLiteral("budget")}, Qt::AscendingOrder);
+  QVERIFY(pretty.isSortingByRelevance());
+  QCOMPARE(pretty.relevanceTerms(), QStringList{QStringLiteral("budget")});
+  // The best matches first; equal ones and the rest newest first
+  QCOMPARE(subjects(pretty),
+           (QStringList{QStringLiteral("budget"), QStringLiteral("budget"),
+                        QStringLiteral("lunch"), QStringLiteral("news")}));
+  QCOMPARE(
+      pretty.index(0, 0).data(Imap::Mailbox::RoleMessageAccountId).toString(),
+      QStringLiteral("home"));
+
+  pretty.setRelevanceTerms({}, Qt::DescendingOrder);
+  QVERIFY(!pretty.isSortingByRelevance());
+  pretty.sort(MsgListModel::DATE, Qt::DescendingOrder);
+  QCOMPARE(subjects(pretty),
+           (QStringList{QStringLiteral("lunch"), QStringLiteral("budget"),
+                        QStringLiteral("news"), QStringLiteral("budget")}));
+}
+
 void UnifiedMsgListModelTest::quickFilters() {
   Message flagged{QStringLiteral("flagged"), at(1)};
   flagged.flagged = true;
@@ -470,6 +541,53 @@ void UnifiedMsgListModelTest::quickFilters() {
   QCOMPARE(pretty.filters(), PrettyMsgListModel::FilterUnread |
                                  PrettyMsgListModel::FilterFlagged);
   pretty.setFilters(PrettyMsgListModel::NoFilter);
+  QCOMPARE(pretty.rowCount(), 3);
+}
+
+void UnifiedMsgListModelTest::facetsNarrowAcrossAccounts() {
+  using UiUtils::SearchFacets;
+  Message flagged{QStringLiteral("flagged"), at(1)};
+  flagged.flagged = true;
+  auto work = inbox({flagged, {QStringLiteral("plain"), at(2)}});
+  auto home = inbox({{QStringLiteral("home"), at(3)}});
+  UnifiedMsgListModel unified;
+  unified.setAccountSource(QStringLiteral("work"), QStringLiteral("Work"),
+                           work.get());
+  unified.setAccountSource(QStringLiteral("home"), QStringLiteral("Home"),
+                           home.get());
+  PrettyUnifiedMsgListModel pretty;
+  pretty.setSourceModel(&unified);
+  pretty.sort(MsgListModel::DATE, Qt::AscendingOrder);
+
+  SearchFacets facets;
+  facets.toggle({SearchFacets::Kind::Account, QStringLiteral("work"), QString()});
+  pretty.setFacets(facets);
+  QCOMPARE(pretty.facets(), facets);
+  QCOMPARE(subjects(pretty),
+           (QStringList{QStringLiteral("flagged"), QStringLiteral("plain")}));
+  // Facets are counted among every result, whatever the chosen ones
+  QCOMPARE(pretty.facetCandidates().size(), 3);
+  QCOMPARE(facets.counts(pretty.facetCandidates(), SearchFacets::Kind::Folder)
+               .value(0)
+               .count,
+           2);
+
+  // The quick filters still apply, and narrow the candidates
+  pretty.setFilters(PrettyMsgListModel::FilterFlagged);
+  QCOMPARE(subjects(pretty), QStringList{QStringLiteral("flagged")});
+  QCOMPARE(pretty.facetCandidates().size(), 1);
+  pretty.setFilters(PrettyMsgListModel::NoFilter);
+
+  // Values of one kind are alternatives
+  facets.toggle({SearchFacets::Kind::Account, QStringLiteral("home"), QString()});
+  pretty.setFacets(facets);
+  QCOMPARE(pretty.rowCount(), 3);
+  facets.clear();
+  facets.toggle({SearchFacets::Kind::Folder,
+                 QStringLiteral("home\nINBOX"), QString()});
+  pretty.setFacets(facets);
+  QCOMPARE(subjects(pretty), QStringList{QStringLiteral("home")});
+  pretty.setFacets(SearchFacets());
   QCOMPARE(pretty.rowCount(), 3);
 }
 

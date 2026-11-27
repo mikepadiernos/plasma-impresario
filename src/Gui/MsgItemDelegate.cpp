@@ -21,9 +21,11 @@
 */
 
 #include "MsgItemDelegate.h"
+#include <QTextLayout>
 #include <QTreeView>
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/MsgListModel.h"
+#include "Imap/Model/SearchSnippets.h"
 #include "Imap/Model/SpecialFolder.h"
 #include "Imap/Model/Utils.h"
 #include "MsgListView.h"
@@ -134,7 +136,8 @@ QSize MsgItemDelegate::sizeHint(const QStyleOptionViewItem &option, const QModel
     QSize size = ColoredItemDelegate::sizeHint(option, index);
     if (m_multiLine) {
         const int line = lineHeight(option);
-        size.setHeight(2 * line + (isComfortable() ? qMax(8, line) : qMax(4, line / 2)));
+        const int lines = m_snippetLine ? 3 : 2;
+        size.setHeight(lines * line + (isComfortable() ? qMax(8, line) : qMax(4, line / 2)));
     }
     return size;
 }
@@ -147,6 +150,11 @@ void MsgItemDelegate::setMultiLine(bool multiLine)
 void MsgItemDelegate::setSenderInitials(bool shown)
 {
     m_senderInitials = shown;
+}
+
+void MsgItemDelegate::setSnippetLine(bool shown)
+{
+    m_snippetLine = shown;
 }
 
 QString MsgItemDelegate::senderInitials(const QString &sender)
@@ -190,7 +198,8 @@ MsgItemDelegate::RowLayout MsgItemDelegate::multiLineLayout(const QStyleOptionVi
     const int margin = style->pixelMetric(QStyle::PM_FocusFrameHMargin, &option, option.widget) + 2;
     const int line = lineHeight(option);
     const int iconSize = qMin(line, style->pixelMetric(QStyle::PM_SmallIconSize, &option, option.widget));
-    const int top = rect.top() + qMax(0, (rect.height() - 2 * line) / 2);
+    const int lines = m_snippetLine ? 3 : 2;
+    const int top = rect.top() + qMax(0, (rect.height() - lines * line) / 2);
 
     int left = rect.left() + margin;
     const int right = rect.right() - margin;
@@ -205,6 +214,8 @@ MsgItemDelegate::RowLayout MsgItemDelegate::multiLineLayout(const QStyleOptionVi
 
     QRect first(left, top, qMax(0, right - left + 1), line);
     QRect second(left, top + line, qMax(0, right - left + 1), line);
+    if (m_snippetLine)
+        layout.snippet = QRect(left, top + 2 * line, qMax(0, right - left + 1), line);
 
     const QString date = index.sibling(index.row(), MsgListModel::DATE).data(Qt::DisplayRole).toString();
     const int dateWidth = option.fontMetrics.horizontalAdvance(date);
@@ -223,8 +234,8 @@ MsgItemDelegate::RowLayout MsgItemDelegate::multiLineLayout(const QStyleOptionVi
         layout.status = QRect(second.left(), second.top() + (line - iconSize) / 2, iconSize, iconSize);
         second.setLeft(layout.status.right() + 1 + margin / 2);
     }
-    // Only lists of several accounts name the account; it gets at most a third of the line
-    const QString account = index.data(Imap::Mailbox::RoleMessageAccountName).toString();
+    // Only lists of several accounts name the account, and search results the folder too; at most a third of the line
+    const QString account = index.data(Imap::Mailbox::RoleMessageRowLabel).toString();
     if (!account.isEmpty()) {
         const int accountWidth = qMin(option.fontMetrics.horizontalAdvance(account), second.width() / 3);
         layout.source = QRect(second.right() - accountWidth + 1, second.top(), accountWidth, line);
@@ -235,7 +246,7 @@ MsgItemDelegate::RowLayout MsgItemDelegate::multiLineLayout(const QStyleOptionVi
 
     // Mirror the layout in right-to-left languages
     for (QRect *part : {&layout.readState, &layout.avatar, &layout.firstLine, &layout.date, &layout.flag, &layout.attachment,
-                        &layout.status, &layout.secondLine, &layout.source}) {
+                        &layout.status, &layout.secondLine, &layout.source, &layout.snippet}) {
         if (part->isValid())
             *part = QStyle::visualRect(option.direction, rect, *part);
     }
@@ -357,8 +368,46 @@ void MsgItemDelegate::paintMultiLineRow(QPainter *painter, const QStyleOptionVie
     if (layout.source.isValid()) {
         painter->setFont(opt.font);
         painter->setPen(secondary);
-        const QString account = index.data(RoleMessageAccountName).toString();
+        const QString account = index.data(RoleMessageRowLabel).toString();
         painter->drawText(layout.source, trailing, opt.fontMetrics.elidedText(account, Qt::ElideRight, layout.source.width()));
+    }
+    if (layout.snippet.isValid()) {
+        const auto snippet = index.data(RoleMessageSearchSnippet).value<SearchSnippet>();
+        if (!snippet.text.isEmpty()) {
+            // Elided as if all of it were bold, so that the marked matches still fit
+            QFont bold(opt.font);
+            bold.setBold(true);
+            const QString shown = QFontMetrics(bold).elidedText(snippet.text, Qt::ElideRight, layout.snippet.width());
+            const int kept = shown == snippet.text ? int(shown.size()) : int(shown.size()) - 1;
+            QList<QTextLayout::FormatRange> marks;
+            for (const auto &match : snippet.matches) {
+                const int length = qMin(match.second, kept - match.first);
+                if (length <= 0)
+                    break;
+                QTextLayout::FormatRange mark;
+                mark.start = match.first;
+                mark.length = length;
+                mark.format.setFontWeight(QFont::Bold);
+                mark.format.setForeground(text);
+                marks << mark;
+            }
+            QTextLayout textLayout(shown, opt.font);
+            QTextOption textOption(QStyle::visualAlignment(opt.direction, Qt::AlignLeft));
+            textOption.setTextDirection(opt.direction);
+            textOption.setWrapMode(QTextOption::NoWrap);
+            textLayout.setTextOption(textOption);
+            textLayout.setFormats(marks);
+            textLayout.beginLayout();
+            QTextLine textLine = textLayout.createLine();
+            if (textLine.isValid()) {
+                textLine.setLineWidth(layout.snippet.width());
+                textLine.setPosition(QPointF(0, 0));
+            }
+            textLayout.endLayout();
+            painter->setPen(secondary);
+            const qreal y = layout.snippet.top() + (layout.snippet.height() - (textLine.isValid() ? textLine.height() : 0)) / 2;
+            textLayout.draw(painter, QPointF(layout.snippet.left(), y));
+        }
     }
     painter->restore();
 }

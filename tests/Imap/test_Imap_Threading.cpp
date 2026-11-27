@@ -26,6 +26,7 @@
 #include "test_Imap_Threading.h"
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/ThreadingMsgListModel.h"
+#include "Imap/Tasks/SortTask.h"
 #include "Streams/FakeSocket.h"
 #include "Utils/FakeCapabilitiesInjector.h"
 
@@ -1194,6 +1195,19 @@ void ImapModelThreadingTest::testDynamicSearch()
     cEmpty();
     QCOMPARE(treeToThreading(QModelIndex()), threading);
 
+    // A flag keyword has to be an atom, so it is not quoted although it is not alphanumeric
+    threadingModel->setUserSearchingSortingPreference(QStringList() << QStringLiteral("KEYWORD") << QStringLiteral("$label1")
+                                                                    << QStringLiteral("SUBJECT") << QStringLiteral("$label1"),
+                                                      threadingModel->currentSortCriterium(), threadingModel->currentSortOrder());
+    auto keyword = t.mk("UID SEARCH RETURN (ALL) CHARSET utf-8 KEYWORD $label1 SUBJECT \"$label1\"\r\n");
+    searchTag = t.last();
+    keyword.append(t.mk("UID THREAD REFS utf-8 KEYWORD $label1 SUBJECT \"$label1\"\r\n"));
+    cClient(keyword);
+    cServer("* ESEARCH (TAG \"" + searchTag + "\") UID ALL " + ordering + "\r\n" + t.prev("OK searched\r\n"));
+    cServer(QByteArray("* THREAD ") + threading + QByteArray("\r\n") + t.last("OK thread\r\n"));
+    cEmpty();
+    QCOMPARE(treeToThreading(QModelIndex()), threading);
+
     injector.injectCapability(QStringLiteral("CONTEXT=SEARCH"));
 
 #define letsThreadingSearchUpdate(CONDITIONS, ORDERING, THREADING) \
@@ -1239,6 +1253,68 @@ void ImapModelThreadingTest::testDynamicSearch()
     cEmpty();
     justKeepTask();
     QCOMPARE(treeToThreading(QModelIndex()), threading);
+
+    // Searching again before the server confirms that the updates of the previous search stopped cancels them only once
+    conditions = QStringList() << QStringLiteral("SUBJECT") << QStringLiteral("foo3");
+    letsThreadingSearchUpdate(conditions, QByteArray("10,15"), QByteArray("(10 15)"));
+    QCOMPARE(treeToThreading(QModelIndex()), QByteArray("(10 15)"));
+    threadingModel->setUserSearchingSortingPreference(QStringList(), threadingModel->currentSortCriterium(), threadingModel->currentSortOrder());
+    const QByteArray cancelTag = t.mk("").trimmed();
+    const QByteArray allThreadTag = t.mk("").trimmed();
+    cClient(cancelTag + " CANCELUPDATE \"" + searchTag + "\"\r\n" + allThreadTag + " UID THREAD REFS utf-8 ALL\r\n");
+    threadingModel->setUserSearchingSortingPreference(conditions, threadingModel->currentSortCriterium(), threadingModel->currentSortOrder());
+    const QByteArray oldSearchTag = searchTag;
+    auto again = t.mk("UID SEARCH RETURN (ALL UPDATE) CHARSET utf-8 SUBJECT foo3\r\n");
+    searchTag = t.last();
+    again.append(t.mk("UID THREAD REFS utf-8 SUBJECT foo3\r\n"));
+    const QByteArray searchThreadTag = t.last();
+    cClient(again);
+    cServer(cancelTag + " OK Updates cancelled\r\n");
+    cServer("* THREAD " + threading + "\r\n" + allThreadTag + " OK thread\r\n");
+    cServer("* ESEARCH (TAG \"" + searchTag + "\") UID ALL 10,15\r\n" + searchTag + " OK searched\r\n");
+    cServer("* THREAD (10 15)\r\n" + searchThreadTag + " OK thread\r\n");
+    cEmpty();
+    QVERIFY(oldSearchTag != searchTag);
+    QCOMPARE(treeToThreading(QModelIndex()), QByteArray("(10 15)"));
+    threadingModel->setUserSearchingSortingPreference(QStringList(), threadingModel->currentSortCriterium(), threadingModel->currentSortOrder());
+    auto leave = t.mk(QString("CANCELUPDATE \"" + searchTag + "\"\r\n").toLocal8Bit().data());
+    leave.append(t.mk("UID THREAD REFS utf-8 ALL\r\n"));
+    cClient(leave);
+    cServer(t.prev("OK Updates cancelled\r\n"));
+    cServer("* THREAD " + threading + "\r\n" + t.last("OK thread\r\n"));
+    cEmpty();
+    justKeepTask();
+    QCOMPARE(treeToThreading(QModelIndex()), threading);
+
+    // Stopping the updates of a search which was not answered yet, while leaving the mailbox, keeps the search's task
+    // until the server answers CANCELUPDATE as well, as no other task would take that reply
+    conditions = QStringList() << QStringLiteral("SUBJECT") << QStringLiteral("foo3");
+    threadingModel->setUserSearchingSortingPreference(conditions, threadingModel->currentSortCriterium(), threadingModel->currentSortOrder());
+    auto interrupted = t.mk("UID SEARCH RETURN (ALL UPDATE) CHARSET utf-8 SUBJECT foo3\r\n");
+    searchTag = t.last();
+    interrupted.append(t.mk("UID THREAD REFS utf-8 SUBJECT foo3\r\n"));
+    const QByteArray interruptedThreadTag = t.last();
+    cClient(interrupted);
+    QPointer<Imap::Mailbox::SortTask> search;
+    const auto sortTasks = model->findChildren<Imap::Mailbox::SortTask *>();
+    for (Imap::Mailbox::SortTask *task : sortTasks) {
+        if (!task->isFinished() && task->isPersistent())
+            search = task;
+    }
+    QVERIFY(search);
+    model->switchToMailbox(idxB);
+    search->cancelSortingUpdates();
+    cClient(t.mk(QByteArray("CANCELUPDATE \"" + searchTag + "\"\r\n")));
+    const QByteArray interruptedCancelTag = t.last();
+    cServer("* ESEARCH (TAG \"" + searchTag + "\") UID ALL 10,15\r\n" + searchTag + " OK searched\r\n");
+    QVERIFY(search && !search->isFinished());
+    cServer(interruptedCancelTag + " NO Unknown tag\r\n");
+    QVERIFY(!search || search->isFinished());
+    cServer("* THREAD (10 15)\r\n" + interruptedThreadTag + " OK thread\r\n");
+    cClient(t.mk("SELECT b\r\n"));
+    cServer("* OK [CLOSED] previous mailbox closed\r\n* 0 EXISTS\r\n" + t.last("OK selected\r\n"));
+    cEmpty();
+    justKeepTask();
 
     // FIXME: check sorting & searching combo
     // FIXME: check threading & sorting & searching combo
@@ -1724,6 +1800,85 @@ void ImapModelThreadingTest::testESearchResults()
     cServer("* ESEARCH (TAG \"" + t.last() + "\")\r\n");
     cServer(t.last("OK searched\r\n"));
     QCOMPARE(threadingModel->rowCount(), 0);
+}
+
+/** @short A search which cannot run is explained instead of looking like one without matches, and can be asked again */
+void ImapModelThreadingTest::testSearchFailures()
+{
+    using namespace Imap::Mailbox;
+    threadingModel->setUserWantsThreading(false);
+    initialMessages(3);
+    QCOMPARE(threadingModel->rowCount(), 3);
+    QSignalSpy failed(threadingModel, &ThreadingMsgListModel::sortingFailed);
+    const auto search = [this](const QStringList &conditions) {
+        threadingModel->setUserSearchingSortingPreference(conditions, ThreadingMsgListModel::SortCriterium::SORT_NONE, Qt::AscendingOrder);
+    };
+    const auto lastReason = [&failed]() { return failed.isEmpty() ? QString() : failed.last().front().toString(); };
+
+    // Plain SEARCH: a NO keeps the server's words
+    search({QStringLiteral("SUBJECT"), QStringLiteral("x")});
+    cClient(t.mk("UID SEARCH CHARSET utf-8 SUBJECT x\r\n"));
+    cServer(t.last("NO Search backend is offline\r\n"));
+    QCOMPARE(failed.size(), 1);
+    QVERIFY2(lastReason().contains(QLatin1String("refused")) && lastReason().contains(QLatin1String("Search backend is offline")),
+             qPrintable(lastReason()));
+    QCOMPARE(threadingModel->searchFailure(), lastReason());
+    QCOMPARE(threadingModel->rowCount(), 0);
+
+    FakeCapabilitiesInjector injector(model);
+    injector.injectCapability(QStringLiteral("ESEARCH"));
+
+    // A raw query which the server does not understand, then the same query asked again
+    const QStringList raw{QStringLiteral("XFOO bar")};
+    search(raw);
+    cClient(t.mk("UID SEARCH RETURN (ALL) CHARSET utf-8 XFOO bar\r\n"));
+    cServer(t.last("BAD Error in IMAP command UID SEARCH: Unknown argument XFOO\r\n"));
+    QCOMPARE(failed.size(), 2);
+    QVERIFY2(lastReason().contains(QLatin1String("IMAP search query")) && lastReason().contains(QLatin1String("Unknown argument XFOO")),
+             qPrintable(lastReason()));
+    QCOMPARE(threadingModel->rowCount(), 0);
+    search(raw);
+    cClient(t.mk("UID SEARCH RETURN (ALL) CHARSET utf-8 XFOO bar\r\n"));
+    cServer("* ESEARCH (TAG \"" + t.last() + "\") UID ALL 2\r\n" + t.last("OK searched\r\n"));
+    QCOMPARE(threadingModel->searchFailure(), QString());
+    QCOMPARE(threadingModel->rowCount(), 1);
+
+    // BADCHARSET names the charsets which the server accepts
+    search({QStringLiteral("SUBJECT"), QStringLiteral("y")});
+    cClient(t.mk("UID SEARCH RETURN (ALL) CHARSET utf-8 SUBJECT y\r\n"));
+    cServer(t.last("NO [BADCHARSET (US-ASCII ISO-8859-1)] Unsupported charset\r\n"));
+    QCOMPARE(failed.size(), 3);
+    QVERIFY2(lastReason().contains(QLatin1String("UTF-8")) && lastReason().contains(QLatin1String("US-ASCII, ISO-8859-1")),
+             qPrintable(lastReason()));
+    QCOMPARE(threadingModel->rowCount(), 0);
+
+    // A key which the server does not advertise is not sent at all
+    const QStringList fuzzy{QStringLiteral("FUZZY"), QStringLiteral("SUBJECT"), QStringLiteral("z")};
+    search(fuzzy);
+    QCoreApplication::processEvents();
+    QCoreApplication::processEvents();
+    cEmpty();
+    QCOMPARE(failed.size(), 4);
+    QVERIFY2(lastReason().contains(QLatin1String("SEARCH=FUZZY")), qPrintable(lastReason()));
+    QCOMPARE(threadingModel->rowCount(), 0);
+    injector.injectCapability(QStringLiteral("SEARCH=FUZZY"));
+    search(fuzzy);
+    cClient(t.mk("UID SEARCH RETURN (ALL) CHARSET utf-8 FUZZY SUBJECT z\r\n"));
+    cServer("* ESEARCH (TAG \"" + t.last() + "\") UID ALL 1,3\r\n" + t.last("OK searched\r\n"));
+    QCOMPARE(threadingModel->searchFailure(), QString());
+    QCOMPARE(threadingModel->rowCount(), 2);
+
+    // After a failure, clearing the search shows the whole folder again
+    search({QStringLiteral("SUBJECT"), QStringLiteral("w")});
+    cClient(t.mk("UID SEARCH RETURN (ALL) CHARSET utf-8 SUBJECT w\r\n"));
+    cServer(t.last("NO [CANNOT] Too complex\r\n"));
+    QCOMPARE(failed.size(), 5);
+    QVERIFY2(lastReason().contains(QLatin1String("cannot run this search")), qPrintable(lastReason()));
+    QCOMPARE(threadingModel->rowCount(), 0);
+    search({});
+    QCOMPARE(threadingModel->searchFailure(), QString());
+    QCOMPARE(threadingModel->rowCount(), 3);
+    cEmpty();
 }
 
 QTEST_GUILESS_MAIN( ImapModelThreadingTest )

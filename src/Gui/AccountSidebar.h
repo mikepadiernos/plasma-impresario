@@ -65,6 +65,13 @@ public:
   /** Whether the active account's folders are shown */
   bool foldersExpanded() const { return m_expanded; }
 
+  /** Show @arg footer below the accounts and their folders, such as the saved
+   * searches of every account; the sidebar takes it over */
+  void setFooter(QWidget *footer);
+
+  /** The widget passed to setFooter(), or nullptr */
+  QWidget *footer() const { return m_footer; }
+
 signals:
   /** The user activated the header of another account */
   void accountActivated(const QString &accountId);
@@ -82,7 +89,11 @@ private:
   void updateHeaderText(QToolButton *header);
 
   QWidget *m_folders;
+  QWidget *m_footer = nullptr;
   QVBoxLayout *m_layout;
+  /** Where the stretch which keeps the headers together sits in the layout,
+   * or -1 before the first refresh() */
+  int m_stretchIndex = -1;
   QList<QToolButton *> m_headers;
   QString m_activeAccount;
   QHash<QString, int> m_unread;

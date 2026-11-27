@@ -159,7 +159,7 @@ private slots:
         const QModelIndex inbox = tree->model()->match(tree->model()->index(0, 0), Imap::Mailbox::RoleMailboxName,
                                                        QStringLiteral("INBOX"), 1).first();
         if (haveUid && restartPhase != QLatin1String("write")) {
-            auto *messages = window.findChild<Gui::MsgListView *>();
+            auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
             QVERIFY(messages);
             QTRY_COMPARE_WITH_TIMEOUT(messages->currentIndex().data(Imap::Mailbox::RoleMessageUid).toUInt(), savedUid, 10000);
             QCOMPARE(messages->currentIndex().data(Imap::Mailbox::RoleMailboxUidValidity).toUInt(), savedValidity);
@@ -181,7 +181,7 @@ private slots:
             QTRY_COMPARE_WITH_TIMEOUT(inbox.data(Imap::Mailbox::RoleUnreadMessageCount).toInt(), 2, 10000);
             QVERIFY(inbox.data(Qt::ToolTipRole).toString().contains(QStringLiteral("2")));
             auto *searchWidget = window.findChild<Gui::MessageListWidget *>();
-            auto *messages = window.findChild<Gui::MsgListView *>();
+            auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
             QVERIFY(searchWidget);
             QVERIFY(messages);
             QTRY_VERIFY_WITH_TIMEOUT(messages->model()->rowCount() >= 2, 10000);
@@ -210,7 +210,7 @@ private slots:
             QTRY_VERIFY_WITH_TIMEOUT(messages->model()->rowCount() >= 2, 10000);
         }
         if (restartPhase == QLatin1String("write")) {
-            auto *messages = window.findChild<Gui::MsgListView *>();
+            auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
             QVERIFY(messages);
             QTRY_VERIFY_WITH_TIMEOUT(messages->model()->rowCount() > 0, 10000);
             QModelIndexList matches;

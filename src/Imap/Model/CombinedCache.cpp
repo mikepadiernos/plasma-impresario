@@ -48,6 +48,11 @@ bool CombinedCache::open()
     return sqlCache->open(name, cacheDir + QLatin1String("/imap.cache.sqlite"));
 }
 
+QString CombinedCache::databaseConnectionName() const
+{
+    return name;
+}
+
 QList<MailboxMetadata> CombinedCache::childMailboxes(const QString &mailbox) const
 {
     return sqlCache->childMailboxes(mailbox);
@@ -157,6 +162,11 @@ void CombinedCache::setMessageThreading(const QString &mailbox, const QVector<Im
 void CombinedCache::setRenewalThreshold(const int days)
 {
     sqlCache->setRenewalThreshold(days);
+}
+
+void CombinedCache::finishQueries()
+{
+    sqlCache->finishQueries();
 }
 
 }

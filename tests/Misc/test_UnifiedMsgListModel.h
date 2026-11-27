@@ -17,6 +17,7 @@ private slots:
   void mapsToTheAccountsOwnMessages();
   void refusesAListShownForAnotherAccount();
   void tellsWhereAMessageComesFrom();
+  void rowLabelNamesFoldersOfSearchResults();
   void renamingAnAccountUpdatesItsLabels();
   void forwardsInsertedAndRemovedMessages();
   void forwardsChangedData();
@@ -28,7 +29,9 @@ private slots:
   void messagesCannotBeDragged();
   void sortsAllAccountsByDate();
   void sortsBySubject();
+  void sortsByRelevance();
   void quickFilters();
+  void facetsNarrowAcrossAccounts();
   void keptVisibleMessageStaysShown();
   void tooltipNamesTheAccount();
   void passesTheModelTester();

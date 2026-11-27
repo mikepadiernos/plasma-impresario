@@ -35,6 +35,15 @@ conversations; all its messages are read:
              unrelated mail of the same subject
   minutes    "Minutes" from Alice, 9 Nov, and agenda "Agenda" from Bob, 9 Nov
   both       "Re: Minutes and agenda" from Carol, 10 Nov, which references both
+
+The Older folder (MAILDIR/.Older) exercises the server search of the related
+messages panel; its UIDs repeat those of INBOX, and all its messages are read:
+
+  plan-final "Re: Quarterly plan (final)" from Carol, In-Reply-To plan-2 and
+             References plan-1 plan-2, so it joins the INBOX conversation
+  old-lunch  "Old lunch notes" from Alice (same sender as plan-1)
+  malice     "Not from Alice" from malice@example.test, which FROM
+             alice@example.test matches as a substring without being related
 """
 
 import base64
@@ -50,6 +59,7 @@ DAVE = f"Dave Example <dave@{DOMAIN}>"
 ERIN = f"Erin Example <erin@{DOMAIN}>"
 FRANK = f"Frank Example <frank@{DOMAIN}>"
 GRACE = f"Grace Example <grace@{DOMAIN}>"
+MALICE = f"Malice Example <malice@{DOMAIN}>"
 
 
 def headers(sender, to, subject, date, message_id, extra=()):
@@ -274,6 +284,23 @@ CONVERSATIONS = [
 ]
 
 
+OLDER = [
+    (
+        "1-plan-final",
+        "S",
+        conversation(
+            CAROL,
+            "Re: Quarterly plan (final)",
+            "Wed, 25 Nov 2026 09:00:00",
+            "plan-final",
+            [f"In-Reply-To: <plan-2@{DOMAIN}>", f"References: <plan-1@{DOMAIN}> <plan-2@{DOMAIN}>"],
+        ),
+    ),
+    ("2-old-lunch", "S", conversation(ALICE, "Old lunch notes", "Mon, 16 Nov 2026 12:00:00", "old-lunch")),
+    ("3-malice", "S", conversation(MALICE, "Not from Alice", "Tue, 17 Nov 2026 12:00:00", "malice")),
+]
+
+
 def write_maildir(maildir, messages):
     for part in ("cur", "new", "tmp"):
         os.makedirs(os.path.join(maildir, part), exist_ok=True)
@@ -291,9 +318,10 @@ def main():
         sys.exit(__doc__)
     maildir = sys.argv[1]
     write_maildir(maildir, MESSAGES)
-    folder = os.path.join(maildir, ".Conversations")
-    write_maildir(folder, CONVERSATIONS)
-    open(os.path.join(folder, "maildirfolder"), "wb").close()
+    for name, messages in ((".Conversations", CONVERSATIONS), (".Older", OLDER)):
+        folder = os.path.join(maildir, name)
+        write_maildir(folder, messages)
+        open(os.path.join(folder, "maildirfolder"), "wb").close()
 
 
 if __name__ == "__main__":

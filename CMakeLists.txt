@@ -83,7 +83,7 @@ find_package(KF6 REQUIRED
 )
 
 if(WITH_DESKTOP)
-    find_package(KF6 REQUIRED COMPONENTS Config I18n)
+    find_package(KF6 REQUIRED COMPONENTS Config I18n KIO)
     ki18n_install(po)
 endif()
 
@@ -99,6 +99,7 @@ trojita_plugin_option(WITH_CLEARTEXT_PLUGIN "Build Cleartext password plugin" ST
 trojita_plugin_option(WITH_QTKEYCHAIN_PLUGIN "Build Qtkeychain password plugin" "${QTKEYCHAIN_DEPENDS}")
 trojita_plugin_option(WITH_SONNET_PLUGIN "Build a plugin for spellchecking via KDE's Sonnet" "WITH_DESKTOP")
 trojita_option(WITH_KNOTIFICATIONS "Report background account errors as desktop notifications" AUTO "WITH_DESKTOP")
+trojita_option(WITH_KFILEMETADATA "Index the text of downloaded attachments through KFileMetaData" AUTO)
 
 trojita_find_package(Git "" "" "" "")
 
@@ -133,6 +134,7 @@ endif()
 trojita_find_package(Qt6Keychain QUIET "https://github.com/frankosterfeld/qtkeychain" "QtKeychain library (Qt6 version)" "Needed for QtKeychain password plugin" WITH_QTKEYCHAIN_PLUGIN)
 trojita_find_package(KF6Sonnet ${SONNET_LIB_VERSION} "https://projects.kde.org/projects/frameworks/sonnet" "Qt6 Spell Checking Library from KDE" "Spell checking support" WITH_SONNET_PLUGIN)
 trojita_find_package(KF6Notifications "" "https://invent.kde.org/frameworks/knotifications" "KDE desktop notifications" "Report background account errors as desktop notifications" WITH_KNOTIFICATIONS)
+trojita_find_package(KF6FileMetaData "" "https://invent.kde.org/frameworks/kfilemetadata" "KDE file metadata and text extraction" "Index the text of downloaded attachments" WITH_KFILEMETADATA)
 if(Qt6Keychain_FOUND OR QtKeychain_FOUND)
     message(STATUS "Found QtKeychain library (includes at ${QTKEYCHAIN_INCLUDE_DIRS}, lib at ${QTKEYCHAIN_LIBRARIES})")
 else()
@@ -258,6 +260,12 @@ else()
     set(TROJITA_HAVE_KNOTIFICATIONS False)
 endif()
 
+if(WITH_KFILEMETADATA)
+    set(TROJITA_HAVE_KFILEMETADATA True)
+else()
+    set(TROJITA_HAVE_KFILEMETADATA False)
+endif()
+
 if (WITH_WEBENGINE)
     set(TROJITA_HAVE_WEBENGINE True)
     message(STATUS "Support for viewing mails via Qt WebEngine is enabled")
@@ -312,6 +320,9 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/Formatting.cpp
     ${path_UiUtils}/IconLoader.cpp
     ${path_UiUtils}/LinkSafety.cpp
+    ${path_UiUtils}/MailingLists.cpp
+    ${path_UiUtils}/MessageId.cpp
+    ${path_UiUtils}/MessageIdLookup.cpp
     ${path_UiUtils}/MessageSecurity.cpp
     ${path_UiUtils}/PasswordWatcher.cpp
     ${path_UiUtils}/PlainTextFormatter.cpp
@@ -319,7 +330,14 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/QuickFilters.cpp
     ${path_UiUtils}/RecentFolders.cpp
     ${path_UiUtils}/RelatedMessages.cpp
+    ${path_UiUtils}/RelatedSearch.cpp
     ${path_UiUtils}/Relevance.cpp
+    ${path_UiUtils}/SearchBuilder.cpp
+    ${path_UiUtils}/SearchQuery.cpp
+    ${path_UiUtils}/SearchFacets.cpp
+    ${path_UiUtils}/SearchScope.cpp
+    ${path_UiUtils}/SavedSearches.cpp
+    ${path_UiUtils}/SearchSuggestions.cpp
     ${path_UiUtils}/SelectionAfterRemoval.cpp
     ${path_UiUtils}/ShortcutOverview.cpp
     ${path_UiUtils}/UnreadFolders.cpp
@@ -340,6 +358,7 @@ if(WITH_DESKTOP)
     set(libUiUtils_SOURCES
         ${libUiUtils_SOURCES}
         ${path_UiUtils}/DestructiveActions.cpp
+        ${path_UiUtils}/FileSearch.cpp
     )
 endif()
 
@@ -437,6 +456,12 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/LineEdit.cpp
     ${path_DesktopGui}/MailBoxTreeView.cpp
     ${path_DesktopGui}/MailboxPickerDialog.cpp
+    ${path_DesktopGui}/SearchBuilderDialog.cpp
+    ${path_DesktopGui}/SavedSearchFolders.cpp
+    ${path_DesktopGui}/SearchFoldersDialog.cpp
+    ${path_DesktopGui}/SavedFilesSearchDialog.cpp
+    ${path_DesktopGui}/SearchIndexDialog.cpp
+    ${path_DesktopGui}/SearchResultsPanel.cpp
     ${path_DesktopGui}/MessageActionHandler.cpp
     ${path_DesktopGui}/MessageDetailsPanel.cpp
     ${path_DesktopGui}/MessageListWidget.cpp
@@ -508,6 +533,7 @@ set(libImap_SOURCES
 
     ${path_Imap}/Parser/Command.cpp
     ${path_Imap}/Parser/Data.cpp
+    ${path_Imap}/Parser/ListHeaders.cpp
     ${path_Imap}/Parser/LowLevelParser.cpp
     ${path_Imap}/Parser/MailAddress.cpp
     ${path_Imap}/Parser/Message.cpp
@@ -555,6 +581,15 @@ set(libImap_SOURCES
     ${path_Imap}/Model/TaskPresentationModel.cpp
     ${path_Imap}/Model/ThreadingMsgListModel.cpp
     ${path_Imap}/Model/UnifiedMsgListModel.cpp
+    ${path_Imap}/Model/SearchResultsModel.cpp
+    ${path_Imap}/Model/SearchSnippets.cpp
+    ${path_Imap}/Model/FolderSearch.cpp
+    ${path_Imap}/Model/AttachmentTextExtractor.cpp
+    ${path_Imap}/Model/DecryptedTextIndexer.cpp
+    ${path_Imap}/Model/SearchIndex.cpp
+    ${path_Imap}/Model/SearchIndexer.cpp
+    ${path_Imap}/Model/SearchTextFetcher.cpp
+    ${path_Imap}/Model/SearchSupport.cpp
     ${path_Imap}/Model/Utils.cpp
     ${path_Imap}/Model/VisibleTasksModel.cpp
 
@@ -783,6 +818,9 @@ target_link_libraries(Imap
         OAuth
         Streams
 )
+if(WITH_KFILEMETADATA)
+    target_link_libraries(Imap PRIVATE KF6::FileMetaData)
+endif()
 
 add_library(Cryptography STATIC ${libCryptography_SOURCES})
 set_property(TARGET Cryptography APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
@@ -939,6 +977,8 @@ if(WITH_DESKTOP)
             Qt::Network
             KF6::ConfigCore
             KF6::I18n
+            KF6::KIOGui
+            KF6::KIOWidgets
             Cryptography
             IPC
             MSA
@@ -1092,6 +1132,10 @@ if(BUILD_TESTING)
         target_link_libraries(test_DensityMenu PRIVATE Qt6::Widgets Qt6::Test KF6::ConfigCore KF6::I18n)
         add_executable(test_AttachmentPanel tests/Gui/test_AttachmentPanel.cpp)
         target_link_libraries(test_AttachmentPanel PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_SavedFilesSearchDialog tests/Gui/test_SavedFilesSearchDialog.cpp)
+        target_link_libraries(test_SavedFilesSearchDialog PRIVATE DesktopGui UiUtils Qt6::Test KF6::ConfigCore KF6::I18n)
+        add_executable(test_SearchIndexDialog tests/Gui/test_SearchIndexDialog.cpp)
+        target_link_libraries(test_SearchIndexDialog PRIVATE DesktopGui UiUtils Qt6::Test KF6::I18n)
         add_executable(test_ReaderActionBar tests/Gui/test_ReaderActionBar.cpp)
         target_link_libraries(test_ReaderActionBar PRIVATE DesktopGui UiUtils Qt6::Test KF6::I18n)
         add_executable(test_EmbeddedPanels tests/Gui/test_EmbeddedPanels.cpp)
@@ -1108,6 +1152,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_MainWindowAccounts PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_MainWindowShell tests/Gui/test_MainWindowShell.cpp)
         target_link_libraries(test_MainWindowShell PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_EnvelopeView tests/Gui/test_EnvelopeView.cpp)
+        target_link_libraries(test_EnvelopeView PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_SavedSearch tests/Gui/test_SavedSearch.cpp)
         target_link_libraries(test_SavedSearch PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_ClearTextPassword tests/Gui/test_ClearTextPassword.cpp)
@@ -1124,6 +1170,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_LiveImapCompose PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_LiveImapOperations tests/Gui/test_LiveImapOperations.cpp)
         target_link_libraries(test_LiveImapOperations PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_LiveImapSearch tests/Gui/test_LiveImapSearch.cpp)
+        target_link_libraries(test_LiveImapSearch PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Network Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_InlineNotificationBar tests/Gui/test_InlineNotificationBar.cpp)
         target_link_libraries(test_InlineNotificationBar PRIVATE DesktopGui Qt6::Test KF6::I18n)
         add_executable(test_MessageSelectionRestorer tests/Gui/test_MessageSelectionRestorer.cpp)
@@ -1141,6 +1189,10 @@ if(BUILD_TESTING)
             set_tests_properties(test_DensityMenu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_AttachmentPanel COMMAND test_AttachmentPanel)
             set_tests_properties(test_AttachmentPanel PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_SavedFilesSearchDialog COMMAND test_SavedFilesSearchDialog)
+            set_tests_properties(test_SavedFilesSearchDialog PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_SearchIndexDialog COMMAND test_SearchIndexDialog)
+            set_tests_properties(test_SearchIndexDialog PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_ReaderActionBar COMMAND test_ReaderActionBar)
             set_tests_properties(test_ReaderActionBar PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_EmbeddedPanels COMMAND test_EmbeddedPanels)
@@ -1151,6 +1203,8 @@ if(BUILD_TESTING)
             set_tests_properties(test_MailBoxTreeView PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MailboxNavigation COMMAND test_MailboxNavigation)
             set_tests_properties(test_MailboxNavigation PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_EnvelopeView COMMAND test_EnvelopeView)
+            set_tests_properties(test_EnvelopeView PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_SavedSearch COMMAND test_SavedSearch)
             set_tests_properties(test_SavedSearch PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_ClearTextPassword COMMAND test_ClearTextPassword)
@@ -1167,12 +1221,14 @@ if(BUILD_TESTING)
             add_test(NAME test_MainWindowDensity COMMAND test_MainWindowDensity)
             set(reader_account_cases)
             if(WITH_WEBENGINE)
-                set(reader_account_cases focusFollowsScreenOrder escapeReturnsToMessageList)
+                set(reader_account_cases focusFollowsScreenOrder escapeReturnsToMessageList findMovesToSearchOrFindsInMessage)
             endif()
             foreach(account_case ${reader_account_cases} migratesSingleProfileIntoFirstAccount switchingKeepsAccountsIndependent backgroundAccountStatusIsShown
                     removingAccountDeletesItsSettingsAndPasswords accountsSwitchFromTheKeyboard
-                    savedSearchesAndFolderExpansionFollowTheAccount focusCyclesThroughShellRegions
-                    goToFolderActionsWithoutFolders checkMailAndNextUnreadFolder destructiveActionsOffline quickActionsOffline
+                    savedSearchesAndFolderExpansionFollowTheAccount savedSearchesAreVirtualFoldersOfEveryAccount
+                    savedSearchesCanBeManaged
+                    focusCyclesThroughShellRegions
+                    findSavedFilesOpensTheDialog goToFolderActionsWithoutFolders checkMailAndNextUnreadFolder destructiveActionsOffline quickActionsOffline
                     messageListFiltersOffline shortcutOverviewAndSelectionOffline powerUserProcessingOffline
                     groupingAndRelevanceOffline folderViewStateOffline unifiedInboxOffline unifiedInboxIsRestored
                     identitiesFollowTheAccount composerSendsWithItsOwnAccount composerChoosesItsAccount
@@ -1197,7 +1253,9 @@ if(BUILD_TESTING)
             # One main window per process: the shortcut handler is a singleton.
             foreach(settings_case accountsKeepTheirOwnCaches applicationSettingsLeaveTheAccountAlone
                     accountSettingsEditOnlyTheActiveAccount cancellingAccountSettingsKeepsTheAccount
-                    addingAnAccountOpensItsAccountSettings clientSecretStaysOutOfTheSettings)
+                    addingAnAccountOpensItsAccountSettings clientSecretStaysOutOfTheSettings
+                    searchIndexIsChosenPerAccount searchIndexAttachmentsAreChosenPerAccount
+                    searchIndexPrivacyIsKeptPerAccount memoryOnlyCacheLeavesNoIndex)
                 add_test(NAME test_AccountSettingsDialog_${settings_case} COMMAND test_AccountSettingsDialog ${settings_case})
                 set_tests_properties(test_AccountSettingsDialog_${settings_case} PROPERTIES
                     TIMEOUT 60
@@ -1323,10 +1381,16 @@ if(BUILD_TESTING)
     target_link_libraries(test_AttachmentCollector PRIVATE UiUtils)
     trojita_test(Misc RelatedMessages)
     target_link_libraries(test_RelatedMessages PRIVATE UiUtils)
+    trojita_test(Misc RelatedSearch)
+    target_link_libraries(test_RelatedSearch PRIVATE UiUtils)
+    trojita_test(Misc MessageId)
+    target_link_libraries(test_MessageId PRIVATE UiUtils)
     trojita_test(Misc MessageSecurity)
     target_link_libraries(test_MessageSecurity PRIVATE UiUtils)
     trojita_test(Misc QuickFilters)
     target_link_libraries(test_QuickFilters PRIVATE UiUtils)
+    trojita_test(Misc MailingLists)
+    target_link_libraries(test_MailingLists PRIVATE UiUtils)
     trojita_test(Misc RecentFolders)
     target_link_libraries(test_RecentFolders PRIVATE UiUtils)
     trojita_test(Misc SelectionAfterRemoval)
@@ -1345,11 +1409,30 @@ if(BUILD_TESTING)
     target_link_libraries(test_UnifiedMsgListModel PRIVATE UiUtils)
     trojita_test(Misc Relevance)
     target_link_libraries(test_Relevance PRIVATE UiUtils)
+    trojita_test(Misc SearchBuilder)
+    target_link_libraries(test_SearchBuilder PRIVATE UiUtils)
+    trojita_test(Misc SearchQuery)
+    target_link_libraries(test_SearchQuery PRIVATE UiUtils)
+    trojita_test(Misc SearchScope)
+    target_link_libraries(test_SearchScope PRIVATE UiUtils)
+    trojita_test(Misc SavedSearches)
+    target_link_libraries(test_SavedSearches PRIVATE UiUtils KF6::ConfigCore)
+    trojita_test(Misc SearchSuggestions)
+    target_link_libraries(test_SearchSuggestions PRIVATE UiUtils)
+    trojita_test(Misc SearchSupport)
+    trojita_test(Misc SearchResultsModel)
+    trojita_test(Misc SearchIndex)
+    trojita_test(Misc SearchSnippets)
+    trojita_test(Misc SearchFacets)
+    target_link_libraries(test_SearchFacets PRIVATE UiUtils)
+    target_link_libraries(test_SearchResultsModel PRIVATE UiUtils)
     trojita_test(Misc LinkSafety)
     target_link_libraries(test_LinkSafety PRIVATE UiUtils)
     if(WITH_DESKTOP)
         trojita_test(Misc DestructiveActions)
         target_link_libraries(test_DestructiveActions PRIVATE UiUtils KF6::ConfigCore)
+        trojita_test(Misc FileSearch)
+        target_link_libraries(test_FileSearch PRIVATE UiUtils KF6::ConfigCore)
     endif()
 
 endif()

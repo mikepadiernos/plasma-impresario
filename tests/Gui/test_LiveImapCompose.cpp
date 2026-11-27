@@ -295,7 +295,7 @@ private slots:
         window.show();
         QVERIFY(addIdentity(window));
         auto *tree = window.findChild<Gui::MailBoxTreeView *>();
-        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
         auto *details = window.findChild<Gui::MessageDetailsPanel *>();
         auto *attachments = window.findChild<Gui::AttachmentPanel *>();
         auto *reader = window.findChild<Gui::CompleteMessageWidget *>();

@@ -98,6 +98,11 @@
 #include "Imap/Model/SpecialFlagNames.h"
 #include "Imap/Model/ThreadingMsgListModel.h"
 #include "Imap/Model/UnifiedMsgListModel.h"
+#include "Imap/Model/FolderSearch.h"
+#include "Imap/Model/SearchIndexer.h"
+#include "Imap/Model/SearchTextFetcher.h"
+#include "Imap/Model/SearchResultsModel.h"
+#include "Imap/Model/SearchSnippets.h"
 #include "Imap/Model/FavoriteTagsModel.h"
 #include "Imap/Model/GroupingMsgListModel.h"
 #include "Imap/Model/Utils.h"
@@ -122,6 +127,9 @@
 #include "InlineNotificationBar.h"
 #include "MailBoxTreeView.h"
 #include "MailboxPickerDialog.h"
+#include "SearchFoldersDialog.h"
+#include "SavedFilesSearchDialog.h"
+#include "SearchIndexDialog.h"
 #include "MessageDetailsPanel.h"
 #include "MessageListWidget.h"
 #include "MessageRowsMenu.h"
@@ -134,6 +142,7 @@
 #include "PasswordDialog.h"
 #include "ReaderActionBar.h"
 #include "RelatedMessagesPanel.h"
+#include "SearchResultsPanel.h"
 #include "ProtocolLoggerWidget.h"
 #include "SettingsDialog.h"
 #include "ShortcutOverviewDialog.h"
@@ -152,9 +161,13 @@
 
 #include "Imap/Model/ModelTest/modeltest.h"
 #include "UiUtils/IconLoader.h"
+#include "UiUtils/MessageId.h"
+#include "UiUtils/MessageIdLookup.h"
 #include "UiUtils/QaimDfsIterator.h"
 #include "UiUtils/RelatedMessages.h"
 #include "UiUtils/Relevance.h"
+#include "UiUtils/SavedSearches.h"
+#include "UiUtils/SearchSuggestions.h"
 #include "UiUtils/UnreadFolders.h"
 
 #include <QVBoxLayout>
@@ -163,6 +176,7 @@
 #include "OAuth/Session.h"
 #include "AccountSidebar.h"
 #include "CapabilityActionGate.h"
+#include "SavedSearchFolders.h"
 #include "ShellHeader.h"
 
 /** @short All user-facing widgets and related classes */
@@ -177,6 +191,8 @@ QString unifiedInboxGroup()
 {
     return QStringLiteral("UnifiedInbox");
 }
+
+void reselectShownFolder(Imap::ImapAccess *access);
 }
 
 MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr),
@@ -248,18 +264,69 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     createActions();
     createMenus();
     applyMessageListView();
-    // Choosing a folder leaves the Unified Inbox for it
-    connect(mboxTree, &MailBoxTreeView::clicked, this, [this]() { setUnifiedInbox(false, false); });
-    connect(mboxTree, &MailBoxTreeView::activated, this, [this]() { setUnifiedInbox(false, false); });
+    // Choosing a folder leaves the Unified Inbox and the search results for it
+    const auto showChosenFolder = [this]() {
+        // A folder shows all of its messages, not what the saved search found
+        msgListWidget->endSavedSearchEdit();
+        const bool savedSearch = !msgListWidget->activeSavedSearchOwner().isEmpty();
+        msgListWidget->forgetActiveSavedSearch();
+        m_pendingReveal = PendingReveal();
+        m_activeReveal = PendingReveal();
+        // The results in the Search Results panel stay while other folders are looked at
+        if (searchShownInList()) {
+            leaveSearchAcross();
+            msgListWidget->clearSearch();
+        } else if (savedSearch) {
+            msgListWidget->clearSearch();
+        }
+        setUnifiedInbox(false, false);
+    };
+    connect(mboxTree, &MailBoxTreeView::clicked, this, showChosenFolder);
+    connect(mboxTree, &MailBoxTreeView::activated, this, showChosenFolder);
+    connect(msgListWidget, &MessageListWidget::foldersChoiceRequested, this, &MainWindow::chooseSearchFolders);
+    connect(msgListWidget, &MessageListWidget::contactSuggestionsRequested, this, [this](const QString &query) {
+        Plugins::AddressbookPlugin *addressbook = m_pluginManager->addressbook();
+        if (!addressbook || !(addressbook->features() & Plugins::AddressbookPlugin::FeatureCompletion))
+            return;
+        Plugins::AddressbookCompletionJob *job = addressbook->requestCompletion(query, QStringList(), 5);
+        if (!job)
+            return;
+        connect(job, &Plugins::AddressbookCompletionJob::completionAvailable, msgListWidget,
+                [this, query](const Plugins::NameEmailList &completion) {
+                    QList<UiUtils::SearchSuggestions::Contact> contacts;
+                    for (const Plugins::NameEmail &entry : completion)
+                        contacts.append({entry.name, entry.email});
+                    msgListWidget->showContactSuggestions(query, contacts);
+                });
+        job->setAutoDelete(true);
+        job->start();
+    });
+    msgListWidget->setFolderSource([this]() {
+        // The shown account, whose folders are listed in the folder tree
+        for (const QString &accountId : m_accounts->accountIds()) {
+            if (m_accountAccess.value(accountId) == m_imapAccess)
+                return UiUtils::SearchSuggestions::knownFolders(prettyMboxModel, accountId);
+        }
+        return QList<UiUtils::SearchSuggestions::FolderCandidate>();
+    });
+    msgListWidget->setFacetSource([this]() {
+        if (m_searchAcross && m_searchInPanel)
+            return m_searchResultsPanel->prettyResults()->facetCandidates();
+        if (showsUnifiedList())
+            return m_prettyUnifiedModel ? m_prettyUnifiedModel->facetCandidates() : QModelIndexList();
+        return prettyMsgListModel ? prettyMsgListModel->facetCandidates() : QModelIndexList();
+    });
     if (KConfigGroup(KSharedConfig::openStateConfig(), unifiedInboxGroup()).readEntry("Enabled", false))
         m_actionUnifiedInbox->setChecked(true);
     connect(msgListWidget->tree->header(), &QHeaderView::sectionClicked, this, [this]() {
-        // Sorting by relevance is never remembered
+        if (!currentSearchTerms().isEmpty())
+            rememberRelevanceSorting(false);
+        // Sorting by relevance is never remembered for a folder
         if (m_actionSortByRelevance && m_actionSortByRelevance->isChecked())
             return;
         const QHeaderView *header = msgListWidget->tree->header();
         // The Unified Inbox sorts by itself and has no folder to remember the sorting for
-        if (m_unifiedInbox) {
+        if (showsUnifiedList()) {
             slotSortingConfirmed(header->sortIndicatorSection(), header->sortIndicatorOrder());
             return;
         }
@@ -281,6 +348,7 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
 
     // Please note that Qt 4.6.1 really requires passing the method signature this way, *not* using the SLOT() macro
     QDesktopServices::setUrlHandler(QStringLiteral("mailto"), this, "slotComposeMailUrl");
+    QDesktopServices::setUrlHandler(QStringLiteral("mid"), this, "openMessageUrl");
     QDesktopServices::setUrlHandler(QStringLiteral("x-trojita-manage-contact"), this, "slotManageContact");
 
     slotUpdateWindowTitle();
@@ -327,6 +395,10 @@ MainWindow::~MainWindow()
     m_prettyUnifiedModel = nullptr;
     delete m_unifiedModel;
     m_unifiedModel = nullptr;
+    // Without restoring the selected folders, as the accounts go away as well
+    for (const QPointer<Imap::Mailbox::FolderSearch> &search : std::as_const(m_folderSearches))
+        delete search.data();
+    m_folderSearches.clear();
 }
 
 void MainWindow::reply(const Composer::ReplyMode mode)
@@ -526,6 +598,12 @@ void MainWindow::defineActions()
     shortcutHandler->defineAction(QStringLiteral("action_next_account"), QString(), tr("Switch to Next Account"), QStringLiteral("Ctrl+Alt+PgDown"));
     shortcutHandler->defineAction(QStringLiteral("action_previous_account"), QString(), tr("Switch to Previous Account"), QStringLiteral("Ctrl+Alt+PgUp"));
     shortcutHandler->defineAction(QStringLiteral("action_focus_quick_search"), QString(), tr("Move Focus to Quick Search"), QStringLiteral("/"));
+    shortcutHandler->defineAction(QStringLiteral("action_find"), QStringLiteral("edit-find"), i18nc("@action", "&Find..."),
+                                  QKeySequence::Find);
+    shortcutHandler->defineAction(QStringLiteral("action_search_builder"), QStringLiteral("edit-find"),
+                                  i18nc("@action", "&Search Builder..."), QStringLiteral("Ctrl+Shift+B"));
+    shortcutHandler->defineAction(QStringLiteral("action_clear_search_and_filters"), QStringLiteral("edit-clear-all"),
+                                  i18nc("@action", "Clear Search and &Filters"), QStringLiteral("Ctrl+Shift+Backspace"));
     shortcutHandler->defineAction(QStringLiteral("action_go_to_folder"), QStringLiteral("go-jump"), i18nc("@action", "Go to &Folder..."), QStringLiteral("Ctrl+J"));
     shortcutHandler->defineAction(QStringLiteral("action_go_to_next_unread_folder"), QStringLiteral("go-next"),
                                   i18nc("@action", "Go to Next &Unread Folder"), QStringLiteral("Ctrl+Alt+N"));
@@ -675,6 +753,10 @@ void MainWindow::createActions()
     m_actionAccountSettings = new QAction(UiUtils::loadIcon(QStringLiteral("configure")), i18n("A&ccount Settings..."), this);
     m_actionAccountSettings->setObjectName(QStringLiteral("action_account_settings"));
     connect(m_actionAccountSettings, &QAction::triggered, this, &MainWindow::slotShowAccountSettings);
+    m_actionSearchIndex = new QAction(UiUtils::loadIcon(QStringLiteral("edit-find")), i18nc("@action", "Offline Search &Index…"), this);
+    m_actionSearchIndex->setObjectName(QStringLiteral("action_search_index_status"));
+    m_actionSearchIndex->setToolTip(i18nc("@info:tooltip", "Show how much of the account's mail can be searched offline"));
+    connect(m_actionSearchIndex, &QAction::triggered, this, &MainWindow::slotShowSearchIndex);
     m_actionRenameAccount = new QAction(i18n("Re&name Account..."), this);
     connect(m_actionRenameAccount, &QAction::triggered, this, &MainWindow::slotRenameAccount);
     m_actionRemoveAccount = new QAction(UiUtils::loadIcon(QStringLiteral("list-remove")), i18n("&Remove Account..."), this);
@@ -687,6 +769,19 @@ void MainWindow::createActions()
 
     addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_focus_quick_search"),
             msgListWidget, SLOT(focusSearch()), this));
+    m_actionFind = ShortcutHandler::instance()->createAction(QStringLiteral("action_find"), this, SLOT(slotFind()), this);
+    m_actionFind->setToolTip(i18nc("@info:tooltip", "Find text in the open message while the reader has focus, or else search messages"));
+    m_searchBuilder = ShortcutHandler::instance()->createAction(QStringLiteral("action_search_builder"), msgListWidget,
+            SLOT(openSearchBuilder()), this);
+    m_actionFindSavedFiles = new QAction(UiUtils::loadIcon(QStringLiteral("system-search")),
+                                         i18nc("@action", "Find Saved &Files…"), this);
+    m_actionFindSavedFiles->setObjectName(QStringLiteral("action_find_saved_files"));
+    m_actionFindSavedFiles->setToolTip(i18nc("@info:tooltip", "Find attachments and messages which you saved, in your file manager"));
+    connect(m_actionFindSavedFiles, &QAction::triggered, this, [this]() {
+        findSavedFiles(msgListWidget->searchField()->text());
+    });
+    m_clearSearchAndFilters = ShortcutHandler::instance()->createAction(QStringLiteral("action_clear_search_and_filters"), this,
+            SLOT(clearSearchAndFilters()), this);
 
     addAction(ShortcutHandler::instance()->createAction(QStringLiteral("action_focus_mailbox_tree"), mboxTree,
             SLOT(setFocus()), this));
@@ -898,6 +993,11 @@ void MainWindow::createActions()
     m_actionMarkMailboxAsRead = new QAction(tr("&Mark Mailbox as Read"), this);
     connect(m_actionMarkMailboxAsRead, &QAction::triggered, this, &MainWindow::slotMarkCurrentMailboxRead);
 
+    m_actionDownloadSearchText = new QAction(UiUtils::loadIcon(QStringLiteral("edit-download")),
+                                             i18nc("@action", "Download Message Text for Offline Search…"), this);
+    m_actionDownloadSearchText->setObjectName(QStringLiteral("action_download_search_text"));
+    connect(m_actionDownloadSearchText, &QAction::triggered, this, &MainWindow::slotDownloadTextForSearch);
+
     //: "mailbox" as a "folder of messages", not as a "mail account"
     deleteCurrentMailbox = new QAction(tr("&Remove Mailbox"), this);
     connect(deleteCurrentMailbox, &QAction::triggered, this, &MainWindow::slotDeleteCurrentMailbox);
@@ -989,6 +1089,11 @@ void MainWindow::createActions()
     m_actionSortByRelevance->setEnabled(false);
     m_actionSortByRelevance->setToolTip(
         i18nc("@info:tooltip", "Relevance sorting needs an active quick search or Show Related filter"));
+    // The next search sorts as the last one was sorted by choice
+    connect(sortColumnGroup, &QActionGroup::triggered, this, [this](QAction *action) {
+        if (!currentSearchTerms().isEmpty())
+            rememberRelevanceSorting(action == m_actionSortByRelevance);
+    });
     connect(sortColumnGroup, &QActionGroup::triggered, this, &MainWindow::slotSortingPreferenceChanged);
     slotSortingConfirmed(-1, Qt::AscendingOrder);
 
@@ -1074,6 +1179,8 @@ void MainWindow::createActions()
         action->setCheckable(true);
         action->setToolTip(toolTip);
         connect(action, &QAction::triggered, this, [this, filter](bool checked) {
+            if (checked)
+                rememberUnnarrowedPosition();
             prettyMsgListModel->setFilterEnabled(filter, checked);
             saveMessageListFilters();
         });
@@ -1167,8 +1274,9 @@ void MainWindow::createActions()
     connect(m_prettyUnifiedModel, &QAbstractItemModel::rowsRemoved, this, &MainWindow::scheduleMessageListStatus);
     connect(m_prettyUnifiedModel, &QAbstractItemModel::modelReset, this, &MainWindow::scheduleMessageListStatus);
     connect(m_prettyUnifiedModel, &QAbstractItemModel::layoutChanged, this, &MainWindow::scheduleMessageListStatus);
+    connect(m_prettyUnifiedModel, &QAbstractItemModel::dataChanged, this, &MainWindow::scheduleSavedSearchCount);
     connect(m_unifiedModel, &Imap::Mailbox::UnifiedMsgListModel::accountsChanged, this, [this]() {
-        if (m_unifiedInbox) {
+        if (showsUnifiedList()) {
             updateMessageListScope();
             scheduleMessageListStatus();
         }
@@ -1406,6 +1514,7 @@ void MainWindow::createMenus()
         applicationMenu->addSeparator();
         ADD_ACTION(applicationMenu, m_actionAddAccount);
         ADD_ACTION(applicationMenu, m_actionAccountSettings);
+        ADD_ACTION(applicationMenu, m_actionSearchIndex);
         ADD_ACTION(applicationMenu, m_actionRenameAccount);
         ADD_ACTION(applicationMenu, m_actionRemoveAccount);
         applicationMenu->addSeparator();
@@ -1473,6 +1582,9 @@ void MainWindow::createMenus()
             ADD_ACTION(filterMenu, m_actionFilterAttachments);
             filterMenu->addSeparator();
             ADD_ACTION(filterMenu, m_actionClearFilters);
+            ADD_ACTION(filterMenu, m_clearSearchAndFilters);
+            filterMenu->addSeparator();
+            filterMenu->addMenu(msgListWidget->facetsMenu());
         m_groupByMenu = viewMenu->addMenu(quickActionIcon(QStringLiteral("view-group")), i18nc("@title:menu", "&Group By"));
         m_groupByMenu->setObjectName(QStringLiteral("messageListGroupByMenu"));
             for (QAction *action : m_groupByActions->actions()) {
@@ -1494,6 +1606,9 @@ void MainWindow::createMenus()
         ADD_ACTION(mailboxMenu, m_goToNextUnreadFolder);
         ADD_ACTION(mailboxMenu, m_checkMail);
         mailboxMenu->addSeparator();
+        ADD_ACTION(mailboxMenu, m_actionFind);
+        ADD_ACTION(mailboxMenu, m_searchBuilder);
+        mailboxMenu->addAction(m_actionFindSavedFiles);
         QMenu *sortMenu = mailboxMenu->addMenu(tr("S&orting"));
             ADD_ACTION(sortMenu, m_actionSortNone);
             ADD_ACTION(sortMenu, m_actionSortThreading);
@@ -1670,6 +1785,34 @@ void MainWindow::createWidgets()
     // Between the quick search field and the list, so that it does not cover any message
     if (auto *listLayout = qobject_cast<QVBoxLayout *>(msgListWidget->layout()))
         listLayout->insertWidget(1, m_notificationBar);
+    m_actionStopSearch = new QAction(quickActionIcon(QStringLiteral("process-stop")), i18nc("@action:button", "Stop"), this);
+    m_actionStopSearch->setObjectName(QStringLiteral("action_stop_search"));
+    m_actionStopSearch->setToolTip(i18nc("@info:tooltip", "Stop searching and keep the messages found so far"));
+    m_actionStopSearch->setVisible(false);
+    connect(m_actionStopSearch, &QAction::triggered, this, &MainWindow::stopSearchAcross);
+    msgListWidget->addStatusButton(m_actionStopSearch)->setObjectName(QStringLiteral("stopSearchButton"));
+    m_actionRetrySearch = new QAction(quickActionIcon(QStringLiteral("view-refresh")), i18nc("@action:button", "Retry"), this);
+    m_actionRetrySearch->setObjectName(QStringLiteral("action_retry_search"));
+    m_actionRetrySearch->setToolTip(i18nc("@info:tooltip", "Search the places which could not be searched again"));
+    m_actionRetrySearch->setVisible(false);
+    connect(m_actionRetrySearch, &QAction::triggered, this, &MainWindow::retrySearchAcross);
+    msgListWidget->addStatusButton(m_actionRetrySearch)->setObjectName(QStringLiteral("retrySearchButton"));
+    m_actionSearchServer =
+        new QAction(quickActionIcon(QStringLiteral("network-server")), i18nc("@action:button", "Search Server"), this);
+    m_actionSearchServer->setObjectName(QStringLiteral("action_search_server"));
+    m_actionSearchServer->setToolTip(
+        i18nc("@info:tooltip", "Continue the search on the server, adding the messages which are not indexed on this computer"));
+    m_actionSearchServer->setVisible(false);
+    connect(m_actionSearchServer, &QAction::triggered, this, &MainWindow::continueSearchOnServer);
+    msgListWidget->addStatusButton(m_actionSearchServer)->setObjectName(QStringLiteral("searchServerButton"));
+    m_actionRevealInFolder = new QAction(UiUtils::loadIcon(QStringLiteral("go-jump")), i18nc("@action:inmenu", "Show in &Folder"), this);
+    m_actionRevealInFolder->setObjectName(QStringLiteral("action_reveal_in_folder"));
+    m_actionRevealInFolder->setToolTip(i18nc("@info:tooltip", "Show the folder of the message and select the message there"));
+    connect(m_actionRevealInFolder, &QAction::triggered, this, [this]() {
+        const QModelIndex current = msgListWidget->tree->currentIndex();
+        if (current.isValid())
+            revealInFolder(current);
+    });
     msgListWidget->tree->setContextMenuPolicy(Qt::CustomContextMenu);
     msgListWidget->tree->setAlternatingRowColors(true);
     msgListWidget->setRawSearchEnabled(m_settings->value(Common::SettingsNames::guiAllowRawSearch).toBool());
@@ -1678,9 +1821,17 @@ void MainWindow::createWidgets()
     connect(msgListWidget->tree, &QWidget::customContextMenuRequested, this, &MainWindow::showContextMenuMsgListTree);
     connect(msgListWidget->tree, &QAbstractItemView::activated, this, &MainWindow::msgListClicked);
     connect(msgListWidget->tree, &QAbstractItemView::clicked, this, &MainWindow::msgListClicked);
+    for (auto signal : {&QAbstractItemView::activated, &QAbstractItemView::clicked}) {
+        connect(msgListWidget->tree, signal, this, [this] {
+            if (messageListNarrowed())
+                m_pickedWhileNarrowed = true;
+        });
+    }
     connect(msgListWidget->tree, &QAbstractItemView::doubleClicked, this, &MainWindow::openCompleteMessageWidget);
     connect(msgListWidget->tree, &MsgListView::currentReplacedAfterRemoval, this, &MainWindow::slotMessageReplacedAfterRemoval);
     connect(msgListWidget, &MessageListWidget::requestingSearch, this, &MainWindow::slotSearchRequested);
+    connect(msgListWidget, &MessageListWidget::clearAllRequested, this, &MainWindow::clearSearchAndFilters);
+    connect(msgListWidget, &MessageListWidget::facetsChanged, this, &MainWindow::applySearchFacets);
     connect(msgListWidget->tree->header(), &QHeaderView::sectionMoved, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
     connect(msgListWidget->tree->header(), &QHeaderView::sectionResized, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
 
@@ -1688,6 +1839,9 @@ void MainWindow::createWidgets()
 
 #ifdef TROJITA_HAVE_WEBENGINE
     m_messageWidget = new CompleteMessageWidget(this, m_settings, m_pluginManager, m_favoriteTags);
+    // The window's Find action hands the key to the reader while it has focus; two actions with the same key in one
+    // window would be ambiguous, so that neither of them would run
+    m_messageWidget->messageView->findAction()->setShortcut(QKeySequence());
     const auto accountName = [this](const QModelIndex &message) { return messageAccountName(message); };
     m_messageWidget->messageView->setAccountResolver(accountName);
     connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::scrollMessageUp);
@@ -1713,6 +1867,7 @@ void MainWindow::createWidgets()
     m_attachmentPanel->setNetworkAccessManager(m_messageWidget->messageView->networkAccessManager());
     connect(m_messageWidget->messageView, &MessageView::messageModelChanged, m_attachmentPanel, &AttachmentPanel::setMessageModel);
     connect(m_attachmentPanel, &AttachmentPanel::transferError, this, &MainWindow::slotDownloadTransferError);
+    connect(m_attachmentPanel, &AttachmentPanel::findSavedCopiesRequested, this, &MainWindow::findSavedFiles);
 
     m_messageDetailsPanel = new MessageDetailsPanel();
     m_messageDetailsPanel->setAccountResolver(accountName);
@@ -1727,7 +1882,31 @@ void MainWindow::createWidgets()
     connect(m_contactPanel, &ContactPanel::composeRequested, this, &MainWindow::slotComposeMailUrl);
     connect(m_contactPanel, &ContactPanel::manageContactRequested, this, &MainWindow::slotManageContact);
     connect(m_relatedMessagesPanel, &RelatedMessagesPanel::messageActivated, this, &MainWindow::activateRelatedMessage);
-    m_embeddedPanels = {m_attachmentPanel, m_messageDetailsPanel, m_contactPanel, m_relatedMessagesPanel};
+    const auto messageAccount = [this](const QModelIndex &message) {
+        return accountOfModel(qobject_cast<const Imap::Mailbox::Model *>(Imap::deproxifiedIndex(message).model()));
+    };
+    m_relatedMessagesPanel->setAccountResolver(messageAccount);
+    m_relatedMessagesPanel->setServerSearchGuard([this, messageAccount](const QModelIndex &message) {
+        const QString accountId = messageAccount(message);
+        if (accountId.isEmpty())
+            return i18nc("@info", "The account of the message is not known");
+        if (const Imap::Mailbox::FolderSearch *search = m_folderSearches.value(accountId); search && search->isRunning())
+            return i18nc("@info", "The server is searched once the search across folders is done");
+        return QString();
+    });
+    m_relatedMessagesPanel->setConfig(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")));
+    connect(m_relatedMessagesPanel->serverSearch(), &UiUtils::RelatedSearch::selectionChanged, this,
+            [this](Imap::Mailbox::Model *model) { reselectShownFolder(m_accountAccess.value(accountOfModel(model))); });
+    connect(m_relatedMessagesPanel, &RelatedMessagesPanel::chooseFoldersRequested, this, &MainWindow::chooseRelatedFolders);
+    m_searchResultsPanel = new SearchResultsPanel(m_favoriteTags);
+    m_searchResultsPanel->setStateConfig(KSharedConfig::openStateConfig());
+    connect(m_searchResultsPanel, &SearchResultsPanel::messageActivated, this, &MainWindow::activateRelatedMessage);
+    connect(m_searchResultsPanel, &SearchResultsPanel::revealRequested, this, &MainWindow::revealInFolder);
+    connect(m_searchResultsPanel, &SearchResultsPanel::stopRequested, this, &MainWindow::stopSearchAcross);
+    connect(m_searchResultsPanel, &SearchResultsPanel::retryRequested, this, &MainWindow::retrySearchAcross);
+    connect(m_searchResultsPanel, &SearchResultsPanel::searchServerRequested, this, &MainWindow::continueSearchOnServer);
+    connect(m_searchResultsPanel, &SearchResultsPanel::enabledChanged, this, &MainWindow::moveSearchResults);
+    m_embeddedPanels = {m_attachmentPanel, m_messageDetailsPanel, m_contactPanel, m_relatedMessagesPanel, m_searchResultsPanel};
 #else
    m_messageWidget = new QLabel(QStringLiteral("Message Widget placeholder"));
 #endif
@@ -1812,6 +1991,8 @@ void MainWindow::setupModels(bool reconnect)
     prettyMboxModel->setObjectName(QStringLiteral("prettyMboxModel"));
     connect(realThreadingModel, &Imap::Mailbox::ThreadingMsgListModel::sortingFailed,
             msgListWidget, &MessageListWidget::slotSortingFailed);
+    connect(realThreadingModel, &Imap::Mailbox::ThreadingMsgListModel::sortingFailed,
+            this, &MainWindow::scheduleMessageListStatus);
     prettyMsgListModel = new Imap::Mailbox::PrettyMsgListModel(this);
     prettyMsgListModel->setSourceModel(m_imapAccess->threadingMsgListModel());
     prettyMsgListModel->setObjectName(QStringLiteral("prettyMsgListModel"));
@@ -1830,13 +2011,19 @@ void MainWindow::setupModels(bool reconnect)
         // The message list of an account which was shown before still has its folder open
         m_positionMailbox = currentMailboxName();
         m_livePosition = UiUtils::FolderPosition();
+        m_unnarrowedMailbox.clear();
+        m_unnarrowedPosition = UiUtils::FolderPosition();
+        m_pickedWhileNarrowed = false;
     }
     applyMessageListFilters();
+    if (msgListWidget)
+        prettyMsgListModel->setFacets(msgListWidget->facets());
     connect(prettyMsgListModel, &Imap::Mailbox::PrettyMsgListModel::filtersChanged, this, &MainWindow::syncMessageListFilterUi);
     connect(prettyMsgListModel, &QAbstractItemModel::rowsInserted, this, &MainWindow::scheduleMessageListStatus);
     connect(prettyMsgListModel, &QAbstractItemModel::rowsRemoved, this, &MainWindow::scheduleMessageListStatus);
     connect(prettyMsgListModel, &QAbstractItemModel::modelReset, this, &MainWindow::scheduleMessageListStatus);
     connect(prettyMsgListModel, &QAbstractItemModel::layoutChanged, this, &MainWindow::scheduleMessageListStatus);
+    connect(prettyMsgListModel, &QAbstractItemModel::dataChanged, this, &MainWindow::scheduleSavedSearchCount);
     m_groupingMsgListModel = new Imap::Mailbox::GroupingMsgListModel(this);
     m_groupingMsgListModel->setObjectName(QStringLiteral("groupingMsgListModel"));
     m_groupingMsgListModel->setFavoriteTags(m_favoriteTags);
@@ -1869,7 +2056,7 @@ void MainWindow::setupModels(bool reconnect)
             this, &MainWindow::slotScrollToUnseenMessage);
     // When a resynchronization replaces all messages of the folder, the same messages are selected again
     connect(realMsgListModel, &QAbstractItemModel::rowsRemoved, this, [this, realMsgListModel](const QModelIndex &parent) {
-        if (m_unifiedInbox || parent.isValid() || realMsgListModel->rowCount() || !m_messageRestorer || !m_livePosition.isValid() ||
+        if (showsUnifiedList() || parent.isValid() || realMsgListModel->rowCount() || !m_messageRestorer || !m_livePosition.isValid() ||
             m_positionMailbox.isEmpty() || m_positionMailbox != currentMailboxName() || m_messageRestorer->isPending())
             return;
         m_messageRestorer->restorePosition(m_positionMailbox, m_livePosition.uidValidity, m_livePosition.uid,
@@ -1892,6 +2079,9 @@ void MainWindow::setupModels(bool reconnect)
         commitFolderPosition();
         m_positionMailbox = currentMailboxName();
         m_livePosition = UiUtils::FolderPosition();
+        m_unnarrowedMailbox.clear();
+        m_unnarrowedPosition = UiUtils::FolderPosition();
+        m_pickedWhileNarrowed = false;
         pruneFolderStates();
         applyMessageListView();
         updateMessageListScope();
@@ -2009,6 +2199,9 @@ void MainWindow::setupModels(bool reconnect)
         if (m_unifiedInbox)
             return;
         const QString name = mailbox.data(Imap::Mailbox::RoleMailboxName).toString();
+        // A message which was asked for wins over the one selected last time
+        if (isRevealing(name))
+            return;
         if (name == accountSelection.readEntry("MessageMailbox", QString())) {
             messageRestorer->restore(name, accountSelection.readEntry("MessageUidValidity", 0u),
                                      accountSelection.readEntry("MessageUid", 0u));
@@ -2036,6 +2229,9 @@ void MainWindow::setupModels(bool reconnect)
     connect(imapModel(), &Imap::Mailbox::Model::specialFoldersChanged, this, &MainWindow::updateGoToFolderActions,
             Qt::UniqueConnection);
     updateGoToFolderActions();
+    // The account's index is new after switching accounts or saving the account settings
+    if (m_searchIndexDialog)
+        m_searchIndexDialog->setIndexer(m_imapAccess->searchIndexer(), m_accounts->displayName(m_accounts->activeAccount()));
 
     auto accountIconName = accountSettings()->value(Common::SettingsNames::imapAccountIcon).toString();
     if (accountIconName.isEmpty()) {
@@ -2266,7 +2462,7 @@ void MainWindow::showMainWindow()
 void MainWindow::saveMessageSelection(const QModelIndex &index)
 {
     // Messages of the Unified Inbox may belong to other accounts than the shown one
-    if (m_unifiedInbox)
+    if (showsUnifiedList())
         return;
     KConfigGroup selection(KSharedConfig::openStateConfig(), QStringLiteral("MailboxSelection"));
     KConfigGroup accountSelection = selection.group(m_imapAccess->credentialAccountId());
@@ -2411,6 +2607,14 @@ void MainWindow::showContextMenuMboxTree(const QPoint &position)
         actionList.append(m_actionMarkMailboxAsRead);
         actionList.append(resyncMbox);
         actionList.append(reloadMboxList);
+        // Only with the local index enabled; the index itself never downloads anything
+        if (const Imap::Mailbox::SearchIndexer *indexer = m_imapAccess ? m_imapAccess->searchIndexer() : nullptr;
+            indexer && clicked.data(Imap::Mailbox::RoleMailboxIsSelectable).toBool()) {
+            m_actionDownloadSearchText->setData(clicked.data(Imap::Mailbox::RoleMailboxName).toString());
+            m_actionDownloadSearchText->setEnabled(indexer->isAvailable() && imapModel() && imapModel()->isNetworkAvailable()
+                                                   && !(m_searchTextFetcher && m_searchTextFetcher->isRunning()));
+            actionList.append(m_actionDownloadSearchText);
+        }
 
         actionList.append(m_actionSubscribeMailbox);
         m_actionSubscribeMailbox->setChecked(mboxTree->indexAt(position).data(Imap::Mailbox::RoleMailboxIsSubscribed).toBool());
@@ -2445,6 +2649,9 @@ void MainWindow::showContextMenuMsgListTree(const QPoint &position)
         actionList.append(saveWholeMessage);
         actionList.append(viewMsgSource);
         actionList.append(viewMsgHeaders);
+        // Among results or other narrowed messages, the message can be seen among the rest of its folder
+        if (showsUnifiedList() || messageListNarrowed())
+            actionList.append(m_actionRevealInFolder);
         auto appendTagIfExists = [this,&actionList](const int row, QAction *tag) {
             if (m_favoriteTags->rowCount() > row - 1)
                 actionList.append(tag);
@@ -2475,7 +2682,8 @@ void MainWindow::showContextMenuMsgListTree(const QPoint &position)
     } else {
         // Below the messages: actions on the whole list
         actionList << m_actionSelectAllMessages << &selectionSeparator << m_actionFilterUnread << m_actionFilterFlagged
-                   << m_actionFilterAttachments << m_actionClearFilters << &filterSeparator << m_actionMarkMailboxAsRead;
+                   << m_actionFilterAttachments << m_actionClearFilters << m_clearSearchAndFilters << &filterSeparator
+                   << m_actionMarkMailboxAsRead;
         if (msgListWidget->tree->model() == m_groupingMsgListModel)
             actionList << &relatedSeparator << m_actionExpandAllGroups << m_actionCollapseAllGroups;
         else if (showsThreads())
@@ -2746,7 +2954,7 @@ void MainWindow::pickFolder(const Imap::Mailbox::CopyMoveOperation op)
 void MainWindow::populateRecentFoldersMenu(QMenu *menu, const Imap::Mailbox::CopyMoveOperation op)
 {
     using UiUtils::RecentFolders;
-    if (m_unifiedInbox && !m_acting) {
+    if (showsUnifiedList() && !m_acting) {
         // The recent folders of the account which all selected messages belong to
         QString accountId;
         bool oneAccount = true;
@@ -2831,6 +3039,55 @@ void MainWindow::slotShowSettings()
         removeSysTray();
         slotToggleSysTray();
     }
+}
+
+void MainWindow::findSavedFiles(const QString &text)
+{
+    if (!m_savedFilesDialog) {
+        m_savedFilesDialog = new SavedFilesSearchDialog(this);
+        m_savedFilesDialog->setAttribute(Qt::WA_DeleteOnClose);
+    }
+    m_savedFilesDialog->setSearchText(text);
+    m_savedFilesDialog->setFolder(Util::savedFilesFolder());
+    m_savedFilesDialog->show();
+    m_savedFilesDialog->raise();
+    m_savedFilesDialog->activateWindow();
+}
+
+void MainWindow::slotShowSearchIndex()
+{
+    if (!m_searchIndexDialog) {
+        m_searchIndexDialog = new SearchIndexDialog(this);
+        m_searchIndexDialog->setAttribute(Qt::WA_DeleteOnClose);
+        connect(m_searchIndexDialog, &SearchIndexDialog::pausedChanged, this, [this](bool paused) {
+            // The dialog shows the index of the shown account
+            if (m_imapAccess)
+                m_imapAccess->setSearchIndexPaused(paused);
+        });
+        connect(m_searchIndexDialog, &SearchIndexDialog::excludedFoldersChanged, this, [this](const QStringList &folders) {
+            if (m_imapAccess)
+                m_imapAccess->setSearchIndexExcluded(folders);
+        });
+        connect(m_searchIndexDialog, &SearchIndexDialog::deleteRequested, this, [this]() {
+            if (!m_imapAccess || !m_searchIndexDialog)
+                return;
+            QString problem;
+            const bool deleted = m_imapAccess->deleteSearchIndex(&problem);
+            m_searchIndexDialog->setIndexer(nullptr, m_accounts->displayName(m_accounts->activeAccount()));
+            m_searchIndexDialog->showDeleted();
+            if (!deleted) {
+                Gui::Util::messageBoxWarning(m_searchIndexDialog, i18nc("@title:window", "Search Index Not Deleted"),
+                                             i18nc("@info %1 is the reason",
+                                                   "The offline search index could not be deleted completely: %1",
+                                                   problem));
+            }
+        });
+    }
+    m_searchIndexDialog->setIndexer(m_imapAccess ? m_imapAccess->searchIndexer() : nullptr,
+                                    m_accounts->displayName(m_accounts->activeAccount()));
+    m_searchIndexDialog->show();
+    m_searchIndexDialog->raise();
+    m_searchIndexDialog->activateWindow();
 }
 
 void MainWindow::slotShowAccountSettings()
@@ -2960,10 +3217,327 @@ Imap::ImapAccess *MainWindow::accountAccess(const QString &accountId)
         ? QString::fromUtf8(qgetenv("TROJITA_PROFILE")) : accountId;
     auto *access = new Imap::ImapAccess(this, m_accounts->settings(accountId), m_pluginManager, name, m_settings);
     connect(access, &Imap::ImapAccess::cacheError, this, &MainWindow::cacheError);
+    // Folders chosen for saved searches are only known to be gone once their account's folders were listed
+    const auto watchMailboxes = [this, access]() {
+        QAbstractItemModel *mailboxes = access->mailboxModel();
+        if (!mailboxes)
+            return;
+        const auto schedule = [this]() {
+            if (m_savedSearchProblemsTimer && !m_savedSearchProblemsTimer->isActive())
+                m_savedSearchProblemsTimer->start();
+        };
+        schedule();
+        // Lambdas cannot be unique connections, so a model which is reused keeps its first ones
+        static const char watched[] = "savedSearchProblemsWatched";
+        if (mailboxes->property(watched).toBool())
+            return;
+        mailboxes->setProperty(watched, true);
+        connect(mailboxes, &QAbstractItemModel::rowsInserted, this, schedule);
+        connect(mailboxes, &QAbstractItemModel::rowsRemoved, this, schedule);
+        connect(mailboxes, &QAbstractItemModel::modelReset, this, schedule);
+        connect(mailboxes, &QAbstractItemModel::dataChanged, this, schedule);
+    };
+    connect(access, &Imap::ImapAccess::modelsChanged, this, watchMailboxes);
+    watchMailboxes();
     connect(access, &Imap::ImapAccess::checkSslPolicy, this, [this, accountId]() { checkSslPolicy(accountId); },
             Qt::QueuedConnection);
     m_accountAccess.insert(accountId, access);
     return access;
+}
+
+QString MainWindow::savedSearchOwner(const QString &accountId) const
+{
+    // As ImapAccess::credentialAccountId(), without creating the access of an account which is not running
+    if (accountId != m_settings->value(legacyAccountKey).toString())
+        return accountId;
+    const QString profile = QString::fromUtf8(qgetenv("TROJITA_PROFILE"));
+    return profile.isEmpty() ? QStringLiteral("account-0") : profile;
+}
+
+void MainWindow::reloadSavedSearchFolders()
+{
+    if (!m_savedSearchFolders)
+        return;
+    QStringList owners;
+    QHash<QString, QString> names;
+    for (const QString &accountId : m_accounts->accountIds()) {
+        const QString owner = savedSearchOwner(accountId);
+        owners << owner;
+        names.insert(owner, m_accounts->displayName(accountId));
+    }
+    // Searches of removed accounts stay until the user moves or deletes them
+    const QList<UiUtils::SavedSearch> searches =
+        UiUtils::SavedSearches::load(MessageListWidget::savedSearchesRoot(), owners, UiUtils::SavedSearches::Orphans::Include);
+    m_savedSearchFolders->setSearches(searches, owners, names);
+    KConfigGroup counts(KSharedConfig::openStateConfig(), QStringLiteral("SavedSearchCounts"));
+    UiUtils::SavedSearches::pruneCounts(counts, searches);
+    for (const UiUtils::SavedSearch &search : searches)
+        m_savedSearchFolders->setCounts(search.owner, search.id, UiUtils::SavedSearches::readCounts(counts, search.owner, search.id));
+    m_savedSearchFolders->setActive(msgListWidget->activeSavedSearchOwner(), msgListWidget->activeSavedSearchId());
+    refreshSavedSearchProblems();
+    scheduleSavedSearchCount();
+}
+
+void MainWindow::refreshSavedSearchProblems()
+{
+    if (!m_savedSearchFolders)
+        return;
+    QStringList owners;
+    const QStringList accountIds = m_accounts->accountIds();
+    for (const QString &accountId : accountIds)
+        owners << savedSearchOwner(accountId);
+    const auto presence = [this](const UiUtils::SearchScope::Folder &folder) { return folderPresence(folder); };
+    const QList<UiUtils::SavedSearch> searches = m_savedSearchFolders->searches();
+    for (const UiUtils::SavedSearch &search : searches) {
+        m_savedSearchFolders->setProblems(search.owner, search.id,
+                                          UiUtils::SavedSearches::problems(search, owners, accountIds, presence));
+    }
+}
+
+UiUtils::SavedSearches::FolderPresence MainWindow::folderPresence(const UiUtils::SearchScope::Folder &folder) const
+{
+    using UiUtils::SavedSearches::FolderPresence;
+    Imap::ImapAccess *access = m_accountAccess.value(folder.accountId);
+    auto *model = access ? qobject_cast<Imap::Mailbox::Model *>(access->imapModel()) : nullptr;
+    if (!model || folder.mailbox.isEmpty())
+        return FolderPresence::Unknown;
+    if (model->mailboxIndexByName(folder.mailbox).isValid())
+        return FolderPresence::Present;
+    // Every server has an INBOX; without it, the top folders have not been listed yet
+    const QModelIndex inbox = model->mailboxIndexByName(QStringLiteral("INBOX"));
+    if (!inbox.isValid())
+        return FolderPresence::Unknown;
+    const QString separator = inbox.data(Imap::Mailbox::RoleMailboxSeparator).toString();
+    QString parent = folder.mailbox;
+    while (!separator.isEmpty()) {
+        const qsizetype cut = parent.lastIndexOf(separator);
+        if (cut <= 0)
+            break;
+        parent.truncate(cut);
+        const QModelIndex index = model->mailboxIndexByName(parent);
+        // The nearest listed folder above it decides: gone only when its subfolders were listed without it
+        if (index.isValid())
+            return index.data(Imap::Mailbox::RoleIsFetched).toBool() ? FolderPresence::Missing : FolderPresence::Unknown;
+    }
+    return FolderPresence::Missing;
+}
+
+void MainWindow::activateSavedSearch(const QString &owner, const QString &id)
+{
+    openSavedSearch(owner, id, false);
+}
+
+void MainWindow::editSavedSearch(const QString &owner, const QString &id)
+{
+    openSavedSearch(owner, id, true);
+}
+
+void MainWindow::openSavedSearch(const QString &owner, const QString &id, bool edit)
+{
+    const KConfigGroup group = MessageListWidget::savedSearchesRoot().group(owner);
+    const UiUtils::SavedSearch search = group.hasGroup(id) ? UiUtils::SavedSearches::read(group.group(id), owner)
+                                                           : UiUtils::SavedSearch();
+    if (!search.isValid()) {
+        // Deleted or changed meanwhile, such as by another window
+        reloadSavedSearchFolders();
+        return;
+    }
+    if (search.dependsOnOwner()) {
+        const QStringList accountIds = m_accounts->accountIds();
+        const auto account = std::find_if(accountIds.cbegin(), accountIds.cend(),
+                                          [this, &owner](const QString &accountId) { return savedSearchOwner(accountId) == owner; });
+        if (account == accountIds.cend()) {
+            const QString shownOwner = savedSearchOwner(m_accounts->activeAccount());
+            const QString name = search.name;
+            m_notificationBar->showInfo(
+                i18nc("@info %1 is the name of a saved search", "The account of the saved search \"%1\" was removed, "
+                                                                "so it cannot run.", name),
+                {
+                    {i18nc("@action:button %1 is an account", "Move to %1", m_accounts->displayName(m_accounts->activeAccount())),
+                     QStringLiteral("user-identity"), QStringLiteral("moveSavedSearchToShownAccount"),
+                     [this, owner, id, shownOwner]() { changeSavedSearchOwner(owner, id, shownOwner); }},
+                    {i18nc("@action:button", "Delete..."), QStringLiteral("edit-delete"),
+                     QStringLiteral("deleteOrphanedSavedSearch"), [this, owner, id]() { msgListWidget->deleteSavedSearch(owner, id); }},
+                });
+            return;
+        }
+        // Choosing the shown account in the Unified Inbox goes back to its folder
+        if (*account != m_accounts->activeAccount() || m_unifiedInbox)
+            switchAccount(*account);
+        if (*account != m_accounts->activeAccount() || m_unifiedInbox)
+            return;
+    }
+    if (edit)
+        msgListWidget->editSavedSearch(owner, id);
+    else
+        msgListWidget->runSavedSearch(owner, id);
+}
+
+void MainWindow::changeSavedSearchOwner(const QString &owner, const QString &id, const QString &newOwner)
+{
+    KConfigGroup root = MessageListWidget::savedSearchesRoot();
+    if (!root.group(owner).hasGroup(id)) {
+        reloadSavedSearchFolders();
+        return;
+    }
+    const QString name = root.group(owner).group(id).readEntry("Name", QString());
+    if (UiUtils::SavedSearches::isNameTaken(root, newOwner, name, id)) {
+        Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Move Saved Search"),
+                                     i18nc("@info %1 is the name of a saved search", "The account already has a saved "
+                                           "search called \"%1\". Rename one of them first.", name));
+        return;
+    }
+    if (!UiUtils::SavedSearches::changeOwner(root, owner, id, newOwner)) {
+        reloadSavedSearchFolders();
+        return;
+    }
+    if (!root.sync())
+        Gui::Util::messageBoxWarning(this, i18nc("@title:window", "Move Saved Search"),
+                                     i18nc("@info", "The search could not be moved."));
+    // The counts were found in the folders of the old account
+    KConfigGroup counts(KSharedConfig::openStateConfig(), QStringLiteral("SavedSearchCounts"));
+    counts.deleteEntry(UiUtils::SavedSearches::countsKey(owner, id));
+    counts.sync();
+    if (msgListWidget->editedSavedSearchOwner() == owner && msgListWidget->editedSavedSearchId() == id)
+        msgListWidget->endSavedSearchEdit();
+    if (msgListWidget->activeSavedSearchOwner() == owner && msgListWidget->activeSavedSearchId() == id)
+        msgListWidget->forgetActiveSavedSearch();
+    reloadSavedSearchFolders();
+}
+
+void MainWindow::addSearchFolderAccounts(SearchFoldersDialog *dialog)
+{
+    for (const QString &accountId : m_accounts->accountIds()) {
+        Imap::ImapAccess *access = m_accountAccess.value(accountId);
+        QAbstractItemModel *mailboxes = nullptr;
+        if (access == m_imapAccess)
+            mailboxes = prettyMboxModel;
+        else if (access && access->mailboxModel())
+            mailboxes = new Imap::Mailbox::PrettyMailboxModel(dialog, access->mailboxModel());
+        dialog->addAccount(accountId, m_accounts->displayName(accountId), mailboxes);
+    }
+}
+
+void MainWindow::chooseSavedSearchFolders(const QString &owner, const QString &id)
+{
+    const KConfigGroup group = MessageListWidget::savedSearchesRoot().group(owner);
+    const UiUtils::SavedSearch search = group.hasGroup(id) ? UiUtils::SavedSearches::read(group.group(id), owner)
+                                                           : UiUtils::SavedSearch();
+    if (!search.isValid()) {
+        reloadSavedSearchFolders();
+        return;
+    }
+    auto *dialog = new SearchFoldersDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setObjectName(QStringLiteral("savedSearchFoldersDialog"));
+    dialog->setWindowTitle(i18nc("@title:window %1 is the name of a saved search", "Folders of \"%1\"", search.name));
+    addSearchFolderAccounts(dialog);
+    dialog->setSelectedFolders(search.folders);
+    connect(dialog, &QDialog::accepted, this, [this, dialog, owner, id]() {
+        KConfigGroup account = MessageListWidget::savedSearchesRoot().group(owner);
+        if (!account.hasGroup(id)) {
+            reloadSavedSearchFolders();
+            return;
+        }
+        KConfigGroup group = account.group(id);
+        UiUtils::SavedSearch search = UiUtils::SavedSearches::read(group, owner);
+        search.folders = dialog->selectedFolders();
+        UiUtils::SavedSearches::write(group, search);
+        group.sync();
+        reloadSavedSearchFolders();
+        // The virtual folder shows what the changed search finds
+        if (msgListWidget->activeSavedSearchOwner() == owner && msgListWidget->activeSavedSearchId() == id)
+            activateSavedSearch(owner, id);
+    });
+    dialog->open();
+}
+
+void MainWindow::removeMissingSavedSearchFolders(const QString &owner, const QString &id)
+{
+    KConfigGroup account = MessageListWidget::savedSearchesRoot().group(owner);
+    if (!account.hasGroup(id) || !m_savedSearchFolders) {
+        reloadSavedSearchFolders();
+        return;
+    }
+    KConfigGroup group = account.group(id);
+    UiUtils::SavedSearch search = UiUtils::SavedSearches::read(group, owner);
+    const QStringList missing = m_savedSearchFolders->problems(owner, id).missingFolders;
+    QStringList kept;
+    for (const QString &folder : std::as_const(search.folders)) {
+        if (!missing.contains(folder))
+            kept << folder;
+    }
+    // Leaving out every folder would leave nothing to search
+    if (kept.isEmpty() || kept.size() == search.folders.size())
+        return;
+    search.folders = kept;
+    UiUtils::SavedSearches::write(group, search);
+    group.sync();
+    reloadSavedSearchFolders();
+    if (msgListWidget->activeSavedSearchOwner() == owner && msgListWidget->activeSavedSearchId() == id)
+        activateSavedSearch(owner, id);
+}
+
+void MainWindow::storeSavedSearchOrder(const QList<UiUtils::SavedSearch> &searches)
+{
+    KConfigGroup root = MessageListWidget::savedSearchesRoot();
+    UiUtils::SavedSearches::writeOrder(root, searches);
+    root.sync();
+}
+
+void MainWindow::scheduleSavedSearchCount()
+{
+    if (m_savedSearchCountTimer && msgListWidget && !msgListWidget->activeSavedSearchOwner().isEmpty())
+        m_savedSearchCountTimer->start();
+}
+
+void MainWindow::countActiveSavedSearch()
+{
+    using namespace Imap::Mailbox;
+    const QString owner = msgListWidget->activeSavedSearchOwner();
+    const QString id = msgListWidget->activeSavedSearchId();
+    if (owner.isEmpty() || !m_savedSearchFolders)
+        return;
+    UiUtils::SavedSearches::Counts counts;
+    bool done = true;
+    if (searchShownInList()) {
+        if (!m_unifiedModel)
+            return;
+        counts = {m_unifiedModel->messageCount(), m_unifiedModel->unreadCount()};
+        // The folders searched so far; the count is kept once every folder was searched
+        done = !isSearchAcrossRunning() && !m_searchStopped;
+    } else {
+        if (showsUnifiedList())
+            return;
+        auto *threading = qobject_cast<ThreadingMsgListModel *>(m_imapAccess->threadingMsgListModel());
+        const auto *msgList = qobject_cast<MsgListModel *>(m_imapAccess->msgListModel());
+        if (!threading || !msgList || !msgList->currentMailbox().isValid() || threading->isUpdatePending()
+            || !threading->searchFailure().isEmpty())
+            return;
+        counts = {0, 0};
+        // Every message found, whichever filters of the list hide some of them
+        std::function<void(const QModelIndex &)> countRows = [&](const QModelIndex &parent) {
+            for (int row = 0, rows = threading->rowCount(parent); row < rows; ++row) {
+                const QModelIndex index = threading->index(row, 0, parent);
+                // A thread may hold a placeholder for a message which is not in the folder
+                if (threading->mapToSource(index).isValid()) {
+                    ++counts.total;
+                    const QVariant read = index.data(RoleMessageIsMarkedRead);
+                    if (read.isValid() && !read.toBool())
+                        ++counts.unread;
+                }
+                countRows(index);
+            }
+        };
+        countRows(QModelIndex());
+    }
+    if (counts != m_savedSearchFolders->counts(owner, id))
+        m_savedSearchFolders->setCounts(owner, id, counts);
+    KConfigGroup state(KSharedConfig::openStateConfig(), QStringLiteral("SavedSearchCounts"));
+    if (done && counts != UiUtils::SavedSearches::readCounts(state, owner, id)) {
+        UiUtils::SavedSearches::writeCounts(state, owner, id, counts);
+        state.sync();
+    }
 }
 
 void MainWindow::refreshAccountSwitcher()
@@ -3216,6 +3790,11 @@ void MainWindow::connectBackgroundAccounts()
 
 void MainWindow::switchAccount(const QString &accountId)
 {
+    // The results of the shown account's search would stay without it
+    if (searchShownInList() && accountId != m_accounts->activeAccount()) {
+        leaveSearchAcross();
+        msgListWidget->clearSearch();
+    }
     // Choosing the shown account goes back to its folder
     if (m_unifiedInbox && accountId == m_accounts->activeAccount()) {
         setUnifiedInbox(false);
@@ -3306,6 +3885,26 @@ void MainWindow::slotFocusPreviousRegion()
     cycleFocusRegion(-1);
 }
 
+void MainWindow::slotFind()
+{
+#ifdef TROJITA_HAVE_WEBENGINE
+    QWidget *focus = focusWidget();
+    const bool inReader = focus
+        && (m_messageWidget->isAncestorOf(focus) || (m_readerActions && m_readerActions->isAncestorOf(focus)));
+    if (inReader && m_messageWidget->messageView->currentMessage().isValid()) {
+        m_messageWidget->messageView->findAction()->trigger();
+        return;
+    }
+#endif
+    // A layout which shows one pane at a time hides the list, and with it the search, while a message is open
+    if (!msgListWidget->searchField()->isVisible() && m_layoutMode == LAYOUT_ONE_AT_TIME && m_oneAtTimeGoBack
+        && m_oneAtTimeGoBack->isEnabled())
+        m_oneAtTimeGoBack->trigger();
+    msgListWidget->focusSearch();
+    // Typing replaces the previous search
+    msgListWidget->searchField()->selectAll();
+}
+
 void MainWindow::cycleFocusRegion(int step)
 {
     // Each region is entered through its target; focus anywhere inside the container counts as being in it.
@@ -3348,14 +3947,23 @@ void MainWindow::cycleFocusRegion(int step)
         return bandA != 0 && position(a) < position(b);
     });
 
+    // The quick search is a stop of its own, just before the list of messages or results that it fills
+    QLineEdit *search = msgListWidget->searchField();
+    for (int i = 0; i < regions.size(); ++i) {
+        if (regions.at(i).container == msgListWidget) {
+            regions.insert(i, Region{search, search});
+            break;
+        }
+    }
+
     const int count = regions.size();
     QWidget *focus = focusWidget();
     int current = -1;
     for (int i = 0; i < count && focus; ++i) {
-        if (regions.at(i).container == focus || regions.at(i).container->isAncestorOf(focus)) {
+        // Focus in the search field is also inside the message list, so the innermost region wins
+        if ((regions.at(i).container == focus || regions.at(i).container->isAncestorOf(focus))
+            && (current < 0 || regions.at(current).container->isAncestorOf(regions.at(i).container)))
             current = i;
-            break;
-        }
     }
     if (current < 0)
         current = step > 0 ? -1 : count;
@@ -3401,7 +4009,8 @@ void MainWindow::confirmRemoveAccount(const QString &accountId)
         Gui::Util::messageBoxWarning(this, i18n("Cannot Remove Account"), i18n("At least one account is required."));
         return;
     }
-    QString question = i18n("Remove account \"%1\" and its settings? Messages on the server are not affected.",
+    QString question = i18n("Remove account \"%1\" and its settings? The mail and the search index kept on this "
+                            "computer for it are deleted too. Messages on the server are not affected.",
                             m_accounts->displayName(accountId));
     const QSettings &settings = *m_accounts->settings(accountId);
     if (usesOAuth(settings)) {
@@ -3478,10 +4087,17 @@ void MainWindow::removeAccountNow(const QString &accountId)
     const QString cacheDirectory = access->cacheDirectory();
     if (m_unifiedModel)
         m_unifiedModel->removeAccount(accountId);
+    if (m_searchResultsPanel)
+        m_searchResultsPanel->results()->removeAccount(accountId);
     // Deleting the account's models also closes its cache database, so the files can be removed.
     delete m_accountAccess.take(accountId);
-    if (!Imap::removeAccountCache(cacheDirectory, Common::writablePath(Common::LOCATION_CACHE)))
+    if (!Imap::removeAccountCache(cacheDirectory, Common::writablePath(Common::LOCATION_CACHE))) {
         qWarning() << "Could not delete the offline cache of the removed account in" << cacheDirectory;
+        Gui::Util::messageBoxWarning(this, i18n("Offline Mail Not Deleted"),
+                                     i18n("The mail and the search index kept on this computer for the removed account "
+                                          "could not be deleted. Remove the folder %1 to delete them.",
+                                          cacheDirectory));
+    }
     // Open composers may still list this account's identities, so the model lives until the window closes.
     m_accountIdentities.remove(accountId);
     m_accountStatus->forget(accountId);
@@ -3789,7 +4405,7 @@ void MainWindow::goToMessageInConversation(bool forward)
     if (!current.isValid())
         return;
     // The Unified Inbox shows messages of several folders, whose conversations are not known
-    if (m_unifiedInbox)
+    if (showsUnifiedList())
         return;
     // A thread is the conversation. A flat or grouped list follows the subject and Message-ID links of the loaded rows,
     // also to messages which the quick filters hide; those are shown while they are current.
@@ -4023,7 +4639,7 @@ void MainWindow::handleDeletePermanently()
     using UiUtils::DestructiveActions::Confirmation;
     const QModelIndexList translatedIndexes = translatedSelection();
     // Messages of other accounts than the shown one are deleted by their accounts, after one question for all
-    const bool routing = m_unifiedInbox && !m_acting &&
+    const bool routing = showsUnifiedList() && !m_acting &&
                          std::any_of(translatedIndexes.cbegin(), translatedIndexes.cend(), [this](const QModelIndex &message) {
         return message.model() != m_imapAccess->imapModel();
     });
@@ -4487,6 +5103,64 @@ void MainWindow::slotMarkCurrentMailboxRead()
     imapModel()->markMailboxAsRead(mboxTree->currentIndex());
 }
 
+void MainWindow::slotDownloadTextForSearch()
+{
+    using Imap::Mailbox::SearchTextFetcher;
+    const QString mailbox = m_actionDownloadSearchText->data().toString();
+    Imap::Mailbox::SearchIndexer *indexer = m_imapAccess ? m_imapAccess->searchIndexer() : nullptr;
+    Imap::Mailbox::Model *model = imapModel();
+    if (mailbox.isEmpty() || !indexer || !indexer->isAvailable() || !model || !model->isNetworkAvailable()
+        || (m_searchTextFetcher && m_searchTextFetcher->isRunning()))
+        return;
+    Imap::Uids missing;
+    const auto entries = indexer->index()->entries(mailbox);
+    for (auto it = entries.cbegin(); it != entries.cend(); ++it) {
+        if (!it->hasText)
+            missing << it.key();
+    }
+    if (missing.isEmpty()) {
+        m_notificationBar->showInfo(
+            i18nc("@info folder name", "The text of every indexed message in %1 is already on this computer.", mailbox));
+        return;
+    }
+    std::sort(missing.begin(), missing.end());
+    const QString question = i18ncp("@info folder name",
+                                    "Download the text of %1 message in %2, so that it can be searched offline?",
+                                    "Download the text of %1 messages in %2, so that they can be searched offline?",
+                                    int(missing.size()), mailbox);
+    if (QMessageBox::question(this, i18nc("@title:window", "Download Message Text"), question) != QMessageBox::Yes)
+        return;
+    if (m_searchTextFetcher)
+        m_searchTextFetcher->deleteLater();
+    auto *fetcher = new SearchTextFetcher(model, mailbox, missing, this);
+    m_searchTextFetcher = fetcher;
+    const quint64 busy = m_notificationBar->showBusy(
+        i18ncp("@info folder name", "Downloading the text of %1 message in %2…",
+               "Downloading the text of %1 messages in %2…", int(missing.size()), mailbox));
+    QPointer<Imap::ImapAccess> access = m_imapAccess;
+    QPointer<Imap::Mailbox::SearchIndexer> index = indexer;
+    connect(fetcher, &SearchTextFetcher::finished, this, [this, fetcher, busy, access, index]() {
+        m_notificationBar->dismissBusy(busy);
+        reselectShownFolder(access);
+        // Index what arrived right away rather than after the usual pause
+        if (index)
+            index->update();
+        if (fetcher->failed() > 0) {
+            m_notificationBar->showError(i18ncp("@info folder name",
+                                                "The text of %1 message in %2 could not be downloaded.",
+                                                "The text of %1 messages in %2 could not be downloaded.",
+                                                fetcher->failed(), fetcher->mailbox()));
+        } else {
+            m_notificationBar->showInfo(i18ncp("@info folder name",
+                                               "Downloaded the text of %1 message in %2 for offline search.",
+                                               "Downloaded the text of %1 messages in %2 for offline search.",
+                                               fetcher->downloaded(), fetcher->mailbox()));
+        }
+        fetcher->deleteLater();
+    });
+    fetcher->start();
+}
+
 void MainWindow::slotCreateMailboxBelowCurrent()
 {
     createMailboxBelow(mboxTree->currentIndex());
@@ -4639,7 +5313,7 @@ void MainWindow::updateMessageFlagsOf(const QModelIndex &index)
                          // either we operate on the -already valided- selection or the index must be valid
                          (!index.isValid() || index.data(Imap::Mailbox::RoleMessageUid).toUInt() > 0);
     bool okToModify = isValid;
-    if (m_unifiedInbox && !m_acting) {
+    if (showsUnifiedList() && !m_acting) {
         // Every account of the selected messages has to be reachable
         for (const QModelIndex &message : std::as_const(indexes)) {
             const auto *model = qobject_cast<const Imap::Mailbox::Model *>(message.model());
@@ -5193,8 +5867,9 @@ void MainWindow::slotDownloadTransferError(const QString &errorString)
 
 void MainWindow::slotDownloadMessageFileNameRequested(QString *fileName)
 {
-    *fileName = QFileDialog::getSaveFileName(this, tr("Save Message"), *fileName, QString(), nullptr,
-                                             QFileDialog::HideNameFilterDetails);
+    *fileName = QFileDialog::getSaveFileName(this, tr("Save Message"), QDir(Util::savedFilesFolder()).filePath(*fileName),
+                                             QString(), nullptr, QFileDialog::HideNameFilterDetails);
+    Util::rememberSavedFile(*fileName);
 }
 
 void MainWindow::slotViewMsgSource()
@@ -5304,7 +5979,7 @@ void MainWindow::slotScrollToCurrent()
 void MainWindow::slotThreadMsgList()
 {
     // The groups show a flat list; choosing the Conversation grouping brings the threads back
-    if (m_unifiedInbox || Imap::Mailbox::GroupingMsgListModel::isRealGrouping(m_groupBy))
+    if (showsUnifiedList() || Imap::Mailbox::GroupingMsgListModel::isRealGrouping(m_groupBy))
         return;
 
     // We want to save user's preferences and not override them with "threading disabled" when the server
@@ -5353,8 +6028,11 @@ void MainWindow::slotSortingPreferenceChanged()
 
     // Sorted here rather than by the server, so the header keeps showing the previous sorting to go back to
     if (m_actionSortByRelevance && m_actionSortByRelevance->isChecked()) {
-        const QStringList terms = UiUtils::relevanceTerms(
-            qobject_cast<ThreadingMsgListModel *>(m_imapAccess->threadingMsgListModel())->currentSearchCondition());
+        if (showsUnifiedList()) {
+            updateUnifiedRelevance();
+            return;
+        }
+        const QStringList terms = m_folderSearchTerms;
         if (!terms.isEmpty()) {
             prettyMsgListModel->setRelevanceTerms(terms, order);
         } else {
@@ -5365,6 +6043,9 @@ void MainWindow::slotSortingPreferenceChanged()
     }
     if (prettyMsgListModel && prettyMsgListModel->isSortingByRelevance())
         prettyMsgListModel->setRelevanceTerms(QStringList(), order);
+    const bool unifiedRelevance = m_prettyUnifiedModel && m_prettyUnifiedModel->isSortingByRelevance();
+    if (unifiedRelevance)
+        m_prettyUnifiedModel->setRelevanceTerms(QStringList(), order);
 
     int column = -1;
     if (m_actionSortByArrival->isChecked()) {
@@ -5386,7 +6067,12 @@ void MainWindow::slotSortingPreferenceChanged()
     }
 
     rememberMessageListSort(column, order);
-    msgListWidget->tree->header()->setSortIndicator(column, order);
+    QHeaderView *header = msgListWidget->tree->header();
+    // The header may show this sorting already, from before relevance, and would not sort again
+    const bool sorted = header->sortIndicatorSection() == column && header->sortIndicatorOrder() == order;
+    header->setSortIndicator(column, order);
+    if (unifiedRelevance && sorted && showsUnifiedList())
+        m_prettyUnifiedModel->sort(column, order);
 }
 
 void MainWindow::slotSortingConfirmed(int column, Qt::SortOrder order)
@@ -5405,7 +6091,7 @@ void MainWindow::slotSortingConfirmed(int column, Qt::SortOrder order)
     case MsgListModel::COLUMN_COUNT:
     case MsgListModel::BCC:
     case -1:
-        if (actionThreadMsgList->isChecked() && !m_unifiedInbox)
+        if (actionThreadMsgList->isChecked() && !showsUnifiedList())
             action = m_actionSortThreading;
         else
             action = m_actionSortNone;
@@ -5439,6 +6125,10 @@ void MainWindow::slotSortingConfirmed(int column, Qt::SortOrder order)
     // The server sorts again, which ends sorting by relevance
     if (prettyMsgListModel && prettyMsgListModel->isSortingByRelevance())
         prettyMsgListModel->setRelevanceTerms(QStringList(), order);
+    if (m_prettyUnifiedModel && m_prettyUnifiedModel->isSortingByRelevance() && showsUnifiedList()) {
+        m_prettyUnifiedModel->setRelevanceTerms(QStringList(), order);
+        m_prettyUnifiedModel->sort(column, order);
+    }
     if (order == Qt::DescendingOrder)
         m_actionSortDescending->setChecked(true);
     else
@@ -5447,11 +6137,31 @@ void MainWindow::slotSortingConfirmed(int column, Qt::SortOrder order)
 
 void MainWindow::slotSearchRequested(const QStringList &searchConditions)
 {
+    m_lastSearchConditions = searchConditions;
+    // The Search Results panel lists the results of every search, so the message list keeps showing its folder
+    const bool inPanel = !searchConditions.isEmpty() && wantsSearchInPanel();
+    if (!searchConditions.isEmpty() && !inPanel)
+        rememberUnnarrowedPosition();
+    // Offline, the server cannot filter the folder, but the account's local index can answer like a search across
+    const Imap::Mailbox::SearchIndexer *indexer = m_imapAccess ? m_imapAccess->searchIndexer() : nullptr;
+    const bool searchIndexOffline = imapModel() && !imapModel()->isNetworkAvailable() && indexer && indexer->isAvailable();
+    // The Unified Inbox has no single folder to filter, so its INBOXes are searched like several folders
+    if (!searchConditions.isEmpty()
+        && (inPanel || m_unifiedInbox || searchIndexOffline
+            || msgListWidget->searchPlaces() != UiUtils::SearchScope::Places::CurrentFolder)) {
+        startSearchAcross(searchConditions);
+#ifdef TROJITA_HAVE_WEBENGINE
+        m_messageWidget->messageView->setHighlightTerm(UiUtils::searchHighlightTerm(searchConditions));
+#endif
+        return;
+    }
+    leaveSearchAcross();
     Imap::Mailbox::ThreadingMsgListModel * threadingMsgListModel =
             qobject_cast<Imap::Mailbox::ThreadingMsgListModel *>(m_imapAccess->threadingMsgListModel());
     threadingMsgListModel->setUserSearchingSortingPreference(searchConditions, threadingMsgListModel->currentSortCriterium(),
                                                              threadingMsgListModel->currentSortOrder());
     updateRelevanceSorting(searchConditions);
+    scheduleMessageListStatus();
 #ifdef TROJITA_HAVE_WEBENGINE
     m_messageWidget->messageView->setHighlightTerm(UiUtils::searchHighlightTerm(searchConditions));
 #endif
@@ -5461,11 +6171,22 @@ void MainWindow::updateRelevanceSorting(const QStringList &searchConditions)
 {
     if (!m_actionSortByRelevance || !prettyMsgListModel)
         return;
+    if (showsUnifiedList()) {
+        // A unified list has its own relevance
+        updateUnifiedRelevance();
+        return;
+    }
     const QStringList terms = UiUtils::relevanceTerms(searchConditions);
+    m_folderSearchTerms = terms;
     m_actionSortByRelevance->setEnabled(!terms.isEmpty());
     m_actionSortByRelevance->setToolTip(
         terms.isEmpty() ? i18nc("@info:tooltip", "Relevance sorting needs an active quick search or Show Related filter")
                         : i18nc("@info:tooltip", "Show the messages which match the search best first"));
+    if (!terms.isEmpty() && !m_actionSortByRelevance->isChecked() && remembersRelevanceSorting()) {
+        // Best matches first, as relevance was chosen during the last search
+        m_actionSortAscending->setChecked(true);
+        m_actionSortByRelevance->setChecked(true);
+    }
     const Qt::SortOrder order = m_actionSortDescending->isChecked() ? Qt::DescendingOrder : Qt::AscendingOrder;
     if (m_actionSortByRelevance->isChecked()) {
         if (!terms.isEmpty()) {
@@ -5480,6 +6201,78 @@ void MainWindow::updateRelevanceSorting(const QStringList &searchConditions)
     } else if (prettyMsgListModel->isSortingByRelevance()) {
         prettyMsgListModel->setRelevanceTerms(QStringList(), order);
     }
+    updateSearchSnippets();
+}
+
+void MainWindow::updateUnifiedRelevance()
+{
+    if (!m_actionSortByRelevance || !m_prettyUnifiedModel)
+        return;
+    QHeaderView *header = msgListWidget->tree->header();
+    if (!showsUnifiedList()) {
+        if (m_prettyUnifiedModel->isSortingByRelevance())
+            m_prettyUnifiedModel->setRelevanceTerms(QStringList(), header->sortIndicatorOrder());
+        updateSearchSnippets();
+        return;
+    }
+    const QStringList terms = searchShownInList() ? UiUtils::relevanceTerms(m_searchConditions) : QStringList();
+    m_actionSortByRelevance->setEnabled(!terms.isEmpty());
+    m_actionSortByRelevance->setToolTip(
+        terms.isEmpty() ? i18nc("@info:tooltip", "Relevance sorting needs an active quick search or Show Related filter")
+                        : i18nc("@info:tooltip", "Show the messages which match the search best first"));
+    if (!terms.isEmpty() && !m_actionSortByRelevance->isChecked() && remembersRelevanceSorting()) {
+        m_actionSortAscending->setChecked(true);
+        m_actionSortByRelevance->setChecked(true);
+    }
+    const Qt::SortOrder order = m_actionSortDescending->isChecked() ? Qt::DescendingOrder : Qt::AscendingOrder;
+    if (m_actionSortByRelevance->isChecked() && !terms.isEmpty()) {
+        if (m_prettyUnifiedModel->relevanceTerms() != terms || m_prettyUnifiedModel->sortOrder() != order)
+            m_prettyUnifiedModel->setRelevanceTerms(terms, order);
+    } else {
+        if (m_prettyUnifiedModel->isSortingByRelevance()) {
+            // Back to the sorting from before, which the header still shows
+            m_prettyUnifiedModel->setRelevanceTerms(QStringList(), header->sortIndicatorOrder());
+            m_prettyUnifiedModel->sort(header->sortIndicatorSection(), header->sortIndicatorOrder());
+        }
+        if (m_actionSortByRelevance->isChecked())
+            slotSortingConfirmed(header->sortIndicatorSection(), header->sortIndicatorOrder());
+    }
+    updateSearchSnippets();
+}
+
+void MainWindow::updateSearchSnippets()
+{
+    if (!prettyMsgListModel)
+        return;
+    Imap::Mailbox::SearchSnippets *snippets = prettyMsgListModel->snippets();
+    snippets->setModel(imapModel());
+    const QStringList terms = currentSearchTerms();
+    // The results of a search across have snippets of their own
+    snippets->setTerms(showsUnifiedList() ? QStringList() : terms);
+    msgListWidget->tree->setSearchSnippets(!terms.isEmpty());
+}
+
+QStringList MainWindow::currentSearchTerms() const
+{
+    if (m_searchAcross)
+        return m_searchInPanel ? QStringList() : UiUtils::relevanceTerms(m_searchConditions);
+    if (m_unifiedInbox)
+        return QStringList();
+    return m_folderSearchTerms;
+}
+
+bool MainWindow::remembersRelevanceSorting() const
+{
+    return KConfigGroup(KSharedConfig::openStateConfig(), QStringLiteral("SearchResults")).readEntry("SortByRelevance", false);
+}
+
+void MainWindow::rememberRelevanceSorting(bool relevance)
+{
+    KConfigGroup group(KSharedConfig::openStateConfig(), QStringLiteral("SearchResults"));
+    if (group.readEntry("SortByRelevance", false) == relevance)
+        return;
+    group.writeEntry("SortByRelevance", relevance);
+    group.sync();
 }
 
 QModelIndex MainWindow::toPrettyIndex(const QModelIndex &viewIndex) const
@@ -5543,7 +6336,7 @@ void MainWindow::swapMessageListModel(QAbstractItemModel *model)
                 selected << pretty;
         }
     }
-    const bool relevance = !m_unifiedInbox && m_actionSortByRelevance && m_actionSortByRelevance->isChecked();
+    const bool relevance = !showsUnifiedList() && m_actionSortByRelevance && m_actionSortByRelevance->isChecked();
 
     tree->setModel(model);
     if (oldSelection && oldSelection != tree->selectionModel())
@@ -5574,7 +6367,7 @@ void MainWindow::swapMessageListModel(QAbstractItemModel *model)
 void MainWindow::setMessageListGrouping(Imap::Mailbox::GroupingMsgListModel::Grouping grouping, bool remember)
 {
     using Imap::Mailbox::GroupingMsgListModel;
-    if (m_unifiedInbox || !m_groupingMsgListModel || !m_groupByActions)
+    if (showsUnifiedList() || !m_groupingMsgListModel || !m_groupByActions)
         return;
     MsgListView *tree = msgListWidget->tree;
     auto threadingModel = qobject_cast<Imap::Mailbox::ThreadingMsgListModel *>(m_imapAccess->threadingMsgListModel());
@@ -5644,7 +6437,7 @@ Imap::Mailbox::GroupingMsgListModel::Grouping MainWindow::shownGrouping() const
 void MainWindow::applyMessageListView()
 {
     // The Unified Inbox has a view of its own, see setUnifiedInbox()
-    if (m_unifiedInbox)
+    if (showsUnifiedList())
         return;
     using Imap::Mailbox::GroupingMsgListModel;
     const QString mailbox = currentMailboxName();
@@ -5667,7 +6460,7 @@ void MainWindow::applyMessageListView()
 
 void MainWindow::applyMessageListSort()
 {
-    if (m_unifiedInbox || !m_actionSortNone || !prettyMsgListModel || !msgListWidget->tree->model())
+    if (showsUnifiedList() || !m_actionSortNone || !prettyMsgListModel || !msgListWidget->tree->model())
         return;
     MsgListView *tree = msgListWidget->tree;
     QHeaderView *header = tree->header();
@@ -5701,7 +6494,7 @@ void MainWindow::applyMessageListSort()
 void MainWindow::rememberMessageListView()
 {
     using Imap::Mailbox::GroupingMsgListModel;
-    if (m_unifiedInbox || m_applyingView || !actionThreadMsgList)
+    if (showsUnifiedList() || m_applyingView || !actionThreadMsgList)
         return;
     const bool grouped = GroupingMsgListModel::isRealGrouping(m_groupBy);
     m_view.groupBy = grouped ? GroupingMsgListModel::groupingName(m_groupBy) : QString();
@@ -5711,7 +6504,7 @@ void MainWindow::rememberMessageListView()
 
 void MainWindow::rememberMessageListSort(int column, Qt::SortOrder order)
 {
-    if (m_unifiedInbox || m_applyingView)
+    if (showsUnifiedList() || m_applyingView)
         return;
     m_view.sortColumn = qMax(-1, column);
     m_view.sortOrder = order;
@@ -5771,7 +6564,7 @@ void MainWindow::updateMessageListViewActions()
 {
     if (!m_actionResetFolderView || !m_actionViewForAllFolders)
         return;
-    if (m_unifiedInbox) {
+    if (showsUnifiedList()) {
         m_actionViewForAllFolders->setEnabled(false);
         m_actionResetFolderView->setEnabled(false);
         return;
@@ -5813,7 +6606,7 @@ UiUtils::FolderPositionStore &MainWindow::folderPositions()
 void MainWindow::captureFolderPosition(bool anchorOnly)
 {
     using namespace Imap::Mailbox;
-    if (m_unifiedInbox || m_positionMailbox.isEmpty() || !prettyMsgListModel || m_positionMailbox != currentMailboxName())
+    if (showsUnifiedList() || m_positionMailbox.isEmpty() || !prettyMsgListModel || m_positionMailbox != currentMailboxName())
         return;
     // Until the remembered position is back, the list is not where the user left it
     if (m_messageRestorer && m_messageRestorer->isPending())
@@ -5861,13 +6654,33 @@ void MainWindow::commitFolderPosition()
 
 void MainWindow::restoreFolderPosition()
 {
-    if (m_unifiedInbox || !m_messageRestorer || m_positionMailbox.isEmpty() || m_positionMailbox != currentMailboxName())
+    if (showsUnifiedList() || !m_messageRestorer || m_positionMailbox.isEmpty() || m_positionMailbox != currentMailboxName())
         return;
+    if (m_pendingReveal.accountId == m_accounts->activeAccount() && m_pendingReveal.mailbox == m_positionMailbox) {
+        // The message which revealInFolder() asked for, rather than the one selected before
+        const PendingReveal reveal = std::exchange(m_pendingReveal, PendingReveal());
+        m_activeReveal = reveal;
+        m_messageRestorer->restore(reveal.mailbox, reveal.uidValidity, reveal.uid);
+        return;
+    }
+    // Switching accounts queues a restore of the position, which would replace the revealed message still being selected
+    if (isRevealing(m_positionMailbox))
+        return;
+    m_activeReveal = PendingReveal();
     const auto position = folderPositions().position(m_positionMailbox);
     if (!position)
         return;
     m_messageRestorer->restorePosition(m_positionMailbox, position->uidValidity, position->uid, position->anchorUid,
                                        position->selectedUids);
+}
+
+bool MainWindow::isRevealing(const QString &mailbox) const
+{
+    const QString accountId = m_accounts->activeAccount();
+    if (m_pendingReveal.accountId == accountId && m_pendingReveal.mailbox == mailbox)
+        return true;
+    return m_messageRestorer && m_messageRestorer->isPending() && m_activeReveal.accountId == accountId
+        && m_activeReveal.mailbox == mailbox;
 }
 
 void MainWindow::saveFolderPositions()
@@ -5887,6 +6700,22 @@ void MainWindow::updateMessageListScope()
 {
     if (!m_imapAccess || !msgListWidget)
         return;
+    {
+        const QString accountId = m_accounts->activeAccount();
+        msgListWidget->setFacetContext({accountId, m_accounts->displayName(accountId), QDate()});
+        const QString scope = m_searchAcross                      ? QStringLiteral("search")
+                              : (m_unifiedInbox && m_unifiedModel) ? QStringLiteral("unified")
+                                                                   : accountId + QLatin1Char('\n') + currentMailboxName();
+        // The facets were chosen among the messages of another list
+        if (std::exchange(m_facetScope, scope) != scope)
+            msgListWidget->clearFacets();
+    }
+    if (searchShownInList()) {
+        msgListWidget->setCustomScope(i18nc("@label", "Search Results"),
+                                      i18nc("@info:tooltip list of accounts and folders, one per line", "Searched in:\n%1",
+                                            m_searchedPlaces.join(QLatin1Char('\n'))));
+        return;
+    }
     if (m_unifiedInbox && m_unifiedModel) {
         using State = Imap::Mailbox::UnifiedMsgListModel::AccountState;
         QStringList accounts;
@@ -5950,7 +6779,7 @@ void MainWindow::syncGroupByActions()
 
 bool MainWindow::showsThreads() const
 {
-    return !m_unifiedInbox && !Imap::Mailbox::GroupingMsgListModel::isRealGrouping(m_groupBy) && actionThreadMsgList
+    return !showsUnifiedList() && !Imap::Mailbox::GroupingMsgListModel::isRealGrouping(m_groupBy) && actionThreadMsgList
         && actionThreadMsgList->isEnabled() && actionThreadMsgList->isChecked();
 }
 
@@ -5966,6 +6795,8 @@ void MainWindow::applyGroupExpansion()
 
 void MainWindow::slotHideRead()
 {
+    if (actionHideRead->isChecked())
+        rememberUnnarrowedPosition();
     prettyMsgListModel->setHideRead(actionHideRead->isChecked());
     saveMessageListFilters();
 }
@@ -6007,6 +6838,8 @@ void MainWindow::syncMessageListFilterUi()
     // The filters of the folder apply to the Unified Inbox as well
     if (m_prettyUnifiedModel)
         m_prettyUnifiedModel->setFilters(filters);
+    if (m_searchResultsPanel)
+        m_searchResultsPanel->prettyResults()->setFilters(filters);
     actionHideRead->setChecked(filters.testFlag(PrettyMsgListModel::FilterUnread));
     m_actionFilterUnread->setChecked(filters.testFlag(PrettyMsgListModel::FilterUnread));
     m_actionFilterFlagged->setChecked(filters.testFlag(PrettyMsgListModel::FilterFlagged));
@@ -6014,7 +6847,73 @@ void MainWindow::syncMessageListFilterUi()
     const bool active = filters != PrettyMsgListModel::NoFilter;
     m_actionClearFilters->setEnabled(active);
     m_clearFiltersButton->setVisible(active);
+    QStringList names;
+    for (const QAction *action : {m_actionFilterUnread, m_actionFilterFlagged, m_actionFilterAttachments}) {
+        if (action->isChecked())
+            names << KLocalizedString::removeAcceleratorMarker(action->text());
+    }
+    msgListWidget->setActiveFilters(names);
     scheduleMessageListStatus();
+}
+
+void MainWindow::applySearchFacets()
+{
+    const UiUtils::SearchFacets facets = msgListWidget->facets();
+    // The facets narrow the results of the search, wherever they are listed
+    const bool inPanel = m_searchAcross && m_searchInPanel;
+    const UiUtils::SearchFacets listFacets = inPanel ? UiUtils::SearchFacets() : facets;
+    if (prettyMsgListModel)
+        prettyMsgListModel->setFacets(listFacets);
+    if (m_prettyUnifiedModel)
+        m_prettyUnifiedModel->setFacets(listFacets);
+    if (m_searchResultsPanel)
+        m_searchResultsPanel->prettyResults()->setFacets(inPanel ? facets : UiUtils::SearchFacets());
+    scheduleMessageListStatus();
+}
+
+bool MainWindow::messageListNarrowed() const
+{
+    if (searchShownInList() || (prettyMsgListModel && prettyMsgListModel->filters() != Imap::Mailbox::PrettyMsgListModel::NoFilter))
+        return true;
+    const auto *threading = m_imapAccess ? qobject_cast<Imap::Mailbox::ThreadingMsgListModel *>(m_imapAccess->threadingMsgListModel())
+                                         : nullptr;
+    return threading && !threading->currentSearchCondition().isEmpty();
+}
+
+void MainWindow::rememberUnnarrowedPosition()
+{
+    if (messageListNarrowed() || showsUnifiedList())
+        return;
+    captureFolderPosition();
+    m_unnarrowedMailbox = m_positionMailbox;
+    m_unnarrowedPosition = m_livePosition;
+    m_pickedWhileNarrowed = false;
+}
+
+void MainWindow::clearSearchAndFilters()
+{
+    using Imap::Mailbox::PrettyMsgListModel;
+    // A search in the Search Results panel does not narrow the list, but is cleared as well
+    if (!prettyMsgListModel || (!messageListNarrowed() && !m_searchAcross))
+        return;
+    const QString mailbox = std::exchange(m_unnarrowedMailbox, QString());
+    const UiUtils::FolderPosition before = std::exchange(m_unnarrowedPosition, UiUtils::FolderPosition());
+    // A message which the user picked among the results stays current, now among all messages of the folder
+    const bool picked = std::exchange(m_pickedWhileNarrowed, false);
+    if (picked)
+        captureFolderPosition();
+    const UiUtils::FolderPosition narrowed = picked && !showsUnifiedList() ? m_livePosition : UiUtils::FolderPosition();
+    prettyMsgListModel->setFilters(PrettyMsgListModel::NoFilter);
+    saveMessageListFilters();
+    msgListWidget->clearSearch();
+    const QString shown = currentMailboxName();
+    if (showsUnifiedList() || !m_messageRestorer || shown.isEmpty() || shown != m_positionMailbox)
+        return;
+    if (narrowed.uid && narrowed.uidValidity) {
+        m_messageRestorer->restorePosition(shown, narrowed.uidValidity, narrowed.uid, 0, narrowed.selectedUids);
+    } else if (before.isValid() && mailbox == shown) {
+        m_messageRestorer->restorePosition(shown, before.uidValidity, before.uid, before.anchorUid, before.selectedUids);
+    }
 }
 
 void MainWindow::scheduleMessageListStatus()
@@ -6031,7 +6930,76 @@ void MainWindow::updateMessageListStatus()
     QStringList parts;
     const auto *msgList = qobject_cast<MsgListModel *>(m_imapAccess->msgListModel());
     const QModelIndex mailbox = msgList ? msgList->currentMailbox() : QModelIndex();
-    if (m_unifiedInbox && m_unifiedModel) {
+    QString statusDetails;
+    const bool searchRunning = m_searchAcross && isSearchAcrossRunning();
+    const bool canRetry = m_searchAcross && !searchRunning && !m_searchProblems.isEmpty();
+    const bool canSearchServer = m_searchAcross && !searchRunning
+        && std::any_of(m_folderSearches.cbegin(), m_folderSearches.cend(),
+                       [](const QPointer<FolderSearch> &search) { return search && search->canContinueOnServer(); });
+    const bool inList = searchShownInList();
+    if (m_actionStopSearch)
+        m_actionStopSearch->setVisible(inList && searchRunning);
+    if (m_actionRetrySearch)
+        m_actionRetrySearch->setVisible(inList && canRetry);
+    if (m_actionSearchServer)
+        m_actionSearchServer->setVisible(inList && canSearchServer);
+    QStringList searchParts;
+    QString searchDetails;
+    if (m_searchAcross && searchModel()) {
+        UnifiedMsgListModel *results = searchModel();
+        PrettyUnifiedMsgListModel *prettyResults = searchPrettyModel();
+        int folders = 0;
+        int searched = 0;
+        bool local = false;
+        bool localOnline = false;
+        bool incomplete = false;
+        for (const QPointer<FolderSearch> &search : std::as_const(m_folderSearches)) {
+            if (!search)
+                continue;
+            folders += search->folderCount();
+            searched += search->searchedCount();
+            const bool online = search->model() && search->model()->isNetworkAvailable();
+            local = local || (search->usedLocalIndex() && !online);
+            localOnline = localOnline || (search->usedLocalIndex() && online);
+            incomplete = incomplete || !search->incompleteFolders().isEmpty() || search->indexPending()
+                || search->indexPaused();
+        }
+        const int found = results->messageCount();
+        searchDetails = searchProgressDetails();
+        if (searchRunning) {
+            searchParts << i18nc("@info:status %1 is a count of folders done, %2 of all folders", "Searching %1 of %2 folders",
+                                 std::min(searched + 1, std::max(folders, 1)), std::max(folders, 1));
+            searchParts << i18ncp("@info:status", "%1 found", "%1 found", found);
+        } else if (m_searchStopped) {
+            searchParts << i18nc("@info:status %1 is a count of folders done, %2 of all folders",
+                                 "Search stopped after %1 of %2 folders", searched, folders);
+            searchParts << i18ncp("@info:status", "%1 found", "%1 found", found);
+        } else {
+            searchParts << i18ncp("@info:status", "%1 message found", "%1 messages found", found);
+        }
+        if (prettyResults->filters() != PrettyMsgListModel::NoFilter) {
+            searchParts << i18nc("@info:status filters hide some messages", "showing %1 of %2",
+                                 prettyResults->visibleMessageCount(), found);
+        }
+        if (local)
+            searchParts << i18nc("@info:status", "offline, in mail indexed on this computer");
+        else if (localOnline)
+            searchParts << i18nc("@info:status", "in mail indexed on this computer");
+        if ((local || localOnline) && incomplete && !searchRunning)
+            searchParts << i18nc("@info:status", "results may be incomplete");
+        if (!m_searchProblems.isEmpty()) {
+            searchParts << i18ncp("@info:status", "%1 place could not be searched", "%1 places could not be searched",
+                                  m_searchProblems.size());
+        }
+        if (m_searchInPanel && m_searchResultsPanel) {
+            m_searchResultsPanel->setStatus(searchParts.join(QStringLiteral(" \u00B7 ")), searchDetails);
+            m_searchResultsPanel->setSearchActions(searchRunning, canRetry, canSearchServer);
+        }
+    }
+    if (inList) {
+        parts = searchParts;
+        statusDetails = searchDetails;
+    } else if (m_unifiedInbox && m_unifiedModel) {
         const int total = m_unifiedModel->messageCount();
         parts << i18nc("@info:status message count, unread count", "%1, %2",
                        i18ncp("@info:status", "%1 message", "%1 messages", total),
@@ -6063,6 +7031,13 @@ void MainWindow::updateMessageListStatus()
         if (!unavailable.isEmpty())
             parts << i18nc("@info:status list of account names", "unavailable: %1", unavailable.join(separator));
     } else if (mailbox.isValid()) {
+        const auto *threading = qobject_cast<ThreadingMsgListModel *>(m_imapAccess->threadingMsgListModel());
+        const QString failure = threading ? threading->searchFailure() : QString();
+        if (!failure.isEmpty()) {
+            // The list is empty because the search could not run, not because nothing matched
+            parts << i18nc("@info:status", "Search failed: %1", failure);
+            statusDetails = failure;
+        }
         const QVariant total = mailbox.data(RoleTotalMessageCount);
         const QVariant unread = mailbox.data(RoleUnreadMessageCount);
         if (total.isValid()) {
@@ -6082,8 +7057,11 @@ void MainWindow::updateMessageListStatus()
     const int selected = msgListWidget->tree->selectedTree().size();
     if (selected > 1)
         parts << i18ncp("@info:status", "%1 selected", "%1 selected", selected);
-    msgListWidget->setListStatus(parts.join(QStringLiteral(" \u00B7 ")));
+    if (m_clearSearchAndFilters)
+        m_clearSearchAndFilters->setEnabled(messageListNarrowed() || m_searchAcross);
+    msgListWidget->setListStatus(parts.join(QStringLiteral(" \u00B7 ")), statusDetails);
     updateSelectionActions();
+    scheduleSavedSearchCount();
 }
 
 void MainWindow::updateSelectionActions()
@@ -6144,7 +7122,7 @@ void MainWindow::updateRelatedActions()
     m_actionSelectSameSender->setEnabled(m_actionRelatedSender->isEnabled());
     m_actionSelectSameSubject->setEnabled(m_actionRelatedSubject->isEnabled());
     // Show Related searches a folder on the server, and the Unified Inbox has none
-    if (m_unifiedInbox) {
+    if (showsUnifiedList()) {
         for (QAction *action : {m_actionRelatedSender, m_actionRelatedRecipient, m_actionRelatedSubject, m_actionRelatedList})
             action->setEnabled(false);
     }
@@ -6156,7 +7134,7 @@ void MainWindow::updateRelatedActions()
 
 void MainWindow::showRelatedMessages(UiUtils::FieldFilter field)
 {
-    if (m_unifiedInbox)
+    if (showsUnifiedList())
         return;
     const QString value = UiUtils::fieldFilterValue(msgListWidget->tree->currentIndex(), field);
     if (value.isEmpty())
@@ -6203,7 +7181,9 @@ void MainWindow::setDenseProcessingLayout(bool enabled)
         if (m_embeddedPanelsMenu) {
             for (EmbeddedPanel *panel : std::as_const(m_embeddedPanels)) {
                 // Attachments stay, since deciding what to do with a message often depends on them
-                if (panel->descriptor().id == QLatin1String("Attachments"))
+                // and the Search Results panel keeps the results of the search
+                if (panel->descriptor().id == QLatin1String("Attachments")
+                    || panel->descriptor().id == QLatin1String("SearchResults"))
                     continue;
                 QAction *visible = m_embeddedPanelsMenu->visibleAction(panel);
                 if (visible && visible->isChecked()) {
@@ -6464,6 +7444,32 @@ void MainWindow::createShell()
     m_accountSidebar = new AccountSidebar(mboxTree);
     connect(m_accountSidebar, &AccountSidebar::accountActivated, this, &MainWindow::switchAccount);
     connect(m_accountSidebar, &AccountSidebar::accountMenuRequested, this, &MainWindow::showAccountMenu);
+    m_savedSearchFolders = new SavedSearchFolders;
+    m_accountSidebar->setFooter(m_savedSearchFolders);
+    connect(m_savedSearchFolders, &SavedSearchFolders::searchActivated, this, &MainWindow::activateSavedSearch);
+    connect(m_savedSearchFolders, &SavedSearchFolders::editRequested, this, &MainWindow::editSavedSearch);
+    connect(m_savedSearchFolders, &SavedSearchFolders::renameRequested, msgListWidget, &MessageListWidget::renameSavedSearch);
+    connect(m_savedSearchFolders, &SavedSearchFolders::deleteRequested, msgListWidget, &MessageListWidget::deleteSavedSearch);
+    connect(m_savedSearchFolders, &SavedSearchFolders::ownerChangeRequested, this, &MainWindow::changeSavedSearchOwner);
+    connect(m_savedSearchFolders, &SavedSearchFolders::foldersChoiceRequested, this, &MainWindow::chooseSavedSearchFolders);
+    connect(m_savedSearchFolders, &SavedSearchFolders::missingFoldersRemovalRequested, this,
+            &MainWindow::removeMissingSavedSearchFolders);
+    connect(m_savedSearchFolders, &SavedSearchFolders::orderChanged, this, &MainWindow::storeSavedSearchOrder);
+    m_savedSearchProblemsTimer = new QTimer(this);
+    m_savedSearchProblemsTimer->setInterval(500);
+    m_savedSearchProblemsTimer->setSingleShot(true);
+    connect(m_savedSearchProblemsTimer, &QTimer::timeout, this, &MainWindow::refreshSavedSearchProblems);
+    m_savedSearchCountTimer = new QTimer(this);
+    m_savedSearchCountTimer->setInterval(300);
+    m_savedSearchCountTimer->setSingleShot(true);
+    connect(m_savedSearchCountTimer, &QTimer::timeout, this, &MainWindow::countActiveSavedSearch);
+    connect(msgListWidget, &MessageListWidget::savedSearchesChanged, this, &MainWindow::reloadSavedSearchFolders);
+    connect(msgListWidget, &MessageListWidget::activeSavedSearchChanged, this, [this](const QString &owner, const QString &id) {
+        m_savedSearchFolders->setActive(owner, id);
+        scheduleSavedSearchCount();
+    });
+    connect(this, &MainWindow::accountsChanged, this, &MainWindow::reloadSavedSearchFolders);
+    reloadSavedSearchFolders();
 
     // The header region sits above the columns and the footer; it is not resizable
     m_shellHeader = new ShellHeader(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")));
@@ -6796,20 +7802,58 @@ void MainWindow::activateRelatedMessage(const QModelIndex &message)
     const QModelIndex deproxified = Imap::deproxifiedIndex(message);
     if (!deproxified.isValid())
         return;
+    // UIDs repeat across folders and accounts, so only a row of the very same message is selected; a message which the
+    // list does not show, such as one of another folder, opens in the reader and leaves the list as it is.
     QAbstractItemModel *model = msgListWidget->tree->model();
-    const QModelIndexList matches = model && model->rowCount() > 0
-        ? model->match(model->index(0, 0), Imap::Mailbox::RoleMessageUid, deproxified.data(Imap::Mailbox::RoleMessageUid), 1,
+    const QModelIndexList candidates = model && model->rowCount() > 0
+        ? model->match(model->index(0, 0), Imap::Mailbox::RoleMessageUid, deproxified.data(Imap::Mailbox::RoleMessageUid), -1,
                        Qt::MatchExactly | Qt::MatchRecursive)
         : QModelIndexList();
-    if (!matches.isEmpty()) {
-        msgListWidget->tree->setCurrentIndex(matches.constFirst());
-        msgListWidget->tree->scrollTo(matches.constFirst());
-        msgListClicked(matches.constFirst());
+    const auto match = std::find_if(candidates.cbegin(), candidates.cend(),
+                                    [&](const QModelIndex &row) { return Imap::deproxifiedIndex(row) == deproxified; });
+    if (match != candidates.cend()) {
+        msgListWidget->tree->setCurrentIndex(*match);
+        msgListWidget->tree->scrollTo(*match);
+        msgListClicked(*match);
         return;
     }
 #ifdef TROJITA_HAVE_WEBENGINE
     m_messageWidget->messageView->setMessage(deproxified);
 #endif
+}
+
+void MainWindow::revealInFolder(const QModelIndex &message)
+{
+    // The index may belong to a list which is about to be emptied
+    const QModelIndex deproxified = Imap::deproxifiedIndex(message);
+    if (!deproxified.isValid())
+        return;
+    revealLocation(accountOfModel(qobject_cast<const Imap::Mailbox::Model *>(deproxified.model())),
+                   deproxified.data(Imap::Mailbox::RoleMailboxName).toString(),
+                   deproxified.data(Imap::Mailbox::RoleMailboxUidValidity).toUInt(),
+                   deproxified.data(Imap::Mailbox::RoleMessageUid).toUInt());
+}
+
+void MainWindow::revealLocation(const QString &accountId, const QString &mailbox, uint uidValidity, uint uid)
+{
+    if (accountId.isEmpty() || mailbox.isEmpty() || !uid)
+        return;
+    // Results in the message list, or a search of the folder, would hide the other messages of the folder
+    if (searchShownInList() || (!m_searchAcross && messageListNarrowed())) {
+        leaveSearchAcross();
+        msgListWidget->clearSearch();
+    }
+    if (accountId != m_accounts->activeAccount())
+        switchAccount(accountId);
+    if (accountId != m_accounts->activeAccount())
+        return;
+    m_pendingReveal = {accountId, mailbox, uidValidity, uid};
+    if (!m_unifiedInbox && currentMailboxName() == mailbox) {
+        restoreFolderPosition();
+        msgListWidget->tree->setFocus();
+    } else {
+        goToMailbox(mailbox);
+    }
 }
 
 void MainWindow::actOnOpenMessage(const std::function<void()> &fn)
@@ -6881,7 +7925,7 @@ bool MainWindow::showsModel(const Imap::Mailbox::Model *model) const
         return false;
     if (static_cast<const QObject *>(model) == m_imapAccess->imapModel())
         return true;
-    return m_unifiedInbox && m_unifiedModel && m_unifiedModel->accountIds().contains(accountOfModel(model));
+    return showsUnifiedList() && m_unifiedModel && m_unifiedModel->accountIds().contains(accountOfModel(model));
 }
 
 QString MainWindow::accountOfModel(const Imap::Mailbox::Model *model) const
@@ -6968,7 +8012,7 @@ bool MainWindow::actOnModel(const Imap::Mailbox::Model *model, const std::functi
 
 bool MainWindow::routeToMessageAccounts(const std::function<void()> &fn, bool singleAccount, const QModelIndexList &selection)
 {
-    if (!m_unifiedInbox || m_acting)
+    if (!showsUnifiedList() || m_acting)
         return false;
     const QModelIndexList messages = selection.isEmpty() ? translatedSelection() : selection;
     QStringList order;
@@ -6995,7 +8039,7 @@ bool MainWindow::routeToMessageAccounts(const std::function<void()> &fn, bool si
 
 QString MainWindow::forAccountOf(const Imap::Mailbox::Model *model, const QString &text) const
 {
-    if (text.isEmpty() || !m_unifiedInbox || !m_unifiedModel || m_unifiedModel->accountIds().size() < 2)
+    if (text.isEmpty() || !showsUnifiedList() || !m_unifiedModel || m_unifiedModel->accountIds().size() < 2)
         return text;
     const QString accountId = accountOfModel(model);
     if (accountId.isEmpty())
@@ -7044,7 +8088,8 @@ void MainWindow::populateUnifiedAccountsMenu()
 
 void MainWindow::syncUnifiedSources()
 {
-    if (!m_unifiedModel)
+    // The search results take the place of the INBOXes until the search is left
+    if (!m_unifiedModel || searchShownInList())
         return;
     const QStringList wanted = m_unifiedInbox ? unifiedAccountIds() : QStringList();
     for (const QString &accountId : m_unifiedModel->accountIds()) {
@@ -7094,7 +8139,11 @@ void MainWindow::updateUnifiedStates()
         return;
     using Common::AccountStatusKind;
     using State = Imap::Mailbox::UnifiedMsgListModel::AccountState;
-    for (const QString &accountId : m_unifiedModel->accountIds()) {
+    QStringList accountIds = m_unifiedModel->accountIds();
+    if (m_searchResultsPanel)
+        accountIds += m_searchResultsPanel->results()->accountIds();
+    accountIds.removeDuplicates();
+    for (const QString &accountId : std::as_const(accountIds)) {
         const Common::AccountStatus status = m_accountStatus->status(accountId);
         Imap::ImapAccess *access = m_accountAccess.value(accountId);
         State state = State::Ready;
@@ -7121,9 +8170,12 @@ void MainWindow::updateUnifiedStates()
                 break;
             }
         }
-        m_unifiedModel->setAccountState(accountId, state, detail);
+        if (m_unifiedModel->accountIds().contains(accountId))
+            m_unifiedModel->setAccountState(accountId, state, detail);
+        if (m_searchResultsPanel && m_searchResultsPanel->results()->accountIds().contains(accountId))
+            m_searchResultsPanel->results()->setAccountState(accountId, state, detail);
     }
-    if (m_unifiedInbox) {
+    if (showsUnifiedList() || m_searchAcross) {
         updateMessageListScope();
         updateMessageFlags();
         scheduleMessageListStatus();
@@ -7139,14 +8191,9 @@ void MainWindow::setUnifiedInbox(bool enabled, bool returnToFolder)
         }
         return;
     }
-    using Imap::Mailbox::GroupingMsgListModel;
-    MsgListView *tree = msgListWidget->tree;
-    QHeaderView *header = tree->header();
-    const QList<QAction *> folderViewActions = {m_groupByMenu ? m_groupByMenu->menuAction() : nullptr,
-                                                m_showRelatedMenu ? m_showRelatedMenu->menuAction() : nullptr,
-                                                m_actionRelatedSender, m_actionRelatedRecipient, m_actionRelatedSubject,
-                                                m_actionRelatedList, m_actionSortByRelevance, m_actionViewForAllFolders,
-                                                m_actionResetFolderView, m_actionExpandAllGroups, m_actionCollapseAllGroups};
+    // A search of the list from before would look like it applies to the other list
+    leaveSearchAcross();
+    msgListWidget->clearSearch();
     if (enabled) {
         captureFolderPosition();
         commitFolderPosition();
@@ -7155,46 +8202,14 @@ void MainWindow::setUnifiedInbox(bool enabled, bool returnToFolder)
             m_messageRestorer->cancel();
         m_unifiedInbox = true;
         syncUnifiedSources();
-        m_prettyUnifiedModel->setFilters(prettyMsgListModel->filters());
-        swapMessageListModel(m_prettyUnifiedModel);
-        tree->setRootIsDecorated(false);
-        if (header->sortIndicatorSection() < 0)
-            header->setSortIndicator(Imap::Mailbox::MsgListModel::DATE, Qt::DescendingOrder);
-        slotSortingConfirmed(header->sortIndicatorSection(), header->sortIndicatorOrder());
-        // Neither threads, nor groups, nor a search on the server span several accounts
-        m_unifiedThreadingEnabled = actionThreadMsgList->isEnabled();
-        actionThreadMsgList->setEnabled(false);
-        m_actionSortThreading->setEnabled(false);
-        m_actionSortNone->setEnabled(true);
-        if (m_groupByActions)
-            m_groupByActions->setEnabled(false);
-        for (QAction *action : folderViewActions) {
-            if (action)
-                action->setEnabled(false);
-        }
-        msgListWidget->setSearchAvailable(false);
+        showUnifiedListModel();
+        msgListWidget->setCurrentPlaceText(i18nc("@item search in", "Unified Inbox"));
         if (QItemSelectionModel *folders = mboxTree->selectionModel())
             folders->clearSelection();
     } else {
         m_unifiedInbox = false;
-        const bool grouped = GroupingMsgListModel::isRealGrouping(m_groupBy);
-        {
-            // The folder's own sorting, rather than the one of the Unified Inbox
-            const UiUtils::MessageListView view = m_viewStore.effectiveView(currentMailboxName());
-            const QSignalBlocker blocker(header);
-            header->setSortIndicator(view.sortColumn, view.sortOrder);
-        }
-        swapMessageListModel(grouped ? static_cast<QAbstractItemModel *>(m_groupingMsgListModel) : prettyMsgListModel);
-        tree->setRootIsDecorated(grouped || actionThreadMsgList->isChecked());
-        actionThreadMsgList->setEnabled(m_unifiedThreadingEnabled);
-        m_actionSortThreading->setEnabled(!grouped && actionThreadMsgList->isChecked());
-        m_actionSortNone->setEnabled(!m_actionSortThreading->isEnabled());
-        if (m_groupByActions)
-            m_groupByActions->setEnabled(true);
-        for (QAction *action : folderViewActions) {
-            if (action)
-                action->setEnabled(true);
-        }
+        showFolderListModel();
+        msgListWidget->setCurrentPlaceText(QString());
         msgListWidget->setSearchAvailable(true);
         syncUnifiedSources();
         applyMessageListView();
@@ -7230,6 +8245,685 @@ void MainWindow::setUnifiedInbox(bool enabled, bool returnToFolder)
             }
         }
     }
+}
+
+bool MainWindow::showsUnifiedList() const
+{
+    return m_unifiedInbox || searchShownInList();
+}
+
+bool MainWindow::searchShownInList() const
+{
+    return m_searchAcross && !m_searchInPanel;
+}
+
+bool MainWindow::wantsSearchInPanel() const
+{
+    return m_searchResultsPanel && m_searchResultsPanel->isPanelEnabled()
+        && msgListWidget->activeSavedSearchOwner().isEmpty();
+}
+
+Imap::Mailbox::UnifiedMsgListModel *MainWindow::searchModel() const
+{
+    return m_searchInPanel && m_searchResultsPanel ? m_searchResultsPanel->results() : m_unifiedModel;
+}
+
+Imap::Mailbox::PrettyUnifiedMsgListModel *MainWindow::searchPrettyModel() const
+{
+    return m_searchInPanel && m_searchResultsPanel ? m_searchResultsPanel->prettyResults() : m_prettyUnifiedModel;
+}
+
+void MainWindow::moveSearchResults()
+{
+    if (m_lastSearchConditions.isEmpty())
+        return;
+    const bool inPanel = wantsSearchInPanel();
+    // A search of the shown folder alone stays in the list while the panel is off
+    if (m_searchAcross ? m_searchInPanel != inPanel : inPanel)
+        slotSearchRequested(m_lastSearchConditions);
+}
+
+void MainWindow::setFolderViewActionsEnabled(bool enabled)
+{
+    const QList<QAction *> folderViewActions = {m_groupByMenu ? m_groupByMenu->menuAction() : nullptr,
+                                                m_showRelatedMenu ? m_showRelatedMenu->menuAction() : nullptr,
+                                                m_actionRelatedSender, m_actionRelatedRecipient, m_actionRelatedSubject,
+                                                m_actionRelatedList, m_actionSortByRelevance, m_actionViewForAllFolders,
+                                                m_actionResetFolderView, m_actionExpandAllGroups, m_actionCollapseAllGroups};
+    for (QAction *action : folderViewActions) {
+        if (action)
+            action->setEnabled(enabled);
+    }
+    if (m_groupByActions)
+        m_groupByActions->setEnabled(enabled);
+}
+
+void MainWindow::showUnifiedListModel()
+{
+    MsgListView *tree = msgListWidget->tree;
+    QHeaderView *header = tree->header();
+    m_prettyUnifiedModel->setFilters(prettyMsgListModel->filters());
+    swapMessageListModel(m_prettyUnifiedModel);
+    tree->setRootIsDecorated(false);
+    if (header->sortIndicatorSection() < 0)
+        header->setSortIndicator(Imap::Mailbox::MsgListModel::DATE, Qt::DescendingOrder);
+    slotSortingConfirmed(header->sortIndicatorSection(), header->sortIndicatorOrder());
+    // Neither threads, nor groups, nor a search on the server span several folders
+    m_unifiedThreadingEnabled = actionThreadMsgList->isEnabled();
+    actionThreadMsgList->setEnabled(false);
+    m_actionSortThreading->setEnabled(false);
+    m_actionSortNone->setEnabled(true);
+    setFolderViewActionsEnabled(false);
+}
+
+void MainWindow::showFolderListModel()
+{
+    using Imap::Mailbox::GroupingMsgListModel;
+    MsgListView *tree = msgListWidget->tree;
+    QHeaderView *header = tree->header();
+    const bool grouped = GroupingMsgListModel::isRealGrouping(m_groupBy);
+    {
+        // The folder's own sorting, rather than the one of the unified list
+        const UiUtils::MessageListView view = m_viewStore.effectiveView(currentMailboxName());
+        const QSignalBlocker blocker(header);
+        header->setSortIndicator(view.sortColumn, view.sortOrder);
+    }
+    swapMessageListModel(grouped ? static_cast<QAbstractItemModel *>(m_groupingMsgListModel) : prettyMsgListModel);
+    tree->setRootIsDecorated(grouped || actionThreadMsgList->isChecked());
+    actionThreadMsgList->setEnabled(m_unifiedThreadingEnabled);
+    m_actionSortThreading->setEnabled(!grouped && actionThreadMsgList->isChecked());
+    m_actionSortNone->setEnabled(!m_actionSortThreading->isEnabled());
+    setFolderViewActionsEnabled(true);
+}
+
+namespace {
+
+/** @short Select the account's shown folder again after a search selected other folders */
+void reselectShownFolder(Imap::ImapAccess *access)
+{
+    auto *model = access ? qobject_cast<Imap::Mailbox::Model *>(access->imapModel()) : nullptr;
+    auto *msgList = access ? qobject_cast<Imap::Mailbox::MsgListModel *>(access->msgListModel()) : nullptr;
+    if (model && msgList && msgList->currentMailbox().isValid())
+        model->switchToMailbox(msgList->currentMailbox());
+}
+
+}
+
+void MainWindow::startSearchAcross(const QStringList &conditions)
+{
+    using namespace UiUtils::SearchScope;
+    using Imap::Mailbox::FolderSearch;
+    if (!m_unifiedModel || !m_prettyUnifiedModel || !prettyMsgListModel)
+        return;
+    const QString activeAccount = m_accounts->activeAccount();
+    QList<Folder> shown;
+    if (m_unifiedInbox) {
+        for (const QString &accountId : unifiedAccountIds())
+            shown << Folder{accountId, QStringLiteral("INBOX")};
+    } else if (const QString mailbox = currentMailboxName(); !mailbox.isEmpty()) {
+        shown << Folder{activeAccount, mailbox};
+    }
+    QList<Folder> selected;
+    const QStringList selectedKeys = msgListWidget->selectedFolders();
+    for (const QString &key : selectedKeys)
+        selected << folderFromKey(key);
+    const QList<AccountFolders> plan =
+        foldersToSearch(msgListWidget->searchPlaces(), activeAccount, shown, selected, m_accounts->accountIds());
+
+    const bool inPanel = wantsSearchInPanel();
+    // The results move between the message list and the Search Results panel
+    if (m_searchAcross && m_searchInPanel != inPanel)
+        leaveSearchAcross();
+    const bool entering = !m_searchAcross;
+    if (inPanel) {
+        // The folder shows all of its messages while the panel lists the results
+        auto *threading = qobject_cast<Imap::Mailbox::ThreadingMsgListModel *>(m_imapAccess->threadingMsgListModel());
+        if (threading && !threading->currentSearchCondition().isEmpty()) {
+            threading->setUserSearchingSortingPreference(QStringList(), threading->currentSortCriterium(),
+                                                         threading->currentSortOrder());
+        }
+        updateRelevanceSorting(QStringList());
+    } else if (entering && !m_unifiedInbox) {
+        captureFolderPosition();
+        commitFolderPosition();
+        if (m_messageRestorer)
+            m_messageRestorer->cancel();
+        // The folder's own search would still hide messages once the folder is shown again
+        auto *threading = qobject_cast<Imap::Mailbox::ThreadingMsgListModel *>(m_imapAccess->threadingMsgListModel());
+        if (threading && !threading->currentSearchCondition().isEmpty()) {
+            threading->setUserSearchingSortingPreference(QStringList(), threading->currentSortCriterium(),
+                                                         threading->currentSortOrder());
+        }
+    }
+    cancelFolderSearches();
+    m_searchAcross = true;
+    m_searchInPanel = inPanel;
+    m_searchProblems.clear();
+    if (m_notificationBar && m_notificationBar->isVisible() && m_notificationBar->text() == m_searchProblemsNotice)
+        m_notificationBar->dismiss();
+    m_searchedPlaces.clear();
+    Imap::Mailbox::UnifiedMsgListModel *results = searchModel();
+    results->setShowsFolders(true);
+    const QStringList listed = results->accountIds();
+    for (const QString &accountId : listed)
+        results->removeAccount(accountId);
+    if (inPanel) {
+        m_searchResultsPanel->prettyResults()->setFilters(prettyMsgListModel->filters());
+        m_searchResultsPanel->setSearchShown(true, UiUtils::relevanceTerms(conditions));
+    }
+
+    m_searchConditions = conditions;
+    m_searchPlan = plan;
+    m_searchStopped = false;
+    const QString separator = i18nc("@info:tooltip separator of folder names", ", ");
+    for (const AccountFolders &folders : plan) {
+        const QString name = m_accounts->displayName(folders.accountId);
+        m_searchedPlaces << (folders.allFolders
+                                 ? i18nc("@info:tooltip account name", "%1: all folders", name)
+                                 : i18nc("@info:tooltip account name, list of folders", "%1: %2", name,
+                                         folders.mailboxes.join(separator)));
+        searchAccount(folders.accountId, folders.mailboxes, folders.allFolders, false);
+    }
+    updateUnifiedStates();
+    if (entering && !m_unifiedInbox && !inPanel)
+        showUnifiedListModel();
+    updateUnifiedRelevance();
+    updateMessageListScope();
+    updateMessageFlags();
+    scheduleMessageListStatus();
+    if (!isSearchAcrossRunning())
+        folderSearchFinished(QString());
+}
+
+void MainWindow::cancelFolderSearches()
+{
+    const auto searches = std::exchange(m_folderSearches, {});
+    for (auto it = searches.cbegin(); it != searches.cend(); ++it) {
+        Imap::Mailbox::FolderSearch *search = it.value();
+        if (!search)
+            continue;
+        if (m_unifiedModel && m_unifiedModel->accountSource(it.key()) == search->results())
+            m_unifiedModel->removeAccount(it.key());
+        if (m_searchResultsPanel && m_searchResultsPanel->results()->accountSource(it.key()) == search->results())
+            m_searchResultsPanel->results()->removeAccount(it.key());
+        const bool running = search->isRunning();
+        search->cancel();
+        if (running)
+            reselectShownFolder(m_accountAccess.value(it.key()));
+        search->deleteLater();
+    }
+}
+
+void MainWindow::searchAccount(const QString &accountId, const QStringList &mailboxes, bool allFolders, bool retrying)
+{
+    using Common::AccountStatusKind;
+    using Imap::Mailbox::FolderSearch;
+    const QString name = m_accounts->displayName(accountId);
+    Imap::ImapAccess *access = m_accountAccess.value(accountId);
+    auto *model = access && access->isConfigured() ? qobject_cast<Imap::Mailbox::Model *>(access->imapModel()) : nullptr;
+    Common::AccountStatus status = m_accountStatus->status(accountId);
+    Imap::Mailbox::SearchIndexer *indexer = access ? access->searchIndexer() : nullptr;
+    if (retrying && model && !model->isNetworkAvailable() && status.kind == AccountStatusKind::NetworkError) {
+        // Connect now instead of waiting for the next attempt to reconnect
+        auto *watcher = qobject_cast<Imap::Mailbox::NetworkWatcher *>(access->networkWatcher());
+        if (watcher && watcher->desiredNetworkPolicy() == Imap::Mailbox::NETWORK_ONLINE)
+            watcher->setNetworkOnline();
+        else if (watcher && watcher->desiredNetworkPolicy() == Imap::Mailbox::NETWORK_EXPENSIVE)
+            watcher->setNetworkExpensive();
+        status = m_accountStatus->status(accountId);
+    }
+    // Without a connection, the mail indexed on this computer is searched instead
+    const bool local = model && !model->isNetworkAvailable() && indexer && indexer->isAvailable();
+    QString problem;
+    if (!model) {
+        problem = i18nc("@info account name", "%1 is not set up", name);
+    } else if (!local && (status.kind == AccountStatusKind::Offline || !model->isNetworkAvailable())) {
+        problem = i18nc("@info account name", "%1 is offline", name);
+    } else if (!local
+               && ((status.kind == AccountStatusKind::NetworkError && !retrying) || status.kind == AccountStatusKind::AuthRequired
+                   || status.kind == AccountStatusKind::AuthFailed)) {
+        problem = i18nc("@info account name, reason", "%1: %2", name,
+                        status.detail.isEmpty() ? Common::AccountStatusTracker::label(status.kind) : status.detail);
+    }
+    if (!problem.isEmpty()) {
+        addSearchProblem(accountId, QString(), problem);
+        return;
+    }
+    // Both searches would select folders on the same connection
+    if (m_relatedMessagesPanel && m_relatedMessagesPanel->serverSearch()->isRunning()
+        && m_relatedMessagesPanel->serverSearch()->message().model() == model)
+        m_relatedMessagesPanel->restartServerSearch();
+    if (m_messageLookup && m_messageLookup->state() == UiUtils::MessageIdLookup::State::SearchingServers) {
+        m_messageLookupStopped = true;
+        m_messageLookup->cancel();
+    }
+    if (FolderSearch *search = m_folderSearches.value(accountId); search && search->model() == model) {
+        search->setSearchIndex(indexer);
+        search->retry(mailboxes, allFolders);
+        return;
+    }
+    auto *search = new FolderSearch(model, this);
+    search->setSearchIndex(indexer);
+    search->results()->snippets()->setModel(model);
+    search->results()->snippets()->setTerms(UiUtils::relevanceTerms(m_searchConditions));
+    m_folderSearches.insert(accountId, search);
+    connect(search, &FolderSearch::progressChanged, this, &MainWindow::scheduleMessageListStatus);
+    connect(search, &FolderSearch::folderFailed, this, [this, accountId, name](const QString &mailbox, const QString &reason) {
+        addSearchProblem(accountId, mailbox,
+                         mailbox.isEmpty() ? i18nc("@info account name, reason", "%1: %2", name, reason)
+                                           : i18nc("@info account name, folder, reason", "%1, %2: %3", name, mailbox, reason));
+    });
+    connect(search, &FolderSearch::finished, this, [this, accountId]() { folderSearchFinished(accountId); });
+    searchModel()->setAccountSource(accountId, name, search->results());
+    search->start(mailboxes, allFolders, m_searchConditions);
+}
+
+void MainWindow::addSearchProblem(const QString &accountId, const QString &mailbox, const QString &text)
+{
+    m_searchProblems.append({accountId, mailbox, text});
+    scheduleMessageListStatus();
+}
+
+bool MainWindow::isSearchAcrossRunning() const
+{
+    return std::any_of(m_folderSearches.cbegin(), m_folderSearches.cend(),
+                       [](const QPointer<Imap::Mailbox::FolderSearch> &search) { return search && search->isRunning(); });
+}
+
+void MainWindow::stopSearchAcross()
+{
+    if (!m_searchAcross || !isSearchAcrossRunning())
+        return;
+    for (auto it = m_folderSearches.cbegin(); it != m_folderSearches.cend(); ++it) {
+        Imap::Mailbox::FolderSearch *search = it.value();
+        if (!search || !search->isRunning())
+            continue;
+        search->cancel();
+        reselectShownFolder(m_accountAccess.value(it.key()));
+    }
+    m_searchStopped = true;
+    folderSearchFinished(QString());
+}
+
+void MainWindow::retrySearchAcross()
+{
+    if (!m_searchAcross || isSearchAcrossRunning() || m_searchProblems.isEmpty())
+        return;
+    const QList<SearchProblem> problems = std::exchange(m_searchProblems, {});
+    if (m_notificationBar && m_notificationBar->isVisible() && m_notificationBar->text() == m_searchProblemsNotice)
+        m_notificationBar->dismiss();
+    m_searchStopped = false;
+    for (const UiUtils::SearchScope::AccountFolders &planned : std::as_const(m_searchPlan)) {
+        bool whole = false;
+        QStringList mailboxes;
+        for (const SearchProblem &problem : problems) {
+            if (problem.accountId != planned.accountId)
+                continue;
+            if (problem.mailbox.isEmpty())
+                whole = true;
+            else if (!mailboxes.contains(problem.mailbox))
+                mailboxes << problem.mailbox;
+        }
+        if (whole)
+            searchAccount(planned.accountId, planned.mailboxes, planned.allFolders, true);
+        else if (!mailboxes.isEmpty())
+            searchAccount(planned.accountId, mailboxes, false, true);
+    }
+    updateUnifiedStates();
+    updateMessageListScope();
+    scheduleMessageListStatus();
+    if (!isSearchAcrossRunning())
+        folderSearchFinished(QString());
+}
+
+void MainWindow::continueSearchOnServer()
+{
+    if (!m_searchAcross || isSearchAcrossRunning())
+        return;
+    QStringList accounts;
+    for (auto it = m_folderSearches.cbegin(); it != m_folderSearches.cend(); ++it) {
+        if (it.value() && it.value()->canContinueOnServer())
+            accounts << it.key();
+    }
+    if (accounts.isEmpty())
+        return;
+    // The server searches these places again, including those which could not be opened from the index
+    m_searchProblems.erase(std::remove_if(m_searchProblems.begin(), m_searchProblems.end(),
+                                          [&accounts](const SearchProblem &problem) {
+                                              return accounts.contains(problem.accountId);
+                                          }),
+                           m_searchProblems.end());
+    if (m_notificationBar && m_notificationBar->isVisible() && m_notificationBar->text() == m_searchProblemsNotice)
+        m_notificationBar->dismiss();
+    m_searchStopped = false;
+    for (const QString &accountId : std::as_const(accounts)) {
+        Imap::Mailbox::FolderSearch *search = m_folderSearches.value(accountId);
+        // Both searches would select folders on the same connection
+        if (m_relatedMessagesPanel && m_relatedMessagesPanel->serverSearch()->isRunning()
+            && m_relatedMessagesPanel->serverSearch()->message().model() == search->model())
+            m_relatedMessagesPanel->restartServerSearch();
+        search->continueOnServer();
+    }
+    updateUnifiedStates();
+    updateMessageListScope();
+    scheduleMessageListStatus();
+    if (!isSearchAcrossRunning())
+        folderSearchFinished(QString());
+}
+
+QString MainWindow::searchProgressDetails() const
+{
+    QStringList lines;
+    for (const UiUtils::SearchScope::AccountFolders &planned : std::as_const(m_searchPlan)) {
+        const QString name = m_accounts->displayName(planned.accountId);
+        const Imap::Mailbox::FolderSearch *search = m_folderSearches.value(planned.accountId);
+        const bool failed = std::any_of(m_searchProblems.cbegin(), m_searchProblems.cend(), [&](const SearchProblem &problem) {
+            return problem.accountId == planned.accountId && problem.mailbox.isEmpty();
+        });
+        if (!search) {
+            lines << i18nc("@info:tooltip account name", "%1: could not be searched", name);
+            continue;
+        }
+        const int found = search->results()->rowCount();
+        const int folders = search->folderCount();
+        const int searched = search->searchedCount();
+        if (search->isRunning()) {
+            const QString folder = search->currentFolder();
+            lines << (folder.isEmpty()
+                          ? i18nc("@info:tooltip account name", "%1: listing folders", name)
+                          : i18nc("@info:tooltip account name, folder name, folders done, all folders, messages found",
+                                  "%1: searching %2, %3 of %4 folders, %5 found", name, folder,
+                                  std::min(searched + 1, std::max(folders, 1)), std::max(folders, 1), found));
+        } else if (failed && found == 0 && searched == 0) {
+            lines << i18nc("@info:tooltip account name", "%1: could not be searched", name);
+        } else if (m_searchStopped && searched < folders) {
+            lines << i18nc("@info:tooltip account name, folders done, all folders, messages found",
+                           "%1: stopped after %2 of %3 folders, %4 found", name, searched, folders, found);
+        } else if (search->usedLocalIndex()) {
+            lines << i18ncp("@info:tooltip %2 is an account name, %1 the messages found",
+                            "%2: %1 found in mail indexed on this computer",
+                            "%2: %1 found in mail indexed on this computer", found, name);
+        } else {
+            lines << i18ncp("@info:tooltip %2 is an account name, %1 the messages found",
+                            "%2: %1 found", "%2: %1 found", found, name);
+        }
+        if (!search->isRunning() && search->messagesWithoutText() > 0) {
+            lines << i18ncp("@info:tooltip %2 is an account name",
+                            "%2: the text of %1 message is not on this computer, so only its headers were searched",
+                            "%2: the text of %1 messages is not on this computer, so only their headers were searched",
+                            search->messagesWithoutText(), name);
+        }
+        const int excluded = int(search->excludedFolders().size());
+        if (!search->isRunning() && search->incompleteFolders().size() > excluded) {
+            lines << i18ncp("@info:tooltip %2 is an account name",
+                            "%2: %1 folder is not fully indexed on this computer, so results may be incomplete",
+                            "%2: %1 folders are not fully indexed on this computer, so results may be incomplete",
+                            int(search->incompleteFolders().size()) - excluded, name);
+        }
+        if (!search->isRunning() && excluded > 0) {
+            lines << i18ncp("@info:tooltip %2 is an account name",
+                            "%2: %1 folder is kept out of the index, so only Search Server can search it",
+                            "%2: %1 folders are kept out of the index, so only Search Server can search them",
+                            excluded, name);
+        }
+        if (!search->isRunning() && !search->discardedFolders().isEmpty()) {
+            lines << i18ncp("@info:tooltip %2 is an account name",
+                            "%2: %1 folder was renumbered on the server since it was indexed, so its indexed matches "
+                            "were left out",
+                            "%2: %1 folders were renumbered on the server since they were indexed, so their indexed "
+                            "matches were left out",
+                            int(search->discardedFolders().size()), name);
+        }
+        if (!search->isRunning() && search->canContinueOnServer()) {
+            lines << i18nc("@info:tooltip account name", "%1: Search Server adds the messages found on the server",
+                           name);
+        }
+        if (!search->isRunning() && search->indexPaused()) {
+            lines << i18nc("@info:tooltip account name", "%1: indexing is paused, so recent changes may be missing",
+                           name);
+        } else if (!search->isRunning() && search->indexPending()) {
+            lines << i18nc("@info:tooltip account name", "%1: the index was still being updated",
+                           name);
+        }
+    }
+    if (!m_searchProblems.isEmpty()) {
+        lines << i18nc("@info:tooltip followed by places and reasons, one per line", "Could not be searched:");
+        for (const SearchProblem &problem : std::as_const(m_searchProblems))
+            lines << problem.text;
+    }
+    return lines.join(QLatin1Char('\n'));
+}
+
+void MainWindow::folderSearchFinished(const QString &accountId)
+{
+    if (!accountId.isEmpty())
+        reselectShownFolder(m_accountAccess.value(accountId));
+    scheduleMessageListStatus();
+    resumeRelatedSearch();
+    if (isSearchAcrossRunning() || m_searchProblems.isEmpty() || !m_notificationBar)
+        return;
+    // A long list of folders would fill the window
+    constexpr int shownProblems = 5;
+    QStringList lines;
+    for (const SearchProblem &problem : std::as_const(m_searchProblems)) {
+        if (lines.size() == shownProblems && m_searchProblems.size() > shownProblems + 1) {
+            lines << i18ncp("@info", "and %1 more", "and %1 more", int(m_searchProblems.size()) - shownProblems);
+            break;
+        }
+        lines << problem.text;
+    }
+    m_searchProblemsNotice = i18ncp("@info %2 is a list of places and reasons, one per line",
+                                    "This place could not be searched:\n%2", "These places could not be searched:\n%2",
+                                    int(m_searchProblems.size()), lines.join(QLatin1Char('\n')));
+    m_notificationBar->showError(m_searchProblemsNotice,
+                                 {{i18nc("@action:button", "Retry"), QStringLiteral("view-refresh"),
+                                   QStringLiteral("searchRetry"), [this]() { retrySearchAcross(); }}});
+}
+
+void MainWindow::leaveSearchAcross()
+{
+    if (!m_searchAcross)
+        return;
+    cancelFolderSearches();
+    resumeRelatedSearch();
+    m_searchAcross = false;
+    m_searchProblems.clear();
+    m_searchedPlaces.clear();
+    m_searchConditions.clear();
+    m_searchPlan.clear();
+    m_searchStopped = false;
+    if (m_notificationBar && m_notificationBar->isVisible() && m_notificationBar->text() == m_searchProblemsNotice)
+        m_notificationBar->dismiss();
+    if (std::exchange(m_searchInPanel, false)) {
+        // The message list kept showing its folder
+        if (m_searchResultsPanel) {
+            Imap::Mailbox::UnifiedMsgListModel *results = m_searchResultsPanel->results();
+            const QStringList listed = results->accountIds();
+            for (const QString &accountId : listed)
+                results->removeAccount(accountId);
+            m_searchResultsPanel->setStatus(QString(), QString());
+            m_searchResultsPanel->setSearchActions(false, false, false);
+            m_searchResultsPanel->setSearchShown(false);
+        }
+        applySearchFacets();
+        updateMessageListScope();
+        scheduleMessageListStatus();
+        return;
+    }
+    if (m_unifiedModel) {
+        m_unifiedModel->setShowsFolders(false);
+        const QStringList listed = m_unifiedModel->accountIds();
+        for (const QString &accountId : listed)
+            m_unifiedModel->removeAccount(accountId);
+    }
+    if (m_unifiedInbox) {
+        syncUnifiedSources();
+        updateUnifiedRelevance();
+    } else {
+        updateUnifiedRelevance();
+        showFolderListModel();
+        applyMessageListView();
+        if (auto *threading = qobject_cast<Imap::Mailbox::ThreadingMsgListModel *>(m_imapAccess->threadingMsgListModel()))
+            updateRelevanceSorting(threading->currentSearchCondition());
+        restoreFolderPosition();
+    }
+    updateMessageListScope();
+    updateMessageFlags();
+    scheduleMessageListStatus();
+}
+
+void MainWindow::chooseSearchFolders()
+{
+    auto *dialog = new SearchFoldersDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    addSearchFolderAccounts(dialog);
+    dialog->setSelectedFolders(msgListWidget->selectedFolders());
+    connect(dialog, &QDialog::accepted, this, [this, dialog]() { msgListWidget->setSelectedFolders(dialog->selectedFolders()); });
+    dialog->open();
+}
+
+void MainWindow::chooseRelatedFolders(const QString &accountId)
+{
+    if (!m_relatedMessagesPanel)
+        return;
+    const QString shownAccount = accountId.isEmpty() ? m_accounts->activeAccount() : accountId;
+    auto *dialog = new SearchFoldersDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setWindowTitle(i18nc("@title:window", "Search Related Messages In"));
+    Imap::ImapAccess *access = m_accountAccess.value(shownAccount);
+    QAbstractItemModel *mailboxes = nullptr;
+    if (access == m_imapAccess)
+        mailboxes = prettyMboxModel;
+    else if (access && access->mailboxModel())
+        mailboxes = new Imap::Mailbox::PrettyMailboxModel(dialog, access->mailboxModel());
+    dialog->addAccount(shownAccount, m_accounts->displayName(shownAccount), mailboxes);
+    // Folders of the other accounts are kept as they are
+    dialog->setSelectedFolders(m_relatedMessagesPanel->chosenFolders());
+    connect(dialog, &QDialog::accepted, this, [this, dialog]() {
+        m_relatedMessagesPanel->setChosenFolders(dialog->selectedFolders());
+        m_relatedMessagesPanel->setServerScope(UiUtils::RelatedSearch::Scope::ChosenFolders);
+    });
+    dialog->open();
+}
+
+void MainWindow::openMessageUrl(const QUrl &url)
+{
+    openMessageById(url.toString(QUrl::FullyEncoded));
+}
+
+void MainWindow::openMessageById(const QString &messageId)
+{
+    using UiUtils::MessageId::Problem;
+    using Lookup = UiUtils::MessageIdLookup;
+    showMainWindow();
+    if (!m_notificationBar)
+        return;
+    const UiUtils::MessageId::Parsed parsed = UiUtils::MessageId::parse(messageId);
+    QString problem;
+    switch (parsed.problem) {
+    case Problem::None:
+        break;
+    case Problem::Empty:
+        problem = i18nc("@info", "No Message-ID was given.");
+        break;
+    case Problem::InvalidCharacter:
+        problem = i18nc("@info", "A Message-ID cannot contain spaces, control characters or angle brackets inside it.");
+        break;
+    case Problem::MissingAt:
+        problem = i18nc("@info", "A Message-ID has an \"@\" with text on both sides.");
+        break;
+    case Problem::TooLong:
+        problem = i18nc("@info", "The Message-ID is too long to come from a message.");
+        break;
+    }
+    if (!problem.isEmpty()) {
+        m_notificationBar->showError(i18nc("@info %1 is the reason", "Cannot open the message: %1", problem));
+        return;
+    }
+    if (!m_messageLookup) {
+        m_messageLookup = new Lookup(this);
+        connect(m_messageLookup, &Lookup::finished, this, &MainWindow::messageLookupFinished);
+        connect(m_messageLookup, &Lookup::selectionChanged, this,
+                [this](Imap::Mailbox::Model *model) { reselectShownFolder(m_accountAccess.value(accountOfModel(model))); });
+    }
+    m_messageLookupStopped = false;
+    QList<Lookup::Account> accounts;
+    const QStringList accountIds = m_accounts->accountIds();
+    for (const QString &accountId : accountIds) {
+        Imap::ImapAccess *access = m_accountAccess.value(accountId);
+        if (!access || !access->isConfigured())
+            continue;
+        accounts << Lookup::Account{accountId, qobject_cast<Imap::Mailbox::Model *>(access->imapModel()), access->searchIndexer()};
+    }
+    if (m_messageLookup->start(parsed.messageId, accounts) != Lookup::State::NeedsServer)
+        return;
+    m_notificationBar->showInfo(
+        i18nc("@info %1 is a Message-ID", "The message \"%1\" is not on this computer. Search every folder on the mail servers for it?",
+              QString::fromUtf8(parsed.messageId)),
+        {{i18nc("@action:button", "Search Servers"), QStringLiteral("network-server"), QStringLiteral("searchServersForMessage"),
+          [this]() { searchServersForMessage(); }}});
+}
+
+void MainWindow::searchServersForMessage()
+{
+    if (!m_messageLookup || m_messageLookup->state() != UiUtils::MessageIdLookup::State::NeedsServer)
+        return;
+    // These searches would select folders on the same connections
+    if (isSearchAcrossRunning())
+        stopSearchAcross();
+    if (m_relatedMessagesPanel && m_relatedMessagesPanel->serverSearch()->isRunning())
+        m_relatedMessagesPanel->restartServerSearch();
+    if (!m_messageLookup->searchServers())
+        return;
+    m_notificationBar->showMessage(
+        InlineNotificationBar::Kind::Busy,
+        i18nc("@info %1 is a Message-ID", "Searching the mail servers for the message \"%1\"...",
+              QString::fromUtf8(m_messageLookup->messageId())),
+        {{i18nc("@action:button", "Stop"), QStringLiteral("process-stop"), QStringLiteral("stopMessageSearch"), [this]() {
+              m_messageLookupStopped = true;
+              m_messageLookup->cancel();
+          }}});
+}
+
+void MainWindow::messageLookupFinished()
+{
+    const QString messageId = QString::fromUtf8(m_messageLookup->messageId());
+    const auto found = m_messageLookup->found();
+    if (m_messageLookup->state() == UiUtils::MessageIdLookup::State::Found && !found.isEmpty()) {
+        if (m_notificationBar->isBusy())
+            m_notificationBar->dismiss();
+        const auto &first = found.constFirst();
+        revealLocation(first.accountId, first.mailbox, first.uidValidity, first.uid);
+        if (found.size() > 1) {
+            QStringList others;
+            for (auto it = found.cbegin() + 1; it != found.cend(); ++it) {
+                others << (it->accountId == first.accountId
+                               ? it->mailbox
+                               : i18nc("@item account name, folder", "%1: %2", m_accounts->displayName(it->accountId), it->mailbox));
+            }
+            others.removeDuplicates();
+            m_notificationBar->showInfo(i18ncp("@info %2 lists folders", "The message is also in this folder: %2",
+                                               "The message is also in these folders: %2", others.size(),
+                                               others.join(i18nc("@item separator of folders", ", "))));
+        }
+        return;
+    }
+    QString text = m_messageLookupStopped
+        ? i18nc("@info %1 is a Message-ID", "The search for the message \"%1\" was stopped.", messageId)
+        : i18nc("@info %1 is a Message-ID", "No message with the Message-ID \"%1\" was found.", messageId);
+    const QStringList failures = m_messageLookup->failures();
+    if (!failures.isEmpty()) {
+        text += QLatin1Char(' ')
+            + i18nc("@info %1 lists folders and reasons", "These could not be searched: %1",
+                    failures.join(i18nc("@item separator of failures", "; ")));
+    }
+    m_notificationBar->showError(text);
+}
+
+void MainWindow::resumeRelatedSearch()
+{
+    if (m_relatedMessagesPanel && m_relatedMessagesPanel->isServerSearchBlocked() && !isSearchAcrossRunning())
+        m_relatedMessagesPanel->restartServerSearch();
 }
 
 void MainWindow::desktopGeometryChanged()

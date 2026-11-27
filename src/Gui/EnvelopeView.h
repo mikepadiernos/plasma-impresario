@@ -23,8 +23,11 @@
 #define GUI_ENVELOPEVIEW_H
 
 #include <QModelIndex>
+#include <QUrl>
 #include <QWidget>
 #include <functional>
+
+#include "UiUtils/MailingLists.h"
 
 namespace Imap {
 namespace Message {
@@ -48,6 +51,15 @@ public:
     void setMessage(const QModelIndex &index);
     /** @short Name the account of a message in an Account row; an empty name hides the row */
     void setAccountResolver(const std::function<QString(const QModelIndex &)> &resolver);
+    /** @short Follow the URL of a confirmed mailing list action; QDesktopServices::openUrl() by default */
+    void setUrlOpener(const std::function<void(const QUrl &)> &opener);
+
+    /** @short The mailing list actions offered for the shown message */
+    QList<UiUtils::MailingLists::ActionTarget> listActions() const { return m_listActions; }
+
+public slots:
+    /** @short Ask whether to follow the list action at @arg position of listActions(), and follow it if confirmed */
+    void requestListAction(int position);
 
 private:
     QString headerText(const QModelIndex &index);
@@ -56,6 +68,9 @@ private:
 
     Plugins::PluginManager *m_pluginManager;
     std::function<QString(const QModelIndex &)> m_accountName;
+    std::function<void(const QUrl &)> m_openUrl;
+    UiUtils::MailingList m_list;
+    QList<UiUtils::MailingLists::ActionTarget> m_listActions;
 
     EnvelopeView(const EnvelopeView &); // don't implement
     EnvelopeView &operator=(const EnvelopeView &); // don't implement

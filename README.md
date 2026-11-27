@@ -88,21 +88,22 @@ show the container's default Qt style rather than a Plasma theme.
 
 ## Project status
 
-As of 2026-11-25. **Done** counts roadmap features whose issues are
+As of 2026-11-26. **Done** counts roadmap features whose issues are
 ![Completed][completed] or ![Merged][merged] on the
 [project board](https://github.com/users/mikepadiernos/projects/4); **Board**
 is the milestone's parent issue.
 
-| Milestone                                                                                | Branch | Done                                                                 | Board                       | Notes                                                                                                   |
-| ---------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------- |
-| [M01](docs/ROADMAP.md#m01-kde--qt6-compatibility-baseline) KDE / Qt 6 baseline           | `main` | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]           | Builds, installs and launches with Qt 6 and KF6                                                         |
-| [M02](docs/ROADMAP.md#m02-shell-accounts-and-core-mailbox-foundation) Shell and accounts | `main` | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]           | Checks in a real Plasma session moved to M15                                                            |
-| [M03](docs/ROADMAP.md#m03-mail-operations-sorting-and-folder-management) Mail operations | `main` | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]           | Destructive actions verified against a live server                                                      |
-| [M04](docs/ROADMAP.md#m04-reading-and-conversation-flow) Reading and conversations       | `main` | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #451](https://github.com/mikepadiernos/plasma-impresario/pull/451)                        |
-| M05–M08: search, desktop integration, automation, settings                               | —      | —                                                                    | ![Backlog][backlog]         | Not started                                                                                             |
-| [M09](docs/ROADMAP.md#m09-themes-and-branding-foundation) Themes and branding            | —      | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development] | Started with the product rename ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)) |
-| M10–M14: reliability, release, Nextcloud, Microsoft, refinements                         | —      | —                                                                    | ![Backlog][backlog]         | Not started                                                                                             |
-| [M15](docs/ROADMAP.md#m15-real-plasma-session-verification) Real Plasma session checks   | —      | ![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781)       | ![Defined][defined]         | Needs a real Plasma session                                                                             |
+| Milestone                                                                                | Branch               | Done                                                                 | Board                       | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ---------------------------------------------------------------------------------------- | -------------------- | -------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [M01](docs/ROADMAP.md#m01-kde--qt6-compatibility-baseline) KDE / Qt 6 baseline           | `main`               | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]           | Builds, installs and launches with Qt 6 and KF6                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| [M02](docs/ROADMAP.md#m02-shell-accounts-and-core-mailbox-foundation) Shell and accounts | `main`               | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]           | Checks in a real Plasma session moved to M15                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| [M03](docs/ROADMAP.md#m03-mail-operations-sorting-and-folder-management) Mail operations | `main`               | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]           | Destructive actions verified against a live server                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| [M04](docs/ROADMAP.md#m04-reading-and-conversation-flow) Reading and conversations       | `main`               | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #451](https://github.com/mikepadiernos/plasma-impresario/pull/451)                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| [M05](docs/ROADMAP.md#m05-search-and-indexing) Search and indexing                       | `feature/m05-search` | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Development][development] | Search scope, server search, query syntax, search builder, search with filters, search history and suggestions, saved searches as virtual folders, managing saved searches, mailing-list views, offline index, index coverage and controls, index-first search, index privacy, attachment text indexing, search snippets and relevance, search facets, Search Results panel, keyboard access to search, Baloo file search, opening messages by Message-ID and search conventions shared with Plasma Opus done |
+| M06–M08: desktop integration, automation, settings                                       | —                    | —                                                                    | ![Backlog][backlog]         | Not started                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| [M09](docs/ROADMAP.md#m09-themes-and-branding-foundation) Themes and branding            | —                    | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development] | Started with the product rename ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221))                                                                                                                                                                                                                                                                                                                                                                                                       |
+| M10–M14: reliability, release, Nextcloud, Microsoft, refinements                         | —                    | —                                                                    | ![Backlog][backlog]         | Not started                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| [M15](docs/ROADMAP.md#m15-real-plasma-session-verification) Real Plasma session checks   | —                    | ![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781)       | ![Defined][defined]         | Needs a real Plasma session                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 The [roadmap overview](docs/ROADMAP.md#milestones-at-a-glance) tracks every
 milestone, and [pending tasks](docs/TODO.md#in-progress) record what each one
@@ -270,23 +271,148 @@ other results are covered offscreen.
 - **View › Embedded Panels** shows or hides each panel, hides it while empty
   and places it below the reader, in either side column or in the footer.
   Attachments is on by default; the other panels are off.
+- Related Messages lists the open message's conversation and the sender's
+  other mail from the loaded list. **Search the Server**, in the panel's search
+  menu, also finds them on the server in the message's folder, up to 20 folders
+  of the account or chosen folders, without leaving the shown folder.
 - **View › Show Header** adds a header above the columns with the active
   account, the folder and the account's status. It is off by default.
 - <kbd>F6</kbd> and <kbd>Shift</kbd>+<kbd>F6</kbd> move focus through the
-  header, account selector, folder tree, message list, reader and each visible
-  panel in the order they appear on screen. <kbd>Esc</kbd> in the reader or a
+  header, account selector, folder tree, quick search, message list, reader and
+  each visible panel in the order they appear on screen. <kbd>Esc</kbd> in the reader or a
   panel returns to the message list.
 - The Navigation toolbar docks at the left window edge by default. The menu
   bar is hidden; open the menus from the toolbar's main menu button or turn the
   bar on with **View › Show Main Menu Bar**.
 
-### Saved searches
+### Searching and saved searches
+
+The quick search above the message list searches the selected folder on the
+server. **Mailbox › Find...** (<kbd>Ctrl</kbd>+<kbd>F</kbd>) or <kbd>/</kbd>
+moves to it with the last query selected, and <kbd>Esc</kbd> returns to the
+list; while the reader has focus, <kbd>Ctrl</kbd>+<kbd>F</kbd> finds text in the
+open message instead. Words search the fields chosen in its options menu and must all match;
+quote a phrase. Fields narrow a term, such as `from:ann`, `subject:"release
+plan"`, `list:dev.lists.example.org`, `tag:$label1`, `is:unread`, `has:attachment`,
+`date>=2026-01` or `size>2M`, and `-` or `NOT`, `OR` and parentheses combine
+them. An invalid query is explained below the field instead of being sent.
+**Search Builder...** in the options menu or the **Mailbox** menu
+(<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>) builds the same query from rows
+of field, comparison and value, matching all or any of them.
+The options menu also offers fuzzy matching and a
+**Date** range: today, the past week, month or year, or custom days with an
+optional start and end. A date range narrows text, field and raw IMAP
+queries, and on its own filters the list by date. **Search In** widens the
+search to chosen folders of any account, the whole account or all accounts;
+results appear in one list, labelled with their account and folder, as each
+folder is searched. The status line's tooltip shows each account's progress;
+**Stop** ends the search and keeps what was found, and **Retry** searches the
+accounts and folders that failed again. A search the server cannot run says why
+in the status line instead of showing an empty list.
+
+The query syntax follows the advanced search of the Plasma Opus file manager
+where it fits mail, so the same habits work in both; neither app needs the
+other.
+
+| Terms                                                                                                        | In Plasma Impresario                                  | In Plasma Opus                                          |
+| ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- | ------------------------------------------------------- |
+| Words and `"quoted phrases"`                                                                                 | All must match, in the fields chosen in the options   | All must match, in file names                           |
+| `-`, `NOT`, `AND`, `OR` and parentheses                                                                      | `AND` binds tighter than `OR`; `-(…)` negates a group | The same, but `-` before a parenthesis is a plain minus |
+| `date:`, or `date` with `=`, `<`, `<=`, `>`, `>=`, and `YYYY-MM-DD`, `YYYY-MM`, `YYYY`, `today`, `yesterday` | The message's Date header                             | The modification date, also as `modified`               |
+| `size` with `<`, `<=`, `>` or `>=`, and `K`, `M` or `G`                                                      | The message size, up to 4 GB                          | The file size, also with `size:`, `=` and `T`           |
+| `content:` or `contents:`                                                                                    | The message text, the same as `body:`                 | The text within files                                   |
+| `tag:` or `tags:`                                                                                            | A message tag, such as `tag:$label1`                  | A file tag                                              |
+| `from:`, `to:`, `cc:`, `bcc:`, `subject:`, `body:`, `text:`, `list:`, `is:`, `has:attachment`                | Mail only                                             | Not available                                           |
+| `name:`, `path:`, `type:`, `tagged:`, `meta:`                                                                | Not available; quote them to search for the text      | Files only                                              |
+
+While a search is shown, each message row adds a snippet of the message's
+downloaded text around the first match, with the matched words in bold.
+**Mailbox › Sorting › Relevance** puts the best matches first, also in results
+of several places, and is remembered for later searches; date stays the
+default.
+
+**Narrow** above the results, also under **View › Filter › Narrow Results**,
+counts the results by account, folder, sender, date, attachments and tag.
+Choosing values narrows the list: values of one kind are alternatives, and
+kinds combine. Each chosen value shows as a chip that removes it, and the
+facets reset when you search again or elsewhere.
+
+**View › Embedded Panels › Search Results** lists the results in their own
+panel instead, so the message list keeps showing its folder. Opening a result
+shows it in the reader without leaving that folder, and **Show in Folder**, in
+the panel or the message list's context menu, switches to the result's account
+and folder and selects it there. The panel sorts by relevance or date from its
+header; turning it off moves the results back to the message list.
+
+A search applies within the quick filters, and a row above the list shows the
+query, date range, places and filters in effect. Its **Clear All** button, or
+<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Backspace</kbd>, clears them together and
+returns to the message that was current before, or keeps the one you opened
+among the results.
+
+The search field remembers the last 20 searches you ran, and while you type it
+offers matching recent searches, favorite tags, address book contacts and the
+shown account's folders; press <kbd>Down</kbd> to open the list at any time.
+**Remember Searches**, **Suggest While Typing** and **Clear Search History**
+in the search options control this.
 
 Enter a query and choose **Save Current Search** from the search options menu.
-**Saved Searches** in the same menu runs or deletes the active account's saved
-queries; a query runs in the selected folder. Searching across folders and
-accounts, virtual folders and an optional offline index are planned in
-[M05](docs/ROADMAP.md#m05-search-and-indexing).
+**Saved Searches** in the same menu runs, edits, renames or deletes the active
+account's saved queries. A saved search keeps its date range and where it searches; preset
+ranges stay relative, so a saved "Past Week" search always covers the latest
+week. The **Saved Searches** section below the folders shows the saved
+searches of every account as virtual folders, with the unread and total
+messages each found when it last ran. Choosing one runs it, switching to its
+account first when it searches the shown folder or account; choosing a folder
+returns to that folder. Its context menu edits a search with a preview of what
+it finds, renames, reorders, moves or deletes it, and updates a search whose
+account or chosen folders are gone.
+
+Messages from a mailing list name the list in the reader's header, with its
+**Post**, **Subscribe**, **Unsubscribe**, **Help**, **Archive** and **Owner**
+links from the message's `List-*` headers. Each link asks first and says
+whether it writes a message or opens a web page. **Mailing Lists** in the
+search options shows the messages of any list among the loaded messages, and
+**Pin Shown List as Saved Search** keeps that view as a saved search of every
+folder of every account. `list:` matches a list's `List-Id`, or its posting
+address when it has none.
+
+**Index downloaded mail for searching offline**, in an account's **Offline**
+settings, keeps a full-text index of the headers and downloaded text of the
+mail the account keeps offline. It is off by default, and nothing is
+downloaded for it; **Download Message Text for Offline Search...** in a
+folder's context menu asks before fetching the text of messages that lack it.
+While the account is offline, searches are answered from the index and the
+status line says so, warning when results may be incomplete. **Application ›
+Offline Search Index…** shows which folders are confirmed as indexed, the
+progress of an update, and lets you pause, resume, rebuild or delete the
+index, and uncheck folders to keep them out of it. Decrypted text of
+encrypted messages is indexed only if you choose to, when you open them, and
+so is the text of attachments you download, such as PDF and office files,
+read by the same extractors as Plasma's file search. Turning the option off
+deletes the index.
+
+Online, a search of several places or of the Unified Inbox is answered from
+the index first. **Search Server**, next to the status line, then adds the
+messages found on the server, such as older mail the account does not keep
+offline, without listing any message twice.
+
+**Mailbox › Find Saved Files…** finds attachments and messages you saved, with
+Plasma's File Search in your file manager, such as Dolphin or Plasma Opus. It
+starts in the folder you last saved to, or Downloads, and says whether File
+Search is set to index that folder, or only a folder inside it, worded as
+Plasma Opus words it; when it is not, **Live Search** looks through the names
+and text of the files there instead. **Find Saved Copies…** in the
+attachment panel's context menu searches for that attachment's file name. Mail
+is not added to File Search; only the files you save are, like any other file.
+
+A `mid:` link, such as `mid:report@example.com`, or `plasma-impresario
+--message-id report@example.com`, opens the message with that Message-ID, in
+the running window if there is one. Messages already listed, or in the offline
+search index, open at once, switching accounts if needed. Otherwise the app
+asks before searching every folder on your mail servers, which you can stop,
+and says when no message was found. When there are several copies, the first
+one opens and the bar names the folders of the others.
 
 ### Command line
 
@@ -295,6 +421,8 @@ accounts, virtual folders and an optional offline index are planned in
 | `-p`, `--profile`     | Use a separate configuration with its own accounts      |
 | `-c`, `--compose`     | Open the composer                                       |
 | `mailto:…`            | Open the composer with the address and fields prefilled |
+| `--message-id <id>`   | Open the message with this Message-ID                   |
+| `mid:…`               | Open the message named by a `mid:` URL                  |
 | `-a`, `--addressbook` | Open the address book, when a plugin provides one       |
 | `-l`, `--log-to-disk` | Log IMAP traffic to disk from startup                   |
 | `-v`, `--version`     | Print the version                                       |

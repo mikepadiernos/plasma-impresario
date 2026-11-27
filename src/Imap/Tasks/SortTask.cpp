@@ -25,6 +25,7 @@
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/Model.h"
 #include "Imap/Model/MailboxTree.h"
+#include "Imap/Model/SearchSupport.h"
 #include "Imap/Model/TaskPresentationModel.h"
 #include "KeepMailboxOpenTask.h"
 
@@ -56,6 +57,15 @@ void SortTask::perform()
         return;
     }
 
+    // A key which the server does not advertise would only earn a BAD, so say which one it is instead
+    if (model->accessParser(parser).capabilitiesFresh) {
+        const auto missing = SearchSupport::unsupportedKeys(searchConditions, model->accessParser(parser).capabilities);
+        if (!missing.isEmpty()) {
+            _failed(SearchSupport::explainUnsupported(missing));
+            return;
+        }
+    }
+
     // We can be killed when appropriate
     KeepMailboxOpenTask *keepTask = dynamic_cast<KeepMailboxOpenTask*>(conn);
     Q_ASSERT(keepTask);
@@ -76,11 +86,14 @@ void SortTask::perform()
             }
         } else {
             // Plain "old" SORT
-            sortTag = parser->uidSearch(searchConditions,
-                                        // It looks that Exchange 2003 does not support the UTF-8 charset in searches.
-                                        // That is, of course, insane, and only illustrates how useless its support of IMAP really is.
-                                        model->m_capabilitiesBlacklist.contains(QStringLiteral("X-NO-UTF8-SEARCH")) ? QByteArray() : "utf-8"
-                                        );
+            // It looks that Exchange 2003 does not support the UTF-8 charset in searches.
+            // That is, of course, insane, and only illustrates how useless its support of IMAP really is.
+            const bool asciiOnly = model->m_capabilitiesBlacklist.contains(QStringLiteral("X-NO-UTF8-SEARCH"));
+            if (asciiOnly && SearchSupport::needsUnicode(searchConditions)) {
+                _failed(SearchSupport::explainAsciiOnly());
+                return;
+            }
+            sortTag = parser->uidSearch(searchConditions, asciiOnly ? QByteArray() : "utf-8");
         }
     } else {
         // SEARCH and SORT combined
@@ -115,7 +128,7 @@ bool SortTask::handleStateHelper(const Imap::Responses::State *const resp)
                 m_persistentSearch = false;
                 model->m_taskModel->taskMighHaveChanged(this);
 
-                if (m_firstCommandCompleted) {
+                if (m_firstCommandCompleted && !awaitsCancelReply()) {
                     // The server decided that it will no longer inform us about the updated SORT order, and the original
                     // response has been already received and processed. That means that we're done here and shall declare
                     // ourselves as completed.
@@ -133,7 +146,10 @@ bool SortTask::handleStateHelper(const Imap::Responses::State *const resp)
         m_firstCommandCompleted = true;
         if (resp->kind == Responses::OK) {
             emit sortingAvailable(sortResult);
-            if (!m_persistentSearch || _aborted) {
+            if (awaitsCancelReply()) {
+                // The reply to CANCELUPDATE is still on its way and completes this task
+                model->m_taskModel->taskMighHaveChanged(this);
+            } else if (!m_persistentSearch || _aborted) {
                 // This is a one-shot operation, we shall not remain as an active task, listening for further updates
                 _completed();
             } else {
@@ -147,13 +163,38 @@ bool SortTask::handleStateHelper(const Imap::Responses::State *const resp)
                 keepTask->activateTasks();
             }
         } else {
-            _failed(tr("Sorting command has failed"));
+            QString reason;
+            if (searchConditions == QStringList{QStringLiteral("ALL")}) {
+                reason = tr("Sorting command has failed");
+            } else {
+                QStringList charsets;
+                if (resp->respCode == Responses::BADCHARSET) {
+                    if (const auto *data = dynamic_cast<const Responses::RespData<QStringList> *>(resp->respCodeData.data()))
+                        charsets = data->data;
+                }
+                // A single condition is a query which the user typed in IMAP syntax
+                reason = SearchSupport::explainRejection(resp->kind, resp->respCode, charsets, resp->message,
+                                                         searchConditions.size() == 1);
+            }
+            if (!awaitsCancelReply())
+                _failed(reason);
+            else
+                m_failureAfterCancel = reason;
         }
         return true;
-    } else if (resp->tag == cancelUpdateTag) {
+    } else if (!cancelUpdateTag.isEmpty() && resp->tag == cancelUpdateTag) {
+        // The server may answer NO when the search has already ended, which is fine as well
+        m_cancelAnswered = true;
         m_persistentSearch = false;
         model->m_taskModel->taskMighHaveChanged(this);
-        _completed();
+        if (!m_firstCommandCompleted) {
+            // Servers answer in order, so this is unusual; the reply to the search itself still has to find this task
+            return true;
+        }
+        if (m_failureAfterCancel.isEmpty())
+            _completed();
+        else
+            _failed(m_failureAfterCancel);
         return true;
     } else {
         return false;
@@ -245,9 +286,13 @@ QVariant SortTask::taskData(const int role) const
 
 void SortTask::_failed(const QString &errorMessage)
 {
-    // FIXME: show this in the GUI
-    emit sortingFailed();
+    emit sortingFailed(errorMessage);
     ImapTask::_failed(errorMessage);
+}
+
+bool SortTask::awaitsCancelReply() const
+{
+    return !cancelUpdateTag.isEmpty() && !m_cancelAnswered;
 }
 
 bool SortTask::isPersistent() const
@@ -265,6 +310,11 @@ void SortTask::cancelSortingUpdates()
 {
     Q_ASSERT(m_persistentSearch);
     Q_ASSERT(!sortTag.isEmpty());
+    if (!cancelUpdateTag.isEmpty() || isFinished()) {
+        // Already asked, or done (an aborted search ends with its first reply, as the next SELECT ends its updates);
+        // the server's reply to another CANCELUPDATE would arrive without a task
+        return;
+    }
     KeepMailboxOpenTask *keepTask = dynamic_cast<KeepMailboxOpenTask*>(conn);
     Q_ASSERT(keepTask);
     keepTask->breakOrCancelPossibleIdle();

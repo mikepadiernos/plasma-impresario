@@ -19,6 +19,7 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#include <QDir>
 #include <QActionGroup>
 #include <QApplication>
 #include <QClipboard>
@@ -134,9 +135,10 @@ void SimplePartWidget::slotMarkupPlainText(bool success)
 void SimplePartWidget::slotFileNameRequested(QString *fileName)
 {
     *fileName = QFileDialog::getSaveFileName(this, tr("Save Attachment"),
-                *fileName, QString(),
+                QDir(Gui::Util::savedFilesFolder()).filePath(*fileName), QString(),
                 0, QFileDialog::HideNameFilterDetails
                                             );
+    Gui::Util::rememberSavedFile(*fileName);
 }
 
 QString SimplePartWidget::quoteMe() const

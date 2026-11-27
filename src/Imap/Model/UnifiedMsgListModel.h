@@ -33,7 +33,8 @@ of each account is kept apart from its rows: the messages of an offline or faili
 A source list can be shown for one account only; using it again for another account is refused, so the same message
 never appears twice. Destroying a source removes only that account's rows.
 
-RoleMessageAccountId, RoleMessageAccountName and RoleMessageSourceLabel tell where a message comes from. Messages
+RoleMessageAccountId, RoleMessageAccountName, RoleMessageSourceLabel and RoleMessageRowLabel tell where a message comes
+from. Messages
 cannot be dragged: dropped data names a folder and UIDs but not the account.
 */
 class UnifiedMsgListModel : public QAbstractProxyModel
@@ -74,6 +75,10 @@ public:
     void setAccountState(const QString &accountId, AccountState state, const QString &detail = QString());
     AccountState accountState(const QString &accountId) const;
     QString accountStateDetail(const QString &accountId) const;
+
+    /** @short Name the folder next to the account in RoleMessageRowLabel, as search results of several folders do */
+    void setShowsFolders(bool showsFolders);
+    bool showsFolders() const;
 
     /** @short Number of messages of @p accountId, or of all accounts for an empty ID */
     int messageCount(const QString &accountId = QString()) const;
@@ -130,6 +135,7 @@ private:
     QString folderLabel(const QModelIndex &sourceIndex) const;
 
     std::vector<Source> m_sources;
+    bool m_showsFolders = false;
     /** Persistent indexes in a source whose layout is changing, and where they point in the source */
     QModelIndexList m_layoutProxy;
     QList<QPersistentModelIndex> m_layoutSource;
@@ -140,6 +146,8 @@ private:
 Every column is presented as PrettyMsgListModel presents it, and the quick filters work the same way. Sorting happens
 here rather than on the server: by date and received date, size, subject or correspondents; other columns sort by
 date. Equal messages keep the order of their accounts. The tooltips name the account and folder of each message.
+
+While relevance terms are set, the messages are sorted as PrettyMsgListModel sorts them by relevance instead.
 */
 class PrettyUnifiedMsgListModel : public QSortFilterProxyModel
 {
@@ -149,10 +157,19 @@ public:
 
     void setFilters(PrettyMsgListModel::Filters filters);
     PrettyMsgListModel::Filters filters() const;
+    /** @short Narrow the list to the messages which @p facets keep, as PrettyMsgListModel does */
+    void setFacets(const UiUtils::SearchFacets &facets);
+    UiUtils::SearchFacets facets() const;
+    /** @short Messages which the quick filters keep, as indexes of the source model, whatever the facets */
+    QModelIndexList facetCandidates() const;
     /** @short Keep @p index shown even if it stops matching the filters; accepts an index of this or the source model */
     void setKeptVisibleIndex(const QModelIndex &index);
     /** @short Number of messages shown, not counting rows of messages which are not known yet */
     int visibleMessageCount() const;
+    /** @short Sort by relevance for @p terms (see UiUtils::relevanceTerms()); no terms leave the order unsorted */
+    void setRelevanceTerms(const QStringList &terms, Qt::SortOrder order);
+    QStringList relevanceTerms() const;
+    bool isSortingByRelevance() const;
 
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 
@@ -163,8 +180,13 @@ protected:
 private:
     void refilter(PrettyMsgListModel::Filters filters);
 
+    bool isFiltering() const;
+    bool matches(const QModelIndex &message) const;
+
     PrettyMsgListModel::Filters m_filters = PrettyMsgListModel::NoFilter;
+    UiUtils::SearchFacets m_facets;
     QPersistentModelIndex m_keptVisible;
+    QStringList m_relevanceTerms;
 };
 
 }

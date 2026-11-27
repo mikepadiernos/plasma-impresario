@@ -50,9 +50,13 @@ public slots:
     void setMessageModel(QAbstractItemModel *model);
     void openCurrent();
     void saveCurrent();
+    /** Ask to find the copies of the current attachment which the user saved, by its file name */
+    void findSavedCopiesOfCurrent();
 
 signals:
     void transferError(const QString &errorString);
+    /** The user wants to find saved copies of an attachment named @arg fileName */
+    void findSavedCopiesRequested(const QString &fileName);
     /** The number of attachments of the shown message changed, for example when its structure arrived */
     void attachmentCountChanged(int count);
 

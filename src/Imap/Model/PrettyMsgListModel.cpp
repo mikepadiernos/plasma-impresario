@@ -22,6 +22,7 @@
 #include "PrettyMsgListModel.h"
 #include "ItemRoles.h"
 #include "MsgListModel.h"
+#include "SearchSnippets.h"
 #include "ThreadingMsgListModel.h"
 #include "UiUtils/Formatting.h"
 #include "UiUtils/IconLoader.h"
@@ -35,11 +36,17 @@ namespace Mailbox
 {
 
 PrettyMsgListModel::PrettyMsgListModel(QObject *parent):
-    QSortFilterProxyModel(parent), m_filters(NoFilter)
+    QSortFilterProxyModel(parent), m_filters(NoFilter), m_snippets(new SearchSnippets(this))
 {
     setDynamicSortFilter(true);
     // Another mailbox reuses the UIDs
     connect(this, &QAbstractItemModel::modelAboutToBeReset, this, [this]() { m_relevanceCache.clear(); });
+    // Only the rows of threads are told; the messages within them are painted again as they are shown
+    connect(m_snippets, &SearchSnippets::changed, this, [this]() {
+        const int rows = rowCount();
+        if (rows > 0)
+            emit dataChanged(index(0, 0), index(rows - 1, columnCount() - 1), {RoleMessageSearchSnippet});
+    });
 }
 
 QVariant PrettyMsgListModel::data(const QModelIndex &index, int role) const
@@ -53,6 +60,8 @@ QVariant PrettyMsgListModel::data(const QModelIndex &index, int role) const
     if (index.row() < 0 || index.row() >= rowCount(index.parent()))
         return QVariant();
 
+    if (role == RoleMessageSearchSnippet)
+        return m_snippets->snippet(mapToSource(index));
     if (const auto pretty = presentationData(mapToSource(index), index.column(), role))
         return *pretty;
     return QSortFilterProxyModel::data(index, role);
@@ -229,6 +238,50 @@ void PrettyMsgListModel::setFilterEnabled(Filter filter, bool enabled)
     setFilters(enabled ? m_filters | filter : m_filters & ~Filters(filter));
 }
 
+void PrettyMsgListModel::setFacets(const UiUtils::SearchFacets &facets)
+{
+    if (facets == m_facets) {
+        m_facets.setContext(facets.context());
+        return;
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    beginFilterChange();
+    m_facets = facets;
+    endFilterChange(QSortFilterProxyModel::Direction::Rows);
+#else
+    m_facets = facets;
+    invalidateFilter();
+#endif
+}
+
+UiUtils::SearchFacets PrettyMsgListModel::facets() const
+{
+    return m_facets;
+}
+
+QModelIndexList PrettyMsgListModel::facetCandidates() const
+{
+    QModelIndexList result;
+    if (!sourceModel())
+        return result;
+    QModelIndexList pending;
+    for (int row = sourceModel()->rowCount() - 1; row >= 0; --row)
+        pending.append(sourceModel()->index(row, 0));
+    while (!pending.isEmpty()) {
+        const QModelIndex item = pending.takeLast();
+        if (matchesFilters(item, m_filters) || (m_keptVisible == item && item.data(RoleIsFetched).isValid()))
+            result.append(item);
+        for (int row = sourceModel()->rowCount(item) - 1; row >= 0; --row)
+            pending.append(sourceModel()->index(row, 0, item));
+    }
+    return result;
+}
+
+bool PrettyMsgListModel::isFiltering() const
+{
+    return m_filters != NoFilter || !m_facets.isEmpty();
+}
+
 void PrettyMsgListModel::refilter(Filters filters)
 {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
@@ -253,7 +306,7 @@ void PrettyMsgListModel::setKeptVisibleIndex(const QModelIndex &index)
 
     const QModelIndex previous = m_keptVisible;
     m_keptVisible = source;
-    if (m_filters == NoFilter)
+    if (!isFiltering())
         return;
 
     const auto topOf = [](QModelIndex index) {
@@ -274,7 +327,7 @@ QModelIndex PrettyMsgListModel::keptVisibleIndex() const
 
 bool PrettyMsgListModel::messageMatches(const QModelIndex &sourceIndex) const
 {
-    return matchesFilters(sourceIndex, m_filters);
+    return matchesFilters(sourceIndex, m_filters) && (m_facets.isEmpty() || m_facets.matches(sourceIndex));
 }
 
 bool PrettyMsgListModel::matchesFilters(const QModelIndex &sourceIndex, const Filters filters)
@@ -330,7 +383,7 @@ int PrettyMsgListModel::visibleMessageCount() const
 
 bool PrettyMsgListModel::filterAcceptsRow(int source_row, const QModelIndex &source_parent) const
 {
-    if (m_filters == NoFilter)
+    if (!isFiltering())
         return true;
 
     // A thread is shown as a whole once its root has been accepted
@@ -407,6 +460,11 @@ QStringList PrettyMsgListModel::relevanceTerms() const
 bool PrettyMsgListModel::isSortingByRelevance() const
 {
     return !m_relevanceTerms.isEmpty();
+}
+
+SearchSnippets *PrettyMsgListModel::snippets() const
+{
+    return m_snippets;
 }
 
 int PrettyMsgListModel::relevance(const QModelIndex &sourceIndex) const

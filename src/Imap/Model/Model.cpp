@@ -942,6 +942,7 @@ void Model::askForMsgMetadata(TreeItemMessage *item, const PreloadingMode preloa
             item->data()->setHdrReferences(data.hdrReferences);
             item->data()->setHdrListPost(data.hdrListPost);
             item->data()->setHdrListPostNo(data.hdrListPostNo);
+            item->data()->setHdrList(data.hdrList);
             QDataStream stream(&data.serializedBodyStructure, QIODevice::ReadOnly);
             stream.setVersion(QDataStream::Qt_4_6);
             QVariantList unserialized;
@@ -2130,6 +2131,57 @@ QModelIndex Model::messageIndexByUid(const QString &mailboxName, const uint uid)
         Q_ASSERT(messages.size() == 1);
         return messages.front()->toIndex(this);
     }
+}
+
+QModelIndexList Model::findLoadedMessagesById(const QByteArray &messageId) const
+{
+    auto bare = [](QByteArray id) {
+        id = id.trimmed();
+        if (id.size() >= 2 && id.startsWith('<') && id.endsWith('>'))
+            id = id.mid(1, id.size() - 2);
+        return id;
+    };
+    const QByteArray wanted = bare(messageId);
+    QModelIndexList found;
+    if (wanted.isEmpty())
+        return found;
+    // Walk the tree directly: rowCount() and data() would ask the server for whatever is missing
+    QList<TreeItemMailbox*> queue;
+    queue.append(m_mailboxes);
+    while (!queue.isEmpty()) {
+        TreeItemMailbox *head = queue.takeFirst();
+        if (head->m_children.isEmpty())
+            continue;
+        for (auto it = head->m_children.constBegin() + 1; it != head->m_children.constEnd(); ++it) {
+            queue.append(static_cast<TreeItemMailbox*>(*it));
+        }
+        auto *list = dynamic_cast<TreeItemMsgList*>(head->m_children[0]);
+        if (!list || !(list->fetched() || list->loading()))
+            continue;
+        for (TreeItem *child : list->m_children) {
+            auto *message = dynamic_cast<TreeItemMessage*>(child);
+            if (!message || !message->fetched() || !message->m_data)
+                continue;
+            if (bare(message->m_data->envelope().messageId) == wanted)
+                found << createIndex(message->row(), 0, message);
+        }
+    }
+    return found;
+}
+
+uint Model::knownUidValidity(const QModelIndex &message) const
+{
+    if (!message.isValid() || message.model() != this)
+        return 0;
+    auto *item = dynamic_cast<TreeItemMessage*>(static_cast<TreeItem*>(message.internalPointer()));
+    auto *list = item ? dynamic_cast<TreeItemMsgList*>(item->parent()) : nullptr;
+    auto *mailbox = list ? dynamic_cast<TreeItemMailbox*>(list->parent()) : nullptr;
+    if (!mailbox)
+        return 0;
+    // Opening the mailbox again clears its state until the server answers; the cache keeps the last one
+    if (const uint uidValidity = mailbox->syncState.uidValidity())
+        return uidValidity;
+    return m_cache ? m_cache->mailboxSyncState(mailbox->mailbox()).uidValidity() : 0;
 }
 
 QModelIndex Model::mailboxIndexByName(const QString &mailboxName)

@@ -150,6 +150,10 @@ public:
     static QStringList supportedCapabilities();
 
     QStringList currentSearchCondition() const;
+    /** @short Why the current search could not run, or an empty string */
+    QString searchFailure() const;
+    /** @short Whether a search or threading request is still out, so the rows shown may change soon */
+    bool isUpdatePending() const;
     SortCriterium currentSortCriterium() const;
     Q_INVOKABLE Qt::SortOrder currentSortOrder() const;
 
@@ -170,8 +174,8 @@ public slots:
     /** @short SORT response has arrived */
     void slotSortingAvailable(const Imap::Uids &uids);
 
-    /** @short SORT has failed */
-    void slotSortingFailed();
+    /** @short SORT or SEARCH has failed */
+    void slotSortingFailed(const QString &reason);
 
     /** @short Dynamic update to the current SORT order */
     void slotSortingIncrementalUpdate(const Imap::Responses::ESearch::IncrementalContextData_t &updates);
@@ -190,7 +194,7 @@ public slots:
     void delayedPrune();
 
 signals:
-    void sortingFailed();
+    void sortingFailed(const QString &reason);
 
 private:
     /** @short Display messages without any threading at all, as a liner list */
@@ -236,6 +240,8 @@ private:
     /** @short Is this someone else's THREAD response? */
     bool shouldIgnoreThisThreadingResponse(const QModelIndex &mailbox, const QByteArray &algorithm,
                                            const QStringList &searchCriteria, const Model **realModel=nullptr);
+    /** @short Does this THREAD response answer a search which has been replaced while its request was in flight? */
+    bool isStaleThreadingResponse(const QStringList &searchCriteria) const;
 
     /** @short Return some number from the thread mapping @arg mapping which is either the highest among them, or at least as high as the marker*/
     static uint findHighEnoughNumber(const QVector<Imap::Responses::ThreadingNode> &mapping, uint marker);
@@ -312,6 +318,7 @@ private:
 
     /** @short Search criteria of the current copy of the search/sort result */
     QStringList m_currentSearchConditions;
+    QString m_searchFailure;
 
     /** @short The current result of the SORT operation
 

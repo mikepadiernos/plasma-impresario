@@ -92,6 +92,12 @@ public:
     /** @short Open a connection to the cache */
     bool open();
 
+    /** @short Name of the SQLite connection, which the local search index shares */
+    QString databaseConnectionName() const;
+
+    /** @short Finish the cache's pending reads before dropping tables which share its connection */
+    void finishQueries();
+
 private:
     /** @short Name of the DB connection */
     QString name;

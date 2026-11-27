@@ -30,6 +30,7 @@ struct Row {
   QStringList flags;
   QString list;
   bool fetched = true;
+  QString listId;
 };
 
 QVariant addresses(const QString &address) {
@@ -58,6 +59,10 @@ QList<QStandardItem *> message(const Row &row) {
   if (!row.list.isEmpty())
     listPost << QUrl(QStringLiteral("mailto:") + row.list);
   item->setData(listPost, Roles::RoleMessageHeaderListPost);
+  QVariantMap listHeaders;
+  if (!row.listId.isEmpty())
+    listHeaders.insert(QStringLiteral("list-id"), row.listId);
+  item->setData(listHeaders, Roles::RoleMessageHeaderList);
   auto *second = new QStandardItem(QStringLiteral("col1-%1").arg(row.uid));
   second->setData(row.uid, Roles::RoleMessageUid);
   return {item, second};
@@ -325,12 +330,20 @@ void GroupingMsgListModelTest::groupsByMailingList() {
                    {2, referenceDate, a, QStringLiteral("b")},
                    {3, referenceDate, a, QStringLiteral("c"), {}, QStringLiteral("Announce@Lists.example.org")},
                    {4, referenceDate, a, QStringLiteral("d"), {}, QStringLiteral("dev@lists.example.org")},
+                   // List-Id names the list, whether or not it sends List-Post
+                   {5, referenceDate, a, QStringLiteral("e"), {}, QStringLiteral("team@lists.example.org"), true,
+                    QStringLiteral("Release Team <team.lists.example.org>")},
+                   {6, referenceDate, a, QStringLiteral("f"), {}, QString(), true,
+                    QStringLiteral("\"Release Team\" <Team.Lists.Example.org>")},
                });
   GroupingMsgListModel model;
   prepare(model, source, Grouping::MailingList);
   QCOMPARE(labels(model), (QStringList{QStringLiteral("announce@lists.example.org"),
-                                       QStringLiteral("dev@lists.example.org"), QStringLiteral("Not from a list")}));
+                                       QStringLiteral("dev@lists.example.org"),
+                                       QStringLiteral("Release Team (team.lists.example.org)"),
+                                       QStringLiteral("Not from a list")}));
   QCOMPARE(uidsIn(model, 1), (QList<uint>{1, 4}));
+  QCOMPARE(uidsIn(model, 2), (QList<uint>{5, 6}));
   verifyConsistency(model, source);
 }
 

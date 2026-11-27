@@ -54,6 +54,8 @@ public:
     bool hasChildren(const QModelIndex &parent=QModelIndex()) const override;
     QVariant data(const QModelIndex &proxyIndex, int role=Qt::DisplayRole) const override;
     QVariant headerData(int section, Qt::Orientation orientation, int role=Qt::DisplayRole) const override;
+    /** @short The horizontal header of @p section for @p role, also for lists which show messages like this one */
+    static QVariant columnHeader(int section, int role);
     Qt::ItemFlags flags(const QModelIndex &index) const override;
     QStringList mimeTypes() const override;
     QMimeData *mimeData(const QModelIndexList &indexes) const override;

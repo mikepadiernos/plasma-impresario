@@ -9,6 +9,7 @@
 #include "ItemRoles.h"
 #include "MsgListModel.h"
 #include "UiUtils/Formatting.h"
+#include "UiUtils/Relevance.h"
 
 namespace Imap
 {
@@ -130,9 +131,23 @@ void UnifiedMsgListModel::setAccountName(const QString &accountId, const QString
     const int offset = offsetOf(position);
     if (m_sources[position].rows > 0) {
         emit dataChanged(index(offset, 0), index(offset + m_sources[position].rows - 1, columnCount() - 1),
-                         {RoleMessageAccountName, RoleMessageSourceLabel, Qt::ToolTipRole});
+                         {RoleMessageAccountName, RoleMessageSourceLabel, RoleMessageRowLabel, Qt::ToolTipRole});
     }
     emit accountsChanged();
+}
+
+void UnifiedMsgListModel::setShowsFolders(const bool showsFolders)
+{
+    if (m_showsFolders == showsFolders)
+        return;
+    m_showsFolders = showsFolders;
+    if (rowCount() > 0)
+        emit dataChanged(index(0, 0), index(rowCount() - 1, columnCount() - 1), {RoleMessageRowLabel});
+}
+
+bool UnifiedMsgListModel::showsFolders() const
+{
+    return m_showsFolders;
 }
 
 QStringList UnifiedMsgListModel::accountIds() const
@@ -391,6 +406,10 @@ QVariant UnifiedMsgListModel::data(const QModelIndex &proxyIndex, int role) cons
         return source.accountId;
     case RoleMessageAccountName:
         return source.accountName;
+    case RoleMessageRowLabel:
+        if (!m_showsFolders)
+            return source.accountName;
+        [[fallthrough]];
     case RoleMessageSourceLabel: {
         const QString folder = folderLabel(mapToSource(proxyIndex));
         if (folder.isEmpty())
@@ -447,6 +466,7 @@ QHash<int, QByteArray> UnifiedMsgListModel::roleNames() const
     names.insert(RoleMessageAccountId, QByteArrayLiteral("messageAccountId"));
     names.insert(RoleMessageAccountName, QByteArrayLiteral("messageAccountName"));
     names.insert(RoleMessageSourceLabel, QByteArrayLiteral("messageSourceLabel"));
+    names.insert(RoleMessageRowLabel, QByteArrayLiteral("messageRowLabel"));
     return names;
 }
 
@@ -493,6 +513,50 @@ PrettyMsgListModel::Filters PrettyUnifiedMsgListModel::filters() const
     return m_filters;
 }
 
+void PrettyUnifiedMsgListModel::setFacets(const UiUtils::SearchFacets &facets)
+{
+    if (facets == m_facets) {
+        m_facets.setContext(facets.context());
+        return;
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    beginFilterChange();
+    m_facets = facets;
+    endFilterChange(QSortFilterProxyModel::Direction::Rows);
+#else
+    m_facets = facets;
+    invalidateFilter();
+#endif
+}
+
+UiUtils::SearchFacets PrettyUnifiedMsgListModel::facets() const
+{
+    return m_facets;
+}
+
+QModelIndexList PrettyUnifiedMsgListModel::facetCandidates() const
+{
+    QModelIndexList result;
+    if (!sourceModel())
+        return result;
+    for (int row = 0, rows = sourceModel()->rowCount(); row < rows; ++row) {
+        const QModelIndex message = sourceModel()->index(row, 0);
+        if (PrettyMsgListModel::matchesFilters(message, m_filters) || (m_keptVisible.isValid() && m_keptVisible == message))
+            result.append(message);
+    }
+    return result;
+}
+
+bool PrettyUnifiedMsgListModel::isFiltering() const
+{
+    return m_filters != PrettyMsgListModel::NoFilter || !m_facets.isEmpty();
+}
+
+bool PrettyUnifiedMsgListModel::matches(const QModelIndex &message) const
+{
+    return PrettyMsgListModel::matchesFilters(message, m_filters) && (m_facets.isEmpty() || m_facets.matches(message));
+}
+
 void PrettyUnifiedMsgListModel::setKeptVisibleIndex(const QModelIndex &index)
 {
     QModelIndex source = index.model() == this ? mapToSource(index) : index;
@@ -505,8 +569,7 @@ void PrettyUnifiedMsgListModel::setKeptVisibleIndex(const QModelIndex &index)
     const QPersistentModelIndex previous = m_keptVisible;
     m_keptVisible = source;
     // The message shown before may stop matching once it is no longer kept
-    if (previous.isValid() && m_filters != PrettyMsgListModel::NoFilter
-        && !PrettyMsgListModel::matchesFilters(previous, m_filters))
+    if (previous.isValid() && isFiltering() && !matches(previous))
         refilter(m_filters);
 }
 
@@ -518,6 +581,25 @@ int PrettyUnifiedMsgListModel::visibleMessageCount() const
             ++count;
     }
     return count;
+}
+
+void PrettyUnifiedMsgListModel::setRelevanceTerms(const QStringList &terms, Qt::SortOrder order)
+{
+    m_relevanceTerms = terms;
+    // Sorting again by the same column in the same order would be a no-op, so start from the source's order
+    QSortFilterProxyModel::sort(-1, order);
+    if (!terms.isEmpty())
+        QSortFilterProxyModel::sort(0, order);
+}
+
+QStringList PrettyUnifiedMsgListModel::relevanceTerms() const
+{
+    return m_relevanceTerms;
+}
+
+bool PrettyUnifiedMsgListModel::isSortingByRelevance() const
+{
+    return !m_relevanceTerms.isEmpty();
 }
 
 QVariant PrettyUnifiedMsgListModel::data(const QModelIndex &index, int role) const
@@ -545,16 +627,29 @@ QVariant PrettyUnifiedMsgListModel::data(const QModelIndex &index, int role) con
 
 bool PrettyUnifiedMsgListModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const
 {
-    if (m_filters == PrettyMsgListModel::NoFilter)
+    if (!isFiltering())
         return true;
     const QModelIndex message = sourceModel()->index(sourceRow, 0, sourceParent);
     if (m_keptVisible.isValid() && m_keptVisible.row() == message.row() && m_keptVisible.model() == message.model())
         return true;
-    return PrettyMsgListModel::matchesFilters(message, m_filters);
+    return matches(message);
 }
 
 bool PrettyUnifiedMsgListModel::lessThan(const QModelIndex &left, const QModelIndex &right) const
 {
+    if (!m_relevanceTerms.isEmpty()) {
+        const int leftScore = UiUtils::relevanceScore(left, m_relevanceTerms);
+        const int rightScore = UiUtils::relevanceScore(right, m_relevanceTerms);
+        if (leftScore != rightScore)
+            return leftScore > rightScore;
+        if (leftScore >= 0) {
+            const QDateTime leftDate = left.data(RoleMessageDate).toDateTime();
+            const QDateTime rightDate = right.data(RoleMessageDate).toDateTime();
+            if (leftDate != rightDate)
+                return leftDate > rightDate;
+        }
+        return left.row() < right.row();
+    }
     auto byDate = [&left, &right](const int role) -> std::optional<bool> {
         const QDateTime a = left.data(role).toDateTime();
         const QDateTime b = right.data(role).toDateTime();

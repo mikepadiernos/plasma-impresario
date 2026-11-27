@@ -130,6 +130,8 @@ enum {
     RoleMessageHeaderListPost,
     /** @short Is the List-Post set to a special value of "NO"? */
     RoleMessageHeaderListPostNo,
+    /** @short List-Id and the RFC 2369 action headers as a QVariantMap of lower-case names to unfolded values */
+    RoleMessageHeaderList,
     /** @short A full message envelope */
     RoleMessageEnvelope,
     /** @short Is this a mail with at least one attachment?
@@ -274,6 +276,12 @@ enum {
     RoleMessageAccountName,
     /** @short Account and folder of a message of a UnifiedMsgListModel, such as "Work · Inbox" */
     RoleMessageSourceLabel,
+    /** @short Where a message of a UnifiedMsgListModel comes from, as its row names it: the account, or the account and
+    folder in search results */
+    RoleMessageRowLabel,
+    /** @short Snippet of the downloaded text of a message found by a text search, with the matches marked
+    (Imap::Mailbox::SearchSnippet); invalid when the list shows no search */
+    RoleMessageSearchSnippet,
 
     /** @short The very last role */
     RoleInvalidLastOne

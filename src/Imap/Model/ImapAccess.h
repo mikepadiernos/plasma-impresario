@@ -48,6 +48,7 @@ class Model;
 class MsgListModel;
 class NetworkWatcher;
 class OneMessageModel;
+class SearchIndexer;
 class SubtreeModelOfMailboxModel;
 class ThreadingMsgListModel;
 class VisibleTasksModel;
@@ -97,6 +98,14 @@ public:
     QAbstractItemModel *threadingMsgListModel() const;
     QObject *msgQNAM() const;
     UiUtils::PasswordWatcher *passwordWatcher() const;
+    /** @short The local search index of the account, or nullptr when it is not enabled */
+    Imap::Mailbox::SearchIndexer *searchIndexer() const;
+    /** @short Pause or resume the local search index, and remember the choice for the account */
+    void setSearchIndexPaused(bool paused);
+    /** @short Keep @arg mailboxes out of the local search index, and remember the choice for the account */
+    void setSearchIndexExcluded(const QStringList &mailboxes);
+    /** @short Delete the local search index and turn it off for the account; @arg problem says what failed */
+    bool deleteSearchIndex(QString *problem = nullptr);
 
     QString server() const;
     void setServer(const QString &server);
@@ -168,9 +177,13 @@ private slots:
     void desiredNetworkPolicyChanged(const Imap::Mailbox::NetworkPolicy policy);
 
 private:
+    /** @short Remove the search index from the cache file while no cache uses it */
+    bool dropSearchIndexFile(QString *problem);
+
     QSettings *m_settings;
     QSettings *m_appSettings;
     Imap::Mailbox::Model *m_imapModel;
+    Imap::Mailbox::SearchIndexer *m_searchIndexer = nullptr;
     Imap::Mailbox::MailboxModel *m_mailboxModel;
     Imap::Mailbox::SubtreeModelOfMailboxModel *m_mailboxSubtreeModel;
     Imap::Mailbox::MsgListModel *m_msgListModel;

@@ -34,6 +34,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [OAuth sign-in](#oauth-sign-in)
   - [Mail operations](#mail-operations)
   - [Composing and sending](#composing-and-sending)
+  - [Search](#search)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -45,25 +46,26 @@ The overview lists each area once; the sections below hold the details. Each
 section starts with its `[caveat]` issue, the issue's board status and the
 issue comment that holds the current recommendation.
 
-| Kind                      | Area              | Current constraint                                                                                                                                                                                                 | Caveat                                                                                                                                       |
-| ------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| ![Resolved][resolved]     | Accounts          | One window holds several IMAP accounts, grouped by account in the folder sidebar; the limitations recorded for them are resolved ([details](#multiple-accounts))                                                   | [#262](https://github.com/mikepadiernos/plasma-impresario/issues/262)                                                                        |
-| ![Limitation][limitation] | Embedded panels   | Related messages search only loaded messages in the current folder ([details](#related-messages-and-message-details-panels)); message details do not verify inline PGP ([details](#message-security))              | [#264](https://github.com/mikepadiernos/plasma-impresario/issues/264), [#442](https://github.com/mikepadiernos/plasma-impresario/issues/442) |
-| ![Limitation][limitation] | Reading privacy   | Link warnings are heuristic and remote content consent applies to the open message only ([details](#reading-privacy))                                                                                              | [#443](https://github.com/mikepadiernos/plasma-impresario/issues/443)                                                                        |
-| ![Limitation][limitation] | Loading on demand | Parts that failed after a server error load again only on Try Again; the unavailable-message page is not verified live ([details](#loading-on-demand))                                                             | [#444](https://github.com/mikepadiernos/plasma-impresario/issues/444)                                                                        |
-| ![Limitation][limitation] | Reader actions    | The action bar is in the main window only, zoom is not saved, and Archive and Trash from the bar are not verified live ([details](#reader-actions))                                                                | [#445](https://github.com/mikepadiernos/plasma-impresario/issues/445)                                                                        |
-| ![Limitation][limitation] | Conversations     | A search in a threaded list splits threads, conversations cover the loaded messages of the current folder only, and the Unified Inbox has no conversation steps ([details](#conversations))                        | [#449](https://github.com/mikepadiernos/plasma-impresario/issues/449)                                                                        |
-| ![Limitation][limitation] | OAuth sign-in     | Microsoft uses the `common` tenant only and cannot revoke grants from the app, IMAP and SMTP refresh tokens independently, and switching provider replaces a grant without revoking it ([details](#oauth-sign-in)) | [#362](https://github.com/mikepadiernos/plasma-impresario/issues/362)                                                                        |
-| ![Limitation][limitation] | Mail operations   | Special folders need server attributes or English names, Go to Folder and related searches use loaded data only, and Undo after a move needs server COPYUID support ([details](#mail-operations))                  | [#312](https://github.com/mikepadiernos/plasma-impresario/issues/312)                                                                        |
-| ![Limitation][limitation] | Composing         | Each refused send files another copy in Sent, a forward sent before its message downloads is refused, forwards are attachment-only and drafts are local without attachments ([details](#composing-and-sending))    | [#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)                                                                        |
-| ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete         | —                                                                                                                                            |
-| ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                             | —                                                                                                                                            |
-| ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))          | —                                                                                                                                            |
-| ![Security][security]     | Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used ([details](#security-and-data-protection))                                                                                 | —                                                                                                                                            |
-| ![Security][security]     | Local data        | Persistent SQL cache stores message metadata and fetched parts; the application does not encrypt cache contents ([details](#security-and-data-protection))                                                         | —                                                                                                                                            |
-| ![Planned][planned]       | Integrations      | Plasma new-mail notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                                                    | —                                                                                                                                            |
-| ![Limitation][limitation] | Compatibility     | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                       | —                                                                                                                                            |
-| ![Limitation][limitation] | Quality evidence  | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded; nothing has been checked in a real Plasma session yet                                             | —                                                                                                                                            |
+| Kind                      | Area              | Current constraint                                                                                                                                                                                                                                                                                                                                                                                                                                    | Caveat                                                                                                                                       |
+| ------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| ![Resolved][resolved]     | Accounts          | One window holds several IMAP accounts, grouped by account in the folder sidebar; the limitations recorded for them are resolved ([details](#multiple-accounts))                                                                                                                                                                                                                                                                                      | [#262](https://github.com/mikepadiernos/plasma-impresario/issues/262)                                                                        |
+| ![Limitation][limitation] | Embedded panels   | Related messages search only loaded messages unless the bounded server search is turned on ([details](#related-messages-and-message-details-panels)); message details do not verify inline PGP ([details](#message-security))                                                                                                                                                                                                                         | [#264](https://github.com/mikepadiernos/plasma-impresario/issues/264), [#442](https://github.com/mikepadiernos/plasma-impresario/issues/442) |
+| ![Limitation][limitation] | Reading privacy   | Link warnings are heuristic and remote content consent applies to the open message only ([details](#reading-privacy))                                                                                                                                                                                                                                                                                                                                 | [#443](https://github.com/mikepadiernos/plasma-impresario/issues/443)                                                                        |
+| ![Limitation][limitation] | Loading on demand | Parts that failed after a server error load again only on Try Again; the unavailable-message page is not verified live ([details](#loading-on-demand))                                                                                                                                                                                                                                                                                                | [#444](https://github.com/mikepadiernos/plasma-impresario/issues/444)                                                                        |
+| ![Limitation][limitation] | Reader actions    | The action bar is in the main window only, zoom is not saved, and Archive and Trash from the bar are not verified live ([details](#reader-actions))                                                                                                                                                                                                                                                                                                   | [#445](https://github.com/mikepadiernos/plasma-impresario/issues/445)                                                                        |
+| ![Limitation][limitation] | Conversations     | A search in a threaded list splits threads, conversations cover the loaded messages of the current folder only, and the Unified Inbox has no conversation steps ([details](#conversations))                                                                                                                                                                                                                                                           | [#449](https://github.com/mikepadiernos/plasma-impresario/issues/449)                                                                        |
+| ![Limitation][limitation] | OAuth sign-in     | Microsoft uses the `common` tenant only and cannot revoke grants from the app, IMAP and SMTP refresh tokens independently, and switching provider replaces a grant without revoking it ([details](#oauth-sign-in))                                                                                                                                                                                                                                    | [#362](https://github.com/mikepadiernos/plasma-impresario/issues/362)                                                                        |
+| ![Limitation][limitation] | Mail operations   | Special folders need server attributes or English names, Go to Folder and related searches use loaded data only, and Undo after a move needs server COPYUID support ([details](#mail-operations))                                                                                                                                                                                                                                                     | [#312](https://github.com/mikepadiernos/plasma-impresario/issues/312)                                                                        |
+| ![Limitation][limitation] | Composing         | Each refused send files another copy in Sent, a forward sent before its message downloads is refused, forwards are attachment-only and drafts are local without attachments ([details](#composing-and-sending))                                                                                                                                                                                                                                       | [#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)                                                                        |
+| ![Limitation][limitation] | Search            | Date ranges follow the day in each message's Date header, in the sender's time zone, and a search of several folders selects each folder of the account in turn and loads every result's headers; `has:attachment` approximates by message type, folder suggestions cover only the shown account's listed folders, virtual folders count only while shown, and offline search covers only mail kept and indexed on this computer ([details](#search)) | [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454)                                                                        |
+| ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
+| ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
+| ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
+| ![Security][security]     | Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used ([details](#security-and-data-protection))                                                                                                                                                                                                                                                                                                                    | —                                                                                                                                            |
+| ![Security][security]     | Local data        | Persistent SQL cache stores message metadata and fetched parts; the application does not encrypt cache contents ([details](#security-and-data-protection))                                                                                                                                                                                                                                                                                            | —                                                                                                                                            |
+| ![Planned][planned]       | Integrations      | Plasma new-mail notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                                                                                                                                                                                                                                                                                       | —                                                                                                                                            |
+| ![Limitation][limitation] | Compatibility     | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                                                                                                                                                                                                                                                          | —                                                                                                                                            |
+| ![Limitation][limitation] | Quality evidence  | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded; nothing has been checked in a real Plasma session yet                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 
 ### Multiple accounts
 
@@ -113,10 +115,29 @@ Plasma session; that check is
 
 **Current behavior:**
 
-- ![Limitation][limitation] The related messages panel only searches messages
-  already loaded in the current folder's message list, not the server or other
-  folders. It lists at most 25 messages per group (conversation and same
-  sender) and scans at most the 20,000 most recent rows.
+- ![Limitation][limitation] By default the related messages panel only
+  searches messages already loaded in the current folder's message list. It
+  lists at most 25 messages per group (conversation and same sender) and scans
+  at most the 20,000 most recent rows.
+- ![Resolved][resolved] **Search the Server**, in the panel's search menu, also
+  asks the server for the conversation (`Message-ID`, `In-Reply-To` and
+  `References`) and the sender's other mail, in the message's folder, every
+  folder of the account or chosen folders. Results merge with the loaded ones,
+  rows from other folders start with the folder name, and opening one shows it
+  in the reader without changing the message list. The choice and the chosen
+  folders are remembered
+  ([#302](https://github.com/mikepadiernos/plasma-impresario/issues/302)).
+- ![Limitation][limitation] The server search is bounded: **All Folders**
+  searches at most 20 folders, and only the newest 50 matches in each folder
+  are loaded. The status line says when the limits left something out.
+- ![Limitation][limitation] The server matches header keys as substrings, so
+  it may return mail from a similar address or naming a similar Message-ID. The
+  panel drops these, but their headers are still downloaded.
+- ![Limitation][limitation] The server search uses the account's own
+  connection and selects each folder in turn; the shown folder is selected
+  again when it ends. It waits while a **Search In** search of the same account
+  is running and starts once that search finishes or stops. Changing the
+  message cancels it.
 - ![Resolved][resolved] The message details panel's Security field shows the
   reader's verification and decryption results
   ([#303](https://github.com/mikepadiernos/plasma-impresario/issues/303)).
@@ -129,14 +150,15 @@ Plasma session; that check is
 
 **Workarounds:**
 
-- Use the search bar or open the other folder to find related mail that is not
-  loaded.
+- Turn on **Search the Server** with **Chosen Folders** to reach folders that
+  **All Folders** leaves out, or use the search bar's **Search In** menu for an
+  unbounded search.
 
 **Proposed improvements:**
 
-- Add an opt-in server-side search on `Message-ID`, `References` and sender,
-  optionally across folders (M05,
-  [#302](https://github.com/mikepadiernos/plasma-impresario/issues/302)).
+- Search the other accounts too, for mail that was forwarded between them.
+- Use the server's `THREAD` answer, where offered, to find replies that only
+  share a subject.
 
 ### Message security
 
@@ -322,7 +344,9 @@ Plasma session; that check is
 
 - To see a whole thread that a search split, clear the search, open the
   message, and use the conversation steps.
-- Open the Sent folder to read your own replies.
+- Open the Sent folder to read your own replies, or turn on **Search the
+  Server** in the related messages panel to list them beside the message
+  ([#302](https://github.com/mikepadiernos/plasma-impresario/issues/302)).
 - To see a merge that has not appeared yet, scroll through the folder, or
   switch Group By to None and back to Conversation.
 
@@ -330,8 +354,6 @@ Plasma session; that check is
 
 - Thread all messages on the server and filter by the search's results on the
   client, so that threads stay whole during a search.
-- Search related mail on the server and across folders (M05,
-  [#302](https://github.com/mikepadiernos/plasma-impresario/issues/302)).
 - Step through conversations in the Unified Inbox within each account.
 
 ### OAuth sign-in
@@ -462,8 +484,8 @@ Plasma session; that check is
   layout, and the shortcut overview may list stale shortcuts for windows not
   yet opened.
 - ![Limitation][limitation] Select Similar and Show Related use loaded
-  envelopes only. Mailing-list matches use `List-Post`, because the message
-  model exposes no `List-Id`.
+  envelopes only. Mailing-list matches use the list's `List-Id`, or its
+  `List-Post` address when it has none.
 - ![Limitation][limitation] While the dense layout is on, its compact density
   and hidden panels are written to the normal preferences, so they persist
   after a restart.
@@ -584,6 +606,651 @@ Plasma session; that check is
   included.
 - Exercise SMTP delivery in the live test with a local SMTP server.
 
+### Search
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/454#issuecomment-7181065871) | The quick search's query syntax and builder, **Date** and **Search In** menus, saved searches with a date range or places, searches the server cannot run, **Clear All**, search history and suggestions, saved searches as virtual folders, mailing-list views, the offline search index, search snippets and relevance, search facets, the Search Results panel, keyboard access to search, finding saved files, and opening messages by Message-ID |
+
+**Current behavior:**
+
+- ![Resolved][resolved] The **Date** menu in the search options limits the
+  quick search to today, the past week, month or year, or custom days with an
+  optional start and end. The range narrows text, `from:`-style and raw IMAP
+  queries, works on its own and is stored with saved searches. Presets stay
+  relative and move on when the day changes
+  ([#95](https://github.com/mikepadiernos/plasma-impresario/issues/95)).
+- ![Resolved][resolved] The **Search In** menu searches the current folder,
+  chosen folders of any account, the whole account or all accounts. Results
+  appear in one list as each folder is searched, labelled with the account and
+  folder, and places that could not be searched are named in the status line
+  and the notification bar ([#331](https://github.com/mikepadiernos/plasma-impresario/issues/331)).
+- ![Resolved][resolved] A search of several places runs in the background.
+  The status line's tooltip shows each account's progress and count, a slow or
+  failing account does not hold up the others, and **Stop** ends the search
+  while keeping the results found so far; answers that arrive later are not
+  shown. **Retry**, in the status row and the notification bar, searches again
+  only the accounts and folders that failed, and reconnects an account whose
+  connection was lost ([#332](https://github.com/mikepadiernos/plasma-impresario/issues/332)).
+- ![Resolved][resolved] The quick search keeps its field toggles, raw IMAP
+  queries after `:=` and fuzzy matching, and uses ESEARCH where the server
+  advertises it, plain SEARCH otherwise. A search the server cannot run shows
+  **Search failed** and the reason in the status line instead of an empty
+  list: a key that needs a capability the server does not advertise is named
+  before anything is sent, and a refused search repeats the server's own
+  explanation ([#333](https://github.com/mikepadiernos/plasma-impresario/issues/333)).
+- ![Resolved][resolved] The quick search reads a query syntax: fields such
+  as `from:`, `subject:`, `list:`, `tag:`, `is:unread` and `has:attachment`,
+  `date:` and `size:` with `<`, `<=`, `>` and `>=`, quoted phrases, `-` or
+  `NOT`, `OR` and parentheses. The whole query is checked before anything is
+  sent; an invalid one is explained below the search field, with the faulty
+  text selected, and the list keeps the previous results
+  ([#334](https://github.com/mikepadiernos/plasma-impresario/issues/334)).
+- ![Resolved][resolved] **Search Builder...** in the search options and the
+  **Mailbox** menu (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>) builds a
+  query from rows of field, comparison and value, matching all or any of them.
+  It opens with the current search and shows the query it will run; a query
+  it cannot show is explained instead
+  ([#335](https://github.com/mikepadiernos/plasma-impresario/issues/335)).
+- ![Resolved][resolved] A search applies within the quick filters
+  (**Unread**, **Flagged**, **With Attachments**). A row above the list shows
+  the query, date range, places and filters in effect, and its **Clear All**
+  button, **View › Filter › Clear Search and Filters** and
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Backspace</kbd> clear them in one
+  step. The folder's list comes back with the message that was current before
+  the first search or filter, or with the message opened among the results
+  ([#336](https://github.com/mikepadiernos/plasma-impresario/issues/336)).
+- ![Resolved][resolved] The quick search remembers the last 20 searches run
+  with <kbd>Enter</kbd>, the search builder or a suggestion, per profile and
+  across restarts. While typing, a list below the search field offers matching
+  recent searches, `tag:` terms for favorite tags, `from:` terms for address
+  book contacts and the shown account's folders; <kbd>Down</kbd> opens it on
+  request. **Remember Searches**, **Suggest While Typing** and **Clear Search
+  History** are in the search options. <kbd>Enter</kbd> runs the typed text
+  unless a suggestion is chosen, and <kbd>Esc</kbd> closes the list without
+  clearing the search
+  ([#337](https://github.com/mikepadiernos/plasma-impresario/issues/337)).
+- ![Resolved][resolved] A **Saved Searches** section below the folders lists
+  the saved searches of every account as virtual folders, by name, with the
+  unread and total messages each found when it last ran. Choosing one runs it,
+  first switching to its account when it searches the shown folder or the
+  whole account. Its counts follow the list while it is shown, such as when a
+  message is read, and are kept across restarts. Choosing a folder, typing
+  another search or switching accounts leaves the virtual folder. Searches
+  saved earlier appear unchanged; nothing is moved, copied or changed to fill a
+  virtual folder
+  ([#338](https://github.com/mikepadiernos/plasma-impresario/issues/338)).
+- ![Resolved][resolved] Saved searches are managed from the context menu of
+  the **Saved Searches** section, and from **Saved Searches** in the search
+  options. **Edit Search** runs a search and shows a bar above the list; the
+  list previews the changed query, fields, dates and places until **Save** or
+  **Cancel**. **Rename...** (<kbd>F2</kbd>) refuses empty names and names the
+  account already uses, and **Delete...** (<kbd>Del</kbd>) asks first.
+  Dragging a search, or **Move Up** and **Move Down**
+  (<kbd>Alt</kbd>+<kbd>Up</kbd> and <kbd>Alt</kbd>+<kbd>Down</kbd>), sets the
+  order across accounts, and **Move to Account** gives a search to another
+  account. Each tooltip shows the query, the places and the dates. Searches of
+  a removed account, and chosen folders that the server no longer lists, are
+  kept and marked with a warning; **Move to Account**, **Choose Folders...**
+  and **Leave Out Missing Folders** update them
+  ([#339](https://github.com/mikepadiernos/plasma-impresario/issues/339)).
+- ![Resolved][resolved] Messages are read with their `List-Id`,
+  `List-Subscribe`, `List-Unsubscribe`, `List-Help`, `List-Archive` and
+  `List-Owner` headers. The reader names a message's list and offers its
+  actions as links; each asks first, says whether it writes a message in
+  Plasma Impresario's composer or opens a web page, and defaults to
+  **Cancel**. **Mailing Lists** in the search options lists the lists of the
+  loaded messages with their counts and shows one's messages, and **Pin Shown
+  List as Saved Search** saves that view as a search of every folder of every
+  account, named after the list; pinning it again runs the saved one. `list:`,
+  Show Related and grouping by mailing list use the `List-Id`, or the posting
+  address of a list without one
+  ([#340](https://github.com/mikepadiernos/plasma-impresario/issues/340)).
+- ![Resolved][resolved] **Index downloaded mail for searching offline**, in
+  an account's **Offline** settings, is off by default and set per account.
+  When on, the account keeps a full-text index of the headers, flags and
+  downloaded text of the messages in its offline cache, inside the cache's
+  SQLite database. Nothing is downloaded for the index. **Download Message
+  Text for Offline Search...** in a folder's context menu says how many
+  messages lack their text and asks before fetching it. While the account is
+  offline, the quick search, the query syntax and saved searches are answered
+  from the index; the status line ends with **offline, in mail indexed on this
+  computer**, and its tooltip counts the messages whose text was not
+  downloaded, so that only their headers were searched. Turning the option off
+  deletes the index
+  ([#341](https://github.com/mikepadiernos/plasma-impresario/issues/341)).
+- ![Resolved][resolved] The index uses SQLite's FTS5 extension with its
+  `trigram` tokenizer, which finds any part of a word, as IMAP `SEARCH` does,
+  and folds the case of non-ASCII letters. It needs SQLite 3.34 or later
+  (Debian 12 ships 3.40, Fedora 44 3.51). The account checks for it when it
+  connects; without it the index is reported as unavailable and searches use
+  the server as before
+  ([#341](https://github.com/mikepadiernos/plasma-impresario/issues/341)).
+- ![Resolved][resolved] **Application › Offline Search Index…** shows the
+  shown account's index: each folder of its offline cache with its state
+  (**Indexed**, **Partly indexed**, **Changed since indexed**, **Not indexed
+  yet** or **Not on this computer**), its offline, indexed and with-text
+  message counts and when it was last indexed, how many folders are confirmed
+  as indexed, the progress of a running update, and a warning when some
+  folders are not fully indexed. **Pause** stops updates until **Resume** and
+  is remembered for the account; **Rebuild…** asks first, then empties the
+  index and builds it again. An offline search adds **results may be
+  incomplete** to the status line when a searched folder is not fully
+  indexed, indexing is paused or an update is under way, and its tooltip says
+  which
+  ([#342](https://github.com/mikepadiernos/plasma-impresario/issues/342)).
+- ![Resolved][resolved] With the index on, a search of several places or of
+  the Unified Inbox is answered from the index first while the account is
+  online too; the status line ends with **in mail indexed on this computer**.
+  Folders without indexed matches are not opened on the server. **Search
+  Server**, next to the status line, then searches the same places on the
+  server and adds the messages it finds there, without listing a message
+  twice. When a folder was renumbered on the server (a new UIDVALIDITY), its
+  indexed matches are dropped, the results are marked as possibly incomplete,
+  and the tooltip names the folder
+  ([#343](https://github.com/mikepadiernos/plasma-impresario/issues/343)).
+- ![Resolved][resolved] Unchecking a folder in **Application › Offline Search
+  Index…** keeps it out of the index: its indexed text is removed at once, it
+  is shown as **Excluded**, and the choice is kept for the account. Offline
+  searches skip it and say so in the tooltip; online, **Search Server**
+  searches it on the server
+  ([#344](https://github.com/mikepadiernos/plasma-impresario/issues/344)).
+- ![Resolved][resolved] Decrypted text is indexed only after **Also index the
+  decrypted text of encrypted messages I open**, in the account's **Offline**
+  settings, is turned on; it is off by default. The text and HTML parts of an
+  opened message are added once it is decrypted, never its attachments, and
+  turning the option off removes them from the index. The index dialog counts
+  the messages that hold decrypted text
+  ([#344](https://github.com/mikepadiernos/plasma-impresario/issues/344)).
+- ![Resolved][resolved] **Delete Index…** in the index dialog asks first,
+  then deletes the account's index from the offline cache and turns offline
+  search off, keeping the mail. Turning the option off, choosing **Don't use
+  cache**, or removing the account also deletes the index; removing an
+  account says so and warns when its files cannot be deleted
+  ([#344](https://github.com/mikepadiernos/plasma-impresario/issues/344)).
+- ![Resolved][resolved] **Also index the text of downloaded attachments up
+  to** a size, in the account's **Offline** settings, is off by default and
+  set per account, with a limit of 10 MB per file. When on, the index reads
+  the text of attached files once they are downloaded, such as by opening or
+  saving them, through the KFileMetaData extractors that Plasma's file search
+  uses; text and HTML files are read directly. Nothing is downloaded for it.
+  Pictures, sound, video, keys and encrypted data are skipped. `body:` and
+  `text:` find the text, and the index dialog counts the files read, waiting
+  to be downloaded, over the limit or unreadable, and warns about formats no
+  installed extractor reads. Turning the option off or changing the limit
+  indexes the affected messages again
+  ([#345](https://github.com/mikepadiernos/plasma-impresario/issues/345)).
+- ![Resolved][resolved] While a search is shown, each row of the message list
+  gains a line with a snippet of the message's text around the first match,
+  with the matched words in bold and the highlight color. Rows already name
+  the sender and date, and in results of several places or of the Unified
+  Inbox, the account and folder. **Mailbox › Sorting › Relevance** now orders
+  those results too: best match first, then newest. Date stays the default;
+  choosing **Relevance** or another sort during a search is remembered for
+  later searches
+  ([#346](https://github.com/mikepadiernos/plasma-impresario/issues/346)).
+- ![Resolved][resolved] **Narrow**, above the results of a search, and **View
+  › Filter › Narrow Results** count the shown results by account, folder,
+  sender, date (**Today**, **Yesterday**, **Earlier This Week**, **Last
+  Week**, **Earlier This Month**, **Earlier This Year**, **Older**), with or
+  without attachments, and tag, and list the 25 most frequent values of each
+  with a note for the rest. Choosing values narrows the list within the quick
+  filters: values of one kind are alternatives, kinds combine, and each kind
+  is counted among the messages that the other kinds keep. Each chosen value
+  shows as a chip, such as **Sender: Ann**, that removes it; **Clear Facets**
+  and **Clear All** remove them all
+  ([#347](https://github.com/mikepadiernos/plasma-impresario/issues/347)).
+- ![Resolved][resolved] **View › Embedded Panels › Search Results**, off by
+  default, lists the results of the quick search in a panel, and the message
+  list keeps showing its folder; every search is then run as a search of the
+  chosen places, the current folder included. Opening a result shows it in
+  the reader and selects it in the list only when the list shows it. **Show
+  in Folder**, in the panel's header and context menu and in the message
+  list's context menu while it shows results of several places, switches to
+  the result's account and folder and selects it there; the panel keeps its
+  results. The panel sorts by relevance (equal matches newest first) or date,
+  remembered across restarts, and offers **Stop**, **Retry** and **Search
+  Server**. Turning the panel off moves the results to the message list, and
+  turning it on moves them back
+  ([#348](https://github.com/mikepadiernos/plasma-impresario/issues/348)).
+- ![Resolved][resolved] **Mailbox › Find...** (<kbd>Ctrl</kbd>+<kbd>F</kbd>)
+  and <kbd>/</kbd> move to the quick search with its query selected, so that
+  typing replaces it, and <kbd>Esc</kbd> returns to the message list. While the
+  reader or its action bar has focus and a message is shown,
+  <kbd>Ctrl</kbd>+<kbd>F</kbd> opens the reader's find bar instead.
+  <kbd>F6</kbd> and <kbd>Shift</kbd>+<kbd>F6</kbd> stop at the quick search
+  just before the message list, and at the Search Results panel when it is
+  shown
+  ([#349](https://github.com/mikepadiernos/plasma-impresario/issues/349)).
+- ![Resolved][resolved] **Mailbox › Find Saved Files…**, and **Find Saved
+  Copies…** in the attachment panel, find saved attachments and messages with
+  Plasma's File Search in the default file manager, through a `baloosearch:`
+  URL, or with a live search of the names and text of a folder's files through
+  `filenamesearch:`. The dialog reads File Search's settings and says when it
+  is not installed or turned off, does not include or skips the folder, skips
+  hidden folders, or indexes only file names. The save dialogs for
+  attachments, parts and messages share a remembered folder, which the search
+  starts from
+  ([#350](https://github.com/mikepadiernos/plasma-impresario/issues/350)).
+- ![Resolved][resolved] A `mid:` URL, a `mid:` argument or `--message-id`
+  opens the message with that Message-ID, in the running window if there is
+  one. Listed messages and the offline search index answer at once; otherwise
+  the app asks before searching every folder of every online account, shows
+  progress with **Stop**, and lists the folders it could not search. Invalid
+  IDs are explained without searching
+  ([#351](https://github.com/mikepadiernos/plasma-impresario/issues/351)).
+- ![Resolved][resolved] The query syntax follows the advanced search of Plasma
+  Opus where it fits mail, and reads its `content:`, `contents:` and `tags:` as
+  `body:` and `tag:`. **Find Saved Files…** words its notices as Plasma Opus
+  does, saying what File Search is set to index rather than confirming that it
+  has, and searches the index for an indexed folder inside a folder that is not
+  indexed or is excluded. Search needs nothing from Plasma Opus
+  ([#352](https://github.com/mikepadiernos/plasma-impresario/issues/352)).
+- ![Limitation][limitation] The server compares the calendar day in each
+  message's Date header, in the sender's time zone, because IMAP's `SENTSINCE`
+  and `SENTBEFORE` disregard the time and zone. The list shows local time, so a
+  message sent near midnight in another zone can fall outside a range that its
+  listed date is inside, or the other way round.
+- ![Limitation][limitation] The Date header is set by the sender and can be
+  wrong. Servers differ in how they treat a message without one.
+- ![Limitation][limitation] Each account searches its folders one after
+  another on its own connection, by selecting each folder. While a search runs,
+  the account's selected folder changes; the shown folder is selected again
+  when the account's search finishes or is cancelled. An account that is not
+  shown stays on the last folder it searched.
+- ![Limitation][limitation] The headers of every result are loaded before the
+  next folder is searched, so a broad search of many large folders downloads
+  many headers and can take a while.
+- ![Limitation][limitation] Results show the full mailbox name, such as
+  `Archive/2024`, rather than a translated special-folder name. **Selected
+  Folders** lists only folders the sidebar has loaded; **Current Account** and
+  **All Accounts** search every folder on the server.
+- ![Limitation][limitation] **Retry** of an account whose password was rejected
+  reports the failure again; it does not ask for a new password. A stopped
+  search cannot be resumed, only started again.
+- ![Limitation][limitation] The check before sending knows only common
+  extension keys, such as `FUZZY`, `OLDER`, `YOUNGER`, `MODSEQ`, `SAVEDBEFORE`
+  and `X-GM-RAW`; other keys go to the server, and its answer is shown.
+  Dovecot accepts `FUZZY` without advertising `SEARCH=FUZZY`, so the fuzzy
+  option stays off there and a raw `FUZZY` query is explained as unsupported.
+  A server that advertises `SEARCH=FUZZY` is covered by offline tests only.
+- ![Limitation][limitation] IMAP cannot ask for attachments, so
+  `has:attachment` finds messages whose top-level type is `multipart/mixed`.
+  It misses an attachment inside a signed or encrypted message or a
+  `multipart/related` one, and finds a `multipart/mixed` message without a
+  real attachment.
+- ![Limitation][limitation] Words without quotes must all match, each
+  anywhere in the chosen fields; `shared inbox` no longer means the phrase.
+  The find bar of an opened message shows only the first subject or body term.
+- ![Limitation][limitation] Text before a colon is read as a field name, so
+  an unknown one such as in `https://example.org` or `ticket:42` is refused
+  instead of searched; `Re:` or `Note:` followed by a space is still text.
+  Field names, `is:` values and the upper-case operators `AND`, `OR` and `NOT`
+  are English in every language.
+- ![Limitation][limitation] The builder has one level of rows. A query with
+  groups inside groups or a negated group cannot be opened in it, and a raw
+  `:=` query is replaced by the built one. The query text in the dialog is read
+  only, and the builder is unavailable while the quick search is disabled.
+- ![Limitation][limitation] A builder value with spaces is searched as a
+  phrase, unlike the same words typed without quotes in the search field.
+- ![Limitation][limitation] Online, a search of the shown folder alone is
+  still run by the server; only searches of several places and of the Unified
+  Inbox use the index first. The index holds only the messages the offline
+  cache keeps, so mail that was never downloaded, or is older than the days
+  the cache remembers, is found only after **Search Server**, which is not
+  pressed automatically. Offline, a search of the shown folder runs as a
+  search of the account's indexed folders, with each result labelled by its
+  folder.
+- ![Limitation][limitation] Online, each folder with indexed matches is still
+  selected on the server to show its results, so the account's selected folder
+  changes as described above. A folder that the server lists again during the
+  search, such as after a reconnect, can drop the indexed results found in it
+  so far; run the search again, or press **Search Server**
+  ([#343](https://github.com/mikepadiernos/plasma-impresario/issues/343)).
+- ![Limitation][limitation] Terms shorter than three characters have no
+  trigram, so the index reads every message for them and folds the case of
+  ASCII letters only. Each message's text is cut at 512K characters.
+- ![Limitation][limitation] The index keeps the text of a message's text
+  parts, and of attached files only when that option is on. The text of
+  attached messages is not indexed, only their subjects or names.
+  `has:attachment` follows the top-level type, as on the server.
+- ![Limitation][limitation] Attached files are read only once downloaded, and
+  only those within the limit; the server's size is the encoded size, so a
+  file is judged by about three quarters of it until it is downloaded. Which
+  formats can be read depends on the KFileMetaData extractors installed, and a
+  build without KFileMetaData reads text and HTML files only. Extraction runs
+  in the application, during short index batches, so a large or slow document
+  can briefly hold up the window. Attachments of encrypted messages are not
+  read, even with decrypted indexing on, and the read text is stored
+  unencrypted with the rest of the index
+  ([#345](https://github.com/mikepadiernos/plasma-impresario/issues/345)).
+- ![Limitation][limitation] Snippets appear only in rows of several lines,
+  not in the column layout, and while a search is shown every row grows to
+  three lines, also rows without a snippet. A snippet uses only text parts
+  already downloaded, never the text of attachments, and nothing is fetched
+  for it: a message whose text was not downloaded has none, and one found by
+  its headers alone shows the start of its text. In a conversation, replies
+  show a snippet that arrives later only once they are drawn again, such as
+  by scrolling
+  ([#346](https://github.com/mikepadiernos/plasma-impresario/issues/346)).
+- ![Limitation][limitation] Relevance scores matches in the subject, senders
+  and recipients of loaded messages; body text is not scored, so a message
+  found only by its text ranks last among the matches. With **Descending**,
+  the best matches come last
+  ([#346](https://github.com/mikepadiernos/plasma-impresario/issues/346)).
+- ![Limitation][limitation] Facets apply in the application to the results
+  already loaded; they do not search the server again. The sender, date and
+  attachments of a message are known only once its headers are loaded, so
+  until then it is not counted for them and a facet of these kinds hides it.
+  Counts are taken when the menu opens and do not follow the list while it is
+  open. Facets reset when the search, its dates or places, or the shown list
+  change, and are not kept with saved searches. Dates are grouped by the
+  local day of the Date header
+  ([#347](https://github.com/mikepadiernos/plasma-impresario/issues/347)).
+- ![Limitation][limitation] While a result outside the shown folder is open
+  from the Search Results panel, the message list keeps its own selection, so
+  the list's actions, such as **Archive** or **Move to Trash**, apply to the
+  message selected there and not to the result in the reader. **Show in
+  Folder** of a result of another account switches the shown account. The
+  quick filters and the facets above the message list narrow the panel while
+  it holds the results, and **Mailbox › Sorting** does not sort it. A saved
+  search chosen in the sidebar still shows in the message list. A search
+  selects each searched folder on the account's connection, so changes to the
+  shown folder arrive once the search is over
+  ([#348](https://github.com/mikepadiernos/plasma-impresario/issues/348)).
+- ![Limitation][limitation] The quick search stays above the message list
+  until the designed header (M14.02,
+  [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306)) can
+  host it. From an embedded panel, such as Message Details,
+  <kbd>Ctrl</kbd>+<kbd>F</kbd> moves to the quick search rather than finding
+  in the message. In One At a Time, Find from outside the reader goes back to
+  the list first. <kbd>F6</kbd> skips the quick search while it is unavailable,
+  such as before a folder is chosen
+  ([#349](https://github.com/mikepadiernos/plasma-impresario/issues/349)).
+- ![Limitation][limitation] The coverage notice reads File Search's settings,
+  not its index: files saved in the last few minutes, or before their folder
+  was added, may not be indexed yet, and indexing progress is not shown. File
+  name exclude filters are not checked, so a file type that File Search skips
+  is reported as covered. Without the `filenamesearch` worker, **Live Search**
+  opens the folder instead. Only the last save folder is remembered. If hidden
+  folders are indexed, File Search can also index the files in the app's cache
+  folder
+  ([#350](https://github.com/mikepadiernos/plasma-impresario/issues/350)).
+- ![Limitation][limitation] Opening by Message-ID ignores the Content-ID part
+  of a `mid:` URL and opens the whole message. With several copies, the first
+  one found opens and the others are only named. The server search asks every
+  folder of every online account one after another, so it can take a while on
+  large accounts, and offline accounts are not searched. The question before
+  it hides after eight seconds, like other notices. An index entry for a
+  message deleted since the last update opens its folder without selecting
+  anything or saying why
+  ([#351](https://github.com/mikepadiernos/plasma-impresario/issues/351)).
+- ![Limitation][limitation] The query parser of Plasma Opus is built into it
+  rather than published as a library, so the syntax is shared by convention
+  and kept in step by hand. The two differ where mail and files differ: bare
+  words search the chosen mail fields instead of file names; `-` before a
+  parenthesis negates the group here but is a plain minus there; sizes need
+  `<`, `<=`, `>` or `>=` and stop at 4 GB, the IMAP limit; and file fields such
+  as `name:` or `type:` are refused. `Content:` or `Tags:` followed by a space
+  is now read as an empty field rather than as text. Saved searches run as
+  virtual folders when chosen, while Plasma Opus loads them for review first,
+  and neither app reads the other's
+  ([#352](https://github.com/mikepadiernos/plasma-impresario/issues/352)).
+- ![Limitation][limitation] Decrypted text is added only when a message is
+  opened and decrypted in the reader with the option on; messages decrypted
+  earlier are not added until they are opened again. Inline PGP is indexed as
+  the encrypted text it is, because the reader does not decrypt it for the
+  index. A message whose decryption fails adds nothing
+  ([#344](https://github.com/mikepadiernos/plasma-impresario/issues/344)).
+- ![Limitation][limitation] The index is not encrypted. Its text, including
+  decrypted text when that option is on, can be read by anyone who can read
+  the account's cache files, as the cached mail can. The connection log, when
+  turned on, records what the server sends, whatever is excluded from the
+  index ([#344](https://github.com/mikepadiernos/plasma-impresario/issues/344)).
+- ![Limitation][limitation] Flags are as of the last time the account was
+  online. A search key the index does not keep, such as `FUZZY`, a raw
+  header other than the list and type headers, or a modification sequence,
+  fails the search with an explanation instead of searching the server.
+- ![Limitation][limitation] **Download Message Text for Offline Search...**
+  fetches only each message's main text part and needs a connection. It
+  covers the messages the index already holds, so a folder has to be opened
+  online once first. The index catches up about half a minute after new mail
+  or flag changes arrive, or a message is read.
+- ![Limitation][limitation] Deleting the index removes its text from the
+  cache database but does not overwrite the freed space, and the database file
+  stays the same size until SQLite reuses it. Should SQLite refuse to remove
+  the emptied tables, their definitions stay until the next deletion. Online,
+  a search of several places skips an excluded folder until **Search Server**
+  is pressed. Turning decrypted indexing off while indexing is paused leaves
+  those messages out of the index until **Resume**
+  ([#344](https://github.com/mikepadiernos/plasma-impresario/issues/344)).
+- ![Limitation][limitation] **Offline Search Index…** shows the shown account
+  only, and lists only the folders its offline cache knows. A folder is
+  **Partly indexed** while some of its cached messages have no headers on this
+  computer; headers load as messages are listed, so a large folder may need to
+  be scrolled through online first. Pausing during an update keeps the
+  messages indexed so far, but the folder under way is not confirmed until a
+  later update finishes it. A search started while an update runs is answered
+  from what is indexed at that moment
+  ([#342](https://github.com/mikepadiernos/plasma-impresario/issues/342)).
+- ![Limitation][limitation] **Clear All** restores the selection only in a
+  single folder. In the Unified Inbox it clears the search and filters but
+  leaves the selection as it is. After a search of several places, the list
+  returns to the message that was current before the search; a result opened
+  in another folder is not kept.
+- ![Limitation][limitation] Filters still on from an earlier session have no
+  position to return to, so **Clear All** shows the whole folder and keeps the
+  current message. The **Search In** places stay chosen after **Clear All**.
+- ![Limitation][limitation] Folder suggestions cover only folders of the shown
+  account that the sidebar has already listed, and choosing one replaces the
+  **Search In** places with that folder.
+- ![Limitation][limitation] Contact suggestions come only from the address
+  book plugin and complete a plain word as `from:`; type `to:`, `cc:` or `bcc:`
+  first for another field. Tag suggestions cover only the favorite tags.
+- ![Limitation][limitation] Running a saved search, and searches started for
+  another reason, such as **Show Related**, a field filter or a change of date
+  range or places, are not remembered.
+- ![Limitation][limitation] A virtual folder's counts are only as fresh as
+  its last run: they change while it is shown, but mail that arrives or is
+  read elsewhere is not counted until it is chosen again. A search of several
+  places keeps its counts only when every folder was searched, not after
+  **Stop**.
+- ![Limitation][limitation] A search saved for the shown folder runs in the
+  folder its account shows when it is chosen, so its counts depend on that
+  folder.
+- ![Limitation][limitation] A chosen folder is reported missing only after
+  its account's folders, down to the folder's parent, were listed in this
+  session. Until then the folder is assumed to exist, and a search of it fails
+  when it runs. A removed account's folders are reported at once.
+- ![Limitation][limitation] Choosing a folder, switching accounts or opening
+  another saved search ends an edit without saving it or asking. Moving a
+  search to another account forgets its counts, and is refused while that
+  account has a search of the same name. One order applies to every account;
+  searches saved later follow the ordered ones by name.
+- ![Limitation][limitation] The earlier shell-like <kbd>Up</kbd> and
+  <kbd>Down</kbd> history of the search field is replaced by the suggestion
+  list. **Remember Searches** and **Suggest While Typing** apply to every
+  profile; the history itself is kept per profile, and turning **Remember
+  Searches** off clears it.
+- ![Limitation][limitation] IMAP's `HEADER` key matches part of a header, so
+  `list:dev.example.org` also finds a list such as `old-dev.example.org`, and
+  a list whose `List-Post` holds the ID of another list.
+- ![Limitation][limitation] **Mailing Lists** offers only the lists of
+  messages loaded in the shown list. A list without loaded messages there has
+  to be typed as `list:`.
+- ![Limitation][limitation] The first start after this change empties the
+  message header cache once, so each folder downloads its message headers
+  again when it is next opened. Every message then fetches its `List-*`
+  headers too, a few hundred bytes more for mail from a list.
+- ![Limitation][limitation] Unsubscribing opens a message to send or a web
+  page; one-click unsubscribing (`List-Unsubscribe-Post`, RFC 8058) is not
+  offered. Each action follows the first address of its header that is a
+  `mailto:`, `http:` or `https:` link; other links are not shown.
+
+**Workarounds:**
+
+- Widen a custom range by a day at either end when a message near a boundary
+  is missing, then sort by date.
+- To match by arrival time instead, allow raw IMAP search in the search
+  options and use `SINCE` or `BEFORE`, which compare the date the server
+  received the message.
+- Choose a few folders rather than a whole account to keep a search short.
+- Expand an account's folders in the sidebar before **Selected Folders** to pick
+  subfolders.
+- After a rejected password, correct it in the account settings, then press
+  **Retry** or **Enter** in the search field.
+- When a search is explained as unsupported, leave out the named key or use
+  the field search, which every server supports.
+- Put a phrase, an address with a colon or a web address in quotation marks,
+  such as `"shared inbox"` or `"https://example.org"`.
+- To find attachments the `has:` term misses, combine a sender or subject
+  with `size>100K`.
+- For a query the builder cannot open, type it in the search field, or use
+  one builder row per word to match the words anywhere.
+- To keep a result from another folder in view, double-click it to open it
+  in its own window before clearing the search.
+- To search a folder the suggestions do not offer, expand it in the sidebar
+  first, or pick it with **Search In › Selected Folders...**.
+- Keep a search you run often as a saved search, which stays until deleted,
+  rather than relying on the history of the last 20.
+- Choose a virtual folder again to bring its counts up to date. Save a search
+  of chosen folders rather than of the shown folder to have it look in the
+  same place each time.
+- Expand an account's folders in the sidebar to have missing chosen folders
+  reported, and press **Save** before choosing a folder while editing a search.
+- When list IDs overlap, leave the other list out, as in
+  `list:dev.example.org -list:old-dev.example.org`, or edit a pinned search to
+  add a sender or subject.
+- To view a list not offered in **Mailing Lists**, open a folder that holds
+  its messages, or type `list:` followed by its ID.
+- Before going offline, choose **Store forever** in the account's **Offline**
+  settings, open the folders you need, and use **Download Message Text for
+  Offline Search...** on them, so that their text can be searched.
+- Search offline for words of three letters or more, and search for an
+  attached message by its subject or file name.
+- Before going offline, open **Application › Offline Search Index…** and check
+  that the folders you need are **Indexed**; open and scroll through a
+  **Partly indexed** folder online, and wait for **Changed since indexed** to
+  clear.
+- Online, press **Search Server** when an indexed search misses older or
+  undownloaded mail, or reports a renumbered folder.
+- To search the text of an attachment offline, open or save it once while
+  online; the index reads it shortly after. For a format the index dialog
+  lists as unreadable, install the distribution's KFileMetaData extractors,
+  which Plasma's file search uses as well.
+- To see snippets, use a layout of several lines, and open a message once
+  online, or download the text of its folder for offline search, so that its
+  text is on this computer. Choose **Ascending** with **Relevance** to see the
+  best matches first.
+- To act on a result found by the Search Results panel, press **Show in
+  Folder** first, so that the message list selects it, or turn the panel off
+  to act on the results in the message list.
+- To find text in the open message from the list, press <kbd>F6</kbd> until
+  the reader has focus, then <kbd>Ctrl</kbd>+<kbd>F</kbd>, or choose
+  **Search...** in the reader's context menu.
+- To find a copy saved in a folder that File Search does not index, use
+  **Live Search**, or add the folder in **System Settings › Search › File
+  Search**; the notice updates when you return to the dialog. For a copy saved
+  somewhere other than the last save folder, pick its folder with **Choose…**.
+- If a message opened by Message-ID is not found, open its account online and
+  answer **Search Servers** again, or turn on the offline search index for the
+  account so that later lookups do not need the server.
+- To search for text that reads as a field, such as `Content: draft` or
+  `name:report`, quote it: `"Content:" draft`. For a query that behaves the
+  same in Plasma Opus, keep to the shared terms: words, phrases, operators,
+  `date`, `size` with a comparison, `content:` and `tag:`
+  ([#352](https://github.com/mikepadiernos/plasma-impresario/issues/352)).
+- Leave decrypted indexing off unless the disk is encrypted, and exclude
+  folders whose text should not be copied into the index. To free the space
+  as well, remove the account, which deletes its cache files, and add it
+  again.
+
+**Proposed improvements:**
+
+- Offer a choice between the sent date and the received date.
+- Ask the server for one extra day at each end and keep only the messages
+  whose local date is inside the range, once their envelopes are loaded or the
+  local index (M05.04) has them.
+- Search on a separate connection, or with `MULTISEARCH` (RFC 7377) where the
+  server offers it, so that the shown folder stays selected.
+- Load the headers of results as their rows are shown.
+- Offer fuzzy matching on servers that accept `FUZZY` without advertising it,
+  once a test search succeeds.
+- Show translated special-folder names in results, and list unloaded folders
+  in **Selected Folders** on demand.
+- Ask for the password again when **Retry** meets a rejected password, and
+  offer **Continue** after **Stop** to search the remaining folders.
+- Confirm `has:attachment` against each result's body structure, once loaded
+  or in the local index.
+- Highlight every searched word in the find bar, not only the first.
+- Accept translated field names next to the English ones.
+- Show nested groups in the builder as indented rows, and let the query text
+  be edited there.
+- Open the folder of a result picked in a search of several places when
+  **Clear All** is pressed, and restore the Unified Inbox selection.
+- Offer to reset the **Search In** places with **Clear All**.
+- Suggest folders of every account and add a folder to the chosen places
+  instead of replacing them.
+- Suggest contacts from recent correspondents as well as the address book,
+  and tags already used on messages, not only the favorite ones.
+- Count every virtual folder in the background from the local index
+  (M05.04), so the counts stay current without choosing each one.
+- Ask before leaving an unsaved edit, list each account's folders in the
+  background to report missing folders early, and offer a new name when a
+  moved search's name is taken.
+- Keep only results whose `List-Id` equals the searched ID once their headers
+  load, and list the lists of every folder from the local index (M05.04).
+- Offer one-click unsubscribing where the list supports RFC 8058, after the
+  same confirmation.
+- Offer a setting that continues every indexed search on the server
+  automatically, and answer searches of the shown folder from the index first
+  as well ([#343](https://github.com/mikepadiernos/plasma-impresario/issues/343)).
+- Search the shown folder alone when offline, and refresh the index right
+  after a sync rather than after a pause.
+- Show the index of every account in one place, offer to load the missing
+  headers of a **Partly indexed** folder, and show the index state in the
+  folder tree.
+- Fold the case of non-ASCII letters in short terms, index the text of
+  attached messages, and fetch every text part on request.
+- Offer **Clear Offline Cache** to remove an account's cached mail and index
+  together and shrink the file, encrypt the index with a key kept in KWallet,
+  and decrypt inline PGP for the index when the option is on
+  ([#344](https://github.com/mikepadiernos/plasma-impresario/issues/344)).
+- Read attachments in a separate process with a time limit, as Plasma's file
+  search does, and offer **Download Attachments for Offline Search...** next
+  to the text download, asking first and respecting the limit
+  ([#345](https://github.com/mikepadiernos/plasma-impresario/issues/345)).
+- Show a short snippet in the column layout's tooltip, keep rows without a
+  snippet at their usual height, score body matches from the index, and put
+  the best matches first whatever the order
+  ([#346](https://github.com/mikepadiernos/plasma-impresario/issues/346)).
+- Keep facets with saved searches, offer them in the search builder as query
+  terms, and count them over the whole result on the server where it can
+  return them
+  ([#347](https://github.com/mikepadiernos/plasma-impresario/issues/347)).
+- Offer the reader's actions for a result opened from the Search Results
+  panel, open a result of another account without switching accounts, give
+  the panel its own filters and facets, and search on a separate connection
+  so that the shown folder keeps updating
+  ([#348](https://github.com/mikepadiernos/plasma-impresario/issues/348)).
+- Move the quick search into the designed header with M14.02, and offer
+  **Find in Message** in the reader's action bar and from the embedded panels
+  ([#349](https://github.com/mikepadiernos/plasma-impresario/issues/349)).
+- Ask File Search over D-Bus for its indexing progress and whether a folder
+  is indexed yet, check its exclude filters, remember several save folders,
+  search a folder in the app when the file manager has no live search, and
+  keep the app's cache out of File Search
+  ([#350](https://github.com/mikepadiernos/plasma-impresario/issues/350)).
+- Open the part named by a `mid:` URL's Content-ID, offer a list of the copies
+  found, search the folders most likely to hold the message first, keep the
+  question until it is answered, and report a stale index entry
+  ([#351](https://github.com/mikepadiernos/plasma-impresario/issues/351)).
+- Use the Plasma Opus query parser if it is published as a library, accept
+  `size:` and `=` as a size range, share saved searches with Plasma Opus in a
+  common format, and confirm coverage from File Search's index rather than its
+  settings
+  ([#352](https://github.com/mikepadiernos/plasma-impresario/issues/352)).
+
 ## Before reporting results
 
 - [ ] Confirm the desktop environment and display server.
@@ -601,15 +1268,15 @@ Plasma session; that check is
 > This is a source-based status summary, not a security audit. Behavior varies
 > with account settings and optional build features.
 
-| Area              | Existing behavior                                                                                                                                                                                                                                                                                                                                  | Limitation                                                                                                                                                                                                               |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| IMAP transport    | Supports cleartext, STARTTLS, dedicated TLS and process-backed connections. Qt certificate errors prompt the user; a previously accepted matching public key can be remembered, and an accepted key is trusted for its host by every account of the profile.                                                                                       | Cleartext is selectable; the active connection method determines whether traffic is encrypted. Certificate decisions and policy need focused regression tests.                                                           |
-| SMTP transport    | Supports cleartext, STARTTLS and dedicated TLS. Certificate errors prompt the user in the composer; an accepted public key is remembered per account and forgotten when the SMTP host changes. A key accepted for the same host by any account, over IMAP or SMTP, is accepted without asking.                                                     | Cleartext is selectable. Certificates the system trusts are accepted without remembering their key, so only the system's policy applies to them. There is no way yet to review or forget accepted keys.                  |
-| Credentials       | The password-plugin interface supports retrieval, storage and deletion. QtKeychain can provide encrypted storage when built and selected, and is the default for new profiles. Each account keeps its own stored passwords, which are deleted when the account is removed.                                                                         | QtKeychain is optional. Profiles that already have saved cleartext passwords keep the cleartext plugin, which stores IMAP/SMTP secrets in `QSettings`.                                                                   |
-| Message rendering | The reader uses a private profile per message, disables scripts, plugins and persistent storage, blocks local-file and remote requests by default, and delegates permitted external links. Remote images require explicit per-message consent. Switching messages destroys the profile, discarding loaded content and cancelling pending requests. | Renderer behavior has not been smoke-tested in a live Plasma session or across the documented distribution matrix.                                                                                                       |
-| Cached data       | Persistent SQL cache can hold message metadata and fetched parts; cache directory permissions are restricted on supported Unix systems.                                                                                                                                                                                                            | Application-level cache encryption is not present. Directory permissions do not protect mail from a compromised account or unencrypted disk. Removing an account deletes its cache files without overwriting them first. |
-| OpenPGP           | Optional GpgME++/Mimetic MIME handling and decryption tests are present.                                                                                                                                                                                                                                                                           | Availability depends on build options; complete signature-status UX and verification policy are not established.                                                                                                         |
-| Diagnostics       | Persistent protocol logging is opt-in at startup; an in-app protocol log is available.                                                                                                                                                                                                                                                             | Treat protocol logs as sensitive and review them before sharing.                                                                                                                                                         |
+| Area              | Existing behavior                                                                                                                                                                                                                                                                                                                                  | Limitation                                                                                                                                                                                                                                                                                                                  |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| IMAP transport    | Supports cleartext, STARTTLS, dedicated TLS and process-backed connections. Qt certificate errors prompt the user; a previously accepted matching public key can be remembered, and an accepted key is trusted for its host by every account of the profile.                                                                                       | Cleartext is selectable; the active connection method determines whether traffic is encrypted. Certificate decisions and policy need focused regression tests.                                                                                                                                                              |
+| SMTP transport    | Supports cleartext, STARTTLS and dedicated TLS. Certificate errors prompt the user in the composer; an accepted public key is remembered per account and forgotten when the SMTP host changes. A key accepted for the same host by any account, over IMAP or SMTP, is accepted without asking.                                                     | Cleartext is selectable. Certificates the system trusts are accepted without remembering their key, so only the system's policy applies to them. There is no way yet to review or forget accepted keys.                                                                                                                     |
+| Credentials       | The password-plugin interface supports retrieval, storage and deletion. QtKeychain can provide encrypted storage when built and selected, and is the default for new profiles. Each account keeps its own stored passwords, which are deleted when the account is removed.                                                                         | QtKeychain is optional. Profiles that already have saved cleartext passwords keep the cleartext plugin, which stores IMAP/SMTP secrets in `QSettings`.                                                                                                                                                                      |
+| Message rendering | The reader uses a private profile per message, disables scripts, plugins and persistent storage, blocks local-file and remote requests by default, and delegates permitted external links. Remote images require explicit per-message consent. Switching messages destroys the profile, discarding loaded content and cancelling pending requests. | Renderer behavior has not been smoke-tested in a live Plasma session or across the documented distribution matrix.                                                                                                                                                                                                          |
+| Cached data       | Persistent SQL cache can hold message metadata and fetched parts; cache directory permissions are restricted on supported Unix systems.                                                                                                                                                                                                            | Application-level cache encryption is not present, and the offline search index, with decrypted text when chosen, is stored unencrypted in the cache. Directory permissions do not protect mail from a compromised account or unencrypted disk. Removing an account deletes its cache files without overwriting them first. |
+| OpenPGP           | Optional GpgME++/Mimetic MIME handling and decryption tests are present.                                                                                                                                                                                                                                                                           | Availability depends on build options; complete signature-status UX and verification policy are not established.                                                                                                                                                                                                            |
+| Diagnostics       | Persistent protocol logging is opt-in at startup; an in-app protocol log is available.                                                                                                                                                                                                                                                             | Treat protocol logs as sensitive and review them before sharing.                                                                                                                                                                                                                                                            |
 
 ### Recommendations
 

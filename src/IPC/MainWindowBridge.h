@@ -43,6 +43,7 @@ public slots:
     void showMainWindow();
     void showAddressbookWindow();
     void composeMail(const QString &url);
+    void openMessage(const QString &messageId);
 
 private:
     Gui::MainWindow *m_window;

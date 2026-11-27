@@ -180,26 +180,27 @@ bool SQLCache::open(const QString &name, const QString &fileName)
         }
     }
 
-    if (version == 4 || version == 5 || version == 6) {
+    if (version == 4 || version == 5 || version == 6 || version == 7) {
         // No difference in table structure between v4 and v5, but the data stored in msg_metadata is different; the UID
         // got removed and INTERNALDATE was added.
         // V6 has added the References and List-Post headers (i.e. a change in the structure of the blobs stored in the DB,
         // but transparent on the SQL level), and also changed the DB structure by adding a date specifying how recently
         // a given message was accessed (which was needed for cache lifetime management).
         // V7 changed the sizes to quint64 (from uint), so the message metadata again changed
+        // V8 added List-Id and the RFC 2369 list headers; older entries would never get them, so they are fetched again
         if (!q.exec(QStringLiteral("DROP TABLE msg_metadata;"))) {
             emitError(QObject::tr("Failed to drop old table msg_metadata"));
             return false;
         }
         TROJITA_SQL_CACHE_CREATE_MSG_METADATA;
-        version = 7;
-        if (! q.exec(QStringLiteral("UPDATE trojita SET version = 7;"))) {
-            emitError(QObject::tr("Failed to update cache DB scheme from v4/v5/v6 to v7"), q);
+        version = 8;
+        if (! q.exec(QStringLiteral("UPDATE trojita SET version = 8;"))) {
+            emitError(QObject::tr("Failed to update cache DB scheme from v4/v5/v6/v7 to v8"), q);
             return false;
         }
     }
 
-    if (version != 7) {
+    if (version != 8) {
         emitError(QObject::tr("Unknown version of sqlite cache"));
         return false;
     }
@@ -703,6 +704,8 @@ AbstractCache::MessageDataBundle SQLCache::messageMetadata(const QString &mailbo
         stream.setVersion(streamVersion);
         stream >> res.envelope >> res.internalDate >> res.size >> res.serializedBodyStructure >> res.hdrReferences
                   >> res.hdrListPost >> res.hdrListPostNo;
+        if (!stream.atEnd())
+            stream >> res.hdrList;
 
         if (m_updateAccessIfOlder) {
             int lastAccessTimestamp = queryMessageMetadata.value(1).toInt();
@@ -734,7 +737,8 @@ void SQLCache::setMessageMetadata(const QString &mailbox, const uint uid, const 
     QDataStream stream(&buf, QIODevice::ReadWrite);
     stream.setVersion(streamVersion);
     stream << metadata.envelope << metadata.internalDate << metadata.size << metadata.serializedBodyStructure
-           << metadata.hdrReferences << metadata.hdrListPost << metadata.hdrListPostNo;
+           << metadata.hdrReferences << metadata.hdrListPost << metadata.hdrListPostNo
+           << metadata.hdrList;
     querySetMessageMetadata.bindValue(2, qCompress(buf));
     querySetMessageMetadata.bindValue(3, accessingThresholdDate.daysTo(QDate::currentDate()));
     if (! querySetMessageMetadata.exec()) {
@@ -849,6 +853,36 @@ void SQLCache::timeToCommit()
 void SQLCache::setRenewalThreshold(const int days)
 {
     m_updateAccessIfOlder = days;
+}
+
+void SQLCache::finishQueries()
+{
+    queryChildMailboxes.finish();
+    queryChildMailboxesFresh.finish();
+    queryRemoveChildMailboxes.finish();
+    querySetChildMailboxes.finish();
+    queryMailboxSyncState.finish();
+    querySetMailboxSyncState.finish();
+    queryUidMapping.finish();
+    querySetUidMapping.finish();
+    queryClearUidMapping.finish();
+    queryMessageMetadata.finish();
+    queryAccessMessageMetadata.finish();
+    querySetMessageMetadata.finish();
+    queryMessageFlags.finish();
+    querySetMessageFlags.finish();
+    queryClearAllMessages1.finish();
+    queryClearAllMessages2.finish();
+    queryClearAllMessages3.finish();
+    queryClearAllMessages4.finish();
+    queryClearMessage1.finish();
+    queryClearMessage2.finish();
+    queryClearMessage3.finish();
+    queryMessagePart.finish();
+    querySetMessagePart.finish();
+    queryForgetMessagePart.finish();
+    queryMessageThreading.finish();
+    querySetMessageThreading.finish();
 }
 
 /** @short Return a proper represenation of the mailbox name to be used in the SQL queries

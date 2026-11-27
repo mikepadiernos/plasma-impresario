@@ -126,7 +126,7 @@ private slots:
 
         auto *menu = window.findChild<Gui::DensityMenu *>();
         auto *mailboxes = window.findChild<Gui::MailBoxTreeView *>();
-        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
         auto *left = window.findChild<QAction *>(QStringLiteral("mailboxSidebarLeft"));
         auto *right = window.findChild<QAction *>(QStringLiteral("mailboxSidebarRight"));
         QVERIFY(menu);

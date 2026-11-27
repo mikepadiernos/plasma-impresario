@@ -43,6 +43,7 @@
 class QCheckBox;
 class QComboBox;
 class QDataWidgetMapper;
+class QLabel;
 class QLineEdit;
 class QRadioButton;
 class QSpinBox;
@@ -327,6 +328,11 @@ public:
 
 private:
     QCheckBox *startOffline;
+    QCheckBox *searchIndex;
+    QCheckBox *searchIndexDecrypted;
+    QCheckBox *searchIndexAttachments;
+    QSpinBox *searchIndexAttachmentLimit;
+    QLabel *searchIndexNote;
 
 private slots:
     void updateWidgets();

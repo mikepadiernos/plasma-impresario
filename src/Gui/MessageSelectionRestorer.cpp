@@ -4,6 +4,8 @@
 #include "MessageSelectionRestorer.h"
 
 #include "Imap/Model/ItemRoles.h"
+#include "Imap/Model/Model.h"
+#include "Imap/Model/Utils.h"
 #include <QMouseEvent>
 #include <QTimer>
 #include <QTreeView>
@@ -102,8 +104,15 @@ void MessageSelectionRestorer::check()
         known = messages.constFirst();
     }
     const uint validity = known.data(Imap::Mailbox::RoleMailboxUidValidity).toUInt();
-    if (!validity)
+    if (!validity) {
+        // The folder is being resynced, which may end without changing any row, so wait for the sync itself
+        const QModelIndex message = Imap::deproxifiedIndex(known);
+        if (const auto *model = qobject_cast<const Imap::Mailbox::Model *>(message.model())) {
+            connect(model, &Imap::Mailbox::Model::mailboxSyncingProgress, this, &MessageSelectionRestorer::scheduleCheck,
+                    Qt::UniqueConnection);
+        }
         return;
+    }
     if (validity != m_uidValidity) {
         m_pending = false;
         emit restoreFailed();

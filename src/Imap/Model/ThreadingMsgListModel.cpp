@@ -99,6 +99,7 @@ void ThreadingMsgListModel::setSourceModel(QAbstractItemModel *sourceModel)
     threadedRootIds.clear();
     m_currentSortResult.clear();
     m_searchValidity = RESULT_INVALIDATED;
+    m_searchFailure.clear();
 
     if (this->sourceModel()) {
         // there's already something, so take care to disconnect all signals
@@ -458,6 +459,7 @@ void ThreadingMsgListModel::resetMe()
     threadedRootIds.clear();
     m_currentSortResult.clear();
     m_searchValidity = RESULT_INVALIDATED;
+    m_searchFailure.clear();
     endResetModel();
     updateNoThreading();
     modelResetInProgress = false;
@@ -812,8 +814,18 @@ bool ThreadingMsgListModel::shouldIgnoreThisThreadingResponse(const QModelIndex 
     return false;
 }
 
+bool ThreadingMsgListModel::isStaleThreadingResponse(const QStringList &searchCriteria) const
+{
+    // askForThreading() asks with these criteria, so a response with others belongs to a request made before
+    return searchCriteria != (m_filteredBySearch ? m_currentSearchConditions : QStringList{QStringLiteral("ALL")});
+}
+
 void ThreadingMsgListModel::slotThreadingFailed(const QModelIndex &mailbox, const QByteArray &algorithm, const QStringList &searchCriteria)
 {
+    // The request for the current search is still in flight
+    if (isStaleThreadingResponse(searchCriteria))
+        return;
+
     // Better safe than sorry -- prevent infinite waiting to the maximal possible extent
     threadingInFlight = false;
 
@@ -832,6 +844,10 @@ void ThreadingMsgListModel::slotThreadingAvailable(const QModelIndex &mailbox, c
         const QStringList &searchCriteria,
         const QVector<Imap::Responses::ThreadingNode> &mapping)
 {
+    // The request for the current search is still in flight
+    if (isStaleThreadingResponse(searchCriteria))
+        return;
+
     // Better safe than sorry -- prevent infinite waiting to the maximal possible extent
     threadingInFlight = false;
 
@@ -867,7 +883,7 @@ void ThreadingMsgListModel::slotSortingAvailable(const Imap::Uids &uids)
     wantThreading();
 }
 
-void ThreadingMsgListModel::slotSortingFailed()
+void ThreadingMsgListModel::slotSortingFailed(const QString &reason)
 {
     disconnect(m_sortTask.data(), &SortTask::sortingAvailable, this, &ThreadingMsgListModel::slotSortingAvailable);
     disconnect(m_sortTask.data(), &SortTask::sortingFailed, this, &ThreadingMsgListModel::slotSortingFailed);
@@ -875,9 +891,16 @@ void ThreadingMsgListModel::slotSortingFailed()
 
     m_sortTask = nullptr;
     m_sortReverse = false;
-    calculateNullSort();
+    if (m_filteredBySearch) {
+        // The whole folder would look as if every message matched, so nothing is shown and the reason is kept
+        m_searchFailure = reason;
+        m_currentSortResult.clear();
+        m_searchValidity = RESULT_FRESH;
+    } else {
+        calculateNullSort();
+    }
     applySort();
-    emit sortingFailed();
+    emit sortingFailed(reason);
 }
 
 void ThreadingMsgListModel::slotSortingIncrementalUpdate(const Responses::ESearch::IncrementalContextData_t &updates)
@@ -1397,6 +1420,11 @@ void ThreadingMsgListModel::setUserWantsThreading(bool enable)
 
 bool ThreadingMsgListModel::setUserSearchingSortingPreference(const QStringList &searchConditions, const SortCriterium criterium, const Qt::SortOrder order)
 {
+    if (!m_searchFailure.isEmpty()) {
+        // Asking again retries a search which failed; the automatic refreshes do not, as they would fail the same way
+        m_searchFailure.clear();
+        m_searchValidity = RESULT_INVALIDATED;
+    }
     auto changedSearch = (searchConditions != m_currentSearchConditions);
     if (!m_shallBeThreading) {
         updateNoThreading();
@@ -1590,6 +1618,16 @@ void ThreadingMsgListModel::applySort()
 QStringList ThreadingMsgListModel::currentSearchCondition() const
 {
     return m_currentSearchConditions;
+}
+
+QString ThreadingMsgListModel::searchFailure() const
+{
+    return m_searchFailure;
+}
+
+bool ThreadingMsgListModel::isUpdatePending() const
+{
+    return (m_filteredBySearch && m_searchValidity == RESULT_ASKED) || threadingInFlight;
 }
 
 ThreadingMsgListModel::SortCriterium ThreadingMsgListModel::currentSortCriterium() const

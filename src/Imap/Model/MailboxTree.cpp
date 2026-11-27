@@ -26,6 +26,7 @@
 #include "Common/InvokeMethod.h"
 #include "Common/MetaTypes.h"
 #include "Imap/Encoders.h"
+#include "Imap/Parser/ListHeaders.h"
 #include "Imap/Parser/Rfc5322HeaderParser.h"
 #include "Imap/Tasks/KeepMailboxOpenTask.h"
 #include "UiUtils/Formatting.h"
@@ -508,18 +509,17 @@ void TreeItemMailbox::handleFetchResponse(Model *const model,
     }
     if (message->uid()) {
         if (message->data()->isComplete() && model->cache()->messageMetadata(mailbox(), message->uid()).uid == 0) {
-             model->cache()->setMessageMetadata(
-                         mailbox(), message->uid(),
-                         Imap::Mailbox::AbstractCache::MessageDataBundle(
-                             message->uid(),
-                             message->data()->envelope(),
-                             message->data()->internalDate(),
-                             message->data()->size(),
-                             message->data()->rememberedBodyStructure(),
-                             message->data()->hdrReferences(),
-                             message->data()->hdrListPost(),
-                             message->data()->hdrListPostNo()
-                         ));
+             Imap::Mailbox::AbstractCache::MessageDataBundle bundle(
+                         message->uid(),
+                         message->data()->envelope(),
+                         message->data()->internalDate(),
+                         message->data()->size(),
+                         message->data()->rememberedBodyStructure(),
+                         message->data()->hdrReferences(),
+                         message->data()->hdrListPost(),
+                         message->data()->hdrListPostNo());
+             bundle.hdrList = message->data()->hdrList();
+             model->cache()->setMessageMetadata(mailbox(), message->uid(), bundle);
              message->setFetchStatus(DONE);
         }
         if (updatedFlags) {
@@ -1068,6 +1068,16 @@ void MessageDataPayload::setHdrListPostNo(const bool hdrListPostNo)
     m_gotHdrListPost = true;
 }
 
+const QMap<QByteArray, QByteArray> &MessageDataPayload::hdrList() const
+{
+    return m_hdrList;
+}
+
+void MessageDataPayload::setHdrList(const QMap<QByteArray, QByteArray> &hdrList)
+{
+    m_hdrList = hdrList;
+}
+
 const QByteArray &MessageDataPayload::rememberedBodyStructure() const
 {
     return m_rememberedBodyStructure;
@@ -1319,6 +1329,12 @@ QVariant TreeItemMessage::data(Model *const model, int role)
         }
     case RoleMessageHeaderListPostNo:
         return data()->gotHdrListPost() ? QVariant(data()->hdrListPostNo()) : QVariant();
+    case RoleMessageHeaderList: {
+        QVariantMap res;
+        for (auto it = data()->hdrList().constBegin(); it != data()->hdrList().constEnd(); ++it)
+            res.insert(QString::fromLatin1(it.key()), QString::fromUtf8(it.value()));
+        return res;
+    }
     }
 
     if (data()->gotEnvelope()) {
@@ -1515,6 +1531,10 @@ void TreeItemMessage::processAdditionalHeaders(Model *model, const QByteArray &r
     // This is because we absolutely want to support incremental header arrival.
     if (parser.listPostNo)
         data()->setHdrListPostNo(true);
+    // Headers may arrive in several pieces, so this only adds to what is known
+    QMap<QByteArray, QByteArray> list = data()->hdrList();
+    list.insert(Imap::LowLevelParser::listHeaders(rawHeaders));
+    data()->setHdrList(list);
 }
 
 bool TreeItemMessage::hasAttachments(Model *const model)
@@ -2019,6 +2039,7 @@ QVariant TreeItemPartMultipartMessage::data(Model * const model, int role)
     case RoleMessageHeaderReferences:
     case RoleMessageHeaderListPost:
     case RoleMessageHeaderListPostNo:
+    case RoleMessageHeaderList:
         // FIXME: implement me; TreeItemPart has no path for this
         return QVariant();
     default:

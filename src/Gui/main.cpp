@@ -27,6 +27,7 @@
 #include <QLibraryInfo>
 #include <QObject>
 #include <QSettings>
+#include <QTimer>
 #include <QTextStream>
 #include <KLocalizedString>
 
@@ -93,7 +94,12 @@ int main(int argc, char **argv)
                                      QObject::tr("Set profile."), QObject::tr("profile"));
     parser.addOption(profileOption);
 
-    parser.addPositionalArgument(QLatin1String("url"), QObject::tr("Mailto: URL address for composing new e-mail."),
+    QCommandLineOption messageIdOption(QStringList() << QLatin1String("message-id"),
+                                       QObject::tr("Open the message with this Message-ID."), QObject::tr("Message-ID"));
+    parser.addOption(messageIdOption);
+
+    parser.addPositionalArgument(QLatin1String("url"),
+                                 QObject::tr("Mailto: URL address for composing new e-mail, or mid: URL of a message to open."),
                                  QObject::tr("[url]"));
 
     parser.process(app);
@@ -112,16 +118,22 @@ int main(int argc, char **argv)
     bool showAddressbookWindow = false;
     QString profileName;
     QString url;
+    QString messageId;
 
     showAddressbookWindow = parser.isSet(addressbookOption);
     showComposeWindow = parser.isSet(composeOption);
     showMainWindow = parser.isSet(mainwindowOption);
     if (parser.isSet(profileOption))
         profileName = parser.value(profileOption);
+    if (parser.isSet(messageIdOption))
+        messageId = parser.value(messageIdOption);
     if (parser.positionalArguments().size() > 0) {
         if (parser.positionalArguments().size() == 1) {
             url = parser.positionalArguments().at(0);
-            if (!url.startsWith(QLatin1String("mailto:"))) {
+            if (url.startsWith(QLatin1String("mid:"), Qt::CaseInsensitive) && messageId.isEmpty()) {
+                messageId = url;
+                url.clear();
+            } else if (!url.startsWith(QLatin1String("mailto:"))) {
                 qErr << QObject::tr("Unexpected argument '%1'.").arg(url) << Qt::endl;
                 error = true;
             } else
@@ -132,7 +144,7 @@ int main(int argc, char **argv)
         }
     }
 
-    if (!showMainWindow && !showComposeWindow && !showAddressbookWindow)
+    if (!showMainWindow && !showComposeWindow && !showAddressbookWindow && messageId.isEmpty())
         showMainWindow = true;
 
     if (error) {
@@ -161,6 +173,8 @@ int main(int argc, char **argv)
             IPC::Instance::showAddressbookWindow();
         if (showComposeWindow)
             IPC::Instance::composeMail(url);
+        if (!messageId.isEmpty())
+            IPC::Instance::openMessage(messageId);
         return 0;
     }
 
@@ -196,6 +210,11 @@ int main(int argc, char **argv)
             win.slotComposeMail();
         else
             win.slotComposeMailUrl(QUrl::fromEncoded(url.toUtf8()));
+    }
+
+    if (!messageId.isEmpty()) {
+        // After the accounts have been set up by the event loop
+        QTimer::singleShot(0, &win, [&win, messageId]() { win.openMessageById(messageId); });
     }
 
     if (parser.isSet(logtodiskOption)) {

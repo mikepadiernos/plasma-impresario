@@ -20,6 +20,7 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "AttachmentView.h"
+#include <QDir>
 #include <QAction>
 #include <QApplication>
 #include <QDesktopServices>
@@ -39,13 +40,13 @@
 #include <QTimer>
 #include <QToolButton>
 
-#include "Common/Paths.h"
 #include "Gui/MessageView.h" // so that the compiler knows it's a QObject
 #include "Gui/Window.h"
 #include "Imap/Network/FileDownloadManager.h"
 #include "Imap/Model/DragAndDrop.h"
 #include "Imap/Model/MailboxTree.h"
 #include "Imap/Model/ItemRoles.h"
+#include "Gui/Util.h"
 #include "UiUtils/Formatting.h"
 #include "UiUtils/IconLoader.h"
 
@@ -231,13 +232,9 @@ void AttachmentView::slotFileNameRequestedOnOpen(QString *fileName)
 
 void AttachmentView::slotFileNameRequested(QString *fileName)
 {
-    static QDir lastDir = QDir(Common::writablePath(Common::LOCATION_DOWNLOAD));
-    if (!lastDir.exists())
-        lastDir = QDir(Common::writablePath(Common::LOCATION_DOWNLOAD));
-    QString fileLocation = lastDir.filePath(*fileName);
+    QString fileLocation = QDir(Gui::Util::savedFilesFolder()).filePath(*fileName);
     *fileName = QFileDialog::getSaveFileName(this, tr("Save Attachment"), fileLocation, QString(), nullptr, QFileDialog::HideNameFilterDetails);
-    if (!fileName->isEmpty())
-        lastDir = QFileInfo(*fileName).absoluteDir();
+    Gui::Util::rememberSavedFile(*fileName);
 }
 
 void AttachmentView::enableDownloadAgain()

@@ -5,24 +5,32 @@
 #include "Gui/ContactPanel.h"
 #include "Gui/EmbeddedPanelsMenu.h"
 #include "Gui/MessageDetailsPanel.h"
+#include "Gui/MsgListView.h"
 #include "Gui/RelatedMessagesPanel.h"
+#include "Gui/SearchResultsPanel.h"
+#include "Imap/Model/FavoriteTagsModel.h"
 #include "Imap/Model/ItemRoles.h"
+#include "Imap/Model/MsgListModel.h"
+#include "Imap/Model/UnifiedMsgListModel.h"
 
 #include <KConfigGroup>
 #include <KLocalizedString>
 #include <KSharedConfig>
 #include <QAction>
 #include <QApplication>
+#include <QDateTime>
 #include <QLabel>
 #include <QListWidget>
 #include <QSignalSpy>
 #include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QTemporaryDir>
+#include <QTimeZone>
 #include <QTest>
 #include <QToolButton>
 #include <QTreeWidget>
 #include <QVBoxLayout>
+#include <memory>
 
 namespace {
 
@@ -69,6 +77,40 @@ template<typename T>
 T *child(QWidget *panel, const QString &name)
 {
     return panel->findChild<T *>(name);
+}
+
+/** A folder of found messages as FolderSearch lists them, with the same data in every column */
+std::unique_ptr<QStandardItemModel> foundMessages(const QList<std::pair<QString, int>> &subjectsAndHours)
+{
+    using namespace Imap::Mailbox;
+    auto model = std::make_unique<QStandardItemModel>(0, MsgListModel::COLUMN_COUNT);
+    uint uid = 0;
+    for (const auto &[subject, hour] : subjectsAndHours) {
+        const QDateTime date(QDate(2026, 11, 25), QTime(hour, 0), QTimeZone::UTC);
+        QList<QStandardItem *> items;
+        ++uid;
+        for (int column = 0; column < MsgListModel::COLUMN_COUNT; ++column) {
+            auto *item = new QStandardItem(subject);
+            item->setData(true, RoleIsFetched);
+            item->setData(uid, RoleMessageUid);
+            item->setData(subject, RoleMessageSubject);
+            item->setData(date, RoleMessageDate);
+            item->setData(date, RoleMessageInternalDate);
+            item->setData(true, RoleMessageIsMarkedRead);
+            item->setData(QStringLiteral("Archive"), RoleMailboxName);
+            items << item;
+        }
+        model->appendRow(items);
+    }
+    return model;
+}
+
+QStringList shownSubjects(const QAbstractItemModel *model)
+{
+    QStringList subjects;
+    for (int row = 0; row < model->rowCount(); ++row)
+        subjects << model->index(row, 0).data(Imap::Mailbox::RoleMessageSubject).toString();
+    return subjects;
 }
 
 QString placeholder(QWidget *panel)
@@ -520,6 +562,117 @@ private slots:
         QVERIFY(restored.autoHide());
         QCOMPARE(restored.placement(), Gui::EmbeddedPanel::Placement::LeftColumn);
         QVERIFY(restoredMenu.placementAction(&restored, Gui::EmbeddedPanel::Placement::LeftColumn)->isChecked());
+    }
+
+    void searchResultsAreListedAndSorted()
+    {
+        const auto descriptor = Gui::SearchResultsPanel::panelDescriptor();
+        QCOMPARE(descriptor.id, QStringLiteral("SearchResults"));
+        QCOMPARE(descriptor.configKey, QStringLiteral("SearchResultsPanel"));
+        // Off by default, so that searches list their results in the message list as before
+        QVERIFY(!descriptor.defaultEnabled);
+        QCOMPARE(descriptor.defaultPlacement, Gui::EmbeddedPanel::Placement::RightColumn);
+
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        auto state = KSharedConfig::openConfig(dir.filePath(QStringLiteral("state")), KConfig::SimpleConfig);
+        Imap::Mailbox::FavoriteTagsModel tags;
+        Host host;
+        auto *panel = host.add(new Gui::SearchResultsPanel(&tags));
+        panel->setStateConfig(state);
+        QCOMPARE(panel->objectName(), QStringLiteral("searchResultsPanel"));
+        QVERIFY(!panel->hasContent());
+        QVERIFY(!panel->isSearchShown());
+        QVERIFY(panel->sortsByRelevance());
+        QVERIFY(!placeholder(panel).isEmpty());
+        auto *reveal = child<QToolButton>(panel, QStringLiteral("searchResultsPanelReveal"));
+        auto *stop = child<QToolButton>(panel, QStringLiteral("searchResultsPanelStop"));
+        auto *retry = child<QToolButton>(panel, QStringLiteral("searchResultsPanelRetry"));
+        auto *server = child<QToolButton>(panel, QStringLiteral("searchResultsPanelSearchServer"));
+        QVERIFY(reveal && stop && retry && server);
+        QVERIFY(stop->isHidden() && retry->isHidden() && server->isHidden());
+
+        auto work = foundMessages({{QStringLiteral("lunch"), 4}, {QStringLiteral("budget"), 1}});
+        auto home = foundMessages({{QStringLiteral("budget review"), 3}, {QStringLiteral("news"), 2}});
+        panel->results()->setAccountSource(QStringLiteral("work"), QStringLiteral("Work"), work.get());
+        panel->results()->setAccountSource(QStringLiteral("home"), QStringLiteral("Home"), home.get());
+        panel->setPanelEnabled(true);
+        panel->setSearchShown(true, {QStringLiteral("budget")});
+        QVERIFY(panel->hasContent());
+        QVERIFY(panel->isVisible());
+        Gui::MsgListView *view = panel->view();
+        QCOMPARE(view->model(), panel->prettyResults());
+        // The best matches first, and equal ones newest first
+        QCOMPARE(shownSubjects(view->model()), (QStringList{QStringLiteral("budget review"), QStringLiteral("budget"),
+                                                            QStringLiteral("lunch"), QStringLiteral("news")}));
+
+        auto *byDate = panel->findChild<QAction *>(QStringLiteral("searchResultsPanelSortDate"));
+        QVERIFY(byDate);
+        byDate->trigger();
+        QVERIFY(!panel->sortsByRelevance());
+        QCOMPARE(shownSubjects(view->model()), (QStringList{QStringLiteral("lunch"), QStringLiteral("budget review"),
+                                                            QStringLiteral("news"), QStringLiteral("budget")}));
+        state->reparseConfiguration();
+        QCOMPARE(KConfigGroup(state, QStringLiteral("SearchResultsPanel")).readEntry("SortByRelevance", true), false);
+        {
+            // The sorting is kept for the next session
+            Gui::SearchResultsPanel restored(&tags);
+            restored.setStateConfig(state);
+            QVERIFY(!restored.sortsByRelevance());
+        }
+        panel->findChild<QAction *>(QStringLiteral("searchResultsPanelSortRelevance"))->trigger();
+        QVERIFY(panel->sortsByRelevance());
+        QCOMPARE(shownSubjects(view->model()).constFirst(), QStringLiteral("budget review"));
+        // A search without text lists the newest first
+        panel->setSearchShown(true, QStringList());
+        QCOMPARE(shownSubjects(view->model()).constFirst(), QStringLiteral("lunch"));
+
+        panel->setStatus(QStringLiteral("4 messages found"), QStringLiteral("Work: 2 found"));
+        QCOMPARE(panel->statusText(), QStringLiteral("4 messages found"));
+        auto *status = child<QLabel>(panel, QStringLiteral("searchResultsPanelStatus"));
+        QVERIFY(status->isVisible());
+        QCOMPARE(status->toolTip(), QStringLiteral("Work: 2 found"));
+        panel->setSearchActions(true, false, true);
+        QVERIFY(!stop->isHidden() && retry->isHidden() && !server->isHidden());
+        QSignalSpy stopped(panel, &Gui::SearchResultsPanel::stopRequested);
+        QSignalSpy server_(panel, &Gui::SearchResultsPanel::searchServerRequested);
+        stop->click();
+        server->click();
+        QCOMPARE(stopped.count(), 1);
+        QCOMPARE(server_.count(), 1);
+
+        // Opening a result hands over the message of the account's model
+        QVERIFY(!reveal->isEnabled());
+        QSignalSpy activated(panel, &Gui::SearchResultsPanel::messageActivated);
+        QSignalSpy revealed(panel, &Gui::SearchResultsPanel::revealRequested);
+        const QModelIndex first = view->model()->index(0, 0);
+        view->setCurrentIndex(first);
+        emit view->activated(first);
+        QCOMPARE(activated.count(), 1);
+        const QModelIndex message = activated.constFirst().constFirst().value<QModelIndex>();
+        QCOMPARE(message.model(), static_cast<const QAbstractItemModel *>(work.get()));
+        QCOMPARE(message.data(Imap::Mailbox::RoleMessageSubject).toString(), QStringLiteral("lunch"));
+        QCOMPARE(panel->currentMessage(), message);
+        QVERIFY(reveal->isEnabled());
+        reveal->click();
+        QCOMPARE(revealed.count(), 1);
+        QCOMPARE(revealed.constFirst().constFirst().value<QModelIndex>(), message);
+
+        // Without a search, the panel waits for one and can hide itself
+        panel->setSearchShown(false);
+        QVERIFY(!panel->hasContent());
+        QVERIFY(panel->statusText().isEmpty());
+        QVERIFY(stop->isHidden() && server->isHidden());
+        QVERIFY(!reveal->isEnabled());
+        panel->setAutoHide(true);
+        QVERIFY(panel->isHidden());
+        panel->setSearchShown(true, {QStringLiteral("budget")});
+        QVERIFY(panel->isVisible());
+
+        QSignalSpy enabled(panel, &Gui::SearchResultsPanel::enabledChanged);
+        panel->setPanelEnabled(false);
+        QCOMPARE(enabled.count(), 1);
+        QCOMPARE(enabled.constFirst().constFirst().toBool(), false);
     }
 };
 

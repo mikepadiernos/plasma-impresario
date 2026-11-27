@@ -52,6 +52,7 @@ private slots:
     void testSearchingPerformance();
     void testFlatThreadDeletionPerformance();
     void testESearchResults();
+    void testSearchFailures();
 
     void helper_multipleExpunges();
 protected slots:

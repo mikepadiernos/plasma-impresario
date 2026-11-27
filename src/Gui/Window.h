@@ -44,6 +44,8 @@
 #include "UiUtils/DestructiveActions.h"
 #include "UiUtils/QuickFilters.h"
 #include "UiUtils/RecentFolders.h"
+#include "UiUtils/SavedSearches.h"
+#include "UiUtils/SearchScope.h"
 #include "UiUtils/ShortcutOverview.h"
 #include "UiUtils/ViewStateStore.h"
 #include "MessageActionHandler.h"
@@ -85,7 +87,9 @@ class ImapAccess;
 namespace Mailbox
 {
 
+class FolderSearch;
 class ImapTask;
+class SearchTextFetcher;
 class Model;
 class PrettyMailboxModel;
 class ThreadingMsgListModel;
@@ -102,6 +106,11 @@ namespace Plugins
 class PluginManager;
 }
 
+namespace UiUtils
+{
+class MessageIdLookup;
+}
+
 namespace MSA
 {
 class MSAFactory;
@@ -110,6 +119,10 @@ namespace Gui
 {
 
 class AccountSidebar;
+class SavedSearchFolders;
+class SearchFoldersDialog;
+class SavedFilesSearchDialog;
+class SearchIndexDialog;
 class CapabilityActionGate;
 class ShellHeader;
 class AttachmentPanel;
@@ -118,6 +131,7 @@ class ContactPanel;
 class EmbeddedPanel;
 class MessageDetailsPanel;
 class RelatedMessagesPanel;
+class SearchResultsPanel;
 class CompleteMessageWidget;
 class ComposeWidget;
 class DensityMenu;
@@ -195,6 +209,14 @@ signals:
 
 public slots:
     void slotComposeMailUrl(const QUrl &url);
+    /** @short Open the message with @arg messageId, a Message-ID or a mid: URL, from the command line or another program
+
+    The messages loaded and indexed on this computer are looked at first; the servers are searched only if the user
+    agrees. Problems and the outcome are reported in the notification bar.
+    */
+    void openMessageById(const QString &messageId);
+    /** @short Open the message named by a mid: URL (RFC 2392); see openMessageById() */
+    void openMessageUrl(const QUrl &url);
     void slotComposeMail();
     void invokeContactEditor();
 protected:
@@ -211,6 +233,9 @@ private slots:
     void networkPolicyOnline();
     void slotShowSettings();
     void slotShowAccountSettings();
+    void slotShowSearchIndex();
+    /** Find files which the user saved, such as attachments named @arg text, in the default file manager */
+    void findSavedFiles(const QString &text);
     void slotAddAccount();
     void slotRemoveAccount();
     void slotNextAccount();
@@ -218,6 +243,8 @@ private slots:
     void slotFocusMessageView();
     void slotFocusNextRegion();
     void slotFocusPreviousRegion();
+    /** Find text in the open message while the reader has focus, or else move to the quick search */
+    void slotFind();
     void slotReturnToMessageList();
     void removeAccountNow(const QString &accountId);
     /** Authorize an OAuth account in the browser again, then reconnect it */
@@ -271,6 +298,8 @@ private slots:
     void openCompleteMessageWidget();
     void slotCreateMailboxBelowCurrent();
     void slotMarkCurrentMailboxRead();
+    /** @short Ask whether to download the text which the local search index lacks in a folder, then do it */
+    void slotDownloadTextForSearch();
     void slotCreateTopMailbox();
     void slotDeleteCurrentMailbox();
     void slotRenameCurrentMailbox();
@@ -290,6 +319,8 @@ private slots:
     void slotViewMsgHeaders();
     void slotThreadMsgList();
     void slotHideRead();
+    /** @short Clear the quick search, its date range and the quick filters, and go back to where the list was before */
+    void clearSearchAndFilters();
     void slotSortingPreferenceChanged();
     void slotSortingConfirmed(int column, Qt::SortOrder order);
     void slotSearchRequested(const QStringList &searchConditions);
@@ -411,6 +442,35 @@ private:
     /** Rebuild the account selector from the account list. */
     void refreshAccountSwitcher();
 
+    /** @short The key under which the account @p accountId keeps its saved searches, as ImapAccess::credentialAccountId() */
+    QString savedSearchOwner(const QString &accountId) const;
+    /** @short Show the saved searches of every account in the sidebar, with the counts from when they last ran */
+    void reloadSavedSearchFolders();
+    /** @short Show the virtual folder of the search @p id of @p owner, switching to the owner when the search needs it */
+    void activateSavedSearch(const QString &owner, const QString &id);
+    /** @short As activateSavedSearch(), but let the user change the search, previewing it in the list */
+    void editSavedSearch(const QString &owner, const QString &id);
+    /** @short Run the search, or edit it with @p edit; a search whose account was removed is offered to be moved */
+    void openSavedSearch(const QString &owner, const QString &id, bool edit);
+    /** @short Give the search @p id of @p owner to the account key @p newOwner */
+    void changeSavedSearchOwner(const QString &owner, const QString &id, const QString &newOwner);
+    /** @short Let the user choose the folders which the search @p id of @p owner looks at */
+    void chooseSavedSearchFolders(const QString &owner, const QString &id);
+    /** @short Leave the folders which are gone out of the search @p id of @p owner */
+    void removeMissingSavedSearchFolders(const QString &owner, const QString &id);
+    /** @short Keep @p searches in their order */
+    void storeSavedSearchOrder(const QList<UiUtils::SavedSearch> &searches);
+    /** @short Mark the saved searches whose account or chosen folders are gone */
+    void refreshSavedSearchProblems();
+    /** @short Whether the folder @p folder is still listed by its account */
+    UiUtils::SavedSearches::FolderPresence folderPresence(const UiUtils::SearchScope::Folder &folder) const;
+    /** @short Offer every account's folders in @p dialog */
+    void addSearchFolderAccounts(SearchFoldersDialog *dialog);
+    /** @short Count the messages of the shown virtual folder soon, coalescing repeated requests */
+    void scheduleSavedSearchCount();
+    /** @short Count the messages which the shown virtual folder lists, and remember them once the search is done */
+    void countActiveSavedSearch();
+
     /** Show the other accounts that need attention in the footer. */
     void updateBackgroundAlerts();
 
@@ -430,6 +490,12 @@ private:
     void saveMessageListFilters();
     /** @short Show the state of the quick filters on their actions and buttons */
     void syncMessageListFilterUi();
+    /** Narrows both message lists by the facets chosen above them */
+    void applySearchFacets();
+    /** @short Whether a search or a quick filter hides messages of the list */
+    bool messageListNarrowed() const;
+    /** @short Note where the folder's list is before a search or a filter narrows it, for clearSearchAndFilters() */
+    void rememberUnnarrowedPosition();
     void updateSelectionActions();
     /** @short Limit the quick search to messages sharing @p field with the current message */
     void showRelatedMessages(UiUtils::FieldFilter field);
@@ -442,6 +508,21 @@ private:
     bool showsThreads() const;
     /** @short The row of the message list for @arg message of the IMAP model, shown even if the quick filters hide it */
     QModelIndex revealMessage(const QModelIndex &message);
+    /** @short Show the folder of @arg message, of an IMAP model, and select the message there
+
+    Results shown in the message list give way to the folder; those in the Search Results panel stay.
+    */
+    void revealInFolder(const QModelIndex &message);
+    /** @short Show @arg mailbox of @arg accountId and select the message @arg uid there; see revealInFolder() */
+    void revealLocation(const QString &accountId, const QString &mailbox, uint uidValidity, uint uid);
+    /** @short Whether a message of @arg mailbox of the shown account is about to be revealed or still being selected
+
+    Restoring the folder's saved position or selection then would replace the revealed message.
+    */
+    bool isRevealing(const QString &mailbox) const;
+    /** @short Search the servers for the message of openMessageById(), after the user agreed */
+    void searchServersForMessage();
+    void messageLookupFinished();
 
     void createMailboxBelow(const QModelIndex &index);
 
@@ -540,6 +621,15 @@ private:
     void applyGroupExpansion();
     /** @short Sort by relevance while @p searchConditions look for text, otherwise go back to the previous sorting */
     void updateRelevanceSorting(const QStringList &searchConditions);
+    /** @short Offer sorting by relevance in a unified list while a search across looks for text */
+    void updateUnifiedRelevance();
+    /** @short Show the snippets of the shown search in the message list, or hide them */
+    void updateSearchSnippets();
+    /** @short What the shown search looks for in text, as from UiUtils::relevanceTerms(); empty without a search */
+    QStringList currentSearchTerms() const;
+    /** @short Whether the last choice of sorting during a search was relevance */
+    bool remembersRelevanceSorting() const;
+    void rememberRelevanceSorting(bool relevance);
     /** @short Map an index of the message list view to the PrettyMsgListModel, an invalid index for a group's header */
     QModelIndex toPrettyIndex(const QModelIndex &viewIndex) const;
     QModelIndex fromPrettyIndex(const QModelIndex &prettyIndex) const;
@@ -619,6 +709,53 @@ private:
     void updateUnifiedStates();
     QStringList unifiedAccountIds() const;
     void populateUnifiedAccountsMenu();
+    /** @short Whether the list shows messages of several folders or accounts: the Unified Inbox or search results */
+    bool showsUnifiedList() const;
+    /** @short Show the unified list instead of the folder's list, or the folder's list again */
+    void showUnifiedListModel();
+    void showFolderListModel();
+    /** @short Offer the actions which only make sense for one folder, or disable them for a unified list */
+    void setFolderViewActionsEnabled(bool enabled);
+    /** @short Search the places chosen in the quick search, which span several folders or accounts */
+    void startSearchAcross(const QStringList &conditions);
+    /** @short Whether the shown search lists its results in the message list rather than in the Search Results panel */
+    bool searchShownInList() const;
+    /** @short Whether a search started now would list its results in the Search Results panel
+
+    Saved searches are virtual folders, so they always show in the message list.
+    */
+    bool wantsSearchInPanel() const;
+    /** @short The results which the shown search fills, of the Search Results panel or of the message list */
+    Imap::Mailbox::UnifiedMsgListModel *searchModel() const;
+    Imap::Mailbox::PrettyUnifiedMsgListModel *searchPrettyModel() const;
+    /** @short Run the shown search again where its results now belong, after the Search Results panel was toggled */
+    void moveSearchResults();
+    /** @short Stop searching several folders and show the list from before the search */
+    void leaveSearchAcross();
+    void cancelFolderSearches();
+    /** @short Search @p mailboxes, or all folders, of @p accountId for the shown results, or report why it cannot be
+
+    With @p retrying, the places are searched again and the results found before stay; an account which lost its
+    connection is asked to connect first.
+    */
+    void searchAccount(const QString &accountId, const QStringList &mailboxes, bool allFolders, bool retrying);
+    void addSearchProblem(const QString &accountId, const QString &mailbox, const QString &text);
+    bool isSearchAcrossRunning() const;
+    /** @short Stop the running searches and keep the results found so far */
+    void stopSearchAcross();
+    /** @short Search the places which could not be searched again */
+    void retrySearchAcross();
+    /** @short Search on the server the places which the local index answered while online, keeping the results */
+    void continueSearchOnServer();
+    /** @short Progress of each account, for the tooltip of the status */
+    QString searchProgressDetails() const;
+    void folderSearchFinished(const QString &accountId);
+    /** @short Ask which folders the quick search looks at */
+    void chooseSearchFolders();
+    /** @short Ask which folders of @arg accountId the related messages panel searches on the server */
+    void chooseRelatedFolders(const QString &accountId);
+    /** @short Let the related messages panel search the server again once the search across folders is done */
+    void resumeRelatedSearch();
 
     Common::AccountRegistry *m_accounts = nullptr;
     Common::AccountStatusTracker *m_accountStatus = nullptr;
@@ -644,7 +781,14 @@ private:
     QHash<QString, UiUtils::FolderPositionStore> m_folderPositions;
     /** Folder which the message list shows, and where in it the list is */
     QString m_positionMailbox;
+    /** The list which the facets were chosen for; they are cleared when another one is shown */
+    QString m_facetScope;
     UiUtils::FolderPosition m_livePosition;
+    /** Folder whose list was narrowed by a search or a filter, and where in it the list was before */
+    QString m_unnarrowedMailbox;
+    UiUtils::FolderPosition m_unnarrowedPosition;
+    /** Whether the user opened a message while the list was narrowed, which then stays current after clearing */
+    bool m_pickedWhileNarrowed = false;
     QPointer<MessageSelectionRestorer> m_messageRestorer;
     /** Keys of the groups which the user has collapsed during this session */
     QSet<QString> m_collapsedGroups;
@@ -676,6 +820,7 @@ private:
     MessageDetailsPanel *m_messageDetailsPanel = nullptr;
     ContactPanel *m_contactPanel = nullptr;
     RelatedMessagesPanel *m_relatedMessagesPanel = nullptr;
+    SearchResultsPanel *m_searchResultsPanel = nullptr;
     /** All embedded panels, in their canonical order within a region */
     QList<EmbeddedPanel *> m_embeddedPanels;
 
@@ -704,6 +849,11 @@ private:
     QSet<QSplitter *> m_panelRegionsPending;
     /** The folder tree grouped by account, in the column chosen for the mailbox sidebar */
     AccountSidebar *m_accountSidebar = nullptr;
+    /** The saved searches of every account, as virtual folders below the folder tree */
+    SavedSearchFolders *m_savedSearchFolders = nullptr;
+    QTimer *m_savedSearchCountTimer = nullptr;
+    /** Checks the saved searches again once the folders of an account were listed */
+    QTimer *m_savedSearchProblemsTimer = nullptr;
     /** The header region above the columns, off by default */
     ShellHeader *m_shellHeader = nullptr;
     /** Hides the actions which the active account's protocol does not support */
@@ -821,6 +971,12 @@ private:
     QAction *m_actionLayoutWide;
     QAction *m_actionLayoutOneAtTime;
     QAction *m_actionMarkMailboxAsRead;
+    QAction *m_actionDownloadSearchText = nullptr;
+    QPointer<Imap::Mailbox::SearchTextFetcher> m_searchTextFetcher;
+    QAction *m_actionSearchIndex = nullptr;
+    QPointer<SearchIndexDialog> m_searchIndexDialog;
+    QPointer<SavedFilesSearchDialog> m_savedFilesDialog;
+    QAction *m_actionFindSavedFiles = nullptr;
     QAction *m_actionFilterUnread = nullptr;
     QAction *m_actionFilterFlagged = nullptr;
     QAction *m_actionFilterAttachments = nullptr;
@@ -860,6 +1016,11 @@ private:
     QAction *m_actionShowOnlySubscribed;
 
     QAction *m_goToFolder;
+    /** Opens the search builder of the message list */
+    QAction *m_searchBuilder;
+    QAction *m_actionFind;
+    /** Clears the search and the quick filters of the message list at once */
+    QAction *m_clearSearchAndFilters = nullptr;
     QAction *m_goToNextUnreadFolder = nullptr;
     QAction *m_checkMail = nullptr;
     QTimer *m_accountUnreadTimer = nullptr;
@@ -901,6 +1062,52 @@ private:
     QString m_unifiedReturnMailbox;
     /** Whether threading could be chosen before the Unified Inbox disabled it */
     bool m_unifiedThreadingEnabled = true;
+    /** While the list shows the results of a search in several folders or accounts */
+    bool m_searchAcross = false;
+    /** The running or finished searches of the shown results, by account */
+    QHash<QString, QPointer<Imap::Mailbox::FolderSearch>> m_folderSearches;
+    /** The searched places, for the tooltip of the list */
+    QStringList m_searchedPlaces;
+    struct SearchProblem {
+        QString accountId;
+        /** Full mailbox name, or empty when the account could not be searched at all */
+        QString mailbox;
+        QString text;
+    };
+    /** Accounts and folders which could not be searched */
+    QList<SearchProblem> m_searchProblems;
+    /** The conditions and the places of the shown results, for searching places again */
+    QStringList m_searchConditions;
+    /** What the search of the shown folder looks for in text; its model knows only a search which it could run */
+    QStringList m_folderSearchTerms;
+    QList<UiUtils::SearchScope::AccountFolders> m_searchPlan;
+    /** The user stopped the search before all places were searched */
+    bool m_searchStopped = false;
+    /** The notification which lists the places which could not be searched */
+    QString m_searchProblemsNotice;
+    QAction *m_actionStopSearch = nullptr;
+    QAction *m_actionRetrySearch = nullptr;
+    QAction *m_actionSearchServer = nullptr;
+    /** While the shown search lists its results in the Search Results panel rather than in the message list */
+    bool m_searchInPanel = false;
+    /** The conditions of the quick search, which are searched again when the results move */
+    QStringList m_lastSearchConditions;
+    /** Shows the folder of a message of the search results or the Unified Inbox */
+    QAction *m_actionRevealInFolder = nullptr;
+    /** A message to select once its folder is shown, from revealInFolder() */
+    struct PendingReveal {
+        QString accountId;
+        QString mailbox;
+        uint uidValidity = 0;
+        uint uid = 0;
+    };
+    PendingReveal m_pendingReveal;
+    /** The reveal which the message restorer is selecting, so that a queued restore of the folder's position keeps it */
+    PendingReveal m_activeReveal;
+    /** Finds the message of openMessageById() */
+    UiUtils::MessageIdLookup *m_messageLookup = nullptr;
+    /** Whether the user stopped the server search of m_messageLookup */
+    bool m_messageLookupStopped = false;
     /** While an action works on messages of another account than the shown one */
     Imap::ImapAccess *m_actingAccess = nullptr;
     QString m_actingAccountId;

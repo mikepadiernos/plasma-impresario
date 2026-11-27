@@ -22,13 +22,19 @@
 #include "Imap/Model/Model.h"
 #include "Imap/Model/NetworkWatcher.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
+#include "Imap/Model/Utils.h"
+#include "UiUtils/RelatedSearch.h"
+#include "UiUtils/SearchScope.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
+#include "Gui/MessageView.h"
 #include "Gui/WebEngineMessageProfile.h"
 #endif
 #include "static_plugins.h"
 
+#include <KConfigGroup>
 #include <KLocalizedString>
+#include <KSharedConfig>
 #include <algorithm>
 #include <QApplication>
 #include <QContextMenuEvent>
@@ -48,6 +54,8 @@
 #include <QTest>
 #include <QTimer>
 #include <QToolButton>
+#include <QTreeWidget>
+#include <QTreeWidgetItemIterator>
 #include <memory>
 
 namespace {
@@ -190,7 +198,7 @@ private slots:
         window.resize(1400, 900);
         window.show();
         auto *tree = window.findChild<Gui::MailBoxTreeView *>();
-        auto *messages = window.findChild<Gui::MsgListView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
         auto *details = window.findChild<Gui::MessageDetailsPanel *>();
         auto *contact = window.findChild<Gui::ContactPanel *>();
         auto *related = window.findChild<Gui::RelatedMessagesPanel *>();
@@ -313,7 +321,7 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(subjects(related->sameSender()), QStringList{QStringLiteral("Quarterly plan")}, 10000);
         QVERIFY(related->conversation().isEmpty());
 
-        // A message opened from a body search shows the term in the find bar, and the focus stays in the list.
+        // A message opened from a body search shows the phrase in the find bar, and the focus stays in the list.
         auto *reader = window.findChild<Gui::CompleteMessageWidget *>();
         QVERIFY(reader);
         auto *findBar = reader->findChild<Gui::FindBar *>();
@@ -325,7 +333,7 @@ private slots:
         QVERIFY(search);
         QVERIFY(searchInBody);
         searchInBody->setChecked(true);
-        search->setText(QStringLiteral("shared inbox"));
+        search->setText(QStringLiteral("\"shared inbox\""));
         QTest::keyClick(search, Qt::Key_Return);
         QTRY_VERIFY_WITH_TIMEOUT(!findMessage(messages, QStringLiteral("Lunch on Friday")).isValid(), 10000);
         QVERIFY(!findBar->isVisible());
@@ -340,6 +348,30 @@ private slots:
         QTest::keyClick(search, Qt::Key_Return);
         QTRY_VERIFY_WITH_TIMEOUT(findMessage(messages, QStringLiteral("Lunch on Friday")).isValid(), 10000);
         open(QStringLiteral("Lunch on Friday"));
+        QTRY_VERIFY(!findBar->isVisible());
+
+        // Find moves from the list to the quick search, ready to replace the last query, and finds in the open
+        // message while the reader has focus; F6 stops at the search before the list.
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        search->setText(QStringLiteral("lunch"));
+        messages->setFocus();
+        QTest::keySequence(window.focusWidget(), QKeySequence::Find);
+        QTRY_VERIFY(search->hasFocus());
+        QCOMPARE(search->selectedText(), QStringLiteral("lunch"));
+        QTest::keyClick(search, Qt::Key_Escape);
+        QTRY_COMPARE(window.focusWidget(), messages);
+        search->clear();
+        QTest::keyClick(search, Qt::Key_Return);
+        action(window, QStringLiteral("action_focus_previous_region"))->trigger();
+        QCOMPARE(window.focusWidget(), search);
+        action(window, QStringLiteral("action_focus_next_region"))->trigger();
+        QCOMPARE(window.focusWidget(), messages);
+        reader->messageView->setFocus();
+        QTest::keySequence(window.focusWidget(), QKeySequence::Find);
+        QTRY_VERIFY_WITH_TIMEOUT(findBar->isVisible() && findText->hasFocus(), 5000);
+        QVERIFY(!search->hasFocus());
+        QTest::keyClick(findText, Qt::Key_Escape);
         QTRY_VERIFY(!findBar->isVisible());
 
         // Remote content stays blocked, and the bar names the server it would contact.
@@ -746,6 +778,139 @@ private slots:
         QTest::qWait(200);
         QCOMPARE(shownSubject(), status);
         groupedBefore->trigger();
+
+        // The related messages panel searches the server only when asked, and finds the conversation in other folders
+        settle();
+        QModelIndex inboxAgain;
+        QTRY_VERIFY_WITH_TIMEOUT((inboxAgain = findMailbox(tree->model(), QStringLiteral("INBOX"))).isValid(), 10000);
+        tree->scrollTo(inboxAgain);
+        QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(inboxAgain).center());
+        QTRY_COMPARE_WITH_TIMEOUT(tree->currentIndex().data(Imap::Mailbox::RoleMailboxName).toString(), QStringLiteral("INBOX"), 10000);
+        // The folder's last message is restored first
+        QTRY_VERIFY_WITH_TIMEOUT(findMessage(messages, QStringLiteral("Quarterly plan")).isValid() && !currentSubject().isEmpty()
+                                     && shownSubject() == currentSubject(),
+                                 10000);
+        settle();
+        UiUtils::RelatedSearch *serverSearch = related->serverSearch();
+        QVERIFY(serverSearch);
+        const auto serverDone = [&](const QString &subject) {
+            return serverSearch->message().data(Imap::Mailbox::RoleMessageSubject).toString() == subject && !serverSearch->isRunning()
+                && serverSearch->folderCount() > 0;
+        };
+        const auto serverState = [&]() {
+            return QStringLiteral("reader %8, list %9, panel %10; message %1, running %2, folders %3/%4, problem %5, status %6, failures %7")
+                .arg(serverSearch->message().data(Imap::Mailbox::RoleMessageSubject).toString())
+                .arg(serverSearch->isRunning())
+                .arg(serverSearch->searchedCount())
+                .arg(serverSearch->folderCount())
+                .arg(serverSearch->problem(), related->serverStatus(), serverSearch->failures().join(QLatin1String("; ")), shownSubject(),
+                     currentSubject(), related->message().data(Imap::Mailbox::RoleMessageSubject).toString());
+        };
+        const QString planSubject = QStringLiteral("Quarterly plan");
+        const QString planRe = QStringLiteral("Re: Quarterly plan");
+        const QString planFinal = QStringLiteral("Re: Quarterly plan (final)");
+        const QString budget = QStringLiteral("Budget numbers");
+        const QString lunchSubject = QStringLiteral("Lunch on Friday");
+        open(planSubject);
+        QTRY_COMPARE_WITH_TIMEOUT(subjects(related->conversation()), (QStringList{budget, planRe}), 10000);
+        QVERIFY(!related->searchesServer());
+        QVERIFY(!serverSearch->isRunning());
+        QVERIFY(serverSearch->folderCount() == 0);
+
+        setChecked(action(window, QStringLiteral("relatedMessagesPanelSearchServer")), true);
+        QVERIFY(related->searchesServer());
+        QCOMPARE(related->serverScope(), UiUtils::RelatedSearch::Scope::MessageFolder);
+        QVERIFY(KConfigGroup(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), QStringLiteral("Appearance"))
+                    .readEntry("RelatedMessagesPanelServerSearch", false));
+        QTRY_VERIFY2_WITH_TIMEOUT(serverDone(planSubject), qPrintable(serverState()), 15000);
+        // The server finds the loaded rows again, which are listed once
+        QTRY_COMPARE_WITH_TIMEOUT(subjects(related->conversation()), (QStringList{budget, planRe}), 10000);
+        QCOMPARE(subjects(related->sameSender()), QStringList{lunchSubject});
+        QTRY_VERIFY2_WITH_TIMEOUT(related->serverStatus().isEmpty(), qPrintable(related->serverStatus()), 5000);
+
+        // Every folder: a reply in Older, and Alice's mail there and in Conversations, but not malice@example.test
+        action(window, QStringLiteral("relatedMessagesPanelScopeAll"))->trigger();
+        QCOMPARE(related->serverScope(), UiUtils::RelatedSearch::Scope::AllFolders);
+        QTRY_VERIFY2_WITH_TIMEOUT(serverDone(planSubject), qPrintable(serverState()), 15000);
+        QTRY_COMPARE_WITH_TIMEOUT(subjects(related->conversation()), (QStringList{budget, planRe, planFinal}), 10000);
+        QCOMPARE(subjects(related->sameSender()),
+                 (QStringList{lunchSubject, QStringLiteral("Minutes"), QStringLiteral("Old lunch notes"),
+                              QStringLiteral("[team] Status update")}));
+        QTRY_VERIFY2_WITH_TIMEOUT(related->serverStatus().isEmpty(), qPrintable(related->serverStatus()), 5000);
+        // The list keeps showing INBOX
+        QCOMPARE(tree->currentIndex().data(Imap::Mailbox::RoleMailboxName).toString(), QStringLiteral("INBOX"));
+        QCOMPARE(currentSubject(), planSubject);
+        QTRY_VERIFY_WITH_TIMEOUT(findMessage(messages, lunchSubject).isValid(), 10000);
+        snapshot(window, QStringLiteral("14-wide-related-on-server"));
+
+        // Rows from other folders name their folder
+        auto *relatedList = related->findChild<QTreeWidget *>(QStringLiteral("relatedMessagesPanelList"));
+        QVERIFY(relatedList);
+        QTreeWidgetItem *finalItem = nullptr;
+        for (QTreeWidgetItemIterator it(relatedList); *it; ++it) {
+            const QString text = (*it)->text(0);
+            if (text.contains(planFinal))
+                finalItem = *it;
+            if (text.contains(lunchSubject))
+                QVERIFY2(text.startsWith(lunchSubject), qPrintable(text));
+        }
+        QVERIFY(finalItem);
+        QVERIFY2(finalItem->text(0).startsWith(QStringLiteral("Older › ")), qPrintable(finalItem->text(0)));
+
+        // Opening it shows it in the reader and leaves the list alone, although its UID is also one of INBOX
+        relatedList->setCurrentItem(finalItem);
+        related->activateCurrent();
+        QTRY_COMPARE_WITH_TIMEOUT(shownSubject(), planFinal, 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(details->fieldText(QStringLiteral("Folder")), QStringLiteral("Older"), 10000);
+        QCOMPARE(currentSubject(), planSubject);
+        QCOMPARE(tree->currentIndex().data(Imap::Mailbox::RoleMailboxName).toString(), QStringLiteral("INBOX"));
+
+        // Chosen folders, one of which is missing: the other one is searched and the missing one is reported
+        related->setChosenFolders({UiUtils::SearchScope::folderKey({QStringLiteral("account-1"), QStringLiteral("Older")}),
+                                   UiUtils::SearchScope::folderKey({QStringLiteral("account-1"), QStringLiteral("Missing")})});
+        action(window, QStringLiteral("relatedMessagesPanelScopeChosen"))->trigger();
+        QCOMPARE(related->serverScope(), UiUtils::RelatedSearch::Scope::ChosenFolders);
+        open(planRe);
+        QTRY_VERIFY2_WITH_TIMEOUT(serverDone(planRe), qPrintable(serverState()), 15000);
+        QTRY_COMPARE_WITH_TIMEOUT(subjects(related->conversation()), (QStringList{budget, planSubject, planFinal}), 10000);
+        QCOMPARE(serverSearch->failures().size(), 1);
+        QVERIFY2(serverSearch->failures().constFirst().startsWith(QLatin1String("Missing")), qPrintable(serverSearch->failures().constFirst()));
+        QTRY_VERIFY2_WITH_TIMEOUT(related->serverStatus().contains(QLatin1String("Missing")), qPrintable(related->serverStatus()), 5000);
+
+        // Another message while the server is searched: the serverSearch stops and its results never show up
+        action(window, QStringLiteral("relatedMessagesPanelScopeAll"))->trigger();
+        const QPersistentModelIndex weeklyNews(Imap::deproxifiedIndex(findMessage(messages, QStringLiteral("Weekly news"))));
+        QVERIFY(weeklyNews.isValid());
+        bool switched = false;
+        int planFinished = 0;
+        const QMetaObject::Connection switchHook = connect(serverSearch, &UiUtils::RelatedSearch::changed, this, [&]() {
+            if (switched || !serverSearch->isRunning() || serverSearch->message().data(Imap::Mailbox::RoleMessageSubject).toString() != planSubject)
+                return;
+            switched = true;
+            QMetaObject::invokeMethod(related, [&]() { related->setMessage(weeklyNews); }, Qt::QueuedConnection);
+        });
+        const QMetaObject::Connection finishedHook = connect(serverSearch, &UiUtils::RelatedSearch::finished, this, [&]() {
+            if (serverSearch->message().data(Imap::Mailbox::RoleMessageSubject).toString() == planSubject)
+                ++planFinished;
+        });
+        open(planSubject);
+        QTRY_VERIFY_WITH_TIMEOUT(switched, 10000);
+        disconnect(switchHook);
+        QTRY_VERIFY2_WITH_TIMEOUT(serverDone(QStringLiteral("Weekly news")), qPrintable(serverState()), 15000);
+        disconnect(finishedHook);
+        QCOMPARE(planFinished, 0);
+        QTRY_COMPARE_WITH_TIMEOUT(subjects(related->sameSender()), QStringList{QStringLiteral("Hello")}, 10000);
+        QVERIFY(related->conversation().isEmpty());
+        QCOMPARE(tree->currentIndex().data(Imap::Mailbox::RoleMailboxName).toString(), QStringLiteral("INBOX"));
+
+        // Turned off, only the loaded rows are left
+        open(lunchSubject);
+        setChecked(action(window, QStringLiteral("relatedMessagesPanelSearchServer")), false);
+        QVERIFY(!related->searchesServer());
+        QTRY_COMPARE_WITH_TIMEOUT(subjects(related->sameSender()), QStringList{planSubject}, 10000);
+        QVERIFY(related->conversation().isEmpty());
+        QVERIFY(!serverSearch->isRunning());
+        QTRY_VERIFY(related->serverStatus().isEmpty());
 
         QCOMPARE(passwordPrompts, 0);
         QVERIFY2(imapErrors.isEmpty(), qPrintable(imapErrors.isEmpty() ? QString() : imapErrors.first().first().toString()));

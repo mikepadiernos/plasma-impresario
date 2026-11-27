@@ -63,23 +63,23 @@ Legend: ![Backlog][backlog] · ![Defined][defined] ·
 ![Merged][merged]. The count is green when all are done, amber once work starts
 and gray before. **Board** is the parent issue's status.
 
-| Milestone                                                 | Focus                                          | Parent issue                                                          | Done                                                                 | Board                                                                                                                                    |
-| --------------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| [M01](#m01-kde--qt6-compatibility-baseline)               | KDE / Qt 6 compatibility baseline              | [#1](https://github.com/mikepadiernos/plasma-impresario/issues/1)     | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
-| [M02](#m02-shell-accounts-and-core-mailbox-foundation)    | Shell, accounts and core mailbox foundation    | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)     | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
-| [M03](#m03-mail-operations-sorting-and-folder-management) | Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)     | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
-| [M04](#m04-reading-and-conversation-flow)                 | Reading and conversation flow                  | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6)     | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
-| [M05](#m05-search-and-indexing)                           | Search and indexing                            | [#324](https://github.com/mikepadiernos/plasma-impresario/issues/324) | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
-| [M06](#m06-desktop-integration-and-provider-support)      | Desktop integration and provider support       | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)     | ![0 of 27 done](https://img.shields.io/badge/0%2F27-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
-| [M07](#m07-output-notifications-and-rules-automation)     | Output, notifications and rules automation     | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8)     | ![0 of 11 done](https://img.shields.io/badge/0%2F11-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
-| [M08](#m08-settings-and-workspace-configuration)          | Settings and workspace configuration           | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9)     | ![0 of 15 done](https://img.shields.io/badge/0%2F15-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
-| [M09](#m09-themes-and-branding-foundation)                | Themes and branding foundation                 | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)   | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development]: M09.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
-| [M10](#m10-reliability-sync-and-notification-quality)     | Reliability, sync and notification quality     | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11)   | ![0 of 12 done](https://img.shields.io/badge/0%2F12-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
-| [M11](#m11-release-readiness-and-polish)                  | Release readiness and polish                   | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12)   | ![0 of 10 done](https://img.shields.io/badge/0%2F10-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
-| [M12](#m12-nextcloud-and-digital-asset-management)        | Nextcloud and digital asset management         | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31)   | ![0 of 7 done](https://img.shields.io/badge/0%2F7-0%25-6e7781)       | ![Backlog][backlog]                                                                                                                      |
-| [M13](#m13-microsoft-accounts-and-exchange)               | Microsoft accounts and Exchange                | [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388) | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
-| [M14](#m14-refinements)                                   | Refinements                                    | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)   | ![0 of 84 done](https://img.shields.io/badge/0%2F84-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
-| [M15](#m15-real-plasma-session-verification)              | Real Plasma session verification               | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781)       | ![Defined][defined]                                                                                                                      |
+| Milestone                                                 | Focus                                          | Parent issue                                                          | Done                                                                 | Board                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --------------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [M01](#m01-kde--qt6-compatibility-baseline)               | KDE / Qt 6 compatibility baseline              | [#1](https://github.com/mikepadiernos/plasma-impresario/issues/1)     | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| [M02](#m02-shell-accounts-and-core-mailbox-foundation)    | Shell, accounts and core mailbox foundation    | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)     | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| [M03](#m03-mail-operations-sorting-and-folder-management) | Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)     | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| [M04](#m04-reading-and-conversation-flow)                 | Reading and conversation flow                  | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6)     | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| [M05](#m05-search-and-indexing)                           | Search and indexing                            | [#324](https://github.com/mikepadiernos/plasma-impresario/issues/324) | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Development][development]: M05.01 search scope and server search, the query syntax, the search builder and search with filters done, search history and suggestions, saved searches as virtual folders, managing saved searches, mailing-list views, the offline index, index coverage and controls, index-first search with server continuation, index privacy and deletion, attachment text indexing, search results with snippets and relevance, search facets, the Search Results panel, keyboard access to search, Baloo file search, opening messages by Message-ID, and search conventions shared with Plasma Opus done |
+| [M06](#m06-desktop-integration-and-provider-support)      | Desktop integration and provider support       | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)     | ![0 of 27 done](https://img.shields.io/badge/0%2F27-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| [M07](#m07-output-notifications-and-rules-automation)     | Output, notifications and rules automation     | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8)     | ![0 of 11 done](https://img.shields.io/badge/0%2F11-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| [M08](#m08-settings-and-workspace-configuration)          | Settings and workspace configuration           | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9)     | ![0 of 15 done](https://img.shields.io/badge/0%2F15-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| [M09](#m09-themes-and-branding-foundation)                | Themes and branding foundation                 | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)   | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development]: M09.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| [M10](#m10-reliability-sync-and-notification-quality)     | Reliability, sync and notification quality     | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11)   | ![0 of 12 done](https://img.shields.io/badge/0%2F12-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| [M11](#m11-release-readiness-and-polish)                  | Release readiness and polish                   | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12)   | ![0 of 10 done](https://img.shields.io/badge/0%2F10-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| [M12](#m12-nextcloud-and-digital-asset-management)        | Nextcloud and digital asset management         | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31)   | ![0 of 7 done](https://img.shields.io/badge/0%2F7-0%25-6e7781)       | ![Backlog][backlog]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| [M13](#m13-microsoft-accounts-and-exchange)               | Microsoft accounts and Exchange                | [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388) | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| [M14](#m14-refinements)                                   | Refinements                                    | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)   | ![0 of 84 done](https://img.shields.io/badge/0%2F84-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| [M15](#m15-real-plasma-session-verification)              | Real Plasma session verification               | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781)       | ![Defined][defined]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 ## Recommended priority
 
@@ -378,8 +378,8 @@ Checks in a real Plasma session are in
 
 ### M05: Search and indexing
 
-**Status:** ![Backlog][backlog]
-![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781) ·
+**Status:** ![Development][development]
+![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) ·
 **Parent issue:** [#324](https://github.com/mikepadiernos/plasma-impresario/issues/324)
 
 **Project:** [M05 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317845712)
@@ -396,22 +396,22 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 
   **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317846014)
 
-  - [ ] Provide scoped search by sender, recipient, subject, date, and message
+  - [x] Provide scoped search by sender, recipient, subject, date, and message
         content where supported
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569556)
-  - [ ] Search the current folder, selected folders, one account or all
+  - [x] Search the current folder, selected folders, one account or all
         accounts, and show each result's account and folder
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317847205)
-  - [ ] Run searches in the background with progress, cancellation, partial
+  - [x] Run searches in the background with progress, cancellation, partial
         results and per-account errors, so one slow or failing server does not block
         the others
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317847423)
-  - [ ] Keep the IMAP quick-search baseline of subject, body, sender and
+  - [x] Keep the IMAP quick-search baseline of subject, body, sender and
         recipient fields, the raw IMAP query mode and fuzzy matching; use ESEARCH
         where the server advertises it and explain unsupported criteria instead of
         showing empty results
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317848088)
-  - [ ] Search related messages on the server and across folders as an opt-in
+  - [x] Search related messages on the server and across folders as an opt-in
         option of the related messages panel
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317147283)
 
@@ -419,19 +419,19 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 
   **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317846191)
 
-  - [ ] Support a query syntax with AND, OR and NOT, field prefixes such as
+  - [x] Support a query syntax with AND, OR and NOT, field prefixes such as
         `from:`, `to:`, `subject:`, `has:attachment`, `is:unread`, `tag:` and
         `list:`, and date ranges. Validate queries, explain errors, and translate
         them to IMAP SEARCH or the local index; align the syntax with Plasma Opus
         advanced search and keep the raw IMAP mode
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317848327)
-  - [ ] Provide a search builder with match-all or match-any conditions that
+  - [x] Provide a search builder with match-all or match-any conditions that
         shows the equivalent query text
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317848533)
-  - [ ] Combine search with the M03 message-list filters, show the active scope
+  - [x] Combine search with the M03 message-list filters, show the active scope
         and filters, and clear them in one step
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317848767)
-  - [ ] Offer optional search history and suggestions from recent queries,
+  - [x] Offer optional search history and suggestions from recent queries,
         contacts, folders and tags, with controls to clear or turn them off
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317848994)
 
@@ -439,13 +439,13 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 
   **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317846412)
 
-  - [ ] Extend saved searches to folders, accounts or all accounts and show them
+  - [x] Extend saved searches to folders, accounts or all accounts and show them
         as virtual folders with live counts, without moving or copying messages
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317849223)
-  - [ ] Edit, rename, reorder and delete saved searches, show their scope, and
+  - [x] Edit, rename, reorder and delete saved searches, show their scope, and
         report folders or accounts that no longer exist
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317849481)
-  - [ ] Offer mailing-list views grouped by List-Id that the user can pin as
+  - [x] Offer mailing-list views grouped by List-Id that the user can pin as
         saved searches
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317849725)
 
@@ -453,23 +453,27 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 
   **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317846628)
 
-  - [ ] Offer an opt-in, per-account full-text index of headers and downloaded
+  **Decision:** the index lives in each account's SQLite cache and uses FTS5
+  with the `trigram` tokenizer, which needs SQLite 3.34 or later; limits are in
+  [Search caveats](CAVEATS.md#search).
+
+  - [x] Offer an opt-in, per-account full-text index of headers and downloaded
         message bodies in the existing SQLite cache, evaluating SQLite FTS5 first.
         Search indexed mail offline and never download whole folders without consent
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317849976)
-  - [ ] Show index coverage and progress with pause, resume and rebuild;
+  - [x] Show index coverage and progress with pause, resume and rebuild;
         distinguish configured scope from confirmed coverage and warn when the index
         is stale
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317850232)
-  - [ ] Answer searches from the index first, offer server search beyond its
+  - [x] Answer searches from the index first, offer server search beyond its
         coverage, and merge results without duplicates by account, mailbox,
         UIDVALIDITY and UID
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317850492)
-  - [ ] Let users exclude folders such as Trash and Junk, do not index the
+  - [x] Let users exclude folders such as Trash and Junk, do not index the
         decrypted content of encrypted mail unless enabled, and delete an account's
         index when the account is removed or its cache is cleared
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317850817)
-  - [ ] Optionally index the text of downloaded attachments through
+  - [x] Optionally index the text of downloaded attachments through
         KFileMetaData, on demand and within size limits, and report missing
         extractors
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317851093)
@@ -478,17 +482,17 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 
   **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317846844)
 
-  - [ ] Show results with account, folder, sender, date and a highlighted
+  - [x] Show results with account, folder, sender, date and a highlighted
         snippet, sorted by relevance or date
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317851301)
-  - [ ] Narrow results with facets for account, folder, sender, date,
+  - [x] Narrow results with facets for account, folder, sender, date,
         attachments and tags
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317851568)
-  - [ ] Show results in the message list or an embedded Search Results panel;
+  - [x] Show results in the message list or an embedded Search Results panel;
         open a result without changing the current folder selection and reveal it in
         its folder
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317851804)
-  - [ ] Provide a toolbar search field with keyboard access and F6 focus cycling
+  - [x] Provide a toolbar search field with keyboard access and F6 focus cycling
         until the designed header (M14.02) hosts search
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317852045)
 
@@ -496,16 +500,16 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 
   **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317847027)
 
-  - [ ] Find saved attachments and exported messages with Baloo by opening KIO
+  - [x] Find saved attachments and exported messages with Baloo by opening KIO
         `baloosearch:` URLs in the default file manager, such as Plasma Opus;
         explain when file indexing is off or incomplete and offer a live search
         instead
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317852252)
-  - [ ] Open a message by Message-ID through `mid:` URLs (RFC 2392) and a
+  - [x] Open a message by Message-ID through `mid:` URLs (RFC 2392) and a
         command-line option, for example from the Plasma Opus `.eml` preview, and
         report when the message is not found
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317852484)
-  - [ ] Share query syntax, coverage notices and saved-search conventions with
+  - [x] Share query syntax, coverage notices and saved-search conventions with
         Plasma Opus without depending on it; reuse its query parser only if Plasma
         Opus publishes it as a library
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317852714)

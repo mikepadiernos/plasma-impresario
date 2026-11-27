@@ -56,8 +56,8 @@ signals:
     /** @short Sort result has arrived */
     void sortingAvailable(const Imap::Uids &uids);
 
-    /** @short Sort operation has failed */
-    void sortingFailed();
+    /** @short The search or sort could not run; @arg reason says why, for the user */
+    void sortingFailed(const QString &reason);
 
     /** @short An incremental update to the sorting criteria according to CONTEXT=SORT */
     void incrementalSortUpdate(const Imap::Responses::ESearch::IncrementalContextData_t &updates);
@@ -81,6 +81,15 @@ private:
 
     /** @short Did the first command (the ESEARCH/ESORT) finish properly, including its tagged response? */
     bool m_firstCommandCompleted;
+
+    /** @short Why the search failed, reported once the reply to its CANCELUPDATE arrives as well */
+    QString m_failureAfterCancel;
+
+    /** @short Has the server answered our CANCELUPDATE? */
+    bool m_cancelAnswered = false;
+
+    /** @short Was CANCELUPDATE sent without a reply so far, so that this task has to wait for it before it finishes? */
+    bool awaitsCancelReply() const;
 };
 
 }

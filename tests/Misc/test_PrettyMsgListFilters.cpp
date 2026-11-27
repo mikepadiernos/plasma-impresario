@@ -8,6 +8,7 @@
 
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/PrettyMsgListModel.h"
+#include "UiUtils/SearchFacets.h"
 #include "test_PrettyMsgListFilters.h"
 
 using Imap::Mailbox::PrettyMsgListModel;
@@ -28,6 +29,7 @@ QStandardItem *message(const QString &name, const Message &state) {
   using namespace Imap::Mailbox;
   auto *item = new QStandardItem(name);
   item->setData(state.fetched, RoleIsFetched);
+  item->setData(1u, RoleMessageUid);
   item->setData(state.read, RoleMessageIsMarkedRead);
   item->setData(state.wasUnread || !state.read, RoleMessageWasUnread);
   item->setData(state.flagged, RoleMessageIsMarkedFlagged);
@@ -356,3 +358,43 @@ void PrettyMsgListFiltersTest::visibleMessageCount() {
 }
 
 QTEST_GUILESS_MAIN(PrettyMsgListFiltersTest)
+
+void PrettyMsgListFiltersTest::facetsNarrowTheList() {
+  using UiUtils::SearchFacets;
+  QStandardItemModel source;
+  source.appendRow(message(QStringLiteral("attached"), Message{true, false, true, false, true}));
+  source.appendRow(read(QStringLiteral("read")));
+  source.appendRow(message(QStringLiteral("unknown"), Message{false}));
+  QStandardItem *thread = unread(QStringLiteral("thread"));
+  thread->appendRow(message(QStringLiteral("reply"), Message{true, true, false, false, true}));
+  source.appendRow(thread);
+  PrettyMsgListModel proxy(nullptr);
+  proxy.setSourceModel(&source);
+
+  SearchFacets facets;
+  facets.toggle({SearchFacets::Kind::Attachments, QStringLiteral("with"), QString()});
+  proxy.setFacets(facets);
+  QCOMPARE(proxy.facets(), facets);
+  // A message which is not loaded yet has no known attachments; a thread is
+  // shown as a whole for a matching reply
+  QCOMPARE(visible(proxy),
+           (QStringList{QStringLiteral("attached"), QStringLiteral("thread"),
+                        QStringLiteral("reply")}));
+  QCOMPARE(proxy.visibleMessageCount(), 3);
+  // The candidates are every message, including replies, whatever the facets
+  QCOMPARE(proxy.facetCandidates().size(), 5);
+
+  // Combined with the quick filters
+  proxy.setFilters(PrettyMsgListModel::FilterUnread);
+  QCOMPARE(visible(proxy), QStringList{QStringLiteral("attached")});
+  QCOMPARE(proxy.facetCandidates().size(), 3);
+
+  proxy.setFilters(PrettyMsgListModel::NoFilter);
+  facets.toggle({SearchFacets::Kind::Attachments, QStringLiteral("without"), QString()});
+  proxy.setFacets(facets);
+  QCOMPARE(visible(proxy),
+           (QStringList{QStringLiteral("attached"), QStringLiteral("read"),
+                        QStringLiteral("thread"), QStringLiteral("reply")}));
+  proxy.setFacets(SearchFacets());
+  QCOMPARE(proxy.visibleMessageCount(), 5);
+}

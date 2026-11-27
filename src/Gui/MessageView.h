@@ -94,6 +94,8 @@ public:
     /** @short Name the account of the shown message in its header; an empty name leaves it out */
     void setAccountResolver(const std::function<QString(const QModelIndex &)> &resolver);
     QModelIndex currentMessage() const;
+    /** @short Find text in the shown message; the main window gives Find to it while the reader has focus */
+    QAction *findAction() const;
     Plugins::PluginManager *pluginManager() const;
     QSettings* profileSettings() const;
     WebEngineMessageProfile *webEngineProfile() const;
