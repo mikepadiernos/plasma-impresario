@@ -50,6 +50,8 @@
 #include "Imap/Model/Utils.h"
 #include "Imap/Model/VisibleTasksModel.h"
 #include "Imap/Network/MsgPartNetAccessManager.h"
+#include "LocalMail/LocalSocket.h"
+#include "LocalMail/Store.h"
 #include "OAuth/Session.h"
 #include "Plugins/PluginManager.h"
 #include "Streams/SocketFactory.h"
@@ -80,6 +82,7 @@ ImapAccess::ImapAccess(QObject *parent, QSettings *settings, Plugins::PluginMana
 
 void ImapAccess::reloadConfiguration()
 {
+    m_protocol = AccountCapabilities::forAccount(*m_settings).protocol();
     m_server = m_settings->value(Common::SettingsNames::imapHostKey).toString();
     m_username = m_settings->value(Common::SettingsNames::imapUserKey).toString();
     if (m_settings->value(Common::SettingsNames::imapMethodKey).toString() == Common::SettingsNames::methodSSL) {
@@ -238,6 +241,9 @@ void ImapAccess::setConnectionMethod(const Common::ConnectionMethod mode)
 
 Imap::Mailbox::NetworkPolicy ImapAccess::preferredNetworkPolicy() const
 {
+    // Mail kept on this computer can always be read; its server is checked separately
+    if (m_protocol != AccountProtocol::Imap)
+        return Imap::Mailbox::NETWORK_ONLINE;
     auto val = m_settings->value(Common::SettingsNames::imapStartMode).toString();
     if (val == Common::SettingsNames::netOffline) {
         return Imap::Mailbox::NETWORK_OFFLINE;
@@ -301,34 +307,44 @@ void ImapAccess::doConnect()
     Streams::ProxySettings proxySettings = m_settings->value(Common::SettingsNames::imapUseSystemProxy, true).toBool() ?
                 Streams::ProxySettings::RespectSystemProxy : Streams::ProxySettings::DirectConnect;
 
-    switch (m_connectionMethod) {
-    case Common::ConnectionMethod::Invalid:
-        factory.reset(new Streams::FakeSocketFactory(Imap::CONN_STATE_LOGOUT));
-        break;
-    case Common::ConnectionMethod::NetCleartext:
-    case Common::ConnectionMethod::NetStartTls:
-        factory.reset(new Streams::TlsAbleSocketFactory(server(), port()));
-        factory->setStartTlsRequired(m_connectionMethod == Common::ConnectionMethod::NetStartTls);
-        factory->setProxySettings(proxySettings, QStringLiteral("imap"));
-        break;
-    case Common::ConnectionMethod::NetDedicatedTls:
-        factory.reset(new Streams::SslSocketFactory(server(), port()));
-        factory->setProxySettings(proxySettings, QStringLiteral("imap"));
-        break;
-    case Common::ConnectionMethod::Process:
-        QStringList args = m_settings->value(Common::SettingsNames::imapProcessKey).toString().split(QLatin1Char(' '));
-        if (args.isEmpty()) {
-            // it's going to fail anyway
-            args << QLatin1String("");
+    // POP3 and JMAP mail is kept on this computer and read through an IMAP session inside the process
+    const bool local = m_protocol != AccountProtocol::Imap;
+    if (local) {
+        if (auto store = localStore())
+            factory.reset(new LocalMail::LocalSocketFactory(store));
+        else
+            factory.reset(new Streams::FakeSocketFactory(Imap::CONN_STATE_LOGOUT));
+    } else {
+        switch (m_connectionMethod) {
+        case Common::ConnectionMethod::Invalid:
+            factory.reset(new Streams::FakeSocketFactory(Imap::CONN_STATE_LOGOUT));
+            break;
+        case Common::ConnectionMethod::NetCleartext:
+        case Common::ConnectionMethod::NetStartTls:
+            factory.reset(new Streams::TlsAbleSocketFactory(server(), port()));
+            factory->setStartTlsRequired(m_connectionMethod == Common::ConnectionMethod::NetStartTls);
+            factory->setProxySettings(proxySettings, QStringLiteral("imap"));
+            break;
+        case Common::ConnectionMethod::NetDedicatedTls:
+            factory.reset(new Streams::SslSocketFactory(server(), port()));
+            factory->setProxySettings(proxySettings, QStringLiteral("imap"));
+            break;
+        case Common::ConnectionMethod::Process:
+            QStringList args = m_settings->value(Common::SettingsNames::imapProcessKey).toString().split(QLatin1Char(' '));
+            if (args.isEmpty()) {
+                // it's going to fail anyway
+                args << QLatin1String("");
+            }
+            QString appName = args.takeFirst();
+            factory.reset(new Streams::ProcessSocketFactory(appName, args));
+            break;
         }
-        QString appName = args.takeFirst();
-        factory.reset(new Streams::ProcessSocketFactory(appName, args));
-        break;
     }
 
     const bool memoryOnly =
             m_settings->value(Common::SettingsNames::cacheOfflineKey).toString() == Common::SettingsNames::cacheOfflineNone;
-    bool shouldUsePersistentCache = !memoryOnly;
+    // The local store already holds the whole of every message, so a second copy on disk would only duplicate it
+    bool shouldUsePersistentCache = !memoryOnly && !local;
 
     if (shouldUsePersistentCache && !Common::PrivateFiles::makeFolder(m_cacheDir)) {
         onCacheError(tr("Failed to create directory %1").arg(m_cacheDir));
@@ -384,7 +400,7 @@ void ImapAccess::doConnect()
     m_imapModel->setNumberRefreshInterval(numberRefreshInterval());
     // Empty means automatic: the server's \Archive folder, a folder called Archive, or All Mail on Gmail
     m_imapModel->setArchiveFolderName(m_settings->value(Common::SettingsNames::imapArchiveFolderName).toString());
-    if (OAuth::isEnabled(*m_settings, OAuth::Service::Imap)) {
+    if (!local && OAuth::isEnabled(*m_settings, OAuth::Service::Imap)) {
         // The connections find this token source through the model and authenticate with it instead of a password
         QPointer<Plugins::PluginManager> pluginManager = m_pluginManager;
         auto oauth = new OAuth::Session(OAuth::AccountConfig::fromSettings(*m_settings, credentialAccountId()),
@@ -439,7 +455,7 @@ void ImapAccess::doConnect()
     connect(m_imapModel, &Mailbox::Model::needsSslDecision, this, &ImapAccess::slotSslErrors);
     connect(m_imapModel, &Mailbox::Model::requireStartTlsInFuture, this, &ImapAccess::onRequireStartTlsInFuture);
 
-    if (m_settings->value(Common::SettingsNames::imapNeedsNetwork, true).toBool()) {
+    if (!local && m_settings->value(Common::SettingsNames::imapNeedsNetwork, true).toBool()) {
         m_netWatcher = new Imap::Mailbox::SystemNetworkWatcher(this, m_imapModel);
     } else {
         m_netWatcher = new Imap::Mailbox::DummyNetworkWatcher(this, m_imapModel);
@@ -744,7 +760,38 @@ QString ImapAccess::accountName() const
 
 bool ImapAccess::isConfigured() const
 {
-    return m_settings->contains(Common::SettingsNames::imapMethodKey);
+    switch (m_protocol) {
+    case AccountProtocol::Imap:
+        return m_settings->contains(Common::SettingsNames::imapMethodKey);
+    case AccountProtocol::Pop3:
+        return !m_settings->value(Common::SettingsNames::pop3HostKey).toString().isEmpty();
+    case AccountProtocol::Jmap:
+        return false;
+    }
+    return false;
+}
+
+AccountProtocol ImapAccess::protocol() const
+{
+    return m_protocol;
+}
+
+QString ImapAccess::localStoreFolder(const QString &accountId)
+{
+    return Common::writablePath(Common::LOCATION_DATA) + QStringLiteral("local-mail/") + accountId;
+}
+
+std::shared_ptr<LocalMail::Store> ImapAccess::localStore()
+{
+    if (m_protocol == AccountProtocol::Imap)
+        return {};
+    if (!m_localStore) {
+        QString error;
+        m_localStore = LocalMail::Store::open(localStoreFolder(credentialAccountId()), &error);
+        if (!m_localStore)
+            onCacheError(tr("The mail kept on this computer could not be opened: %1").arg(error));
+    }
+    return m_localStore;
 }
 
 }
