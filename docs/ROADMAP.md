@@ -456,7 +456,9 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 
   **Decision:** the index lives in each account's SQLite cache and uses FTS5
   with the `trigram` tokenizer, which needs SQLite 3.34 or later; limits are in
-  [Search caveats](CAVEATS.md#search).
+  [Search caveats](CAVEATS.md#search). Indexing mail in Baloo and a GraphQL
+  layer were considered and
+  [rejected](integrations/kde-plasma.md#search-and-indexing).
 
   - [x] Offer an opt-in, per-account full-text index of headers and downloaded
         message bodies in the existing SQLite cache, evaluating SQLite FTS5 first.

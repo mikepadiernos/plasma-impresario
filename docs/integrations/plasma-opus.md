@@ -174,7 +174,9 @@ saying what File Search is set to index.
 - **How:** Open KIO `baloosearch:` URLs in the default file manager to find
   saved attachments and exported messages, and register a `mid:` URL handler
   (RFC 2392) and command-line option that opens a message by Message-ID. Index
-  mail in Plasma Impresario's own SQLite cache rather than Baloo. Follow the
+  mail in Plasma Impresario's own SQLite cache rather than Baloo; indexing mail
+  in Baloo and a GraphQL layer are
+  [rejected](kde-plasma.md#search-and-indexing). Follow the
   Plasma Opus M21 query syntax where it fits mail, and reuse its parser only if
   Plasma Opus publishes it as a library.
 - **Recommendations:** Keep search fully functional without Plasma Opus. Never
