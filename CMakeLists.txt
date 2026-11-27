@@ -1595,6 +1595,7 @@ if(BUILD_TESTING)
     impresario_test(Imap Imap_ViewStatePreservation)
     impresario_test(Imap Imap_BodyParts)
     impresario_test(Imap Imap_Offline)
+    impresario_test(Imap Imap_Reliability)
     impresario_test(Imap Imap_CopyAndFlagOperations)
     impresario_test(Cryptography Cryptography_MessageModel)
 
