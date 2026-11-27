@@ -70,7 +70,7 @@ and gray before. **Board** is the parent issue's status.
 | [M03](#m03-mail-operations-sorting-and-folder-management) | Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)     | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
 | [M04](#m04-reading-and-conversation-flow)                 | Reading and conversation flow                  | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6)     | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
 | [M05](#m05-search-and-indexing)                           | Search and indexing                            | [#324](https://github.com/mikepadiernos/plasma-impresario/issues/324) | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Merged][merged]: merged in [PR #455](https://github.com/mikepadiernos/plasma-impresario/pull/455)                                      |
-| [M06](#m06-desktop-integration-and-provider-support)      | Desktop integration and provider support       | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)     | ![19 of 26 done](https://img.shields.io/badge/19%2F26-73%25-9a6700)  | ![Development][development]: on `feature/m06-desktop`                                                                                    |
+| [M06](#m06-desktop-integration-and-provider-support)      | Desktop integration and provider support       | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)     | ![20 of 26 done](https://img.shields.io/badge/20%2F26-77%25-9a6700)  | ![Development][development]: on `feature/m06-desktop`                                                                                    |
 | [M07](#m07-output-notifications-and-rules-automation)     | Output, notifications and rules automation     | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8)     | ![0 of 11 done](https://img.shields.io/badge/0%2F11-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
 | [M08](#m08-settings-and-workspace-configuration)          | Settings and workspace configuration           | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9)     | ![0 of 15 done](https://img.shields.io/badge/0%2F15-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
 | [M09](#m09-themes-and-branding-foundation)                | Themes and branding foundation                 | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)   | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development]: M09.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
@@ -517,7 +517,7 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 ### M06: Desktop integration and provider support
 
 **Status:** ![Development][development]
-![19 of 26 done](https://img.shields.io/badge/19%2F26-73%25-9a6700) ·
+![20 of 26 done](https://img.shields.io/badge/20%2F26-77%25-9a6700) ·
 **Parent issue:** [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)
 
 **Project:** [M06 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498116)
@@ -609,7 +609,7 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   - [x] Define how scan results, unavailable scanners, spam classification, and user overrides are surfaced. See
         [Junk and attachment safety](CAVEATS.md#junk-and-attachment-safety).
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569785)
-  - [ ] Avoid exposing message content or attachments to external services without informed user action. See
+  - [x] Avoid exposing message content or attachments to external services without informed user action. See
         [External services](integrations/external-services.md).
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569792)
   - [x] Strip line breaks and control characters from header input, remove Bcc
