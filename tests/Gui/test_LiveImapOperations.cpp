@@ -13,6 +13,7 @@
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "UiUtils/DestructiveActions.h"
+#include "UiUtils/MailSafetySettings.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
 #include "Gui/WebEngineMessageProfile.h"
@@ -20,6 +21,7 @@
 #include "static_plugins.h"
 
 #include <KLocalizedString>
+#include <KSharedConfig>
 #include <QAction>
 #include <QApplication>
 #include <QDir>
@@ -285,6 +287,37 @@ private slots:
         QTRY_VERIFY2_WITH_TIMEOUT(!bar->isHidden() && bar->text().contains(QLatin1String("back to INBOX")), qPrintable(barState(bar)),
                                   15000);
         QVERIFY(asked.isEmpty());
+
+        // With "Move messages marked as junk to the Junk folder" on, Mark as Junk moves the message there with its mark,
+        // and Mark as Not Junk in the Junk folder moves it back to the inbox
+        const auto appConfig = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        UiUtils::MailSafetySettings::setMovesJunk(*appConfig, true);
+        auto *markAsJunk = window.findChild<QAction *>(QStringLiteral("action_mark_as_junk"));
+        auto *markAsNotJunk = window.findChild<QAction *>(QStringLiteral("action_mark_as_notjunk"));
+        QVERIFY(markAsJunk && markAsNotJunk);
+        QTRY_VERIFY_WITH_TIMEOUT(clickMessage(messages, QStringLiteral("Synthetic keep")), 15000);
+        QTRY_VERIFY_WITH_TIMEOUT(markAsJunk->isEnabled() && !markAsJunk->isChecked(), 10000);
+        markAsJunk->trigger();
+        QTRY_COMPARE_WITH_TIMEOUT(storedMessages(junk), 3, 15000);
+        QTRY_COMPARE_WITH_TIMEOUT(storedMessages(inbox), 3, 15000);
+        QModelIndex junkIndex;
+        QTRY_VERIFY_WITH_TIMEOUT((junkIndex = findMailbox(tree->model(), QStringLiteral("Junk"))).isValid(), 10000);
+        clickMailbox(tree, junkIndex);
+        QTRY_COMPARE_WITH_TIMEOUT(currentMailbox(window), QStringLiteral("Junk"), 10000);
+        QTRY_VERIFY_WITH_TIMEOUT(findMessage(messages, QStringLiteral("Synthetic keep"))
+                                     .data(Imap::Mailbox::RoleMessageIsMarkedJunk).toBool(), 15000);
+        QVERIFY(clickMessage(messages, QStringLiteral("Synthetic keep")));
+        QTRY_VERIFY_WITH_TIMEOUT(markAsNotJunk->isEnabled() && !markAsNotJunk->isChecked(), 10000);
+        markAsNotJunk->trigger();
+        QTRY_COMPARE_WITH_TIMEOUT(storedMessages(junk), 2, 15000);
+        QTRY_COMPARE_WITH_TIMEOUT(storedMessages(inbox), 4, 15000);
+        UiUtils::MailSafetySettings::setMovesJunk(*appConfig, false);
+        QTRY_VERIFY_WITH_TIMEOUT((inboxIndex = findMailbox(tree->model(), QStringLiteral("INBOX"))).isValid(), 10000);
+        clickMailbox(tree, inboxIndex);
+        QTRY_COMPARE_WITH_TIMEOUT(currentMailbox(window), QStringLiteral("INBOX"), 10000);
+        QTRY_VERIFY_WITH_TIMEOUT(findMessage(messages, QStringLiteral("Synthetic keep"))
+                                     .data(Imap::Mailbox::RoleMessageIsMarkedNotJunk).toBool(), 15000);
+        QVERIFY2(!barShowsError(bar), qPrintable(barState(bar)));
 
         // Delete Permanently asks, then removes the message from the server without going through Trash
         QTRY_VERIFY_WITH_TIMEOUT(clickMessage(messages, QStringLiteral("Synthetic purge")), 15000);

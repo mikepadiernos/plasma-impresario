@@ -34,15 +34,15 @@ Legend: ![Tested][tested] · ![Needs verification][needs-verification] ·
 
 ## Status
 
-| Area                   | Status                                    | Today                                                                                                                                                   |
-| ---------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rules                  | ![Tested][tested]                         | Defined below; `test_ExternalExposure` fails when a source file sends something out without a register entry, or a register entry no longer does        |
-| Remote content         | ![Tested][tested]                         | Remote images load only after **Load Remote Content** for that message; scripts, stylesheets, frames, redirects and other requests never load           |
-| Links and list actions | ![Tested][tested]                         | Open only when clicked; deceptive links and mailing list actions ask first and name their target                                                        |
-| Attachments            | ![Tested][tested]                         | Handed to local programs only after **Open** or **Save**; attachments of junk mail ask first ([caveat](../CAVEATS.md#junk-and-attachment-safety))       |
-| Account setup          | ![Tested][tested]                         | **Find Settings** sends the address's domain, and the full address only to the domain's own autoconfig server                                           |
-| Version details        | ![Limitation][limitation]                 | The IMAP `ID` command and the `User-Agent` header include the version and operating system unless turned off; the application name is always sent       |
-| Desktop services       | ![Needs verification][needs-verification] | Notifications, the task manager, Plasma Search, portals and the file manager receive only what the register lists; not checked in a real Plasma session |
+| Area                   | Status                                    | Today                                                                                                                                                                                                       |
+| ---------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rules                  | ![Tested][tested]                         | Defined below; `test_ExternalExposure` fails when a source file sends something out without a register entry, or a register entry no longer does                                                            |
+| Remote content         | ![Tested][tested]                         | Remote images load only after **Load Remote Content** for that message; scripts, stylesheets, frames, redirects and other requests never load                                                               |
+| Links and list actions | ![Tested][tested]                         | Open only when clicked; deceptive links and mailing list actions ask first and name their target                                                                                                            |
+| Attachments            | ![Tested][tested]                         | Handed to local programs only after **Open** or **Save**; attachments of junk mail ask first, and the optional ClamAV scan uses only the local `clamd` ([caveat](../CAVEATS.md#junk-and-attachment-safety)) |
+| Account setup          | ![Tested][tested]                         | **Find Settings** sends the address's domain, and the full address only to the domain's own autoconfig server                                                                                               |
+| Version details        | ![Limitation][limitation]                 | The IMAP `ID` command and the `User-Agent` header include the version and operating system unless turned off; the application name is always sent                                                           |
+| Desktop services       | ![Needs verification][needs-verification] | Notifications, the task manager, Plasma Search, portals and the file manager receive only what the register lists; not checked in a real Plasma session                                                     |
 
 ## Rules
 
@@ -65,7 +65,10 @@ Legend: ![Tested][tested] · ![Needs verification][needs-verification] ·
 5. **Attachments go only to local programs.** An attachment leaves the
    application only after **Open**, **Save** or a drag. Opened copies are
    user-only, are never executable and are removed after a day. Opening an
-   attachment of junk mail asks first.
+   attachment of junk mail asks first. With **Scan attachments with ClamAV
+   before opening them** turned on, **Open** first streams the attachment to
+   the local `clamd` socket; a threat blocks opening, and a scanner that cannot
+   be reached or cannot decide asks first.
 6. **Desktop services receive the minimum.** The task manager receives a
    count. Notifications name the account and its error, never a message.
    Plasma Search sees subjects and senders only when the user turns it on. The
@@ -76,10 +79,9 @@ Legend: ![Tested][tested] · ![Needs verification][needs-verification] ·
    operating system are sent unless **Reveal Plasma Impresario's version and
    platform information** is turned off in the **General** settings.
 8. **No hidden services.** There is no telemetry, crash upload, avatar or
-   BIMI lookup, link preview, translation or cloud service. A local `clamd`
-   scan, planned in
-   [#44](https://github.com/mikepadiernos/plasma-impresario/issues/44), will
-   stay on the computer.
+   BIMI lookup, link preview, translation or cloud service. The optional
+   ClamAV scan talks only to the local `clamd` socket, and moving junk mail is
+   an ordinary move on the account's IMAP server.
 
 ## Register
 
@@ -100,6 +102,7 @@ files from this section.
 | Google and Microsoft sign-in                  | The client ID, scopes and the address as a login hint in the browser; then codes and tokens                         | **Sign In**, token renewal and signing out                                       | `src/OAuth/Session.cpp`                                                                             |
 | Servers of remote files                       | A download request for the file                                                                                     | Dropping or handing over a remote file to the composer                           | `src/Gui/RemoteAttachmentFetcher.cpp`                                                               |
 | Local programs for attachments                | A private copy of the attachment                                                                                    | **Open**; junk mail asks first                                                   | `src/Gui/AttachmentView.cpp`, `src/Gui/AttachmentPanel.cpp`                                         |
+| The local ClamAV daemon, `clamd`              | The attachment, streamed through a local socket                                                                     | **Open**, when **Scan attachments with ClamAV before opening them** is on        | `src/UiUtils/ClamdScanner.cpp`                                                                      |
 | The file manager and the calendar application | A folder path; a start request; a meeting link                                                                      | **Show in Folder**, **Find Saved Files**, **Open in Calendar**, **Join Meeting** | `src/Gui/Window.cpp`, `src/Gui/SavedFilesSearchDialog.cpp`                                          |
 | Plasma notifications or the tray              | The account name and its error                                                                                      | A background account needing attention                                           | `src/Gui/Window.cpp`                                                                                |
 | The task manager                              | The unread count of all inboxes                                                                                     | On by default; **Show the unread count on the task manager entry** turns it off  | `src/UiUtils/DesktopFeedback.cpp`                                                                   |
@@ -120,7 +123,7 @@ files from this section.
 ## Verification
 
 - ![Tested][tested] `test_ExternalExposure` scans every `.cpp` file under
-  `src/` for network requests and connections, DNS lookups, URLs and files
+  `src/` for network requests and connections, local sockets, DNS lookups, URLs and files
   handed to other programs, started processes, D-Bus calls and exported
   objects, and notifications, and compares them with the register. Fixture
   tests confirm that it accepts a matching register, ignores comments, and

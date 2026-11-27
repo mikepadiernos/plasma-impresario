@@ -1,12 +1,12 @@
 # Headless Linux build and test environment for Plasma Impresario.
 #
 # This environment builds the app and runs its QtTest suite with the offscreen
-# platform. Dovecot serves the synthetic live IMAP tests, and Xvfb, x11vnc and
-# Openbox provide the VNC session of vnc.sh. The Fedora release is pinned;
-# synthetic-dovecot.sh requires the Dovecot 2.4 series and prints the exact
-# version on each run. The image does not provide a Plasma session, so D-Bus
-# services, KWallet, notifications, and visual behavior still need verification
-# on Plasma.
+# platform. Dovecot serves the synthetic live IMAP tests, clamd the live scan
+# test, and Xvfb, x11vnc and Openbox provide the VNC session of vnc.sh. The
+# Fedora release is pinned; synthetic-dovecot.sh requires the Dovecot 2.4
+# series and prints the exact version on each run. The image does not provide a
+# Plasma session, so D-Bus services, KWallet, notifications, and visual behavior
+# still need verification on Plasma.
 #
 # Build and use it through tools/dev-container/run.sh. Wrap app runs in
 # dbus-run-session when they need a session bus.
@@ -67,6 +67,12 @@ RUN dnf -y install --setopt=install_weak_deps=False \
 RUN dnf -y install --setopt=install_weak_deps=False \
         akonadi-calendar-devel \
         kf6-kcalendarcore-devel \
+    && dnf clean all
+
+# ClamAV's daemon for the opt-in live scan test, live-clamd.sh, which loads only
+# its own test signature.
+RUN dnf -y install --setopt=install_weak_deps=False \
+        clamd \
     && dnf clean all
 
 ENV CCACHE_DIR=/ccache \

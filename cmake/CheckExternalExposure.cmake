@@ -13,7 +13,7 @@ if(NOT SOURCE_DIR OR NOT REGISTER)
 endif()
 get_filename_component(SOURCE_DIR "${SOURCE_DIR}" ABSOLUTE)
 
-set(outbound "QNetworkRequest[ \t]+[A-Za-z_]+[ \t]*[(,;{]|QNetworkRequest[(]|new[ \t]+QDnsLookup|connectToHost")
+set(outbound "QNetworkRequest[ \t]+[A-Za-z_]+[ \t]*[(,;{]|QNetworkRequest[(]|new[ \t]+QDnsLookup|connectToHost|connectToServer[(]")
 string(APPEND outbound "|QDesktopServices::openUrl|KIO::(get|storedGet|put|storedPut|copy|copyAs|file_copy|move|del)[(]")
 string(APPEND outbound "|KIO::(OpenUrlJob|ApplicationLauncherJob|CommandLauncherJob|OpenFileManagerWindowJob)[(]")
 string(APPEND outbound "|new[ \t]+QProcess|QProcess::(startDetached|execute)|QDBusMessage::create|QDBusInterface[ \t(&]")
