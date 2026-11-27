@@ -78,7 +78,7 @@ and gray before. **Board** is the parent issue's status.
 | [M11](#m11-release-readiness-and-polish)                  | Release readiness and polish                   | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12)   | ![0 of 10 done](https://img.shields.io/badge/0%2F10-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
 | [M12](#m12-nextcloud-and-digital-asset-management)        | Nextcloud and digital asset management         | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31)   | ![0 of 7 done](https://img.shields.io/badge/0%2F7-0%25-6e7781)       | ![Backlog][backlog]                                                                                                                      |
 | [M13](#m13-microsoft-accounts-and-exchange)               | Microsoft accounts and Exchange                | [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388) | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
-| [M14](#m14-refinements)                                   | Refinements                                    | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)   | ![0 of 84 done](https://img.shields.io/badge/0%2F84-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
+| [M14](#m14-refinements)                                   | Refinements                                    | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)   | ![0 of 86 done](https://img.shields.io/badge/0%2F86-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
 | [M15](#m15-real-plasma-session-verification)              | Real Plasma session verification               | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ![0 of 4 done](https://img.shields.io/badge/0%2F4-0%25-6e7781)       | ![Defined][defined]                                                                                                                      |
 
 ## Recommended priority
@@ -1263,7 +1263,7 @@ M06.04 agenda and contacts panels and M06.05 account discovery. Pending tasks:
 ### M14: Refinements
 
 **Status:** ![Backlog][backlog]
-![0 of 84 done](https://img.shields.io/badge/0%2F84-0%25-6e7781) ·
+![0 of 86 done](https://img.shields.io/badge/0%2F86-0%25-6e7781) ·
 **Parent issue:** [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)
 
 **Project:** [M14 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314499855)
@@ -1314,6 +1314,14 @@ to mail workflows without blocking this milestone on unavailable features.
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571181)
   - [ ] Build the designed header with search, compose, the account switcher, and connection status, as a toolbar region in the shared customization mode [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317147971)
   - [ ] Add sliding and floating panel placements, and rearrange sidebar and embedded panels between regions in the customization mode [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317148200)
+  - [ ] Represent icon menus on the main side toolbar with a small accent-colored
+        corner on the icon instead of a caret, in every toolbar placement and
+        layout direction, with keyboard access and an accessible description of
+        the menu. Refines the M09 corner marker. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=320483547)
+  - [ ] Keep spacing and theme in sync with Plasma Opus: share its spacing scale
+        (50 to 200 percent of the widget style), accent color, corner radius and
+        divider style, and optionally follow its theme profile, falling back to
+        Plasma without it. Builds on M09.07 and the M09 theme sharing. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=320483647)
   - [ ] Verify keyboard-only navigation, visible focus, and predictable focus restoration after dialogs and actions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571193)
   - [ ] Validate compact, comfortable, and focus modes at narrow window sizes and different display scales [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571207)
   - [ ] Keep menu and toolbar actions synchronized with the active account, folder, and selection, including while views refresh [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314571217)

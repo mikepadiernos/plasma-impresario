@@ -217,6 +217,11 @@ Planned in [M09](../ROADMAP.md#m09-themes-and-branding-foundation)
   unsupported.
 - **Verify:** Test import, export, following changes, invalid and missing
   profiles, and use without Plasma Opus installed, with isolated configuration.
+- **Spacing:** M14.02 ([#487](https://github.com/mikepadiernos/plasma-impresario/issues/487)) keeps spacing and theme in step
+  with Plasma Opus. Plasma Impresario uses the same spacing scale (50 to 200
+  percent of Plasma's widget style, default 100) and the same accent color,
+  corner radius and divider choices, so one value looks the same in both
+  apps. Following Plasma Opus is opt-in and falls back to Plasma without it.
 
 ## Vim mode and shortcuts
 
