@@ -52,7 +52,7 @@ whose branding work is in Development.
 | [Search and indexing](#search-and-indexing)                           | ![Limitation][limitation]                 | Search runs on the IMAP server or in an opt-in index in the app's cache; saved files are found with Baloo or a live search in the file manager. KRunner is not used                             | M05, M06.01    |
 | [Settings and credentials](#settings-and-credentials)                 | ![Limitation][limitation]                 | Account settings use `QSettings`; app preferences use KConfig; passwords use the QtKeychain or cleartext plugin ([details](../CAVEATS.md#security-and-data-protection))                         | M06.01         |
 | [Appearance and accessibility](#appearance-and-accessibility)         | ![Needs verification][needs-verification] | Theme icons and a row density selector; accessibility, high-contrast and scaling checks are not recorded                                                                                        | M06.01, M09    |
-| [Desktop actions and availability](#desktop-actions-and-availability) | ![Needs verification][needs-verification] | The desktop entry registers the `mailto:` scheme handler and a Composer action                                                                                                                  | M06.01         |
+| [Desktop actions and availability](#desktop-actions-and-availability) | ![Needs verification][needs-verification] | The desktop entry registers the `mailto:` and `mid:` scheme handlers and a Composer action                                                                                                      | M06.01         |
 
 ## Windows and session lifecycle
 
@@ -201,16 +201,18 @@ explains, from File Search's settings, whether it indexes the chosen folder.
 
 ## Desktop actions and availability
 
-- **What:** Provide predictable application-menu, file-association and `mailto:`
-  entry points alongside ordinary in-app actions.
+- **What:** Provide predictable application-menu, file-association, `mailto:`
+  and `mid:` entry points alongside ordinary in-app actions. A `mid:` URL
+  opens a message by Message-ID in the running window
+  ([#351](https://github.com/mikepadiernos/plasma-impresario/issues/351)).
 - **How:** Install desktop metadata for the chosen prefix and use desktop
   services for external links and file associations. Check whether optional
   services are available before offering dependent actions.
 - **Recommendations:** Surface failed launches and invalid destinations; do not
   silently discard requests. Keep core mail usable when a desktop service is
   unavailable.
-- **Verify:** Test menu discovery, custom-prefix discovery, `mailto:` launch and
-  missing-handler errors on the supported Plasma session.
+- **Verify:** Test menu discovery, custom-prefix discovery, `mailto:` and `mid:`
+  launch and missing-handler errors on the supported Plasma session.
 
 [limitation]: https://img.shields.io/badge/Limitation-bc4c00
 [needs-verification]: https://img.shields.io/badge/Needs_verification-0969da

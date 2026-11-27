@@ -64,7 +64,7 @@ files, and opens Plasma's file search through KIO.
 | Default file manager registration (M27.01)                                                                                  | ![Done][done]                                             | Folders opened through KIO use Plasma Opus when it is the default              | ![Done][done] No change needed                                                                                                                                                                                                                                       |
 | Live and Baloo-indexed search (M09) and indexing status (M27.03)                                                            | ![Done][done] Search · ![Planned][planned] Status         | Find saved attachments and exported mail; reuse its coverage notices           | [M05.06](../ROADMAP.md#m05-search-and-indexing), [#350](https://github.com/mikepadiernos/plasma-impresario/issues/350)                                                                                                                                               |
 | Advanced search syntax and Search Results panel (M21) and search settings (M22)                                             | ![Done][done] M21 · ![Planned][planned] M22               | Align query syntax, the results panel and search settings                      | [M05.02](../ROADMAP.md#m05-search-and-indexing), [#334](https://github.com/mikepadiernos/plasma-impresario/issues/334), [#348](https://github.com/mikepadiernos/plasma-impresario/issues/348), [#352](https://github.com/mikepadiernos/plasma-impresario/issues/352) |
-| Mail file (`.eml`) preview (M27.09)                                                                                         | ![Planned][planned]                                       | Open the previewed message in Plasma Impresario by Message-ID                  | [M05.06](../ROADMAP.md#m05-search-and-indexing), [#351](https://github.com/mikepadiernos/plasma-impresario/issues/351)                                                                                                                                               |
+| Mail file (`.eml`) preview (M27.09)                                                                                         | ![Planned][planned]                                       | Open the previewed message in Plasma Impresario through its `mid:` handler     | [M05.06](../ROADMAP.md#m05-search-and-indexing), [#351](https://github.com/mikepadiernos/plasma-impresario/issues/351)                                                                                                                                               |
 
 ## Calendar and scheduling
 
@@ -159,7 +159,8 @@ Part of [M05](../ROADMAP.md#m05-search-and-indexing)
 KRunner provider in M06.01 and search settings in M08. **Find Saved Files…**
 already opens `baloosearch:` and `filenamesearch:` URLs in the default file
 manager, which is Plasma Opus when it is the default; this is not yet tested
-with Plasma Opus.
+with Plasma Opus. A `mid:` URL or `--message-id` opens a message by its
+Message-ID, which the `.eml` preview can use once it offers that action.
 
 - **What:** Find mail-related files with Plasma Opus and Baloo, open a message
   from the Plasma Opus `.eml` preview, and keep search behavior familiar across
