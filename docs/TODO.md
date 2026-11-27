@@ -41,6 +41,7 @@ Legend: board ![Backlog][backlog] · ![Defined][defined] ·
   - [Milestone feature-issue
     synchronization](#milestone-feature-issue-synchronization)
   - [M13 Microsoft milestone insertion](#m13-microsoft-milestone-insertion)
+  - [Roadmap issue links](#roadmap-issue-links)
 
 ## Backlog
 
@@ -571,6 +572,40 @@ still need the maintainer.
   5. Ask KDE e.V. whether it can host or publisher-verify the app, and record
      both answers in #396.
 - ![Planned][planned] **Resume:** remove this section when #396 is done.
+
+### Roadmap issue links
+
+- ![Done][done] **Converted, 2026-11-27:** every roadmap checklist item and
+  `**Project:**` line in [the roadmap](ROADMAP.md) links to its issue as
+  `[#N]` instead of a project-board card. `tools/roadmap-issue-links.py`
+  converts board item links and `--check` reports any that remain.
+- ![Done][done] **Split issues:** five roadmap items that shared another
+  item's issue now have their own. Two are closed and Merged, with the
+  evidence recorded in their source issues:
+  - [#479](https://github.com/mikepadiernos/plasma-impresario/issues/479)
+    split from [#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)
+  - [#480](https://github.com/mikepadiernos/plasma-impresario/issues/480)
+    split from [#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)
+
+  Three are in the Backlog:
+  - [#481](https://github.com/mikepadiernos/plasma-impresario/issues/481)
+    split from [#127](https://github.com/mikepadiernos/plasma-impresario/issues/127)
+  - [#482](https://github.com/mikepadiernos/plasma-impresario/issues/482)
+    split from [#54](https://github.com/mikepadiernos/plasma-impresario/issues/54)
+  - [#483](https://github.com/mikepadiernos/plasma-impresario/issues/483)
+    split from [#148](https://github.com/mikepadiernos/plasma-impresario/issues/148)
+
+  Each is a sub-issue of its siblings' parent and is listed in that parent's
+  checklist where it has one. The Plasma-session smoke item that shared
+  [#101](https://github.com/mikepadiernos/plasma-impresario/issues/101) links to
+  [#469](https://github.com/mikepadiernos/plasma-impresario/issues/469) in M15.
+
+- ![Planned][planned] **`feature/m06-desktop` merge:** that branch still has
+  board item links. When merging `main` into it, or it into `main`, keep the
+  branch's checkboxes and item moves, run `tools/roadmap-issue-links.py`
+  (it needs `gh`), then `tools/roadmap-issue-links.py --check`. Keep
+  #479–#483 on the items listed above. Remove this entry once the branch is
+  merged.
 
 [backlog]: https://img.shields.io/badge/Backlog-6e7781
 [blocked]: https://img.shields.io/badge/Blocked-cf222e
