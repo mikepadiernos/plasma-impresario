@@ -48,6 +48,7 @@
 #include <QSpinBox>
 #include <QSqlDatabase>
 #include <QStandardPaths>
+#include <QScrollArea>
 #include <QTabWidget>
 #include <QTemporaryDir>
 #include <KSharedConfig>
@@ -195,13 +196,22 @@ private slots:
         auto *access = window.imapAccess();
         auto *model = window.imapModel();
 
-        QStringList titles;
+        QStringList groups;
         QVERIFY(handleDialog([&]() { QMetaObject::invokeMethod(&window, "slotShowSettings", Qt::DirectConnection); },
             [&](QDialog *dialog) {
-                titles = tabTitles(dialog);
+                const auto pages = dialog->findChildren<QScrollArea *>();
+                for (const QScrollArea *page : pages) {
+                    if (page->objectName().startsWith(QLatin1String("settingsGroup-")))
+                        groups << page->objectName().mid(14);
+                }
                 save(dialog);
             }));
-        QCOMPARE(titles, (QStringList { QStringLiteral("General"), QStringLiteral("Favorite tags") }));
+        QCOMPARE(groups,
+                 (QStringList { QStringLiteral("general"), QStringLiteral("accounts"), QStringLiteral("appearance"),
+                                QStringLiteral("reading"), QStringLiteral("composition"), QStringLiteral("privacy"),
+                                QStringLiteral("notifications"), QStringLiteral("search"),
+                                QStringLiteral("integrations"), QStringLiteral("workspaces"),
+                                QStringLiteral("keyboard") }));
         // Saving application settings must not reconnect or rebuild the account's
         // models.
         QCOMPARE(window.imapAccess(), access);
