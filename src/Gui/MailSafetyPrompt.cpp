@@ -15,6 +15,7 @@
 #include "Common/PrivateFiles.h"
 #include "Cryptography/MessageModel.h"
 #include "Imap/Model/ItemRoles.h"
+#include "UiUtils/ActivityLog.h"
 #include "UiUtils/ClamdScanner.h"
 #include "UiUtils/MailSafetySettings.h"
 
@@ -25,6 +26,31 @@ namespace MailSafetyPrompt {
 using UiUtils::MailSafety::JunkVerdict;
 using UiUtils::MailSafety::OpenDecision;
 using UiUtils::MailSafety::ScanResult;
+
+namespace {
+
+QPointer<UiUtils::ActivityLog> &activityLog()
+{
+    static QPointer<UiUtils::ActivityLog> log;
+    return log;
+}
+
+/** The entry of one scan; scans of the same file name share it, the latest one wins */
+UiUtils::ActivityLog::Entry scanEntry(const QString &fileName)
+{
+    UiUtils::ActivityLog::Entry entry;
+    entry.key = QLatin1String("scan:") + fileName;
+    entry.kind = UiUtils::ActivityLog::Kind::Scan;
+    entry.title = i18nc("@info %1 is a file name", "Virus scan of %1", fileName);
+    return entry;
+}
+
+}
+
+void setActivityLog(UiUtils::ActivityLog *log)
+{
+    activityLog() = log;
+}
 
 JunkVerdict junkVerdictOfPart(const QModelIndex &part)
 {
@@ -113,10 +139,28 @@ void scanBeforeOpening(QWidget *parent, const QString &file, const QString &file
     auto *scanner = new UiUtils::ClamdScanner();
     QPointer<QWidget> guard(parent);
     QApplication::setOverrideCursor(Qt::BusyCursor);
+    if (UiUtils::ActivityLog *log = activityLog()) {
+        UiUtils::ActivityLog::Entry entry = scanEntry(fileName);
+        entry.state = UiUtils::ActivityLog::State::Running;
+        entry.detail = i18nc("@info", "Scanning with ClamAV…");
+        log->record(entry);
+    }
     QObject::connect(scanner, &UiUtils::ClamdScanner::finished, scanner,
                      [scanner, guard, file, fileName, done](ScanResult result, const QString &threat) {
         scanner->deleteLater();
         QApplication::restoreOverrideCursor();
+        if (UiUtils::ActivityLog *log = activityLog()) {
+            UiUtils::ActivityLog::Entry entry = scanEntry(fileName);
+            entry.state = UiUtils::MailSafety::isReportedClean(result) ? UiUtils::ActivityLog::State::Done
+                                                                       : UiUtils::ActivityLog::State::Failed;
+            if (result == ScanResult::Infected)
+                entry.error = threat.isEmpty() ? i18nc("@info", "A threat was found") : threat;
+            else if (!UiUtils::MailSafety::isReportedClean(result))
+                entry.error = scanResultText(result, fileName);
+            else
+                entry.detail = i18nc("@info", "No threat found");
+            log->record(entry);
+        }
         if (!guard) {
             Common::PrivateFiles::removeOpenedAttachment(Common::PrivateFiles::openedAttachmentsFolder(), file);
             return;

@@ -9,6 +9,7 @@
 #include "Gui/AccountSidebar.h"
 #include "Gui/ComposeWidget.h"
 #include "Gui/MailAutomation.h"
+#include "UiUtils/ActivityLog.h"
 #include "Gui/CapabilityActionGate.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MsgListView.h"
@@ -528,6 +529,26 @@ private slots:
       QVERIFY2(action(window, QString::fromLatin1(name)), name);
     QVERIFY(window.findChild<QToolButton *>(QStringLiteral("activityButton")));
     QVERIFY(action(window, QStringLiteral("action_notify_folder"))->isCheckable());
+
+    // Connection problems of any account show up in the activity log, with a
+    // way to the account
+    auto *tracker = window.findChild<Common::AccountStatusTracker *>();
+    QVERIFY(tracker);
+    tracker->setStatus(QStringLiteral("account-2"),
+                       Common::AccountStatusKind::NetworkError,
+                       QStringLiteral("Timed out"));
+    UiUtils::ActivityLog *log = automation->activity();
+    int row = -1;
+    for (int i = 0; i < log->count(); ++i) {
+      if (log->entry(i).key == QLatin1String("sync:account-2"))
+        row = i;
+    }
+    QVERIFY(row >= 0);
+    QCOMPARE(log->entry(row).kind, UiUtils::ActivityLog::Kind::Sync);
+    QCOMPARE(log->entry(row).state, UiUtils::ActivityLog::State::Failed);
+    QCOMPARE(log->entry(row).error, QStringLiteral("Timed out"));
+    QCOMPARE(log->entry(row).action, UiUtils::ActivityLog::Action::OpenAccount);
+    QCOMPARE(log->entry(row).target, QStringLiteral("account-2"));
 
     auto *sidebar = window.findChild<Gui::AccountSidebar *>();
     QVERIFY(sidebar);

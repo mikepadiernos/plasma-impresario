@@ -207,6 +207,7 @@
 #include "SavedSearchFolders.h"
 #include "ActivityDialog.h"
 #include "MailAutomation.h"
+#include "MailSafetyPrompt.h"
 #include "NotificationsDialog.h"
 #include "RulesDialog.h"
 #include "UiUtils/SearchQuery.h"
@@ -3504,7 +3505,54 @@ void MainWindow::setupMailAutomation()
         for (const QString &accountId : m_accounts->accountIds())
             m_mailAutomation->setAccountName(accountId, m_accounts->displayName(accountId));
     };
+    connect(m_accountStatus, &Common::AccountStatusTracker::statusChanged, this, &MainWindow::recordSyncActivity);
+    MailSafetyPrompt::setActivityLog(m_mailAutomation->activity());
     connect(this, &MainWindow::accountsChanged, m_mailAutomation, updateNames);
+}
+
+void MainWindow::recordSyncActivity(const QString &accountId)
+{
+    using UiUtils::ActivityLog;
+    using Kind = Common::AccountStatusKind;
+    if (!m_accounts->accountIds().contains(accountId))
+        return;
+    const Common::AccountStatus status = m_accountStatus->status(accountId);
+    if (status.kind == Kind::Idle)
+        return;
+    ActivityLog::Entry entry;
+    entry.key = QLatin1String("sync:") + accountId;
+    entry.kind = ActivityLog::Kind::Sync;
+    entry.accountId = accountId;
+    entry.title = i18nc("@info %1 is an account", "Connection of %1", m_accounts->displayName(accountId));
+    entry.detail = Common::AccountStatusTracker::label(status.kind);
+    switch (status.kind) {
+    case Kind::Connecting:
+        entry.state = ActivityLog::State::Running;
+        break;
+    case Kind::Connected:
+        entry.state = ActivityLog::State::Done;
+        break;
+    case Kind::Offline:
+        entry.state = ActivityLog::State::Waiting;
+        break;
+    case Kind::AuthRequired:
+    case Kind::AuthFailed:
+        entry.state = ActivityLog::State::Failed;
+        entry.error = status.detail.isEmpty() ? entry.detail : status.detail;
+        entry.action = usesOAuth(*m_accounts->settings(accountId)) ? ActivityLog::Action::SignIn
+                                                                  : ActivityLog::Action::OpenAccount;
+        entry.target = accountId;
+        break;
+    case Kind::NetworkError:
+        entry.state = ActivityLog::State::Failed;
+        entry.error = status.detail.isEmpty() ? entry.detail : status.detail;
+        entry.action = ActivityLog::Action::OpenAccount;
+        entry.target = accountId;
+        break;
+    case Kind::Idle:
+        return;
+    }
+    m_mailAutomation->activity()->record(entry);
 }
 
 void MainWindow::registerAutomationAccount(const QString &accountId, Imap::ImapAccess *access)
@@ -5852,6 +5900,30 @@ void MainWindow::slotDownloadTextForSearch()
                "Downloading the text of %1 messages in %2…", int(missing.size()), mailbox));
     QPointer<Imap::ImapAccess> access = m_imapAccess;
     QPointer<Imap::Mailbox::SearchIndexer> index = indexer;
+    UiUtils::ActivityLog::Entry job;
+    job.key = QLatin1String("search-text:") + m_accounts->activeAccount() + QLatin1Char(':') + mailbox;
+    job.kind = UiUtils::ActivityLog::Kind::Job;
+    job.state = UiUtils::ActivityLog::State::Running;
+    job.accountId = m_accounts->activeAccount();
+    job.title = i18nc("@info folder name", "Text of %1 for offline search", mailbox);
+    job.progress = 0;
+    m_mailAutomation->activity()->record(job);
+    connect(fetcher, &SearchTextFetcher::progressChanged, this, [this, fetcher, job]() mutable {
+        if (fetcher->total() > 0)
+            job.progress = 100 * (fetcher->downloaded() + fetcher->failed()) / fetcher->total();
+        job.time = QDateTime();
+        m_mailAutomation->activity()->record(job);
+    });
+    connect(fetcher, &SearchTextFetcher::finished, this, [this, fetcher, job]() mutable {
+        job.time = QDateTime();
+        job.progress = -1;
+        job.state = fetcher->failed() > 0 ? UiUtils::ActivityLog::State::Failed : UiUtils::ActivityLog::State::Done;
+        job.detail = i18ncp("@info", "%1 message downloaded", "%1 messages downloaded", fetcher->downloaded());
+        if (fetcher->failed() > 0)
+            job.error = i18ncp("@info", "%1 message could not be downloaded", "%1 messages could not be downloaded",
+                               fetcher->failed());
+        m_mailAutomation->activity()->record(job);
+    });
     connect(fetcher, &SearchTextFetcher::finished, this, [this, fetcher, busy, access, index]() {
         m_notificationBar->dismissBusy(busy);
         reselectShownFolder(access);

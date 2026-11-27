@@ -12,6 +12,10 @@
 class QModelIndex;
 class QWidget;
 
+namespace UiUtils {
+class ActivityLog;
+}
+
 namespace Gui {
 
 /** @short The user-visible side of UiUtils::MailSafety: junk verdicts, scan results and the questions they raise */
@@ -43,6 +47,9 @@ again; it was confirmed before the download. When @arg parent is destroyed durin
 the opened copy @arg file is removed.
 */
 void scanBeforeOpening(QWidget *parent, const QString &file, const QString &fileName, std::function<void(bool)> done);
+
+/** @short Report scans in @arg log as well, while it exists; the window passes its activity log */
+void setActivityLog(UiUtils::ActivityLog *log);
 
 }
 

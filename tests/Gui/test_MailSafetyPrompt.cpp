@@ -23,6 +23,7 @@
 
 #include "Gui/MailSafetyPrompt.h"
 #include "Imap/Model/ItemRoles.h"
+#include "UiUtils/ActivityLog.h"
 #include "UiUtils/MailSafetySettings.h"
 
 using namespace UiUtils::MailSafety;
@@ -165,6 +166,8 @@ private slots:
         UiUtils::MailSafetySettings::setScannerSocket(*appConfig(), socket);
         const QString file = writeFile(QStringLiteral("eicar.com"), QByteArrayLiteral("data"));
 
+        UiUtils::ActivityLog log;
+        Prompt::setActivityLog(&log);
         Answer answer(QStringLiteral("openAttachmentAnyway"));
         const std::optional<bool> opened = scanAndWait(file, QStringLiteral("eicar.com"));
         QVERIFY(opened.has_value());
@@ -172,6 +175,13 @@ private slots:
         QCOMPARE(answer.objectName, QStringLiteral("attachmentBlocked"));
         QVERIFY2(answer.text.contains(QLatin1String("Eicar-Signature")), qPrintable(answer.text));
         QVERIFY(received->startsWith(QByteArray("zINSTREAM\0", 10)));
+        // The scan is in the activity log as well, as one entry which ends failed with the threat
+        QCOMPARE(log.count(), 1);
+        const UiUtils::ActivityLog::Entry entry = log.entry(0);
+        QCOMPARE(entry.kind, UiUtils::ActivityLog::Kind::Scan);
+        QCOMPARE(entry.state, UiUtils::ActivityLog::State::Failed);
+        QVERIFY2(entry.error.contains(QLatin1String("Eicar-Signature")), qPrintable(entry.error));
+        Prompt::setActivityLog(nullptr);
         UiUtils::MailSafetySettings::setScansAttachments(*appConfig(), false);
     }
 

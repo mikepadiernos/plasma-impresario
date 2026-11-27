@@ -547,6 +547,8 @@ private:
 
     /** @short Create the mail rules and new-mail announcements, before the first account is set up */
     void setupMailAutomation();
+    /** @short Show the connection state of @p accountId in the activity log */
+    void recordSyncActivity(const QString &accountId);
     /** @short Let the automation watch the IMAP account @p accountId, or stop when it has no IMAP model */
     void registerAutomationAccount(const QString &accountId, Imap::ImapAccess *access);
     /** @short The accounts which the automation covers, with their names, in the order of the accounts */
