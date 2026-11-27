@@ -43,6 +43,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Files fetched from other computers](#files-fetched-from-other-computers)
   - [Plasma Search mail](#plasma-search-mail)
   - [Contacts from the address book](#contacts-from-the-address-book)
+  - [My Day calendars and follow-up mail](#my-day-calendars-and-follow-up-mail)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -72,6 +73,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Fetched files     | Only HTTP is tested, SFTP, SMB and WebDAV are not, drafts drop fetched files, and nothing is checked in a real Plasma session ([details](#files-fetched-from-other-computers))                                                                                                                                                                                                                                                                        | [#462](https://github.com/mikepadiernos/plasma-impresario/issues/462)                                                                        |
 | ![Limitation][limitation] | Plasma Search     | Mail appears only while the app runs, for the default profile, by subject or sender; nothing is checked with KRunner or in a Plasma session ([details](#plasma-search-mail))                                                                                                                                                                                                                                                                          | [#463](https://github.com/mikepadiernos/plasma-impresario/issues/463)                                                                        |
 | ![Limitation][limitation] | Contacts panel    | abook has no organizations and Akonadi is not run against a server; photos come only from the address book ([details](#contacts-from-the-address-book))                                                                                                                                                                                                                                                                                               | [#464](https://github.com/mikepadiernos/plasma-impresario/issues/464)                                                                        |
+| ![Limitation][limitation] | My Day            | Every Akonadi calendar is shown and the Akonadi path is not run against a server; follow-up mail comes from search indexes and the shown folder, up to 50 messages ([details](#my-day-calendars-and-follow-up-mail))                                                                                                                                                                                                                                  | [#465](https://github.com/mikepadiernos/plasma-impresario/issues/465)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -1678,6 +1680,67 @@ Plasma session; that check is
   with the knut resource).
 - Check photo size, icons and dialog parenting in a Plasma 6 session.
 - Let abook contacts keep an organization in a custom field.
+
+### My Day calendars and follow-up mail
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                   |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| [#465](https://github.com/mikepadiernos/plasma-impresario/issues/465) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/465#issuecomment-7211205968) | Events, tasks and follow-up mail in the My Day panel ([#304](https://github.com/mikepadiernos/plasma-impresario/issues/304)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] **View › Embedded Panels › My Day** lists today's
+  events, including multi-day events that started in the last 14 days, and
+  tasks due today or overdue, from KDE PIM calendars through Akonadi. The
+  Akonadi source runs only while the panel is on, and the build option
+  `WITH_AKONADI_CALENDAR` leaves it out.
+- ![Resolved][resolved] Follow-up mail is flagged mail and mail with the
+  `$TODO` keyword, from the shown folder and each account's offline search
+  index, newest first, up to 50 messages. Opening one looks for it in the shown
+  folder, then in loaded mail, then by Message-ID in its folder; if it is not
+  found, a notice offers **Show in Folder**.
+- ![Resolved][resolved] **Join** opens an event's online meeting link through
+  KIO. **Open in Calendar** starts KOrganizer, or Merkuro Calendar when
+  KOrganizer is not installed. Without calendars, the panel says so and lists
+  the messages only. The day changes at midnight in the system time zone.
+- ![Limitation][limitation] Every calendar Akonadi offers is shown; the
+  calendars chosen in KOrganizer or Merkuro are not followed. A multi-day event
+  that started more than 14 days ago is left out.
+- ![Limitation][limitation] Accounts without an offline search index add only
+  the shown folder's messages. Other clients may not set `$TODO`.
+- ![Limitation][limitation] **Open in Calendar** does not open the selected
+  event or task. **Join** accepts only `https`, `http`, `sip`, `sips` and
+  `tel` links.
+- ![Limitation][limitation] Opening a message from another folder stops a
+  search across folders that is running.
+- ![Limitation][limitation] The Akonadi calendar source is built and compiled
+  but has not been run against an Akonadi server. Opening messages from the
+  panel and the calendar hand-off have no direct automated test, and nothing is
+  checked in a Plasma session. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- Unchecking a calendar in KOrganizer or Merkuro does not hide it from My Day;
+  only calendars removed from Akonadi are left out. Turn the panel off if
+  unwanted calendars crowd it.
+- Turn on the offline search index for each account so that follow-up mail from
+  every folder is listed.
+- Flag messages, rather than relying on keywords set by other clients.
+- Finish a search across folders before opening messages from My Day.
+- For meeting links in other schemes, open the event in the calendar
+  application.
+
+**Proposed improvements:**
+
+- Test the Akonadi calendar source against an isolated Akonadi instance
+  (`akonaditest`) with a calendar resource.
+- Follow the calendar selection made in KOrganizer or Merkuro.
+- Open the selected event or task in the calendar application, and check the
+  application names in a Plasma 6 session.
+- Add a window-level test for opening follow-up messages and for the calendar
+  hand-off.
+- Let a follow-up lookup run without stopping a search across folders.
 
 ## Before reporting results
 
