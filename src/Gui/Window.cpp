@@ -174,6 +174,7 @@
 #include "ui_ImapInfoDialog.h"
 
 #include "Imap/Model/ModelTest/modeltest.h"
+#include "UiUtils/AccountNotices.h"
 #include "UiUtils/BackgroundRunning.h"
 #include "UiUtils/IconLoader.h"
 #include "UiUtils/MailSafetySettings.h"
@@ -184,6 +185,7 @@
 #include "UiUtils/RelatedMessages.h"
 #include "UiUtils/Relevance.h"
 #include "UiUtils/SavedSearches.h"
+#include "UiUtils/SleepMonitor.h"
 #include "UiUtils/SearchSuggestions.h"
 #include "UiUtils/ServerDiscovery.h"
 #include "UiUtils/UnreadFolders.h"
@@ -3320,9 +3322,21 @@ void MainWindow::setupAccounts()
         return std::make_unique<QSettings>(prefix + accountId + QStringLiteral(".conf"), QSettings::IniFormat);
     }, this);
     m_accountStatus = new Common::AccountStatusTracker(this);
-    connect(m_accountStatus, &Common::AccountStatusTracker::statusChanged, this, [this]() {
+    m_accountNotices = new UiUtils::AccountNotices(this);
+    m_accountNotices->setObjectName(QStringLiteral("accountNotices"));
+    connect(m_accountStatus, &Common::AccountStatusTracker::statusChanged, this, [this](const QString &accountId) {
         if (m_accountSwitcher)
             refreshAccountSwitcher();
+        // A notification about a problem which is solved would only mislead
+        if (m_accountStatus->status(accountId).kind == Common::AccountStatusKind::Connected)
+            m_accountNotices->close(accountId);
+    });
+    m_sleepMonitor = new UiUtils::SleepMonitor(this);
+    m_sleepMonitor->setObjectName(QStringLiteral("sleepMonitor"));
+    m_sleepMonitor->startOnSystemBus();
+    connect(m_sleepMonitor, &UiUtils::SleepMonitor::sleepingChanged, this, [this]() {
+        for (Imap::ImapAccess *access : std::as_const(m_accountAccess))
+            applySystemSleep(access);
     });
     // The shown account reports its own errors in the footer and in dialogs.
     connect(m_accountStatus, &Common::AccountStatusTracker::attentionRaised, this, [this](const QString &accountId) {
@@ -3383,7 +3397,9 @@ Imap::ImapAccess *MainWindow::accountAccess(const QString &accountId)
     scheduleAgendaMessages();
     connect(access, &Imap::ImapAccess::checkSslPolicy, this, [this, accountId]() { checkSslPolicy(accountId); },
             Qt::QueuedConnection);
+    connect(access, &Imap::ImapAccess::modelsChanged, this, [this, access]() { applySystemSleep(access); });
     m_accountAccess.insert(accountId, access);
+    applySystemSleep(access);
     return access;
 }
 
@@ -3771,6 +3787,12 @@ void MainWindow::updateBackgroundAlerts()
     m_backgroundAlerts->setAccessibleDescription(lines.join(QLatin1Char('\n')));
 }
 
+void MainWindow::applySystemSleep(Imap::ImapAccess *access)
+{
+    if (auto *watcher = qobject_cast<Imap::Mailbox::NetworkWatcher *>(access->networkWatcher()))
+        watcher->setSystemSleeping(m_sleepMonitor && m_sleepMonitor->isSleeping());
+}
+
 void MainWindow::notifyBackgroundAccount(const QString &accountId)
 {
     const Common::AccountStatus status = m_accountStatus->status(accountId);
@@ -3787,6 +3809,8 @@ void MainWindow::notifyBackgroundAccount(const QString &accountId)
     notification->setWindow(windowHandle());
     KNotificationAction *open = notification->addDefaultAction(i18nc("@action:button", "Open Account"));
     connect(open, &KNotificationAction::activated, this, [this, accountId, notification]() {
+        if (!m_accounts->accountIds().contains(accountId))
+            return;
         setActivationToken(notification->xdgActivationToken());
         switchAccount(accountId);
         showMainWindow();
@@ -3795,6 +3819,7 @@ void MainWindow::notifyBackgroundAccount(const QString &accountId)
         KNotificationAction *signIn = notification->addAction(i18nc("@action:button", "Sign In"));
         connect(signIn, &KNotificationAction::activated, this, [this, accountId]() { signInAccount(accountId); });
     }
+    m_accountNotices->show(accountId, notification);
     notification->sendEvent();
 #else
     if (m_trayIcon && m_trayIcon->isVisible())
@@ -3970,6 +3995,8 @@ void MainWindow::switchAccount(const QString &accountId)
     detachAccountModels();
     nukeModels();
     m_accounts->setActiveAccount(accountId);
+    // The shown account reports its problems in the window
+    m_accountNotices->close(accountId);
     m_imapAccess = accountAccess(accountId);
     mboxTree->setDesiredExpansion(expandedMailboxes());
     msgListWidget->setAccountId(m_imapAccess->credentialAccountId());
@@ -4281,6 +4308,7 @@ void MainWindow::removeAccountNow(const QString &accountId)
     }
     // Open composers may still list this account's identities, so the model lives until the window closes.
     m_accountIdentities.remove(accountId);
+    m_accountNotices->close(accountId);
     m_accountStatus->forget(accountId);
     m_accounts->removeAccount(accountId);
     if (m_unifiedInbox)

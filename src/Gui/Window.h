@@ -112,7 +112,9 @@ class PluginManager;
 
 namespace UiUtils
 {
+class AccountNotices;
 class MessageIdLookup;
+class SleepMonitor;
 }
 
 namespace MSA
@@ -524,6 +526,8 @@ private:
 
     /** Tell the user that an account other than the shown one needs attention. */
     void notifyBackgroundAccount(const QString &accountId);
+    /** Pass the system's sleep state to the network watcher of an account */
+    void applySystemSleep(Imap::ImapAccess *access);
 
     /** @param reconnect connect the account to its server; false when its models already exist */
     void setupModels(bool reconnect = true);
@@ -830,6 +834,10 @@ private:
 
     Common::AccountRegistry *m_accounts = nullptr;
     Common::AccountStatusTracker *m_accountStatus = nullptr;
+    /** One desktop notification per background account that needs attention */
+    UiUtils::AccountNotices *m_accountNotices = nullptr;
+    /** Closes the connections before the system sleeps and reconnects after it wakes */
+    UiUtils::SleepMonitor *m_sleepMonitor = nullptr;
     UiUtils::ActivationToken m_activationToken;
     QHash<QString, Imap::ImapAccess *> m_accountAccess;
     QComboBox *m_accountSwitcher = nullptr;

@@ -324,6 +324,7 @@ set(libOAuth_SOURCES
 
 set(path_UiUtils ${CMAKE_CURRENT_SOURCE_DIR}/src/UiUtils)
 set(libUiUtils_SOURCES
+    ${path_UiUtils}/AccountNotices.cpp
     ${path_UiUtils}/ActivationToken.cpp
     ${path_UiUtils}/Agenda.cpp
     ${path_UiUtils}/AttachmentCollector.cpp
@@ -379,6 +380,7 @@ set(libDesktopServices_SOURCES
     ${path_UiUtils}/MailSafetySettings.cpp
     ${path_UiUtils}/PlasmaSearch.cpp
     ${path_UiUtils}/SavedSearches.cpp
+    ${path_UiUtils}/SleepMonitor.cpp
 )
 
 if(WITH_AKONADI_CALENDAR)
