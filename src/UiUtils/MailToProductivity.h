@@ -50,6 +50,21 @@ Characters which are not allowed in file names on common file systems are replac
 */
 QString noteFileName(const Message &message, const QStringList &existing);
 
+/** @short Write the note about @arg message as a new file in @arg folder
+
+Returns the path of the note, or an empty string with @arg error set when the folder is missing or not writable.
+An existing note is never replaced.
+*/
+QString saveNote(const QString &folder, const Message &message, QString *error = nullptr);
+
+/** @short Write @arg ics to @arg directory for the calendar application to open, and return its path
+
+Events written more than a day before @arg now are removed first: the calendar application has read them by then,
+and they hold text from messages. Returns an empty string with @arg error set when the file cannot be written.
+*/
+QString saveEvent(const QString &directory, const QByteArray &ics, const QString &uid, const QDateTime &now,
+                  QString *error = nullptr);
+
 }
 
 }

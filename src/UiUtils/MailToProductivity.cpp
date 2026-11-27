@@ -4,6 +4,9 @@
 #include "UiUtils/MailToProductivity.h"
 
 #include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
+#include <QSaveFile>
 #include <QUrl>
 
 namespace UiUtils {
@@ -147,6 +150,56 @@ QString noteFileName(const Message &message, const QStringList &existing)
     for (int n = 2; existing.contains(name, Qt::CaseInsensitive); ++n)
         name = QStringLiteral("%1 (%2).md").arg(base).arg(n);
     return name;
+}
+
+QString saveNote(const QString &folder, const Message &message, QString *error)
+{
+    const QDir dir(folder);
+    if (folder.isEmpty() || !dir.exists()) {
+        if (error)
+            *error = tr("The notes folder \"%1\" does not exist.").arg(folder);
+        return QString();
+    }
+    const QString path = dir.filePath(noteFileName(message, dir.entryList(QDir::Files | QDir::Hidden)));
+    QSaveFile file(path);
+    // QSaveFile replaces files; a note which appeared since the folder was listed is kept
+    if (QFileInfo::exists(path) || !file.open(QIODevice::WriteOnly) || file.write(noteText(message).toUtf8()) < 0
+        || !file.commit()) {
+        if (error)
+            *error = tr("The note could not be saved to \"%1\": %2").arg(path, file.errorString());
+        return QString();
+    }
+    return path;
+}
+
+QString saveEvent(const QString &directory, const QByteArray &ics, const QString &uid, const QDateTime &now,
+                  QString *error)
+{
+    QDir dir(directory);
+    if (!dir.mkpath(QStringLiteral("."))) {
+        if (error)
+            *error = tr("The folder \"%1\" could not be created.").arg(directory);
+        return QString();
+    }
+    const QDateTime cutoff = now.addDays(-1);
+    const QFileInfoList old = dir.entryInfoList({QStringLiteral("*.ics")}, QDir::Files);
+    for (const QFileInfo &info : old) {
+        if (info.lastModified() < cutoff)
+            QFile::remove(info.absoluteFilePath());
+    }
+    QString name = uid;
+    for (QChar &ch : name) {
+        if (!ch.isLetterOrNumber() && ch != QLatin1Char('-'))
+            ch = QLatin1Char('-');
+    }
+    const QString path = dir.filePath(name + QLatin1String(".ics"));
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly) || file.write(ics) < 0 || !file.commit()) {
+        if (error)
+            *error = tr("The event could not be written to \"%1\": %2").arg(path, file.errorString());
+        return QString();
+    }
+    return path;
 }
 
 }
