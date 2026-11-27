@@ -566,6 +566,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/SettingsGroups.cpp
     ${path_DesktopGui}/PlasmaActivities.cpp
     ${path_DesktopGui}/MailTabBar.cpp
+    ${path_DesktopGui}/VimMode.cpp
     ${path_DesktopGui}/SettingsOAuthControls.cpp
     ${path_DesktopGui}/ShellHeader.cpp
     ${path_DesktopGui}/ShortcutOverviewDialog.cpp
@@ -1344,6 +1345,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_MainWindowDensity PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_MainWindowTabs tests/Gui/test_MainWindowTabs.cpp)
         target_link_libraries(test_MainWindowTabs PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_VimMode tests/Gui/test_VimMode.cpp)
+        target_link_libraries(test_VimMode PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_MailBoxTreeView tests/Gui/test_MailBoxTreeView.cpp)
         target_link_libraries(test_MailBoxTreeView PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_MailboxNavigation tests/Gui/test_MailboxNavigation.cpp)
@@ -1425,6 +1428,8 @@ if(BUILD_TESTING)
             endif()
             add_test(NAME test_MsgListViewTeardown COMMAND test_MsgListViewTeardown)
             set_tests_properties(test_MsgListViewTeardown PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_VimMode COMMAND test_VimMode)
+            set_tests_properties(test_VimMode PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MailBoxTreeView COMMAND test_MailBoxTreeView)
             set_tests_properties(test_MailBoxTreeView PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MailboxNavigation COMMAND test_MailboxNavigation)

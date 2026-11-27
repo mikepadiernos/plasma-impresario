@@ -20,6 +20,9 @@
 #include <QAction>
 #include <QApplication>
 #include <QBoxLayout>
+#include <QLabel>
+#include <QDialog>
+#include <QTreeWidget>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QSplitter>
@@ -242,6 +245,86 @@ private slots:
     QVERIFY(!bar->isVisible());
     QVERIFY(!nextTab->isVisible());
     QCOMPARE(UiUtils::SettingsStore::tabs(*state).tabs.size(), 1);
+  }
+
+  void vimKeysSwitchTabsFromTheMessageList() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("legacy.ini")),
+                       QSettings::IniFormat);
+    offlineAccount(settings);
+    QString accountId;
+    {
+      Gui::MainWindow window(&settings);
+      accountId = window.accountIds().constFirst();
+    }
+    Session saved;
+    saved.tabs = {tab(accountId, QStringLiteral("INBOX")),
+                  tab(accountId, QStringLiteral("Archive"))};
+    saved.current = 0;
+    UiUtils::SettingsStore::setTabs(*KSharedConfig::openStateConfig(), saved);
+    setTabSettings(settings, true, QStringLiteral("header"),
+                   QStringLiteral("horizontal"));
+    auto config =
+        KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    UiUtils::SettingsStore::setApplication(
+        *config, &settings, QStringLiteral("Keyboard/VimMode"), true);
+    config->sync();
+
+    Gui::MainWindow window(&settings);
+    window.resize(1000, 700);
+    window.show();
+    window.activateWindow();
+    QVERIFY(QTest::qWaitForWindowActive(&window));
+    auto *bar =
+        window.findChild<Gui::MailTabBar *>(QStringLiteral("mailTabBar"));
+    QVERIFY(bar);
+    QTRY_COMPARE(bar->count(), 2);
+    auto *pending = window.findChild<QLabel *>(QStringLiteral("vimPending"));
+    QVERIFY(pending);
+    QVERIFY(pending->isVisible());
+    auto *list = window.findChild<QWidget *>(QStringLiteral("messageListView"));
+    QVERIFY(list);
+    list->setFocus();
+    QTRY_VERIFY(list->hasFocus());
+
+    QTest::keyClick(list, Qt::Key_G);
+    QCOMPARE(pending->text(), QStringLiteral("g"));
+    QTest::keyClick(list, Qt::Key_T);
+    QCOMPARE(bar->currentIndex(), 1);
+    QTest::keyClick(list, Qt::Key_G);
+    QTest::keyClick(list, 'T', Qt::ShiftModifier);
+    QCOMPARE(bar->currentIndex(), 0);
+
+    // Question mark opens the shortcut overview, which lists the Vim keys
+    QTest::keyClick(list, '?', Qt::ShiftModifier);
+    auto *overview = window.findChild<QDialog *>(
+        QStringLiteral("shortcutOverviewDialog"));
+    QVERIFY(overview);
+    QTRY_VERIFY(overview->isVisible());
+    auto *entries = overview->findChild<QTreeWidget *>(
+        QStringLiteral("shortcutOverviewList"));
+    QVERIFY(entries);
+    QVERIFY(!entries
+                 ->findItems(QStringLiteral("gt: Next tab"),
+                             Qt::MatchExactly | Qt::MatchRecursive)
+                 .isEmpty());
+    overview->close();
+    window.activateWindow();
+    QVERIFY(QTest::qWaitForWindowActive(&window));
+
+    // Turned off, the status bar entry goes and g is an ordinary key again
+    UiUtils::SettingsStore::setApplication(
+        *config, &settings, QStringLiteral("Keyboard/VimMode"), false);
+    config->sync();
+    QVERIFY(QMetaObject::invokeMethod(&window, "applyVimSettings"));
+    QVERIFY(!pending->isVisible());
+    list->setFocus();
+    QTest::keyClick(list, Qt::Key_G);
+    QTest::keyClick(list, Qt::Key_T);
+    QCOMPARE(bar->currentIndex(), 0);
+    config->deleteGroup(QStringLiteral("Keyboard"));
+    config->sync();
   }
 };
 
