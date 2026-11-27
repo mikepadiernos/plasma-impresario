@@ -43,16 +43,16 @@ Notification controls are also part of
 themes are part of [M09](../ROADMAP.md#m09-themes-and-branding-foundation),
 whose branding work is in Development.
 
-| Area                                                                  | Status                                    | Current behavior                                                                                                                                                                                | Roadmap        |
-| --------------------------------------------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| [Windows and session lifecycle](#windows-and-session-lifecycle)       | ![Needs verification][needs-verification] | Shell layout, panel and density preferences are stored with KConfig; the selected folder and message with `KSharedConfig::openStateConfig()`. No Plasma session-restore hooks                   | M06.01         |
-| [Notifications and status](#notifications-and-status)                 | ![Limitation][limitation]                 | The footer shows connection status; an optional tray icon shows unread counts and network errors. KNotification is used only for background-account errors; there are no new-mail notifications | M06.01, M07    |
-| [Plasma widgets](#plasma-widgets)                                     | ![Planned][planned]                       | None                                                                                                                                                                                            | M06.02         |
-| [Files and attachments](#files-and-attachments)                       | ![Limitation][limitation]                 | `QFileDialog` for open and save; attachments open through desktop file associations; the composer accepts dropped local files only. KIO opens Plasma's file search for saved files              | M06.01, M06.03 |
-| [Search and indexing](#search-and-indexing)                           | ![Limitation][limitation]                 | Search runs on the IMAP server or in an opt-in index in the app's cache; saved files are found with Baloo or a live search in the file manager. KRunner is not used                             | M05, M06.01    |
-| [Settings and credentials](#settings-and-credentials)                 | ![Limitation][limitation]                 | Account settings use `QSettings`; app preferences use KConfig; passwords use the QtKeychain or cleartext plugin ([details](../CAVEATS.md#security-and-data-protection))                         | M06.01         |
-| [Appearance and accessibility](#appearance-and-accessibility)         | ![Needs verification][needs-verification] | Theme icons and a row density selector; accessibility, high-contrast and scaling checks are not recorded                                                                                        | M06.01, M09    |
-| [Desktop actions and availability](#desktop-actions-and-availability) | ![Needs verification][needs-verification] | The desktop entry registers the `mailto:` and `mid:` scheme handlers and a Composer action                                                                                                      | M06.01         |
+| Area                                                                  | Status                                    | Current behavior                                                                                                                                                                                                               | Roadmap        |
+| --------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
+| [Windows and session lifecycle](#windows-and-session-lifecycle)       | ![Needs verification][needs-verification] | Shell layout, panel and density preferences are stored with KConfig; the selected folder and message with `KSharedConfig::openStateConfig()`. Opt-in background running and start after login. No Plasma session-restore hooks | M06.01         |
+| [Notifications and status](#notifications-and-status)                 | ![Limitation][limitation]                 | The footer shows connection status; an optional tray icon shows unread counts and network errors. KNotification is used only for background-account errors; there are no new-mail notifications                                | M06.01, M07    |
+| [Plasma widgets](#plasma-widgets)                                     | ![Planned][planned]                       | None                                                                                                                                                                                                                           | M06.02         |
+| [Files and attachments](#files-and-attachments)                       | ![Limitation][limitation]                 | `QFileDialog` for open and save; attachments open through desktop file associations; the composer accepts dropped local files only. KIO opens Plasma's file search for saved files                                             | M06.01, M06.03 |
+| [Search and indexing](#search-and-indexing)                           | ![Limitation][limitation]                 | Search runs on the IMAP server or in an opt-in index in the app's cache; saved files are found with Baloo or a live search in the file manager. KRunner is not used                                                            | M05, M06.01    |
+| [Settings and credentials](#settings-and-credentials)                 | ![Limitation][limitation]                 | Account settings use `QSettings`; app preferences use KConfig; passwords use the QtKeychain or cleartext plugin ([details](../CAVEATS.md#security-and-data-protection))                                                        | M06.01         |
+| [Appearance and accessibility](#appearance-and-accessibility)         | ![Needs verification][needs-verification] | Theme icons and a row density selector; accessibility, high-contrast and scaling checks are not recorded                                                                                                                       | M06.01, M09    |
+| [Desktop actions and availability](#desktop-actions-and-availability) | ![Needs verification][needs-verification] | The desktop entry registers the `mailto:` and `mid:` scheme handlers and a Composer action                                                                                                                                     | M06.01         |
 
 ## Windows and session lifecycle
 
@@ -65,8 +65,15 @@ whose branding work is in Development.
 - **Recommendations:** Keep window state separate from account credentials. Make
   unfinished sends and background tasks visible before exit; do not imply that
   an interrupted operation succeeded.
+- **Today:** **Run in the background** and **Start after login**, both off by
+  default in **Settings › General**, keep mail checked while the window is
+  closed and start the application hidden after login, through an XDG
+  autostart entry or, in a sandbox, the XDG Background portal. Without them,
+  closing the window quits, also while the tray icon is shown
+  ([#371](https://github.com/mikepadiernos/plasma-impresario/issues/371); [caveats](../CAVEATS.md#desktop-integration)).
 - **Verify:** Restart and restore multiple windows, unavailable accounts and
-  interrupted drafts in a Plasma session.
+  interrupted drafts in a Plasma session; log in with the autostart entry in
+  place.
 
 ## Notifications and status
 

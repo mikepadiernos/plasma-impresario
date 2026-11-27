@@ -93,17 +93,18 @@ As of 2026-11-26. **Done** counts roadmap features whose issues are
 [project board](https://github.com/users/mikepadiernos/projects/4); **Board**
 is the milestone's parent issue.
 
-| Milestone                                                                                | Branch | Done                                                                 | Board                       | Notes                                                                                                   |
-| ---------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------- |
-| [M01](docs/ROADMAP.md#m01-kde--qt6-compatibility-baseline) KDE / Qt 6 baseline           | `main` | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]           | Builds, installs and launches with Qt 6 and KF6                                                         |
-| [M02](docs/ROADMAP.md#m02-shell-accounts-and-core-mailbox-foundation) Shell and accounts | `main` | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]           | Checks in a real Plasma session moved to M15                                                            |
-| [M03](docs/ROADMAP.md#m03-mail-operations-sorting-and-folder-management) Mail operations | `main` | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]           | Destructive actions verified against a live server                                                      |
-| [M04](docs/ROADMAP.md#m04-reading-and-conversation-flow) Reading and conversations       | `main` | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #451](https://github.com/mikepadiernos/plasma-impresario/pull/451)                        |
-| [M05](docs/ROADMAP.md#m05-search-and-indexing) Search and indexing                       | `main` | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #455](https://github.com/mikepadiernos/plasma-impresario/pull/455)                        |
-| M06–M08: desktop integration, automation, settings                                       | —      | —                                                                    | ![Backlog][backlog]         | Not started                                                                                             |
-| [M09](docs/ROADMAP.md#m09-themes-and-branding-foundation) Themes and branding            | —      | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development] | Started with the product rename ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)) |
-| M10–M14: reliability, release, Nextcloud, Microsoft, refinements                         | —      | —                                                                    | ![Backlog][backlog]         | Not started                                                                                             |
-| [M15](docs/ROADMAP.md#m15-real-plasma-session-verification) Real Plasma session checks   | —      | ![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781)       | ![Defined][defined]         | Needs a real Plasma session                                                                             |
+| Milestone                                                                                | Branch                | Done                                                                 | Board                       | Notes                                                                                                                      |
+| ---------------------------------------------------------------------------------------- | --------------------- | -------------------------------------------------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| [M01](docs/ROADMAP.md#m01-kde--qt6-compatibility-baseline) KDE / Qt 6 baseline           | `main`                | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]           | Builds, installs and launches with Qt 6 and KF6                                                                            |
+| [M02](docs/ROADMAP.md#m02-shell-accounts-and-core-mailbox-foundation) Shell and accounts | `main`                | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]           | Checks in a real Plasma session moved to M15                                                                               |
+| [M03](docs/ROADMAP.md#m03-mail-operations-sorting-and-folder-management) Mail operations | `main`                | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]           | Destructive actions verified against a live server                                                                         |
+| [M04](docs/ROADMAP.md#m04-reading-and-conversation-flow) Reading and conversations       | `main`                | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #451](https://github.com/mikepadiernos/plasma-impresario/pull/451)                                           |
+| [M05](docs/ROADMAP.md#m05-search-and-indexing) Search and indexing                       | `main`                | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #455](https://github.com/mikepadiernos/plasma-impresario/pull/455)                                           |
+| [M06](docs/ROADMAP.md#m06-desktop-integration-and-provider-support) Desktop integration  | `feature/m06-desktop` | ![0 of 27 done](https://img.shields.io/badge/0%2F27-0%25-9a6700)     | ![Development][development] | Background running and start after login in review ([#371](https://github.com/mikepadiernos/plasma-impresario/issues/371)) |
+| M07–M08: automation, settings                                                            | —                     | —                                                                    | ![Backlog][backlog]         | Not started                                                                                                                |
+| [M09](docs/ROADMAP.md#m09-themes-and-branding-foundation) Themes and branding            | —                     | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development] | Started with the product rename ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221))                    |
+| M10–M14: reliability, release, Nextcloud, Microsoft, refinements                         | —                     | —                                                                    | ![Backlog][backlog]         | Not started                                                                                                                |
+| [M15](docs/ROADMAP.md#m15-real-plasma-session-verification) Real Plasma session checks   | —                     | ![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781)       | ![Defined][defined]         | Needs a real Plasma session                                                                                                |
 
 The [roadmap overview](docs/ROADMAP.md#milestones-at-a-glance) tracks every
 milestone, and [pending tasks](docs/TODO.md#in-progress) record what each one
@@ -314,6 +315,10 @@ the disposable server, and `test_LiveImapPanels` the keyboard row.
 - The Navigation toolbar docks at the left window edge by default. The menu
   bar is hidden; open the menus from the toolbar's main menu button or turn the
   bar on with **View › Show Main Menu Bar**.
+- Closing the window quits. **Settings › General › Run in the background**
+  keeps mail checked with the window closed; open it again from the tray icon
+  or the launcher. **Start after login** then starts it hidden when you log in.
+  See [desktop integration](docs/CAVEATS.md#desktop-integration).
 
 ### Searching and saved searches
 
@@ -446,16 +451,17 @@ one opens and the bar names the folders of the others.
 
 ### Command line
 
-| Option                | Effect                                                  |
-| --------------------- | ------------------------------------------------------- |
-| `-p`, `--profile`     | Use a separate configuration with its own accounts      |
-| `-c`, `--compose`     | Open the composer                                       |
-| `mailto:…`            | Open the composer with the address and fields prefilled |
-| `--message-id <id>`   | Open the message with this Message-ID                   |
-| `mid:…`               | Open the message named by a `mid:` URL                  |
-| `-a`, `--addressbook` | Open the address book, when a plugin provides one       |
-| `-l`, `--log-to-disk` | Log IMAP traffic to disk from startup                   |
-| `-v`, `--version`     | Print the version                                       |
+| Option                | Effect                                                         |
+| --------------------- | -------------------------------------------------------------- |
+| `-p`, `--profile`     | Use a separate configuration with its own accounts             |
+| `-c`, `--compose`     | Open the composer                                              |
+| `mailto:…`            | Open the composer with the address and fields prefilled        |
+| `--message-id <id>`   | Open the message with this Message-ID                          |
+| `mid:…`               | Open the message named by a `mid:` URL                         |
+| `-a`, `--addressbook` | Open the address book, when a plugin provides one              |
+| `-l`, `--log-to-disk` | Log IMAP traffic to disk from startup                          |
+| `--background`        | Start without the window, when running in the background is on |
+| `-v`, `--version`     | Print the version                                              |
 
 Run `plasma-impresario --help` for the full list.
 

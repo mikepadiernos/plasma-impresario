@@ -35,6 +35,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Mail operations](#mail-operations)
   - [Composing and sending](#composing-and-sending)
   - [Search](#search)
+  - [Desktop integration](#desktop-integration)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -58,6 +59,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Mail operations   | Special folders need server attributes or English names, Go to Folder and related searches use loaded data only, and Undo after a move needs server COPYUID support ([details](#mail-operations))                                                                                                                                                                                                                                                     | [#312](https://github.com/mikepadiernos/plasma-impresario/issues/312)                                                                        |
 | ![Limitation][limitation] | Composing         | Each refused send files another copy in Sent, a forward sent before its message downloads is refused, forwards are attachment-only and drafts are local without attachments ([details](#composing-and-sending))                                                                                                                                                                                                                                       | [#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)                                                                        |
 | ![Limitation][limitation] | Search            | Date ranges follow the day in each message's Date header, in the sender's time zone, and a search of several folders selects each folder of the account in turn and loads every result's headers; `has:attachment` approximates by message type, folder suggestions cover only the shown account's listed folders, virtual folders count only while shown, and offline search covers only mail kept and indexed on this computer ([details](#search)) | [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454)                                                                        |
+| ![Limitation][limitation] | Desktop           | Closing the window quits unless running in the background is on, even with the tray icon shown; both options apply to every profile, and starting after login is not verified in a Plasma session or through the sandbox portal ([details](#desktop-integration))                                                                                                                                                                                     | [#457](https://github.com/mikepadiernos/plasma-impresario/issues/457)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -1250,6 +1252,72 @@ Plasma session; that check is
   common format, and confirm coverage from File Search's index rather than its
   settings
   ([#352](https://github.com/mikepadiernos/plasma-impresario/issues/352)).
+
+### Desktop integration
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                         |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#457](https://github.com/mikepadiernos/plasma-impresario/issues/457) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/457#issuecomment-7208324176) | **Run in the background** and **Start after login** in **Settings › General**, closing the main window, the tray icon's menu and the `--background` option ([#371](https://github.com/mikepadiernos/plasma-impresario/issues/371)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] **Settings › General** has **Run in the background**
+  and **Start after login**, both off by default. Starting after login needs
+  running in the background, and turning that off turns it off as well. With
+  running in the background on, closing the window hides it while mail is
+  still checked, and a notice says to open it again from the tray icon, or
+  from the application launcher when the tray icon is off. Starting the
+  application again shows the running window instead of a second copy. The
+  tray icon's menu has **Show Plasma Impresario** and **Quit**
+  ([#371](https://github.com/mikepadiernos/plasma-impresario/issues/371)).
+- ![Resolved][resolved] Outside a sandbox, **Start after login** writes
+  `io.github.mikepadiernos.plasma_impresario.desktop` to the user's autostart
+  folder, starting with `--background` and the current profile, and turning it
+  off removes only an entry the application wrote. Inside a Flatpak or Snap
+  sandbox it asks the XDG Background portal instead. An entry that cannot be
+  written or removed, or a portal that cannot be reached, is explained and the
+  earlier choice is kept.
+- ![Limitation][limitation] Closing the window now quits unless **Run in the
+  background** is on, even while the tray icon is shown; before, a visible tray
+  icon kept the application running.
+- ![Limitation][limitation] The close notice reuses the earlier "don't show
+  again" choice, so someone who dismissed the old tray notice is not told that
+  the application keeps running.
+- ![Limitation][limitation] With the tray icon off, nothing on screen shows
+  that a closed window is still running.
+- ![Limitation][limitation] Both options apply to every profile. The autostart
+  entry starts the profile it was turned on from, and turning it on from
+  another profile replaces it.
+- ![Limitation][limitation] In a sandbox the choice is saved once the portal
+  request is sent; a refusal arrives later, shows a warning and leaves **Start
+  after login** checked. The development image has no portal, so this path is
+  covered by tests of the request options only.
+- ![Limitation][limitation] Starting after login, a hidden start with
+  `--background` and the tray icon of a hidden start have not been checked in a
+  real Plasma session; that is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- To keep closing to the tray, turn on **Run in the background**.
+- If the close notice was dismissed before and running in the background is
+  on, a closed window is still running: open it from the tray icon or the
+  launcher, or quit from the tray icon's menu.
+- To start another profile after login, turn **Start after login** off and on
+  again from that profile, or edit the `Exec` line of the autostart entry.
+- In a sandbox, if the portal refuses, allow background running for the
+  application in **System Settings › Applications**, then turn **Start after
+  login** off and on again.
+
+**Proposed improvements:**
+
+- Show the new close notice once, rather than reusing the old choice.
+- Store both options per profile and name the profile in the autostart entry's
+  file name.
+- Show the background state in the tray icon's tooltip and offer **Check Mail
+  Now** in its menu.
+- Save the sandboxed choice only after the portal accepts it, and read the
+  portal's answer at startup.
 
 ## Before reporting results
 

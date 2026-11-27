@@ -35,6 +35,7 @@ Legend: ![Verified][verified] against a synthetic live IMAP server ·
   - [Mail operations](#mail-operations)
   - [Search](#search)
   - [Interface and embedded panels](#interface-and-embedded-panels)
+  - [Desktop integration](#desktop-integration)
 - [Validation checklist](#validation-checklist)
 
 ## Candidate scenarios
@@ -451,6 +452,24 @@ parentheses are the expected behavior.
 | Embedded panels  | A message without a Reply-To header (IMAP reports the sender as Reply-To)                                                                | ![Verified][verified] `test_LiveImapPanels`; the duplicate contact is fixed                                                    |
 | Embedded panels  | A short window with several panels in one column                                                                                         | ![Not validated][not-validated]                                                                                                |
 | Embedded panels  | A panel dragged past two thirds of its column (capped when the region is next fitted)                                                    | ![Not validated][not-validated]                                                                                                |
+
+### Desktop integration
+
+| Area       | Scenario                                                                                                  | Coverage                                                                               |
+| ---------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Background | Closing the window quits by default, also while the tray icon is shown                                    | ![Offscreen tests][offscreen] `test_MainWindowShell`                                   |
+| Background | Closing hides the window while running in the background, and the application keeps running               | ![Offscreen tests][offscreen] `test_MainWindowShell`                                   |
+| Background | Starting the application again while its window is hidden shows the running window                        | ![Not validated][not-validated]                                                        |
+| Background | Running in the background with the tray icon off, or no system tray available                             | ![Not validated][not-validated] ([caveat](CAVEATS.md#desktop-integration))             |
+| Background | A close notice dismissed before running in the background existed                                         | ![Not validated][not-validated] ([caveat](CAVEATS.md#desktop-integration))             |
+| Login      | **Start after login** stays off and disabled until running in the background is on, and turns off with it | ![Offscreen tests][offscreen] `test_AccountSettingsDialog`                             |
+| Login      | The autostart entry quotes a program path with spaces, quotes and `%`, and carries the profile            | ![Offscreen tests][offscreen] `test_BackgroundRunning`                                 |
+| Login      | Turning it off keeps an autostart entry of the same name written by someone else                          | ![Offscreen tests][offscreen] `test_BackgroundRunning`                                 |
+| Login      | An autostart folder that cannot be written                                                                | ![Not validated][not-validated] The choice is kept and the error shown                 |
+| Login      | `--background` from an entry left after running in the background was turned off shows the window         | ![Not validated][not-validated]                                                        |
+| Login      | Two profiles that both turn on starting after login                                                       | ![Not validated][not-validated] ([caveat](CAVEATS.md#desktop-integration))             |
+| Login      | A Flatpak or Snap sandbox, with the portal accepting, refusing or missing                                 | ![Not validated][not-validated] Request options only: `test_BackgroundRunning`         |
+| Login      | Logging in to a real Plasma session with the entry in place                                               | ![Not validated][not-validated] [M15](ROADMAP.md#m15-real-plasma-session-verification) |
 
 ## Validation checklist
 
