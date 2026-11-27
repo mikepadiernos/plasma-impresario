@@ -2261,6 +2261,12 @@ void ComposeWidget::autoSaveDraft()
     }
 }
 
+void ComposeWidget::saveDraftNow()
+{
+    if (!m_sentMail)
+        autoSaveDraft();
+}
+
 void ComposeWidget::setMessageUpdated()
 {
     m_saveState->setMessageUpdated(true);

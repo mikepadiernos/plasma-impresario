@@ -2562,6 +2562,15 @@ bool MainWindow::hasActivationToken() const
     return m_activationToken.isPending();
 }
 
+void MainWindow::saveUnsentMessages()
+{
+    const auto windows = QApplication::topLevelWidgets();
+    for (QWidget *window : windows) {
+        if (auto *composer = qobject_cast<ComposeWidget *>(window))
+            composer->saveDraftNow();
+    }
+}
+
 void MainWindow::activateForRequest(QWidget *window)
 {
     window->setVisible(true);

@@ -83,7 +83,7 @@ find_package(KF6 REQUIRED
 )
 
 if(WITH_DESKTOP)
-    find_package(KF6 REQUIRED COMPONENTS Config I18n KIO WindowSystem)
+    find_package(KF6 REQUIRED COMPONENTS Config CoreAddons I18n KIO WindowSystem)
     ki18n_install(po)
 endif()
 
@@ -1071,6 +1071,7 @@ if(WITH_DESKTOP)
             IPC
             UiUtils
             KF6::ConfigCore
+            KF6::CoreAddons
             KF6::I18n
             ${STATIC_PLUGINS}
     )

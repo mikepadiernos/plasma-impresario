@@ -21,6 +21,7 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include <QApplication>
+#include <QSessionManager>
 #include <QCommandLineOption>
 #include <QCommandLineParser>
 #include <QFile>
@@ -34,6 +35,9 @@
 #include <QUrl>
 #include <KLocalizedString>
 #include <KSharedConfig>
+#include <KSignalHandler>
+
+#include <csignal>
 
 #include "AppVersion/SetCoreApplication.h"
 #include "Common/Application.h"
@@ -253,6 +257,19 @@ int main(int argc, char **argv)
     if (parser.isSet(logtodiskOption)) {
         win.enableLoggingToDisk();
     }
+
+    // When the Plasma session ends, unsent messages are kept as drafts and reopen at the next start. Plasma asks X11
+    // clients to save their data through the session manager; on Wayland, the session's processes get SIGTERM.
+    QObject::connect(&app, &QGuiApplication::commitDataRequest, &win, [&win](QSessionManager &) {
+        win.saveUnsentMessages();
+    });
+    KSignalHandler::self()->watchSignal(SIGTERM);
+    QObject::connect(KSignalHandler::self(), &KSignalHandler::signalReceived, &win, [&win](int signal) {
+        if (signal != SIGTERM)
+            return;
+        win.saveUnsentMessages();
+        QCoreApplication::quit();
+    });
 
     return app.exec();
 }

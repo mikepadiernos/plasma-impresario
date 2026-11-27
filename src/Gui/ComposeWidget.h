@@ -122,6 +122,12 @@ public:
     bool setAccount(const QString &accountId);
     /** @short The account the draft at @p path was written from, or an empty string for older drafts */
     static QString draftAccountId(const QString &path);
+    /** @short Save changes made since the last save to the draft now, without asking
+
+    Used when the desktop session ends, so that the next start recovers them. Messages that were sent or never edited
+    are not saved.
+    */
+    void saveDraftNow();
 protected:
     void changeEvent(QEvent *e) override;
     void closeEvent(QCloseEvent *ce) override;

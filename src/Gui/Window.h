@@ -168,6 +168,11 @@ public:
     void setActivationToken(const QString &token);
     /** @short Whether a handed-over activation token waits for a window */
     bool hasActivationToken() const;
+    /** @short Save the unsent messages of every open composer as drafts, without asking
+
+    Called when the desktop session ends; the next start reopens them, as after a crash.
+    */
+    void saveUnsentMessages();
     QSize sizeHint() const override;
 
     Imap::Mailbox::Model *imapModel() const;
