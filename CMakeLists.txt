@@ -1601,6 +1601,29 @@ if(BUILD_TESTING)
         set_tests_properties(test_ArchitectureBoundaries_${boundary_name} PROPERTIES PASS_REGULAR_EXPRESSION "${boundary_expected}")
     endforeach()
 
+    # Every source file which sends something out of the application is in the reviewed register; see
+    # docs/integrations/external-services.md
+    add_test(NAME test_ExternalExposure
+        COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+            -DREGISTER=${CMAKE_CURRENT_SOURCE_DIR}/docs/integrations/external-services.md
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckExternalExposure.cmake)
+    # The check itself, on fixtures: a matching register passes, comments and bundled code are ignored, and
+    # missing and stale entries are named
+    set(exposure_fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/ExternalExposure)
+    foreach(exposure_case "clean;External exposure register matches the sources: 1 of 2 sources send something out"
+            "missing;src/Net/Fetch.cpp sends something out of the application [(]line 6: QNetworkRequest request,[)] but is not in the register"
+            "stale;src/Net/Quiet.cpp is in the register but sends nothing out of the application")
+        list(GET exposure_case 0 exposure_name)
+        list(GET exposure_case 1 exposure_expected)
+        add_test(NAME test_ExternalExposure_${exposure_name}
+            COMMAND ${CMAKE_COMMAND}
+                -DSOURCE_DIR=${exposure_fixtures}/tree
+                -DREGISTER=${exposure_fixtures}/register-${exposure_name}.txt
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckExternalExposure.cmake)
+        set_tests_properties(test_ExternalExposure_${exposure_name} PROPERTIES PASS_REGULAR_EXPRESSION "${exposure_expected}")
+    endforeach()
+
 endif()
 
 if(WIN32) # Check if we are on Windows
