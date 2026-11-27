@@ -7,3 +7,8 @@ Comment=Plasma Impresario
 Name=Account needs attention
 Comment=An account other than the one shown cannot connect or sign in
 Action=Popup
+
+[Event/newMail]
+Name=New mail
+Comment=New mail arrived in a folder whose mail is announced
+Action=Popup

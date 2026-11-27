@@ -504,6 +504,7 @@ set(path_DesktopGui ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui)
 set(libDesktopGui_SOURCES
     ${path_DesktopGui}/AccountSidebar.cpp
     ${path_DesktopGui}/AddAccountDialog.cpp
+    ${path_DesktopGui}/ActivityDialog.cpp
     ${path_DesktopGui}/AgendaPanel.cpp
     ${path_DesktopGui}/AttachmentPanel.cpp
     ${path_DesktopGui}/CapabilityActionGate.cpp
@@ -524,9 +525,12 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/LineEdit.cpp
     ${path_DesktopGui}/LinkTarget.cpp
     ${path_DesktopGui}/MailSafetyPrompt.cpp
+    ${path_DesktopGui}/MailAutomation.cpp
     ${path_DesktopGui}/MailBoxTreeView.cpp
     ${path_DesktopGui}/MailboxPickerDialog.cpp
     ${path_DesktopGui}/RemoteAttachmentFetcher.cpp
+    ${path_DesktopGui}/RuleEditDialog.cpp
+    ${path_DesktopGui}/RulesDialog.cpp
     ${path_DesktopGui}/SearchBuilderDialog.cpp
     ${path_DesktopGui}/SavedSearchFolders.cpp
     ${path_DesktopGui}/SearchFoldersDialog.cpp
@@ -541,6 +545,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/MessageSelectionRestorer.cpp
     ${path_DesktopGui}/MsgItemDelegate.cpp
     ${path_DesktopGui}/MsgListView.cpp
+    ${path_DesktopGui}/NotificationsDialog.cpp
     ${path_DesktopGui}/OnePanelAtTimeWidget.cpp
     ${path_DesktopGui}/OverlayWidget.cpp
     ${path_DesktopGui}/PasswordDialog.cpp
@@ -1743,6 +1748,16 @@ if(BUILD_TESTING)
         target_link_libraries(test_SleepMonitor PRIVATE DesktopServices Qt6::DBus)
         trojita_test(Misc MailStatus)
         target_link_libraries(test_MailStatus PRIVATE DesktopServices KF6::ConfigCore)
+        trojita_test(Misc AutomationSettings)
+        target_link_libraries(test_AutomationSettings PRIVATE DesktopServices KF6::ConfigCore)
+        trojita_test(Gui MailAutomation)
+        target_link_libraries(test_MailAutomation PRIVATE DesktopGui UiUtils KF6::ConfigCore KF6::I18n)
+        trojita_test(Gui RulesDialog)
+        target_link_libraries(test_RulesDialog PRIVATE DesktopGui UiUtils KF6::I18n)
+        trojita_test(Gui ActivityDialog)
+        target_link_libraries(test_ActivityDialog PRIVATE DesktopGui UiUtils KF6::I18n)
+        trojita_test(Gui NotificationsDialog)
+        target_link_libraries(test_NotificationsDialog PRIVATE DesktopGui UiUtils KF6::I18n)
     endif()
 
     # The mail core neither includes nor links KDE desktop services; see docs/integrations/kde-plasma.md
