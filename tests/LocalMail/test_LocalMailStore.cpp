@@ -129,6 +129,11 @@ private slots:
         store->append(QStringLiteral("INBOX"), "Subject: pop2\r\n\r\n", {}, {}, QStringLiteral("uidl-2"));
         store->keepOnlyOrigins({QStringLiteral("uidl-2")});
         QCOMPARE(store->origins(), QStringList{QStringLiteral("uidl-2")});
+
+        // A copy, such as one half of a move, is still the server's message
+        const QList<uint> copied = store->copy(QStringLiteral("INBOX"), {2}, QStringLiteral("Trash"));
+        QCOMPARE(copied.size(), 1);
+        QCOMPARE(store->messages(QStringLiteral("Trash")).constFirst().origin, QStringLiteral("uidl-2"));
     }
 
     void keepsEverythingAcrossReopening()

@@ -442,7 +442,7 @@ QList<uint> Store::copy(const QString &from, const QList<uint> &uids, const QStr
         for (const MessageInfo &message : source) {
             if (message.uid != uid)
                 continue;
-            const uint copied = append(to, content(from, uid), message.flags, message.internalDate, QString(), error);
+            const uint copied = append(to, content(from, uid), message.flags, message.internalDate, message.origin, error);
             if (!copied) {
                 remove(to, result);
                 return {};

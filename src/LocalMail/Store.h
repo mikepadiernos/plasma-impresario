@@ -81,7 +81,11 @@ public:
     bool setFlags(const QString &mailbox, uint uid, const QStringList &flags);
     /** Remove the messages @arg uids of @arg mailbox, with their files */
     bool remove(const QString &mailbox, const QList<uint> &uids, QString *error = nullptr);
-    /** Copy messages, returning the new UIDs in the order of @arg uids, or an empty list and @arg error */
+    /**
+     * Copy messages, returning the new UIDs in the order of @arg uids, or an empty list and @arg error
+     *
+     * Copies keep the origin, so a message moved between folders is still known as the server's message.
+     */
     QList<uint> copy(const QString &from, const QList<uint> &uids, const QString &to, QString *error = nullptr);
 
     /** Whether a message from @arg origin was stored, even if it was removed since */
