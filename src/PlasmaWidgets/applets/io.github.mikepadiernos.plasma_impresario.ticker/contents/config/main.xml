@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0 http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+  <kcfgfile name=""/>
+  <group name="General">
+    <!-- Account IDs to show; empty shows every account -->
+    <entry name="accounts" type="StringList">
+      <default></default>
+    </entry>
+    <!-- Folders whose unread messages to show; empty shows every indexed folder -->
+    <entry name="folders" type="StringList">
+      <default>INBOX</default>
+    </entry>
+    <entry name="showSender" type="Bool">
+      <default>true</default>
+    </entry>
+    <entry name="showSubject" type="Bool">
+      <default>true</default>
+    </entry>
+    <entry name="showAccount" type="Bool">
+      <default>false</default>
+    </entry>
+    <entry name="showFolder" type="Bool">
+      <default>false</default>
+    </entry>
+    <entry name="showDate" type="Bool">
+      <default>false</default>
+    </entry>
+    <entry name="scrolling" type="Bool">
+      <default>true</default>
+    </entry>
+    <!-- Logical pixels per second -->
+    <entry name="speed" type="Int">
+      <default>40</default>
+      <min>10</min>
+      <max>200</max>
+    </entry>
+    <!-- Seconds each entry is shown when paging -->
+    <entry name="pageInterval" type="Int">
+      <default>5</default>
+      <min>1</min>
+      <max>60</max>
+    </entry>
+  </group>
+</kcfg>

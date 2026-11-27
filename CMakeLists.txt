@@ -102,6 +102,7 @@ trojita_plugin_option(WITH_SONNET_PLUGIN "Build a plugin for spellchecking via K
 trojita_option(WITH_KNOTIFICATIONS "Report background account errors as desktop notifications" AUTO "WITH_DESKTOP")
 trojita_option(WITH_KFILEMETADATA "Index the text of downloaded attachments through KFileMetaData" AUTO)
 trojita_option(WITH_AKONADI_CALENDAR "Show KDE PIM events and tasks in the My Day panel" AUTO "WITH_DESKTOP")
+trojita_option(WITH_PLASMA_WIDGETS "Build the optional Plasma widgets" AUTO "WITH_DESKTOP;WITH_DBUS")
 
 trojita_find_package(Git "" "" "" "")
 
@@ -138,6 +139,9 @@ trojita_find_package(KF6Sonnet ${SONNET_LIB_VERSION} "https://projects.kde.org/p
 trojita_find_package(KF6Notifications "" "https://invent.kde.org/frameworks/knotifications" "KDE desktop notifications" "Report background account errors as desktop notifications" WITH_KNOTIFICATIONS)
 trojita_find_package(KF6FileMetaData "" "https://invent.kde.org/frameworks/kfilemetadata" "KDE file metadata and text extraction" "Index the text of downloaded attachments" WITH_KFILEMETADATA)
 trojita_find_package(KPim6AkonadiCalendar "" "https://invent.kde.org/pim/akonadi-calendar" "KDE PIM calendars" "Events and tasks in My Day" WITH_AKONADI_CALENDAR)
+trojita_find_package(Qt6Quick "" "https://doc.qt.io/qt-6/qtquick-index.html" "Qt Quick" "The Plasma widgets' shared views" WITH_PLASMA_WIDGETS)
+trojita_find_package(Qt6QuickTest "" "https://doc.qt.io/qt-6/qtquicktest-index.html" "Qt Quick Test" "Tests for the Plasma widgets' views")
+trojita_find_package(KF6Service "" "https://invent.kde.org/frameworks/kservice" "KDE service lookup" "Starting the application from the Plasma widgets" WITH_PLASMA_WIDGETS)
 if(Qt6Keychain_FOUND OR QtKeychain_FOUND)
     message(STATUS "Found QtKeychain library (includes at ${QTKEYCHAIN_INCLUDE_DIRS}, lib at ${QTKEYCHAIN_LIBRARIES})")
 else()
@@ -1100,6 +1104,32 @@ if(WITH_DESKTOP)
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/docs/old/trojita.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
 endif()
 
+if(WITH_PLASMA_WIDGETS)
+    # Shared views and the D-Bus client for the status and ticker widgets; see docs/integrations/kde-plasma.md
+    include(ECMQmlModule)
+    # Plasma loads the module as a plugin, so it is shared even though the application's libraries are static
+    set(plasma_widgets_shared_libs ${BUILD_SHARED_LIBS})
+    set(BUILD_SHARED_LIBS ON)
+    ecm_add_qml_module(PlasmaImpresarioWidgets URI "io.github.mikepadiernos.plasmaimpresario" GENERATE_PLUGIN_SOURCE)
+    set(BUILD_SHARED_LIBS ${plasma_widgets_shared_libs})
+    target_sources(PlasmaImpresarioWidgets PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/PlasmaWidgets/MailStatusClient.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/PlasmaWidgets/MailStatusClient.h)
+    set(plasma_widgets_qml AccountChooser.qml MailTicker.qml StatusSummary.qml)
+    foreach(plasma_widgets_file ${plasma_widgets_qml})
+        set_source_files_properties(src/PlasmaWidgets/qml/${plasma_widgets_file} PROPERTIES QT_RESOURCE_ALIAS ${plasma_widgets_file})
+        ecm_target_qml_sources(PlasmaImpresarioWidgets SOURCES src/PlasmaWidgets/qml/${plasma_widgets_file})
+    endforeach()
+    target_compile_definitions(PlasmaImpresarioWidgets PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+    # The generated type registration includes the client's header by its file name
+    target_include_directories(PlasmaImpresarioWidgets PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/PlasmaWidgets)
+    target_link_libraries(PlasmaImpresarioWidgets PRIVATE Qt6::Quick Qt6::DBus KF6::WindowSystem KF6::KIOGui KF6::Service)
+    ecm_finalize_qml_module(PlasmaImpresarioWidgets DESTINATION ${KDE_INSTALL_QMLDIR})
+    install(DIRECTORY
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/PlasmaWidgets/applets/io.github.mikepadiernos.plasma_impresario.status
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/PlasmaWidgets/applets/io.github.mikepadiernos.plasma_impresario.ticker
+        DESTINATION ${KDE_INSTALL_DATADIR}/plasma/plasmoids)
+endif()
 
 if(WITH_SHARED_PLUGINS)
     install(TARGETS Plugins DESTINATION ${CMAKE_INSTALL_LIBDIR})
@@ -1571,6 +1601,34 @@ if(BUILD_TESTING)
         target_link_libraries(test_MailStatusBridge PRIVATE Qt6::DBus Qt6::Test)
         if(NOT CMAKE_CROSSCOMPILING)
             add_test(test_MailStatusBridge test_MailStatusBridge)
+        endif()
+    endif()
+    if(WITH_PLASMA_WIDGETS)
+        # The client against a fake application on a private session bus
+        add_executable(test_MailStatusClient tests/PlasmaWidgets/test_MailStatusClient.cpp
+            src/PlasmaWidgets/MailStatusClient.cpp src/PlasmaWidgets/MailStatusClient.h
+            src/IPC/MailStatusBridge.cpp src/IPC/MailStatusBridge.h)
+        target_compile_definitions(test_MailStatusClient PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+        target_include_directories(test_MailStatusClient PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+        target_link_libraries(test_MailStatusClient PRIVATE Qt6::DBus Qt6::Qml Qt6::Gui KF6::WindowSystem KF6::KIOGui KF6::Service Qt6::Test)
+        find_program(DBUS_RUN_SESSION dbus-run-session)
+        if(NOT CMAKE_CROSSCOMPILING)
+            if(DBUS_RUN_SESSION)
+                add_test(NAME test_MailStatusClient COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:test_MailStatusClient>)
+            else()
+                add_test(NAME test_MailStatusClient COMMAND test_MailStatusClient)
+            endif()
+        endif()
+        if(Qt6QuickTest_FOUND)
+            # The shared views with a fake client
+            add_executable(test_PlasmaWidgetViews tests/PlasmaWidgets/test_PlasmaWidgetViews.cpp)
+            target_compile_definitions(test_PlasmaWidgetViews PRIVATE QUICK_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/PlasmaWidgets")
+            target_link_libraries(test_PlasmaWidgetViews PRIVATE Qt6::QuickTest)
+            add_dependencies(test_PlasmaWidgetViews PlasmaImpresarioWidgets)
+            if(NOT CMAKE_CROSSCOMPILING)
+                add_test(NAME test_PlasmaWidgetViews COMMAND test_PlasmaWidgetViews -import ${CMAKE_BINARY_DIR}/bin)
+                set_tests_properties(test_PlasmaWidgetViews PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            endif()
         endif()
     endif()
     if(WITH_DESKTOP)
