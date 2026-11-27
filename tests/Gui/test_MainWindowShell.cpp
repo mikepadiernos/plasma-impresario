@@ -8,6 +8,7 @@
 #include "Common/SettingsNames.h"
 #include "Gui/AccountSidebar.h"
 #include "Gui/ComposeWidget.h"
+#include "Gui/MailAutomation.h"
 #include "Gui/CapabilityActionGate.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MsgListView.h"
@@ -503,6 +504,36 @@ private slots:
     sidebar->headers().at(0)->setFocus();
     next->trigger();
     QCOMPARE(window.focusWidget(), messages);
+  }
+
+  void mailAutomationFollowsTheWindow() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                       QSettings::IniFormat);
+    seedTwoAccounts(directory, settings, Imap::AccountProtocol::Pop3);
+
+    Gui::MainWindow window(&settings);
+    auto *automation =
+        window.findChild<Gui::MailAutomation *>(QStringLiteral("mailAutomation"));
+    QVERIFY(automation);
+    // POP3 mail is read from a local store, which rules do not watch
+    QVERIFY(automation->accounts().contains(QStringLiteral("account-1")));
+    QVERIFY(!automation->accounts().contains(QStringLiteral("account-2")));
+    QCOMPARE(automation->activeAccount(), QStringLiteral("account-1"));
+    for (const char *name :
+         {"action_mail_rules", "action_activity",
+          "action_configure_notifications", "action_rule_from_search",
+          "action_notify_folder"})
+      QVERIFY2(action(window, QString::fromLatin1(name)), name);
+    QVERIFY(window.findChild<QToolButton *>(QStringLiteral("activityButton")));
+    QVERIFY(action(window, QStringLiteral("action_notify_folder"))->isCheckable());
+
+    auto *sidebar = window.findChild<Gui::AccountSidebar *>();
+    QVERIFY(sidebar);
+    sidebar->headers().at(1)->click();
+    QCOMPARE(automation->activeAccount(), QStringLiteral("account-2"));
+    QVERIFY(!automation->accounts().contains(QStringLiteral("account-2")));
   }
 
   void sidebarHeaderMenuActsOnItsAccount() {

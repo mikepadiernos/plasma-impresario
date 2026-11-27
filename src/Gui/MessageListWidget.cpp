@@ -1238,6 +1238,11 @@ QString MessageListWidget::activeSavedSearchId() const
     return m_activeSavedSearch.id;
 }
 
+QString MessageListWidget::searchText() const
+{
+    return m_quickSearchText->text();
+}
+
 void MessageListWidget::forgetActiveSavedSearch()
 {
     setActiveSavedSearch(UiUtils::SavedSearch());

@@ -154,6 +154,10 @@ class Pop3Fetcher;
 class ProtocolLoggerWidget;
 class ShortcutOverviewDialog;
 class TaskProgressIndicator;
+class MailAutomation;
+class ActivityButton;
+class ActivityDialog;
+class RulesDialog;
 
 class MainWindow: public QMainWindow
 {
@@ -278,6 +282,7 @@ public slots:
 protected:
     void closeEvent(QCloseEvent *event) override;
     bool eventFilter(QObject *o, QEvent *e) override;
+    void changeEvent(QEvent *event) override;
 private slots:
     void showContextMenuMboxTree(const QPoint &position);
     void showContextMenuMsgListTree(const QPoint &position);
@@ -539,6 +544,27 @@ private:
 
     /** Tell the user that an account other than the shown one needs attention. */
     void notifyBackgroundAccount(const QString &accountId);
+
+    /** @short Create the mail rules and new-mail announcements, before the first account is set up */
+    void setupMailAutomation();
+    /** @short Let the automation watch the IMAP account @p accountId, or stop when it has no IMAP model */
+    void registerAutomationAccount(const QString &accountId, Imap::ImapAccess *access);
+    /** @short The accounts which the automation covers, with their names, in the order of the accounts */
+    QList<QPair<QString, QString>> automationAccounts() const;
+    /** @short Edit the mail rules, selecting @p ruleId; @p prepare runs once the dialog is shown */
+    void showMailRules(const QString &ruleId = QString(), const std::function<void(RulesDialog &)> &prepare = {});
+    /** @short Offer a rule made from the quick search of the message list */
+    void createRuleFromSearch();
+    /** @short Offer a rule made from the saved search @p id of @p owner */
+    void createRuleFromSavedSearch(const QString &owner, const QString &id);
+    /** @short Offer a rule made from the search @p text, called @p name, or say why it cannot be one */
+    void offerRuleFromQuery(const QString &text, const QString &name);
+    void showActivity();
+    void configureNotifications();
+    /** @short Show the mail which a notification announced: message @p uid of @p folder, or the folder when 0 */
+    void openAnnouncedMail(const QString &accountId, const QString &folder, uint uid, const QString &activationToken);
+    /** @short Point the folder's Notify About New Mail action at @p mailbox */
+    void prepareNotifyFolderAction(const QModelIndex &mailbox);
     /** Pass the system's sleep state to the network watcher of an account */
     void applySystemSleep(Imap::ImapAccess *access);
 
@@ -1083,6 +1109,14 @@ private:
     QAction *m_actionDownloadSearchText = nullptr;
     QPointer<Imap::Mailbox::SearchTextFetcher> m_searchTextFetcher;
     QAction *m_actionSearchIndex = nullptr;
+    MailAutomation *m_mailAutomation = nullptr;
+    ActivityButton *m_activityButton = nullptr;
+    QPointer<ActivityDialog> m_activityDialog;
+    QAction *m_actionMailRules = nullptr;
+    QAction *m_actionActivity = nullptr;
+    QAction *m_actionConfigureNotifications = nullptr;
+    QAction *m_actionRuleFromSearch = nullptr;
+    QAction *m_actionNotifyFolder = nullptr;
     QPointer<SearchIndexDialog> m_searchIndexDialog;
     QPointer<SavedFilesSearchDialog> m_savedFilesDialog;
     QAction *m_actionFindSavedFiles = nullptr;

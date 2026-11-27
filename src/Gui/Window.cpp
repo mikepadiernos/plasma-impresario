@@ -205,6 +205,11 @@
 #include "AddAccountDialog.h"
 #include "CapabilityActionGate.h"
 #include "SavedSearchFolders.h"
+#include "ActivityDialog.h"
+#include "MailAutomation.h"
+#include "NotificationsDialog.h"
+#include "RulesDialog.h"
+#include "UiUtils/SearchQuery.h"
 #include "ShellHeader.h"
 
 /** @short All user-facing widgets and related classes */
@@ -796,6 +801,32 @@ void MainWindow::createActions()
     m_actionSearchIndex->setObjectName(QStringLiteral("action_search_index_status"));
     m_actionSearchIndex->setToolTip(i18nc("@info:tooltip", "Show how much of the account's mail can be searched offline"));
     connect(m_actionSearchIndex, &QAction::triggered, this, &MainWindow::slotShowSearchIndex);
+    m_actionMailRules = new QAction(UiUtils::loadIcon(QStringLiteral("view-filter")), i18nc("@action", "Mail &Rules…"), this);
+    m_actionMailRules->setObjectName(QStringLiteral("action_mail_rules"));
+    connect(m_actionMailRules, &QAction::triggered, this, [this]() { showMailRules(); });
+    m_actionActivity = new QAction(UiUtils::loadIcon(QStringLiteral("view-history")), i18nc("@action", "&Activity…"), this);
+    m_actionActivity->setObjectName(QStringLiteral("action_activity"));
+    connect(m_actionActivity, &QAction::triggered, this, &MainWindow::showActivity);
+    m_actionConfigureNotifications = new QAction(UiUtils::loadIcon(QStringLiteral("preferences-desktop-notification")),
+                                                 i18nc("@action", "Configure &Notifications…"), this);
+    m_actionConfigureNotifications->setObjectName(QStringLiteral("action_configure_notifications"));
+    connect(m_actionConfigureNotifications, &QAction::triggered, this, &MainWindow::configureNotifications);
+    m_actionRuleFromSearch = new QAction(UiUtils::loadIcon(QStringLiteral("view-filter")),
+                                         i18nc("@action", "Create &Rule from Search…"), this);
+    m_actionRuleFromSearch->setObjectName(QStringLiteral("action_rule_from_search"));
+    m_actionRuleFromSearch->setToolTip(i18nc("@info:tooltip", "Make a mail rule which matches what the quick search finds"));
+    connect(m_actionRuleFromSearch, &QAction::triggered, this, &MainWindow::createRuleFromSearch);
+    m_actionNotifyFolder = new QAction(i18nc("@action folder", "&Notify About New Mail"), this);
+    m_actionNotifyFolder->setObjectName(QStringLiteral("action_notify_folder"));
+    m_actionNotifyFolder->setCheckable(true);
+    connect(m_actionNotifyFolder, &QAction::triggered, this, [this](bool checked) {
+        const QString folder = m_actionNotifyFolder->data().toString();
+        if (folder.isEmpty())
+            return;
+        UiUtils::NewMail::Settings settings = m_mailAutomation->notificationSettings();
+        settings.setAnnounces(m_accounts->activeAccount(), folder, checked);
+        m_mailAutomation->setNotificationSettings(settings);
+    });
     m_actionRenameAccount = new QAction(i18n("Re&name Account..."), this);
     connect(m_actionRenameAccount, &QAction::triggered, this, &MainWindow::slotRenameAccount);
     m_actionRemoveAccount = new QAction(UiUtils::loadIcon(QStringLiteral("list-remove")), i18n("&Remove Account..."), this);
@@ -1560,6 +1591,9 @@ void MainWindow::createMenus()
         ADD_ACTION(applicationMenu, m_actionRemoveAccount);
         applicationMenu->addSeparator();
         ADD_ACTION(applicationMenu, configSettings);
+        ADD_ACTION(applicationMenu, m_actionConfigureNotifications);
+        ADD_ACTION(applicationMenu, m_actionMailRules);
+        ADD_ACTION(applicationMenu, m_actionActivity);
         ADD_ACTION(applicationMenu, ShortcutHandler::instance()->shortcutConfigAction());
         applicationMenu->addSeparator();
         ADD_ACTION(applicationMenu, aboutTrojita);
@@ -1650,6 +1684,7 @@ void MainWindow::createMenus()
         ADD_ACTION(mailboxMenu, m_actionFind);
         ADD_ACTION(mailboxMenu, m_searchBuilder);
         mailboxMenu->addAction(m_actionFindSavedFiles);
+        ADD_ACTION(mailboxMenu, m_actionRuleFromSearch);
         QMenu *sortMenu = mailboxMenu->addMenu(tr("S&orting"));
             ADD_ACTION(sortMenu, m_actionSortNone);
             ADD_ACTION(sortMenu, m_actionSortThreading);
@@ -1691,10 +1726,12 @@ void MainWindow::createMenus()
         ADD_ACTION(mailboxMenu, expunge);
         mailboxMenu->addSeparator();
         ADD_ACTION(mailboxMenu, m_renameMailbox);
+        ADD_ACTION(mailboxMenu, m_actionNotifyFolder);
         ADD_ACTION(mailboxMenu, m_emptyTrash);
         ADD_ACTION(mailboxMenu, m_emptyJunk);
         connect(mailboxMenu, &QMenu::aboutToShow, this, [this]() {
             m_renameMailbox->setEnabled(canRenameMailbox(mboxTree->currentIndex()));
+            prepareNotifyFolderAction(mboxTree->currentIndex());
         });
 
     QMenu *messageMenu = menuBar()->addMenu(tr("&Message"));
@@ -1785,6 +1822,11 @@ void MainWindow::createWidgets()
     });
     // Left of the shown account's connection status
     statusBar()->insertPermanentWidget(0, m_backgroundAlerts);
+
+    m_activityButton = new ActivityButton(m_mailAutomation->activity(), statusBar());
+    m_activityButton->setObjectName(QStringLiteral("activityButton"));
+    connect(m_activityButton, &QToolButton::clicked, this, &MainWindow::showActivity);
+    statusBar()->insertPermanentWidget(0, m_activityButton);
 
     m_oauthSignIn = new QToolButton(statusBar());
     m_oauthSignIn->setObjectName(QStringLiteral("oauthSignInButton"));
@@ -1886,6 +1928,20 @@ void MainWindow::createWidgets()
     m_messageWidget->messageView->setAccountResolver(accountName);
     connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::scrollMessageUp);
     connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::slotUpdateMessageActions);
+    // Replies to the conversation being read are not announced
+    connect(m_messageWidget->messageView, &MessageView::messageChanged, this, [this]() {
+        const QModelIndex message = m_messageWidget->messageView->currentMessage();
+        QStringList ids;
+        if (message.isValid()) {
+            const QString id = QString::fromUtf8(message.data(Imap::Mailbox::RoleMessageMessageId).toByteArray());
+            if (!id.isEmpty())
+                ids << id;
+            const auto inReplyTo = message.data(Imap::Mailbox::RoleMessageInReplyTo).value<QList<QByteArray>>();
+            for (const QByteArray &parent : inReplyTo)
+                ids << QString::fromUtf8(parent);
+        }
+        m_mailAutomation->setReading(ids);
+    });
     connect(m_messageWidget->messageView, &MessageView::linkHovered, this, [this](const QString &url, const QString &text) {
         // A tooltip still waiting for the previous link is dropped
         ++m_hoveredLinkGeneration;
@@ -2507,6 +2563,13 @@ void MainWindow::closeEvent(QCloseEvent *event)
     }
 }
 
+void MainWindow::changeEvent(QEvent *event)
+{
+    QMainWindow::changeEvent(event);
+    if (event->type() == QEvent::ActivationChange && m_mailAutomation)
+        m_mailAutomation->setWindowActive(isActiveWindow());
+}
+
 bool MainWindow::eventFilter(QObject *o, QEvent *e)
 {
     // A hidden splitter receives its pending resize before it becomes visible, so also look at the show event
@@ -2760,6 +2823,8 @@ void MainWindow::showContextMenuMboxTree(const QPoint &position)
         else if (specialUse == Imap::Mailbox::SpecialUse::Junk)
             actionList.append(m_emptyJunk);
         actionList.append(m_actionMarkMailboxAsRead);
+        prepareNotifyFolderAction(clicked);
+        actionList.append(m_actionNotifyFolder);
         actionList.append(resyncMbox);
         actionList.append(reloadMboxList);
         // Only with the local index enabled; the index itself never downloads anything
@@ -3378,7 +3443,245 @@ void MainWindow::setupAccounts()
         Common::AccountRegistry::copyAccountKeys(*m_settings, *m_accounts->settings(accountId));
         m_settings->setValue(legacyAccountKey, accountId);
     }
+    setupMailAutomation();
     m_imapAccess = accountAccess(m_accounts->activeAccount());
+}
+
+void MainWindow::setupMailAutomation()
+{
+    m_mailAutomation = new MailAutomation(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")),
+                                          KSharedConfig::openStateConfig(), this);
+    m_mailAutomation->setObjectName(QStringLiteral("mailAutomation"));
+    m_mailAutomation->setActiveAccount(m_accounts->activeAccount());
+    m_mailAutomation->setWindowActive(isActiveWindow());
+    m_mailAutomation->setFolderResolver([this](const QString &accountId) {
+        MailAutomation::Folders folders;
+        withAccount(accountId, [this, &folders]() {
+            folders.archive = archiveTarget();
+            if (const Imap::Mailbox::Model *model = imapModel())
+                folders.trash = model->specialFolderMailbox(Imap::Mailbox::SpecialUse::Trash);
+        });
+        return folders;
+    });
+    connect(m_mailAutomation, &MailAutomation::statusMessage, this, &MainWindow::showStatusMessage);
+    connect(m_mailAutomation, &MailAutomation::openRequested, this, &MainWindow::openAnnouncedMail);
+    connect(m_mailAutomation, &MailAutomation::attention, this,
+            [this](const UiUtils::ActivityLog::Entry &entry, UiUtils::OutputSurfaces::Surfaces surfaces) {
+        using UiUtils::ActivityLog;
+        using UiUtils::OutputSurfaces::Surface;
+        const QString text = entry.error.isEmpty() ? entry.title
+            : i18nc("@info %1 is what failed, %2 the reason", "%1: %2", entry.title, entry.error);
+        if (surfaces.testFlag(Surface::InlineBar) && m_notificationBar) {
+            if (entry.action == ActivityLog::Action::ReviewRule) {
+                const QString ruleId = entry.target;
+                m_notificationBar->showMessage(InlineNotificationBar::Kind::Info, text,
+                    {{i18nc("@action:button", "Review Rule…"), QStringLiteral("view-filter"),
+                      QStringLiteral("reviewAutomationRule"), [this, ruleId]() { showMailRules(ruleId); }}});
+            } else {
+                m_notificationBar->showMessage(InlineNotificationBar::Kind::Error, text,
+                    {{i18nc("@action:button", "Show Activity…"), QStringLiteral("view-history"),
+                      QStringLiteral("showAutomationActivity"), [this]() { showActivity(); }}});
+            }
+        }
+#ifdef TROJITA_HAVE_KNOTIFICATIONS
+        if (surfaces.testFlag(Surface::DesktopNotification)) {
+            auto *notification = new KNotification(QStringLiteral("automationProblem"), KNotification::CloseOnTimeout);
+            notification->setComponentName(QStringLiteral("plasma-impresario"));
+            notification->setTitle(entry.title);
+            notification->setText((entry.error.isEmpty() ? entry.detail : entry.error).toHtmlEscaped());
+            notification->setWindow(windowHandle());
+            KNotificationAction *open = notification->addDefaultAction(i18nc("@action:button", "Show Activity"));
+            connect(open, &KNotificationAction::activated, this, [this, notification]() {
+                setActivationToken(notification->xdgActivationToken());
+                showMainWindow();
+                showActivity();
+            });
+            notification->sendEvent();
+        }
+#endif
+    });
+    const auto updateNames = [this]() {
+        for (const QString &accountId : m_accounts->accountIds())
+            m_mailAutomation->setAccountName(accountId, m_accounts->displayName(accountId));
+    };
+    connect(this, &MainWindow::accountsChanged, m_mailAutomation, updateNames);
+}
+
+void MainWindow::registerAutomationAccount(const QString &accountId, Imap::ImapAccess *access)
+{
+    if (!m_mailAutomation)
+        return;
+    // POP3 and JMAP accounts read their mail from a local store which the automation does not watch
+    auto *model = qobject_cast<Imap::Mailbox::Model *>(access->imapModel());
+    if (access->protocol() == Imap::AccountProtocol::Imap && model)
+        m_mailAutomation->addAccount(accountId, m_accounts->displayName(accountId), model);
+    else
+        m_mailAutomation->removeAccount(accountId);
+}
+
+QList<QPair<QString, QString>> MainWindow::automationAccounts() const
+{
+    QList<QPair<QString, QString>> accounts;
+    const QStringList covered = m_mailAutomation ? m_mailAutomation->accounts() : QStringList();
+    for (const QString &accountId : m_accounts->accountIds()) {
+        if (covered.contains(accountId))
+            accounts.append({accountId, m_accounts->displayName(accountId)});
+    }
+    return accounts;
+}
+
+void MainWindow::showMailRules(const QString &ruleId, const std::function<void(RulesDialog &)> &prepare)
+{
+    RulesDialog dialog(automationAccounts(), this);
+    dialog.setRules(m_mailAutomation->rules());
+    const QString accountId = m_accounts->activeAccount();
+    const QString folder = currentMailboxName();
+    if (!showsUnifiedList() && !folder.isEmpty() && m_imapAccess && m_mailAutomation->accounts().contains(accountId)) {
+        const QPointer<QAbstractItemModel> list = m_imapAccess->msgListModel();
+        dialog.setShownFolder(accountId, folder, [list, accountId, folder]() {
+            QList<UiUtils::MailRules::Message> messages;
+            if (!list)
+                return messages;
+            for (int row = 0; row < list->rowCount(); ++row) {
+                const QModelIndex index = list->index(row, 0);
+                if (index.data(Imap::Mailbox::RoleIsFetched).toBool())
+                    messages.append(UiUtils::NewMailWatcher::message(index, accountId, folder));
+            }
+            return messages;
+        });
+        dialog.setApplier([this](const QList<UiUtils::MailRules::Rule> &rules, const QString &account,
+                                 const QString &mailbox, const QList<UiUtils::MailRules::Message> &messages) {
+            return m_mailAutomation->apply(rules, account, mailbox, messages);
+        });
+    }
+    dialog.selectRule(ruleId);
+    if (prepare) {
+        QMetaObject::invokeMethod(&dialog, [&dialog, prepare]() { prepare(dialog); }, Qt::QueuedConnection);
+    }
+    if (dialog.exec() == QDialog::Accepted)
+        m_mailAutomation->setRules(dialog.rules());
+}
+
+void MainWindow::createRuleFromSearch()
+{
+    const QString text = msgListWidget->searchText().trimmed();
+    if (text.isEmpty()) {
+        m_notificationBar->showInfo(i18nc("@info", "Type a search in the message list first; the rule matches what "
+                                                   "it finds."));
+        return;
+    }
+    offerRuleFromQuery(text, text);
+}
+
+void MainWindow::createRuleFromSavedSearch(const QString &owner, const QString &id)
+{
+    const KConfigGroup group = MessageListWidget::savedSearchesRoot().group(owner);
+    const UiUtils::SavedSearch search = group.hasGroup(id) ? UiUtils::SavedSearches::read(group.group(id), owner)
+                                                           : UiUtils::SavedSearch();
+    if (!search.isValid()) {
+        reloadSavedSearchFolders();
+        return;
+    }
+    offerRuleFromQuery(search.query, search.name);
+}
+
+void MainWindow::offerRuleFromQuery(const QString &text, const QString &name)
+{
+    UiUtils::MailRules::Conversion conversion =
+        UiUtils::MailRules::fromQuery(UiUtils::SearchQuery::Query::parse(text, QDate::currentDate()));
+    if (!conversion.isUsable()) {
+        m_notificationBar->showWarning(
+            i18nc("@info %1 lists parts of a search", "Rules cannot check every part of this search: %1. Change the "
+                                                      "search or make the rule by hand.",
+                  conversion.unsupported.join(QLatin1String(", "))),
+            {{i18nc("@action:button", "Mail Rules…"), QStringLiteral("view-filter"), QStringLiteral("openMailRules"),
+              [this]() { showMailRules(); }}});
+        return;
+    }
+    UiUtils::MailRules::Rule rule = conversion.rule;
+    rule.name = name;
+    rule.accountId = m_accounts->activeAccount();
+    if (!conversion.notes.isEmpty())
+        m_notificationBar->showInfo(conversion.notes.join(QLatin1Char(' ')));
+    showMailRules(QString(), [rule](RulesDialog &dialog) { dialog.addRule(rule); });
+}
+
+void MainWindow::showActivity()
+{
+    if (!m_activityDialog) {
+        m_activityDialog = new ActivityDialog(m_mailAutomation->activity(), this);
+        m_activityDialog->setAttribute(Qt::WA_DeleteOnClose);
+        connect(m_activityDialog, &ActivityDialog::actionRequested, this, [this](const UiUtils::ActivityLog::Entry &entry) {
+            using Action = UiUtils::ActivityLog::Action;
+            switch (entry.action) {
+            case Action::ReviewRule:
+                showMailRules(entry.target);
+                break;
+            case Action::OpenSettings:
+                showMailRules();
+                break;
+            case Action::OpenAccount:
+                switchAccount(entry.target);
+                showMainWindow();
+                break;
+            case Action::SignIn:
+                signInAccount(entry.target);
+                break;
+            case Action::Retry:
+            case Action::None:
+                break;
+            }
+        });
+    }
+    m_activityDialog->show();
+    m_activityDialog->raise();
+    m_activityDialog->activateWindow();
+}
+
+void MainWindow::configureNotifications()
+{
+    NotificationsDialog dialog(automationAccounts(), m_mailAutomation->notificationSettings(), this);
+    dialog.selectAccount(m_accounts->activeAccount());
+    if (dialog.exec() == QDialog::Accepted)
+        m_mailAutomation->setNotificationSettings(dialog.settings());
+}
+
+void MainWindow::openAnnouncedMail(const QString &accountId, const QString &folder, uint uid,
+                                   const QString &activationToken)
+{
+    if (!m_accounts->accountIds().contains(accountId))
+        return;
+    if (!activationToken.isEmpty())
+        setActivationToken(activationToken);
+    uint uidValidity = 0;
+    if (uid && !folder.isEmpty()) {
+        if (Imap::ImapAccess *access = m_accountAccess.value(accountId)) {
+            if (auto *model = qobject_cast<Imap::Mailbox::Model *>(access->imapModel()))
+                uidValidity = model->mailboxIndexByName(folder).data(Imap::Mailbox::RoleMailboxUidValidity).toUInt();
+        }
+    }
+    // Revealing a message needs to know the folder's UIDVALIDITY; otherwise the folder is shown
+    if (uid && uidValidity) {
+        revealLocation(accountId, folder, uidValidity, uid);
+    } else {
+        switchAccount(accountId);
+        if (accountId == m_accounts->activeAccount())
+            goToMailbox(folder.isEmpty() ? QStringLiteral("INBOX") : folder);
+    }
+    showMainWindow();
+}
+
+void MainWindow::prepareNotifyFolderAction(const QModelIndex &mailbox)
+{
+    const QString accountId = m_accounts->activeAccount();
+    const QString folder = mailbox.data(Imap::Mailbox::RoleMailboxName).toString();
+    const UiUtils::NewMail::Settings settings = m_mailAutomation->notificationSettings();
+    m_actionNotifyFolder->setData(folder);
+    m_actionNotifyFolder->setChecked(!folder.isEmpty() && settings.announces(accountId, folder));
+    m_actionNotifyFolder->setEnabled(mailbox.isValid() && !folder.isEmpty() && !showsUnifiedList()
+                                     && mailbox.data(Imap::Mailbox::RoleMailboxIsSelectable).toBool()
+                                     && m_mailAutomation->accounts().contains(accountId)
+                                     && settings.mode(accountId) != UiUtils::NewMail::Mode::Off);
 }
 
 QStringList MainWindow::expandedMailboxes() const
@@ -3430,6 +3733,9 @@ Imap::ImapAccess *MainWindow::accountAccess(const QString &accountId)
     connect(access, &Imap::ImapAccess::modelsChanged, this, [this, access]() { applySystemSleep(access); });
     m_accountAccess.insert(accountId, access);
     applySystemSleep(access);
+    connect(access, &Imap::ImapAccess::modelsChanged, this,
+            [this, accountId, access]() { registerAutomationAccount(accountId, access); });
+    registerAutomationAccount(accountId, access);
     return access;
 }
 
@@ -4070,6 +4376,7 @@ void MainWindow::switchAccount(const QString &accountId)
     detachAccountModels();
     nukeModels();
     m_accounts->setActiveAccount(accountId);
+    m_mailAutomation->setActiveAccount(accountId);
     // The shown account reports its problems in the window
     m_accountNotices->close(accountId);
     m_imapAccess = accountAccess(accountId);
@@ -4406,6 +4713,7 @@ void MainWindow::removeAccountNow(const QString &accountId)
         m_searchResultsPanel->results()->removeAccount(accountId);
     if (m_agendaSearch && m_agendaSearchItem.accountId == accountId)
         cancelAgendaSearch();
+    m_mailAutomation->forgetAccount(accountId);
     // Deleting the account's models also closes its cache database, so the files can be removed.
     delete m_accountAccess.take(accountId);
     scheduleAgendaMessages();
@@ -7903,6 +8211,7 @@ void MainWindow::createShell()
     connect(m_savedSearchFolders, &SavedSearchFolders::missingFoldersRemovalRequested, this,
             &MainWindow::removeMissingSavedSearchFolders);
     connect(m_savedSearchFolders, &SavedSearchFolders::orderChanged, this, &MainWindow::storeSavedSearchOrder);
+    connect(m_savedSearchFolders, &SavedSearchFolders::ruleRequested, this, &MainWindow::createRuleFromSavedSearch);
     m_savedSearchProblemsTimer = new QTimer(this);
     m_savedSearchProblemsTimer->setInterval(500);
     m_savedSearchProblemsTimer->setSingleShot(true);

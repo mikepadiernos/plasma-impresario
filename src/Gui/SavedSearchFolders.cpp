@@ -210,6 +210,8 @@ SavedSearchFolders::SavedSearchFolders(QWidget *parent)
                       i18nc("@action:inmenu saved search", "Run Search"), {}, &SavedSearchFolders::searchActivated);
     m_edit = addAction(QStringLiteral("savedSearchEdit"), QStringLiteral("document-edit"),
                        i18nc("@action:inmenu saved search", "Edit Search"), {}, &SavedSearchFolders::editRequested);
+    m_makeRule = addAction(QStringLiteral("savedSearchMakeRule"), QStringLiteral("view-filter"),
+                           i18nc("@action:inmenu saved search", "Create Rule..."), {}, &SavedSearchFolders::ruleRequested);
     m_rename = addAction(QStringLiteral("savedSearchRename"), QStringLiteral("edit-rename"),
                          i18nc("@action:inmenu saved search", "Rename..."), QKeySequence(Qt::Key_F2),
                          &SavedSearchFolders::renameRequested);
@@ -233,6 +235,7 @@ SavedSearchFolders::SavedSearchFolders(QWidget *parent)
                          &SavedSearchFolders::deleteRequested);
     m_menu->addAction(m_run);
     m_menu->addAction(m_edit);
+    m_menu->addAction(m_makeRule);
     m_menu->addAction(m_rename);
     m_menu->addSeparator();
     m_menu->addAction(m_moveUp);
@@ -503,6 +506,7 @@ void SavedSearchFolders::configureActions(QTreeWidgetItem *item)
     const int row = item ? m_view->indexOfTopLevelItem(item) : -1;
     m_run->setEnabled(runnable);
     m_edit->setEnabled(runnable);
+    m_makeRule->setEnabled(search != nullptr);
     m_rename->setEnabled(search != nullptr);
     m_delete->setEnabled(search != nullptr);
     m_moveUp->setEnabled(search && row > 0);

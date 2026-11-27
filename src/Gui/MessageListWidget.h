@@ -133,6 +133,8 @@ public:
     */
     QString activeSavedSearchOwner() const;
     QString activeSavedSearchId() const;
+    /** @short The text of the quick search field */
+    QString searchText() const;
     /** @short Treat the list as an ordinary search from now on, such as after another folder is chosen */
     void forgetActiveSavedSearch();
     /** @short Run the saved search @p id of @p owner and let the user change it, with Save and Cancel above the list
