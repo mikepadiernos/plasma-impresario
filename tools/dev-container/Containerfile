@@ -63,6 +63,12 @@ RUN dnf -y install --setopt=install_weak_deps=False \
         mesa-dri-drivers \
     && dnf clean all
 
+# KDE PIM calendars for the My Day panel, which builds without them.
+RUN dnf -y install --setopt=install_weak_deps=False \
+        akonadi-calendar-devel \
+        kf6-kcalendarcore-devel \
+    && dnf clean all
+
 ENV CCACHE_DIR=/ccache \
     CMAKE_C_COMPILER_LAUNCHER=ccache \
     CMAKE_CXX_COMPILER_LAUNCHER=ccache \
