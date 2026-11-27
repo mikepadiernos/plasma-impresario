@@ -378,7 +378,7 @@ std::unique_ptr<Composer::MessageComposer> makeComposer()
     composer->setFrom(Imap::Message::MailAddress(QString(), QString(), QStringLiteral("me"), QStringLiteral("example.org")));
     composer->setSubject(QStringLiteral("files"));
     composer->setText(QStringLiteral("Attached"));
-    composer->setReportTrojitaVersions(false);
+    composer->setReportImpresarioVersions(false);
     return composer;
 }
 

@@ -73,7 +73,7 @@ void BodyPartsTest::testPartIds()
 
     // By default, there's a 50ms delay between the time we request a part download and the time it actually happens.
     // That's too long for a unit test.
-    model->setProperty("trojita-imap-delayed-fetch-part", 0);
+    model->setProperty("impresario-imap-delayed-fetch-part", 0);
 
     helperSyncBNoMessages();
     cServer("* 1 EXISTS\r\n");
@@ -212,7 +212,7 @@ void BodyPartsTest::testInvalidPartFetch()
 
     // By default, there's a 50ms delay between the time we request a part download and the time it actually happens.
     // That's too long for a unit test.
-    model->setProperty("trojita-imap-delayed-fetch-part", 0);
+    model->setProperty("impresario-imap-delayed-fetch-part", 0);
 
     helperSyncBNoMessages();
     cServer("* 1 EXISTS\r\n");
@@ -257,7 +257,7 @@ void BodyPartsTest::testFetchingRawParts()
 {
     FakeCapabilitiesInjector injector(model);
     injector.injectCapability(QStringLiteral("BINARY"));
-    model->setProperty("trojita-imap-delayed-fetch-part", 0);
+    model->setProperty("impresario-imap-delayed-fetch-part", 0);
     helperSyncBNoMessages();
     cServer("* 1 EXISTS\r\n");
     cClient(t.mk("UID FETCH 1:* (FLAGS)\r\n"));
@@ -403,7 +403,7 @@ void BodyPartsTest::testFilenameExtraction()
     QFETCH(QString, partId);
     QFETCH(QString, filename);
 
-    model->setProperty("trojita-imap-delayed-fetch-part", 0);
+    model->setProperty("impresario-imap-delayed-fetch-part", 0);
     helperSyncBNoMessages();
     cServer("* 1 EXISTS\r\n");
     cClient(t.mk("UID FETCH 1:* (FLAGS)\r\n"));
@@ -452,7 +452,7 @@ void BodyPartsTest::testBinaryFallback()
 {
     FakeCapabilitiesInjector injector(model);
     injector.injectCapability(QStringLiteral("BINARY"));
-    model->setProperty("trojita-imap-delayed-fetch-part", 10);
+    model->setProperty("impresario-imap-delayed-fetch-part", 10);
     helperSyncBNoMessages();
     cServer("* 1 EXISTS\r\n");
     cClient(t.mk("UID FETCH 1:* (FLAGS)\r\n"));

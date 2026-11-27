@@ -39,7 +39,7 @@ void ImapMsgPartNetAccessManagerTest::init()
 
     // By default, there's a 50ms delay between the time we request a part download and the time it actually happens.
     // That's too long for a unit test.
-    model->setProperty("trojita-imap-delayed-fetch-part", 0);
+    model->setProperty("impresario-imap-delayed-fetch-part", 0);
 
     networkPolicy = new Imap::Mailbox::DummyNetworkWatcher(nullptr, model);
     netAccessManager = new Imap::Network::MsgPartNetAccessManager(nullptr);

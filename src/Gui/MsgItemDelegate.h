@@ -56,6 +56,14 @@ public:
     /** @short Add a third line to multi-line rows for the snippet of a search, with the matches in bold */
     void setSnippetLine(bool shown);
     bool showsSnippetLine() const { return m_snippetLine; }
+    /** @short Show multi-line rows as cards with a margin, a frame and the account or folder colour */
+    void setCards(bool cards);
+    bool showsCards() const { return m_cards; }
+    /** @short The account the list shows, for folder colours; unified lists name the account of each message */
+    void setAccountId(const QString &accountId);
+
+    /** @short The account or folder colour of the message @arg index, or an invalid colour */
+    QColor sourceColor(const QModelIndex &index) const;
 
     /** @short Paint the whole multi-line row of the message @arg index into option.rect */
     void paintMultiLineRow(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const;
@@ -87,6 +95,13 @@ private:
     };
     RowLayout multiLineLayout(const QStyleOptionViewItem &option, const QModelIndex &index) const;
     QColor itemColor(const QModelIndex &index) const;
+    /** @short The colour of the text of a row which is not selected: a tag's, else a custom flagged or unread
+     * colour, else invalid */
+    QColor stateColor(const QModelIndex &index, const QColor &tagColor) const;
+    int cardGap(const QStyleOptionViewItem &option) const;
+    QRect cardContents(const QStyleOptionViewItem &option) const;
+    void paintCard(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const;
+    void paintTinted(QPainter *painter, const QIcon &icon, const QRect &rect, QIcon::Mode mode, const QColor &color) const;
     QFont itemFont(const QModelIndex &index) const;
     QIcon indicatorIcon(const QString &name) const;
 
@@ -94,6 +109,8 @@ private:
     bool m_multiLine = false;
     bool m_senderInitials = true;
     bool m_snippetLine = false;
+    bool m_cards = false;
+    QString m_accountId;
     mutable QHash<QString, QIcon> m_icons;
 };
 

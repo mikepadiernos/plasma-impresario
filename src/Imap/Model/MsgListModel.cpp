@@ -335,7 +335,7 @@ Qt::DropActions MsgListModel::supportedDropActions() const
 
 QStringList MsgListModel::mimeTypes() const
 {
-    return QStringList() << MimeTypes::xTrojitaMessageList;
+    return QStringList() << MimeTypes::xImpresarioMessageList;
 }
 
 QMimeData *MsgListModel::mimeData(const QModelIndexList &indexes) const
@@ -364,7 +364,7 @@ QMimeData *MsgListModel::mimeData(const QModelIndexList &indexes) const
     const QSet<uint> uidsSet(uids.begin(), uids.end());
     uids = uidsSet.values();
     stream << uids;
-    res->setData(MimeTypes::xTrojitaMessageList, encodedData);
+    res->setData(MimeTypes::xImpresarioMessageList, encodedData);
     return res;
 }
 

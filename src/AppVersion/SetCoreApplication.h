@@ -20,8 +20,8 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef TROJITA_APPVERSION_SETCOREAPPLICATION_H
-#define TROJITA_APPVERSION_SETCOREAPPLICATION_H
+#ifndef IMPRESARIO_APPVERSION_SETCOREAPPLICATION_H
+#define IMPRESARIO_APPVERSION_SETCOREAPPLICATION_H
 
 namespace AppVersion
 {
@@ -34,4 +34,4 @@ void setCoreApplicationData();
 
 }
 
-#endif // TROJITA_APPVERSION_SETCOREAPPLICATION_H
+#endif // IMPRESARIO_APPVERSION_SETCOREAPPLICATION_H

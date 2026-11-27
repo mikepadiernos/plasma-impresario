@@ -44,7 +44,7 @@
 #include "UiUtils/SleepMonitor.h"
 #include "UiUtils/ViewStateStore.h"
 #include "configure.cmake.h"
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
 #include "Gui/WebEngineMessageProfile.h"
 #endif
 #include "static_plugins.h"
@@ -112,7 +112,7 @@ bool seedFirstAccountCache()
     const QString cacheDir = Common::writablePath(Common::LOCATION_CACHE) + QLatin1Char('/');
     if (!QDir().mkpath(cacheDir))
         return false;
-    Imap::Mailbox::CombinedCache cache(QStringLiteral("trojita-imap-cache"), cacheDir);
+    Imap::Mailbox::CombinedCache cache(QStringLiteral("impresario-imap-cache"), cacheDir);
     if (!cache.open())
         return false;
     const QString separator = QStringLiteral(".");
@@ -260,7 +260,7 @@ private slots:
         auto *notices = window.findChild<UiUtils::AccountNotices *>(QStringLiteral("accountNotices"));
         QVERIFY(notices);
         const QString work = QStringLiteral("account-1");
-#ifdef TROJITA_HAVE_KNOTIFICATIONS
+#ifdef IMPRESARIO_HAVE_KNOTIFICATIONS
         const bool notifies = true;
 #else
         const bool notifies = false;
@@ -491,7 +491,7 @@ private slots:
         QVERIFY(panel->isHidden());
 
         // The migrated first account keeps the profile's key; searches of removed accounts stay to be moved or deleted
-        const QByteArray profile = qgetenv("TROJITA_PROFILE");
+        const QByteArray profile = qgetenv("PLASMA_IMPRESARIO_PROFILE");
         const QString workKey = profile.isEmpty() ? QStringLiteral("account-0") : QString::fromUtf8(profile);
         KConfigGroup alerts = searches.group(workKey).group(QStringLiteral("alerts"));
         alerts.writeEntry("Name", QStringLiteral("Alerts"));
@@ -591,7 +591,7 @@ private slots:
         searches.deleteGroup();
         KConfigGroup counts(KSharedConfig::openStateConfig(), QStringLiteral("SavedSearchCounts"));
         counts.deleteGroup();
-        const QByteArray profile = qgetenv("TROJITA_PROFILE");
+        const QByteArray profile = qgetenv("PLASMA_IMPRESARIO_PROFILE");
         const QString workKey = profile.isEmpty() ? QStringLiteral("account-0") : QString::fromUtf8(profile);
         const auto store = [&searches](const QString &owner, const QString &id, const QString &name,
                                        const QString &places = QString(), const QStringList &folders = {}) {
@@ -837,7 +837,7 @@ private slots:
         QVERIFY(window.focusWidget() != switcher);
     }
 
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     void focusFollowsScreenOrder()
     {
         QTemporaryDir directory;
@@ -1595,7 +1595,7 @@ private slots:
         QCOMPARE(areas.value(QStringLiteral("action_shortcut_overview")), QStringLiteral("Help"));
         QCOMPARE(areas.value(QStringLiteral("action_mark_as_junk")), QStringLiteral("Message List"));
         QCOMPARE(areas.value(QStringLiteral("action_messagewindow_close")), QStringLiteral("Other Windows"));
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
         QCOMPARE(areas.value(QStringLiteral("action_zoom_in")), QStringLiteral("Message Reader"));
 #endif
 
@@ -1646,7 +1646,7 @@ private slots:
         };
 
         // Triage keys next to the unchanged N and P
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
         const QList<std::pair<QString, QString>> triage{
             {QStringLiteral("action_mark_read_go_to_next_unread"), QStringLiteral("Shift+N")},
             {QStringLiteral("action_go_to_next_message"), QStringLiteral("F")},
@@ -2839,9 +2839,9 @@ int main(int argc, char **argv)
     qputenv("XDG_DATA_HOME", home.filePath(QStringLiteral("data")).toUtf8());
     qputenv("XDG_CACHE_HOME", home.filePath(QStringLiteral("cache")).toUtf8());
     qputenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent/plasma-impresario-test");
-    qunsetenv("TROJITA_PROFILE");
+    qunsetenv("PLASMA_IMPRESARIO_PROFILE");
     QStandardPaths::setTestModeEnabled(true);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     Gui::WebEngineMessageProfile::registerScheme();
 #endif
     Common::registerMetaTypes();

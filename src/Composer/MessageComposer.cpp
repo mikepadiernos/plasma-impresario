@@ -53,7 +53,7 @@
 namespace Composer {
 
 MessageComposer::MessageComposer(Imap::Mailbox::Model *model) :
-    QAbstractListModel(nullptr), m_model(model), m_shouldPreload(false), m_reportTrojitaVersions(true)
+    QAbstractListModel(nullptr), m_model(model), m_shouldPreload(false), m_reportImpresarioVersions(true)
 {
 }
 
@@ -133,7 +133,7 @@ QMimeData *MessageComposer::mimeData(const QModelIndexList &indexes) const
         attachment->asDroppableMimeData(stream);
     }
     QMimeData *res = new QMimeData();
-    res->setData(Imap::MimeTypes::xTrojitaAttachmentList, encodedData);
+    res->setData(Imap::MimeTypes::xImpresarioAttachmentList, encodedData);
     return res;
 }
 
@@ -153,16 +153,16 @@ bool MessageComposer::dropMimeData(const QMimeData *data, Qt::DropAction action,
     // FIXME: would be cool to support attachment reshuffling and to respect the desired drop position
 
 
-    if (data->hasFormat(Imap::MimeTypes::xTrojitaAttachmentList)) {
-        QByteArray encodedData = data->data(Imap::MimeTypes::xTrojitaAttachmentList);
+    if (data->hasFormat(Imap::MimeTypes::xImpresarioAttachmentList)) {
+        QByteArray encodedData = data->data(Imap::MimeTypes::xImpresarioAttachmentList);
         QDataStream stream(&encodedData, QIODevice::ReadOnly);
         return dropAttachmentList(stream);
-    } else if (data->hasFormat(Imap::MimeTypes::xTrojitaMessageList)) {
-        QByteArray encodedData = data->data(Imap::MimeTypes::xTrojitaMessageList);
+    } else if (data->hasFormat(Imap::MimeTypes::xImpresarioMessageList)) {
+        QByteArray encodedData = data->data(Imap::MimeTypes::xImpresarioMessageList);
         QDataStream stream(&encodedData, QIODevice::ReadOnly);
         return dropImapMessage(stream);
-    } else if (data->hasFormat(Imap::MimeTypes::xTrojitaImapPart)) {
-        QByteArray encodedData = data->data(Imap::MimeTypes::xTrojitaImapPart);
+    } else if (data->hasFormat(Imap::MimeTypes::xImpresarioImapPart)) {
+        QByteArray encodedData = data->data(Imap::MimeTypes::xImpresarioImapPart);
         QDataStream stream(&encodedData, QIODevice::ReadOnly);
         return dropImapPart(stream);
     } else if (data->hasUrls()) {
@@ -246,11 +246,11 @@ bool MessageComposer::dropAttachmentList(QDataStream &stream)
             QString mailbox;
             uint uidValidity;
             uint uid;
-            QByteArray trojitaPath;
-            if (!validateDropImapPart(stream, mailbox, uidValidity, uid, trojitaPath))
+            QByteArray impresarioPath;
+            if (!validateDropImapPart(stream, mailbox, uidValidity, uid, impresarioPath))
                 return false;
             try {
-                items.d << new ImapPartAttachmentItem(m_model, mailbox, uidValidity, uid, trojitaPath);
+                items.d << new ImapPartAttachmentItem(m_model, mailbox, uidValidity, uid, impresarioPath);
             } catch (Imap::UnknownMessageIndex &) {
                 return false;
             }
@@ -351,9 +351,9 @@ bool MessageComposer::dropImapMessage(QDataStream &stream)
 }
 
 /** @short Check that the data representing a single message part are correct */
-bool MessageComposer::validateDropImapPart(QDataStream &stream, QString &mailbox, uint &uidValidity, uint &uid, QByteArray &trojitaPath) const
+bool MessageComposer::validateDropImapPart(QDataStream &stream, QString &mailbox, uint &uidValidity, uint &uid, QByteArray &impresarioPath) const
 {
-    stream >> mailbox >> uidValidity >> uid >> trojitaPath;
+    stream >> mailbox >> uidValidity >> uid >> impresarioPath;
     if (stream.status() != QDataStream::Ok) {
         qDebug() << "drag-and-drop: stream failed:" << stream.status();
         return false;
@@ -364,7 +364,7 @@ bool MessageComposer::validateDropImapPart(QDataStream &stream, QString &mailbox
         return false;
     }
 
-    if (!uidValidity || !uid || trojitaPath.isEmpty()) {
+    if (!uidValidity || !uid || impresarioPath.isEmpty()) {
         qDebug() << "drag-and-drop: invalid data";
         return false;
     }
@@ -382,15 +382,15 @@ bool MessageComposer::dropImapPart(QDataStream &stream)
     QString mailbox;
     uint uidValidity;
     uint uid;
-    QByteArray trojitaPath;
-    if (!validateDropImapPart(stream, mailbox, uidValidity, uid, trojitaPath))
+    QByteArray impresarioPath;
+    if (!validateDropImapPart(stream, mailbox, uidValidity, uid, impresarioPath))
         return false;
 
     CHECK_STREAM_OK_AT_END(stream)
 
     AttachmentItem *item;
     try {
-        item = new ImapPartAttachmentItem(m_model, mailbox, uidValidity, uid, trojitaPath);
+        item = new ImapPartAttachmentItem(m_model, mailbox, uidValidity, uid, impresarioPath);
     } catch (Imap::UnknownMessageIndex &) {
         return false;
     }
@@ -406,7 +406,7 @@ bool MessageComposer::dropImapPart(QDataStream &stream)
 
 QStringList MessageComposer::mimeTypes() const
 {
-    return QStringList() << Imap::MimeTypes::xTrojitaMessageList << Imap::MimeTypes::xTrojitaImapPart << Imap::MimeTypes::xTrojitaAttachmentList << QStringLiteral("text/uri-list");
+    return QStringList() << Imap::MimeTypes::xImpresarioMessageList << Imap::MimeTypes::xImpresarioImapPart << Imap::MimeTypes::xImpresarioAttachmentList << QStringLiteral("text/uri-list");
 }
 
 void MessageComposer::setFrom(const Imap::Message::MailAddress &from)
@@ -557,7 +557,7 @@ void MessageComposer::writeCommonMessageBeginning(QIODevice *target, BccMode bcc
     if (!m_organization.isEmpty()) {
         target->write(encodeHeaderField(QLatin1String("Organization: ") + m_organization) + "\r\n");
     }
-    if (m_reportTrojitaVersions) {
+    if (m_reportImpresarioVersions) {
         target->write(QStringLiteral("User-Agent: Plasma-Impresario/%1; %2\r\n").arg(
                       Common::Application::version, Imap::Mailbox::systemPlatformVersion()).toUtf8());
     } else {
@@ -905,9 +905,9 @@ void MessageComposer::prepareForwarding(const QModelIndex &index, const ForwardM
     }
 }
 
-void MessageComposer::setReportTrojitaVersions(const bool reportVersions)
+void MessageComposer::setReportImpresarioVersions(const bool reportVersions)
 {
-    m_reportTrojitaVersions = reportVersions;
+    m_reportImpresarioVersions = reportVersions;
 }
 
 }

@@ -21,8 +21,8 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef TROJITA_MIMETIC_UTILS_H
-#define TROJITA_MIMETIC_UTILS_H
+#ifndef IMPRESARIO_MIMETIC_UTILS_H
+#define IMPRESARIO_MIMETIC_UTILS_H
 
 #include <QList>
 #include "Cryptography/MessagePart.h"

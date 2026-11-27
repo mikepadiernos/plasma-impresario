@@ -20,8 +20,8 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef TROJITA_CRYPTO_GPGMEPP_H
-#define TROJITA_CRYPTO_GPGMEPP_H
+#ifndef IMPRESARIO_CRYPTO_GPGMEPP_H
+#define IMPRESARIO_CRYPTO_GPGMEPP_H
 
 #include <future>
 #include <memory>

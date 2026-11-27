@@ -416,7 +416,7 @@ void ImapMessageAttachmentItem::asDroppableMimeData(QDataStream &stream) const
 
 
 ImapPartAttachmentItem::ImapPartAttachmentItem(Model *model, const QString &mailbox, const uint uidValidity, const uint uid,
-                                               const QByteArray &trojitaPath)
+                                               const QByteArray &impresarioPath)
 {
     TreeItemMailbox *mboxPtr = model->findMailboxByName(mailbox);
     if (!mboxPtr)
@@ -431,7 +431,7 @@ ImapPartAttachmentItem::ImapPartAttachmentItem(Model *model, const QString &mail
 
     Q_ASSERT(messages.size() == 1);
 
-    QModelIndex partIndex = Imap::Network::MsgPartNetAccessManager::pathToPart(messages.front()->toIndex(model), trojitaPath);
+    QModelIndex partIndex = Imap::Network::MsgPartNetAccessManager::pathToPart(messages.front()->toIndex(model), impresarioPath);
     if (!partIndex.isValid())
         throw Imap::UnknownMessageIndex("No such part");
 

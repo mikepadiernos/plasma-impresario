@@ -13,6 +13,7 @@
 #include <QToolBar>
 #include <QToolButton>
 
+#include "Gui/AppearanceStyle.h"
 #include "Imap/Model/ItemRoles.h"
 #include "UiUtils/IconLoader.h"
 
@@ -114,6 +115,7 @@ void ReaderActionBar::setReplyMenu(QMenu *menu)
 {
     m_reply->setMenu(menu);
     m_reply->setPopupMode(QToolButton::MenuButtonPopup);
+    AppearanceStyle::addMenuMarker(m_reply);
 }
 
 void ReaderActionBar::setReplyAction(QAction *action)

@@ -37,6 +37,7 @@
 #include "Common/InvokeMethod.h"
 #include "Common/SettingsNames.h"
 #include "Cryptography/MessageModel.h"
+#include "Gui/AppearanceManager.h"
 #include "Gui/MessageView.h"
 #include "Gui/ComposeWidget.h"
 #include "Gui/EnvelopeView.h"
@@ -182,6 +183,7 @@ MessageView::MessageView(QWidget *parent, QSettings *settings, Plugins::PluginMa
 
     m_envelope = new EnvelopeView(m_messageWidget, pluginManager);
     fullMsgLayout->addWidget(m_envelope, 1);
+    AppearanceManager::instance()->registerFont(m_envelope, AppearanceManager::FontTarget::MessageHeaders);
 
     tags = new TagListWidget(m_messageWidget, m_favoriteTags);
     connect(tags, &TagListWidget::tagAdded, this, &MessageView::newLabelAction);

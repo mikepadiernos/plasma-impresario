@@ -38,7 +38,7 @@
 #include "Common/SettingsNames.h"
 #include "Imap/Model/NetworkPolicy.h"
 
-#ifdef TROJITA_MOBILITY_SYSTEMINFO
+#ifdef IMPRESARIO_MOBILITY_SYSTEMINFO
 #include <QSystemDeviceInfo>
 #endif
 
@@ -154,7 +154,7 @@ QString systemPlatformVersion()
 #endif
 
     static QString platformVersion;
-#ifdef TROJITA_MOBILITY_SYSTEMINFO
+#ifdef IMPRESARIO_MOBILITY_SYSTEMINFO
     if (platformVersion.isEmpty()) {
         QtMobility::QSystemDeviceInfo device;
         if (device.productName().isEmpty()) {

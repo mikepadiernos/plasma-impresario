@@ -20,14 +20,14 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef TROJITA_PLUGIN_JOB
-#define TROJITA_PLUGIN_JOB
+#ifndef IMPRESARIO_PLUGIN_JOB
+#define IMPRESARIO_PLUGIN_JOB
 
 #include <QObject>
 #include "configure-plugins.cmake.h"
 
 #if defined(WITH_SHARED_PLUGINS)
-#  if defined(BUILDING_LIBTROJITA_PLUGINS)
+#  if defined(BUILDING_LIBIMPRESARIO_PLUGINS)
 #    define PLUGINMANAGER_EXPORT Q_DECL_EXPORT
 #  else
 #    define PLUGINMANAGER_EXPORT Q_DECL_IMPORT
@@ -85,6 +85,6 @@ protected slots:
 
 }
 
-#endif //TROJITA_PLUGIN_JOB
+#endif //IMPRESARIO_PLUGIN_JOB
 
 // vim: set et ts=4 sts=4 sw=4

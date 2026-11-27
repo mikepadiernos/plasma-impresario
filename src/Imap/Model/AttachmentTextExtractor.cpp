@@ -10,7 +10,7 @@
 
 #include "configure.cmake.h"
 
-#ifdef TROJITA_HAVE_KFILEMETADATA
+#ifdef IMPRESARIO_HAVE_KFILEMETADATA
 #include <KFileMetaData/ExtractionResult>
 #include <KFileMetaData/Extractor>
 #include <KFileMetaData/ExtractorCollection>
@@ -25,7 +25,7 @@ namespace Mailbox
 namespace
 {
 
-#ifndef TROJITA_HAVE_KFILEMETADATA
+#ifndef IMPRESARIO_HAVE_KFILEMETADATA
 class NoAttachmentTextExtractor : public AttachmentTextExtractor
 {
 public:
@@ -79,7 +79,7 @@ AttachmentTextExtractor::~AttachmentTextExtractor() = default;
 
 std::shared_ptr<AttachmentTextExtractor> AttachmentTextExtractor::createDefault()
 {
-#ifdef TROJITA_HAVE_KFILEMETADATA
+#ifdef IMPRESARIO_HAVE_KFILEMETADATA
     return std::make_shared<KFileMetaDataTextExtractor>();
 #else
     return std::make_shared<NoAttachmentTextExtractor>();

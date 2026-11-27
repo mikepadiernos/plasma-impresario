@@ -12,7 +12,7 @@
 #include <KLocalizedString>
 
 #include "configure.cmake.h"
-#ifdef TROJITA_HAVE_KNOTIFICATIONS
+#ifdef IMPRESARIO_HAVE_KNOTIFICATIONS
 #include <KNotification>
 #endif
 #include "Imap/Model/ItemRoles.h"
@@ -42,7 +42,7 @@ QString folderLabel(const QString &folder)
     return folder.compare(inbox, Qt::CaseInsensitive) == 0 ? i18nc("@item the INBOX folder", "Inbox") : folder;
 }
 
-#ifdef TROJITA_HAVE_KNOTIFICATIONS
+#ifdef IMPRESARIO_HAVE_KNOTIFICATIONS
 /** @short The new-mail notification of each account, updated in place while it shows the same kind of content */
 class DesktopNotifier : public MailAutomation::Notifier
 {
@@ -157,7 +157,7 @@ MailAutomation::MailAutomation(KSharedConfigPtr config, KSharedConfigPtr state, 
     , m_summaryTimer(new QTimer(this))
     , m_countTimer(new QTimer(this))
 {
-#ifdef TROJITA_HAVE_KNOTIFICATIONS
+#ifdef IMPRESARIO_HAVE_KNOTIFICATIONS
     m_notifier = std::make_unique<DesktopNotifier>(this);
 #else
     m_notifier = std::make_unique<SilentNotifier>();

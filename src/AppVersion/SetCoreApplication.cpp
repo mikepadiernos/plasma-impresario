@@ -24,15 +24,15 @@
 #include "SetCoreApplication.h"
 #include "Common/Application.h"
 
-#include "trojita-git-version.h"
+#include "plasma-impresario-git-version.h"
 
 namespace AppVersion
 {
 
 void setGitVersion()
 {
-#ifdef TROJITA_GIT_VERSION
-    Common::Application::version = QStringLiteral(TROJITA_GIT_VERSION);
+#ifdef IMPRESARIO_GIT_VERSION
+    Common::Application::version = QStringLiteral(IMPRESARIO_GIT_VERSION);
 #endif
 }
 

@@ -1700,7 +1700,7 @@ void ImapModelThreadingTest::testFlatThreadDeletionPerformance()
 {
     threadingModel->setUserWantsThreading(false);
     // only send NOOPs after a day; the default timeout of two minutes is way too short for valgrind's callgrind
-    model->setProperty("trojita-imap-noop-period", 24 * 60 * 60 * 1000);
+    model->setProperty("impresario-imap-noop-period", 24 * 60 * 60 * 1000);
 
 #ifdef ASAN_BUILD
     qDebug() << "ASAN build detected, benchmarking with fewer items";

@@ -995,7 +995,7 @@ void Model::askForMsgMetadata(TreeItemMessage *item, const PreloadingMode preloa
         if (preloadMode != PRELOAD_PER_POLICY)
             break;
         bool ok;
-        int preload = property("trojita-imap-preload-msg-metadata").toInt(&ok);
+        int preload = property("impresario-imap-preload-msg-metadata").toInt(&ok);
         if (! ok)
             preload = 50;
         int order = item->row();
@@ -1770,7 +1770,7 @@ void Model::runReadyTasks()
                 }
             }
             removeDeletedTasks(deletedList, parserIt->activeTasks);
-#ifdef TROJITA_DEBUG_TASK_TREE
+#ifdef IMPRESARIO_DEBUG_TASK_TREE
             if (!deletedList.isEmpty())
                 checkTaskTreeConsistency();
 #endif
@@ -2272,19 +2272,19 @@ UidSubmitTask *Model::sendMailViaUidSubmit(const QString &mailbox, const uint ui
     return m_taskFactory->createUidSubmitTask(this, mailbox, uidValidity, uid, options);
 }
 
-#ifdef TROJITA_DEBUG_TASK_TREE
-#define TROJITA_DEBUG_TASK_TREE_VERBOSE
+#ifdef IMPRESARIO_DEBUG_TASK_TREE
+#define IMPRESARIO_DEBUG_TASK_TREE_VERBOSE
 void Model::checkTaskTreeConsistency()
 {
     for (QMap<Parser *,ParserState>::const_iterator parserIt = m_parsers.constBegin(); parserIt != m_parsers.constEnd(); ++parserIt) {
-#ifdef TROJITA_DEBUG_TASK_TREE_VERBOSE
+#ifdef IMPRESARIO_DEBUG_TASK_TREE_VERBOSE
         qDebug() << "\nParser" << parserIt.key() << "; all active tasks:";
         Q_FOREACH(ImapTask *activeTask, parserIt.value().activeTasks) {
             qDebug() << ' ' << activeTask << activeTask->debugIdentification() << activeTask->parser;
         }
 #endif
         Q_FOREACH(ImapTask *activeTask, parserIt.value().activeTasks) {
-#ifdef TROJITA_DEBUG_TASK_TREE_VERBOSE
+#ifdef IMPRESARIO_DEBUG_TASK_TREE_VERBOSE
             qDebug() << "Active task" << activeTask << activeTask->debugIdentification() << activeTask->parser;
 #endif
             Q_ASSERT(activeTask->parser == parserIt.key());
@@ -2305,7 +2305,7 @@ void Model::checkTaskTreeConsistency()
 
 void Model::checkDependentTasksConsistency(Parser *parser, ImapTask *task, ImapTask *expectedParentTask, int depth)
 {
-#ifdef TROJITA_DEBUG_TASK_TREE_VERBOSE
+#ifdef IMPRESARIO_DEBUG_TASK_TREE_VERBOSE
     QByteArray prefix;
     prefix.fill(' ', depth);
     qDebug() << prefix.constData() << "Checking" << task << task->debugIdentification();

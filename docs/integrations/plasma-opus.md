@@ -201,8 +201,13 @@ saying what File Search is set to index.
 
 ## Themes and appearance
 
-Planned in [M09](../ROADMAP.md#m09-themes-and-branding-foundation)
-([#268](https://github.com/mikepadiernos/plasma-impresario/issues/268)).
+Implemented in [M09](../ROADMAP.md#m09-themes-and-branding-foundation)
+([#268](https://github.com/mikepadiernos/plasma-impresario/issues/268)): the **Profiles** tab of the **Theme** settings imports a
+Plasma Opus profile with **Import…** or keeps following its file with
+**Follow File…**, and **Export…** with **Export for Plasma Opus** writes the
+current options in Plasma Opus's entry names. Applying a profile previews
+first and **Reset to Plasma Defaults** undoes it; see the
+[caveat](../CAVEATS.md#themes-and-appearance).
 
 - **What:** Carry theme settings over between Plasma Impresario and Plasma Opus
   in both directions, so both apps can share one look without changing the

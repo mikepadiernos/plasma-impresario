@@ -13,7 +13,7 @@
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "configure.cmake.h"
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
 #include "Gui/WebEngineMessageProfile.h"
 #endif
 #include "static_plugins.h"
@@ -67,7 +67,7 @@ private slots:
             env.insert(QStringLiteral("DBUS_SESSION_BUS_ADDRESS"), QStringLiteral("unix:path=/nonexistent/plasma-restart-test"));
             env.insert(QStringLiteral("PLASMA_TEST_RESTART_PHASE"), phase);
             env.insert(QStringLiteral("PLASMA_TEST_RESTART_LAYOUT"), layout);
-            env.remove(QStringLiteral("TROJITA_PROFILE"));
+            env.remove(QStringLiteral("PLASMA_IMPRESARIO_PROFILE"));
             child.setProcessEnvironment(env);
             child.start(QCoreApplication::applicationFilePath());
             QVERIFY(child.waitForStarted());
@@ -228,7 +228,7 @@ int main(int argc, char **argv)
         qEnvironmentVariable("XDG_CACHE_HOME") != home + QStringLiteral("/cache"))
         return 1;
     QStandardPaths::setTestModeEnabled(true);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     Gui::WebEngineMessageProfile::registerScheme();
 #endif
     Common::registerMetaTypes();

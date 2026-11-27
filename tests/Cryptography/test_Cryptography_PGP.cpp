@@ -31,8 +31,8 @@
 #include "Streams/FakeSocket.h"
 #include "UiUtils/MessageSecurity.h"
 
-#ifdef TROJITA_HAVE_CRYPTO_MESSAGES
-#  ifdef TROJITA_HAVE_GPGMEPP
+#ifdef IMPRESARIO_HAVE_CRYPTO_MESSAGES
+#  ifdef IMPRESARIO_HAVE_GPGMEPP
 #    include "Cryptography/GpgMe++.h"
 #  endif
 #endif
@@ -64,7 +64,7 @@ void CryptographyPGPTest::testDecryption()
 
     // By default, there's a 50ms delay between the time we request a part download and the time it actually happens.
     // That's too long for a unit test.
-    model->setProperty("trojita-imap-delayed-fetch-part", 0);
+    model->setProperty("impresario-imap-delayed-fetch-part", 0);
 
     helperSyncBNoMessages();
     cServer("* 1 EXISTS\r\n");
@@ -81,8 +81,8 @@ void CryptographyPGPTest::testDecryption()
     cEmpty();
     QVERIFY(model->rowCount(msg) > 0);
     Cryptography::MessageModel msgModel(nullptr, msg);
-#ifdef TROJITA_HAVE_CRYPTO_MESSAGES
-#  ifdef TROJITA_HAVE_GPGMEPP
+#ifdef IMPRESARIO_HAVE_CRYPTO_MESSAGES
+#  ifdef IMPRESARIO_HAVE_GPGMEPP
     msgModel.registerPartHandler(std::make_shared<Cryptography::GpgMeReplacer>());
 #  endif
 #endif
@@ -92,7 +92,7 @@ void CryptographyPGPTest::testDecryption()
 
     QModelIndex data = mappedMsg.model()->index(0, 0, mappedMsg);
     QVERIFY(data.isValid());
-#ifdef TROJITA_HAVE_CRYPTO_MESSAGES
+#ifdef IMPRESARIO_HAVE_CRYPTO_MESSAGES
     QCOMPARE(msgModel.rowCount(data), 0);
     QCOMPARE(data.data(Imap::Mailbox::RoleIsFetched).toBool(), false);
     QCOMPARE(UiUtils::MessageSecurity::evaluate(mappedMsg).encryption, UiUtils::MessageSecurity::Encryption::Pending);
@@ -191,8 +191,8 @@ void CryptographyPGPTest::testDecryption_data()
 /** @short What happens when ENVELOPE doesn't arrive at the time that parts are already there? */
 void CryptographyPGPTest::testDecryptWithoutEnvelope()
 {
-#ifdef TROJITA_HAVE_CRYPTO_MESSAGES
-    model->setProperty("trojita-imap-delayed-fetch-part", 0);
+#ifdef IMPRESARIO_HAVE_CRYPTO_MESSAGES
+    model->setProperty("impresario-imap-delayed-fetch-part", 0);
 
     helperSyncBNoMessages();
     cServer("* 1 EXISTS\r\n");
@@ -256,7 +256,7 @@ void CryptographyPGPTest::testVerification()
     QFETCH(bool, validCompletely);
     QFETCH(int, security);
 
-    model->setProperty("trojita-imap-delayed-fetch-part", 0);
+    model->setProperty("impresario-imap-delayed-fetch-part", 0);
     helperSyncBNoMessages();
     cServer("* 1 EXISTS\r\n");
     cClient(t.mk("UID FETCH 1:* (FLAGS)\r\n"));
@@ -275,8 +275,8 @@ void CryptographyPGPTest::testVerification()
     cEmpty();
     QVERIFY(model->rowCount(msg) > 0);
     Cryptography::MessageModel msgModel(nullptr, msg);
-#ifdef TROJITA_HAVE_CRYPTO_MESSAGES
-#  ifdef TROJITA_HAVE_GPGMEPP
+#ifdef IMPRESARIO_HAVE_CRYPTO_MESSAGES
+#  ifdef IMPRESARIO_HAVE_GPGMEPP
     msgModel.registerPartHandler(std::make_shared<Cryptography::GpgMeReplacer>());
 #  endif
 #endif
@@ -286,7 +286,7 @@ void CryptographyPGPTest::testVerification()
 
     QModelIndex data = mappedMsg.model()->index(0, 0, mappedMsg);
     QVERIFY(data.isValid());
-#ifdef TROJITA_HAVE_CRYPTO_MESSAGES
+#ifdef IMPRESARIO_HAVE_CRYPTO_MESSAGES
     QCOMPARE(msgModel.rowCount(data), 0);
     QCOMPARE(data.data(Imap::Mailbox::RoleIsFetched).toBool(), false);
 
@@ -441,7 +441,7 @@ void CryptographyPGPTest::testMalformed()
     QFETCH(QString, tldr);
     QFETCH(QString, detail);
 
-    model->setProperty("trojita-imap-delayed-fetch-part", 0);
+    model->setProperty("impresario-imap-delayed-fetch-part", 0);
     helperSyncBNoMessages();
     cServer("* 1 EXISTS\r\n");
     cClient(t.mk("UID FETCH 1:* (FLAGS)\r\n"));
@@ -456,8 +456,8 @@ void CryptographyPGPTest::testMalformed()
     cEmpty();
     QVERIFY(model->rowCount(msg) > 0);
     Cryptography::MessageModel msgModel(nullptr, msg);
-#ifdef TROJITA_HAVE_CRYPTO_MESSAGES
-#  ifdef TROJITA_HAVE_GPGMEPP
+#ifdef IMPRESARIO_HAVE_CRYPTO_MESSAGES
+#  ifdef IMPRESARIO_HAVE_GPGMEPP
     msgModel.registerPartHandler(std::make_shared<Cryptography::GpgMeReplacer>());
 #  endif
 #endif
@@ -467,7 +467,7 @@ void CryptographyPGPTest::testMalformed()
 
     QModelIndex data = mappedMsg.model()->index(0, 0, mappedMsg);
     QVERIFY(data.isValid());
-#ifdef TROJITA_HAVE_CRYPTO_MESSAGES
+#ifdef IMPRESARIO_HAVE_CRYPTO_MESSAGES
     QCoreApplication::processEvents();
     QCOMPARE(msgModel.rowCount(data), rowCount);
     QCOMPARE(data.data(Imap::Mailbox::RolePartCryptoTLDR).toString(), tldr);
@@ -521,7 +521,7 @@ void CryptographyPGPTest::testOffline()
     QFETCH(QByteArray, bodystructure);
     QFETCH(QByteArray, fetchRegex);
 
-    model->setProperty("trojita-imap-delayed-fetch-part", 0);
+    model->setProperty("impresario-imap-delayed-fetch-part", 0);
     helperSyncBNoMessages();
     cServer("* 1 EXISTS\r\n");
     cClient(t.mk("UID FETCH 1:* (FLAGS)\r\n"));
@@ -536,8 +536,8 @@ void CryptographyPGPTest::testOffline()
     cEmpty();
     QVERIFY(model->rowCount(msg) > 0);
     Cryptography::MessageModel msgModel(nullptr, msg);
-#ifdef TROJITA_HAVE_CRYPTO_MESSAGES
-#  ifdef TROJITA_HAVE_GPGMEPP
+#ifdef IMPRESARIO_HAVE_CRYPTO_MESSAGES
+#  ifdef IMPRESARIO_HAVE_GPGMEPP
     msgModel.registerPartHandler(std::make_shared<Cryptography::GpgMeReplacer>());
 #  endif
 #endif
@@ -547,7 +547,7 @@ void CryptographyPGPTest::testOffline()
 
     QModelIndex data = mappedMsg.model()->index(0, 0, mappedMsg);
     QVERIFY(data.isValid());
-#ifdef TROJITA_HAVE_CRYPTO_MESSAGES
+#ifdef IMPRESARIO_HAVE_CRYPTO_MESSAGES
     QCOMPARE(msgModel.rowCount(mappedMsg), 1);
     QCOMPARE(msgModel.rowCount(data), 0);
     QCOMPARE(data.data(Imap::Mailbox::RoleIsFetched).toBool(), false);

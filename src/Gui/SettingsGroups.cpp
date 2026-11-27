@@ -25,6 +25,7 @@
 #include <KLocalizedString>
 
 #include "Common/SettingsNames.h"
+#include "Gui/ThemeGroup.h"
 #include "UiUtils/IconLoader.h"
 #include "UiUtils/MailTabs.h"
 #include "UiUtils/SettingsStore.h"
@@ -430,6 +431,7 @@ AppearanceGroup::AppearanceGroup(FavoriteTagsPage *favoriteTags, const SettingsC
     , m_preset(new QComboBox)
     , m_sidebar(new QComboBox)
     , m_header(new QCheckBox(i18nc("@option:check", "Show the header above the window's columns")))
+    , m_symbolicTray(new QCheckBox(i18nc("@option:check", "Use a monochrome icon in the system tray")))
     , m_tabs(new QCheckBox(i18nc("@option:check", "Open folders and messages in tabs")))
     , m_tabRegion(new QComboBox)
     , m_tabOrientation(new QComboBox)
@@ -437,6 +439,7 @@ AppearanceGroup::AppearanceGroup(FavoriteTagsPage *favoriteTags, const SettingsC
     m_preset->setObjectName(QStringLiteral("layoutPreset"));
     m_sidebar->setObjectName(QStringLiteral("sidebarPosition"));
     m_header->setObjectName(QStringLiteral("showHeader"));
+    m_symbolicTray->setObjectName(QStringLiteral("symbolicTrayIcon"));
     m_tabs->setObjectName(QStringLiteral("tabsEnabled"));
     m_tabRegion->setObjectName(QStringLiteral("tabsRegion"));
     m_tabOrientation->setObjectName(QStringLiteral("tabsOrientation"));
@@ -475,6 +478,11 @@ AppearanceGroup::AppearanceGroup(FavoriteTagsPage *favoriteTags, const SettingsC
     form->addRow(i18nc("@label:listbox", "Folder sidebar:"), m_sidebar);
     m_header->setChecked(appearance.readEntry("ShowHeader", false));
     form->addRow(QString(), m_header);
+    m_symbolicTray->setChecked(application(QStringLiteral("Appearance/SymbolicTrayIcon")).toBool());
+    m_symbolicTray->setToolTip(i18nc("@info:tooltip",
+                                     "Show the symbolic icon of the active icon theme, coloured like the other "
+                                     "icons in the panel; the number of unread messages is in its tooltip"));
+    form->addRow(i18nc("@label", "System tray:"), m_symbolicTray);
 
     m_tabs->setChecked(application(QStringLiteral("Tabs/Enabled")).toBool());
     form->addRow(i18nc("@label", "Tabs:"), m_tabs);
@@ -534,6 +542,7 @@ void AppearanceGroup::saveSettings()
     setApplication(QStringLiteral("Appearance/RowDensity"),
                    SettingsSchema::comfortableRows(preset) ? QStringLiteral("comfortable") : QStringLiteral("compact"));
     setApplication(QStringLiteral("Appearance/FocusLayout"), SettingsSchema::focusLayout(preset));
+    setApplication(QStringLiteral("Appearance/SymbolicTrayIcon"), m_symbolicTray->isChecked());
     KConfigGroup appearance(config(), QStringLiteral("Appearance"));
     appearance.writeEntry("MailboxSidebarPosition", m_sidebar->currentData().toString());
     appearance.writeEntry("ShowHeader", m_header->isChecked());
@@ -589,7 +598,7 @@ PrivacyGroup::PrivacyGroup(GeneralPage *general, const SettingsContext &context,
     : SettingsGroupPage(Group::Privacy, context, parent)
 {
     QFormLayout *sharing = addSection(i18nc("@title:group", "What Is Shared"));
-    sharing->addRow(take<QCheckBox>(general, "revealTrojitaVersions"));
+    sharing->addRow(take<QCheckBox>(general, "revealImpresarioVersions"));
     sharing->addRow(take<QCheckBox>(general, "guiPlasmaSearchCheckbox"));
     sharing->addRow(take<QLabel>(general, "guiPlasmaWidgetsLabel"), take<QComboBox>(general, "guiPlasmaWidgetsBox"));
     QFormLayout *safety = addSection(i18nc("@title:group", "Safety"));
@@ -903,15 +912,27 @@ WorkspacesGroup::WorkspacesGroup(const SettingsContext &context, QWidget *parent
     , m_accounts(new QListWidget)
     , m_activity(new QComboBox)
     , m_notesFolder(new QLineEdit)
+    , m_appearance(new QComboBox)
+    , m_profile(new QComboBox)
+    , m_options(new QListWidget)
+    , m_overrides(new QLabel)
+    , m_clearOverrides(new QPushButton(SymbolicIcon::fromTheme(QStringLiteral("edit-clear")),
+                                       i18nc("@action:button", "Clear")))
     , m_problems(new QLabel)
     , m_follow(new QCheckBox(i18nc("@option:check", "Show a workspace's account when its activity becomes current")))
 {
+    m_profiles = SettingsStore::themeProfiles(*config());
     m_list->setObjectName(QStringLiteral("workspaceList"));
     m_name->setObjectName(QStringLiteral("workspaceName"));
     m_accounts->setObjectName(QStringLiteral("workspaceAccounts"));
     m_activity->setObjectName(QStringLiteral("workspaceActivity"));
     m_notesFolder->setObjectName(QStringLiteral("workspaceNotesFolder"));
     m_problems->setObjectName(QStringLiteral("workspaceProblems"));
+    m_appearance->setObjectName(QStringLiteral("workspaceAppearance"));
+    m_profile->setObjectName(QStringLiteral("workspaceThemeProfile"));
+    m_options->setObjectName(QStringLiteral("workspaceAppearanceOptions"));
+    m_overrides->setObjectName(QStringLiteral("workspaceOverrides"));
+    m_clearOverrides->setObjectName(QStringLiteral("clearWorkspaceOverrides"));
     m_follow->setObjectName(QStringLiteral("followActivity"));
     makeSmall(m_problems);
 
@@ -965,6 +986,43 @@ WorkspacesGroup::WorkspacesGroup(const SettingsContext &context, QWidget *parent
     folderLayout->addWidget(m_notesFolder, 1);
     folderLayout->addWidget(browse);
     form->addRow(i18nc("@label:textbox", "Notes folder:"), folderRow);
+
+    using Appearance = Workspaces::Workspace::Appearance;
+    m_appearance->addItem(i18nc("@item:inlistbox workspace appearance", "The global appearance"),
+                          static_cast<int>(Appearance::None));
+    m_appearance->addItem(i18nc("@item:inlistbox workspace appearance", "All options of the profile and overrides"),
+                          static_cast<int>(Appearance::All));
+    m_appearance->addItem(i18nc("@item:inlistbox workspace appearance", "Only the selected options"),
+                          static_cast<int>(Appearance::Selected));
+    form->addRow(i18nc("@label:listbox", "Appearance:"), m_appearance);
+    m_profile->addItem(i18nc("@item:inlistbox no theme profile", "None"), QString());
+    for (const auto &profile : std::as_const(m_profiles))
+        m_profile->addItem(profile.name, profile.id);
+    form->addRow(i18nc("@label:listbox", "Theme profile:"), m_profile);
+    for (const QString &entry : Theme::overrideEntries()) {
+        auto *item = new QListWidgetItem(ThemeGroup::optionLabel(entry), m_options);
+        item->setData(Qt::UserRole, entry);
+        item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable);
+        item->setCheckState(Qt::Unchecked);
+    }
+    m_options->setMaximumHeight(m_options->sizeHintForRow(0) * 6 + 2 * m_options->frameWidth());
+    m_options->setToolTip(i18nc("@info:tooltip",
+                                "With only the selected options, these replace the global ones while the workspace "
+                                "is active; the others keep their global values."));
+    form->addRow(i18nc("@label", "Options:"), m_options);
+    auto *capture = new QPushButton(SymbolicIcon::fromTheme(QStringLiteral("document-import")),
+                                    i18nc("@action:button", "Use Saved Appearance"));
+    capture->setObjectName(QStringLiteral("captureWorkspaceAppearance"));
+    capture->setToolTip(i18nc("@info:tooltip",
+                              "Keep the saved values of the checked options, from the Theme page, for this "
+                              "workspace. They apply over the theme profile."));
+    auto *overridesRow = new QWidget;
+    auto *overridesLayout = new QHBoxLayout(overridesRow);
+    overridesLayout->setContentsMargins(0, 0, 0, 0);
+    overridesLayout->addWidget(m_overrides, 1);
+    overridesLayout->addWidget(capture);
+    overridesLayout->addWidget(m_clearOverrides);
+    form->addRow(i18nc("@label", "Overrides:"), overridesRow);
     form->addRow(QString(), m_problems);
     body->addWidget(m_editor, 2);
     contents()->addLayout(body);
@@ -1000,6 +1058,16 @@ WorkspacesGroup::WorkspacesGroup(const SettingsContext &context, QWidget *parent
     connect(m_accounts, &QListWidget::itemChanged, this, &WorkspacesGroup::storeEditor);
     connect(m_activity, &QComboBox::currentIndexChanged, this, &WorkspacesGroup::storeEditor);
     connect(m_notesFolder, &QLineEdit::textChanged, this, &WorkspacesGroup::storeEditor);
+    connect(m_appearance, &QComboBox::currentIndexChanged, this, &WorkspacesGroup::storeEditor);
+    connect(m_profile, &QComboBox::currentIndexChanged, this, &WorkspacesGroup::storeEditor);
+    connect(m_options, &QListWidget::itemChanged, this, &WorkspacesGroup::storeEditor);
+    connect(capture, &QPushButton::clicked, this, &WorkspacesGroup::captureAppearance);
+    connect(m_clearOverrides, &QPushButton::clicked, this, [this]() {
+        if (auto *workspace = current()) {
+            workspace->appearanceOverrides.clear();
+            storeEditor();
+        }
+    });
     connect(browse, &QPushButton::clicked, this, [this]() {
         if (!m_context.chooseFile)
             return;
@@ -1050,7 +1118,43 @@ void WorkspacesGroup::showWorkspace()
     }
     m_activity->setCurrentIndex(activityIndex);
     m_notesFolder->setText(workspace ? workspace->notesFolder : QString());
+    m_appearance->setCurrentIndex(std::max(
+        0,
+        m_appearance->findData(static_cast<int>(workspace ? workspace->appearance
+                                                          : Workspaces::Workspace::Appearance::None))));
+    const QString profile = workspace ? workspace->themeProfile : QString();
+    int profileIndex = m_profile->findData(profile);
+    if (profileIndex < 0) {
+        // A deleted profile stays referenced, so that it applies again if it comes back
+        m_profile->addItem(i18nc("@item:inlistbox %1 is a theme profile id", "Missing profile (%1)", profile), profile);
+        profileIndex = m_profile->count() - 1;
+    }
+    m_profile->setCurrentIndex(profileIndex);
+    for (int i = 0; i < m_options->count(); ++i) {
+        QListWidgetItem *item = m_options->item(i);
+        item->setCheckState(workspace && workspace->selectedAppearance.contains(item->data(Qt::UserRole).toString())
+                                ? Qt::Checked
+                                : Qt::Unchecked);
+    }
     m_loading = false;
+    storeEditor();
+}
+
+void WorkspacesGroup::captureAppearance()
+{
+    Workspaces::Workspace *workspace = current();
+    if (!workspace)
+        return;
+    const Theme::Values global = SettingsStore::theme(*config());
+    Theme::Values overrides;
+    for (int i = 0; i < m_options->count(); ++i) {
+        const QListWidgetItem *item = m_options->item(i);
+        if (item->checkState() != Qt::Checked)
+            continue;
+        const QString entry = item->data(Qt::UserRole).toString();
+        overrides.insert(entry, Theme::value(global, entry));
+    }
+    workspace->appearanceOverrides = overrides;
     storeEditor();
 }
 
@@ -1070,6 +1174,13 @@ void WorkspacesGroup::storeEditor()
         }
         workspace->activityId = m_activity->currentData().toString();
         workspace->notesFolder = m_notesFolder->text().trimmed();
+        workspace->appearance = static_cast<Workspaces::Workspace::Appearance>(m_appearance->currentData().toInt());
+        workspace->themeProfile = m_profile->currentData().toString();
+        workspace->selectedAppearance.clear();
+        for (int i = 0; i < m_options->count(); ++i) {
+            if (m_options->item(i)->checkState() == Qt::Checked)
+                workspace->selectedAppearance.append(m_options->item(i)->data(Qt::UserRole).toString());
+        }
         if (QListWidgetItem *item = m_list->currentItem())
             item->setText(workspace->name);
     }
@@ -1079,8 +1190,20 @@ void WorkspacesGroup::storeEditor()
     QStringList activityIds;
     for (const auto &activity : m_context.activities)
         activityIds.append(activity.id);
-    const QStringList problems
-        = Workspaces::problems(*workspace, accountIds, activityIds, m_context.activitiesAvailable);
+    QStringList problems = Workspaces::problems(*workspace, accountIds, activityIds, m_context.activitiesAvailable);
+    if (workspace->appearance != Workspaces::Workspace::Appearance::None)
+        problems += Workspaces::appearance(workspace, m_profiles, SettingsStore::theme(*config())).problems;
+    QStringList overridden;
+    for (auto it = workspace->appearanceOverrides.constBegin(); it != workspace->appearanceOverrides.constEnd(); ++it)
+        overridden.append(ThemeGroup::optionLabel(it.key()));
+    overridden.sort(Qt::CaseInsensitive);
+    m_overrides->setText(overridden.isEmpty() ? i18nc("@info no workspace overrides", "None")
+                                              : overridden.join(i18nc("@info list separator", ", ")));
+    m_overrides->setWordWrap(true);
+    m_clearOverrides->setEnabled(!overridden.isEmpty());
+    const bool applies = workspace->appearance != Workspaces::Workspace::Appearance::None;
+    m_profile->setEnabled(applies);
+    m_options->setEnabled(applies);
     m_problems->setText(problems.join(QLatin1Char('\n')));
     m_problems->setVisible(!problems.isEmpty());
 }

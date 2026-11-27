@@ -36,16 +36,16 @@ class QWebHistory;
 class QWebSettings;
 
 QT_MODULE(Declarative)
-class TrojitaDeclarativeWebSettings;
+class ImpresarioDeclarativeWebSettings;
 class QNetworkRequest;
-class TrojitaQNAMDeclarativeWebView;
-class TrojitaQNAMDeclarativeWebViewPrivate;
+class ImpresarioQNAMDeclarativeWebView;
+class ImpresarioQNAMDeclarativeWebViewPrivate;
 
-class TrojitaQNAMDeclarativeWebPage : public QWebPage {
+class ImpresarioQNAMDeclarativeWebPage : public QWebPage {
     Q_OBJECT
 public:
-    explicit TrojitaQNAMDeclarativeWebPage(TrojitaQNAMDeclarativeWebView *parent);
-    ~TrojitaQNAMDeclarativeWebPage();
+    explicit ImpresarioQNAMDeclarativeWebPage(ImpresarioQNAMDeclarativeWebView *parent);
+    ~ImpresarioQNAMDeclarativeWebPage();
 protected:
     QWebPage *createWindow(WebWindowType type);
     QString chooseFile(QWebFrame *originatingFrame, const QString& oldFile);
@@ -54,13 +54,13 @@ protected:
     bool javaScriptPrompt(QWebFrame *originatingFrame, const QString& msg, const QString& defaultValue, QString* result);
 
 private:
-    TrojitaQNAMDeclarativeWebView *viewItem();
+    ImpresarioQNAMDeclarativeWebView *viewItem();
 };
 
-class TrojitaQNAMGraphicsWebView : public QGraphicsWebView {
+class ImpresarioQNAMGraphicsWebView : public QGraphicsWebView {
     Q_OBJECT
 public:
-    explicit TrojitaQNAMGraphicsWebView(TrojitaQNAMDeclarativeWebView* parent = 0);
+    explicit ImpresarioQNAMGraphicsWebView(ImpresarioQNAMDeclarativeWebView* parent = 0);
 protected:
     void mousePressEvent(QGraphicsSceneMouseEvent* event);
     void mouseReleaseEvent(QGraphicsSceneMouseEvent* event);
@@ -72,18 +72,18 @@ protected:
 Q_SIGNALS:
     void doubleClick(int clickX, int clickY);
 private:
-    TrojitaQNAMDeclarativeWebView *parent;
+    ImpresarioQNAMDeclarativeWebView *parent;
     QPointF pressPoint;
     QBasicTimer pressTimer;
     int pressTime; // milliseconds before the touch event becomes a "tap and hold"
-    friend class TrojitaQNAMDeclarativeWebView;
+    friend class ImpresarioQNAMDeclarativeWebView;
 };
 
-class TrojitaQNAMDeclarativeWebViewAttached;
+class ImpresarioQNAMDeclarativeWebViewAttached;
 
 // TODO: browser plugins
 
-class TrojitaQNAMDeclarativeWebView : public QDeclarativeItem {
+class ImpresarioQNAMDeclarativeWebView : public QDeclarativeItem {
     Q_OBJECT
 
     Q_ENUMS(Status SelectionMode)
@@ -109,7 +109,7 @@ class TrojitaQNAMDeclarativeWebView : public QDeclarativeItem {
     Q_PROPERTY(QAction* stop READ stopAction CONSTANT)
 #endif
 
-    Q_PROPERTY(TrojitaDeclarativeWebSettings* settings READ settingsObject CONSTANT)
+    Q_PROPERTY(ImpresarioDeclarativeWebSettings* settings READ settingsObject CONSTANT)
 
     Q_PROPERTY(QDeclarativeListProperty<QObject> javaScriptWindowObjects READ javaScriptWindowObjects CONSTANT)
 
@@ -124,8 +124,8 @@ class TrojitaQNAMDeclarativeWebView : public QDeclarativeItem {
     Q_PROPERTY(QNetworkAccessManager* networkAccessManager READ networkAccessManager WRITE setNetworkAccessManager)
 
 public:
-    explicit TrojitaQNAMDeclarativeWebView(QDeclarativeItem *parent = 0);
-    ~TrojitaQNAMDeclarativeWebView();
+    explicit ImpresarioQNAMDeclarativeWebView(QDeclarativeItem *parent = 0);
+    ~ImpresarioQNAMDeclarativeWebView();
 
     QUrl url() const;
     void setUrl(const QUrl &);
@@ -171,14 +171,14 @@ public:
 
     QWebHistory* history() const;
     QWebSettings* settings() const;
-    TrojitaDeclarativeWebSettings *settingsObject() const;
+    ImpresarioDeclarativeWebSettings *settingsObject() const;
 
     bool renderingEnabled() const;
     void setRenderingEnabled(bool);
 
     QDeclarativeListProperty<QObject> javaScriptWindowObjects();
 
-    static TrojitaQNAMDeclarativeWebViewAttached* qmlAttachedProperties(QObject*);
+    static ImpresarioQNAMDeclarativeWebViewAttached* qmlAttachedProperties(QObject*);
 
     QDeclarativeComponent *newWindowComponent() const;
     void setNewWindowComponent(QDeclarativeComponent *newWindow);
@@ -238,24 +238,24 @@ private Q_SLOTS:
 
     virtual void geometryChanged(const QRectF &newGeometry,
                                  const QRectF &oldGeometry);
-    TrojitaQNAMDeclarativeWebView* createWindow(QWebPage::WebWindowType type);
+    ImpresarioQNAMDeclarativeWebView* createWindow(QWebPage::WebWindowType type);
 
 private:
     void updateContentsSize();
     void init();
     virtual void componentComplete();
-    Q_DISABLE_COPY(TrojitaQNAMDeclarativeWebView)
-    TrojitaQNAMDeclarativeWebViewPrivate* d;
+    Q_DISABLE_COPY(ImpresarioQNAMDeclarativeWebView)
+    ImpresarioQNAMDeclarativeWebViewPrivate* d;
     QMouseEvent* sceneMouseEventToMouseEvent(QGraphicsSceneMouseEvent*);
     QMouseEvent* sceneHoverMoveEventToMouseEvent(QGraphicsSceneHoverEvent*);
-    friend class TrojitaQNAMDeclarativeWebPage;
+    friend class ImpresarioQNAMDeclarativeWebPage;
 };
 
-class TrojitaQNAMDeclarativeWebViewAttached : public QObject {
+class ImpresarioQNAMDeclarativeWebViewAttached : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString windowObjectName READ windowObjectName WRITE setWindowObjectName)
 public:
-    explicit TrojitaQNAMDeclarativeWebViewAttached(QObject* parent)
+    explicit ImpresarioQNAMDeclarativeWebViewAttached(QObject* parent)
         : QObject(parent)
     {
     }
@@ -274,7 +274,7 @@ private:
     QString m_windowObjectName;
 };
 
-class TrojitaDeclarativeWebSettings : public QObject {
+class ImpresarioDeclarativeWebSettings : public QObject {
     Q_OBJECT
 
     Q_PROPERTY(QString standardFontFamily READ standardFontFamily WRITE setStandardFontFamily)
@@ -308,7 +308,7 @@ class TrojitaDeclarativeWebSettings : public QObject {
     Q_PROPERTY(bool localContentCanAccessRemoteUrls READ localContentCanAccessRemoteUrls WRITE setLocalContentCanAccessRemoteUrls)
 
 public:
-    TrojitaDeclarativeWebSettings() {}
+    ImpresarioDeclarativeWebSettings() {}
 
     QString standardFontFamily() const { return s->fontFamily(QWebSettings::StandardFont); }
     void setStandardFontFamily(const QString& f) { s->setFontFamily(QWebSettings::StandardFont, f); }
@@ -368,9 +368,9 @@ public:
     QWebSettings *s;
 };
 
-QML_DECLARE_TYPE(TrojitaQNAMDeclarativeWebPage)
+QML_DECLARE_TYPE(ImpresarioQNAMDeclarativeWebPage)
 QML_DECLARE_TYPE(QNetworkAccessManager)
-QML_DECLARE_TYPEINFO(TrojitaQNAMDeclarativeWebView, QML_HAS_ATTACHED_PROPERTIES)
+QML_DECLARE_TYPEINFO(ImpresarioQNAMDeclarativeWebView, QML_HAS_ATTACHED_PROPERTIES)
 
 QT_END_HEADER
 

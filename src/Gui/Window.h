@@ -20,8 +20,8 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef TROJITA_WINDOW_H
-#define TROJITA_WINDOW_H
+#ifndef IMPRESARIO_WINDOW_H
+#define IMPRESARIO_WINDOW_H
 
 #include <QHash>
 #include <QIcon>
@@ -592,8 +592,18 @@ private:
     void applyApplicationSettings();
     /** @short Show the account of @p activityId's workspace, when the workspaces follow the activities */
     void followActivity(const QString &activityId);
+    /** @short Register the window, its panes and its fonts with the appearance options, and apply them */
+    void registerAppearance();
+    /** @short Apply the appearance options of the global theme and of the active workspace */
+    void applyAppearance();
+    /** @short Stripe the message list and the folder tree as the appearance options ask */
+    void applyListAppearance();
     /** @short Watch the keymap shared with Plasma Opus, when it is followed, and import it when it changes */
     void watchSharedKeymap();
+    /** @short Apply a followed theme profile file whenever it changes */
+    void watchFollowedTheme();
+    /** @short Colours for the folder @arg mailbox of the active account, kept locally */
+    QMenu *folderColorMenu(const QModelIndex &mailbox);
     /** @short The part of the window @p focus is in, as Vim mode sees it */
     std::optional<UiUtils::Keymap::Context> vimContext(QWidget *focus) const;
     /** @short Hand the message in the reader to the calendar application as a new event to review */
@@ -991,7 +1001,7 @@ private:
     QTreeView *mailMimeTree;
     QDockWidget *mailMimeDock;
 
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     CompleteMessageWidget *m_messageWidget;
 #else
     QLabel *m_messageWidget;
@@ -1075,6 +1085,8 @@ private:
     bool m_focusLayout = false;
     PlasmaActivities *m_activities = nullptr;
     QFileSystemWatcher *m_keymapWatcher = nullptr;
+    QFileSystemWatcher *m_themeWatcher = nullptr;
+    QPointer<QMenu> m_folderColorMenu;
     MailTabBar *m_tabBar = nullptr;
     VimMode *m_vimMode = nullptr;
     QAction *m_actionMessageToCalendar = nullptr;

@@ -64,7 +64,7 @@ LibMailboxSync::LibMailboxSync()
     , m_startTlsRequired(false)
     , m_initialConnectionState(Imap::CONN_STATE_AUTHENTICATED)
 {
-    m_verbose = qgetenv("TROJITA_IMAP_DEBUG") == QByteArray("1");
+    m_verbose = qgetenv("IMPRESARIO_IMAP_DEBUG") == QByteArray("1");
 }
 
 LibMailboxSync::~LibMailboxSync()

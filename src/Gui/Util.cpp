@@ -129,7 +129,7 @@ void messageBoxWarning(QWidget *parent, const QString &title, const QString &mes
 /** @short Checks whether the data of a drop event is from another IMAP account, and is therefore not supported. */
 bool isFromDistinctImapAccount(QDropEvent* de)
 {
-    if ((de->mimeData()->hasFormat(Imap::MimeTypes::xTrojitaImapPart) || de->mimeData()->hasFormat(Imap::MimeTypes::xTrojitaMessageList)) && !de->source()) {
+    if ((de->mimeData()->hasFormat(Imap::MimeTypes::xImpresarioImapPart) || de->mimeData()->hasFormat(Imap::MimeTypes::xImpresarioMessageList)) && !de->source()) {
         return true;
     }
     return false;

@@ -6,6 +6,9 @@
 #include <KLocalizedString>
 #include <utility>
 
+#include "AppearanceManager.h"
+#include "UiUtils/Color.h"
+
 namespace Gui {
 
 MailTabBar::MailTabBar(QWidget *parent)
@@ -23,6 +26,7 @@ MailTabBar::MailTabBar(QWidget *parent)
         if (!m_updating && index >= 0)
             emit tabActivated(index);
     });
+    connect(AppearanceManager::instance(), &AppearanceManager::changed, this, &MailTabBar::applyColors);
 }
 
 void MailTabBar::setEntries(const QList<Entry> &entries, int current)
@@ -38,6 +42,10 @@ void MailTabBar::setEntries(const QList<Entry> &entries, int current)
         setTabText(i, label.replace(QLatin1Char('&'), QLatin1String("&&")));
         setTabToolTip(i, entries.at(i).toolTip);
     }
+    m_colors.clear();
+    for (const Entry &entry : entries)
+        m_colors.append(entry.color);
+    applyColors();
     setTabsClosable(entries.size() > 1);
     if (current >= 0 && current < count())
         setCurrentIndex(current);
@@ -49,6 +57,29 @@ void MailTabBar::setPlacement(UiUtils::MailTabs::Region region, Qt::Orientation 
     m_region = region;
     m_orientation = orientation;
     setShape(shapeFor(region, orientation));
+}
+
+QColor MailTabBar::tabColor(int index) const
+{
+    return m_colors.value(index);
+}
+
+void MailTabBar::applyColors()
+{
+    const QString strength
+        = AppearanceManager::instance()->value(QStringLiteral("TabColorStrength")).toString();
+    const QColor window = palette().color(QPalette::Window);
+    for (int i = 0; i < count(); ++i) {
+        const QColor color = m_colors.value(i);
+        QColor text;
+        if (color.isValid() && strength == QLatin1String("Text"))
+            text = UiUtils::ensureContrast(color, window);
+        else if (color.isValid() && strength == QLatin1String("Strong"))
+            // The style fills the tab with the colour, so the text has to stand out against it
+            text = UiUtils::readableTextColor(color);
+        // An invalid colour gives the tab the text colour of the palette back
+        setTabTextColor(i, text);
+    }
 }
 
 UiUtils::MailTabs::Region MailTabBar::region() const

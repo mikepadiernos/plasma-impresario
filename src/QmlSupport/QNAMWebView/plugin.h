@@ -17,12 +17,12 @@
     Boston, MA 02110-1301, USA.
 */
 
-#ifndef TROJITA_QML_QNAMWEBKITPLUGIN
-#define TROJITA_QML_QNAMWEBKITPLUGIN
+#ifndef IMPRESARIO_QML_QNAMWEBKITPLUGIN
+#define IMPRESARIO_QML_QNAMWEBKITPLUGIN
 
 #include <QtDeclarative/qdeclarativeextensionplugin.h>
 
-class TrojitaQNAMWebKitQmlPlugin : public QDeclarativeExtensionPlugin {
+class ImpresarioQNAMWebKitQmlPlugin : public QDeclarativeExtensionPlugin {
     Q_OBJECT
 public:
     virtual void registerTypes(const char* uri);

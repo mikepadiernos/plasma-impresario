@@ -26,6 +26,7 @@
 #include <memory>
 #include <QAuthenticator>
 #include <QActionGroup>
+#include <QColorDialog>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDBusConnection>
@@ -77,6 +78,7 @@
 #include <KIO/JobUiDelegateFactory>
 #include <KIO/OpenFileManagerWindowJob>
 #include <KIO/OpenUrlJob>
+#include <KLazyLocalizedString>
 #include <KLocalizedString>
 #include <KApplicationTrader>
 #include <KService>
@@ -84,7 +86,7 @@
 #include <KWindowSystem>
 
 #include "configure.cmake.h"
-#ifdef TROJITA_HAVE_KNOTIFICATIONS
+#ifdef IMPRESARIO_HAVE_KNOTIFICATIONS
 #include <KNotification>
 #endif
 #include "Common/Application.h"
@@ -96,8 +98,8 @@
 #include "Composer/AccountIdentities.h"
 #include "Composer/Mailto.h"
 #include "Composer/SenderIdentitiesModel.h"
-#ifdef TROJITA_HAVE_CRYPTO_MESSAGES
-#  ifdef TROJITA_HAVE_GPGMEPP
+#ifdef IMPRESARIO_HAVE_CRYPTO_MESSAGES
+#  ifdef IMPRESARIO_HAVE_GPGMEPP
 #    include "Cryptography/GpgMe++.h"
 #  endif
 #endif
@@ -151,6 +153,8 @@
 #include "MessageRowsMenu.h"
 #include "MessageView.h"
 #include "MessageSourceWidget.h"
+#include "Gui/AppearanceManager.h"
+#include "Gui/AppearanceStyle.h"
 #include "Gui/FileChooser.h"
 #include "Gui/LinkTarget.h"
 #include "Gui/MessageHeadersWidget.h"
@@ -172,7 +176,7 @@
 #include "MailTabBar.h"
 #include "VimMode.h"
 #include "ShortcutOverviewDialog.h"
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
 #include "SimplePartWidget.h"
 #endif
 #include "Streams/SocketFactory.h"
@@ -198,6 +202,7 @@
 #include "UiUtils/RelatedMessages.h"
 #include "UiUtils/Relevance.h"
 #include "UiUtils/SavedSearches.h"
+#include "UiUtils/FolderColors.h"
 #include "UiUtils/SettingsStore.h"
 #include "UiUtils/Keymap.h"
 #include "UiUtils/Workspaces.h"
@@ -205,7 +210,7 @@
 #include "UiUtils/SearchSuggestions.h"
 #include "UiUtils/ServerDiscovery.h"
 #include "UiUtils/UnreadFolders.h"
-#ifdef TROJITA_HAVE_AKONADI_CALENDAR
+#ifdef IMPRESARIO_HAVE_AKONADI_CALENDAR
 #include "UiUtils/AkonadiAgendaSource.h"
 #endif
 
@@ -269,9 +274,9 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
 
     });
 
-#ifdef TROJITA_HAVE_CRYPTO_MESSAGES
+#ifdef IMPRESARIO_HAVE_CRYPTO_MESSAGES
     Plugins::PluginManager::MimePartReplacers replacers;
-#ifdef TROJITA_HAVE_GPGMEPP
+#ifdef IMPRESARIO_HAVE_GPGMEPP
     replacers.emplace_back(std::make_shared<Cryptography::GpgMeReplacer>());
 #endif
     m_pluginManager->setMimePartReplacers(replacers);
@@ -318,6 +323,8 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     connect(m_activities, &PlasmaActivities::currentChanged, this, &MainWindow::followActivity);
     watchSharedKeymap();
     applyTabSettings();
+    registerAppearance();
+    watchFollowedTheme();
     m_vimPending = new QLabel(statusBar());
     m_vimPending->setObjectName(QStringLiteral("vimPending"));
     m_vimPending->setAccessibleName(i18nc("@label", "Vim keys typed"));
@@ -471,7 +478,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::reply(const Composer::ReplyMode mode)
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     const QModelIndex messageIndex = m_messageWidget->message();
     const bool isCryptoMessage = m_messageWidget->isCryptoMessage();
     QPointer<MainWindow> window(this);
@@ -944,7 +951,7 @@ void MainWindow::createActions()
     msgListWidget->tree->addAction(markAsRead);
     connect(markAsRead, &QAction::triggered, this, &MainWindow::handleMarkAsRead);
 
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_nextMessage = ShortcutHandler::instance()->createAction(QStringLiteral("action_go_to_next_unread"), this, SLOT(slotNextUnread()), this);
     msgListWidget->tree->addAction(m_nextMessage);
     m_messageWidget->messageView->addAction(m_nextMessage);
@@ -982,7 +989,7 @@ void MainWindow::createActions()
     });
     for (QAction *action : {m_nextInConversation, m_previousInConversation, m_expandAllConversations, m_collapseAllConversations})
         msgListWidget->tree->addAction(action);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_messageWidget->messageView->addAction(m_nextInConversation);
     m_messageWidget->messageView->addAction(m_previousInConversation);
 #endif
@@ -1466,8 +1473,11 @@ void MainWindow::createActions()
     m_replyMenu->addAction(m_replyList);
     m_replyButton->setMenu(m_replyMenu);
     m_replyButton->setDefaultAction(m_replyPrivate);
+    // A corner marker instead of an arrow beside the button shows that it has a menu
+    AppearanceStyle::addMenuMarker(m_composeButton);
+    AppearanceStyle::addMenuMarker(m_replyButton);
 
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     // The bar above the reader works on the open message, whatever is selected in the list
     m_readerActions = new ReaderActionBar();
     m_readerActions->setReplyMenu(m_replyMenu);
@@ -1479,7 +1489,7 @@ void MainWindow::createActions()
     // Escape leaves the reader or an embedded panel for the message list. The scopes leave out the find bar and
     // the quick search, which use Escape themselves.
     QList<QWidget *> escapeScopes;
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     escapeScopes << m_messageWidget->messageView << m_readerActions;
 #else
     escapeScopes << m_messageWidget;
@@ -1494,7 +1504,7 @@ void MainWindow::createActions()
         toList->setContext(Qt::WidgetWithChildrenShortcut);
         connect(toList, &QShortcut::activated, this, &MainWindow::slotReturnToMessageList);
     }
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     connect(m_readerActions, &ReaderActionBar::archiveRequested, this, [this]() {
         actOnOpenMessage([this]() { handleMoveToArchive(); });
     });
@@ -1548,6 +1558,7 @@ void MainWindow::createActions()
     m_moveButton->setPopupMode(QToolButton::MenuButtonPopup);
     m_moveButton->setMenu(m_moveToMenu);
     m_moveButton->setDefaultAction(m_moveToFolder);
+    AppearanceStyle::addMenuMarker(m_moveButton);
     m_mainToolbar->addWidget(m_moveButton);
 
     // Push the status indicators all the way to the other side of the toolbar -- either to the far right, or far bottom.
@@ -1562,14 +1573,15 @@ void MainWindow::createActions()
     // This is deliberate; we want to show this button in the same style as the other ones in the toolbar
     networkIndicator->setPopupMode(QToolButton::MenuButtonPopup);
     networkIndicator->setAccessibleName(i18nc("@action:button", "Network access"));
+    AppearanceStyle::addMenuMarker(networkIndicator);
     m_mainToolbar->addWidget(networkIndicator);
 
     m_menuFromToolBar = new QToolButton(this);
     m_menuFromToolBar->setIcon(UiUtils::loadIcon(QStringLiteral("menu_new")));
     m_menuFromToolBar->setText(QChar(0x205d)); // Unicode 'TRICOLON'
     m_menuFromToolBar->setAccessibleName(i18nc("@action:button", "Main menu"));
-    m_menuFromToolBar->setPopupMode(QToolButton::MenuButtonPopup);
-    connect(m_menuFromToolBar, &QAbstractButton::clicked, m_menuFromToolBar, &QToolButton::showMenu);
+    m_menuFromToolBar->setPopupMode(QToolButton::InstantPopup);
+    AppearanceStyle::addMenuMarker(m_menuFromToolBar);
     m_mainToolbar->addWidget(m_menuFromToolBar);
     connect(showMenuBar, &QAction::toggled, this, [this](const bool menuBarVisible) {
         // https://bugreports.qt.io/browse/QTBUG-35768 , we have to work on the QAction, not QToolButton
@@ -1724,6 +1736,7 @@ void MainWindow::createMenus()
         m_densityMenu = new DensityMenu(mboxTree, msgListWidget->tree, config, viewMenu);
         viewMenu->addMenu(m_densityMenu);
         m_messageRowsMenu = new MessageRowsMenu(msgListWidget->tree, config, viewMenu);
+        connect(m_messageRowsMenu, &MessageRowsMenu::appearanceChanged, this, &MainWindow::applyAppearance);
         viewMenu->addMenu(m_messageRowsMenu);
         if (!m_embeddedPanels.isEmpty()) {
             m_embeddedPanelsMenu = new EmbeddedPanelsMenu(config, viewMenu);
@@ -1807,7 +1820,7 @@ void MainWindow::createMenus()
             connect(action, &QAction::toggled, this, &MainWindow::updateSortButton);
         updateSortButton();
         mailboxMenu->addSeparator();
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
         ADD_ACTION(mailboxMenu, m_previousMessage);
         ADD_ACTION(mailboxMenu, m_nextMessage);
         ADD_ACTION(mailboxMenu, m_previousAnyMessage);
@@ -1846,7 +1859,7 @@ void MainWindow::createMenus()
         messageMenu->addSeparator();
         ADD_ACTION(messageMenu, markAsRead);
         ADD_ACTION(messageMenu, m_markAsUnread);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
         ADD_ACTION(messageMenu, m_markReadNextUnread);
 #endif
         ADD_ACTION(messageMenu, markAsFlagged);
@@ -2015,7 +2028,7 @@ void MainWindow::createWidgets()
 
     msgListWidget->tree->installEventFilter(this);
 
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_messageWidget = new CompleteMessageWidget(this, m_settings, m_pluginManager, m_favoriteTags);
     // The window's Find action hands the key to the reader while it has focus; two actions with the same key in one
     // window would be ambiguous, so that neither of them would run
@@ -2175,7 +2188,7 @@ void MainWindow::createWidgets()
     mailMimeTree->setHeaderHidden(true);
     mailMimeDock->setWidget(mailMimeTree);
     addDockWidget(Qt::RightDockWidgetArea, mailMimeDock);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     connect(m_messageWidget->messageView, &MessageView::messageModelChanged, this, &MainWindow::slotMessageModelChanged);
 #endif
     protocolLoggerDock = new QDockWidget(tr("Protocol log"), this);
@@ -2196,7 +2209,7 @@ void MainWindow::setupModels(bool reconnect)
         monitorAccount(m_accounts->activeAccount());
     }
 
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_messageWidget->messageView->setNetworkWatcher(qobject_cast<Imap::Mailbox::NetworkWatcher*>(m_imapAccess->networkWatcher()));
     m_relatedMessagesPanel->setMessageList(m_imapAccess->msgListModel());
     for (const QMetaObject::Connection &connection : std::as_const(m_agendaListConnections))
@@ -2522,7 +2535,7 @@ void MainWindow::keepPrivateFilesTidy()
     // Copies fetched for a message being composed before this started were left behind when the application ended
     // unexpectedly; those of a composer opened meanwhile are newer
     const QDateTime started = QDateTime::currentDateTimeUtc();
-    const bool hasProfile = !qEnvironmentVariableIsEmpty("TROJITA_PROFILE");
+    const bool hasProfile = !Common::Application::profileName().isEmpty();
     QThreadPool::globalInstance()->start([cache, opened, fetched, started, hasProfile]() {
         namespace Private = Common::PrivateFiles;
         // A profile's cache is inside the application's, which holds the other profiles' caches
@@ -2568,7 +2581,7 @@ void MainWindow::handleTrayIconChange()
     auto pixmap = qApp->windowIcon()
                 .pixmap(QSize(32, 32), isOffline ? QIcon::Disabled : QIcon::Normal);
     QString tooltip;
-    auto profileName = QString::fromUtf8(qgetenv("TROJITA_PROFILE"));
+    auto profileName = Common::Application::profileName();
     if (profileName.isEmpty()) {
         tooltip = QStringLiteral("Plasma Impresario");
     } else {
@@ -2647,7 +2660,17 @@ void MainWindow::handleTrayIconChange()
         tooltip += tr(" - offline");
     }
     m_trayIcon->setToolTip(tooltip);
-    m_trayIcon->setIcon(QIcon(pixmap));
+    const bool symbolic = UiUtils::SettingsStore::value(*KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")),
+                                                        m_settings, QStringLiteral("Appearance/SymbolicTrayIcon"))
+                              .toBool();
+    if (symbolic) {
+        // The panel colours a symbolic icon as it does the other tray icons; the count is in the tooltip
+        m_trayIcon->setIcon(UiUtils::SymbolicIcon::fromTheme(
+            isOffline ? QStringLiteral("network-offline")
+                      : numbersValid ? QStringLiteral("mail-unread-new") : QStringLiteral("mail-message")));
+    } else {
+        m_trayIcon->setIcon(QIcon(pixmap));
+    }
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -2687,7 +2710,7 @@ bool MainWindow::eventFilter(QObject *o, QEvent *e)
         fitPanelRegion(region);
         return false;
     }
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     if (msgListWidget && o == msgListWidget->tree && m_messageWidget->messageView) {
         if (e->type() == QEvent::KeyPress) {
             QKeyEvent *keyEvent = static_cast<QKeyEvent *>(e);
@@ -2813,7 +2836,7 @@ void MainWindow::slotMessageReplacedAfterRemoval(const QModelIndex &index)
     if (!qobject_cast<const Imap::Mailbox::Model *>(Imap::deproxifiedIndex(index).model()))
         return;
     saveMessageSelection(index);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     // As after keyboard navigation, the reader follows and marks the message as read according to the settings
     if ((m_messageWidget->isVisible() && !m_messageWidget->size().isEmpty()) || m_layoutMode == LAYOUT_ONE_AT_TIME)
         m_messageWidget->messageView->setMessage(index);
@@ -2835,7 +2858,7 @@ void MainWindow::msgListClicked(const QModelIndex &index)
         saveMessageSelection(index);
     if (! index.data(Imap::Mailbox::RoleMessageUid).isValid())
         return;
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     // Because it's quite possible that we have switched into another mailbox, make sure that we're in the "current" one so that
     // user will be notified about new arrivals, etc.
     QModelIndex translated = Imap::deproxifiedIndex(index);
@@ -2891,7 +2914,7 @@ void MainWindow::msgListClicked(const QModelIndex &index)
 
 void MainWindow::openCompleteMessageWidget()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     const QModelIndex index = msgListWidget->tree->currentIndex();
 
     if (! index.data(Imap::Mailbox::RoleMessageUid).isValid())
@@ -2953,12 +2976,80 @@ void MainWindow::showContextMenuMboxTree(const QPoint &position)
 
         actionList.append(m_actionSubscribeMailbox);
         m_actionSubscribeMailbox->setChecked(mboxTree->indexAt(position).data(Imap::Mailbox::RoleMailboxIsSubscribed).toBool());
+        if (QMenu *colors = folderColorMenu(clicked))
+            actionList.append(colors->menuAction());
     } else {
         actionList.append(createTopMailbox);
     }
     actionList.append(reloadAllMailboxes);
     actionList.append(m_actionShowOnlySubscribed);
     QMenu::exec(actionList, mboxTree->mapToGlobal(position), nullptr, this);
+}
+
+QMenu *MainWindow::folderColorMenu(const QModelIndex &mailbox)
+{
+    const QString accountId = m_accounts->activeAccount();
+    const QString folder = mailbox.data(Imap::Mailbox::RoleMailboxName).toString();
+    if (accountId.isEmpty() || folder.isEmpty())
+        return nullptr;
+    delete m_folderColorMenu;
+    m_folderColorMenu = new QMenu(i18nc("@title:menu", "Folder Colour"), this);
+    m_folderColorMenu->setObjectName(QStringLiteral("folderColorMenu"));
+    m_folderColorMenu->setIcon(UiUtils::SymbolicIcon::fromTheme(QStringLiteral("color-management")));
+    const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    const QColor own = UiUtils::SettingsStore::folderColors(*config).folders.value(accountId).value(folder);
+    const auto store = [this, accountId, folder](const QColor &color) {
+        const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        UiUtils::SettingsStore::setFolderColor(*config, accountId, folder, color);
+        config->sync();
+        applyAppearance();
+    };
+    static const QHash<QString, KLazyLocalizedString> names{
+        {QStringLiteral("red"), kli18nc("@item:inmenu folder colour", "Red")},
+        {QStringLiteral("orange"), kli18nc("@item:inmenu folder colour", "Orange")},
+        {QStringLiteral("yellow"), kli18nc("@item:inmenu folder colour", "Yellow")},
+        {QStringLiteral("green"), kli18nc("@item:inmenu folder colour", "Green")},
+        {QStringLiteral("cyan"), kli18nc("@item:inmenu folder colour", "Cyan")},
+        {QStringLiteral("blue"), kli18nc("@item:inmenu folder colour", "Blue")},
+        {QStringLiteral("violet"), kli18nc("@item:inmenu folder colour", "Violet")},
+        {QStringLiteral("magenta"), kli18nc("@item:inmenu folder colour", "Magenta")},
+        {QStringLiteral("brown"), kli18nc("@item:inmenu folder colour", "Brown")},
+        {QStringLiteral("grey"), kli18nc("@item:inmenu folder colour", "Grey")},
+        {QStringLiteral("black"), kli18nc("@item:inmenu folder colour", "Black")},
+        {QStringLiteral("white"), kli18nc("@item:inmenu folder colour", "White")},
+    };
+    auto *group = new QActionGroup(m_folderColorMenu);
+    for (const QString &name : UiUtils::FolderColors::iconColors()) {
+        const QColor color = UiUtils::FolderColors::iconColor(name);
+        QPixmap swatch(16, 16);
+        swatch.fill(color);
+        // Coloured folder icons of the icon theme where it has them, else a swatch
+        const QString iconName = QStringLiteral("folder-") + name;
+        QAction *action = m_folderColorMenu->addAction(
+            QIcon::hasThemeIcon(iconName) ? QIcon::fromTheme(iconName) : QIcon(swatch), names.value(name).toString());
+        action->setObjectName(QStringLiteral("folderColor-") + name);
+        action->setCheckable(true);
+        action->setChecked(own.isValid() && QColor(own.rgb()) == color);
+        group->addAction(action);
+        connect(action, &QAction::triggered, this, [store, color]() { store(color); });
+    }
+    m_folderColorMenu->addSeparator();
+    QAction *custom = m_folderColorMenu->addAction(UiUtils::SymbolicIcon::fromTheme(QStringLiteral("color-picker")),
+                                                   i18nc("@action:inmenu", "Other Colour…"));
+    custom->setObjectName(QStringLiteral("folderColorCustom"));
+    connect(custom, &QAction::triggered, this, [this, store, own, folder]() {
+        const QColor color = QColorDialog::getColor(own.isValid() ? own : QColor(61, 174, 233), this,
+                                                    i18nc("@title:window %1 is a folder", "Colour of %1", folder));
+        if (color.isValid())
+            store(color);
+    });
+    QAction *remove = m_folderColorMenu->addAction(UiUtils::SymbolicIcon::fromTheme(QStringLiteral("edit-clear")),
+                                                   i18nc("@action:inmenu", "No Colour of Its Own"));
+    remove->setObjectName(QStringLiteral("folderColorRemove"));
+    remove->setToolTip(i18nc("@info:tooltip", "Folder colour rules from the Theme settings can still colour it"));
+    remove->setEnabled(own.isValid());
+    connect(remove, &QAction::triggered, this, [store]() { store(QColor()); });
+    return m_folderColorMenu;
 }
 
 void MainWindow::showContextMenuMsgListTree(const QPoint &position)
@@ -2987,7 +3078,7 @@ void MainWindow::showContextMenuMsgListTree(const QPoint &position)
         actionList.append(m_copyToMenu->menuAction());
         actionList.append(m_actionMarkMailboxAsRead);
         actionList.append(saveWholeMessage);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
         // They act on the message in the reader, so they are offered for that one only
         if (Imap::deproxifiedIndex(index) == Imap::deproxifiedIndex(m_messageWidget->messageView->currentMessage())) {
             for (QAction *action : {m_actionMessageToCalendar, m_actionMessageToNote}) {
@@ -3389,6 +3480,9 @@ void MainWindow::slotShowSettings()
         slotToggleSysTray();
         scheduleAccountUnreadRefresh();
         applyApplicationSettings();
+    } else {
+        // A preview that was not saved goes back to the saved appearance
+        applyAppearance();
     }
 }
 
@@ -3413,22 +3507,64 @@ void MainWindow::applyApplicationSettings()
     }
     msgListWidget->applySearchSettings();
     watchSharedKeymap();
+    watchFollowedTheme();
     applyTabSettings();
     applyVimSettings();
     applyProductivitySettings();
+    applyAppearance();
+}
+
+void MainWindow::registerAppearance()
+{
+    auto *appearance = AppearanceManager::instance();
+    appearance->registerWindow(this);
+    appearance->registerPane(mboxTree);
+    appearance->registerPane(msgListWidget->tree);
+    appearance->registerPane(m_readerColumn);
+    appearance->registerFont(msgListWidget->tree, AppearanceManager::FontTarget::MessageList);
+    appearance->registerFont(mboxTree, AppearanceManager::FontTarget::FolderTree);
+    appearance->registerFont(m_tabBar, AppearanceManager::FontTarget::Tabs);
+    appearance->registerFont(statusBar(), AppearanceManager::FontTarget::StatusBar);
+    connect(appearance, &AppearanceManager::changed, this, &MainWindow::applyListAppearance);
+    applyAppearance();
+}
+
+void MainWindow::applyAppearance()
+{
+    mboxTree->setAccountId(m_accounts->activeAccount());
+    msgListWidget->tree->setAccountId(m_accounts->activeAccount());
+    const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    AppearanceManager::instance()->load(*config, m_activities ? m_activities->current() : QString(),
+                                        m_accounts->activeAccount());
+    handleTrayIconChange();
+}
+
+void MainWindow::applyListAppearance()
+{
+    auto *appearance = AppearanceManager::instance();
+    msgListWidget->tree->setAlternatingRowColors(appearance->value(QStringLiteral("StripeRows")).toBool());
+    mboxTree->setAlternatingRowColors(appearance->value(QStringLiteral("StripeFolderTree")).toBool());
+    msgListWidget->tree->viewport()->update();
+    mboxTree->viewport()->update();
+    // Folder and account colours of the tabs can have changed
+    refreshTabs();
 }
 
 void MainWindow::followActivity(const QString &activityId)
 {
     const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
-    if (activityId.isEmpty()
-        || !UiUtils::SettingsStore::value(*config, m_settings, QStringLiteral("Workspaces/FollowActivity")).toBool())
-        return;
-    const QString accountId = UiUtils::Workspaces::accountForActivity(UiUtils::SettingsStore::workspaces(*config),
-                                                                      activityId, m_accounts->activeAccount(),
-                                                                      m_accounts->accountIds());
-    if (!accountId.isEmpty() && accountId != m_accounts->activeAccount())
-        switchAccount(accountId);
+    if (!activityId.isEmpty()
+        && UiUtils::SettingsStore::value(*config, m_settings, QStringLiteral("Workspaces/FollowActivity")).toBool()) {
+        const QString accountId = UiUtils::Workspaces::accountForActivity(UiUtils::SettingsStore::workspaces(*config),
+                                                                          activityId, m_accounts->activeAccount(),
+                                                                          m_accounts->accountIds());
+        if (!accountId.isEmpty() && accountId != m_accounts->activeAccount()) {
+            // Switching applies the workspace's appearance
+            switchAccount(accountId);
+            return;
+        }
+    }
+    applyAppearance();
 }
 
 void MainWindow::watchSharedKeymap()
@@ -3470,6 +3606,45 @@ void MainWindow::watchSharedKeymap()
     import();
 }
 
+void MainWindow::watchFollowedTheme()
+{
+    const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    const QString path = UiUtils::SettingsStore::followedTheme(*config);
+    if (m_themeWatcher) {
+        if (m_themeWatcher->files() == QStringList{path})
+            return;
+        delete m_themeWatcher;
+        m_themeWatcher = nullptr;
+    }
+    if (path.isEmpty())
+        return;
+    m_themeWatcher = new QFileSystemWatcher(this);
+    const auto import = [this, path]() {
+        // Editors replace the file when saving it, which drops it from the watcher
+        if (m_themeWatcher && !m_themeWatcher->files().contains(path) && QFileInfo::exists(path))
+            m_themeWatcher->addPath(path);
+        if (!QFileInfo::exists(path))
+            return;
+        const UiUtils::ThemeProfiles::ParseResult result = UiUtils::ThemeProfiles::importFile(path);
+        if (!result.profile) {
+            qWarning() << "The followed theme" << path << "could not be read:" << result.error;
+            return;
+        }
+        const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        const UiUtils::Theme::Values global = UiUtils::SettingsStore::theme(*config);
+        const UiUtils::Theme::Values applied = UiUtils::ThemeProfiles::appliedTo(global, *result.profile);
+        if (applied == global)
+            return;
+        UiUtils::SettingsStore::setTheme(*config, applied);
+        config->sync();
+        applyAppearance();
+    };
+    connect(m_themeWatcher, &QFileSystemWatcher::fileChanged, this, import);
+    if (QFileInfo::exists(path))
+        m_themeWatcher->addPath(path);
+    import();
+}
+
 void MainWindow::applyVimSettings()
 {
     if (!m_vimMode)
@@ -3492,7 +3667,7 @@ void MainWindow::applyProductivitySettings()
 {
     if (!m_actionMessageToCalendar)
         return;
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
     auto setting = [&config, this](const char *key) {
         return UiUtils::SettingsStore::value(*config, m_settings, QLatin1String(key));
@@ -3516,7 +3691,7 @@ QString MainWindow::notesFolder() const
 
 void MainWindow::withReaderMessage(const std::function<void(const UiUtils::MailToProductivity::Message &)> &fn)
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     const QModelIndex index = Imap::deproxifiedIndex(m_messageWidget->messageView->currentMessage());
     if (!index.isValid())
         return;
@@ -3811,8 +3986,12 @@ void MainWindow::refreshTabs()
                     separator = found.at(0);
             }
         }
+        auto *appearance = AppearanceManager::instance();
+        QColor color = appearance->folderColor(tab.accountId, tab.mailbox, separator);
+        if (!color.isValid())
+            color = appearance->accountColor(tab.accountId);
         entries.append({UiUtils::MailTabs::label(tab, separator),
-                        UiUtils::MailTabs::toolTip(tab, m_accounts->displayName(tab.accountId))});
+                        UiUtils::MailTabs::toolTip(tab, m_accounts->displayName(tab.accountId)), color});
     }
     m_tabBar->setEntries(entries, m_tabSession.current);
     const bool several = m_tabSession.tabs.size() > 1;
@@ -3844,7 +4023,7 @@ UiUtils::MailTabs::Tab MainWindow::messageTab(const QModelIndex &message) const
 UiUtils::MailTabs::Tab MainWindow::currentLocationTab() const
 {
     const QString mailbox = m_unifiedInbox ? QString() : currentMailboxName();
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     if (m_messageWidget) {
         const UiUtils::MailTabs::Tab shown = messageTab(m_messageWidget->messageView->currentMessage());
         // A message of the folder, or one found by a search or in the Unified Inbox, which show other folders' mail
@@ -4228,7 +4407,7 @@ void MainWindow::setupMailAutomation()
                       QStringLiteral("showAutomationActivity"), [this]() { showActivity(); }}});
             }
         }
-#ifdef TROJITA_HAVE_KNOTIFICATIONS
+#ifdef IMPRESARIO_HAVE_KNOTIFICATIONS
         if (surfaces.testFlag(Surface::DesktopNotification)) {
             auto *notification = new KNotification(QStringLiteral("automationProblem"), KNotification::CloseOnTimeout);
             notification->setComponentName(QStringLiteral("plasma-impresario"));
@@ -4493,7 +4672,7 @@ Imap::ImapAccess *MainWindow::accountAccess(const QString &accountId)
         return existing;
     // The migrated account keeps the profile name so its stored passwords and cache stay reachable.
     const QString name = accountId == m_settings->value(legacyAccountKey).toString()
-        ? QString::fromUtf8(qgetenv("TROJITA_PROFILE")) : accountId;
+        ? Common::Application::profileName() : accountId;
     auto *access = new Imap::ImapAccess(this, m_accounts->settings(accountId), m_pluginManager, name, m_settings);
     connect(access, &Imap::ImapAccess::cacheError, this, &MainWindow::cacheError);
     // Folders chosen for saved searches are only known to be gone once their account's folders were listed
@@ -4536,7 +4715,7 @@ QString MainWindow::savedSearchOwner(const QString &accountId) const
     // As ImapAccess::credentialAccountId(), without creating the access of an account which is not running
     if (accountId != m_settings->value(legacyAccountKey).toString())
         return accountId;
-    const QString profile = QString::fromUtf8(qgetenv("TROJITA_PROFILE"));
+    const QString profile = Common::Application::profileName();
     return profile.isEmpty() ? QStringLiteral("account-0") : profile;
 }
 
@@ -4929,7 +5108,7 @@ void MainWindow::notifyBackgroundAccount(const QString &accountId)
     QString text = Common::AccountStatusTracker::label(status.kind);
     if (!status.detail.isEmpty())
         text += QLatin1String(": ") + status.detail;
-#ifdef TROJITA_HAVE_KNOTIFICATIONS
+#ifdef IMPRESARIO_HAVE_KNOTIFICATIONS
     auto *notification = new KNotification(QStringLiteral("accountNeedsAttention"), KNotification::CloseOnTimeout);
     notification->setComponentName(QStringLiteral("plasma-impresario"));
     notification->setTitle(title);
@@ -5200,6 +5379,7 @@ void MainWindow::switchAccount(const QString &accountId)
                                     .toString();
     if (!startFolder.isEmpty())
         goToMailbox(startFolder);
+    applyAppearance();
 }
 
 void MainWindow::slotAddAccount()
@@ -5265,7 +5445,7 @@ void MainWindow::slotPreviousAccount()
 
 void MainWindow::slotFocusMessageView()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_messageWidget->messageView->setFocus();
 #else
     m_messageWidget->setFocus();
@@ -5292,7 +5472,7 @@ void MainWindow::slotFocusPreviousRegion()
 
 void MainWindow::slotFind()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     QWidget *focus = focusWidget();
     const bool inReader = focus
         && (m_messageWidget->isAncestorOf(focus) || (m_readerActions && m_readerActions->isAncestorOf(focus)));
@@ -5323,7 +5503,7 @@ void MainWindow::cycleFocusRegion(int step)
         regions.append(Region{m_accountSwitcher, m_accountSwitcher});
     regions.append(Region{m_accountSidebar, mboxTree});
     regions.append(Region{msgListWidget, msgListWidget->tree});
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     regions.append(Region{m_messageWidget, m_messageWidget->messageView});
 #else
     regions.append(Region{m_messageWidget, m_messageWidget});
@@ -5696,7 +5876,7 @@ void MainWindow::checkSslPolicy(const QString &accountId)
 
 void MainWindow::nukeModels()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_messageWidget->messageView->setEmpty();
 #endif
     mboxTree->setModel(nullptr);
@@ -5761,7 +5941,7 @@ void MainWindow::handleMarkAsRead(bool value)
 {
     if (routeToMessageAccounts([this, value]() { handleMarkAsRead(value); }))
         return;
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     const QModelIndexList translatedIndexes = translatedSelection();
     if (translatedIndexes.isEmpty()) {
         qDebug() << "Model::handleMarkAsRead: no valid messages";
@@ -5794,7 +5974,7 @@ void MainWindow::handleMarkAsUnread()
 
 void MainWindow::slotNextUnread()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     QModelIndex current = msgListWidget->tree->currentIndex();
 
     UiUtils::gotoNext(msgListWidget->tree->model(), current,
@@ -5814,7 +5994,7 @@ void MainWindow::slotNextUnread()
 
 void MainWindow::slotMarkReadAndNextUnread()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     const QModelIndexList marked = translatedSelection();
     // Found before marking, because hiding read messages may remove the current one from the list
     QPersistentModelIndex next;
@@ -5853,7 +6033,7 @@ void MainWindow::goToAdjacentMessage(bool forward)
                                                         [tree](const QModelIndex &idx) { return tree->isExpanded(idx); });
     if (!target.isValid())
         return;
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_messageWidget->messageView->setMessage(target);
 #endif
     tree->setCurrentIndex(target);
@@ -5882,7 +6062,7 @@ void MainWindow::goToMessageInConversation(bool forward)
         return;
     // Expands a collapsed thread or group on the way
     tree->scrollTo(target);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_messageWidget->messageView->setMessage(target);
 #endif
     tree->setCurrentIndex(target);
@@ -5907,7 +6087,7 @@ QModelIndex MainWindow::revealMessage(const QModelIndex &message)
 
 void MainWindow::slotPreviousUnread()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     QModelIndex current = msgListWidget->tree->currentIndex();
 
     UiUtils::gotoPrevious(msgListWidget->tree->model(), current,
@@ -7020,7 +7200,7 @@ void MainWindow::updateActionsOnlineOffline(bool online)
 
 void MainWindow::slotUpdateMessageActions()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     // The identities of the account which received the message decide who a reply goes to
     const auto *messageModel = qobject_cast<const Imap::Mailbox::Model *>(
         Imap::deproxifiedIndex(m_messageWidget->messageView->currentMessage()).model());
@@ -7059,7 +7239,7 @@ void MainWindow::slotUpdateMessageActions()
 
 void MainWindow::scrollMessageUp()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_messageWidget->area->ensureVisible(0, 0, 0, 0);
 #endif
 }
@@ -7099,7 +7279,7 @@ void MainWindow::slotReplyGuess()
 
 void MainWindow::slotForwardAsAttachment()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     const QModelIndex messageIndex = m_messageWidget->message();
     auto forwardNow = [&]() { m_msgActionHandler.forward(messageIndex, Composer::ForwardMode::FORWARD_AS_ATTACHMENT); };
     if (!actOnModel(qobject_cast<const Imap::Mailbox::Model *>(Imap::deproxifiedIndex(messageIndex).model()), forwardNow))
@@ -7403,14 +7583,14 @@ void MainWindow::slotShowAboutTrojita()
 #endif
                        );
     features.emplace_back(tr("Encrypted and signed messages"),
-#ifdef TROJITA_HAVE_CRYPTO_MESSAGES
+#ifdef IMPRESARIO_HAVE_CRYPTO_MESSAGES
             true
 #else
             false
 #endif
                        );
     features.emplace_back(tr("IMAP compression"),
-#ifdef TROJITA_HAVE_ZLIB
+#ifdef IMPRESARIO_HAVE_ZLIB
             true
 #else
             false
@@ -7505,7 +7685,7 @@ void MainWindow::slotDownloadMessageFileNameRequested(QString *fileName)
 
 void MainWindow::slotViewMsgSource()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
 
     Q_FOREACH(const QModelIndex &item, msgListWidget->tree->selectionModel()->selectedIndexes()) {
         Q_ASSERT(item.isValid());
@@ -7526,7 +7706,7 @@ void MainWindow::slotViewMsgSource()
 
 QWidget *MainWindow::messageSourceWidget(const QModelIndex &message)
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     QModelIndex messageIndex = Imap::deproxifiedIndex(message);
     MessageSourceWidget *sourceWidget = new MessageSourceWidget(0, messageIndex);
     sourceWidget->setAttribute(Qt::WA_DeleteOnClose);
@@ -7541,7 +7721,7 @@ QWidget *MainWindow::messageSourceWidget(const QModelIndex &message)
 
 void MainWindow::slotViewMsgHeaders()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     Q_FOREACH(const QModelIndex &item, msgListWidget->tree->selectionModel()->selectedIndexes()) {
         Q_ASSERT(item.isValid());
         if (item.column() != 0)
@@ -7781,7 +7961,7 @@ void MainWindow::slotSearchRequested(const QStringList &searchConditions)
         && (inPanel || m_unifiedInbox || searchIndexOffline
             || msgListWidget->searchPlaces() != UiUtils::SearchScope::Places::CurrentFolder)) {
         startSearchAcross(searchConditions);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
         m_messageWidget->messageView->setHighlightTerm(UiUtils::searchHighlightTerm(searchConditions));
 #endif
         return;
@@ -7793,7 +7973,7 @@ void MainWindow::slotSearchRequested(const QStringList &searchConditions)
                                                              threadingMsgListModel->currentSortOrder());
     updateRelevanceSorting(searchConditions);
     scheduleMessageListStatus();
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_messageWidget->messageView->setHighlightTerm(UiUtils::searchHighlightTerm(searchConditions));
 #endif
 }
@@ -8981,7 +9161,7 @@ QSize MainWindow::sizeHint() const
 void MainWindow::slotUpdateWindowTitle()
 {
     QModelIndex mailbox = qobject_cast<Imap::Mailbox::MsgListModel *>(m_imapAccess->msgListModel())->currentMailbox();
-    QString profileName = QString::fromUtf8(qgetenv("TROJITA_PROFILE"));
+    QString profileName = Common::Application::profileName();
     if (!profileName.isEmpty())
         profileName = QLatin1String(" [") + profileName + QLatin1Char(']');
     if (m_accounts->accountIds().size() > 1)
@@ -9476,7 +9656,7 @@ void MainWindow::activateRelatedMessage(const QModelIndex &message)
         msgListClicked(*match);
         return;
     }
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     m_messageWidget->messageView->setMessage(deproxified);
 #endif
 }
@@ -9520,7 +9700,7 @@ void MainWindow::updateAgendaSource()
     if (!m_agendaPanel)
         return;
     const bool enabled = m_agendaPanel->isPanelEnabled();
-#ifdef TROJITA_HAVE_AKONADI_CALENDAR
+#ifdef IMPRESARIO_HAVE_AKONADI_CALENDAR
     if (enabled && !m_agendaSource) {
         m_agendaSource = new UiUtils::AkonadiAgendaSource(this);
         m_agendaPanel->setCalendarSource(m_agendaSource);
@@ -9749,7 +9929,7 @@ void MainWindow::joinMeeting(const QUrl &url)
 
 void MainWindow::actOnOpenMessage(const std::function<void()> &fn)
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     const QModelIndex message = Imap::deproxifiedIndex(m_messageWidget->messageView->currentMessage());
     const QString accountId = accountOfModel(qobject_cast<const Imap::Mailbox::Model *>(message.model()));
     if (message.isValid() && !accountId.isEmpty())
@@ -9761,7 +9941,7 @@ void MainWindow::actOnOpenMessage(const std::function<void()> &fn)
 
 void MainWindow::updateReaderActions()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     if (!m_readerActions || !m_deleteMovesToTrash)
         return;
     const QModelIndex message = Imap::deproxifiedIndex(m_messageWidget->messageView->currentMessage());
@@ -11302,7 +11482,7 @@ void MainWindow::resizeEvent(QResizeEvent *)
 /** @short Make sure that the message gets loaded after the splitters have changed their position */
 void MainWindow::possiblyLoadMessageOnSplittersChanged()
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     if (m_messageWidget->isVisible() && !m_messageWidget->size().isEmpty()) {
         // We do not have to check whether it's a different message; the setMessage() will do this or us
         // and there are multiple proxy models involved anyway

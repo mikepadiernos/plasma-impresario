@@ -7,7 +7,7 @@
 
 This page is the source of truth for known limitations of implemented
 features, including security and privacy behavior, as verified in the current
-source; caveat statuses match the project board as of 2026-11-26. The
+source; caveat statuses match the project board as of 2026-11-27. The
 [backend](parity/backend.md) and [UI](parity/ui.md) parity references describe
 the implemented baseline alongside recommended parity goals.
 
@@ -63,6 +63,8 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Mail tabs](#mail-tabs)
   - [Vim mode and shared shortcuts](#vim-mode-and-shared-shortcuts)
   - [Messages to calendar and notes](#messages-to-calendar-and-notes)
+  - [Themes and appearance](#themes-and-appearance)
+  - [Project naming and compatibility](#project-naming-and-compatibility)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -112,6 +114,8 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Mail tabs          | Restored message tabs show their folder until opened, a vertical tab bar in the header or footer makes the strip tall, and reconfiguring Next Tab drops Ctrl+Tab ([details](#mail-tabs))                                                                                                                                                                                                                                                              | [#497](https://github.com/mikepadiernos/plasma-impresario/issues/497)                                                                        |
 | ![Limitation][limitation] | Vim mode           | Vim keys cannot tell editable content in the HTML reader, Vim bindings are not KActions and the pending keys show in the status bar ([details](#vim-mode-and-shared-shortcuts))                                                                                                                                                                                                                                                                       | [#498](https://github.com/mikepadiernos/plasma-impresario/issues/498)                                                                        |
 | ![Limitation][limitation] | Calendar and notes | The notes folder is chosen by hand, encrypted messages are saved without text, events stay in the cache for a day and only the message in the reader is used ([details](#messages-to-calendar-and-notes))                                                                                                                                                                                                                                             | [#499](https://github.com/mikepadiernos/plasma-impresario/issues/499)                                                                        |
+| ![Limitation][limitation] | Themes             | Turning translucency on or off applies when the window next opens, a widget style change drops the appearance proxy until restart, cards need the two-line layout and the symbolic tray icon has no count ([details](#themes-and-appearance))                                                                                                                                                                                                         | [#502](https://github.com/mikepadiernos/plasma-impresario/issues/502)                                                                        |
+| ![Limitation][limitation] | Naming             | Settings location, launcher, plugin IDs, MIME types, cache keys, translations and `TROJITA_PROFILE` keep their Trojitá names for compatibility ([details](#project-naming-and-compatibility))                                                                                                                                                                                                                                                         | [#503](https://github.com/mikepadiernos/plasma-impresario/issues/503)                                                                        |
 | ![Limitation][limitation] | Product identity   | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering  | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials        | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -2063,11 +2067,14 @@ Plasma session; that check is
   theme are not converted to symbolic ones; there is no `SymbolicIcon::wrap`.
 - ![Limitation][limitation] The protocol log inserts each entry's source label
   without HTML escaping; the labels are internal names today.
+- ![Resolved][resolved] Offscreen tests check that the wide and compact
+  layouts keep every pane readable at 800x600, 1366x768 and 2560x1440, with 10
+  and 16 pt text and at 200% scale, and that a high-contrast scheme can suspend
+  appearance effects
+  ([M09.08](ROADMAP.md#m09-themes-and-branding-foundation)).
 - ![Limitation][limitation] The tests use Qt's accessibility interfaces
-  offscreen. Nothing is tried with a screen reader such as Orca, with a
-  high-contrast scheme, at large scales, in right-to-left languages or in a
-  Plasma session. That is
-  [M09.08](ROADMAP.md#m09-themes-and-branding-foundation) and
+  offscreen. Nothing is tried with a screen reader such as Orca, with Breeze
+  High Contrast, in right-to-left languages or in a Plasma session. That is
   [M15](ROADMAP.md#m15-real-plasma-session-verification).
 
 **Workarounds:**
@@ -2814,6 +2821,107 @@ Plasma session; that check is
 - Save each selected message as a note or event.
 - Try both hand-offs in a Plasma 6 session
   ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
+
+### Themes and appearance
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                 |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| [#502](https://github.com/mikepadiernos/plasma-impresario/issues/502) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/502#issuecomment-7227463706) | [M09](ROADMAP.md#m09-themes-and-branding-foundation) ([#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Every appearance option follows Plasma by default and
+  is on the **Theme** settings page. Changes preview live and can be reverted
+  before saving.
+- ![Resolved][resolved] The appearance is layered from Plasma's defaults
+  through the global settings, the active workspace's theme profile and its
+  overrides to the custom stylesheet.
+- ![Resolved][resolved] **Reset to Plasma Defaults**, `--reset-appearance` and
+  `--no-workspace-appearance` restore Plasma's look, and a high-contrast color
+  scheme can suspend blur, translucency, tints, custom radii and the
+  stylesheet.
+- ![Limitation][limitation] Translucency must be requested before a window is
+  created, so turning window opacity or blur on or off applies when the window
+  next opens. Opacity values and blur strength change live.
+- ![Limitation][limitation] The options are drawn by a proxy around the widget
+  style chosen at startup; changing the widget style in System Settings while
+  the application runs drops the proxy until the next start.
+- ![Limitation][limitation] Buttons, combo boxes and scroll bars keep the
+  widget style's own corner radius.
+- ![Limitation][limitation] Message cards appear only in the two-line layout
+  and have no hover quick actions.
+- ![Limitation][limitation] When a workspace overrides the message list style,
+  a **Cards** or **Rows** choice from the menu is replaced by the workspace's
+  choice when the workspace applies again. Workspace overrides are taken from
+  the saved global values, not from an unapplied preview.
+- ![Limitation][limitation] The reader column's tint covers the embedded
+  panels placed in it, and unified-inbox columns in the single-line layout
+  show no account color dot.
+- ![Limitation][limitation] With the style's own tab shape, **None** cannot
+  hide the style's selected-tab marking, and **Line** is drawn by the style.
+- ![Limitation][limitation] A symbolic tray icon shows no unread count; the
+  count is in its tooltip.
+- ![Limitation][limitation] Appearance is tested offscreen; KWin blur, Breeze
+  and Breeze High Contrast are not tried in a Plasma session. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- After turning window opacity or blur on or off, close and reopen the window,
+  or restart the application.
+- After changing the widget style in System Settings, restart the application.
+- To keep a message list style regardless of the workspace, remove the style
+  from the workspace's appearance overrides.
+- Apply a preview before saving a workspace so that its overrides capture it.
+- To see the unread count in the tray, turn the symbolic tray icon off.
+
+**Proposed improvements:**
+
+- Recreate the native window when translucency changes, keeping its geometry.
+- Rewrap a new widget style in the appearance proxy on `QEvent::StyleChange`.
+- Add hover quick actions to message cards, and a card layout for the
+  single-line list.
+- Add an account color dot to unified single-line columns.
+- Draw an unread badge on the symbolic tray icon in the panel's text color.
+- Try blur, Breeze and Breeze High Contrast in a Plasma 6 session
+  ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
+
+### Project naming and compatibility
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                      |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| [#503](https://github.com/mikepadiernos/plasma-impresario/issues/503) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/503#issuecomment-7227464544) | [M09.01](ROADMAP.md#m09-themes-and-branding-foundation) ([#242](https://github.com/mikepadiernos/plasma-impresario/issues/242)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Project-owned macros, CMake helpers and modules,
+  generated headers and C++ symbols use Plasma Impresario names.
+  `CONTRIBUTING.md` lists the Trojitá names kept on purpose and why.
+- ![Resolved][resolved] `PLASMA_IMPRESARIO_PROFILE` chooses a profile;
+  `TROJITA_PROFILE` is read when it is not set.
+- ![Limitation][limitation] The settings location, the `bin/trojita`
+  launcher, the desktop file, plugin targets and the `trojita_plugins`
+  directory keep their names.
+- ![Limitation][limitation] `x-trojita` MIME types and plugin interface IDs,
+  `x-trojita-*` cache keys and URL schemes, and the `trojita_qt` translation
+  catalog keep their names.
+- ![Limitation][limitation] NSIS installer file names, license headers and
+  historical references in parity and philosophy documents are unchanged.
+
+**Workarounds:**
+
+- Use `PLASMA_IMPRESARIO_PROFILE` in new scripts.
+- Do not rename the kept identifiers in packaging or plugins; installations
+  and caches look for them.
+
+**Proposed improvements:**
+
+- Migrate the settings location with a one-time copy and keep reading the old
+  one for a release.
+- Install a `plasma-impresario` launcher and desktop file, keeping `trojita`
+  as an alias.
+- Accept new MIME types and plugin IDs alongside the `x-trojita` ones before
+  deprecating them.
 
 ## Before reporting results
 

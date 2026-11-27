@@ -44,9 +44,11 @@
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
 #include "configure.cmake.h"
+#include "Gui/AppearanceManager.h"
+#include "Gui/AppearanceStyle.h"
 #include "Gui/Util.h"
 #include "Gui/Window.h"
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
 #include "Gui/WebEngineMessageProfile.h"
 #endif
 #include "Imap/Model/SystemNetworkWatcher.h"
@@ -54,12 +56,14 @@
 #include "UiUtils/ActivationToken.h"
 #include "UiUtils/BackgroundRunning.h"
 #include "UiUtils/IconLoader.h"
+#include "UiUtils/SettingsStore.h"
+#include "UiUtils/Theme.h"
 
 #include "static_plugins.h"
 
 int main(int argc, char **argv)
 {
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     Gui::WebEngineMessageProfile::registerScheme();
 #endif
     Common::registerMetaTypes();
@@ -120,6 +124,14 @@ int main(int argc, char **argv)
                                     QObject::tr("Compose a new e-mail with this file attached; may be given more than once."),
                                     QObject::tr("file"));
     parser.addOption(attachOption);
+
+    QCommandLineOption resetAppearanceOption(QStringList() << QLatin1String("reset-appearance"),
+                                             QObject::tr("Return the appearance options to Plasma's defaults, keeping "
+                                                         "theme profiles and account and folder colours."));
+    parser.addOption(resetAppearanceOption);
+    QCommandLineOption noWorkspaceAppearanceOption(QStringList() << QLatin1String("no-workspace-appearance"),
+                                                   QObject::tr("Start without the appearance options of workspaces."));
+    parser.addOption(noWorkspaceAppearanceOption);
 
     parser.addPositionalArgument(QLatin1String("url"),
                                  QObject::tr("Mailto: URL address for composing new e-mail, or mid: URL of a message to open."),
@@ -185,19 +197,19 @@ int main(int argc, char **argv)
         return error ? 1 : 0;
     }
 
-    // Hack: support multiple "profiles"
-    if (!profileName.isEmpty()) {
-        // We are abusing the env vars here. Yes, it's a hidden global. Yes, it's ugly.
-        // Take it or leave it, this is a time-limited hack.
-        // The env var is also in UTF-8. I like UTF-8.
-        qputenv("TROJITA_PROFILE", profileName.toUtf8());
-    } else {
-#ifndef Q_OS_WIN32
-        unsetenv("TROJITA_PROFILE");
-#else
-        putenv("TROJITA_PROFILE=");
-#endif
+    if (parser.isSet(resetAppearanceOption)) {
+        const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        UiUtils::SettingsStore::setTheme(*config, UiUtils::Theme::reset(UiUtils::SettingsStore::theme(*config)));
+        config->sync();
+        qOut << QObject::tr("The appearance options are back to Plasma's defaults.") << Qt::endl;
     }
+    if (parser.isSet(noWorkspaceAppearanceOption))
+        Gui::AppearanceManager::instance()->setWorkspaceAppearanceDisabled(true);
+    // Toolbar menu markers, dividers and the other appearance options are drawn by this style
+    Gui::AppearanceStyle::ensureInstalled();
+
+    // Settings, the cache and helper processes all follow the chosen profile
+    Common::Application::setProfileName(profileName);
 
     if (IPC::Instance::isRunning()) {
         IPC::Instance::handOverActivationToken(activationToken);

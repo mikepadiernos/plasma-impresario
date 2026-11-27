@@ -34,7 +34,7 @@ std::unique_ptr<Composer::MessageComposer> makeComposer()
     composer->setTimestamp(QDateTime(QDate(2026, 11, 26), QTime(10, 0), QTimeZone::UTC));
     composer->setSubject(QStringLiteral("testing"));
     composer->setText(QStringLiteral("Sample message"));
-    composer->setReportTrojitaVersions(false);
+    composer->setReportImpresarioVersions(false);
     return composer;
 }
 

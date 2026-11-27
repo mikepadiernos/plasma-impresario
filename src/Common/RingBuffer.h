@@ -19,8 +19,8 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef TROJITA_RINGBUFFER_H
-#define TROJITA_RINGBUFFER_H
+#ifndef IMPRESARIO_RINGBUFFER_H
+#define IMPRESARIO_RINGBUFFER_H
 
 #include <QVector>
 
@@ -150,4 +150,4 @@ private:
 
 }
 
-#endif // TROJITA_RINGBUFFER_H
+#endif // IMPRESARIO_RINGBUFFER_H

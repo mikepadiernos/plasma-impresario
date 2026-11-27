@@ -20,8 +20,8 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef TROJITA_IMAPACCESS_H
-#define TROJITA_IMAPACCESS_H
+#ifndef IMPRESARIO_IMAPACCESS_H
+#define IMPRESARIO_IMAPACCESS_H
 
 #include <memory>
 
@@ -231,4 +231,4 @@ private:
 
 }
 
-#endif // TROJITA_IMAPACCESS_H
+#endif // IMPRESARIO_IMAPACCESS_H

@@ -30,7 +30,7 @@
 #include "Imap/Tasks/IdTask.h"
 #include "OAuth/TokenSource.h"
 #include "Streams/SocketFactory.h"
-#include "Streams/TrojitaZlibStatus.h"
+#include "Streams/ImpresarioZlibStatus.h"
 
 namespace Imap
 {
@@ -169,7 +169,7 @@ bool OpenConnectionTask::handleStateHelper(const Imap::Responses::State *const r
             // Cool, we're already authenticated. Now, let's see if we have to issue CAPABILITY or if we already know that
             if (model->accessParser(parser).capabilitiesFresh) {
                 // We're alsmost done here, apart from compression
-                if (TROJITA_COMPRESS_DEFLATE && model->accessParser(parser).capabilities.contains(QStringLiteral("COMPRESS=DEFLATE"))) {
+                if (IMPRESARIO_COMPRESS_DEFLATE && model->accessParser(parser).capabilities.contains(QStringLiteral("COMPRESS=DEFLATE"))) {
                     compressCmd = parser->compressDeflate();
                     model->changeConnectionState(parser, CONN_STATE_COMPRESS_DEFLATE);
                 } else {
@@ -282,7 +282,7 @@ bool OpenConnectionTask::handleStateHelper(const Imap::Responses::State *const r
                 model->setImapAuthError(QString());
                 if (resp->respCode == CAPABILITIES || model->accessParser(parser).capabilitiesFresh) {
                     // Capabilities are already known
-                    if (TROJITA_COMPRESS_DEFLATE && model->accessParser(parser).capabilities.contains(QStringLiteral("COMPRESS=DEFLATE"))) {
+                    if (IMPRESARIO_COMPRESS_DEFLATE && model->accessParser(parser).capabilities.contains(QStringLiteral("COMPRESS=DEFLATE"))) {
                         compressCmd = parser->compressDeflate();
                         model->changeConnectionState(parser, CONN_STATE_COMPRESS_DEFLATE);
                     } else {

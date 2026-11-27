@@ -21,6 +21,7 @@
 
 #include "Common/SettingsNames.h"
 #include "Gui/SettingsGroups.h"
+#include "Gui/ThemeGroup.h"
 #include "UiUtils/Keymap.h"
 #include "UiUtils/SettingsStore.h"
 
@@ -218,6 +219,61 @@ private slots:
         QCOMPARE(saved.size(), 1);
         QCOMPARE(saved.first().name, QStringLiteral("Office"));
         QCOMPARE(saved.first().accounts, QStringList{QStringLiteral("work")});
+        QCOMPARE(saved.first().appearance, UiUtils::Workspaces::Workspace::Appearance::None);
+    }
+
+    void workspaceAppearanceIsAttached()
+    {
+        UiUtils::Theme::Values global;
+        global.insert(QStringLiteral("MessageListStyle"), QStringLiteral("Cards"));
+        SettingsStore::setTheme(*config(), global);
+        UiUtils::ThemeProfiles::Profile calm = UiUtils::ThemeProfiles::fromValues(QStringLiteral("Calm"), {});
+        calm.id = QStringLiteral("calm");
+        SettingsStore::setThemeProfiles(*config(), {calm});
+        UiUtils::Workspaces::Workspace office;
+        office.id = QStringLiteral("office");
+        office.name = QStringLiteral("Office");
+        office.accounts = {QStringLiteral("work")};
+        office.appearance = UiUtils::Workspaces::Workspace::Appearance::All;
+        office.themeProfile = QStringLiteral("gone");
+        SettingsStore::setWorkspaces(*config(), {office});
+        config()->sync();
+
+        WorkspacesGroup group(m_context, nullptr);
+        auto *profile = child<QComboBox>(&group, QStringLiteral("workspaceThemeProfile"));
+        QVERIFY(profile);
+        QCOMPARE(profile->currentData().toString(), QStringLiteral("gone"));
+        QVERIFY(!child<QLabel>(&group, QStringLiteral("workspaceProblems"))->text().isEmpty());
+        profile->setCurrentIndex(profile->findData(QStringLiteral("calm")));
+
+        auto *mode = child<QComboBox>(&group, QStringLiteral("workspaceAppearance"));
+        mode->setCurrentIndex(mode->findData(static_cast<int>(UiUtils::Workspaces::Workspace::Appearance::Selected)));
+        auto *options = child<QListWidget>(&group, QStringLiteral("workspaceAppearanceOptions"));
+        QCOMPARE(options->count(), UiUtils::Theme::overrideEntries().size());
+        for (int i = 0; i < options->count(); ++i) {
+            if (options->item(i)->data(Qt::UserRole).toString() == QLatin1String("MessageListStyle"))
+                options->item(i)->setCheckState(Qt::Checked);
+        }
+        auto *clear = child<QPushButton>(&group, QStringLiteral("clearWorkspaceOverrides"));
+        QVERIFY(!clear->isEnabled());
+        child<QPushButton>(&group, QStringLiteral("captureWorkspaceAppearance"))->click();
+        QVERIFY(clear->isEnabled());
+
+        QSettings unused;
+        group.save(unused);
+        const auto saved = SettingsStore::workspaces(*config());
+        QCOMPARE(saved.size(), 1);
+        QCOMPARE(saved.first().appearance, UiUtils::Workspaces::Workspace::Appearance::Selected);
+        QCOMPARE(saved.first().themeProfile, QStringLiteral("calm"));
+        QCOMPARE(saved.first().selectedAppearance, QStringList{QStringLiteral("MessageListStyle")});
+        QCOMPARE(saved.first().appearanceOverrides.value(QStringLiteral("MessageListStyle")).toString(),
+                 QStringLiteral("Cards"));
+    }
+
+    void everyThemeOptionHasALabel()
+    {
+        for (const QString &entry : UiUtils::Theme::entries())
+            QVERIFY2(ThemeGroup::optionLabel(entry) != entry, qPrintable(entry));
     }
 
     void keymapExportImportAndUndo()
@@ -271,6 +327,45 @@ private slots:
         undo->click();
         QVERIFY(!vimMode->isChecked());
         QCOMPARE(SettingsStore::value(*config(), nullptr, QStringLiteral("Keyboard/VimMode")), QVariant(false));
+    }
+
+    void themeOptionsProfilesAndRulesAreSaved()
+    {
+        m_context.confirm = [](QWidget *, const QString &, const QString &) { return true; };
+        m_context.chooseFile = [](QWidget *, const QString &, SettingsContext::FileMode, const QString &) {
+            return QString();
+        };
+        ThemeGroup group(m_context, nullptr);
+        child<QCheckBox>(&group, QStringLiteral("livePreview"))->setChecked(false);
+        auto *stripes = child<QCheckBox>(&group, QStringLiteral("theme-StripeRows"));
+        auto *blur = child<QCheckBox>(&group, QStringLiteral("theme-BackgroundBlur"));
+        QVERIFY(stripes && blur);
+        QVERIFY(stripes->isChecked());
+        QVERIFY(!blur->isChecked());
+        stripes->setChecked(false);
+        blur->setChecked(true);
+        QCOMPARE(UiUtils::Theme::value(group.values(), QStringLiteral("StripeRows")), QVariant(false));
+
+        child<QLineEdit>(&group, QStringLiteral("profileName"))->setText(QStringLiteral("Calm"));
+        child<QPushButton>(&group, QStringLiteral("saveProfile"))->click();
+        QCOMPARE(child<QListWidget>(&group, QStringLiteral("themeProfiles"))->count(), 1);
+
+        child<QLineEdit>(&group, QStringLiteral("rulePattern"))->setText(QStringLiteral("Lists"));
+        child<QPushButton>(&group, QStringLiteral("addFolderRule"))->click();
+        QCOMPARE(child<QListWidget>(&group, QStringLiteral("folderColorRules"))->count(), 1);
+
+        QSettings unused;
+        group.save(unused);
+        const UiUtils::Theme::Values saved = SettingsStore::theme(*config());
+        QCOMPARE(UiUtils::Theme::value(saved, QStringLiteral("StripeRows")), QVariant(false));
+        QCOMPARE(UiUtils::Theme::value(saved, QStringLiteral("BackgroundBlur")), QVariant(true));
+        const auto profiles = SettingsStore::themeProfiles(*config());
+        QCOMPARE(profiles.size(), 1);
+        QCOMPARE(profiles.first().name, QStringLiteral("Calm"));
+        QCOMPARE(UiUtils::Theme::value(profiles.first().values, QStringLiteral("StripeRows")), QVariant(false));
+        const auto rules = SettingsStore::folderColors(*config()).rules;
+        QCOMPARE(rules.size(), 1);
+        QCOMPARE(rules.first().pattern, QStringLiteral("Lists"));
     }
 
 private:

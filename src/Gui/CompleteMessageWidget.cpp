@@ -27,6 +27,7 @@
 #include <QScrollBar>
 #include <QVBoxLayout>
 #include "Common/SettingsNames.h"
+#include "Gui/AppearanceManager.h"
 #include "Gui/EmbeddedWebView.h"
 #include "Gui/FindBar.h"
 #include "Gui/MessageView.h"
@@ -48,7 +49,10 @@ CompleteMessageWidget::CompleteMessageWidget(QWidget *parent, QSettings *setting
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(area);
     animator = new QPropertyAnimation(area->verticalScrollBar(), "value", this);
-    animator->setDuration(250); // the default, maybe play with values
+    animator->setDuration(Gui::AppearanceManager::instance()->animationDuration(250));
+    connect(Gui::AppearanceManager::instance(), &Gui::AppearanceManager::changed, animator, [this]() {
+        animator->setDuration(Gui::AppearanceManager::instance()->animationDuration(250));
+    });
     animator->setEasingCurve(QEasingCurve::InOutCubic); // InOutQuad?
 
     layout->addWidget(m_findBar);

@@ -41,7 +41,7 @@ IdleLauncher::IdleLauncher(KeepMailboxOpenTask *parent):
     // we receive updates, and also between terminating one IDLE and starting another.
     // 6 seconds is a compromise here.
     bool ok;
-    int timeout = parent->model->property("trojita-imap-idle-delayedEnter").toUInt(&ok);
+    int timeout = parent->model->property("impresario-imap-idle-delayedEnter").toUInt(&ok);
     if (! ok)
         timeout = 6 * 1000;
     delayedEnter->setInterval(timeout);
@@ -49,7 +49,7 @@ IdleLauncher::IdleLauncher(KeepMailboxOpenTask *parent):
     renewal = new QTimer(this);
     renewal->setObjectName(QStringLiteral("%1-IdleLauncher-renewal").arg(task->objectName()));
     renewal->setSingleShot(true);
-    timeout = parent->model->property("trojita-imap-idle-renewal").toUInt(&ok);
+    timeout = parent->model->property("impresario-imap-idle-renewal").toUInt(&ok);
     if (! ok)
         timeout = 1000 * 29 * 60; // 29 minutes -- that's the longest allowed time to IDLE
     renewal->setInterval(timeout);

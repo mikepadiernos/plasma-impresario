@@ -32,6 +32,14 @@ struct Application {
     static QString name; /** replacement for QCoreApplication::applicationName() */
     static QString version; /** replacement for QCoreApplication::applicationVersion() */
     static QString organization; /** replacement for QCoreApplication::organizationName() */
+
+    /** @short The profile chosen with --profile, or empty for the default one
+
+    It is read from PLASMA_IMPRESARIO_PROFILE, or from TROJITA_PROFILE as set by older launchers, so that helper
+    processes started from this one use the same profile. */
+    static QString profileName();
+    /** @short Choose the profile @arg name for this process and the processes it starts */
+    static void setProfileName(const QString &name);
 };
 
 }

@@ -120,6 +120,7 @@ private slots:
         delete m_tags;
         delete m_model;
         KConfigGroup(config(), QStringLiteral("Appearance")).deleteGroup();
+        KConfigGroup(config(), QStringLiteral("Theme")).deleteGroup();
         config()->sync();
     }
 
@@ -192,6 +193,47 @@ private slots:
 
         m_view->setMultiLineRows(false);
         QTRY_COMPARE(m_view->visualRect(first).height(), singleLine);
+    }
+
+    void cardsAreTallerTwoLineRowsAndSaveTheStyle()
+    {
+        auto *menu = new Gui::MessageRowsMenu(m_view, config(), m_view);
+        QSignalSpy appearance(menu, &Gui::MessageRowsMenu::appearanceChanged);
+        const QModelIndex first = m_model->index(0, 0);
+        QVERIFY(!menu->isCards());
+        QTRY_VERIFY(m_view->visualRect(first).height() > 0);
+        const int rowHeight = m_view->visualRect(first).height();
+
+        menu->setCards(true);
+        QVERIFY(menu->isCards());
+        QVERIFY(menu->isMultiLine());
+        QVERIFY(m_view->cards());
+        QVERIFY(m_view->multiLineRows());
+        QVERIFY(menu->senderInitialsAction()->isEnabled());
+        // A card has a margin and a frame around the two lines
+        QTRY_VERIFY(m_view->visualRect(first).height() > rowHeight);
+        QVERIFY(!m_view->viewport()->grab().isNull());
+        QCOMPARE(appearance.count(), 1);
+        config()->reparseConfiguration();
+        QCOMPARE(KConfigGroup(config(), QStringLiteral("Theme")).readEntry("MessageListStyle", QString()),
+                 QStringLiteral("Cards"));
+        QCOMPARE(KConfigGroup(config(), QStringLiteral("Appearance")).readEntry("MessageListRows", QString()),
+                 QStringLiteral("multiline"));
+
+        // Columns keep the saved style, and two-line rows replace it
+        menu->setMultiLine(false);
+        QVERIFY(!m_view->cards());
+        QCOMPARE(appearance.count(), 1);
+        config()->reparseConfiguration();
+        QCOMPARE(KConfigGroup(config(), QStringLiteral("Theme")).readEntry("MessageListStyle", QString()),
+                 QStringLiteral("Cards"));
+        menu->setMultiLine(true);
+        QVERIFY(!menu->isCards());
+        QCOMPARE(appearance.count(), 2);
+        config()->reparseConfiguration();
+        // Rows are the default style, which is not written
+        QVERIFY(!KConfigGroup(config(), QStringLiteral("Theme")).hasKey("MessageListStyle"));
+        QTRY_COMPARE(m_view->visualRect(first).height(), rowHeight);
     }
 
     void indicatorsActLikeTheirColumns()

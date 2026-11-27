@@ -29,6 +29,7 @@ enum class Group {
     General,
     Accounts,
     Appearance,
+    Theme,
     Reading,
     Composition,
     Privacy,

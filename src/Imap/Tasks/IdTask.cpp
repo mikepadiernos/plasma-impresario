@@ -47,7 +47,7 @@ void IdTask::perform()
 
     QMap<QByteArray,QByteArray> identification;
     identification["name"] = "Plasma Impresario";
-    if (!model->property("trojita-imap-id-no-versions").toBool()) {
+    if (!model->property("impresario-imap-id-no-versions").toBool()) {
         identification["version"] = Common::Application::version.toUtf8();
         identification["os"] = systemPlatformVersion().toUtf8();
     }

@@ -20,8 +20,8 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef TROJITA_IMAP_SYSTEMNETWORKWATCHER_H
-#define TROJITA_IMAP_SYSTEMNETWORKWATCHER_H
+#ifndef IMPRESARIO_IMAP_SYSTEMNETWORKWATCHER_H
+#define IMPRESARIO_IMAP_SYSTEMNETWORKWATCHER_H
 
 #include "Imap/Model/NetworkWatcher.h"
 

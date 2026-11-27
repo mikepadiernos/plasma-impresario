@@ -20,7 +20,7 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-//#define TROJITA_DEBUG_TASK_TREE
+//#define IMPRESARIO_DEBUG_TASK_TREE
 
 #ifndef IMAP_MODEL_H
 #define IMAP_MODEL_H
@@ -278,7 +278,7 @@ public:
     /** @short Return the server's response to the ID command
 
     When the server indicates that the ID command is available, Trojitá will always send the ID command.  The information sent to
-    the server is controlled by the trojita-imap-id-no-versions property.  By default, Trojitá will tell the truth and proudly
+    the server is controlled by the impresario-imap-id-no-versions property.  By default, Trojitá will tell the truth and proudly
     present herself under her own name and using detailed version information and OS info. If set, it will just send the Trojita
     name, but no version info.
 
@@ -691,7 +691,7 @@ protected slots:
 
     void runReadyTasks();
 
-#ifdef TROJITA_DEBUG_TASK_TREE
+#ifdef IMPRESARIO_DEBUG_TASK_TREE
     void checkTaskTreeConsistency();
     void checkDependentTasksConsistency(Parser *parser, ImapTask *task, ImapTask *expectedParentTask, int depth);
 #endif

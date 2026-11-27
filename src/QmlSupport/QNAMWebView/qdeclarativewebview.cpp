@@ -38,14 +38,14 @@
 
 QT_BEGIN_NAMESPACE
 
-class TrojitaQNAMDeclarativeWebViewPrivate {
+class ImpresarioQNAMDeclarativeWebViewPrivate {
 public:
-    TrojitaQNAMDeclarativeWebViewPrivate(TrojitaQNAMDeclarativeWebView* qq)
+    ImpresarioQNAMDeclarativeWebViewPrivate(ImpresarioQNAMDeclarativeWebView* qq)
       : q(qq)
       , preferredwidth(0)
       , preferredheight(0)
       , progress(1.0)
-      , status(TrojitaQNAMDeclarativeWebView::Null)
+      , status(ImpresarioQNAMDeclarativeWebView::Null)
       , pending(PendingNone)
       , newWindowComponent(0)
       , newWindowParent(0)
@@ -54,28 +54,28 @@ public:
     {
     }
 
-    TrojitaQNAMDeclarativeWebView* q;
+    ImpresarioQNAMDeclarativeWebView* q;
 
     QUrl url; // page url might be different if it has not loaded yet
-    TrojitaQNAMGraphicsWebView* view;
+    ImpresarioQNAMGraphicsWebView* view;
 
     int preferredwidth, preferredheight;
     qreal progress;
-    TrojitaQNAMDeclarativeWebView::Status status;
+    ImpresarioQNAMDeclarativeWebView::Status status;
     QString statusText;
     enum { PendingNone, PendingUrl, PendingHtml, PendingContent } pending;
     QUrl pendingUrl;
     QString pendingString;
     QByteArray pendingData;
-    mutable TrojitaDeclarativeWebSettings settings;
+    mutable ImpresarioDeclarativeWebSettings settings;
     QDeclarativeComponent* newWindowComponent;
     QDeclarativeItem* newWindowParent;
     QNetworkAccessManager* networkAccessManager;
 
     static void windowObjectsAppend(QDeclarativeListProperty<QObject>* prop, QObject* o)
     {
-        static_cast<TrojitaQNAMDeclarativeWebViewPrivate*>(prop->data)->windowObjects.append(o);
-        static_cast<TrojitaQNAMDeclarativeWebViewPrivate*>(prop->data)->updateWindowObjects();
+        static_cast<ImpresarioQNAMDeclarativeWebViewPrivate*>(prop->data)->windowObjects.append(o);
+        static_cast<ImpresarioQNAMDeclarativeWebViewPrivate*>(prop->data)->updateWindowObjects();
     }
 
     void updateWindowObjects();
@@ -84,14 +84,14 @@ public:
     bool rendering;
 };
 
-TrojitaQNAMGraphicsWebView::TrojitaQNAMGraphicsWebView(TrojitaQNAMDeclarativeWebView* parent)
+ImpresarioQNAMGraphicsWebView::ImpresarioQNAMGraphicsWebView(ImpresarioQNAMDeclarativeWebView* parent)
     : QGraphicsWebView(parent)
     , parent(parent)
     , pressTime(400)
 {
 }
 
-void TrojitaQNAMGraphicsWebView::mousePressEvent(QGraphicsSceneMouseEvent* event)
+void ImpresarioQNAMGraphicsWebView::mousePressEvent(QGraphicsSceneMouseEvent* event)
 {
     pressPoint = event->pos();
     if (pressTime) {
@@ -109,7 +109,7 @@ void TrojitaQNAMGraphicsWebView::mousePressEvent(QGraphicsSceneMouseEvent* event
     setFocus();
 }
 
-void TrojitaQNAMGraphicsWebView::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
+void ImpresarioQNAMGraphicsWebView::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
 {
     QGraphicsWebView::mouseReleaseEvent(event);
     pressTimer.stop();
@@ -117,14 +117,14 @@ void TrojitaQNAMGraphicsWebView::mouseReleaseEvent(QGraphicsSceneMouseEvent* eve
     ungrabMouse();
 }
 
-void TrojitaQNAMGraphicsWebView::mouseDoubleClickEvent(QGraphicsSceneMouseEvent* event)
+void ImpresarioQNAMGraphicsWebView::mouseDoubleClickEvent(QGraphicsSceneMouseEvent* event)
 {
     QMouseEvent* me = new QMouseEvent(QEvent::MouseButtonDblClick, (event->pos() / parent->contentsScale()).toPoint(), event->button(), event->buttons(), 0);
     emit doubleClick(event->pos().x(), event->pos().y());
     delete me;
 }
 
-void TrojitaQNAMGraphicsWebView::timerEvent(QTimerEvent* event)
+void ImpresarioQNAMGraphicsWebView::timerEvent(QTimerEvent* event)
 {
     if (event->timerId() == pressTimer.timerId()) {
         pressTimer.stop();
@@ -133,7 +133,7 @@ void TrojitaQNAMGraphicsWebView::timerEvent(QTimerEvent* event)
     }
 }
 
-void TrojitaQNAMGraphicsWebView::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
+void ImpresarioQNAMGraphicsWebView::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
 {
     if (pressTimer.isActive()) {
         if ((event->pos() - pressPoint).manhattanLength() > QApplication::startDragDistance())
@@ -143,7 +143,7 @@ void TrojitaQNAMGraphicsWebView::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
         QGraphicsWebView::mouseMoveEvent(event);
 }
 
-bool TrojitaQNAMGraphicsWebView::sceneEvent(QEvent *event)
+bool ImpresarioQNAMGraphicsWebView::sceneEvent(QEvent *event)
 {
     bool rv = QGraphicsWebView::sceneEvent(event);
     if (event->type() == QEvent::UngrabMouse) {
@@ -247,19 +247,19 @@ bool TrojitaQNAMGraphicsWebView::sceneEvent(QEvent *event)
     A QDeclarativeWebView object can be instantiated in Qml using the tag \l WebView.
 */
 
-TrojitaQNAMDeclarativeWebView::TrojitaQNAMDeclarativeWebView(QDeclarativeItem *parent) : QDeclarativeItem(parent)
+ImpresarioQNAMDeclarativeWebView::ImpresarioQNAMDeclarativeWebView(QDeclarativeItem *parent) : QDeclarativeItem(parent)
 {
     init();
 }
 
-TrojitaQNAMDeclarativeWebView::~TrojitaQNAMDeclarativeWebView()
+ImpresarioQNAMDeclarativeWebView::~ImpresarioQNAMDeclarativeWebView()
 {
     delete d;
 }
 
-void TrojitaQNAMDeclarativeWebView::init()
+void ImpresarioQNAMDeclarativeWebView::init()
 {
-    d = new TrojitaQNAMDeclarativeWebViewPrivate(this);
+    d = new ImpresarioQNAMDeclarativeWebViewPrivate(this);
 
     if (QWebSettings::iconDatabasePath().isNull() &&
         QWebSettings::globalSettings()->localStoragePath().isNull() &&
@@ -271,16 +271,16 @@ void TrojitaQNAMDeclarativeWebView::init()
     setFlag(QGraphicsItem::ItemHasNoContents, true);
     setClip(true);
 
-    d->view = new TrojitaQNAMGraphicsWebView(this);
+    d->view = new ImpresarioQNAMGraphicsWebView(this);
     d->view->setResizesToContents(true);
-    QWebPage* wp = new TrojitaQNAMDeclarativeWebPage(this);
+    QWebPage* wp = new ImpresarioQNAMDeclarativeWebPage(this);
     setPage(wp);
     connect(d->view, SIGNAL(geometryChanged()), this, SLOT(updateDeclarativeWebViewSize()));
     connect(d->view, SIGNAL(doubleClick(int, int)), this, SIGNAL(doubleClick(int, int)));
     connect(d->view, SIGNAL(scaleChanged()), this, SIGNAL(contentsScaleChanged()));
 }
 
-void TrojitaQNAMDeclarativeWebView::componentComplete()
+void ImpresarioQNAMDeclarativeWebView::componentComplete()
 {
     QDeclarativeItem::componentComplete();
 
@@ -290,23 +290,23 @@ void TrojitaQNAMDeclarativeWebView::componentComplete()
         page()->setNetworkAccessManager(qmlEngine(this)->networkAccessManager());
 
     switch (d->pending) {
-    case TrojitaQNAMDeclarativeWebViewPrivate::PendingUrl:
+    case ImpresarioQNAMDeclarativeWebViewPrivate::PendingUrl:
         setUrl(d->pendingUrl);
         break;
-    case TrojitaQNAMDeclarativeWebViewPrivate::PendingHtml:
+    case ImpresarioQNAMDeclarativeWebViewPrivate::PendingHtml:
         setHtml(d->pendingString, d->pendingUrl);
         break;
-    case TrojitaQNAMDeclarativeWebViewPrivate::PendingContent:
+    case ImpresarioQNAMDeclarativeWebViewPrivate::PendingContent:
         setContent(d->pendingData, d->pendingString, d->pendingUrl);
         break;
     default:
         break;
     }
-    d->pending = TrojitaQNAMDeclarativeWebViewPrivate::PendingNone;
+    d->pending = ImpresarioQNAMDeclarativeWebViewPrivate::PendingNone;
     d->updateWindowObjects();
 }
 
-TrojitaQNAMDeclarativeWebView::Status TrojitaQNAMDeclarativeWebView::status() const
+ImpresarioQNAMDeclarativeWebView::Status ImpresarioQNAMDeclarativeWebView::status() const
 {
     return d->status;
 }
@@ -319,12 +319,12 @@ TrojitaQNAMDeclarativeWebView::Status TrojitaQNAMDeclarativeWebView::status() co
     If you just want to know when progress gets to 1, use
     WebView::onLoadFinished() or WebView::onLoadFailed() instead.
 */
-qreal TrojitaQNAMDeclarativeWebView::progress() const
+qreal ImpresarioQNAMDeclarativeWebView::progress() const
 {
     return d->progress;
 }
 
-void TrojitaQNAMDeclarativeWebView::doLoadStarted()
+void ImpresarioQNAMDeclarativeWebView::doLoadStarted()
 {
     if (!d->url.isEmpty()) {
         d->status = Loading;
@@ -333,7 +333,7 @@ void TrojitaQNAMDeclarativeWebView::doLoadStarted()
     emit loadStarted();
 }
 
-void TrojitaQNAMDeclarativeWebView::doLoadProgress(int p)
+void ImpresarioQNAMDeclarativeWebView::doLoadProgress(int p)
 {
     if (d->progress == p / 100.0)
         return;
@@ -341,7 +341,7 @@ void TrojitaQNAMDeclarativeWebView::doLoadProgress(int p)
     emit progressChanged();
 }
 
-void TrojitaQNAMDeclarativeWebView::pageUrlChanged()
+void ImpresarioQNAMDeclarativeWebView::pageUrlChanged()
 {
     updateContentsSize();
 
@@ -355,7 +355,7 @@ void TrojitaQNAMDeclarativeWebView::pageUrlChanged()
     }
 }
 
-void TrojitaQNAMDeclarativeWebView::doLoadFinished(bool ok)
+void ImpresarioQNAMDeclarativeWebView::doLoadFinished(bool ok)
 {
     if (ok) {
         d->status = d->url.isEmpty() ? Null : Ready;
@@ -377,12 +377,12 @@ void TrojitaQNAMDeclarativeWebView::doLoadFinished(bool ok)
     The url is always absolute (QML will resolve relative URL strings in the context
     of the containing QML document).
 */
-QUrl TrojitaQNAMDeclarativeWebView::url() const
+QUrl ImpresarioQNAMDeclarativeWebView::url() const
 {
     return d->url;
 }
 
-void TrojitaQNAMDeclarativeWebView::setUrl(const QUrl& url)
+void ImpresarioQNAMDeclarativeWebView::setUrl(const QUrl& url)
 {
     if (url == d->url)
         return;
@@ -410,12 +410,12 @@ void TrojitaQNAMDeclarativeWebView::setUrl(const QUrl& url)
     \qmlproperty int WebView::preferredWidth
     This property holds the ideal width for displaying the current URL.
 */
-int TrojitaQNAMDeclarativeWebView::preferredWidth() const
+int ImpresarioQNAMDeclarativeWebView::preferredWidth() const
 {
     return d->preferredwidth;
 }
 
-void TrojitaQNAMDeclarativeWebView::setPreferredWidth(int width)
+void ImpresarioQNAMDeclarativeWebView::setPreferredWidth(int width)
 {
     if (d->preferredwidth == width)
         return;
@@ -429,12 +429,12 @@ void TrojitaQNAMDeclarativeWebView::setPreferredWidth(int width)
     This property holds the ideal height for displaying the current URL.
     This only affects the area zoomed by heuristicZoom().
 */
-int TrojitaQNAMDeclarativeWebView::preferredHeight() const
+int ImpresarioQNAMDeclarativeWebView::preferredHeight() const
 {
     return d->preferredheight;
 }
 
-void TrojitaQNAMDeclarativeWebView::setPreferredHeight(int height)
+void ImpresarioQNAMDeclarativeWebView::setPreferredHeight(int height)
 {
     if (d->preferredheight == height)
         return;
@@ -452,24 +452,24 @@ void TrojitaQNAMDeclarativeWebView::setPreferredHeight(int height)
     Note that this JavaScript does \e not have any access to QML objects
     except as made available as windowObjects.
 */
-QVariant TrojitaQNAMDeclarativeWebView::evaluateJavaScript(const QString& scriptSource)
+QVariant ImpresarioQNAMDeclarativeWebView::evaluateJavaScript(const QString& scriptSource)
 {
     return this->page()->mainFrame()->evaluateJavaScript(scriptSource);
 }
 
-void TrojitaQNAMDeclarativeWebView::updateDeclarativeWebViewSize()
+void ImpresarioQNAMDeclarativeWebView::updateDeclarativeWebViewSize()
 {
     QSizeF size = d->view->geometry().size() * contentsScale();
     setImplicitWidth(size.width());
     setImplicitHeight(size.height());
 }
 
-void TrojitaQNAMDeclarativeWebView::initialLayout()
+void ImpresarioQNAMDeclarativeWebView::initialLayout()
 {
     // nothing useful to do at this point
 }
 
-void TrojitaQNAMDeclarativeWebView::updateContentsSize()
+void ImpresarioQNAMDeclarativeWebView::updateContentsSize()
 {
     if (page()) {
         page()->setPreferredContentsSize(QSize(
@@ -478,7 +478,7 @@ void TrojitaQNAMDeclarativeWebView::updateContentsSize()
     }
 }
 
-void TrojitaQNAMDeclarativeWebView::geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry)
+void ImpresarioQNAMDeclarativeWebView::geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry)
 {
     QWebPage* webPage = page();
     if (newGeometry.size() != oldGeometry.size() && webPage) {
@@ -530,35 +530,35 @@ void TrojitaQNAMDeclarativeWebView::geometryChanged(const QRectF& newGeometry, c
 
     If Javascript is not enabled for the page, then this property does nothing.
 */
-QDeclarativeListProperty<QObject> TrojitaQNAMDeclarativeWebView::javaScriptWindowObjects()
+QDeclarativeListProperty<QObject> ImpresarioQNAMDeclarativeWebView::javaScriptWindowObjects()
 {
-    return QDeclarativeListProperty<QObject>(this, d, &TrojitaQNAMDeclarativeWebViewPrivate::windowObjectsAppend);
+    return QDeclarativeListProperty<QObject>(this, d, &ImpresarioQNAMDeclarativeWebViewPrivate::windowObjectsAppend);
 }
 
-TrojitaQNAMDeclarativeWebViewAttached* TrojitaQNAMDeclarativeWebView::qmlAttachedProperties(QObject* o)
+ImpresarioQNAMDeclarativeWebViewAttached* ImpresarioQNAMDeclarativeWebView::qmlAttachedProperties(QObject* o)
 {
-    return new TrojitaQNAMDeclarativeWebViewAttached(o);
+    return new ImpresarioQNAMDeclarativeWebViewAttached(o);
 }
 
-void TrojitaQNAMDeclarativeWebViewPrivate::updateWindowObjects()
+void ImpresarioQNAMDeclarativeWebViewPrivate::updateWindowObjects()
 {
     if (!q->isComponentCompletePublic() || !q->page())
         return;
 
     for (int i = 0; i < windowObjects.count(); ++i) {
         QObject* object = windowObjects.at(i);
-        TrojitaQNAMDeclarativeWebViewAttached* attached = static_cast<TrojitaQNAMDeclarativeWebViewAttached *>(qmlAttachedPropertiesObject<TrojitaQNAMDeclarativeWebView>(object));
+        ImpresarioQNAMDeclarativeWebViewAttached* attached = static_cast<ImpresarioQNAMDeclarativeWebViewAttached *>(qmlAttachedPropertiesObject<ImpresarioQNAMDeclarativeWebView>(object));
         if (attached && !attached->windowObjectName().isEmpty())
             q->page()->mainFrame()->addToJavaScriptWindowObject(attached->windowObjectName(), object);
     }
 }
 
-bool TrojitaQNAMDeclarativeWebView::renderingEnabled() const
+bool ImpresarioQNAMDeclarativeWebView::renderingEnabled() const
 {
     return d->rendering;
 }
 
-void TrojitaQNAMDeclarativeWebView::setRenderingEnabled(bool enabled)
+void ImpresarioQNAMDeclarativeWebView::setRenderingEnabled(bool enabled)
 {
     if (d->rendering == enabled)
         return;
@@ -589,7 +589,7 @@ void TrojitaQNAMDeclarativeWebView::setRenderingEnabled(bool enabled)
     If such a zoom exists, emits zoomTo(zoom,centerX,centerY) and returns true; otherwise,
     no signal is emitted and returns false.
 */
-bool TrojitaQNAMDeclarativeWebView::heuristicZoom(int clickX, int clickY, qreal maxZoom)
+bool ImpresarioQNAMDeclarativeWebView::heuristicZoom(int clickX, int clickY, qreal maxZoom)
 {
     if (contentsScale() >= maxZoom / scale())
         return false;
@@ -616,12 +616,12 @@ bool TrojitaQNAMDeclarativeWebView::heuristicZoom(int clickX, int clickY, qreal 
     Defaults to 400ms. Set to 0 to always grab and pass move events to
     the Web engine.
 */
-int TrojitaQNAMDeclarativeWebView::pressGrabTime() const
+int ImpresarioQNAMDeclarativeWebView::pressGrabTime() const
 {
     return d->view->pressTime;
 }
 
-void TrojitaQNAMDeclarativeWebView::setPressGrabTime(int millis)
+void ImpresarioQNAMDeclarativeWebView::setPressGrabTime(int millis)
 {
     if (d->view->pressTime == millis)
         return;
@@ -634,7 +634,7 @@ void TrojitaQNAMDeclarativeWebView::setPressGrabTime(int millis)
     \qmlproperty action WebView::back
     This property holds the action for causing the previous URL in the history to be displayed.
 */
-QAction* TrojitaQNAMDeclarativeWebView::backAction() const
+QAction* ImpresarioQNAMDeclarativeWebView::backAction() const
 {
     return page()->action(QWebPage::Back);
 }
@@ -643,7 +643,7 @@ QAction* TrojitaQNAMDeclarativeWebView::backAction() const
     \qmlproperty action WebView::forward
     This property holds the action for causing the next URL in the history to be displayed.
 */
-QAction* TrojitaQNAMDeclarativeWebView::forwardAction() const
+QAction* ImpresarioQNAMDeclarativeWebView::forwardAction() const
 {
     return page()->action(QWebPage::Forward);
 }
@@ -652,7 +652,7 @@ QAction* TrojitaQNAMDeclarativeWebView::forwardAction() const
     \qmlproperty action WebView::reload
     This property holds the action for reloading with the current URL
 */
-QAction* TrojitaQNAMDeclarativeWebView::reloadAction() const
+QAction* ImpresarioQNAMDeclarativeWebView::reloadAction() const
 {
     return page()->action(QWebPage::Reload);
 }
@@ -661,7 +661,7 @@ QAction* TrojitaQNAMDeclarativeWebView::reloadAction() const
     \qmlproperty action WebView::stop
     This property holds the action for stopping loading with the current URL
 */
-QAction* TrojitaQNAMDeclarativeWebView::stopAction() const
+QAction* ImpresarioQNAMDeclarativeWebView::stopAction() const
 {
     return page()->action(QWebPage::Stop);
 }
@@ -673,7 +673,7 @@ QAction* TrojitaQNAMDeclarativeWebView::stopAction() const
 
     By default, this property contains an empty string.
 */
-QString TrojitaQNAMDeclarativeWebView::title() const
+QString ImpresarioQNAMDeclarativeWebView::title() const
 {
     return page()->mainFrame()->title();
 }
@@ -682,7 +682,7 @@ QString TrojitaQNAMDeclarativeWebView::title() const
     \qmlproperty pixmap WebView::icon
     This property holds the icon associated with the web page currently viewed
 */
-QPixmap TrojitaQNAMDeclarativeWebView::icon() const
+QPixmap ImpresarioQNAMDeclarativeWebView::icon() const
 {
     return page()->mainFrame()->icon().pixmap(QSize(256, 256));
 }
@@ -693,23 +693,23 @@ QPixmap TrojitaQNAMDeclarativeWebView::icon() const
     This property is the current status suggested by the current web page. In a web browser,
     such status is often shown in some kind of status bar.
 */
-void TrojitaQNAMDeclarativeWebView::setStatusText(const QString& text)
+void ImpresarioQNAMDeclarativeWebView::setStatusText(const QString& text)
 {
     d->statusText = text;
     emit statusTextChanged();
 }
 
-void TrojitaQNAMDeclarativeWebView::windowObjectCleared()
+void ImpresarioQNAMDeclarativeWebView::windowObjectCleared()
 {
     d->updateWindowObjects();
 }
 
-QString TrojitaQNAMDeclarativeWebView::statusText() const
+QString ImpresarioQNAMDeclarativeWebView::statusText() const
 {
     return d->statusText;
 }
 
-QWebPage* TrojitaQNAMDeclarativeWebView::page() const
+QWebPage* ImpresarioQNAMDeclarativeWebView::page() const
 {
     return d->view->page();
 }
@@ -756,13 +756,13 @@ QWebPage* TrojitaQNAMDeclarativeWebView::page() const
     }
     \endqml
 */
-TrojitaDeclarativeWebSettings* TrojitaQNAMDeclarativeWebView::settingsObject() const
+ImpresarioDeclarativeWebSettings* ImpresarioQNAMDeclarativeWebView::settingsObject() const
 {
     d->settings.s = page()->settings();
     return &d->settings;
 }
 
-void TrojitaQNAMDeclarativeWebView::setPage(QWebPage* page)
+void ImpresarioQNAMDeclarativeWebView::setPage(QWebPage* page)
 {
     if (d->view->page() == page)
         return;
@@ -814,12 +814,12 @@ void TrojitaQNAMDeclarativeWebView::setPage(QWebPage* page)
     (WebView::onLoadFinished() will be emitted on success).
 */
 
-void TrojitaQNAMDeclarativeWebView::load(const QNetworkRequest& request, QNetworkAccessManager::Operation operation, const QByteArray& body)
+void ImpresarioQNAMDeclarativeWebView::load(const QNetworkRequest& request, QNetworkAccessManager::Operation operation, const QByteArray& body)
 {
     page()->mainFrame()->load(request, operation, body);
 }
 
-QString TrojitaQNAMDeclarativeWebView::html() const
+QString ImpresarioQNAMDeclarativeWebView::html() const
 {
     return page()->mainFrame()->toHtml();
 }
@@ -836,7 +836,7 @@ QString TrojitaQNAMDeclarativeWebView::html() const
     }
     \endqml
 */
-void TrojitaQNAMDeclarativeWebView::setHtml(const QString& html, const QUrl& baseUrl)
+void ImpresarioQNAMDeclarativeWebView::setHtml(const QString& html, const QUrl& baseUrl)
 {
     updateContentsSize();
     if (isComponentComplete())
@@ -849,7 +849,7 @@ void TrojitaQNAMDeclarativeWebView::setHtml(const QString& html, const QUrl& bas
     emit htmlChanged();
 }
 
-void TrojitaQNAMDeclarativeWebView::setContent(const QByteArray& data, const QString& mimeType, const QUrl& baseUrl)
+void ImpresarioQNAMDeclarativeWebView::setContent(const QByteArray& data, const QString& mimeType, const QUrl& baseUrl)
 {
     updateContentsSize();
 
@@ -863,17 +863,17 @@ void TrojitaQNAMDeclarativeWebView::setContent(const QByteArray& data, const QSt
     }
 }
 
-QWebHistory* TrojitaQNAMDeclarativeWebView::history() const
+QWebHistory* ImpresarioQNAMDeclarativeWebView::history() const
 {
     return page()->history();
 }
 
-QWebSettings* TrojitaQNAMDeclarativeWebView::settings() const
+QWebSettings* ImpresarioQNAMDeclarativeWebView::settings() const
 {
     return page()->settings();
 }
 
-TrojitaQNAMDeclarativeWebView* TrojitaQNAMDeclarativeWebView::createWindow(QWebPage::WebWindowType type)
+ImpresarioQNAMDeclarativeWebView* ImpresarioQNAMDeclarativeWebView::createWindow(QWebPage::WebWindowType type)
 {
     switch (type) {
     case QWebPage::WebBrowserWindow: {
@@ -882,7 +882,7 @@ TrojitaQNAMDeclarativeWebView* TrojitaQNAMDeclarativeWebView::createWindow(QWebP
         else if (d->newWindowComponent && !d->newWindowParent)
             qWarning("WebView::newWindowParent not set - WebView::newWindowComponent ignored");
         else if (d->newWindowComponent && d->newWindowParent) {
-            TrojitaQNAMDeclarativeWebView* webview = 0;
+            ImpresarioQNAMDeclarativeWebView* webview = 0;
             QDeclarativeContext* windowContext = new QDeclarativeContext(qmlContext(this));
 
             QObject* newObject = d->newWindowComponent->create(windowContext);
@@ -892,7 +892,7 @@ TrojitaQNAMDeclarativeWebView* TrojitaQNAMDeclarativeWebView::createWindow(QWebP
                 if (!item)
                     delete newObject;
                 else {
-                    webview = item->findChild<TrojitaQNAMDeclarativeWebView*>();
+                    webview = item->findChild<ImpresarioQNAMDeclarativeWebView*>();
                     if (!webview)
                         delete item;
                     else {
@@ -925,12 +925,12 @@ TrojitaQNAMDeclarativeWebView* TrojitaQNAMDeclarativeWebView::createWindow(QWebP
 
     The parent of the new window is set by newWindowParent. It must be set.
 */
-QDeclarativeComponent* TrojitaQNAMDeclarativeWebView::newWindowComponent() const
+QDeclarativeComponent* ImpresarioQNAMDeclarativeWebView::newWindowComponent() const
 {
     return d->newWindowComponent;
 }
 
-void TrojitaQNAMDeclarativeWebView::setNewWindowComponent(QDeclarativeComponent* newWindow)
+void ImpresarioQNAMDeclarativeWebView::setNewWindowComponent(QDeclarativeComponent* newWindow)
 {
     if (newWindow == d->newWindowComponent)
         return;
@@ -946,12 +946,12 @@ void TrojitaQNAMDeclarativeWebView::setNewWindowComponent(QDeclarativeComponent*
 
     \sa newWindowComponent
 */
-QDeclarativeItem* TrojitaQNAMDeclarativeWebView::newWindowParent() const
+QDeclarativeItem* ImpresarioQNAMDeclarativeWebView::newWindowParent() const
 {
     return d->newWindowParent;
 }
 
-void TrojitaQNAMDeclarativeWebView::setNewWindowParent(QDeclarativeItem* parent)
+void ImpresarioQNAMDeclarativeWebView::setNewWindowParent(QDeclarativeItem* parent)
 {
     if (parent == d->newWindowParent)
         return;
@@ -964,17 +964,17 @@ void TrojitaQNAMDeclarativeWebView::setNewWindowParent(QDeclarativeItem* parent)
     emit newWindowParentChanged();
 }
 
-QSize TrojitaQNAMDeclarativeWebView::contentsSize() const
+QSize ImpresarioQNAMDeclarativeWebView::contentsSize() const
 {
     return page()->mainFrame()->contentsSize() * contentsScale();
 }
 
-qreal TrojitaQNAMDeclarativeWebView::contentsScale() const
+qreal ImpresarioQNAMDeclarativeWebView::contentsScale() const
 {
     return d->view->scale();
 }
 
-void TrojitaQNAMDeclarativeWebView::setContentsScale(qreal scale)
+void ImpresarioQNAMDeclarativeWebView::setContentsScale(qreal scale)
 {
     if (scale == d->view->scale())
         return;
@@ -989,7 +989,7 @@ void TrojitaQNAMDeclarativeWebView::setContentsScale(qreal scale)
 
     May return an area larger in the case when no smaller element is at the position.
 */
-QRect TrojitaQNAMDeclarativeWebView::elementAreaAt(int x, int y, int maxWidth, int maxHeight) const
+QRect ImpresarioQNAMDeclarativeWebView::elementAreaAt(int x, int y, int maxWidth, int maxHeight) const
 {
     QWebHitTestResult hit = page()->mainFrame()->hitTestContent(QPoint(x, y));
     QRect hitRect = hit.boundingRect();
@@ -1005,12 +1005,12 @@ QRect TrojitaQNAMDeclarativeWebView::elementAreaAt(int x, int y, int maxWidth, i
     return hitRect;
 }
 
-QNetworkAccessManager *TrojitaQNAMDeclarativeWebView::networkAccessManager() const
+QNetworkAccessManager *ImpresarioQNAMDeclarativeWebView::networkAccessManager() const
 {
     return d->networkAccessManager;
 }
 
-void TrojitaQNAMDeclarativeWebView::setNetworkAccessManager(QNetworkAccessManager *manager)
+void ImpresarioQNAMDeclarativeWebView::setNetworkAccessManager(QNetworkAccessManager *manager)
 {
     if (manager) {
         d->networkAccessManager = manager;
@@ -1020,21 +1020,21 @@ void TrojitaQNAMDeclarativeWebView::setNetworkAccessManager(QNetworkAccessManage
 
 /*!
     \internal
-    \class TrojitaQNAMDeclarativeWebPage
-    \brief The TrojitaQNAMDeclarativeWebPage class is a QWebPage that can create QML plugins.
+    \class ImpresarioQNAMDeclarativeWebPage
+    \brief The ImpresarioQNAMDeclarativeWebPage class is a QWebPage that can create QML plugins.
 
     \sa QDeclarativeWebView
 */
-TrojitaQNAMDeclarativeWebPage::TrojitaQNAMDeclarativeWebPage(TrojitaQNAMDeclarativeWebView* parent) :
+ImpresarioQNAMDeclarativeWebPage::ImpresarioQNAMDeclarativeWebPage(ImpresarioQNAMDeclarativeWebView* parent) :
     QWebPage(parent)
 {
 }
 
-TrojitaQNAMDeclarativeWebPage::~TrojitaQNAMDeclarativeWebPage()
+ImpresarioQNAMDeclarativeWebPage::~ImpresarioQNAMDeclarativeWebPage()
 {
 }
 
-QString TrojitaQNAMDeclarativeWebPage::chooseFile(QWebFrame* originatingFrame, const QString& oldFile)
+QString ImpresarioQNAMDeclarativeWebPage::chooseFile(QWebFrame* originatingFrame, const QString& oldFile)
 {
     // Not supported (it's modal)
     Q_UNUSED(originatingFrame)
@@ -1050,13 +1050,13 @@ QString TrojitaQNAMDeclarativeWebPage::chooseFile(QWebFrame* originatingFrame, c
 */
 
 
-void TrojitaQNAMDeclarativeWebPage::javaScriptAlert(QWebFrame* originatingFrame, const QString& msg)
+void ImpresarioQNAMDeclarativeWebPage::javaScriptAlert(QWebFrame* originatingFrame, const QString& msg)
 {
     Q_UNUSED(originatingFrame)
     emit viewItem()->alert(msg);
 }
 
-bool TrojitaQNAMDeclarativeWebPage::javaScriptConfirm(QWebFrame* originatingFrame, const QString& msg)
+bool ImpresarioQNAMDeclarativeWebPage::javaScriptConfirm(QWebFrame* originatingFrame, const QString& msg)
 {
     // Not supported (it's modal)
     Q_UNUSED(originatingFrame)
@@ -1064,7 +1064,7 @@ bool TrojitaQNAMDeclarativeWebPage::javaScriptConfirm(QWebFrame* originatingFram
     return false;
 }
 
-bool TrojitaQNAMDeclarativeWebPage::javaScriptPrompt(QWebFrame* originatingFrame, const QString& msg, const QString& defaultValue, QString* result)
+bool ImpresarioQNAMDeclarativeWebPage::javaScriptPrompt(QWebFrame* originatingFrame, const QString& msg, const QString& defaultValue, QString* result)
 {
     // Not supported (it's modal)
     Q_UNUSED(originatingFrame)
@@ -1075,14 +1075,14 @@ bool TrojitaQNAMDeclarativeWebPage::javaScriptPrompt(QWebFrame* originatingFrame
 }
 
 
-TrojitaQNAMDeclarativeWebView* TrojitaQNAMDeclarativeWebPage::viewItem()
+ImpresarioQNAMDeclarativeWebView* ImpresarioQNAMDeclarativeWebPage::viewItem()
 {
-    return static_cast<TrojitaQNAMDeclarativeWebView*>(parent());
+    return static_cast<ImpresarioQNAMDeclarativeWebView*>(parent());
 }
 
-QWebPage* TrojitaQNAMDeclarativeWebPage::createWindow(WebWindowType type)
+QWebPage* ImpresarioQNAMDeclarativeWebPage::createWindow(WebWindowType type)
 {
-    TrojitaQNAMDeclarativeWebView* newView = viewItem()->createWindow(type);
+    ImpresarioQNAMDeclarativeWebView* newView = viewItem()->createWindow(type);
     if (newView)
         return newView->page();
     return 0;

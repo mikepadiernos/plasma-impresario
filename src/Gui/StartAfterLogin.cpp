@@ -16,6 +16,7 @@
 #include <KLocalizedString>
 
 #include "UiUtils/BackgroundRunning.h"
+#include "Common/Application.h"
 
 namespace Gui {
 
@@ -26,7 +27,7 @@ const QString portalPath = QStringLiteral("/org/freedesktop/portal/desktop");
 
 QString profile()
 {
-    return QString::fromUtf8(qgetenv("TROJITA_PROFILE"));
+    return Common::Application::profileName();
 }
 
 void warn(QWidget *parent, const QString &text)

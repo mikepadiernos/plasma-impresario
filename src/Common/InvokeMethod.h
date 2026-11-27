@@ -20,8 +20,8 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef TROJITA_INVOKEMETHOD_H
-#define TROJITA_INVOKEMETHOD_H
+#ifndef IMPRESARIO_INVOKEMETHOD_H
+#define IMPRESARIO_INVOKEMETHOD_H
 
 #include <QMetaObject>
 

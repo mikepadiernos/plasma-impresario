@@ -68,6 +68,11 @@ public:
     */
     void setMultiLineRows(bool enabled);
     bool multiLineRows() const { return m_multiLineRows; }
+    /** @short Show the two-line rows as cards; single-line columns stay as they are */
+    void setCards(bool cards);
+    bool cards() const;
+    /** @short The account the list shows, for the colours of its folders */
+    void setAccountId(const QString &accountId);
     /** @short Show the initials of the sender in multi-line rows */
     void setSenderInitials(bool shown);
     /** @short Add the snippet of a search to multi-line rows, from the RoleMessageSearchSnippet of the messages */

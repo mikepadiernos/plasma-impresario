@@ -8,25 +8,25 @@ if(POLICY CMP0026)
 endif()
 
 # Include trojita executable
-get_target_property(TROJITA_EXE_PATH trojita LOCATION)
-get_filename_component(TROJITA_EXE ${TROJITA_EXE_PATH} NAME)
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/trojita-files.nsi.in "!define TROJITA_EXE_PATH \"${TROJITA_EXE_PATH}\"\n!define TROJITA_EXE \"${TROJITA_EXE}\"\n")
+get_target_property(IMPRESARIO_EXE_PATH trojita LOCATION)
+get_filename_component(IMPRESARIO_EXE ${IMPRESARIO_EXE_PATH} NAME)
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/trojita-files.nsi.in "!define IMPRESARIO_EXE_PATH \"${IMPRESARIO_EXE_PATH}\"\n!define IMPRESARIO_EXE \"${IMPRESARIO_EXE}\"\n")
 
 # Include trojita icon
-get_filename_component(TROJITA_ICON_PATH ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/trojita.ico REALPATH)
-file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/trojita-files.nsi.in "!define TROJITA_ICON_PATH \"${TROJITA_ICON_PATH}\"\n")
+get_filename_component(IMPRESARIO_ICON_PATH ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/trojita.ico REALPATH)
+file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/trojita-files.nsi.in "!define IMPRESARIO_ICON_PATH \"${IMPRESARIO_ICON_PATH}\"\n")
 
-set(TROJITA_INSTALL_FILES "")
+set(IMPRESARIO_INSTALL_FILES "")
 
-set(TROJITA_LIBRARIES "")
-set(TROJITA_LIBRARIES_PATHS "")
+set(IMPRESARIO_LIBRARIES "")
+set(IMPRESARIO_LIBRARIES_PATHS "")
 
 # Prepare a list of all Qt plugins which are needed.
 # We need a hardcoded list of plugin types because I'm too lazy to find out how to work with associative arrays/hashmaps in cmake.
-set(TROJITA_QT_PLUGIN_TYPES bearer generic iconengines imageformats sqldrivers platforms)
+set(IMPRESARIO_QT_PLUGIN_TYPES bearer generic iconengines imageformats sqldrivers platforms)
 
-foreach(plugintype ${TROJITA_QT_PLUGIN_TYPES})
-    set(TROJITA_QT_${plugintype}_PLUGINS "")
+foreach(plugintype ${IMPRESARIO_QT_PLUGIN_TYPES})
+    set(IMPRESARIO_QT_${plugintype}_PLUGINS "")
 endforeach()
 
 foreach(plugin ${Qt5Gui_PLUGINS} ${Qt5Network_PLUGINS} Qt5::QSQLiteDriverPlugin Qt5::QSvgIconPlugin)
@@ -34,9 +34,9 @@ foreach(plugin ${Qt5Gui_PLUGINS} ${Qt5Network_PLUGINS} Qt5::QSQLiteDriverPlugin 
 
   set(plugin_recognized FALSE)
 
-  foreach(plugintype ${TROJITA_QT_PLUGIN_TYPES})
+  foreach(plugintype ${IMPRESARIO_QT_PLUGIN_TYPES})
       if(${_loc} MATCHES "/plugins/${plugintype}/.*\\.dll$")
-          list(APPEND TROJITA_QT_${plugintype}_PLUGINS ${_loc})
+          list(APPEND IMPRESARIO_QT_${plugintype}_PLUGINS ${_loc})
           set(plugin_recognized TRUE)
       endif()
   endforeach()
@@ -78,8 +78,8 @@ find_package(PythonInterp REQUIRED interpreter)
 
 message(STATUS "Determining the list of required DLL files...")
 set(all_plugin_dlls "")
-foreach(plugintype ${TROJITA_QT_PLUGIN_TYPES})
-    list(APPEND all_plugin_dlls ${TROJITA_QT_${plugintype}_PLUGINS})
+foreach(plugintype ${IMPRESARIO_QT_PLUGIN_TYPES})
+    list(APPEND all_plugin_dlls ${IMPRESARIO_QT_${plugintype}_PLUGINS})
 endforeach()
 execute_process(COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/packaging/mingw-bundledlls
     ${required_dll_names} ${all_plugin_dlls}
@@ -95,43 +95,43 @@ list(APPEND library_dependencies ${required_dll_names})
 foreach(dll_lib ${library_dependencies})
     message(STATUS "Including DLL: ${dll_lib}")
 endforeach()
-set(TROJITA_INSTALL_FILES "${TROJITA_INSTALL_FILES};${library_dependencies}")
+set(IMPRESARIO_INSTALL_FILES "${IMPRESARIO_INSTALL_FILES};${library_dependencies}")
 
 
 # Include be.contacts executable
 get_target_property(FILE_PATH be.contacts LOCATION)
-list(APPEND TROJITA_INSTALL_FILES "${FILE_PATH}")
+list(APPEND IMPRESARIO_INSTALL_FILES "${FILE_PATH}")
 
 # Include common library for plugins
 if(WITH_SHARED_PLUGINS)
     get_target_property(FILE_PATH Plugins LOCATION)
-    list(APPEND TROJITA_INSTALL_FILES "${FILE_PATH}")
+    list(APPEND IMPRESARIO_INSTALL_FILES "${FILE_PATH}")
 endif()
 
 # Include all shared plugins
-get_property(SHARED_PLUGINS GLOBAL PROPERTY TROJITA_SHARED_PLUGINS)
+get_property(SHARED_PLUGINS GLOBAL PROPERTY IMPRESARIO_SHARED_PLUGINS)
 foreach(PLUGIN ${SHARED_PLUGINS})
     get_target_property(FILE_PATH ${PLUGIN} LOCATION)
-    list(APPEND TROJITA_INSTALL_FILES "${FILE_PATH}")
+    list(APPEND IMPRESARIO_INSTALL_FILES "${FILE_PATH}")
 endforeach()
 
 # Include additional files
-list(APPEND TROJITA_INSTALL_FILES "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
-list(APPEND TROJITA_INSTALL_FILES "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+list(APPEND IMPRESARIO_INSTALL_FILES "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+list(APPEND IMPRESARIO_INSTALL_FILES "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 
 # Generate list of install files
-file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/trojita-files.nsi.in "!macro TROJITA_INSTALL_FILES\n")
-foreach(FILE_PATH ${TROJITA_INSTALL_FILES})
+file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/trojita-files.nsi.in "!macro IMPRESARIO_INSTALL_FILES\n")
+foreach(FILE_PATH ${IMPRESARIO_INSTALL_FILES})
     file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/trojita-files.nsi.in "File \"${FILE_PATH}\"\n")
 endforeach()
-if(Qt5LinguistForTrojita_FOUND)
+if(Qt5LinguistForImpresario_FOUND)
     if(num_languages)
         file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/trojita-files.nsi.in "File /r /x *.ts /x x_test locale\n")
     endif()
 endif()
-foreach(plugintype ${TROJITA_QT_PLUGIN_TYPES})
+foreach(plugintype ${IMPRESARIO_QT_PLUGIN_TYPES})
     file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/trojita-files.nsi.in "SetOutPath \"\$INSTDIR\\${plugintype}\"\n")
-    foreach(plugin ${TROJITA_QT_${plugintype}_PLUGINS})
+    foreach(plugin ${IMPRESARIO_QT_${plugintype}_PLUGINS})
         file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/trojita-files.nsi.in "File \"${plugin}\"\n")
         message(STATUS "Including ${plugintype} plugin: ${plugin}")
     endforeach()
@@ -140,22 +140,22 @@ endforeach()
 file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/trojita-files.nsi.in "!macroend\n")
 
 # Generate list of uninstall files
-file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/trojita-files.nsi.in "!macro TROJITA_UNINSTALL_FILES\n")
-if(Qt5LinguistForTrojita_FOUND)
+file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/trojita-files.nsi.in "!macro IMPRESARIO_UNINSTALL_FILES\n")
+if(Qt5LinguistForImpresario_FOUND)
     if(num_languages)
         file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/trojita-files.nsi.in "RMDir /r \"\$INSTDIR\\locale\"\n")
     endif()
 endif()
 
-foreach(plugintype ${TROJITA_QT_PLUGIN_TYPES})
-    foreach(plugin ${TROJITA_QT_${plugintype}_PLUGINS})
+foreach(plugintype ${IMPRESARIO_QT_PLUGIN_TYPES})
+    foreach(plugin ${IMPRESARIO_QT_${plugintype}_PLUGINS})
         get_filename_component(plugin_basename ${plugin} NAME)
         file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/trojita-files.nsi.in "Delete \"\$INSTDIR\\${plugintype}\\${plugin_basename}\"\n")
     endforeach()
     file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/trojita-files.nsi.in "RMDir \"\$INSTDIR\\${plugintype}\"\n")
 endforeach()
 
-foreach(FILE_PATH ${TROJITA_INSTALL_FILES})
+foreach(FILE_PATH ${IMPRESARIO_INSTALL_FILES})
     get_filename_component(FILE_NAME ${FILE_PATH} NAME)
     file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/trojita-files.nsi.in "Delete \"\$INSTDIR\\${FILE_NAME}\"\n")
 endforeach()
@@ -181,5 +181,5 @@ set(MAKENSIS_FLAGS ${MAKENSIS_FLAGS} -NOCD)
 add_custom_command(OUTPUT ${MAKENSIS_OUTPUT}
     COMMAND ${MAKENSIS}
     ARGS ${MAKENSIS_FLAGS} ${CMAKE_CURRENT_SOURCE_DIR}/packaging/trojita.nsi
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/packaging/trojita.nsi ${CMAKE_CURRENT_BINARY_DIR}/trojita-files.nsi ${TROJITA_EXE_PATH} ${TROJITA_ICON_PATH} ${TROJITA_INSTALL_FILES} version)
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/packaging/trojita.nsi ${CMAKE_CURRENT_BINARY_DIR}/trojita-files.nsi ${IMPRESARIO_EXE_PATH} ${IMPRESARIO_ICON_PATH} ${IMPRESARIO_INSTALL_FILES} version)
 add_custom_target(installer ALL DEPENDS ${MAKENSIS_OUTPUT})

@@ -274,7 +274,7 @@ void ImapModelDisappearingMailboxTest::testTrafficAfterSyncedMailboxGoesAway()
 
 void ImapModelDisappearingMailboxTest::testPartFetchAfterMailboxDisappears()
 {
-    model->setProperty("trojita-imap-delayed-fetch-part", 0);
+    model->setProperty("impresario-imap-delayed-fetch-part", 0);
     helperSyncBNoMessages();
     cServer("* 1 EXISTS\r\n");
     cClient(t.mk("UID FETCH 1:* (FLAGS)\r\n"));

@@ -23,7 +23,7 @@
 #include "../Jmap/FakeJmapServer.h"
 #include "Pop3/FetchJob.h"
 #include "configure.cmake.h"
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
 #include "Gui/WebEngineMessageProfile.h"
 #endif
 #include "static_plugins.h"
@@ -208,7 +208,7 @@ private slots:
             }));
         QCOMPARE(groups,
                  (QStringList { QStringLiteral("general"), QStringLiteral("accounts"), QStringLiteral("appearance"),
-                                QStringLiteral("reading"), QStringLiteral("composition"), QStringLiteral("privacy"),
+                                QStringLiteral("theme"), QStringLiteral("reading"), QStringLiteral("composition"), QStringLiteral("privacy"),
                                 QStringLiteral("notifications"), QStringLiteral("search"),
                                 QStringLiteral("integrations"), QStringLiteral("workspaces"),
                                 QStringLiteral("keyboard") }));
@@ -1016,9 +1016,9 @@ int main(int argc, char **argv)
     qputenv("XDG_DATA_HOME", home.filePath(QStringLiteral("data")).toUtf8());
     qputenv("XDG_CACHE_HOME", home.filePath(QStringLiteral("cache")).toUtf8());
     qputenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent/plasma-impresario-test");
-    qunsetenv("TROJITA_PROFILE");
+    qunsetenv("PLASMA_IMPRESARIO_PROFILE");
     QStandardPaths::setTestModeEnabled(true);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     Gui::WebEngineMessageProfile::registerScheme();
 #endif
     Common::registerMetaTypes();

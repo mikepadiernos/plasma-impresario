@@ -20,8 +20,8 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef TROJITA_FIND_WITH_UNKNOWN_H
-#define TROJITA_FIND_WITH_UNKNOWN_H
+#ifndef IMPRESARIO_FIND_WITH_UNKNOWN_H
+#define IMPRESARIO_FIND_WITH_UNKNOWN_H
 
 namespace Common {
 
@@ -71,4 +71,4 @@ RandomAccessIterator lowerBoundWithUnknownElements(RandomAccessIterator begin, R
 
 }
 
-#endif // TROJITA_FIND_WITH_UNKNOWN_H
+#endif // IMPRESARIO_FIND_WITH_UNKNOWN_H

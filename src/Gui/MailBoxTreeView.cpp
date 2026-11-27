@@ -29,6 +29,7 @@
 #include <QMouseEvent>
 #include "Common/SettingsNames.h"
 #include "Gui/MailBoxTreeView.h"
+#include "Gui/AppearanceManager.h"
 #include "Gui/Util.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/MailboxFinder.h"
@@ -224,6 +225,26 @@ void MailBoxTreeView::resetWatchedMailboxes()
             m_mailboxFinder->addMailbox(mailbox);
         }
     }
+}
+
+void MailBoxTreeView::setAccountId(const QString &accountId)
+{
+    if (m_accountId == accountId)
+        return;
+    m_accountId = accountId;
+    viewport()->update();
+}
+
+QColor MailBoxTreeView::folderColorAt(const QModelIndex &index) const
+{
+    if (!index.isValid())
+        return QColor();
+    const QString name = index.data(Imap::Mailbox::RoleMailboxName).toString();
+    if (name.isEmpty())
+        return QColor();
+    const QString separator = index.data(Imap::Mailbox::RoleMailboxSeparator).toString();
+    return AppearanceManager::instance()->folderColor(m_accountId, name,
+                                                      separator.isEmpty() ? QLatin1Char('/') : separator.at(0));
 }
 
 }

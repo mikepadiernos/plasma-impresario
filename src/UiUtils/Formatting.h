@@ -19,8 +19,8 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef TROJITA_UIUTILS_FORMATTING_H
-#define TROJITA_UIUTILS_FORMATTING_H
+#ifndef IMPRESARIO_UIUTILS_FORMATTING_H
+#define IMPRESARIO_UIUTILS_FORMATTING_H
 
 #include <QDateTime>
 #include <QModelIndex>

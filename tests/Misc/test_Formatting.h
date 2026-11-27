@@ -19,8 +19,8 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef TEST_TROJITA_FORMATTING
-#define TEST_TROJITA_FORMATTING
+#ifndef TEST_IMPRESARIO_FORMATTING
+#define TEST_IMPRESARIO_FORMATTING
 
 #include <QObject>
 

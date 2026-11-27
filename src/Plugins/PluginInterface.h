@@ -20,8 +20,8 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef TROJITAPLUGIN_INTERFACE
-#define TROJITAPLUGIN_INTERFACE
+#ifndef IMPRESARIOPLUGIN_INTERFACE
+#define IMPRESARIOPLUGIN_INTERFACE
 
 #include <QObject>
 #include <QString>
@@ -84,6 +84,6 @@ Q_DECLARE_INTERFACE(Plugins::AddressbookPluginInterface, "AddressbookPluginInter
 Q_DECLARE_INTERFACE(Plugins::PasswordPluginInterface, "PasswordPluginInterface")
 Q_DECLARE_INTERFACE(Plugins::SpellcheckerPluginInterface, "SpellcheckerPluginInterface")
 
-#endif //TROJITAPLUGIN_INTERFACE
+#endif //IMPRESARIOPLUGIN_INTERFACE
 
 // vim: set et ts=4 sts=4 sw=4

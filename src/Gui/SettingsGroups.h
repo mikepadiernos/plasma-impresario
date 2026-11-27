@@ -176,6 +176,7 @@ private:
     QComboBox *m_preset;
     QComboBox *m_sidebar;
     QCheckBox *m_header;
+    QCheckBox *m_symbolicTray;
     QCheckBox *m_tabs;
     QComboBox *m_tabRegion;
     QComboBox *m_tabOrientation;
@@ -285,9 +286,11 @@ private:
     void fillList();
     void showWorkspace();
     void storeEditor();
+    void captureAppearance();
     UiUtils::Workspaces::Workspace *current();
 
     QList<UiUtils::Workspaces::Workspace> m_workspaces;
+    QList<UiUtils::ThemeProfiles::Profile> m_profiles;
     QListWidget *m_list;
     QPushButton *m_remove;
     QWidget *m_editor;
@@ -295,6 +298,11 @@ private:
     QListWidget *m_accounts;
     QComboBox *m_activity;
     QLineEdit *m_notesFolder;
+    QComboBox *m_appearance;
+    QComboBox *m_profile;
+    QListWidget *m_options;
+    QLabel *m_overrides;
+    QPushButton *m_clearOverrides;
     QLabel *m_problems;
     QCheckBox *m_follow;
     bool m_loading = false;

@@ -116,7 +116,7 @@ KeepMailboxOpenTask::KeepMailboxOpenTask(Model *model, const QModelIndex &mailbo
     noopTimer = new QTimer(this);
     connect(noopTimer, &QTimer::timeout, this, &KeepMailboxOpenTask::slotPerformNoop);
     bool ok;
-    int timeout = model->property("trojita-imap-noop-period").toUInt(&ok);
+    int timeout = model->property("impresario-imap-noop-period").toUInt(&ok);
     if (! ok)
         timeout = 2 * 60 * 1000; // once every two minutes
     noopTimer->setInterval(timeout);
@@ -124,7 +124,7 @@ KeepMailboxOpenTask::KeepMailboxOpenTask(Model *model, const QModelIndex &mailbo
 
     fetchPartTimer = new QTimer(this);
     connect(fetchPartTimer, &QTimer::timeout, this, &KeepMailboxOpenTask::slotFetchRequestedParts);
-    timeout = model->property("trojita-imap-delayed-fetch-part").toUInt(&ok);
+    timeout = model->property("impresario-imap-delayed-fetch-part").toUInt(&ok);
     if (! ok)
         timeout = 50;
     fetchPartTimer->setInterval(timeout);
@@ -135,19 +135,19 @@ KeepMailboxOpenTask::KeepMailboxOpenTask(Model *model, const QModelIndex &mailbo
     fetchEnvelopeTimer->setInterval(0); // message metadata is pretty important, hence an immediate fetch
     fetchEnvelopeTimer->setSingleShot(true);
 
-    limitBytesAtOnce = model->property("trojita-imap-limit-fetch-bytes-per-group").toUInt(&ok);
+    limitBytesAtOnce = model->property("impresario-imap-limit-fetch-bytes-per-group").toUInt(&ok);
     if (! ok)
         limitBytesAtOnce = 1024 * 1024;
 
-    limitMessagesAtOnce = model->property("trojita-imap-limit-fetch-messages-per-group").toInt(&ok);
+    limitMessagesAtOnce = model->property("impresario-imap-limit-fetch-messages-per-group").toInt(&ok);
     if (! ok)
         limitMessagesAtOnce = 300;
 
-    limitParallelFetchTasks = model->property("trojita-imap-limit-parallel-fetch-tasks").toInt(&ok);
+    limitParallelFetchTasks = model->property("impresario-imap-limit-parallel-fetch-tasks").toInt(&ok);
     if (! ok)
         limitParallelFetchTasks = 10;
 
-    limitActiveTasks = model->property("trojita-imap-limit-active-tasks").toInt(&ok);
+    limitActiveTasks = model->property("impresario-imap-limit-active-tasks").toInt(&ok);
     if (! ok)
         limitActiveTasks = 100;
 

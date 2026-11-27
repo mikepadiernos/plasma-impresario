@@ -52,6 +52,7 @@
 #include "Common/SettingsNames.h"
 #include "Composer/AccountIdentities.h"
 #include "Gui/StartAfterLogin.h"
+#include "Gui/ThemeGroup.h"
 #include "Gui/Util.h"
 #include "Gui/Window.h"
 #include "Imap/Model/AccountCapabilities.h"
@@ -180,6 +181,8 @@ void SettingsDialog::addApplicationGroups()
             QStringLiteral("system-users")},
         {new AppearanceGroup(favoriteTags, context, this), i18nc("@title:group of settings", "Appearance"),
             QStringLiteral("preferences-desktop-theme-global")},
+        {new ThemeGroup(context, this), i18nc("@title:group of settings", "Theme"),
+            QStringLiteral("preferences-desktop-color")},
         {new ReadingGroup(general, context, this), i18nc("@title:group of settings", "Reading"),
             QStringLiteral("mail-read")},
         {new CompositionGroup(general, context, this), i18nc("@title:group of settings", "Composition"),
@@ -581,7 +584,7 @@ GeneralPage::GeneralPage(SettingsDialog *parent, QSettings &s):
     }
 
     preferPlaintextCheckbox->setChecked(s.value(Common::SettingsNames::guiPreferPlaintextRendering).toBool());
-    revealTrojitaVersions->setChecked(s.value(Common::SettingsNames::interopRevealVersions, QVariant(true)).toBool());
+    revealImpresarioVersions->setChecked(s.value(Common::SettingsNames::interopRevealVersions, QVariant(true)).toBool());
 
     connect(passwordBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &GeneralPage::passwordPluginChanged);
 
@@ -795,7 +798,7 @@ void GeneralPage::save(QSettings &s)
     s.setValue(Common::SettingsNames::guiPreferPlaintextRendering, preferPlaintextCheckbox->isChecked());
     s.setValue(Common::SettingsNames::guiShowSystray, guiSystrayCheckbox->isChecked());
     s.setValue(Common::SettingsNames::guiStartMinimized, guiStartMinimizedCheckbox->isChecked());
-    s.setValue(Common::SettingsNames::interopRevealVersions, revealTrojitaVersions->isChecked());
+    s.setValue(Common::SettingsNames::interopRevealVersions, revealImpresarioVersions->isChecked());
     {
         namespace Background = UiUtils::BackgroundRunning;
         const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));

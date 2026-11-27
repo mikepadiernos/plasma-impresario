@@ -34,7 +34,7 @@
 #include "UiUtils/SavedSearches.h"
 #include "UiUtils/SearchScope.h"
 #include "configure.cmake.h"
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
 #include "Gui/MessageView.h"
 #include "Gui/WebEngineMessageProfile.h"
 #endif
@@ -1980,7 +1980,7 @@ private slots:
         results->scrollTo(receiptRow);
         QTest::mouseClick(results->viewport(), Qt::LeftButton, Qt::NoModifier, results->visualRect(receiptRow).center());
         QTRY_COMPARE(panel->currentMessage().data(Imap::Mailbox::RoleMessageSubject).toString(), receipt);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
         auto *reader = window.findChild<Gui::MessageView *>();
         QVERIFY(reader);
         QTRY_COMPARE_WITH_TIMEOUT(reader->currentMessage().data(Imap::Mailbox::RoleMessageSubject).toString(), receipt, 10000);
@@ -2052,9 +2052,9 @@ int main(int argc, char **argv)
     qputenv("XDG_DATA_HOME", (homePath + QStringLiteral("/data")).toUtf8());
     qputenv("XDG_CACHE_HOME", (homePath + QStringLiteral("/cache")).toUtf8());
     qputenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent/plasma-impresario-live-test");
-    qunsetenv("TROJITA_PROFILE");
+    qunsetenv("PLASMA_IMPRESARIO_PROFILE");
     QStandardPaths::setTestModeEnabled(true);
-#ifdef TROJITA_HAVE_WEBENGINE
+#ifdef IMPRESARIO_HAVE_WEBENGINE
     Gui::WebEngineMessageProfile::registerScheme();
 #endif
     Common::registerMetaTypes();

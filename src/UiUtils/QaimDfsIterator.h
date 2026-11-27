@@ -21,8 +21,8 @@
 */
 
 
-#ifndef TROJITA_UIUTILS_QAIM_DFS_H
-#define TROJITA_UIUTILS_QAIM_DFS_H
+#ifndef IMPRESARIO_UIUTILS_QAIM_DFS_H
+#define IMPRESARIO_UIUTILS_QAIM_DFS_H
 
 #include <functional>
 #include <QModelIndex>

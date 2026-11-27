@@ -78,7 +78,30 @@ Details: [branches and merging](CLAUDE.md#branches-and-merging) and
   `KSharedConfig::openStateConfig()`. Prefer KDE Frameworks facilities to custom
   implementations.
 
+- **Names:** new project-owned identifiers use the Plasma Impresario name:
+  `IMPRESARIO_` for build and preprocessor macros, `impresario_` for CMake
+  helpers such as `impresario_option()` and `impresario_test()`, and
+  `Impresario` in C++ symbols. Choose a profile with
+  `Common::Application::setProfileName()`, which sets
+  `PLASMA_IMPRESARIO_PROFILE`.
+
 See [development](CLAUDE.md#development) for the complete list.
+
+#### Trojitá names kept on purpose
+
+The [rename](https://github.com/mikepadiernos/plasma-impresario/issues/242)
+leaves names that existing installations, settings or other processes
+depend on. Keep them until a migration replaces them.
+
+| Kept name                                                                                                          | Why                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Settings location (`flaska.net/trojita`) and `Common::Application::name`                                           | Plasma Impresario reads Trojitá's settings, cache and mail in place; see [upgrading](docs/INSTALL.md#upgrading-from-trojitá-or-plasma-mail) |
+| `TROJITA_PROFILE`                                                                                                  | Still read when `PLASMA_IMPRESARIO_PROFILE` is unset, for launchers written for Trojitá                                                     |
+| `bin/trojita`, `org.kde.trojita.desktop`, the `trojita_plugins` library and plugin targets                         | Installed compatibility aliases and file names that the installer upgrades                                                                  |
+| `application/x-trojita-*` drag types and `net.flaska.trojita.*` plugin IDs                                         | Exchanged between processes and plugins; renaming them breaks drag and drop or plugin loading across versions                               |
+| `x-trojita-*` body parameters, parser keys and URL schemes, `X-Trojita-DisplayName`, the `trojita_qt` translations | Parts of the offline mail cache, contact links and translation catalogues                                                                   |
+| `This file is part of the Trojita…` headers, `docs/old`, parity documents                                          | Copyright and license attribution, and history                                                                                              |
+| Windows NSIS packaging file names (`packaging/trojita.nsi`, `src/trojita_win32.rc`)                                | Outside the Plasma-only product; kept for reference                                                                                         |
 
 ## Building and testing
 

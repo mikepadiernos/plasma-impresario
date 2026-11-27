@@ -20,7 +20,7 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-//#define TROJITA_DEBUG_TASK_TREE
+//#define IMPRESARIO_DEBUG_TASK_TREE
 
 #ifndef IMAP_IMAPTASK_H
 #define IMAP_IMAPTASK_H
@@ -181,7 +181,7 @@ protected:
 
     friend class TaskPresentationModel; // needs access to the TaskPresentationModel
     friend class KeepMailboxOpenTask; // needs access to dependentTasks for removing stuff
-#ifdef TROJITA_DEBUG_TASK_TREE
+#ifdef IMPRESARIO_DEBUG_TASK_TREE
     friend class Model; // needs access to dependentTasks for verification
 #endif
 };
@@ -196,7 +196,7 @@ protected:
         return;\
     }
 
-#ifdef TROJITA_DEBUG_TASK_TREE
+#ifdef IMPRESARIO_DEBUG_TASK_TREE
 #define CHECK_TASK_TREE {model->checkTaskTreeConsistency();}
 #else
 #define CHECK_TASK_TREE {}

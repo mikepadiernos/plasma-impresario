@@ -43,7 +43,7 @@ void ComposerSubmissionTest::init()
     LibMailboxSync::init();
 
     // There's a default delay of 50ms which made the cEmpty() and justKeepTask() ignore these pending actions...
-    model->setProperty("trojita-imap-delayed-fetch-part", QVariant(0u));
+    model->setProperty("impresario-imap-delayed-fetch-part", QVariant(0u));
 
     existsA = 5;
     uidValidityA = 333666;
@@ -124,7 +124,7 @@ void ComposerSubmissionTest::testEmptySubmission()
 void ComposerSubmissionTest::testUserAgentIdentity()
 {
     for (bool revealVersions : {false, true}) {
-        m_composer->setReportTrojitaVersions(revealVersions);
+        m_composer->setReportImpresarioVersions(revealVersions);
         QByteArray message;
         QBuffer buffer(&message);
         QVERIFY(buffer.open(QIODevice::WriteOnly));
@@ -396,7 +396,7 @@ void ComposerSubmissionTest::helperAttachImapPart(const int row, const QByteArra
     QDataStream stream(&encodedData, QIODevice::WriteOnly);
     stream.setVersion(QDataStream::Qt_4_6);
     stream << QStringLiteral("a") << uidValidityA << uidMapA[row] << mimePart;
-    mimeData->setData(Imap::MimeTypes::xTrojitaImapPart, encodedData);
+    mimeData->setData(Imap::MimeTypes::xImpresarioImapPart, encodedData);
     auto partIndex = Imap::Network::MsgPartNetAccessManager::pathToPart(msgListA.model()->index(row, 0, msgListA), mimePart);
     QVERIFY(partIndex.isValid());
     QCOMPARE(m_composer->dropMimeData(mimeData.data(), Qt::CopyAction, partIndex.row(), partIndex.column(), partIndex),
@@ -410,7 +410,7 @@ void ComposerSubmissionTest::helperAttachImapMessage(const uint uid)
     QDataStream stream(&encodedData, QIODevice::WriteOnly);
     stream.setVersion(QDataStream::Qt_4_6);
     stream << QStringLiteral("a") << uidValidityA << (QList<uint>() << uid);
-    mimeData->setData(Imap::MimeTypes::xTrojitaMessageList, encodedData);
+    mimeData->setData(Imap::MimeTypes::xImpresarioMessageList, encodedData);
     QCOMPARE(m_composer->dropMimeData(mimeData.data(), Qt::CopyAction, 0, 0, QModelIndex()), true);
 }
 

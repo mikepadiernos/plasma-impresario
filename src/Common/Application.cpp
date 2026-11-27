@@ -21,16 +21,38 @@
 */
 
 #include <QObject>
+#include <QtGlobal>
 #include "Application.h"
 
-#include "trojita-version.h"
+#include "plasma-impresario-version.h"
 
 namespace Common
 {
 
 /* default values, they can be changed by other backends, e.g. Kontact or AppVersion::setGitVersion() */
 QString Application::name = QStringLiteral("trojita");
-QString Application::version = QStringLiteral(TROJITA_VERSION);
+QString Application::version = QStringLiteral(IMPRESARIO_VERSION);
 QString Application::organization = QStringLiteral("flaska.net");
+
+namespace {
+constexpr auto profileVariable = "PLASMA_IMPRESARIO_PROFILE";
+constexpr auto legacyProfileVariable = "TROJITA_PROFILE";
+}
+
+QString Application::profileName()
+{
+    const QByteArray chosen = qgetenv(profileVariable);
+    return QString::fromUtf8(chosen.isEmpty() ? qgetenv(legacyProfileVariable) : chosen);
+}
+
+void Application::setProfileName(const QString &name)
+{
+    // The environment is a hidden global, but it reaches the helper processes this one starts
+    qunsetenv(legacyProfileVariable);
+    if (name.isEmpty())
+        qunsetenv(profileVariable);
+    else
+        qputenv(profileVariable, name.toUtf8());
+}
 
 }

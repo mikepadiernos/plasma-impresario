@@ -26,6 +26,7 @@
 
 #include <QSettings>
 #include <QTreeView>
+#include "Gui/AppearanceStyle.h"
 
 namespace Imap {
 namespace Mailbox {
@@ -36,7 +37,7 @@ class MailboxFinder;
 namespace Gui {
 
 /** @short Show mailboxes in a tree view */
-class MailBoxTreeView : public QTreeView
+class MailBoxTreeView : public QTreeView, public FolderColorSource
 {
     Q_OBJECT
 public:
@@ -47,6 +48,10 @@ public:
     /** Restore the selected mailbox when it becomes available. */
     void restoreMailbox(const QString &mailboxName);
     void setModel(QAbstractItemModel *model) override;
+    /** @short The account whose folders are shown, for their colours */
+    void setAccountId(const QString &accountId);
+    QString accountId() const { return m_accountId; }
+    QColor folderColorAt(const QModelIndex &index) const override;
 signals:
     /** @short User has changed their mind about the expanded/collapsed state of the mailbox tree
 
@@ -69,6 +74,7 @@ private:
     QSet<QString> m_desiredExpansionState;
     QString m_pendingMailbox;
     QSettings *m_settings;
+    QString m_accountId;
 };
 }
 
