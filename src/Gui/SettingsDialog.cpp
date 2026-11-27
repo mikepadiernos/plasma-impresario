@@ -66,6 +66,7 @@
 #include "UiUtils/PlasmaSearch.h"
 #include "UiUtils/IconLoader.h"
 #include "SettingsOAuthControls.h"
+#include "UiUtils/MailStatus.h"
 #include "UiUtils/PasswordWatcher.h"
 #include "UiUtils/ServerDiscovery.h"
 #include <KLocalizedString>
@@ -463,6 +464,18 @@ GeneralPage::GeneralPage(SettingsDialog *parent, QSettings &s):
         });
         guiPlasmaSearchCheckbox->setChecked(UiUtils::PlasmaSearch::isEnabled(*config));
         guiUnreadCountCheckbox->setChecked(UiUtils::DesktopFeedback::showsUnreadCount(*config));
+        {
+            using UiUtils::MailStatus::Sharing;
+            guiPlasmaWidgetsBox->addItem(i18nc("@item:inlistbox what Plasma widgets may show", "Nothing"),
+                                         QVariant::fromValue(int(Sharing::Nothing)));
+            guiPlasmaWidgetsBox->addItem(i18nc("@item:inlistbox what Plasma widgets may show", "Unread counts and account status"),
+                                         QVariant::fromValue(int(Sharing::Counts)));
+            guiPlasmaWidgetsBox->addItem(i18nc("@item:inlistbox what Plasma widgets may show", "Also the senders of unread mail"),
+                                         QVariant::fromValue(int(Sharing::Senders)));
+            guiPlasmaWidgetsBox->addItem(i18nc("@item:inlistbox what Plasma widgets may show", "Also the senders and subjects of unread mail"),
+                                         QVariant::fromValue(int(Sharing::Subjects)));
+            guiPlasmaWidgetsBox->setCurrentIndex(guiPlasmaWidgetsBox->findData(int(UiUtils::MailStatus::sharing(*config))));
+        }
         guiScanAttachmentsCheckbox->setChecked(UiUtils::MailSafetySettings::scansAttachments(*config));
         guiMoveJunkCheckbox->setChecked(UiUtils::MailSafetySettings::movesJunk(*config));
     }
@@ -695,6 +708,7 @@ void GeneralPage::save(QSettings &s)
         }
         UiUtils::PlasmaSearch::setEnabled(*config, guiPlasmaSearchCheckbox->isChecked());
         UiUtils::DesktopFeedback::setShowsUnreadCount(*config, guiUnreadCountCheckbox->isChecked());
+        UiUtils::MailStatus::setSharing(*config, UiUtils::MailStatus::Sharing(guiPlasmaWidgetsBox->currentData().toInt()));
         UiUtils::MailSafetySettings::setScansAttachments(*config, guiScanAttachmentsCheckbox->isChecked());
         UiUtils::MailSafetySettings::setMovesJunk(*config, guiMoveJunkCheckbox->isChecked());
     }

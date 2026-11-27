@@ -215,6 +215,34 @@
      </widget>
     </item>
     <item row="15" column="0" colspan="2">
+     <layout class="QHBoxLayout" name="plasmaWidgetsLayout">
+      <item>
+       <widget class="QLabel" name="guiPlasmaWidgetsLabel">
+        <property name="text">
+         <string>Plasma widgets may show:</string>
+        </property>
+        <property name="buddy">
+         <cstring>guiPlasmaWidgetsBox</cstring>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="guiPlasmaWidgetsBox">
+        <property name="toolTip">
+         <string>What the optional Plasma Impresario widgets on the desktop or panel learn while the application runs. Senders and subjects come only from accounts with an offline search index; message text is never shared.</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="plasmaWidgetsSpacer">
+        <property name="orientation">
+         <enum>Qt::Orientation::Horizontal</enum>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </item>
+    <item row="16" column="0" colspan="2">
      <widget class="QCheckBox" name="guiScanAttachmentsCheckbox">
       <property name="toolTip">
        <string>Before an attachment opens in another application, its content is sent to the ClamAV daemon (clamd) on this computer. Nothing leaves the computer. A threat blocks opening; when clamd cannot be reached or cannot decide, you are asked first. The socket is found automatically, or set with ClamdSocket in the MailSafety group of plasma-impresariorc.</string>
@@ -224,7 +252,7 @@
       </property>
      </widget>
     </item>
-    <item row="16" column="0" colspan="2">
+    <item row="17" column="0" colspan="2">
      <widget class="QCheckBox" name="guiMoveJunkCheckbox">
       <property name="toolTip">
        <string>Marking a message as junk also moves it to the account's Junk folder, so that a spam filter on the server can learn from it. Marking a message in the Junk folder as not junk moves it to the inbox.</string>
