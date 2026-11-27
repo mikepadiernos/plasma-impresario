@@ -36,6 +36,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Composing and sending](#composing-and-sending)
   - [Search](#search)
   - [Desktop integration](#desktop-integration)
+  - [Local data and opened attachments](#local-data-and-opened-attachments)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -64,7 +65,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
 | ![Security][security]     | Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used ([details](#security-and-data-protection))                                                                                                                                                                                                                                                                                                                    | —                                                                                                                                            |
-| ![Security][security]     | Local data        | Persistent SQL cache stores message metadata and fetched parts; the application does not encrypt cache contents ([details](#security-and-data-protection))                                                                                                                                                                                                                                                                                            | —                                                                                                                                            |
+| ![Security][security]     | Local data        | The cache and opened attachments are kept user-only, and opened copies are removed after a day, but the application does not encrypt the cache, and files created between starts are tightened at the next start ([details](#local-data-and-opened-attachments))                                                                                                                                                                                      | [#458](https://github.com/mikepadiernos/plasma-impresario/issues/458)                                                                        |
 | ![Planned][planned]       | Integrations      | Plasma new-mail notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                                                                                                                                                                                                                                                                                       | —                                                                                                                                            |
 | ![Limitation][limitation] | Compatibility     | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                                                                                                                                                                                                                                                          | —                                                                                                                                            |
 | ![Limitation][limitation] | Quality evidence  | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded; nothing has been checked in a real Plasma session yet                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
@@ -1319,6 +1320,60 @@ Plasma session; that check is
 - Save the sandboxed choice only after the portal accepts it, and read the
   portal's answer at startup.
 
+### Local data and opened attachments
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                                                 |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#458](https://github.com/mikepadiernos/plasma-impresario/issues/458) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/458#issuecomment-7208481426) | The offline cache of each account, automatic drafts and connection logs in the cache, attachments opened from the reader or the Attachments panel, and names suggested when saving ([#375](https://github.com/mikepadiernos/plasma-impresario/issues/375)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Cache folders are created readable only by the user
+  (0700). At each start the cache is tightened in the background, folders to
+  0700 and files to 0600, read-only files staying read-only; linked files and
+  folders are left alone. New message parts are written 0600
+  ([#375](https://github.com/mikepadiernos/plasma-impresario/issues/375)).
+- ![Resolved][resolved] An attachment opened in another application is copied
+  to `Opened Attachments/<random>/<name>` in the profile's cache. The copy is
+  created 0600, made read-only once downloaded and never executable, and is
+  removed if the download fails. Copies whose newest change is more than a day
+  old are removed at startup and every hour, also while running in the
+  background.
+- ![Resolved][resolved] The name comes from the message without folder parts,
+  control characters, bidirectional overrides or leading dots, and is
+  shortened to 255 bytes with its extension kept. Names suggested when saving
+  attachments and messages are cleaned the same way.
+- ![Limitation][limitation] The cache, including the offline search index and
+  any decrypted text it holds, is not encrypted. Folder permissions do not
+  protect it from a compromised account or an unencrypted disk, and removed
+  files are not overwritten.
+- ![Limitation][limitation] Files that SQLite creates between starts may be
+  readable by others until the next start; their user-only folders keep others
+  out meanwhile.
+- ![Limitation][limitation] A copy still open after a day is removed while the
+  other application uses it, together with anything that application wrote
+  beside it, such as lock or backup files. Copies are read-only, so an edited
+  attachment has to be saved elsewhere.
+- ![Limitation][limitation] Drafts saved with **Save Draft** in the
+  application's data folder, and attachments saved with **Save Attachment**,
+  are not tightened.
+
+**Workarounds:**
+
+- To keep or edit an attachment, use **Save Attachment** rather than opening it.
+- Use full-disk or home-folder encryption when keeping mail offline, or choose
+  **Don't use cache** in an account's offline settings.
+- Keep saved drafts and attachments in a folder that only you can read.
+
+**Proposed improvements:**
+
+- Create the SQLite cache and index files 0600 from the start.
+- Tighten the drafts folder in the data folder, or keep drafts on the server
+  ([#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)).
+- Remove a copy once the other application no longer has it open, and offer a
+  setting for how long copies are kept.
+- Offer encryption of the offline cache and index with a key from the wallet.
+
 ## Before reporting results
 
 - [ ] Confirm the desktop environment and display server.
@@ -1342,7 +1397,7 @@ Plasma session; that check is
 | SMTP transport    | Supports cleartext, STARTTLS and dedicated TLS. Certificate errors prompt the user in the composer; an accepted public key is remembered per account and forgotten when the SMTP host changes. A key accepted for the same host by any account, over IMAP or SMTP, is accepted without asking.                                                     | Cleartext is selectable. Certificates the system trusts are accepted without remembering their key, so only the system's policy applies to them. There is no way yet to review or forget accepted keys.                                                                                                                     |
 | Credentials       | The password-plugin interface supports retrieval, storage and deletion. QtKeychain can provide encrypted storage when built and selected, and is the default for new profiles. Each account keeps its own stored passwords, which are deleted when the account is removed.                                                                         | QtKeychain is optional. Profiles that already have saved cleartext passwords keep the cleartext plugin, which stores IMAP/SMTP secrets in `QSettings`.                                                                                                                                                                      |
 | Message rendering | The reader uses a private profile per message, disables scripts, plugins and persistent storage, blocks local-file and remote requests by default, and delegates permitted external links. Remote images require explicit per-message consent. Switching messages destroys the profile, discarding loaded content and cancelling pending requests. | Renderer behavior has not been smoke-tested in a live Plasma session or across the documented distribution matrix.                                                                                                                                                                                                          |
-| Cached data       | Persistent SQL cache can hold message metadata and fetched parts; cache directory permissions are restricted on supported Unix systems.                                                                                                                                                                                                            | Application-level cache encryption is not present, and the offline search index, with decrypted text when chosen, is stored unencrypted in the cache. Directory permissions do not protect mail from a compromised account or unencrypted disk. Removing an account deletes its cache files without overwriting them first. |
+| Cached data       | Persistent SQL cache can hold message metadata and fetched parts. Cache folders are 0700 and files 0600, tightened at each start; copies of opened attachments are user-only and removed after a day ([details](#local-data-and-opened-attachments)).                                                                                              | Application-level cache encryption is not present, and the offline search index, with decrypted text when chosen, is stored unencrypted in the cache. Directory permissions do not protect mail from a compromised account or unencrypted disk. Removing an account deletes its cache files without overwriting them first. |
 | OpenPGP           | Optional GpgME++/Mimetic MIME handling and decryption tests are present.                                                                                                                                                                                                                                                                           | Availability depends on build options; complete signature-status UX and verification policy are not established.                                                                                                                                                                                                            |
 | Diagnostics       | Persistent protocol logging is opt-in at startup; an in-app protocol log is available.                                                                                                                                                                                                                                                             | Treat protocol logs as sensitive and review them before sharing.                                                                                                                                                                                                                                                            |
 
