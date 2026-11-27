@@ -17,7 +17,8 @@ private slots:
     void groupsAreOrderedAndNamed()
     {
         const QList<Group> all = groups();
-        QCOMPARE(all.size(), 11);
+        QCOMPARE(all.size(), 12);
+        QCOMPARE(all.at(3), Group::Theme);
         QCOMPARE(all.first(), Group::General);
         QCOMPARE(all.last(), Group::Keyboard);
         QSet<QString> ids;

@@ -22,6 +22,7 @@ constexpr std::pair<Group, const char *> groupNames[] = {
     {Group::General, "general"},
     {Group::Accounts, "accounts"},
     {Group::Appearance, "appearance"},
+    {Group::Theme, "theme"},
     {Group::Reading, "reading"},
     {Group::Composition, "composition"},
     {Group::Privacy, "privacy"},
