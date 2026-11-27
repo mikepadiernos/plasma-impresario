@@ -40,9 +40,11 @@
 #include <QContextMenuEvent>
 #include <QDialog>
 #include <QDir>
+#include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
 #include <QMessageBox>
+#include <QToolTip>
 #include <QWebEngineScript>
 #include <QPushButton>
 #include <QScrollArea>
@@ -404,6 +406,60 @@ private slots:
         QVERIFY2(confirmation.contains(QLatin1String("sign-in.example.test.invalid"))
                      && confirmation.contains(QLatin1String("bank.example.test")),
                  qPrintable(confirmation));
+
+        // Pointing at the link shows its whole target and why it deserves a second look, before anything opens.
+        const QString signIn = QStringLiteral("https://sign-in.example.test.invalid/");
+        const auto readable = [](QString html) {
+            html.remove(QChar(0x200B));
+            return html;
+        };
+        QSignalSpy hovered(reader->messageView, &Gui::MessageView::linkHovered);
+        body->page()->runJavaScript(QStringLiteral("document.getElementById('sign-in').dispatchEvent("
+                                                   "new MouseEvent('mouseover', {bubbles: true}))"),
+                                    QWebEngineScript::ApplicationWorld);
+        QTest::qWait(100);
+        emit body->page()->linkHovered(signIn);
+        QTRY_VERIFY_WITH_TIMEOUT(!hovered.isEmpty(), 10000);
+        QCOMPARE(hovered.last().at(0).toString(), signIn);
+        QCOMPARE(hovered.last().at(1).toString(), QStringLiteral("https://bank.example.test/"));
+        QTRY_VERIFY_WITH_TIMEOUT(readable(QToolTip::text()).contains(QLatin1String("https://sign-in.example.test.invalid/")), 5000);
+        QVERIFY2(readable(QToolTip::text()).contains(QLatin1String("bank.example.test")), qPrintable(QToolTip::text()));
+        emit body->page()->linkHovered(QString());
+        QTRY_VERIFY(QToolTip::text().isEmpty() || !QToolTip::isVisible());
+
+        // The context menu of the link names its target as well, and opening it from there still asks first.
+        QString menuTarget;
+        bool menuOffersOpen = false;
+        QTimer linkMenus;
+        connect(&linkMenus, &QTimer::timeout, this, [&] {
+            if (auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget())) {
+                if (auto *label = menu->findChild<QLabel *>(QStringLiteral("linkTarget")))
+                    menuTarget = readable(label->text());
+                for (QAction *item : menu->actions())
+                    menuOffersOpen = menuOffersOpen || item->objectName() == QLatin1String("openLink");
+                menu->close();
+            }
+        });
+        linkMenus.start(20);
+        QVariant linkBox;
+        body->page()->runJavaScript(QStringLiteral("(function(){var r=document.getElementById('sign-in')"
+                                                   ".getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];})()"),
+                                    QWebEngineScript::ApplicationWorld, [&linkBox](const QVariant &v) { linkBox = v; });
+        QTRY_VERIFY_WITH_TIMEOUT(linkBox.isValid(), 5000);
+        const QVariantList centre = linkBox.toList();
+        QCOMPARE(centre.size(), 2);
+        const QPoint linkAt(qRound(centre.at(0).toDouble() * body->zoomFactor()),
+                            qRound(centre.at(1).toDouble() * body->zoomFactor()));
+        QWidget *surface = body->focusProxy() ? body->focusProxy() : body;
+        QTest::mouseMove(surface, linkAt);
+        QTest::mousePress(surface, Qt::RightButton, {}, linkAt);
+        QTest::mouseRelease(surface, Qt::RightButton, {}, linkAt);
+        QTRY_VERIFY_WITH_TIMEOUT(!menuTarget.isEmpty(), 10000);
+        linkMenus.stop();
+        QVERIFY2(menuTarget.contains(QLatin1String("https://sign-in.example.test.invalid/"))
+                     && menuTarget.contains(QLatin1String("bank.example.test")),
+                 qPrintable(menuTarget));
+        QVERIFY(menuOffersOpen);
 
         // Consent applies to this message only.
         QTest::mouseClick(remote->findChild<QPushButton *>(QStringLiteral("loadRemoteContent")), Qt::LeftButton);

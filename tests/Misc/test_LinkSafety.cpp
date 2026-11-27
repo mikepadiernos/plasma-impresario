@@ -125,6 +125,19 @@ void LinkSafetyTest::assessesLinks_data() {
       << QStringLiteral("xn--pypal-4ve.example")
       << Warnings{LinkWarning::TextShowsOtherSite, LinkWarning::UserInfo,
                   LinkWarning::InternationalHost};
+  QTest::newRow("mailto matching text")
+      << QUrl(QStringLiteral("mailto:Help@Example.org?subject=Hi"))
+      << QStringLiteral(" help@example.org ") << QString() << Warnings();
+  QTest::newRow("mailto with ordinary text")
+      << QUrl(QStringLiteral("mailto:help@example.org"))
+      << QStringLiteral("Write to us") << QString() << Warnings();
+  QTest::newRow("mailto text shows other address")
+      << QUrl(QStringLiteral("mailto:collect@evil.test"))
+      << QStringLiteral("mailto:help@bank.example.com") << QString()
+      << Warnings{LinkWarning::TextShowsOtherAddress};
+  QTest::newRow("other scheme")
+      << QUrl(QStringLiteral("ftp://user@192.0.2.7/"))
+      << QStringLiteral("example.org") << QString() << Warnings();
 }
 
 void LinkSafetyTest::assessesLinks() {
@@ -135,6 +148,15 @@ void LinkSafetyTest::assessesLinks() {
   const UiUtils::LinkAssessment result = UiUtils::assessLink(target, text);
   QCOMPARE(result.host, host);
   QCOMPARE(result.warnings, warnings);
+}
+
+void LinkSafetyTest::readsMailtoAddresses() {
+  const UiUtils::LinkAssessment result = UiUtils::assessLink(
+      QUrl(QStringLiteral("mailto:collect@evil.test,other@example.org")),
+      QStringLiteral("help@bank.example.com"));
+  QCOMPARE(result.address, QStringLiteral("collect@evil.test"));
+  QCOMPARE(result.textAddress, QStringLiteral("help@bank.example.com"));
+  QVERIFY(result.host.isEmpty());
 }
 
 void LinkSafetyTest::listsRemoteHosts() {

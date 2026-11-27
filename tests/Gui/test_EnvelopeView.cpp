@@ -106,6 +106,13 @@ private slots:
         closeConfirmation();
         QVERIFY(!confirmation(view));
 
+        // Hovering shows the whole target, with an internationalized host in its punycode form
+        emit row->linkHovered(QStringLiteral("list-action:%1").arg(archive));
+        QVERIFY2(row->toolTip().remove(QChar(0x200B)).contains(QStringLiteral("https://lists.example.org/archive")),
+                 qPrintable(row->toolTip()));
+        emit row->linkHovered(QString());
+        QVERIFY(row->toolTip().isEmpty());
+
         // Confirming follows the link
         emit row->linkActivated(QStringLiteral("list-action:%1").arg(archive));
         box = confirmation(view);
