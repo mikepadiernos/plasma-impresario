@@ -4466,16 +4466,43 @@ void MainWindow::recordSyncActivity(const QString &accountId)
                                                                   : ActivityLog::Action::OpenAccount;
         entry.target = accountId;
         break;
-    case Kind::NetworkError:
+    case Kind::NetworkError: {
         entry.state = ActivityLog::State::Failed;
         entry.error = status.detail.isEmpty() ? entry.detail : status.detail;
-        entry.action = ActivityLog::Action::OpenAccount;
+        const QDateTime at = m_reconnectAt.value(accountId);
+        if (at.isValid() && at > QDateTime::currentDateTime())
+            entry.error = i18nc("@info %1 is an error, %2 a time", "%1 Trying again at %2.", entry.error,
+                QLocale().toString(at.time(), QLocale::ShortFormat));
+        entry.action = ActivityLog::Action::Retry;
         entry.target = accountId;
         break;
+    }
     case Kind::Idle:
         return;
     }
+    if (status.kind != Kind::NetworkError)
+        m_reconnectAt.remove(accountId);
     m_mailAutomation->activity()->record(entry);
+    if (entry.action == ActivityLog::Action::Retry)
+        m_mailAutomation->activity()->setRetry(entry.key, [this, accountId]() { reconnectAccount(accountId); });
+}
+
+void MainWindow::reconnectAccount(const QString &accountId)
+{
+    if (Pop3Fetcher *fetcher = m_pop3Fetchers.value(accountId)) {
+        fetcher->check(accountId == m_accounts->activeAccount());
+        return;
+    }
+    if (JmapSyncer *syncer = m_jmapSyncers.value(accountId)) {
+        syncer->sync(accountId == m_accounts->activeAccount());
+        return;
+    }
+    Imap::ImapAccess *access = m_accountAccess.value(accountId);
+    auto *watcher = access ? qobject_cast<Imap::Mailbox::NetworkWatcher *>(access->networkWatcher()) : nullptr;
+    if (!watcher)
+        return;
+    m_reconnectAt.remove(accountId);
+    watcher->reconnectNow();
 }
 
 void MainWindow::registerAutomationAccount(const QString &accountId, Imap::ImapAccess *access)
@@ -4599,6 +4626,8 @@ void MainWindow::showActivity()
                 signInAccount(entry.target);
                 break;
             case Action::Retry:
+                m_mailAutomation->activity()->retry(entry.key);
+                break;
             case Action::None:
                 break;
             }
@@ -5214,6 +5243,17 @@ void MainWindow::monitorAccount(const QString &accountId)
         if (!Common::AccountStatusTracker::needsAttention(m_accountStatus->status(accountId).kind))
             m_accountStatus->setStatus(accountId, AccountStatusKind::Offline);
     });
+    // The activity log says when an account which lost its connection tries again
+    if (auto *watcher = qobject_cast<Imap::Mailbox::NetworkWatcher *>(access->networkWatcher())) {
+        connect(watcher, &Imap::Mailbox::NetworkWatcher::reconnectAttemptScheduled, access,
+            [this, accountId](const int timeout) {
+                m_reconnectAt.insert(accountId, QDateTime::currentDateTime().addMSecs(timeout));
+                if (m_accountStatus->status(accountId).kind == AccountStatusKind::NetworkError)
+                    recordSyncActivity(accountId);
+            });
+        connect(watcher, &Imap::Mailbox::NetworkWatcher::resetReconnectState, access,
+            [this, accountId]() { m_reconnectAt.remove(accountId); });
+    }
     // The model only connects once something reads it; without a view, list the folders so the account logs in.
     for (auto signal : {&Imap::Mailbox::Model::networkPolicyOnline, &Imap::Mailbox::Model::networkPolicyExpensive})
         connect(model, signal, model, &Imap::Mailbox::Model::reloadMailboxList, Qt::SingleShotConnection);

@@ -335,6 +335,8 @@ private slots:
     void removeAccountNow(const QString &accountId);
     /** Authorize an OAuth account in the browser again, then reconnect it */
     void signInAccount(const QString &accountId);
+    /** @short Connect @p accountId again right away, or check a POP3 or JMAP account, instead of waiting */
+    void reconnectAccount(const QString &accountId);
     void slotRenameAccount();
     /** Show the menu of an account's sidebar header, with its settings, renaming and removal */
     void showAccountMenu(const QString &accountId, const QPoint &globalPos);
@@ -952,6 +954,8 @@ private:
     QHash<QString, QPointer<Pop3Fetcher>> m_pop3Fetchers;
     /** Synchronize the JMAP accounts with their mail on this computer; each belongs to its account's access */
     QHash<QString, QPointer<JmapSyncer>> m_jmapSyncers;
+    /** @short When each account which lost its connection tries again; see recordSyncActivity() */
+    QHash<QString, QDateTime> m_reconnectAt;
     QComboBox *m_accountSwitcher = nullptr;
     Imap::ImapAccess *m_imapAccess;
 
