@@ -424,6 +424,15 @@ Defined in **M06.01**
     the libraries each core target links, and names each violation. Fixture
     tests confirm that it accepts the allowed libraries, exempt files and
     plugins, and rejects violations.
+  - Mail automation stays apart from the shell and the reader
+    ([#108](https://github.com/mikepadiernos/plasma-impresario/issues/108)).
+    The headers of the rules, the new-mail announcements and the output
+    surfaces (`MailAutomation`, `RulesDialog`, `RuleEditDialog`,
+    `NotificationsDialog`, `MailRules`, `MailRulesSettings`, `NewMail`,
+    `NewMailSettings`, `NewMailWatcher` and `OutputSurfaces`) are included only
+    by those sources and by `src/Gui/Window.cpp`, which wires them in. The
+    activity log and its dialog are generic and may be used anywhere. The same
+    test checks this, with fixtures for an allowed and a violating tree.
 - **Recommendations:** Put new code that reads KConfig or talks to a desktop
   service into `DesktopServices`, `IPC` or `DesktopGui`, behind an interface
   the core can use without the service; add a plugin when the service is

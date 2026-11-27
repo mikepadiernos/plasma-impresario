@@ -1785,7 +1785,9 @@ if(BUILD_TESTING)
     set(boundary_fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/ArchitectureBoundaries)
     foreach(boundary_case "clean;clean-links.txt;Mail core is free of desktop services: 1 sources checked"
             "source-violation;clean-links.txt;src/Imap/Violation.cpp includes a desktop service: #  include <KConfigGroup>"
-            "clean;link-violation.txt;Imap links the desktop service KF6::ConfigCore.*UiUtils links the integration target DesktopServices.*Composer links the desktop service Qt6::DBus")
+            "clean;link-violation.txt;Imap links the desktop service KF6::ConfigCore.*UiUtils links the integration target DesktopServices.*Composer links the desktop service Qt6::DBus"
+            "automation-violation;clean-links.txt;src/Gui/MessageView.cpp reaches into mail automation: #include \"MailAutomation.h\".*src/Gui/ReaderPanel.h reaches into mail automation: #include \"UiUtils/MailRules.h\""
+            "automation-allowed;clean-links.txt;Mail automation is reached only through the window: 2 sources checked")
         list(GET boundary_case 0 boundary_tree)
         list(GET boundary_case 1 boundary_links_fixture)
         list(GET boundary_case 2 boundary_expected)
