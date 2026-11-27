@@ -1221,7 +1221,10 @@ void ComposeWidget::send()
     // Gmail's SMTP server files every message it sends into Sent Mail; a second copy would show up twice
     const bool serverKeepsCopy = (method == Common::SettingsNames::methodSMTP || method == Common::SettingsNames::methodSSMTP)
         && UiUtils::ServerDiscovery::keepsSentCopies(account.value(Common::SettingsNames::smtpHostKey).toString());
-    m_submission->setImapOptions(account.value(Common::SettingsNames::composerSaveToImapKey, true).toBool() && !serverKeepsCopy,
+    // A POP3 account has only its inbox, so there is no Sent folder to keep a copy in
+    const bool hasSentFolder = Imap::AccountCapabilities::forAccount(account).supports(Imap::AccountOperation::ServerFolders);
+    m_submission->setImapOptions(account.value(Common::SettingsNames::composerSaveToImapKey, true).toBool() && !serverKeepsCopy
+                                     && hasSentFolder,
                                  account.value(Common::SettingsNames::composerImapSentKey, QStringLiteral("Sent")).toString(),
                                  account.value(Common::SettingsNames::imapHostKey).toString(),
                                  account.value(Common::SettingsNames::imapUserKey).toString(),

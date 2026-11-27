@@ -149,6 +149,7 @@ class InlineNotificationBar;
 class MailBoxTreeView;
 class MessageListWidget;
 class MessageSelectionRestorer;
+class Pop3Fetcher;
 class ProtocolLoggerWidget;
 class ShortcutOverviewDialog;
 class TaskProgressIndicator;
@@ -851,6 +852,8 @@ private:
     UiUtils::SleepMonitor *m_sleepMonitor = nullptr;
     UiUtils::ActivationToken m_activationToken;
     QHash<QString, Imap::ImapAccess *> m_accountAccess;
+    /** Checks the servers of the POP3 accounts; each belongs to its account's access */
+    QHash<QString, QPointer<Pop3Fetcher>> m_pop3Fetchers;
     QComboBox *m_accountSwitcher = nullptr;
     Imap::ImapAccess *m_imapAccess;
 

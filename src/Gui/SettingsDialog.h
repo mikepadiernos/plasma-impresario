@@ -264,6 +264,8 @@ private:
     UiUtils::PasswordWatcher *m_pwWatcher;
 
     MSA::Account *m_smtpAccountSettings;
+    /** A POP3 account has no IMAP sign-in to reuse, and no IMAP server to send through */
+    bool m_pop3 = false;
     QComboBox *smtpAuthMethod = nullptr;
     QLabel *smtpOAuthNote = nullptr;
 
@@ -340,6 +342,41 @@ private slots:
 private:
     CachePage(const CachePage &); // don't implement
     CachePage &operator=(const CachePage &); // don't implement
+
+signals:
+    void saved();
+    void widgetsUpdated();
+};
+
+/** @short Server, sign-in and download schedule of a POP3 account, shown in place of the IMAP and Offline pages */
+class Pop3Page : public QScrollArea, public ConfigurationWidgetInterface
+{
+    Q_OBJECT
+public:
+    Pop3Page(SettingsDialog *parent, QSettings &s);
+    void save(QSettings &s) override;
+    QWidget *asWidget() override;
+    bool checkValidity() const override;
+    bool passwordFailures(QString &message) const override;
+
+private slots:
+    void updateWidgets();
+
+private:
+    QLineEdit *m_host;
+    QSpinBox *m_port;
+    QComboBox *m_security;
+    QLabel *m_securityWarning;
+    QLineEdit *m_user;
+    QLineEdit *m_password;
+    QLabel *m_passwordStatus;
+    QComboBox *m_retention;
+    QSpinBox *m_retentionDays;
+    QSpinBox *m_interval;
+    UiUtils::PasswordWatcher *m_pwWatcher;
+
+    Pop3Page(const Pop3Page &) = delete;
+    Pop3Page &operator=(const Pop3Page &) = delete;
 
 signals:
     void saved();

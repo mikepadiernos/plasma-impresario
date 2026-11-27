@@ -529,6 +529,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/OnePanelAtTimeWidget.cpp
     ${path_DesktopGui}/OverlayWidget.cpp
     ${path_DesktopGui}/PasswordDialog.cpp
+    ${path_DesktopGui}/Pop3Fetcher.cpp
     ${path_DesktopGui}/ProgressPopUp.cpp
     ${path_DesktopGui}/ProtocolLoggerWidget.cpp
     ${path_DesktopGui}/ReaderActionBar.cpp
@@ -1345,7 +1346,7 @@ if(BUILD_TESTING)
         add_executable(test_SessionRestart tests/Gui/test_SessionRestart.cpp)
         target_link_libraries(test_SessionRestart PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_AccountSettingsDialog tests/Gui/test_AccountSettingsDialog.cpp)
-        target_link_libraries(test_AccountSettingsDialog PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        target_link_libraries(test_AccountSettingsDialog PRIVATE AppVersion DesktopGui IPC Pop3 UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         if(NOT CMAKE_CROSSCOMPILING)
             add_test(NAME test_DensityMenu COMMAND test_DensityMenu)
             set_tests_properties(test_DensityMenu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
@@ -1438,7 +1439,7 @@ if(BUILD_TESTING)
                     addingAnAccountOpensItsAccountSettings clientSecretStaysOutOfTheSettings
                     searchIndexIsChosenPerAccount searchIndexAttachmentsAreChosenPerAccount
                     searchIndexPrivacyIsKeptPerAccount memoryOnlyCacheLeavesNoIndex startAfterLoginNeedsBackgroundRunning
-                    plasmaSearchIsOptIn)
+                    plasmaSearchIsOptIn pop3AccountsHaveTheirOwnSettings)
                 add_test(NAME test_AccountSettingsDialog_${settings_case} COMMAND test_AccountSettingsDialog ${settings_case})
                 set_tests_properties(test_AccountSettingsDialog_${settings_case} PROPERTIES
                     TIMEOUT 60

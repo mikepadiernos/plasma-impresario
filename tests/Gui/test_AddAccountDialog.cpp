@@ -4,6 +4,7 @@
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QGroupBox>
 #include <QLabel>
@@ -186,6 +187,33 @@ private slots:
         f.address()->setText(QStringLiteral("jo@gmail.co"));
         QVERIFY(!f.dialog->result().isValid());
         QVERIFY(f.servers()->isHidden());
+    }
+
+    void pop3IsNotLookedUp()
+    {
+        Fixture f;
+        auto *protocol = f.child<QComboBox>("accountProtocol");
+        auto *note = f.child<QLabel>("pop3Note");
+        QCOMPARE(f.dialog->protocol(), Imap::AccountProtocol::Imap);
+        QVERIFY(note->isHidden());
+        QVERIFY(f.lookUp(QStringLiteral("jo@gmail.com")));
+        QVERIFY(f.dialog->result().isValid());
+
+        // Discovery finds IMAP servers, so POP3 forgets them and offers no lookup
+        protocol->setCurrentIndex(protocol->findData(static_cast<int>(Imap::AccountProtocol::Pop3)));
+        QCOMPARE(f.dialog->protocol(), Imap::AccountProtocol::Pop3);
+        QVERIFY(!f.dialog->result().isValid());
+        QVERIFY(!f.dialog->useOAuth());
+        QVERIFY(f.servers()->isHidden());
+        QVERIFY(f.find()->isHidden());
+        QVERIFY(note->isVisible());
+        QVERIFY(f.ok()->isEnabled());
+
+        protocol->setCurrentIndex(protocol->findData(static_cast<int>(Imap::AccountProtocol::Imap)));
+        QVERIFY(f.find()->isVisible());
+        QVERIFY(f.find()->isEnabled());
+        QVERIFY(note->isHidden());
+        QVERIFY(f.status().contains(QStringLiteral("Find Settings")));
     }
 
     void stopEndsTheLookup()

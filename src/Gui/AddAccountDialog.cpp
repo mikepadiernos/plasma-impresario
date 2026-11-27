@@ -5,6 +5,7 @@
 #include "AddAccountDialog.h"
 
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QGroupBox>
@@ -46,6 +47,12 @@ QString describeServer(const Server &server)
                  server.host, QString::number(server.port), securityName(server.security));
 }
 
+QString discoveryIntroduction()
+{
+    return i18nc("@info", "Find Settings looks up the servers of the address. Nothing is signed in to, and no password is "
+                          "sent. You can also add the account and enter the servers yourself.");
+}
+
 QLabel *wrappingLabel(QWidget *parent)
 {
     auto *label = new QLabel(parent);
@@ -62,6 +69,8 @@ AddAccountDialog::AddAccountDialog(QWidget *parent, std::unique_ptr<Network> net
     , m_realName(new QLineEdit(this))
     , m_emailAddress(new QLineEdit(this))
     , m_accountName(new QLineEdit(this))
+    , m_protocol(new QComboBox(this))
+    , m_pop3Note(wrappingLabel(this))
     , m_find(new QPushButton(i18nc("@action:button", "Find Settings"), this))
     , m_stop(new QPushButton(i18nc("@action:button", "Stop"), this))
     , m_progress(new QProgressBar(this))
@@ -83,6 +92,8 @@ AddAccountDialog::AddAccountDialog(QWidget *parent, std::unique_ptr<Network> net
     m_realName->setObjectName(QStringLiteral("realName"));
     m_emailAddress->setObjectName(QStringLiteral("emailAddress"));
     m_accountName->setObjectName(QStringLiteral("accountName"));
+    m_protocol->setObjectName(QStringLiteral("accountProtocol"));
+    m_pop3Note->setObjectName(QStringLiteral("pop3Note"));
     m_find->setObjectName(QStringLiteral("findSettings"));
     m_stop->setObjectName(QStringLiteral("stopFinding"));
     m_status->setObjectName(QStringLiteral("discoveryStatus"));
@@ -110,11 +121,20 @@ AddAccountDialog::AddAccountDialog(QWidget *parent, std::unique_ptr<Network> net
     m_guidance->setOpenExternalLinks(true);
     m_guidance->setTextInteractionFlags(Qt::TextBrowserInteraction);
     m_buttons->button(QDialogButtonBox::Ok)->setText(i18nc("@action:button", "Add Account"));
+    m_protocol->addItem(i18nc("@item:inlistbox account type", "IMAP"), static_cast<int>(Imap::AccountProtocol::Imap));
+    m_protocol->addItem(i18nc("@item:inlistbox account type", "POP3"), static_cast<int>(Imap::AccountProtocol::Pop3));
+    m_protocol->setItemData(0, i18nc("@info:tooltip", "Mail stays on the server, in its folders"), Qt::ToolTipRole);
+    m_protocol->setItemData(1, i18nc("@info:tooltip", "Mail is downloaded from the server's inbox to this computer"),
+                            Qt::ToolTipRole);
+    m_pop3Note->setText(i18nc("@info", "POP3 downloads the server's inbox to this computer, and the mail is then read "
+                                       "only here. Read and flagged states, folders and searches stay on this computer. "
+                                       "Enter the POP3 and SMTP servers in the account settings, which open next."));
 
     auto *form = new QFormLayout;
     form->addRow(i18nc("@label:textbox", "Your name:"), m_realName);
     form->addRow(i18nc("@label:textbox", "Email address:"), m_emailAddress);
     form->addRow(i18nc("@label:textbox", "Account name:"), m_accountName);
+    form->addRow(i18nc("@label:listbox", "Account type:"), m_protocol);
 
     auto *findRow = new QHBoxLayout;
     findRow->addWidget(m_find);
@@ -137,17 +157,18 @@ AddAccountDialog::AddAccountDialog(QWidget *parent, std::unique_ptr<Network> net
     auto *layout = new QVBoxLayout(this);
     layout->addLayout(form);
     layout->addLayout(findRow);
+    layout->addWidget(m_pop3Note);
     layout->addWidget(m_progress);
     layout->addWidget(m_status);
     layout->addWidget(m_servers);
     layout->addStretch();
     layout->addWidget(m_buttons);
 
-    m_status->setText(i18nc("@info", "Find Settings looks up the servers of the address. Nothing is signed in to, and no "
-                                     "password is sent. You can also add the account and enter the servers yourself."));
+    m_status->setText(discoveryIntroduction());
 
     connect(m_emailAddress, &QLineEdit::textChanged, this, &AddAccountDialog::addressEdited);
     connect(m_accountName, &QLineEdit::textChanged, this, &AddAccountDialog::updateButtons);
+    connect(m_protocol, &QComboBox::currentIndexChanged, this, &AddAccountDialog::protocolChanged);
     connect(m_find, &QPushButton::clicked, this, &AddAccountDialog::findSettings);
     connect(m_stop, &QPushButton::clicked, this, [this]() {
         m_discovery->cancel();
@@ -161,6 +182,7 @@ AddAccountDialog::AddAccountDialog(QWidget *parent, std::unique_ptr<Network> net
     connect(m_buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
     m_servers->hide();
+    m_pop3Note->hide();
     setBusy(false);
     setMinimumWidth(fontMetrics().averageCharWidth() * 70);
     m_emailAddress->setFocus();
@@ -191,7 +213,26 @@ Result AddAccountDialog::result() const
 
 bool AddAccountDialog::useOAuth() const
 {
-    return m_result.isValid() && !m_result.oauthProvider.isEmpty() && m_oauth->isChecked();
+    return protocol() == Imap::AccountProtocol::Imap && m_result.isValid() && !m_result.oauthProvider.isEmpty()
+        && m_oauth->isChecked();
+}
+
+Imap::AccountProtocol AddAccountDialog::protocol() const
+{
+    return static_cast<Imap::AccountProtocol>(m_protocol->currentData().toInt());
+}
+
+void AddAccountDialog::protocolChanged()
+{
+    const bool imap = protocol() == Imap::AccountProtocol::Imap;
+    // Discovery finds IMAP servers, whose settings would not fit a POP3 account
+    m_discovery->cancel();
+    m_result = Result();
+    m_servers->hide();
+    m_pop3Note->setVisible(!imap);
+    m_status->setVisible(imap);
+    m_status->setText(imap ? discoveryIntroduction() : QString());
+    setBusy(false);
 }
 
 QString AddAccountDialog::domainForDisplay() const
@@ -377,9 +418,10 @@ void AddAccountDialog::showResult()
 
 void AddAccountDialog::setBusy(bool busy)
 {
+    const bool imap = protocol() == Imap::AccountProtocol::Imap;
     m_progress->setVisible(busy);
     m_stop->setVisible(busy);
-    m_find->setVisible(!busy);
+    m_find->setVisible(!busy && imap);
     updateButtons();
 }
 
@@ -387,7 +429,7 @@ void AddAccountDialog::updateButtons()
 {
     const Address address = parseAddress(emailAddress());
     const bool running = m_discovery->isRunning();
-    m_find->setEnabled(address.isValid() && !running);
+    m_find->setEnabled(address.isValid() && !running && protocol() == Imap::AccountProtocol::Imap);
     const bool addressUsable = emailAddress().isEmpty() || address.isValid();
     const bool confirmed = !m_result.needsConfirmation() || m_confirm->isChecked();
     m_buttons->button(QDialogButtonBox::Ok)->setEnabled(!running && addressUsable && !accountName().isEmpty() && confirmed);

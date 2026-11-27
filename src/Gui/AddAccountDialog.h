@@ -6,9 +6,11 @@
 #include <memory>
 #include <QDialog>
 
+#include "Imap/Model/AccountCapabilities.h"
 #include "UiUtils/ServerDiscovery.h"
 
 class QCheckBox;
+class QComboBox;
 class QDialogButtonBox;
 class QGroupBox;
 class QLabel;
@@ -23,6 +25,8 @@ namespace Gui {
 Find Settings looks the address up through UiUtils::ServerDiscovery and shows what it found and where. Nothing signs in
 here: the password or the OAuth 2.0 sign-in is entered in the account settings afterwards. The account can also be
 added without servers, which are then entered by hand.
+
+A POP3 account is not looked up: its server is entered in the account settings, which open next.
 */
 class AddAccountDialog : public QDialog
 {
@@ -40,12 +44,15 @@ public:
     UiUtils::ServerDiscovery::Result result() const;
     /** @short Whether the account signs in with OAuth 2.0 rather than a password */
     bool useOAuth() const;
+    /** @short The protocol which the account reads its mail with */
+    Imap::AccountProtocol protocol() const;
 
 private:
     void findSettings();
     void stageChanged(UiUtils::ServerDiscovery::Source source);
     void discoveryFinished(const UiUtils::ServerDiscovery::Result &result);
     void addressEdited();
+    void protocolChanged();
     void showResult();
     void setBusy(bool busy);
     void updateButtons();
@@ -57,6 +64,8 @@ private:
     QLineEdit *m_realName;
     QLineEdit *m_emailAddress;
     QLineEdit *m_accountName;
+    QComboBox *m_protocol;
+    QLabel *m_pop3Note;
     QPushButton *m_find;
     QPushButton *m_stop;
     QProgressBar *m_progress;

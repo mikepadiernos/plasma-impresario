@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 Plasma Impresario contributors
    SPDX-License-Identifier: GPL-2.0-or-later
 */
+#include "Common/AccountStatus.h"
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
 #include "Composer/AccountIdentities.h"
@@ -10,11 +11,13 @@
 #include "Gui/Window.h"
 #include "UiUtils/BackgroundRunning.h"
 #include "UiUtils/PlasmaSearch.h"
+#include "Imap/Model/AccountCapabilities.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/Model.h"
 #include "Imap/Model/SearchIndexer.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "OAuth/TokenSource.h"
+#include "Pop3/FetchJob.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
 #include "Gui/WebEngineMessageProfile.h"
@@ -706,6 +709,108 @@ private slots:
                  QStringLiteral("Tess Traveller"));
         QCOMPARE(identities.data(identities.index(0, Composer::SenderIdentitiesModel::COLUMN_EMAIL)).toString(),
                  QStringLiteral("tess@gmail.com"));
+    }
+
+    void pop3AccountsHaveTheirOwnSettings()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        Gui::MainWindow window(&settings);
+
+        QStringList titles;
+        QString shownUser;
+        QString shownSmtpUser;
+        bool imapOnlySmtpHidden = false;
+        bool daysFollowRetention = false;
+        bool noneWarns = false;
+        QVERIFY(handleDialog([&]() { QMetaObject::invokeMethod(&window, "slotAddAccount", Qt::DirectConnection); },
+            [&](QDialog *dialog) {
+                titles = tabTitles(dialog);
+                QVERIFY(!dialog->findChild<QLineEdit *>(QStringLiteral("imapHost")));
+                auto *host = dialog->findChild<QLineEdit *>(QStringLiteral("pop3Host"));
+                auto *user = dialog->findChild<QLineEdit *>(QStringLiteral("pop3User"));
+                auto *password = dialog->findChild<QLineEdit *>(QStringLiteral("pop3Password"));
+                auto *security = dialog->findChild<QComboBox *>(QStringLiteral("pop3Security"));
+                auto *warning = dialog->findChild<QLabel *>(QStringLiteral("pop3SecurityWarning"));
+                auto *retention = dialog->findChild<QComboBox *>(QStringLiteral("pop3Retention"));
+                auto *days = dialog->findChild<QSpinBox *>(QStringLiteral("pop3RetentionDays"));
+                auto *interval = dialog->findChild<QSpinBox *>(QStringLiteral("pop3Interval"));
+                auto *reuse = dialog->findChild<QCheckBox *>(QStringLiteral("smtpAuthReuseImapCreds"));
+                auto *saveToImap = dialog->findChild<QCheckBox *>(QStringLiteral("saveToImap"));
+                auto *smtpHost = dialog->findChild<QLineEdit *>(QStringLiteral("smtpHost"));
+                QVERIFY(host && user && password && security && warning && retention && days && interval && reuse
+                        && saveToImap && smtpHost);
+                auto *smtpUser = dialog->findChild<QLineEdit *>(QStringLiteral("smtpUser"));
+                QVERIFY(smtpUser);
+                shownUser = user->text();
+                shownSmtpUser = smtpUser->text();
+                // A POP3 account has no IMAP sign-in to reuse, and no Sent folder to keep copies in
+                auto *smtpAuth = dialog->findChild<QCheckBox *>(QStringLiteral("smtpAuth"));
+                QVERIFY(smtpAuth);
+                smtpAuth->setChecked(true);
+                imapOnlySmtpHidden = reuse->isHidden() && saveToImap->isHidden();
+                daysFollowRetention = !days->isEnabled();
+                retention->setCurrentIndex(retention->findData(static_cast<int>(Pop3::Retention::AfterDays)));
+                daysFollowRetention = daysFollowRetention && days->isEnabled();
+                days->setValue(30);
+                noneWarns = warning->isHidden();
+                security->setCurrentIndex(security->findData(static_cast<int>(Pop3::Security::None)));
+                noneWarns = noneWarns && !warning->isHidden();
+                security->setCurrentIndex(security->findData(static_cast<int>(Pop3::Security::StartTls)));
+                interval->setValue(0);
+                // Nothing listens there, so the first check fails at once instead of asking for anything
+                host->setText(QStringLiteral("127.0.0.1"));
+                dialog->findChild<QSpinBox *>(QStringLiteral("pop3Port"))->setValue(1);
+                password->setText(QStringLiteral("secret"));
+                smtpHost->setText(QStringLiteral("smtp.example.test"));
+                save(dialog);
+            },
+            [&](Gui::AddAccountDialog *add) {
+                add->findChild<QLineEdit *>(QStringLiteral("emailAddress"))->setText(QStringLiteral("tess@example.test"));
+                auto *protocol = add->findChild<QComboBox *>(QStringLiteral("accountProtocol"));
+                protocol->setCurrentIndex(protocol->findData(static_cast<int>(Imap::AccountProtocol::Pop3)));
+            }));
+        QCOMPARE(titles, (QStringList{QStringLiteral("Identities"), QStringLiteral("POP3"), QStringLiteral("SMTP")}));
+        QCOMPARE(shownUser, QStringLiteral("tess@example.test"));
+        QCOMPARE(shownSmtpUser, QStringLiteral("tess@example.test"));
+        QVERIFY(imapOnlySmtpHidden);
+        QVERIFY(daysFollowRetention);
+        QVERIFY(noneWarns);
+        for (auto *widget : QApplication::topLevelWidgets()) {
+            auto *box = qobject_cast<QMessageBox *>(widget);
+            QVERIFY2(!box || !box->isVisible(), qPrintable(box ? box->text() : QString()));
+        }
+
+        QSettings travel(directory.filePath(QStringLiteral("main-account-3.conf")), QSettings::IniFormat);
+        QCOMPARE(Imap::AccountCapabilities::forAccount(travel).protocol(), Imap::AccountProtocol::Pop3);
+        const Pop3::Settings saved = Pop3::Settings::fromSettings(travel);
+        QCOMPARE(saved.host, QStringLiteral("127.0.0.1"));
+        QCOMPARE(saved.port, quint16(1));
+        QCOMPARE(saved.security, Pop3::Security::StartTls);
+        QCOMPARE(saved.user, QStringLiteral("tess@example.test"));
+        QCOMPARE(saved.retention, Pop3::Retention::AfterDays);
+        QCOMPARE(saved.retentionDays, 30);
+        QCOMPARE(saved.interval, 0);
+        QVERIFY(!travel.contains(Common::SettingsNames::imapMethodKey));
+        QVERIFY(!travel.contains(Common::SettingsNames::imapHostKey));
+
+        // The mail views read the account's local store
+        QCOMPARE(window.imapAccess()->protocol(), Imap::AccountProtocol::Pop3);
+        QVERIFY(window.imapAccess()->isConfigured());
+        QVERIFY(window.imapAccess()->localStore());
+        QTRY_VERIFY(window.imapModel()
+                    && window.imapModel()->mailboxIndexByName(QStringLiteral("INBOX")).isValid());
+        // Without a password store the shown account asks for the password, and the check's failure becomes its status
+        auto *status = window.findChild<Common::AccountStatusTracker *>();
+        QVERIFY(status);
+        QDialog *ask = nullptr;
+        QTRY_VERIFY((ask = window.findChild<QDialog *>(QStringLiteral("PasswordDialog"))) && ask->isVisible());
+        QVERIFY(ask->findChild<QLabel *>(QStringLiteral("descriptionLabel"))->text().contains(QStringLiteral("POP3")));
+        ask->findChild<QLineEdit *>(QStringLiteral("passwordLineEdit"))->setText(QStringLiteral("secret"));
+        ask->accept();
+        QTRY_COMPARE(status->status(QStringLiteral("account-3")).kind, Common::AccountStatusKind::NetworkError);
     }
 };
 

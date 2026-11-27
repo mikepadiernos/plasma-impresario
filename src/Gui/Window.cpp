@@ -153,6 +153,7 @@
 #include "MessageSelectionRestorer.h"
 #include "OnePanelAtTimeWidget.h"
 #include "PasswordDialog.h"
+#include "Pop3Fetcher.h"
 #include "ReaderActionBar.h"
 #include "RelatedMessagesPanel.h"
 #include "SearchResultsPanel.h"
@@ -703,7 +704,13 @@ void MainWindow::createActions()
     connect(resyncMbox, &QAction::triggered, this, &MainWindow::slotResyncMbox);
 
     reloadAllMailboxes = new QAction(tr("&Reload Everything"), this);
-    // connect later
+    // connect later; POP3 accounts check their server instead, as their folders are on this computer
+    for (QAction *check : {resyncMbox, reloadAllMailboxes}) {
+        connect(check, &QAction::triggered, this, [this]() {
+            if (Pop3Fetcher *fetcher = m_pop3Fetchers.value(m_accounts->activeAccount()))
+                fetcher->check(true);
+        });
+    }
 
     exitAction = ShortcutHandler::instance()->createAction(QStringLiteral("action_application_exit"), qApp, SLOT(quit()), this);
     exitAction->setStatusTip(tr("Exit the application"));
@@ -3241,6 +3248,8 @@ void MainWindow::slotShowAccountSettings()
                                  m_accounts->displayName(m_accounts->activeAccount())));
     if (dialog->exec() == QDialog::Accepted) {
         setUnifiedInbox(false, false);
+        if (Pop3Fetcher *fetcher = m_pop3Fetchers.value(m_accounts->activeAccount()))
+            fetcher->settingsChanged();
         // FIXME: wipe cache in case we're moving between servers
         commitFolderPosition();
         nukeModels();
@@ -3251,7 +3260,12 @@ void MainWindow::slotShowAccountSettings()
         slotToggleSysTray();
     }
     QString method = accountSettings()->value(Common::SettingsNames::imapMethodKey).toString();
-    if (method != Common::SettingsNames::methodTCP && method != Common::SettingsNames::methodSSL &&
+    if (m_imapAccess->protocol() == Imap::AccountProtocol::Pop3) {
+        if (accountSettings()->value(Common::SettingsNames::pop3HostKey).toString().isEmpty())
+            Gui::Util::messageBoxCritical(this, i18nc("@title:window", "No Configuration"),
+                                          i18nc("@info", "No POP3 server is configured. Plasma Impresario cannot "
+                                                         "download mail for this account without one."));
+    } else if (method != Common::SettingsNames::methodTCP && method != Common::SettingsNames::methodSSL &&
             method != Common::SettingsNames::methodProcess ) {
         Gui::Util::messageBoxCritical(this, tr("No Configuration"),
                                       tr("No IMAP account is configured. Plasma Impresario cannot do much without one."));
@@ -3854,6 +3868,29 @@ void MainWindow::monitorAccount(const QString &accountId)
     auto *model = qobject_cast<Imap::Mailbox::Model *>(access->imapModel());
     Q_ASSERT(model);
     using Common::AccountStatusKind;
+    if (access->protocol() == Imap::AccountProtocol::Pop3) {
+        // The folders are on this computer and always open; the status is that of the last visit to the server
+        Pop3Fetcher *fetcher = m_pop3Fetchers.value(accountId);
+        if (!fetcher) {
+            fetcher = new Pop3Fetcher(accountId, access, m_accounts->settings(accountId), m_settings, pluginManager(),
+                                      m_accountStatus, this);
+            m_pop3Fetchers.insert(accountId, fetcher);
+        }
+        for (auto signal : {&Imap::Mailbox::Model::networkPolicyOnline, &Imap::Mailbox::Model::networkPolicyExpensive})
+            connect(model, signal, model, &Imap::Mailbox::Model::reloadMailboxList, Qt::SingleShotConnection);
+        connect(model, &Imap::Mailbox::Model::messageCountPossiblyChanged, access, [this]() { scheduleAccountUnreadRefresh(); });
+        connect(model, &QAbstractItemModel::rowsInserted, access, [this](const QModelIndex &parent) {
+            if (!parent.isValid())
+                scheduleAccountUnreadRefresh();
+        });
+        scheduleAccountUnreadRefresh();
+        QPointer<Pop3Fetcher> guard = fetcher;
+        QMetaObject::invokeMethod(this, [this, guard, accountId]() {
+            if (guard)
+                guard->check(accountId == m_accounts->activeAccount());
+        }, Qt::QueuedConnection);
+        return;
+    }
     connect(model, &Imap::Mailbox::Model::connectionStateChanged, access,
             [this, accountId](uint, const Imap::ConnectionState state) {
         const AccountStatusKind current = m_accountStatus->status(accountId).kind;
@@ -4018,7 +4055,11 @@ void MainWindow::switchAccount(const QString &accountId)
     refreshAccountSwitcher();
     slotUpdateWindowTitle();
     const Common::AccountStatus status = m_accountStatus->status(accountId);
-    if (status.kind == Common::AccountStatusKind::AuthRequired) {
+    if (Pop3Fetcher *fetcher = m_pop3Fetchers.value(accountId)) {
+        // Shown now, so a check may ask for the password or the certificate it could not ask for before
+        if (Common::AccountStatusTracker::needsAttention(status.kind))
+            fetcher->check(true);
+    } else if (status.kind == Common::AccountStatusKind::AuthRequired) {
         m_ignoreStoredPassword = !status.detail.isEmpty();
         authenticationRequested();
     }
@@ -4032,6 +4073,14 @@ void MainWindow::slotAddAccount()
     const QString accountId = m_accounts->addAccount(dialog.accountName());
     QSettings *settings = m_accounts->settings(accountId);
     Composer::AccountIdentities::initializeNewAccount(*settings);
+    if (dialog.protocol() == Imap::AccountProtocol::Pop3) {
+        Imap::AccountCapabilities::setProtocol(*settings, Imap::AccountProtocol::Pop3);
+        // Most providers sign in with the address, and sending cannot borrow an IMAP sign-in
+        if (UiUtils::ServerDiscovery::parseAddress(dialog.emailAddress()).isValid()) {
+            settings->setValue(Common::SettingsNames::pop3UserKey, dialog.emailAddress());
+            settings->setValue(Common::SettingsNames::smtpUserKey, dialog.emailAddress());
+        }
+    }
     // The account is switched to before it has servers, so that nothing connects until its settings are saved
     switchAccount(accountId);
     const UiUtils::ServerDiscovery::Result found = dialog.result();
@@ -4226,6 +4275,10 @@ void MainWindow::confirmRemoveAccount(const QString &accountId)
                             "computer for it are deleted too. Messages on the server are not affected.",
                             m_accounts->displayName(accountId));
     const QSettings &settings = *m_accounts->settings(accountId);
+    if (Imap::AccountCapabilities::forAccount(settings).protocol() == Imap::AccountProtocol::Pop3)
+        question += QLatin1String("\n\n")
+            + i18n("This is a POP3 account: mail already removed from the server exists only on this computer and "
+                   "cannot be recovered after the account is removed.");
     if (usesOAuth(settings)) {
         const OAuth::Provider provider = OAuth::AccountConfig::fromSettings(settings, accountId).provider;
         if (provider.isValid() && !provider.revocationEndpoint.isValid())
@@ -4284,7 +4337,7 @@ void MainWindow::removeAccountNow(const QString &accountId)
     const bool revokeOAuth = usesOAuth(removed) && !sharesOAuthGrant(accountId);
     const OAuth::AccountConfig oauthConfig = OAuth::AccountConfig::fromSettings(removed, access->credentialAccountId());
     if (Plugins::PasswordPlugin *password = pluginManager()->password()) {
-        QStringList types{QStringLiteral("imap"), QStringLiteral("smtp")};
+        QStringList types{QStringLiteral("imap"), QStringLiteral("smtp"), Pop3Fetcher::passwordType()};
         // Revoking deletes the stored grant once the provider has answered
         if (!revokeOAuth)
             types << OAuth::credentialType();
@@ -4298,6 +4351,10 @@ void MainWindow::removeAccountNow(const QString &accountId)
     if (revokeOAuth)
         revokeDetached(oauthConfig, pluginManager());
     const QString cacheDirectory = access->cacheDirectory();
+    const QString localStoreFolder = access->protocol() == Imap::AccountProtocol::Imap
+        ? QString()
+        : Imap::ImapAccess::localStoreFolder(access->credentialAccountId());
+    m_pop3Fetchers.remove(accountId);
     if (m_unifiedModel)
         m_unifiedModel->removeAccount(accountId);
     if (m_searchResultsPanel)
@@ -4313,6 +4370,15 @@ void MainWindow::removeAccountNow(const QString &accountId)
                                      i18n("The mail and the search index kept on this computer for the removed account "
                                           "could not be deleted. Remove the folder %1 to delete them.",
                                           cacheDirectory));
+    }
+    // The access held the last reference to the local store, so its database is closed by now
+    if (!localStoreFolder.isEmpty() && QFileInfo::exists(localStoreFolder)
+        && !Imap::removeAccountCache(localStoreFolder, QFileInfo(localStoreFolder).path())) {
+        qWarning() << "Could not delete the mail of the removed POP3 account in" << localStoreFolder;
+        Gui::Util::messageBoxWarning(this, i18n("Mail Not Deleted"),
+                                     i18n("The mail kept on this computer for the removed account could not be "
+                                          "deleted. Remove the folder %1 to delete it.",
+                                          localStoreFolder));
     }
     // Open composers may still list this account's identities, so the model lives until the window closes.
     m_accountIdentities.remove(accountId);
@@ -9034,7 +9100,7 @@ void MainWindow::searchAccount(const QString &accountId, const QStringList &mail
         problem = i18nc("@info account name", "%1 is not set up", name);
     } else if (!local && (status.kind == AccountStatusKind::Offline || !model->isNetworkAvailable())) {
         problem = i18nc("@info account name", "%1 is offline", name);
-    } else if (!local
+    } else if (!local && access->protocol() == Imap::AccountProtocol::Imap
                && ((status.kind == AccountStatusKind::NetworkError && !retrying) || status.kind == AccountStatusKind::AuthRequired
                    || status.kind == AccountStatusKind::AuthFailed)) {
         problem = i18nc("@info account name, reason", "%1: %2", name,
