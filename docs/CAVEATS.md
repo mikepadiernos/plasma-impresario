@@ -38,6 +38,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Desktop integration](#desktop-integration)
   - [Local data and opened attachments](#local-data-and-opened-attachments)
   - [Outgoing headers and Bcc](#outgoing-headers-and-bcc)
+  - [Saved files in the file manager](#saved-files-in-the-file-manager)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -62,6 +63,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Composing         | Each refused send files another copy in Sent, a forward sent before its message downloads is refused, forwards are attachment-only and drafts are local without attachments ([details](#composing-and-sending))                                                                                                                                                                                                                                       | [#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)                                                                        |
 | ![Limitation][limitation] | Search            | Date ranges follow the day in each message's Date header, in the sender's time zone, and a search of several folders selects each folder of the account in turn and loads every result's headers; `has:attachment` approximates by message type, folder suggestions cover only the shown account's listed folders, virtual folders count only while shown, and offline search covers only mail kept and indexed on this computer ([details](#search)) | [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454)                                                                        |
 | ![Limitation][limitation] | Desktop           | Closing the window quits unless running in the background is on, even with the tray icon shown; both options apply to every profile, and starting after login is not verified in a Plasma session or through the sandbox portal ([details](#desktop-integration))                                                                                                                                                                                     | [#457](https://github.com/mikepadiernos/plasma-impresario/issues/457)                                                                        |
+| ![Limitation][limitation] | Saved files       | **Show in Folder** is offered in the main window only, and is not checked with Dolphin or Plasma Opus in a real Plasma session ([details](#saved-files-in-the-file-manager))                                                                                                                                                                                                                                                                          | [#460](https://github.com/mikepadiernos/plasma-impresario/issues/460)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -1435,6 +1437,49 @@ Plasma session; that check is
 - Offer a setting to leave Bcc out of the Sent copy for shared Sent folders.
 - Use the domain of the account's outgoing server for Message-IDs when the
   sender address has none.
+
+### Saved files in the file manager
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                 |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [#460](https://github.com/mikepadiernos/plasma-impresario/issues/460) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/460#issuecomment-7209307644) | **Save Attachment** in the reader and the Attachments panel, saving from the attachment list, and **Save Message** ([#266](https://github.com/mikepadiernos/plasma-impresario/issues/266)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] After an attachment or message is saved, the main
+  window's notice bar says where it went and offers **Show in Folder**. Nothing
+  is offered when saving was cancelled or failed
+  ([#266](https://github.com/mikepadiernos/plasma-impresario/issues/266)).
+- ![Resolved][resolved] **Show in Folder** asks the desktop's file manager
+  through `org.freedesktop.FileManager1` to open the folder with the file
+  selected, so any file manager that registers the service works. A file
+  moved or deleted since it was saved, and a file manager that cannot be
+  reached, are reported instead.
+- ![Limitation][limitation] Attachments saved from a message opened in its own
+  window offer no **Show in Folder**; that window has no notice bar.
+- ![Limitation][limitation] Without the service, KIO opens the folder in the
+  default application for folders, which may not select the file.
+- ![Limitation][limitation] A later notice in the same bar, such as a download
+  error, replaces the offer.
+- ![Limitation][limitation] It has not been checked with Dolphin or Plasma Opus
+  in a real Plasma session; tests replace the file manager. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- For attachments saved from a separate message window, open the folder
+  chosen in the save dialog, or save from the main window.
+- If the folder opens without the file selected, install a file manager that
+  provides `org.freedesktop.FileManager1`, such as Dolphin.
+- If another notice replaced the offer, use **Find Saved Copies…** in the
+  Attachments panel.
+
+**Proposed improvements:**
+
+- Give separate message windows their own notice bar, so saves and download
+  errors there are reported too.
+- Keep the offer available after another notice replaces it, for example in a
+  list of recent saves.
 
 ## Before reporting results
 
