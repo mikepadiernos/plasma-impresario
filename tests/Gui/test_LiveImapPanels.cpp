@@ -18,6 +18,7 @@
 #include "Gui/InlineNotificationBar.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/ItemRoles.h"
+#include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/PrettyMsgListModel.h"
 #include "Imap/Model/Model.h"
 #include "Imap/Model/NetworkWatcher.h"
@@ -636,6 +637,49 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(findMessage(messages, QStringLiteral("Quarterly plan")).isValid(), 20000);
         QTRY_COMPARE_WITH_TIMEOUT(tree->currentIndex().data(Imap::Mailbox::RoleMailboxName).toString(), QStringLiteral("INBOX"), 10000);
         open(QStringLiteral("Budget numbers"));
+
+        // A message marked as junk is marked in the list and the reader, and its attachments open only after a
+        // question; "Not Junk" in the reader's banner overrides the mark on the server.
+        auto *junkBanner = reader->findChild<Gui::InlineNotificationBar *>(QStringLiteral("junkBanner"));
+        QVERIFY(junkBanner);
+        const QString junkSubject = QStringLiteral("Quarterly plan");
+        open(junkSubject);
+        QTRY_COMPARE_WITH_TIMEOUT(attachments->attachmentCount(), 2, 15000);
+        QVERIFY(!junkBanner->isVisible());
+        action(window, QStringLiteral("action_mark_as_junk"))->trigger();
+        QTRY_VERIFY_WITH_TIMEOUT(junkBanner->isVisible(), 10000);
+        QCOMPARE(junkBanner->kind(), Gui::InlineNotificationBar::Kind::Warning);
+        QCOMPARE(findMessage(messages, junkSubject)
+                     .siblingAtColumn(Imap::Mailbox::MsgListModel::SUBJECT)
+                     .data(Qt::AccessibleDescriptionRole)
+                     .toString(),
+                 QStringLiteral("Marked as junk"));
+        snapshot(window, QStringLiteral("15-wide-junk-banner"));
+        QString attachmentQuestion;
+        QTimer answerAttachment;
+        connect(&answerAttachment, &QTimer::timeout, &answerAttachment, [&]() {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            if (!box || box->objectName() != QLatin1String("attachmentConfirmation"))
+                return;
+            attachmentQuestion = box->text() + QLatin1Char('\n') + box->informativeText();
+            box->button(QMessageBox::Cancel)->click();
+        });
+        answerAttachment.start(50);
+        attachments->openCurrent();
+        QTRY_VERIFY_WITH_TIMEOUT(!attachmentQuestion.isEmpty(), 10000);
+        answerAttachment.stop();
+        QVERIFY2(attachmentQuestion.contains(QLatin1String("junk")), qPrintable(attachmentQuestion));
+        auto *notJunk = junkBanner->findChild<QPushButton *>(QStringLiteral("junkBannerNotJunk"));
+        QVERIFY(notJunk);
+        notJunk->click();
+        QTRY_VERIFY_WITH_TIMEOUT(findMessage(messages, junkSubject).data(Imap::Mailbox::RoleMessageIsMarkedNotJunk).toBool(), 10000);
+        QTRY_VERIFY_WITH_TIMEOUT(!findMessage(messages, junkSubject).data(Imap::Mailbox::RoleMessageIsMarkedJunk).toBool(), 10000);
+        QVERIFY(!junkBanner->isVisible());
+        QVERIFY(findMessage(messages, junkSubject)
+                    .siblingAtColumn(Imap::Mailbox::MsgListModel::SUBJECT)
+                    .data(Qt::AccessibleDescriptionRole)
+                    .toString()
+                    .isEmpty());
 
         // Space in the list pages through the open message, and at its end opens the next unread one.
         open(QStringLiteral("Lunch on Friday"));
