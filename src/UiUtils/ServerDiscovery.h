@@ -89,6 +89,8 @@ struct Provider {
     bool acceptsPasswords = true;
     Guidance guidance = Guidance::None;
     QUrl helpUrl;
+    /** SMTP servers which file a copy of every message they send into the Sent folder themselves */
+    QStringList sentCopyHosts;
 };
 
 /** @short All built-in providers */
@@ -102,6 +104,12 @@ const Provider *providerForMx(const QString &host);
 
 /** @short The built-in provider which runs the IMAP or SMTP server @arg host, or nullptr */
 const Provider *providerForServer(const QString &host);
+
+/** @short Whether the SMTP server @arg smtpHost already keeps a copy of what it sends in the Sent folder
+
+Saving another copy over IMAP would then show every sent message twice.
+*/
+bool keepsSentCopies(const QString &smtpHost);
 
 struct Address {
     QString address;

@@ -67,6 +67,7 @@
 #include "UiUtils/IconLoader.h"
 #include "SettingsOAuthControls.h"
 #include "UiUtils/PasswordWatcher.h"
+#include "UiUtils/ServerDiscovery.h"
 #include <KLocalizedString>
 #include <KSharedConfig>
 #include "ShortcutHandler/ShortcutHandler.h"
@@ -1321,6 +1322,7 @@ OutgoingPage::OutgoingPage(SettingsDialog *parent, QSettings &s): QScrollArea(pa
 
     connect(m_smtpAccountSettings, &MSA::Account::submissionMethodChanged, this, &OutgoingPage::updateWidgets);
     connect(m_smtpAccountSettings, &MSA::Account::saveToImapChanged, this, &OutgoingPage::updateWidgets);
+    connect(m_smtpAccountSettings, &MSA::Account::serverChanged, this, &OutgoingPage::updateWidgets);
     connect(m_smtpAccountSettings, &MSA::Account::authenticateEnabledChanged, this, &OutgoingPage::updateWidgets);
     connect(m_smtpAccountSettings, &MSA::Account::reuseImapAuthenticationChanged, this, &OutgoingPage::updateWidgets);
     connect(smtpPass, &QLineEdit::textChanged, this, &OutgoingPage::updateWidgets);
@@ -1467,7 +1469,15 @@ void OutgoingPage::updateWidgets()
         lay->labelForField(sendmail)->setVisible(false);
         saveToImap->setVisible(true);
         lay->labelForField(saveToImap)->setVisible(true);
-        saveToImap->setChecked(m_smtpAccountSettings->saveToImap());
+        {
+            // Shown off without changing the stored choice, which applies again on another server
+            const bool serverKeepsCopy = UiUtils::ServerDiscovery::keepsSentCopies(m_smtpAccountSettings->server());
+            const QSignalBlocker blocker(saveToImap);
+            saveToImap->setChecked(m_smtpAccountSettings->saveToImap() && !serverKeepsCopy);
+            saveToImap->setEnabled(!serverKeepsCopy);
+            saveToImap->setToolTip(serverKeepsCopy ?
+                i18nc("@info:tooltip", "This server already keeps a copy of each message it sends in the Sent folder") : QString());
+        }
         smtpBurl->setVisible(saveToImap->isChecked());
         lay->labelForField(smtpBurl)->setVisible(saveToImap->isChecked());
         smtpBurl->setChecked(m_smtpAccountSettings->useBurl());
@@ -1537,6 +1547,8 @@ void OutgoingPage::updateWidgets()
             if (sendmail->text().isEmpty())
                 sendmail->setText(Common::SettingsNames::sendmailDefaultCmd);
             saveToImap->setVisible(true);
+            saveToImap->setEnabled(true);
+            saveToImap->setToolTip(QString());
             saveToImap->setChecked(m_smtpAccountSettings->saveToImap());
             lay->labelForField(saveToImap)->setVisible(true);
         } else {

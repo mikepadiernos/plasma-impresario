@@ -86,6 +86,7 @@
 #include "ShortcutHandler/ShortcutHandler.h"
 #include "UiUtils/Formatting.h"
 #include "UiUtils/IconLoader.h"
+#include "UiUtils/ServerDiscovery.h"
 
 namespace
 {
@@ -1216,7 +1217,11 @@ void ComposeWidget::send()
     // Send with the account this composer was opened from, even if another account is active now.
     QSettings &account = *m_accountSettings;
     const bool reuseImapCreds = account.value(Common::SettingsNames::smtpAuthReuseImapCredsKey, false).toBool();
-    m_submission->setImapOptions(account.value(Common::SettingsNames::composerSaveToImapKey, true).toBool(),
+    const QString method = account.value(Common::SettingsNames::msaMethodKey).toString();
+    // Gmail's SMTP server files every message it sends into Sent Mail; a second copy would show up twice
+    const bool serverKeepsCopy = (method == Common::SettingsNames::methodSMTP || method == Common::SettingsNames::methodSSMTP)
+        && UiUtils::ServerDiscovery::keepsSentCopies(account.value(Common::SettingsNames::smtpHostKey).toString());
+    m_submission->setImapOptions(account.value(Common::SettingsNames::composerSaveToImapKey, true).toBool() && !serverKeepsCopy,
                                  account.value(Common::SettingsNames::composerImapSentKey, QStringLiteral("Sent")).toString(),
                                  account.value(Common::SettingsNames::imapHostKey).toString(),
                                  account.value(Common::SettingsNames::imapUserKey).toString(),

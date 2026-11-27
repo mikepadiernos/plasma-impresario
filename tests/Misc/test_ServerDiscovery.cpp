@@ -158,6 +158,22 @@ private slots:
         }
     }
 
+    void knowsServersThatKeepSentCopies()
+    {
+        QVERIFY(keepsSentCopies(QStringLiteral("smtp.gmail.com")));
+        QVERIFY(keepsSentCopies(QStringLiteral(" SMTP.googlemail.com. ")));
+        // Only the SMTP servers themselves, not everything Google runs
+        QVERIFY(!keepsSentCopies(QStringLiteral("imap.gmail.com")));
+        QVERIFY(!keepsSentCopies(QStringLiteral("smtp-relay.gmail.com")));
+        QVERIFY(!keepsSentCopies(QStringLiteral("smtp.mail.me.com")));
+        QVERIFY(!keepsSentCopies(QStringLiteral("smtp.example.org")));
+        QVERIFY(!keepsSentCopies(QString()));
+        for (const Provider &provider : providers()) {
+            for (const QString &host : provider.sentCopyHosts)
+                QVERIFY2(providerForServer(host) == &provider, qPrintable(host));
+        }
+    }
+
     void parsesAutoconfig()
     {
         const Address address = parseAddress(QStringLiteral("jo@example.org"));

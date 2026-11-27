@@ -102,6 +102,7 @@ const QList<Provider> &providers()
         google.oauthProvider = QStringLiteral("google");
         google.guidance = Guidance::AppPassword;
         google.helpUrl = QUrl(QStringLiteral("https://support.google.com/accounts/answer/185833"));
+        google.sentCopyHosts = words("smtp.gmail.com smtp.googlemail.com");
         out << google;
 
         Provider outlook;
@@ -252,6 +253,18 @@ const Provider *providerForServer(const QString &host)
         }
     }
     return nullptr;
+}
+
+bool keepsSentCopies(const QString &smtpHost)
+{
+    const QString wanted = normalizedHost(smtpHost);
+    if (wanted.isEmpty())
+        return false;
+    for (const Provider &provider : providers()) {
+        if (provider.sentCopyHosts.contains(wanted))
+            return true;
+    }
+    return false;
 }
 
 Address parseAddress(const QString &address)
