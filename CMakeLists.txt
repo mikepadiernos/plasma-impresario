@@ -1537,6 +1537,44 @@ if(BUILD_TESTING)
         target_link_libraries(test_PlasmaSearch PRIVATE DesktopServices KF6::ConfigCore)
     endif()
 
+    # The mail core neither includes nor links KDE desktop services; see docs/integrations/kde-plasma.md
+    set(boundary_core_targets AppVersion Common Composer Cryptography Imap MSA OAuth Plugins Streams UiUtils qwwsmtpclient)
+    set(boundary_links "")
+    foreach(boundary_target ${boundary_core_targets})
+        string(APPEND boundary_links "${boundary_target}=$<JOIN:$<TARGET_PROPERTY:${boundary_target},LINK_LIBRARIES>,|>\n")
+    endforeach()
+    file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ArchitectureBoundaries-links.txt CONTENT "${boundary_links}")
+    set(boundary_desktop_sources "")
+    foreach(boundary_source ${libDesktopServices_SOURCES} ${path_UiUtils}/AkonadiAgendaSource.cpp)
+        file(RELATIVE_PATH boundary_relative ${CMAKE_CURRENT_SOURCE_DIR} ${boundary_source})
+        list(APPEND boundary_desktop_sources ${boundary_relative})
+    endforeach()
+    list(REMOVE_DUPLICATES boundary_desktop_sources)
+    string(REPLACE ";" "|" boundary_desktop_sources "${boundary_desktop_sources}")
+    add_test(NAME test_ArchitectureBoundaries
+        COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+            -DLINKS_FILE=${CMAKE_CURRENT_BINARY_DIR}/ArchitectureBoundaries-links.txt
+            "-DDESKTOP_SOURCES=${boundary_desktop_sources}"
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckArchitectureBoundaries.cmake)
+    # The check itself, on fixtures: allowed libraries, exempt files and plugins pass; violations are named
+    set(boundary_fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/ArchitectureBoundaries)
+    foreach(boundary_case "clean;clean-links.txt;Mail core is free of desktop services: 1 sources checked"
+            "source-violation;clean-links.txt;src/Imap/Violation.cpp includes a desktop service: #  include <KConfigGroup>"
+            "clean;link-violation.txt;Imap links the desktop service KF6::ConfigCore.*UiUtils links the integration target DesktopServices.*Composer links the desktop service Qt6::DBus")
+        list(GET boundary_case 0 boundary_tree)
+        list(GET boundary_case 1 boundary_links_fixture)
+        list(GET boundary_case 2 boundary_expected)
+        string(REGEX REPLACE "\\.txt$" "" boundary_name "${boundary_tree}_${boundary_links_fixture}")
+        add_test(NAME test_ArchitectureBoundaries_${boundary_name}
+            COMMAND ${CMAKE_COMMAND}
+                -DSOURCE_DIR=${boundary_fixtures}/${boundary_tree}
+                -DLINKS_FILE=${boundary_fixtures}/${boundary_links_fixture}
+                -DDESKTOP_SOURCES=src/UiUtils/Exempt.cpp
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckArchitectureBoundaries.cmake)
+        set_tests_properties(test_ArchitectureBoundaries_${boundary_name} PROPERTIES PASS_REGULAR_EXPRESSION "${boundary_expected}")
+    endforeach()
+
 endif()
 
 if(WIN32) # Check if we are on Windows
