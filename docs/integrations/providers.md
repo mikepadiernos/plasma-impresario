@@ -32,20 +32,23 @@ Legend: ![Done][done] · ![Needs verification][needs-verification] ·
   - [Server features](#server-features)
   - [Sending](#sending)
 - [POP3 and JMAP](#pop3-and-jmap)
+  - [POP3](#pop3)
+  - [JMAP](#jmap)
 - [Troubleshooting](#troubleshooting)
 - [Verification](#verification)
 
 ## Status
 
-| Area                           | Status                                    | Today                                                                                                                                                                                                                                                       | Roadmap                                                                                                                                      |
-| ------------------------------ | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Finding server settings        | ![Needs verification][needs-verification] | **Find Settings** in **Add Account** looks up the servers from the email address ([#372](https://github.com/mikepadiernos/plasma-impresario/issues/372)); not tried against real providers                                                                  | M06.05                                                                                                                                       |
-| Passwords and app passwords    | ![Done][done]                             | IMAP and SMTP sign in with the account or app password, kept by the password plugin                                                                                                                                                                         | —                                                                                                                                            |
-| OAuth for Google and Microsoft | ![Needs verification][needs-verification] | Browser sign-in with PKCE; XOAUTH2 or OAUTHBEARER for IMAP and SMTP ([#218](https://github.com/mikepadiernos/plasma-impresario/issues/218)); no client ID is built in                                                                                       | M13.01                                                                                                                                       |
-| Gmail                          | ![Needs verification][needs-verification] | Works over IMAP and SMTP; Gmail search keys are offered. Labels show as chips on the open message, **Archive** uses **All Mail**, and sent messages are not uploaded twice. Not tried against real Gmail ([caveat](../CAVEATS.md#provider-setup-and-gmail)) | M06.05 [#43](https://github.com/mikepadiernos/plasma-impresario/issues/43)                                                                   |
-| Outlook.com and Microsoft 365  | ![Needs verification][needs-verification] | IMAP and SMTP with OAuth only; see the [Microsoft guide](microsoft.md)                                                                                                                                                                                      | [M13](../ROADMAP.md#m13-microsoft-accounts-and-exchange)                                                                                     |
-| Generic IMAP and SMTP          | ![Done][done]                             | Any server with IMAP4rev1 and SMTP submission; optional extensions are used when offered                                                                                                                                                                    | —                                                                                                                                            |
-| POP3 and JMAP                  | ![Planned][planned]                       | The account model knows which actions they support, but they cannot connect yet                                                                                                                                                                             | [#216](https://github.com/mikepadiernos/plasma-impresario/issues/216), [#217](https://github.com/mikepadiernos/plasma-impresario/issues/217) |
+| Area                           | Status                                    | Today                                                                                                                                                                                                                                                       | Roadmap                                                                      |
+| ------------------------------ | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Finding server settings        | ![Needs verification][needs-verification] | **Find Settings** in **Add Account** looks up the servers from the email address ([#372](https://github.com/mikepadiernos/plasma-impresario/issues/372)); not tried against real providers                                                                  | M06.05                                                                       |
+| Passwords and app passwords    | ![Done][done]                             | IMAP and SMTP sign in with the account or app password, kept by the password plugin                                                                                                                                                                         | —                                                                            |
+| OAuth for Google and Microsoft | ![Needs verification][needs-verification] | Browser sign-in with PKCE; XOAUTH2 or OAUTHBEARER for IMAP and SMTP ([#218](https://github.com/mikepadiernos/plasma-impresario/issues/218)); no client ID is built in                                                                                       | M13.01                                                                       |
+| Gmail                          | ![Needs verification][needs-verification] | Works over IMAP and SMTP; Gmail search keys are offered. Labels show as chips on the open message, **Archive** uses **All Mail**, and sent messages are not uploaded twice. Not tried against real Gmail ([caveat](../CAVEATS.md#provider-setup-and-gmail)) | M06.05 [#43](https://github.com/mikepadiernos/plasma-impresario/issues/43)   |
+| Outlook.com and Microsoft 365  | ![Needs verification][needs-verification] | IMAP and SMTP with OAuth only; see the [Microsoft guide](microsoft.md)                                                                                                                                                                                      | [M13](../ROADMAP.md#m13-microsoft-accounts-and-exchange)                     |
+| Generic IMAP and SMTP          | ![Done][done]                             | Any server with IMAP4rev1 and SMTP submission; optional extensions are used when offered                                                                                                                                                                    | —                                                                            |
+| POP3                           | ![Needs verification][needs-verification] | Downloads into a store on this computer over TLS or STLS, with a chosen server retention; sends through SMTP. Tried against Dovecot only ([caveat](../CAVEATS.md#pop3-accounts))                                                                            | M06.05 [#216](https://github.com/mikepadiernos/plasma-impresario/issues/216) |
+| JMAP                           | ![Planned][planned]                       | The account model knows which actions it supports, but it cannot connect yet                                                                                                                                                                                | M06.05 [#217](https://github.com/mikepadiernos/plasma-impresario/issues/217) |
 
 ## Adding an account
 
@@ -218,11 +221,35 @@ cannot perform, such as server folders on POP3, are hidden.
 
 ## POP3 and JMAP
 
-POP3 ([#216](https://github.com/mikepadiernos/plasma-impresario/issues/216))
-and JMAP ([#217](https://github.com/mikepadiernos/plasma-impresario/issues/217))
-are planned in M06.05. The account model already records which actions each
-protocol supports, and the window hides the rest, but neither protocol can
-connect yet. Use IMAP for providers that offer both.
+Prefer IMAP when a provider offers it as well: it keeps folders, flags and
+sent copies on the server.
+
+### POP3
+
+POP3 accounts
+([#216](https://github.com/mikepadiernos/plasma-impresario/issues/216))
+download mail into a store on this computer and send through SMTP.
+
+1. In **Add Account**, choose **POP3** as the protocol. Server lookup is
+   skipped; the account settings open next.
+2. Under **Account Settings › POP3**, enter the server, the protection (TLS
+   on port 995 or STLS on port 110 by default) and the user name, and store
+   the password.
+3. Choose what happens after downloading: keep messages on the server, remove
+   them once downloaded, or remove them after a number of days. Choose how
+   often to check; **Only when asked** checks when the account is opened or
+   its folders are reloaded.
+4. Under **SMTP**, enter the outgoing server and its own sign-in.
+
+The window shows one inbox, and folder, move, archive, junk and tag actions are
+hidden. Mail removed from the server exists only on this computer and is
+deleted with the account. See [POP3 accounts](../CAVEATS.md#pop3-accounts).
+
+### JMAP
+
+JMAP ([#217](https://github.com/mikepadiernos/plasma-impresario/issues/217))
+is planned in M06.05. The account model already records which actions it
+supports, but it cannot connect yet.
 
 ## Troubleshooting
 
@@ -242,14 +269,17 @@ connect yet. Use IMAP for providers that offer both.
 - **Offscreen tests:** `test_ServerDiscovery` covers the built-in providers,
   autoconfig, ISPDB, SRV, MX and guessed servers with a fake network;
   `test_OAuth` covers the requests, token parsing, grants and error messages;
-  `test_AccountCapabilities` covers the actions of each protocol. For Gmail,
-  `test_SpecialFolder` covers archiving to **All Mail**,
+  `test_AccountCapabilities` covers the actions of each protocol;
+  `test_Pop3Fetch` covers POP3 sign-in, downloads, retention and failures
+  against a scripted server, and `test_LocalImapServer` the local store. For
+  Gmail, `test_SpecialFolder` covers archiving to **All Mail**,
   `test_Imap_Parser_parse` and `test_Imap_CopyAndFlagOperations` cover reading
   labels, `test_TagListWidget` covers the chips, and
   `test_AccountSettingsDialog` covers the Sent and archive settings. Dovecot
   has no `X-GM-EXT-1`, so these run against a scripted server.
 - **Live tests:** the Dovecot accounts in `tools/dev-container` cover generic
-  IMAP and SMTP with passwords.
+  IMAP and SMTP with passwords, and `live-pop3.sh` covers POP3 downloads over
+  TLS and STLS, keeping mail on the server and removing it once downloaded.
 - **Not yet tried:** real Gmail, Outlook.com, Microsoft 365, Yahoo, iCloud,
   AOL, GMX, WEB.DE and Posteo accounts, and OAuth against the real providers.
   That is [M15](../ROADMAP.md#m15-real-plasma-session-verification) and the

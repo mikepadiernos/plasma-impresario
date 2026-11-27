@@ -30,6 +30,7 @@ Legend: ![Verified][verified] against a synthetic live IMAP server ·
   - [Message security](#message-security)
   - [Multiple accounts](#multiple-accounts)
   - [OAuth sign-in](#oauth-sign-in)
+  - [POP3 accounts](#pop3-accounts)
   - [Microsoft accounts and Exchange](#microsoft-accounts-and-exchange)
   - [Sending](#sending)
   - [Mail operations](#mail-operations)
@@ -166,6 +167,23 @@ Legend: ![Verified][verified] against a synthetic live IMAP server ·
 | Cancelling Account Settings after signing in                   | ![Limitation][limitation] The new grant is revoked, but not covered by tests; a replaced grant is lost ([#362](CAVEATS.md#oauth-sign-in))                            |
 | A grant revoked at the provider while the app is open          | ![Not validated][not-validated]                                                                                                                                      |
 | Signing in against a real Google or Microsoft account          | ![Not validated][not-validated]                                                                                                                                      |
+
+### POP3 accounts
+
+| Scenario                                                              | Coverage                                                                                                                |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| A server without UIDL                                                 | ![Offscreen tests][offscreen] `test_Pop3Fetch`: messages are known by a digest of their headers                         |
+| A server without UIDL or TOP                                          | ![Offscreen tests][offscreen] `test_Pop3Fetch`: the check fails instead of downloading everything again                 |
+| The connection drops in the middle of a download                      | ![Offscreen tests][offscreen] `test_Pop3Fetch`: stored messages are kept, nothing is removed and the next check resumes |
+| STLS chosen but not offered                                           | ![Offscreen tests][offscreen] `test_Pop3Fetch`: no password is sent                                                     |
+| A mailbox locked by another client                                    | ![Offscreen tests][offscreen] `test_Pop3Fetch`                                                                          |
+| A self-signed certificate                                             | ![Verified][verified] `test_LivePop3`: refused, then accepted once trusted                                              |
+| Checking twice in a row                                               | ![Verified][verified] `test_LivePop3`: nothing is downloaded the second time                                            |
+| Removing mail once downloaded                                         | ![Verified][verified] `test_LivePop3`: the server's maildir is empty afterwards                                         |
+| A wrong password                                                      | ![Verified][verified] `test_LivePop3`; ![Offscreen tests][offscreen] `test_Pop3Fetch`                                   |
+| Removing a POP3 account                                               | ![Not validated][not-validated] Its local mail is deleted with it                                                       |
+| A message removed from the server, then sent again with the same UIDL | ![Offscreen tests][offscreen] `test_Pop3Fetch`: it is downloaded again                                                  |
+| Real providers' POP3 servers                                          | ![Not validated][not-validated]                                                                                         |
 
 ### Microsoft accounts and Exchange
 

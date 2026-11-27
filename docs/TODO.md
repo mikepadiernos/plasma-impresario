@@ -339,9 +339,10 @@ the live tests above.
   `Gui::CapabilityActionGate` hides the actions the active account's protocol
   cannot perform and shows them again on switching back: folder management as
   `ServerFolders`, junk and tags as `ServerSideFlags`, archive as
-  `ServerSideMove`. It re-shows only actions it hid itself. Every account is
-  IMAP until M06.05 (POP3 and JMAP) or M13 (Graph and EWS), so nothing is hidden
-  today. `test_MainWindowShell` switches between an IMAP and a POP3 account.
+  `ServerSideMove`. It re-shows only actions it hid itself. POP3 accounts
+  ([#216](https://github.com/mikepadiernos/plasma-impresario/issues/216)) are
+  the first to have actions hidden; JMAP (M06.05) and Graph and EWS (M13)
+  follow. `test_MainWindowShell` switches between an IMAP and a POP3 account.
 - ![Done][done] **Account grouping,
   [#80](https://github.com/mikepadiernos/plasma-impresario/issues/80):** with
   two or more accounts, `Gui::AccountSidebar` shows a header per account above

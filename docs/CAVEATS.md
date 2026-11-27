@@ -55,6 +55,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [External services and outbound calls](#external-services-and-outbound-calls)
   - [System sleep and account notifications](#system-sleep-and-account-notifications)
   - [Plasma widgets](#plasma-widgets)
+  - [POP3 accounts](#pop3-accounts)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -96,6 +97,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Privacy           | The outbound-call check works per file, GnuPG may fetch keys by its own settings, and version details are sent by default ([details](#external-services-and-outbound-calls))                                                                                                                                                                                                                                                                          | [#475](https://github.com/mikepadiernos/plasma-impresario/issues/475)                                                                        |
 | ![Limitation][limitation] | Sleep             | Connections close before sleep and reopen on wake only through logind, without delaying sleep; account notifications close when the app quits, and KDE Online Accounts is not used ([details](#system-sleep-and-account-notifications))                                                                                                                                                                                                               | [#476](https://github.com/mikepadiernos/plasma-impresario/issues/476)                                                                        |
 | ![Limitation][limitation] | Plasma widgets    | The Mail Status and Mail Ticker widgets are untried in a Plasma session; senders and subjects come only from indexed accounts, counts cover INBOX only, and there are no data while the app is not running ([details](#plasma-widgets))                                                                                                                                                                                                               | [#477](https://github.com/mikepadiernos/plasma-impresario/issues/477)                                                                        |
+| ![Limitation][limitation] | POP3              | Mail removed from the server exists only on this computer and goes with the account; one inbox, no offline search index and no sent copies ([details](#pop3-accounts))                                                                                                                                                                                                                                                                                | [#478](https://github.com/mikepadiernos/plasma-impresario/issues/478)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -2096,8 +2098,8 @@ Plasma session; that check is
   that label. The open message shows its other labels as chips, but they are
   read-only and are fetched only when the message is opened online.
 - ![Limitation][limitation] Only Google and Microsoft offer OAuth; Yahoo,
-  iCloud and AOL need app passwords. POP3 and JMAP accounts cannot connect
-  yet.
+  iCloud and AOL need app passwords. JMAP accounts cannot connect
+  yet, and POP3 accounts have [their own limits](#pop3-accounts).
 - ![Limitation][limitation] Nothing in the guide is tried with real provider
   accounts; the tests use a fake network and local Dovecot servers. That is
   [M15](ROADMAP.md#m15-real-plasma-session-verification).
@@ -2343,6 +2345,72 @@ Plasma session; that check is
 - Register the application under its own D-Bus service name.
 - Let the ticker mix messages from indexed accounts with counts from the
   others.
+
+### POP3 accounts
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                              |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| [#478](https://github.com/mikepadiernos/plasma-impresario/issues/478) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/478#issuecomment-7219265960) | [POP3 accounts](integrations/providers.md#pop3) ([#216](https://github.com/mikepadiernos/plasma-impresario/issues/216)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] **Add Account** can create a POP3 account. It
+  downloads mail over TLS or STLS into a store on this computer, signing in
+  with AUTH PLAIN when offered or USER and PASS, and never sends the password
+  when the chosen protection is not available.
+- ![Resolved][resolved] **Account Settings › POP3** chooses whether mail stays
+  on the server, is removed once downloaded, or is removed after a number of
+  days, and how often to check. Each message is stored before the server is
+  asked to remove it, and a broken connection removes nothing. A message is
+  never downloaded twice: it is known by its UIDL, or by a digest of its
+  headers on servers without UIDL.
+- ![Resolved][resolved] Read, flagged and deleted states, and searching in the
+  window, work on the local copy.
+- ![Limitation][limitation] Mail removed from the server exists only on this
+  computer. Removing the account deletes it with the account's other local
+  data, and nothing backs it up.
+- ![Limitation][limitation] The window shows a single inbox: folder
+  management, moving, archive, junk and tags are hidden, although the local
+  store could hold folders.
+- ![Limitation][limitation] There is no offline search index for POP3
+  accounts, so Plasma Search and the Plasma widgets' senders and subjects do
+  not cover them.
+- ![Limitation][limitation] SMTP cannot reuse the POP3 password or sign in
+  with OAuth, and no sent copy is kept, as there is no Sent folder.
+- ![Limitation][limitation] APOP and SASL mechanisms other than PLAIN are not
+  used.
+- ![Limitation][limitation] A certificate the system does not trust can be
+  accepted only when the check was asked for, by opening the account or
+  reloading its folders; background checks only report it.
+- ![Limitation][limitation] A password typed at the prompt is kept for the
+  session only; a password stored under **Account Settings › POP3** is used
+  across restarts.
+- ![Limitation][limitation] Tested against Dovecot in the development
+  container, not against real providers or in a Plasma session. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- Prefer IMAP when the provider offers it: it keeps folders, flags and sent
+  copies on the server, and the offline search index covers it.
+- Keep mail on the server, or remove it only after some days, until the local
+  mail is backed up.
+- Back up `~/.local/share/flaska.net/trojita/local-mail/`, which holds one
+  folder of mail per POP3 account.
+- Open the account or reload its folders to answer a certificate prompt.
+- Store the POP3 password under **Account Settings › POP3** so that
+  background checks can sign in after a restart.
+
+**Proposed improvements:**
+
+- Offer local folders, moving and tags on POP3 accounts, since the local store
+  supports them.
+- Index POP3 mail for offline search, Plasma Search and the widgets.
+- Keep sent copies in a local Sent folder, and let SMTP reuse the POP3
+  sign-in.
+- Export and import the local store, and offer to keep it when the account is
+  removed.
+- Try real providers in a Plasma 6 session.
 
 ## Before reporting results
 

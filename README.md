@@ -280,8 +280,13 @@ the disposable server, and `test_LiveImapPanels` the keyboard row.
   SMTP server sign in and which server features are used. On Gmail,
   **Archive** uses **All Mail**, sent messages are not uploaded twice, and the
   open message shows its labels. See [Provider setup and Gmail](docs/CAVEATS.md#provider-setup-and-gmail).
+- **Add Account** can also create a POP3 account, which downloads mail into a
+  store on this computer, keeps it on the server or removes it as you choose,
+  and shows it as a single inbox. See
+  [POP3 accounts](docs/CAVEATS.md#pop3-accounts).
 - Removing an account deletes its settings, stored passwords and offline
-  cache, but not any mail on the server.
+  cache, but not any mail on the server. Removing a POP3 account also deletes
+  the mail it downloaded.
 - All accounts connect at startup. An account with a network error, a missing
   password or failed authentication shows a warning in the selector, on its
   sidebar header and in the footer, and raises one desktop notification.
