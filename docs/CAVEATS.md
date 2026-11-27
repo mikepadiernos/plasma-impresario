@@ -53,7 +53,7 @@ issue comment that holds the current recommendation.
 | ------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | ![Resolved][resolved]     | Accounts          | One window holds several IMAP accounts, grouped by account in the folder sidebar; the limitations recorded for them are resolved ([details](#multiple-accounts))                                                                                                                                                                                                                                                                                      | [#262](https://github.com/mikepadiernos/plasma-impresario/issues/262)                                                                        |
 | ![Limitation][limitation] | Embedded panels   | Related messages search only loaded messages unless the bounded server search is turned on ([details](#related-messages-and-message-details-panels)); message details do not verify inline PGP ([details](#message-security))                                                                                                                                                                                                                         | [#264](https://github.com/mikepadiernos/plasma-impresario/issues/264), [#442](https://github.com/mikepadiernos/plasma-impresario/issues/442) |
-| ![Limitation][limitation] | Reading privacy   | Link warnings are heuristic and remote content consent applies to the open message only ([details](#reading-privacy))                                                                                                                                                                                                                                                                                                                                 | [#443](https://github.com/mikepadiernos/plasma-impresario/issues/443)                                                                        |
+| ![Limitation][limitation] | Reading privacy   | Link warnings are heuristic, a link reached with the keyboard shows no tooltip, and remote content consent applies to the open message only ([details](#reading-privacy))                                                                                                                                                                                                                                                                             | [#443](https://github.com/mikepadiernos/plasma-impresario/issues/443)                                                                        |
 | ![Limitation][limitation] | Loading on demand | Parts that failed after a server error load again only on Try Again; the unavailable-message page is not verified live ([details](#loading-on-demand))                                                                                                                                                                                                                                                                                                | [#444](https://github.com/mikepadiernos/plasma-impresario/issues/444)                                                                        |
 | ![Limitation][limitation] | Reader actions    | The action bar is in the main window only, zoom is not saved, and Archive and Trash from the bar are not verified live ([details](#reader-actions))                                                                                                                                                                                                                                                                                                   | [#445](https://github.com/mikepadiernos/plasma-impresario/issues/445)                                                                        |
 | ![Limitation][limitation] | Conversations     | A search in a threaded list splits threads, conversations cover the loaded messages of the current folder only, and the Unified Inbox has no conversation steps ([details](#conversations))                                                                                                                                                                                                                                                           | [#449](https://github.com/mikepadiernos/plasma-impresario/issues/449)                                                                        |
@@ -213,11 +213,23 @@ Plasma session; that check is
   Content**; the bar names the servers it would contact. Links that look
   deceptive ask before opening
   ([#97](https://github.com/mikepadiernos/plasma-impresario/issues/97)).
+- ![Resolved][resolved] Hovering a link shows its full target, fully encoded
+  with the host in its punycode form, and the link's context menu starts with
+  the same description and an **Open Link** entry. User names or passwords
+  before the host, internationalized host names with both of their forms,
+  numeric addresses, link text that shows another site and mailto: links whose
+  text is another address are pointed out there
+  ([#374](https://github.com/mikepadiernos/plasma-impresario/issues/374)).
 - ![Limitation][limitation] Link warnings are heuristics. Sites are compared by
   name, without the public suffix list: a subdomain counts as its parent's
   site.
-- ![Limitation][limitation] Links whose text is not an address, such as "Sign
-  in", never warn; their target shows only in the hover tooltip.
+- ![Limitation][limitation] Link text which is not an address, such as "Sign
+  in", is never compared with the target.
+- ![Limitation][limitation] A link reached with the keyboard shows no tooltip;
+  its context menu shows the target. A target longer than 1000 characters is
+  shortened from the middle; **Copy Link Address** copies all of it.
+- ![Limitation][limitation] A mailto: link whose text is another address is
+  pointed out but opens the composer without asking.
 - ![Limitation][limitation] Newsletters that route links through a tracking
   server while showing the destination as the link text warn on every link.
 - ![Limitation][limitation] Consent is all or nothing for the open message and
@@ -227,7 +239,8 @@ Plasma session; that check is
 
 **Workarounds:**
 
-- Hover over a link to see its target before clicking.
+- Hover over a link, or open its context menu, to see its whole target before
+  clicking.
 - For a warning caused by a tracking server, check that the named site is the
   sender's mail service before choosing **Open Link**.
 - Load remote content only for senders you trust.
@@ -237,8 +250,9 @@ Plasma session; that check is
 - Compare sites with the public suffix list.
 - Remember remote-content consent per sender, with a way to review and revoke
   it (M14.07).
-- Show the target in the status bar as well, for links whose text is not an
-  address.
+- Show the target of the focused link in the status bar, so that keyboard
+  users see it without opening a menu.
+- Ask before writing to a mailto: address that differs from the link text.
 
 ### Loading on demand
 
