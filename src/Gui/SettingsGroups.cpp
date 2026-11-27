@@ -430,6 +430,7 @@ AppearanceGroup::AppearanceGroup(FavoriteTagsPage *favoriteTags, const SettingsC
     , m_preset(new QComboBox)
     , m_sidebar(new QComboBox)
     , m_header(new QCheckBox(i18nc("@option:check", "Show the header above the window's columns")))
+    , m_symbolicTray(new QCheckBox(i18nc("@option:check", "Use a monochrome icon in the system tray")))
     , m_tabs(new QCheckBox(i18nc("@option:check", "Open folders and messages in tabs")))
     , m_tabRegion(new QComboBox)
     , m_tabOrientation(new QComboBox)
@@ -437,6 +438,7 @@ AppearanceGroup::AppearanceGroup(FavoriteTagsPage *favoriteTags, const SettingsC
     m_preset->setObjectName(QStringLiteral("layoutPreset"));
     m_sidebar->setObjectName(QStringLiteral("sidebarPosition"));
     m_header->setObjectName(QStringLiteral("showHeader"));
+    m_symbolicTray->setObjectName(QStringLiteral("symbolicTrayIcon"));
     m_tabs->setObjectName(QStringLiteral("tabsEnabled"));
     m_tabRegion->setObjectName(QStringLiteral("tabsRegion"));
     m_tabOrientation->setObjectName(QStringLiteral("tabsOrientation"));
@@ -475,6 +477,11 @@ AppearanceGroup::AppearanceGroup(FavoriteTagsPage *favoriteTags, const SettingsC
     form->addRow(i18nc("@label:listbox", "Folder sidebar:"), m_sidebar);
     m_header->setChecked(appearance.readEntry("ShowHeader", false));
     form->addRow(QString(), m_header);
+    m_symbolicTray->setChecked(application(QStringLiteral("Appearance/SymbolicTrayIcon")).toBool());
+    m_symbolicTray->setToolTip(i18nc("@info:tooltip",
+                                     "Show the symbolic icon of the active icon theme, coloured like the other "
+                                     "icons in the panel; the number of unread messages is in its tooltip"));
+    form->addRow(i18nc("@label", "System tray:"), m_symbolicTray);
 
     m_tabs->setChecked(application(QStringLiteral("Tabs/Enabled")).toBool());
     form->addRow(i18nc("@label", "Tabs:"), m_tabs);
@@ -534,6 +541,7 @@ void AppearanceGroup::saveSettings()
     setApplication(QStringLiteral("Appearance/RowDensity"),
                    SettingsSchema::comfortableRows(preset) ? QStringLiteral("comfortable") : QStringLiteral("compact"));
     setApplication(QStringLiteral("Appearance/FocusLayout"), SettingsSchema::focusLayout(preset));
+    setApplication(QStringLiteral("Appearance/SymbolicTrayIcon"), m_symbolicTray->isChecked());
     KConfigGroup appearance(config(), QStringLiteral("Appearance"));
     appearance.writeEntry("MailboxSidebarPosition", m_sidebar->currentData().toString());
     appearance.writeEntry("ShowHeader", m_header->isChecked());

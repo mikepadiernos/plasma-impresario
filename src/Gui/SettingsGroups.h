@@ -176,6 +176,7 @@ private:
     QComboBox *m_preset;
     QComboBox *m_sidebar;
     QCheckBox *m_header;
+    QCheckBox *m_symbolicTray;
     QCheckBox *m_tabs;
     QComboBox *m_tabRegion;
     QComboBox *m_tabOrientation;

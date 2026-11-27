@@ -47,6 +47,7 @@ QList<Definition> makeDefinitions()
         {QStringLiteral("Shell/StartFolder"), Group::Accounts, account, QString(), Feature::None, {}},
         {QStringLiteral("Appearance/RowDensity"), Group::Appearance, app, QStringLiteral("compact"), Feature::None, {}},
         {QStringLiteral("Appearance/FocusLayout"), Group::Appearance, app, false, Feature::None, {}},
+        {QStringLiteral("Appearance/SymbolicTrayIcon"), Group::Appearance, app, false, Feature::None, {}},
         {QStringLiteral("Tabs/Enabled"), Group::Appearance, app, false, Feature::None, {}},
         {QStringLiteral("Tabs/Region"), Group::Appearance, app, QStringLiteral("header"), Feature::None, {}},
         {QStringLiteral("Tabs/Orientation"), Group::Appearance, app, QStringLiteral("horizontal"), Feature::None, {}},
