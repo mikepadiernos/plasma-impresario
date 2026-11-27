@@ -48,7 +48,7 @@ Legend: ![Done][done] · ![Needs verification][needs-verification] ·
 | Outlook.com and Microsoft 365  | ![Needs verification][needs-verification] | IMAP and SMTP with OAuth only; see the [Microsoft guide](microsoft.md)                                                                                                                                                                                      | [M13](../ROADMAP.md#m13-microsoft-accounts-and-exchange)                     |
 | Generic IMAP and SMTP          | ![Done][done]                             | Any server with IMAP4rev1 and SMTP submission; optional extensions are used when offered                                                                                                                                                                    | —                                                                            |
 | POP3                           | ![Needs verification][needs-verification] | Downloads into a store on this computer over TLS or STLS, with a chosen server retention; sends through SMTP. Tried against Dovecot only ([caveat](../CAVEATS.md#pop3-accounts))                                                                            | M06.05 [#216](https://github.com/mikepadiernos/plasma-impresario/issues/216) |
-| JMAP                           | ![Development][development]               | The synchronization and sending engine is written and covered by offscreen tests against a fake server; account setup in the window is not built yet, so a JMAP account cannot be added                                                                     | M06.05 [#217](https://github.com/mikepadiernos/plasma-impresario/issues/217) |
+| JMAP                           | ![Needs verification][needs-verification] | Keeps a copy of the server's folders and messages on this computer, synchronized both ways; sends through the JMAP server or SMTP. Tried against Stalwart only ([caveat](../CAVEATS.md#jmap-accounts))                                                      | M06.05 [#217](https://github.com/mikepadiernos/plasma-impresario/issues/217) |
 
 ## Adding an account
 
@@ -247,22 +247,35 @@ deleted with the account. See [POP3 accounts](../CAVEATS.md#pop3-accounts).
 
 ### JMAP
 
-JMAP ([#217](https://github.com/mikepadiernos/plasma-impresario/issues/217)) is in development in M06.05. What exists today is the
-engine behind the account, not yet its setup in the window:
+JMAP accounts
+([#217](https://github.com/mikepadiernos/plasma-impresario/issues/217))
+keep a copy of the server's mail on this computer and synchronize it both
+ways.
 
-| Part                 | Behavior                                                                                                                                     |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+1. In **Add Account**, choose **JMAP** as the protocol. Server lookup is
+   skipped; the account settings open next.
+2. Under **Account Settings › JMAP**, enter the server's host name, such as
+   `jmap.example.com`, or its full session URL, and the user name.
+3. Choose **Password** or **Access token** under **Sign in with**, and store
+   it, or leave it to be asked for.
+4. Choose how often to check for new mail, and whether to send through the
+   JMAP server or the SMTP server on the **SMTP** page.
+
+| Part | Behavior |
+| ---- | -------- |
+
 | Finding the server   | A bare host name becomes `https://<host>/.well-known/jmap`; a full session URL is used as given. Redirects are followed, at most five times  |
 | Protection           | Only HTTPS, or HTTP to this computer for testing. The sign-in is not sent to another host or port after a redirect                           |
 | Sign-in              | A password (Basic) or an access token (Bearer). Untrusted certificates are asked about, as for IMAP                                          |
 | Folders and messages | Downloaded into a store on this computer and kept in step both ways: flags, moves, copies, new and renamed folders, and removals             |
 | Changes              | Only what changed since the last visit is fetched; when the server cannot tell, everything is compared again                                 |
+| When it synchronizes | When the account is opened or its folders are reloaded, at the chosen interval, five seconds after a change here, and after sending          |
 | Sending              | Through the JMAP server, which keeps the message in Sent; or through the account's SMTP server. A refused message is removed from Sent again |
 
-Folders the server lacks, such as a local Trash, stay on this computer, and
-a message moved into one is removed from the server. The window integration,
-the settings page and live-server verification remain; see
-[M06 item cards](../TODO.md#m06-item-cards).
+All folder, move, archive, junk and tag actions are available. There is no
+push, messages download one at a time, and folders made before the first
+synchronization stay on this computer. See
+[JMAP accounts](../CAVEATS.md#jmap-accounts).
 
 ## Troubleshooting
 
@@ -285,7 +298,8 @@ the settings page and live-server verification remain; see
   `test_AccountCapabilities` covers the actions of each protocol;
   `test_Pop3Fetch` covers POP3 sign-in, downloads, retention and failures
   against a scripted server, `test_JmapSync` and `test_JmapSubmission` cover
-  JMAP synchronization and sending against an in-memory server, and
+  JMAP synchronization and sending against an in-memory server,
+  `test_AddAccountDialog` and `test_AccountSettingsDialog` cover JMAP setup, and
   `test_LocalImapServer` the local store. For
   Gmail, `test_SpecialFolder` covers archiving to **All Mail**,
   `test_Imap_Parser_parse` and `test_Imap_CopyAndFlagOperations` cover reading
@@ -295,12 +309,14 @@ the settings page and live-server verification remain; see
 - **Live tests:** the Dovecot accounts in `tools/dev-container` cover generic
   IMAP and SMTP with passwords, and `live-pop3.sh` covers POP3 downloads over
   TLS and STLS, keeping mail on the server and removing it once downloaded.
+  `live-jmap.sh` runs `test_LiveJmap` against a disposable Stalwart server:
+  the first and later synchronizations, changes made here, sending to another
+  account, removal and a wrong password.
 - **Not yet tried:** real Gmail, Outlook.com, Microsoft 365, Yahoo, iCloud,
   AOL, GMX, WEB.DE and Posteo accounts, and OAuth against the real providers.
   That is [M15](../ROADMAP.md#m15-real-plasma-session-verification) and the
   [provider caveat](../CAVEATS.md#provider-setup-and-gmail).
 
-[development]: https://img.shields.io/badge/Development-9a6700
 [done]: https://img.shields.io/badge/Done-1a7f37
 [limitation]: https://img.shields.io/badge/Limitation-bc4c00
 [needs-verification]: https://img.shields.io/badge/Needs_verification-0969da

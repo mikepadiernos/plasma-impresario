@@ -56,6 +56,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [System sleep and account notifications](#system-sleep-and-account-notifications)
   - [Plasma widgets](#plasma-widgets)
   - [POP3 accounts](#pop3-accounts)
+  - [JMAP accounts](#jmap-accounts)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -98,6 +99,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Sleep             | Connections close before sleep and reopen on wake only through logind, without delaying sleep; account notifications close when the app quits, and KDE Online Accounts is not used ([details](#system-sleep-and-account-notifications))                                                                                                                                                                                                               | [#476](https://github.com/mikepadiernos/plasma-impresario/issues/476)                                                                        |
 | ![Limitation][limitation] | Plasma widgets    | The Mail Status and Mail Ticker widgets are untried in a Plasma session; senders and subjects come only from indexed accounts, counts cover INBOX only, and there are no data while the app is not running ([details](#plasma-widgets))                                                                                                                                                                                                               | [#477](https://github.com/mikepadiernos/plasma-impresario/issues/477)                                                                        |
 | ![Limitation][limitation] | POP3              | Mail removed from the server exists only on this computer and goes with the account; one inbox, no offline search index and no sent copies ([details](#pop3-accounts))                                                                                                                                                                                                                                                                                | [#478](https://github.com/mikepadiernos/plasma-impresario/issues/478)                                                                        |
+| ![Limitation][limitation] | JMAP              | No push, so new mail waits for the next synchronization; messages download one at a time; folders made before the first synchronization stay local; no offline search index ([details](#jmap-accounts))                                                                                                                                                                                                                                               | [#488](https://github.com/mikepadiernos/plasma-impresario/issues/488)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -2098,10 +2100,9 @@ Plasma session; that check is
   that label. The open message shows its other labels as chips, but they are
   read-only and are fetched only when the message is opened online.
 - ![Limitation][limitation] Only Google and Microsoft offer OAuth; Yahoo,
-  iCloud and AOL need app passwords. JMAP accounts cannot be added
-  yet: the engine is written, but the window does not offer it
-  ([#217](https://github.com/mikepadiernos/plasma-impresario/issues/217)).
-  POP3 accounts have [their own limits](#pop3-accounts).
+  iCloud and AOL need app passwords. POP3 and JMAP accounts have their own
+  limits: see [POP3 accounts](#pop3-accounts) and
+  [JMAP accounts](#jmap-accounts).
 - ![Limitation][limitation] Nothing in the guide is tried with real provider
   accounts; the tests use a fake network and local Dovecot servers. That is
   [M15](ROADMAP.md#m15-real-plasma-session-verification).
@@ -2113,7 +2114,8 @@ Plasma session; that check is
 - To change a message's labels, copy it to or delete it from the label
   folders.
 - For Yahoo, iCloud and AOL, create an app password.
-- For providers that offer POP3 or JMAP besides IMAP, use IMAP.
+- For providers that offer POP3 besides IMAP, use IMAP. For JMAP, see
+  [JMAP accounts](#jmap-accounts).
 
 **Proposed improvements:**
 
@@ -2413,6 +2415,78 @@ Plasma session; that check is
 - Export and import the local store, and offer to keep it when the account is
   removed.
 - Try real providers in a Plasma 6 session.
+
+### JMAP accounts
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                              |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| [#488](https://github.com/mikepadiernos/plasma-impresario/issues/488) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/488#issuecomment-7221227815) | [JMAP accounts](integrations/providers.md#jmap) ([#217](https://github.com/mikepadiernos/plasma-impresario/issues/217)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] **Add Account** can create a JMAP account, and
+  **Account Settings › JMAP** takes the server (a host name or a session
+  URL), the user name, a password or an access token, how often to check and
+  how to send. Only HTTPS is used, or HTTP to this computer for testing.
+- ![Resolved][resolved] Folders and messages are kept in a store on this
+  computer and synchronized both ways: read, flagged and other keywords,
+  moves, copies, new, renamed and removed folders, and removals go up; the
+  server's changes come down, through `Email/changes` when the server can
+  tell them. Folders, moving, archive, junk and tags stay available.
+- ![Resolved][resolved] The account synchronizes when it is opened or its
+  folders are reloaded, at the chosen interval, five seconds after a change
+  on this computer, and after sending.
+- ![Resolved][resolved] Sending goes through the JMAP server, which keeps the
+  copy in Sent and removes it again if sending is refused, or through the
+  account's SMTP server.
+- ![Limitation][limitation] There is no push: mail the server receives
+  appears with the next synchronization. Changes made here while a
+  synchronization runs go up with the next one.
+- ![Limitation][limitation] Messages are downloaded one at a time, so the
+  first synchronization of a large mailbox is slow.
+- ![Limitation][limitation] Folders that were on this computer before the
+  first synchronization stay here only, and moving a message into one removes
+  it from the server. Renaming a special folder (Inbox, Sent, Drafts, Trash,
+  Junk, Archive) is undone at the next synchronization, and a `/` in a server
+  folder name becomes `_` here.
+- ![Limitation][limitation] There is no offline search index for JMAP
+  accounts, so Plasma Search and the Plasma widgets' senders and subjects do
+  not cover them; searching in the window works on the local copy.
+- ![Limitation][limitation] Sending through JMAP needs a sending identity for
+  the sender's address on the server. Some servers create one per address;
+  others need it added in their own settings.
+- ![Limitation][limitation] A certificate the system does not trust can be
+  accepted only when the synchronization was asked for; a password typed at
+  the prompt is kept for the session only.
+- ![Limitation][limitation] Tested against Stalwart in the development
+  container (`live-jmap.sh`), not against hosted providers such as Fastmail
+  or in a Plasma session. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- For mail that must arrive at once, lower **Check for new mail every** under
+  **Account Settings › JMAP**, or reload the folders.
+- Let the first synchronization of a large mailbox finish before working in
+  the account.
+- Create folders after the first synchronization so that they exist on the
+  server, and rename special folders on the server.
+- If the server may not send as your address, add the address as a sending
+  identity in the server's settings, or set **Send messages** to **Through
+  the SMTP server on the SMTP page**.
+- Use IMAP when the provider offers it and Plasma Search or the Plasma
+  widgets should cover the account.
+- Open the account or reload its folders to answer a certificate prompt, and
+  store the password under **Account Settings › JMAP** so that background
+  synchronization can sign in after a restart.
+
+**Proposed improvements:**
+
+- Synchronize on the server's push (EventSource or WebSocket).
+- Download several messages per request, within the server's limits.
+- Run another synchronization when changes were made during one.
+- Index JMAP mail for offline search, Plasma Search and the widgets.
+- Try hosted providers such as Fastmail in a Plasma 6 session.
 
 ## Before reporting results
 

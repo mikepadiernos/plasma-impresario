@@ -31,6 +31,7 @@ Legend: ![Verified][verified] against a synthetic live IMAP server ·
   - [Multiple accounts](#multiple-accounts)
   - [OAuth sign-in](#oauth-sign-in)
   - [POP3 accounts](#pop3-accounts)
+  - [JMAP accounts](#jmap-accounts)
   - [Microsoft accounts and Exchange](#microsoft-accounts-and-exchange)
   - [Sending](#sending)
   - [Mail operations](#mail-operations)
@@ -184,6 +185,23 @@ Legend: ![Verified][verified] against a synthetic live IMAP server ·
 | Removing a POP3 account                                               | ![Not validated][not-validated] Its local mail is deleted with it                                                       |
 | A message removed from the server, then sent again with the same UIDL | ![Offscreen tests][offscreen] `test_Pop3Fetch`: it is downloaded again                                                  |
 | Real providers' POP3 servers                                          | ![Not validated][not-validated]                                                                                         |
+
+### JMAP accounts
+
+| Scenario                                                  | Coverage                                                                                                                                                      |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| First synchronization, then a second one without changes  | ![Verified][verified] `test_LiveJmap`: special folders map by role and nothing is downloaded the second time                                                  |
+| Flags, a new folder, a copy and a folder rename made here | ![Verified][verified] `test_LiveJmap`: the server shows the keywords, both mailboxes and the new name                                                         |
+| Mail delivered between two synchronizations               | ![Verified][verified] `test_LiveJmap`: only the new message is downloaded                                                                                     |
+| Sending through JMAP to another account                   | ![Verified][verified] `test_LiveJmap`: the recipient receives it and Sent keeps the copy; ![Offscreen tests][offscreen] `test_JmapSubmission` covers refusals |
+| Moving to Trash, then removing it there                   | ![Verified][verified] `test_LiveJmap`: moved, then destroyed on the server                                                                                    |
+| A wrong password                                          | ![Verified][verified] `test_LiveJmap`; ![Offscreen tests][offscreen] `test_AccountSettingsDialog`                                                             |
+| A server whose `Email/changes` cannot answer              | ![Offscreen tests][offscreen] `test_JmapSync`: everything is compared again                                                                                   |
+| A changed folder or message refused by the server         | ![Offscreen tests][offscreen] `test_JmapSync`: reported as a warning and tried again next time                                                                |
+| No sending identity for the sender's address              | ![Limitation][limitation] Sending is refused with a message naming the address ([#488](CAVEATS.md#jmap-accounts))                                             |
+| A change made while a synchronization runs                | ![Limitation][limitation] It goes up with the next synchronization ([#488](CAVEATS.md#jmap-accounts))                                                         |
+| A local folder made before the first synchronization      | ![Limitation][limitation] It stays local; moving into it removes the message from the server ([#488](CAVEATS.md#jmap-accounts))                               |
+| Hosted JMAP providers such as Fastmail                    | ![Not validated][not-validated]                                                                                                                               |
 
 ### Microsoft accounts and Exchange
 
