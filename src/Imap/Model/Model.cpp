@@ -313,11 +313,13 @@ void Model::handleState(Imap::Parser *ptr, const Imap::Responses::State *const r
         switch (resp->kind) {
         case BYE:
             if (accessParser(ptr).logoutCmd.isEmpty()) {
-                // The connection got closed but we haven't really requested that -- we better treat that as error, including
-                // going offline...
-                // ... but before that, expect that the connection will get closed soon
+                // The server closed a connection which we did not log out (RFC 3501, section 7.1.5): it is shutting down,
+                // restarting or dropping idle clients. That is a lost connection rather than a protocol error, so the
+                // network watcher tries again with its delays instead of the user getting an error dialog.
                 changeConnectionState(ptr, CONN_STATE_LOGOUT);
-                EMIT_LATER(this, imapError, Q_ARG(QString, resp->message));
+                logTrace(ptr->parserId(), Common::LOG_OTHER, QStringLiteral("Model"),
+                         QStringLiteral("The server closed the connection: %1").arg(resp->message));
+                EMIT_LATER(this, networkError, Q_ARG(QString, tr("The server closed the connection: %1").arg(resp->message)));
                 setNetworkPolicy(NETWORK_OFFLINE);
             }
             if (accessParser(ptr).parser) {
