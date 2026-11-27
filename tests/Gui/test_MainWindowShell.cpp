@@ -17,6 +17,7 @@
 #include "Gui/Window.h"
 #include "UiUtils/BackgroundRunning.h"
 #include "UiUtils/DesktopFeedback.h"
+#include "UiUtils/SettingsStore.h"
 #include "Imap/Model/AccountCapabilities.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
@@ -895,6 +896,49 @@ private slots:
     // Nothing is known offline, so the first count clears whatever an earlier
     // run left on the task manager entry
     QTRY_COMPARE(window.unreadCountOnTaskManager(), 0);
+  }
+
+  void mailToNotesNeedsANotesFolder() {
+#ifndef TROJITA_HAVE_WEBENGINE
+    QSKIP("The actions read the message from the reader");
+#endif
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                       QSettings::IniFormat);
+    configureOffline(settings, QStringLiteral("work.example.test"));
+    settings.setValue(Common::SettingsNames::settingsVersion, 2);
+    settings.setValue(Common::SettingsNames::guiShowSystray, false);
+    auto config =
+        KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    Gui::MainWindow window(&settings);
+    auto *note =
+        window.findChild<QAction *>(QStringLiteral("action_message_to_note"));
+    auto *calendar = window.findChild<QAction *>(
+        QStringLiteral("action_message_to_calendar"));
+    QVERIFY(note && calendar);
+    // On by default, but a note has nowhere to go until a folder is chosen
+    QVERIFY(!note->isVisible());
+    // Nothing is shown in the reader yet
+    QVERIFY(!note->isEnabled());
+    QVERIFY(!calendar->isEnabled());
+
+    QTemporaryDir notes;
+    QVERIFY(notes.isValid());
+    UiUtils::SettingsStore::setApplication(
+        *config, &settings, QStringLiteral("Integrations/NotesFolder"),
+        notes.path());
+    config->sync();
+    QVERIFY(QMetaObject::invokeMethod(&window, "applyProductivitySettings"));
+    QVERIFY(note->isVisible());
+
+    UiUtils::SettingsStore::setApplication(
+        *config, &settings, QStringLiteral("Integrations/MailToNotes"), false);
+    config->sync();
+    QVERIFY(QMetaObject::invokeMethod(&window, "applyProductivitySettings"));
+    QVERIFY(!note->isVisible());
+    config->deleteGroup(QStringLiteral("Integrations"));
+    config->sync();
   }
 
   void closingQuitsByDefault() { verifyClose(false); }

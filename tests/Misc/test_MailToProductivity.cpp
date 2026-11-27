@@ -1,6 +1,10 @@
 /* Copyright (C) 2026 Plasma Impresario contributors
    SPDX-License-Identifier: GPL-2.0-or-later
 */
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QTemporaryDir>
 #include <QTest>
 #include <QTimeZone>
 
@@ -106,6 +110,50 @@ private slots:
         QCOMPARE(noteFileName(message, {}).size(), 11 + 80 + 3);
         message.subject.clear();
         QVERIFY(noteFileName(message, {}).endsWith(QLatin1String(".md")));
+    }
+
+    void notesAreNewFilesInTheFolder()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        QString error;
+        const QString first = saveNote(folder.path(), sample(), &error);
+        QVERIFY2(!first.isEmpty(), qPrintable(error));
+        QCOMPARE(QFileInfo(first).fileName(), QStringLiteral("2026-11-27 Budget; review, Q4.md"));
+        QFile written(first);
+        QVERIFY(written.open(QIODevice::ReadOnly));
+        QCOMPARE(QString::fromUtf8(written.readAll()), noteText(sample()));
+        // A second note about the same message does not replace the first
+        const QString second = saveNote(folder.path(), sample(), &error);
+        QCOMPARE(QFileInfo(second).fileName(), QStringLiteral("2026-11-27 Budget; review, Q4 (2).md"));
+
+        QVERIFY(saveNote(folder.filePath(QStringLiteral("missing")), sample(), &error).isEmpty());
+        QVERIFY(error.contains(QLatin1String("missing")));
+        QVERIFY(saveNote(QString(), sample()).isEmpty());
+    }
+
+    void eventsAreWrittenAndOldOnesRemoved()
+    {
+        QTemporaryDir cache;
+        QVERIFY(cache.isValid());
+        const QString directory = cache.filePath(QStringLiteral("events"));
+        const QDateTime now = QDateTime::currentDateTime();
+        QString error;
+        const QString old = saveEvent(directory, "BEGIN:VCALENDAR\r\n", QStringLiteral("old@x"), now, &error);
+        QVERIFY2(!old.isEmpty(), qPrintable(error));
+        QCOMPARE(QFileInfo(old).fileName(), QStringLiteral("old-x.ics"));
+        QFile oldFile(old);
+        QVERIFY(oldFile.open(QIODevice::ReadWrite));
+        QVERIFY(oldFile.setFileTime(now.addDays(-2), QFileDevice::FileModificationTime));
+        oldFile.close();
+
+        const QString recent = saveEvent(directory, "BEGIN:VCALENDAR\r\n", QStringLiteral("recent/../x"), now, &error);
+        QCOMPARE(QFileInfo(recent).fileName(), QStringLiteral("recent----x.ics"));
+        QCOMPARE(QFileInfo(recent).absolutePath(), QDir(directory).absolutePath());
+        const QString next = saveEvent(directory, "BEGIN:VCALENDAR\r\n", QStringLiteral("next"), now.addSecs(60), &error);
+        QVERIFY(!next.isEmpty());
+        QVERIFY(!QFileInfo::exists(old));
+        QVERIFY(QFileInfo::exists(recent));
     }
 };
 
