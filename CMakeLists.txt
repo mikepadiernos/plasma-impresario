@@ -305,6 +305,7 @@ set(libCommon_SOURCES
     ${path_Common}/MetaTypes.cpp
     ${path_Common}/Paths.cpp
     ${path_Common}/PrivateFiles.cpp
+    ${path_Common}/RetryBackoff.cpp
     ${path_Common}/SettingsNames.cpp
     ${path_Common}/StashingReverseIterator.h
 )
@@ -1659,6 +1660,7 @@ if(BUILD_TESTING)
     impresario_test(Misc AccountRegistry)
     impresario_test(Misc AccountIdentities)
     impresario_test(Misc AccountStatus)
+    impresario_test(Misc RetryBackoff)
     impresario_test(Misc OAuth)
     impresario_test(Misc SmtpClient)
     impresario_test(Misc AttachmentCollector)
