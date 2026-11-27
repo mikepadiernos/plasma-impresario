@@ -609,7 +609,9 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   - [ ] Define how scan results, unavailable scanners, spam classification, and user overrides are surfaced. See
         [Junk and attachment safety](CAVEATS.md#junk-and-attachment-safety).
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569785)
-  - [ ] Avoid exposing message content or attachments to external services without informed user action [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569792)
+  - [ ] Avoid exposing message content or attachments to external services without informed user action. See
+        [External services](integrations/external-services.md).
+        [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569792)
   - [x] Strip line breaks and control characters from header input, remove Bcc
         before sending while keeping it in Sent and drafts, and create Message-IDs
         without the computer's host name. See
@@ -677,6 +679,9 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   ![Backlog][backlog]
 - [Junk and attachment safety](CAVEATS.md#junk-and-attachment-safety)
   ([#474](https://github.com/mikepadiernos/plasma-impresario/issues/474))
+  ![Backlog][backlog]
+- [External services and outbound calls](CAVEATS.md#external-services-and-outbound-calls)
+  ([#475](https://github.com/mikepadiernos/plasma-impresario/issues/475))
   ![Backlog][backlog]
 
 ### M07: Output, notifications, and rules automation
