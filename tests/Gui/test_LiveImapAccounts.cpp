@@ -18,6 +18,7 @@
 #include "Imap/Model/MsgListModel.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "Imap/Model/Utils.h"
+#include "UiUtils/SleepMonitor.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
 #include "Gui/WebEngineMessageProfile.h"
@@ -433,6 +434,85 @@ private slots:
         window.accountSettings()->sync();
         QVERIFY(!settings.contains(QStringLiteral("accountPasswords")));
         QVERIFY(!settingsContain(directory, syntheticPassword));
+    }
+
+    /**
+     * Before the system sleeps the account logs out, and once it wakes it connects again by itself and finds the mail
+     * which arrived meanwhile, without changing the user's network choice. Expects the same server as
+     * accountsConnectAndSwitchIndependently, and PLASMA_TEST_HOME_MAILDIR.
+     */
+    void sleepClosesTheConnectionAndWakingReconnects()
+    {
+        bool ok = false;
+        const int port = qEnvironmentVariableIntValue("PLASMA_TEST_IMAPS_PORT", &ok);
+        QVERIFY(ok && port > 0 && port <= 65535);
+        const QString homeMaildir = qEnvironmentVariable("PLASMA_TEST_HOME_MAILDIR");
+        QVERIFY(!homeMaildir.isEmpty());
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        settings.setValue(Common::SettingsNames::guiShowSystray, false);
+        settings.setValue(Common::SettingsNames::passwordPlugin, QStringLiteral("cleartextpassword"));
+        settings.setValue(QStringLiteral("accounts/ids"), QStringList{QStringLiteral("account-1")});
+        settings.setValue(QStringLiteral("accounts/active"), QStringLiteral("account-1"));
+        settings.setValue(QStringLiteral("accounts/next"), 2);
+        settings.setValue(QStringLiteral("accounts/names/account-1"), QStringLiteral("Home"));
+        settings.setValue(QStringLiteral("accountPasswords/account-1/imap"), syntheticPassword);
+        settings.sync();
+        configureAccount(directory.filePath(QStringLiteral("main-account-1.conf")), port, QStringLiteral("home@example.test"));
+
+        QTimer dialogs;
+        connect(&dialogs, &QTimer::timeout, this, [] {
+            for (QWidget *widget : QApplication::topLevelWidgets()) {
+                if (auto *message = qobject_cast<QMessageBox *>(widget);
+                    message && message->isVisible() && message->standardButtons() == (QMessageBox::Yes | QMessageBox::No))
+                    message->button(QMessageBox::Yes)->click();
+            }
+        });
+        dialogs.start(20);
+
+        Gui::MainWindow window(&settings);
+        window.resize(1000, 700);
+        window.show();
+        auto *tree = window.findChild<Gui::MailBoxTreeView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
+        auto *monitor = window.findChild<UiUtils::SleepMonitor *>(QStringLiteral("sleepMonitor"));
+        QVERIFY(tree);
+        QVERIFY(messages);
+        QVERIFY(monitor);
+        QModelIndex inbox;
+        QTRY_VERIFY_WITH_TIMEOUT((inbox = findMailbox(tree->model(), QStringLiteral("INBOX"))).isValid(), 20000);
+        openMailbox(tree, inbox);
+        QTRY_VERIFY_WITH_TIMEOUT(messages->model()->rowCount() > 0, 10000);
+        auto *watcher = qobject_cast<Imap::Mailbox::NetworkWatcher *>(window.imapAccess()->networkWatcher());
+        QVERIFY(watcher);
+        QTRY_COMPARE_WITH_TIMEOUT(watcher->effectiveNetworkPolicy(), Imap::Mailbox::NETWORK_ONLINE, 10000);
+        const Imap::Mailbox::NetworkPolicy chosen = watcher->desiredNetworkPolicy();
+        QSignalSpy errors(window.imapModel(), &Imap::Mailbox::Model::networkError);
+        QTRY_VERIFY_WITH_TIMEOUT(messages->model()->rowCount() == inbox.data(Imap::Mailbox::RoleTotalMessageCount).toInt(),
+                                 10000);
+        const int before = messages->model()->rowCount();
+
+        QVERIFY(QMetaObject::invokeMethod(monitor, "prepareForSleep", Q_ARG(bool, true)));
+        QTRY_COMPARE_WITH_TIMEOUT(watcher->effectiveNetworkPolicy(), Imap::Mailbox::NETWORK_OFFLINE, 10000);
+        QCOMPARE(watcher->desiredNetworkPolicy(), chosen);
+
+        QFile asleep(homeMaildir + QStringLiteral("/new/home-asleep.synthetic"));
+        QVERIFY(asleep.open(QIODevice::WriteOnly));
+        asleep.write("From: Synthetic Sender <sender@example.test>\r\nTo: home@example.test\r\n"
+                     "Subject: Synthetic home-asleep\r\nDate: Tue, 24 Nov 2026 14:00:00 +0000\r\n"
+                     "Message-ID: <home-asleep@example.test>\r\n\r\nSynthetic body.\r\n");
+        asleep.close();
+        asleep.setPermissions(asleep.permissions() | QFileDevice::ReadOther | QFileDevice::ReadGroup);
+        // Nothing connects while the system sleeps
+        QTest::qWait(500);
+        QCOMPARE(watcher->effectiveNetworkPolicy(), Imap::Mailbox::NETWORK_OFFLINE);
+
+        QVERIFY(QMetaObject::invokeMethod(monitor, "prepareForSleep", Q_ARG(bool, false)));
+        QTRY_COMPARE_WITH_TIMEOUT(watcher->effectiveNetworkPolicy(), chosen, 20000);
+        QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(), before + 1, 20000);
+        QCOMPARE(watcher->desiredNetworkPolicy(), chosen);
+        QVERIFY2(errors.isEmpty(), errors.isEmpty() ? "" : qPrintable(errors.first().first().toString()));
     }
 
     /**

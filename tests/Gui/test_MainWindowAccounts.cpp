@@ -40,6 +40,8 @@
 #include "Plugins/PasswordPlugin.h"
 #include "Plugins/PluginManager.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
+#include "UiUtils/AccountNotices.h"
+#include "UiUtils/SleepMonitor.h"
 #include "UiUtils/ViewStateStore.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -255,8 +257,17 @@ private slots:
         auto *alerts = window.findChild<QToolButton *>(QStringLiteral("backgroundAccountAlerts"));
         QVERIFY(alerts);
         QVERIFY(alerts->isHidden());
+        auto *notices = window.findChild<UiUtils::AccountNotices *>(QStringLiteral("accountNotices"));
+        QVERIFY(notices);
+        const QString work = QStringLiteral("account-1");
+#ifdef TROJITA_HAVE_KNOTIFICATIONS
+        const bool notifies = true;
+#else
+        const bool notifies = false;
+#endif
 
         emit workModel->networkError(QStringLiteral("Host lookup failed"));
+        QCOMPARE(notices->isShown(work), notifies);
         QVERIFY(switcher->itemData(0, Qt::ToolTipRole).toString().contains(QStringLiteral("Host lookup failed")));
         QCOMPARE(switcher->itemText(0), QStringLiteral("Work (%1)").arg(Common::AccountStatusTracker::label(Common::AccountStatusKind::NetworkError)));
         QVERIFY(switcher->itemData(1, Qt::ToolTipRole).toString().isEmpty());
@@ -270,14 +281,54 @@ private slots:
         QCOMPARE(switcher->itemText(0), QStringLiteral("Work"));
         QCOMPARE(switcher->currentText(), QStringLiteral("Home"));
         QVERIFY(alerts->isHidden());
+        // The account connected again, so its notification is closed
+        QVERIFY(!notices->isShown(work));
 
         // Clicking the footer switches to the flagged account, which then reports its error itself
         emit workModel->authAttemptFailed(QStringLiteral("Rejected password"));
         QVERIFY(!alerts->isHidden());
+        QCOMPARE(notices->isShown(work), notifies);
         alerts->click();
+        QVERIFY(!notices->isShown(work));
         QCOMPARE(switcher->currentText(), QStringLiteral("Work (%1)").arg(Common::AccountStatusTracker::label(Common::AccountStatusKind::AuthFailed)));
         QCOMPARE(window.imapModel(), workModel);
         QVERIFY(alerts->isHidden());
+    }
+
+    void systemSleepReachesEveryAccount()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+
+        Gui::MainWindow window(&settings);
+        auto *switcher = accountSwitcher(window);
+        QVERIFY(switcher);
+        auto *monitor = window.findChild<UiUtils::SleepMonitor *>(QStringLiteral("sleepMonitor"));
+        QVERIFY(monitor);
+        const auto watcherOf = [](Imap::ImapAccess *access) {
+            return qobject_cast<Imap::Mailbox::NetworkWatcher *>(access->networkWatcher());
+        };
+        auto *work = watcherOf(window.imapAccess());
+        QVERIFY(work);
+        QVERIFY(!work->isSystemSleeping());
+
+        QVERIFY(QMetaObject::invokeMethod(monitor, "prepareForSleep", Q_ARG(bool, true)));
+        QVERIFY(work->isSystemSleeping());
+        // An account opened while the system sleeps starts asleep as well
+        switcher->setCurrentIndex(1);
+        emit switcher->activated(1);
+        auto *home = watcherOf(window.imapAccess());
+        QVERIFY(home && home != work);
+        QVERIFY(home->isSystemSleeping());
+
+        QVERIFY(QMetaObject::invokeMethod(monitor, "prepareForSleep", Q_ARG(bool, false)));
+        QVERIFY(!work->isSystemSleeping());
+        QVERIFY(!home->isSystemSleeping());
+        // Both accounts start offline, and waking keeps them offline
+        QCOMPARE(work->desiredNetworkPolicy(), Imap::Mailbox::NETWORK_OFFLINE);
+        QCOMPARE(home->effectiveNetworkPolicy(), Imap::Mailbox::NETWORK_OFFLINE);
     }
 
     void removingAccountDeletesItsSettingsAndPasswords()
@@ -307,7 +358,14 @@ private slots:
             QVERIFY(file.open(QIODevice::WriteOnly));
         }
 
+        // A notification left for the removed account closes with it
+        auto *notices = window.findChild<UiUtils::AccountNotices *>(QStringLiteral("accountNotices"));
+        QVERIFY(notices);
+        notices->show(QStringLiteral("account-2"), new QWidget(&window));
+        QVERIFY(notices->isShown(QStringLiteral("account-2")));
+
         QVERIFY(QMetaObject::invokeMethod(&window, "removeAccountNow", Q_ARG(QString, QStringLiteral("account-2"))));
+        QVERIFY(!notices->isShown(QStringLiteral("account-2")));
         QVERIFY(!QFileInfo::exists(cacheRoot + QStringLiteral("account-2")));
         QVERIFY(QFile::exists(cacheRoot + QStringLiteral("imap.cache.sqlite")));
         QTRY_VERIFY(!settings.contains(QStringLiteral("accountPasswords/account-2/imap")));

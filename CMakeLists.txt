@@ -1326,6 +1326,7 @@ if(BUILD_TESTING)
                 set(reader_account_cases focusFollowsScreenOrder escapeReturnsToMessageList findMovesToSearchOrFindsInMessage)
             endif()
             foreach(account_case ${reader_account_cases} migratesSingleProfileIntoFirstAccount switchingKeepsAccountsIndependent backgroundAccountStatusIsShown
+                    systemSleepReachesEveryAccount
                     removingAccountDeletesItsSettingsAndPasswords accountsSwitchFromTheKeyboard
                     savedSearchesAndFolderExpansionFollowTheAccount savedSearchesAreVirtualFoldersOfEveryAccount
                     savedSearchesCanBeManaged
@@ -1545,6 +1546,8 @@ if(BUILD_TESTING)
     target_link_libraries(test_ActivationToken PRIVATE UiUtils)
     trojita_test(Misc Color)
     target_link_libraries(test_Color PRIVATE UiUtils)
+    trojita_test(Misc AccountNotices)
+    target_link_libraries(test_AccountNotices PRIVATE UiUtils)
     if(WITH_DBUS)
         add_executable(test_KRunnerBridge tests/Misc/test_KRunnerBridge.cpp src/IPC/KRunnerBridge.cpp src/IPC/KRunnerBridge.h)
         target_compile_definitions(test_KRunnerBridge PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
@@ -1567,6 +1570,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_PlasmaSearch PRIVATE DesktopServices KF6::ConfigCore)
         trojita_test(Misc DesktopFeedback)
         target_link_libraries(test_DesktopFeedback PRIVATE DesktopServices KF6::ConfigCore Qt6::DBus)
+        trojita_test(Misc SleepMonitor)
+        target_link_libraries(test_SleepMonitor PRIVATE DesktopServices Qt6::DBus)
     endif()
 
     # The mail core neither includes nor links KDE desktop services; see docs/integrations/kde-plasma.md

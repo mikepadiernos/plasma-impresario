@@ -23,6 +23,7 @@
 #include "test_Imap_Offline.h"
 #include "data.h"
 #include "Streams/FakeSocket.h"
+#include "Imap/Model/DummyNetworkWatcher.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/MailboxTree.h"
 #include "Imap/Model/MsgListModel.h"
@@ -30,6 +31,18 @@
 #include "Imap/Tasks/ObtainSynchronizedMailboxTask.h"
 
 using namespace Imap::Mailbox;
+
+namespace {
+
+/** The test suite has no ImapAccess, so the public policy slots would refuse to connect */
+class PolicyWatcher : public DummyNetworkWatcher
+{
+public:
+    using DummyNetworkWatcher::DummyNetworkWatcher;
+    void choose(NetworkPolicy policy) { setDesiredNetworkPolicy(policy); }
+};
+
+}
 
 void OfflineTest::init()
 {
@@ -101,6 +114,48 @@ void OfflineTest::testFinishedFetchDoesNotLeaveLogout()
         QVERIFY(state.at(1).value<Imap::ConnectionState>() != Imap::CONN_STATE_SELECTED);
     cServer("* BYE logging out\r\n" + t.last("OK logged out\r\n"));
     QVERIFY(errorSpy->isEmpty());
+}
+
+/** @short Sleeping logs out and waking connects again, without changing what the user chose */
+void OfflineTest::testSystemSleepKeepsThePolicy()
+{
+    PolicyWatcher watcher(nullptr, model);
+    watcher.choose(NETWORK_EXPENSIVE);
+    QVERIFY(model->isNetworkAvailable());
+    QVERIFY(!model->isNetworkOnline());
+    QSignalSpy chosen(&watcher, &NetworkWatcher::desiredNetworkPolicyChanged);
+
+    watcher.setSystemSleeping(true);
+    QVERIFY(watcher.isSystemSleeping());
+    cClient(t.mk("LOGOUT\r\n"));
+    cServer(t.last("OK logged out\r\n") + "* BYE see ya\r\n");
+    QVERIFY(!model->isNetworkAvailable());
+    QCOMPARE(watcher.desiredNetworkPolicy(), NETWORK_EXPENSIVE);
+
+    // Neither a scheduled reconnect nor a policy change connects while the system sleeps
+    watcher.setSystemSleeping(true);
+    QVERIFY(QMetaObject::invokeMethod(&watcher, "tryReconnect"));
+    watcher.choose(NETWORK_ONLINE);
+    QVERIFY(!model->isNetworkAvailable());
+
+    watcher.setSystemSleeping(false);
+    QVERIFY(!watcher.isSystemSleeping());
+    QVERIFY(model->isNetworkOnline());
+    QCOMPARE(watcher.desiredNetworkPolicy(), NETWORK_ONLINE);
+    QVERIFY(chosen.isEmpty());
+    QVERIFY(errorSpy->isEmpty());
+}
+
+/** @short Waking does not connect an account which the user took offline */
+void OfflineTest::testSystemSleepWhileOffline()
+{
+    PolicyWatcher watcher(nullptr, model);
+    watcher.choose(NETWORK_OFFLINE);
+    cClient(t.mk("LOGOUT\r\n"));
+    cServer(t.last("OK logged out\r\n") + "* BYE see ya\r\n");
+    watcher.setSystemSleeping(true);
+    watcher.setSystemSleeping(false);
+    QVERIFY(!model->isNetworkAvailable());
 }
 
 QTEST_GUILESS_MAIN(OfflineTest)
