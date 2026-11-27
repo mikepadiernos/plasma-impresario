@@ -28,7 +28,12 @@
 #include <KConfigGroup>
 #include <KLocalizedString>
 #include <KSharedConfig>
+#include <QAbstractButton>
+#include <QAbstractItemView>
+#include <QAbstractSpinBox>
+#include <QAccessible>
 #include <QAction>
+#include <QComboBox>
 #include <QApplication>
 #include <QScreen>
 #include <QMenu>
@@ -872,6 +877,44 @@ private slots:
     QVERIFY(header.statusText().isEmpty());
     header.setFolder(QString());
     QCOMPARE(header.contextText(), QStringLiteral("Work"));
+  }
+
+  void everyVisibleControlHasAnAccessibleName() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                       QSettings::IniFormat);
+    seedTwoAccounts(directory, settings);
+
+    Gui::MainWindow window(&settings);
+    window.resize(1200, 800);
+    window.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&window));
+
+    QStringList unnamed;
+    const auto widgets = window.findChildren<QWidget *>();
+    for (QWidget *widget : widgets) {
+      if (!widget->isVisibleTo(&window) ||
+          !(widget->focusPolicy() & Qt::TabFocus))
+        continue;
+      if (!qobject_cast<QAbstractButton *>(widget) &&
+          !qobject_cast<QLineEdit *>(widget) &&
+          !qobject_cast<QComboBox *>(widget) &&
+          !qobject_cast<QAbstractItemView *>(widget) &&
+          !qobject_cast<QAbstractSpinBox *>(widget))
+        continue;
+      QAccessibleInterface *accessible =
+          QAccessible::queryAccessibleInterface(widget);
+      if (!accessible ||
+          accessible->text(QAccessible::Name).trimmed().isEmpty())
+        unnamed << QStringLiteral("%1 \"%2\" in %3").arg(
+            QString::fromLatin1(widget->metaObject()->className()),
+            widget->objectName(),
+            QString::fromLatin1(
+                widget->parentWidget()->metaObject()->className()));
+    }
+    QVERIFY2(unnamed.isEmpty(),
+             qPrintable(unnamed.join(QStringLiteral(", "))));
   }
 };
 
