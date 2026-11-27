@@ -24,6 +24,7 @@ Legend: ![Tested][tested] · ![Needs verification][needs-verification] ·
 - [Windows and session lifecycle](#windows-and-session-lifecycle)
 - [Workspaces and window activation](#workspaces-and-window-activation)
 - [Notifications and status](#notifications-and-status)
+- [Desktop feedback](#desktop-feedback)
 - [Plasma widgets](#plasma-widgets)
 - [Files and attachments](#files-and-attachments)
 - [Search and indexing](#search-and-indexing)
@@ -51,6 +52,7 @@ whose branding work is in Development.
 | [Windows and session lifecycle](#windows-and-session-lifecycle)       | ![Needs verification][needs-verification] | Shell layout, panel and density preferences are stored with KConfig; the selected folder and message with `KSharedConfig::openStateConfig()`. Opt-in background running and start after login. Unsent messages are saved as drafts when the session ends; no Plasma session restore | M06.01         |
 | [Workspaces and window activation](#workspaces-and-window-activation) | ![Needs verification][needs-verification] | Requests from launchers, other applications, Plasma Search and notifications bring the window they are about to the front with Plasma's activation token. Windows are not pinned to desktops, Activities or screens                                                                 | M06.01         |
 | [Notifications and status](#notifications-and-status)                 | ![Limitation][limitation]                 | The footer shows connection status; an optional tray icon shows unread counts and network errors. KNotification is used only for background-account errors; there are no new-mail notifications                                                                                     | M06.01, M07    |
+| [Desktop feedback](#desktop-feedback)                                 | ![Needs verification][needs-verification] | Rules for every surface outside the window; the task manager entry shows the unread count of all inboxes, on by default                                                                                                                                                             | M06.02         |
 | [Plasma widgets](#plasma-widgets)                                     | ![Planned][planned]                       | None                                                                                                                                                                                                                                                                                | M06.02         |
 | [Files and attachments](#files-and-attachments)                       | ![Limitation][limitation]                 | The XDG portal file chooser for open, falling back to the KDE dialog; `QFileDialog` for save; attachments open through desktop file associations; the composer attaches dropped local files and fetches remote ones through KIO. KIO opens Plasma's file search for saved files     | M06.01, M06.03 |
 | [Search and indexing](#search-and-indexing)                           | ![Limitation][limitation]                 | Search runs on the IMAP server or in an opt-in index in the app's cache; saved files are found with Baloo or a live search in the file manager. Plasma Search (KRunner) can show indexed mail by subject or sender, off by default                                                  | M05, M06.01    |
@@ -146,9 +148,57 @@ Defined in **M06.01**
   build has KNotifications; otherwise it becomes a tray message while the tray
   icon is visible. See [multiple accounts](../CAVEATS.md#multiple-accounts).
   New-mail notifications and per-account or per-folder controls are not
-  implemented.
+  implemented. The rules for every surface outside the window are in
+  [Desktop feedback](#desktop-feedback).
 - **Verify:** Exercise notification suppression, grouped new mail, unavailable
   notification services and retry after a sync failure.
+
+## Desktop feedback
+
+Defined in **M06.02**
+([#102](https://github.com/mikepadiernos/plasma-impresario/issues/102)). These
+rules apply to every surface outside the main window, so that the desktop
+reflects mail without interrupting reading.
+
+| Surface                | Shows                                                                                | Interrupts                                  | Status                                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Task manager entry     | The unread messages in every account's INBOX; only the number                        | Never                                       | ![Tested][tested] On by default ([caveat](../CAVEATS.md#unread-count-on-the-task-manager))               |
+| Tray icon              | The unread count of the current account's watched folders, and whether it is offline | Never                                       | ![Tested][tested] Optional                                                                               |
+| Account notifications  | One notification for each background account failure, with **Open Account**          | A Plasma popup, which never takes the focus | ![Tested][tested] [#262](https://github.com/mikepadiernos/plasma-impresario/issues/262)                  |
+| Plasma Search          | The subject, sender and date of indexed mail                                         | Only when searched                          | ![Tested][tested] Off by default ([#354](https://github.com/mikepadiernos/plasma-impresario/issues/354)) |
+| New-mail notifications | Planned                                                                              | Planned to be grouped per account           | ![Planned][planned] [M07](../ROADMAP.md#m07-output-notifications-and-rules-automation)                   |
+| Plasma widgets         | Planned                                                                              | Never                                       | ![Planned][planned] [#245](https://github.com/mikepadiernos/plasma-impresario/issues/245)                |
+
+1. **Never take the focus.** Feedback does not raise, activate or focus a
+   window and does not open a dialog. Only the user's action, such as a
+   notification action, a click on the tray icon or the task manager entry, or
+   a Plasma Search match, brings a window forward, with Plasma's activation
+   token ([Workspaces and window activation](#workspaces-and-window-activation)).
+2. **Show it in the application first.** Every state shown on the desktop is
+   also in the window: the account selector, the sidebar header or the footer.
+   A notification is never the only record of a failure.
+3. **Numbers before content.** Passive surfaces show counts and states, not
+   senders, subjects or message text. Subjects and senders leave the
+   application only through surfaces the user turns on, such as Plasma Search
+   and the planned widgets; message text never does.
+4. **Report changes, once.** Counts are sent only when they change, after
+   coalescing bursts, and a failure raises one notification rather than one
+   per retry. New mail will update one notification per account (M07).
+5. **Follow Plasma's settings.** Notification popups, Do Not Disturb and
+   history are Plasma's, through KNotifications; the task manager can hide
+   badges with **Show progress and status information in task buttons**.
+   Each surface the application adds can be turned off in its settings.
+6. **Degrade quietly.** Without a tray, a task manager or a notification
+   service, nothing is shown and no error appears; the state stays in the
+   window.
+7. **Leave the reader alone.** Feedback about the folder being read in the
+   active window stays in the window; new-mail notifications (M07) are to skip
+   it.
+
+- **Verify:** In a Plasma 6 session, check that no surface takes the focus
+  while typing in the composer or reading, that the task manager count matches
+  the inboxes, and that Do Not Disturb holds the account notifications
+  ([M15](../ROADMAP.md#m15-real-plasma-session-verification)).
 
 ## Plasma widgets
 
@@ -339,6 +389,7 @@ credentials, the session and notifications, and what it does without them.
 | Settings          | KConfig for app preferences and `KSharedConfig::openStateConfig()` for session state; account settings stay in `QSettings`      | Not optional                                                                                   |
 | Credentials       | The QtKeychain plugin, which stores passwords in KWallet or the Secret Service                                                  | The cleartext plugin, only with consent ([caveat](../CAVEATS.md#security-and-data-protection)) |
 | Window activation | KWindowSystem with the request's activation token                                                                               | The window may only be marked as wanting attention                                             |
+| Task manager      | The `com.canonical.Unity.LauncherEntry` signal for the unread count                                                             | No count on the entry; the window and the tray still show it                                   |
 
 [limitation]: https://img.shields.io/badge/Limitation-bc4c00
 [needs-verification]: https://img.shields.io/badge/Needs_verification-0969da

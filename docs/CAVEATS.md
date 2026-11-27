@@ -48,6 +48,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Window activation for requests](#window-activation-for-requests)
   - [Saving unsent messages at session end](#saving-unsent-messages-at-session-end)
   - [Portal file chooser](#portal-file-chooser)
+  - [Unread count on the task manager](#unread-count-on-the-task-manager)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -82,6 +83,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Window activation | Requests pass Plasma's activation token to the window they open, but nothing is checked in a Plasma session; a composer opened by a first launch and the address book window may only be marked as wanting attention ([details](#window-activation-for-requests))                                                                                                                                                                                     | [#467](https://github.com/mikepadiernos/plasma-impresario/issues/467)                                                                        |
 | ![Limitation][limitation] | Session end       | Open composers save unsent messages as drafts when the session ends, but nothing is checked in a Plasma session; attachments are not saved, and on Wayland **Save Draft?** may hold up logging out ([details](#saving-unsent-messages-at-session-end))                                                                                                                                                                                                | [#468](https://github.com/mikepadiernos/plasma-impresario/issues/468)                                                                        |
 | ![Limitation][limitation] | File chooser      | Files are chosen through the XDG portal file chooser, falling back to the KDE dialog, but nothing is checked in a Plasma session or with Plasma Opus; save dialogs still use the KDE dialog, and remote locations in the portal depend on kio-fuse ([details](#portal-file-chooser))                                                                                                                                                                  | [#470](https://github.com/mikepadiernos/plasma-impresario/issues/470)                                                                        |
+| ![Limitation][limitation] | Task manager      | The task manager entry shows the unread messages in every account's INBOX, but nothing is checked in a Plasma session; the tray icon counts other folders, and accounts not yet connected add nothing ([details](#unread-count-on-the-task-manager))                                                                                                                                                                                                  | [#471](https://github.com/mikepadiernos/plasma-impresario/issues/471)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -1963,6 +1965,47 @@ Plasma session; that check is
 - Ask the portal's `SaveFile` for save dialogs as well.
 - Disable every app window while the portal's dialog is open, as a modal
   dialog would.
+
+### Unread count on the task manager
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                         |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| [#471](https://github.com/mikepadiernos/plasma-impresario/issues/471) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/471#issuecomment-7213633218) | The unread count on the task manager entry ([#102](https://github.com/mikepadiernos/plasma-impresario/issues/102)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] The task manager entry shows the unread messages in the
+  INBOX of every account, through the `com.canonical.Unity.LauncherEntry`
+  signal. Only the number is sent, and only when it changes; nothing unread
+  hides it, and the first count clears what an earlier run left.
+- ![Resolved][resolved] It is on by default and can be turned off under
+  **Settings → General → Show the unread count on the task manager entry**,
+  which hides the count.
+- ![Limitation][limitation] The tray icon counts the watched folders of the
+  current account, so its number can differ.
+- ![Limitation][limitation] Accounts that are offline or not yet connected add
+  nothing until their count is known, so the number can grow after start.
+- ![Limitation][limitation] Plasma's task manager matches the signal to an
+  installed desktop entry, so a build run without installing shows no count.
+- ![Limitation][limitation] The tests receive the signal over a private D-Bus
+  connection and check a live total with two Dovecot accounts; nothing is tried
+  in a Plasma session. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- To hide the count, turn off the setting, or turn off **Show progress and
+  status information in task buttons** in the Plasma task manager's settings.
+- For the count of a single account, see the account selector or the sidebar
+  header.
+
+**Proposed improvements:**
+
+- Check the count in Plasma 6 on Wayland and X11 with several accounts,
+  offline and after quitting.
+- Count the same folders for the tray icon and the task manager entry, with one
+  setting for both.
+- Let the count include other watched folders or only selected accounts.
 
 ## Before reporting results
 

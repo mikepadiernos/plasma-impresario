@@ -560,7 +560,9 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
         unread-count, sync-status, and compose widgets. See the
         [integration design](integrations/kde-plasma.md#plasma-widgets).
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=315433787)
-  - [ ] Define Plasma mail integration expectations for rich desktop feedback without interrupting the reading workflow [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569766)
+  - [ ] Define Plasma mail integration expectations for rich desktop feedback without interrupting the reading workflow. See
+        [Desktop feedback](integrations/kde-plasma.md#desktop-feedback).
+        [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569766)
 
 - **M06.03: File manager handoff**
 
@@ -657,6 +659,9 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   ![Backlog][backlog]
 - [Portal file chooser](CAVEATS.md#portal-file-chooser)
   ([#470](https://github.com/mikepadiernos/plasma-impresario/issues/470))
+  ![Backlog][backlog]
+- [Unread count on the task manager](CAVEATS.md#unread-count-on-the-task-manager)
+  ([#471](https://github.com/mikepadiernos/plasma-impresario/issues/471))
   ![Backlog][backlog]
 
 ### M07: Output, notifications, and rules automation
