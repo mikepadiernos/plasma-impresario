@@ -269,8 +269,9 @@ void AttachmentPanel::openCurrent()
     const QPersistentModelIndex part = currentPart();
     if (!part.isValid() || !m_netAccess)
         return;
+    const QString shownName = Imap::Network::FileDownloadManager::toRealFileName(part);
     if (!MailSafetyPrompt::confirmOpening(this, MailSafetyPrompt::junkVerdictOfPart(part), UiUtils::MailSafety::ScanResult::NotScanned,
-                                          Imap::Network::FileDownloadManager::toRealFileName(part)))
+                                          shownName))
         return;
 
     auto *manager = new Imap::Network::FileDownloadManager(this, m_netAccess, part);
@@ -284,10 +285,16 @@ void AttachmentPanel::openCurrent()
             emit transferError(i18nc("@info", "Cannot prepare a copy of the attachment to open: %1", error));
         *fileName = *requested;
     });
-    connect(manager, &Imap::Network::FileDownloadManager::succeeded, manager, [manager, fileName]() {
+    connect(manager, &Imap::Network::FileDownloadManager::succeeded, manager, [this, manager, fileName, shownName]() {
         // Read-only, so that the launched application does not attempt to modify it
         QFile::setPermissions(*fileName, QFile::ReadOwner);
-        QDesktopServices::openUrl(QUrl::fromLocalFile(*fileName));
+        const QString file = *fileName;
+        MailSafetyPrompt::scanBeforeOpening(this, file, shownName, [file](bool open) {
+            if (open)
+                QDesktopServices::openUrl(QUrl::fromLocalFile(file));
+            else
+                Common::PrivateFiles::removeOpenedAttachment(Common::PrivateFiles::openedAttachmentsFolder(), file);
+        });
         manager->deleteLater();
     });
     connect(manager, &Imap::Network::FileDownloadManager::transferError, this, [this, manager, fileName](const QString &error) {

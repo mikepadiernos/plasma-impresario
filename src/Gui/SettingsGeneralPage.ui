@@ -214,6 +214,26 @@
       </property>
      </widget>
     </item>
+    <item row="15" column="0" colspan="2">
+     <widget class="QCheckBox" name="guiScanAttachmentsCheckbox">
+      <property name="toolTip">
+       <string>Before an attachment opens in another application, its content is sent to the ClamAV daemon (clamd) on this computer. Nothing leaves the computer. A threat blocks opening; when clamd cannot be reached or cannot decide, you are asked first. The socket is found automatically, or set with ClamdSocket in the MailSafety group of plasma-impresariorc.</string>
+      </property>
+      <property name="text">
+       <string>Scan attachments with ClamAV before opening them</string>
+      </property>
+     </widget>
+    </item>
+    <item row="16" column="0" colspan="2">
+     <widget class="QCheckBox" name="guiMoveJunkCheckbox">
+      <property name="toolTip">
+       <string>Marking a message as junk also moves it to the account's Junk folder, so that a spam filter on the server can learn from it. Marking a message in the Junk folder as not junk moves it to the inbox.</string>
+      </property>
+      <property name="text">
+       <string>Move messages marked as junk to the Junk folder</string>
+      </property>
+     </widget>
+    </item>
     <item row="4" column="0" colspan="2">
      <widget class="Line" name="line">
       <property name="orientation">

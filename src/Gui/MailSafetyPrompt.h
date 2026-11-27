@@ -5,6 +5,8 @@
 
 #include <QString>
 
+#include <functional>
+
 #include "UiUtils/MailSafety.h"
 
 class QModelIndex;
@@ -27,10 +29,20 @@ QString scanResultText(UiUtils::MailSafety::ScanResult scan, const QString &file
 /** @short Ask whether to open the attachment @arg fileName, if UiUtils::MailSafety::openDecision() requires it
 
 Returns true when the attachment may be opened: without a question when nothing speaks against it, or after the user
-chose "Open Anyway". A blocked attachment is reported and never opened.
+chose "Open Anyway". A blocked attachment is reported and never opened; @arg threat, when known, names what the
+scanner found.
 */
 bool confirmOpening(QWidget *parent, UiUtils::MailSafety::JunkVerdict verdict, UiUtils::MailSafety::ScanResult scan,
-                    const QString &fileName);
+                    const QString &fileName, const QString &threat = QString());
+
+/** @short Scan the downloaded copy @arg file of the attachment @arg fileName, if scanning is turned on, then ask
+
+When the ClamAV scan is turned off in the settings, @arg done receives true at once. Otherwise @arg file is streamed to
+the local clamd, and @arg done receives what confirmOpening() decides about the result. The junk verdict is not asked
+again; it was confirmed before the download. When @arg parent is destroyed during the scan, @arg done is not called and
+the opened copy @arg file is removed.
+*/
+void scanBeforeOpening(QWidget *parent, const QString &file, const QString &fileName, std::function<void(bool)> done);
 
 }
 

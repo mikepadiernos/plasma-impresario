@@ -266,9 +266,16 @@ void AttachmentView::openDownloadedAttachment()
 
     // Read-only, so that the launched application does not attempt to modify it; removed after a day
     QFile::setPermissions(m_openedFile, QFile::ReadOwner);
-    QDesktopServices::openUrl(QUrl::fromLocalFile(m_openedFile));
+    const QString file = m_openedFile;
     m_openedFile.clear();
-    m_openAttachment->setEnabled(true);
+    MailSafetyPrompt::scanBeforeOpening(this, file, Imap::Network::FileDownloadManager::toRealFileName(m_partIndex),
+                                        [this, file](bool open) {
+        if (open)
+            QDesktopServices::openUrl(QUrl::fromLocalFile(file));
+        else
+            Common::PrivateFiles::removeOpenedAttachment(Common::PrivateFiles::openedAttachmentsFolder(), file);
+        m_openAttachment->setEnabled(true);
+    });
 }
 
 bool AttachmentView::previewIsShown() const

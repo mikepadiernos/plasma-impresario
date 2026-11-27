@@ -327,6 +327,7 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/ActivationToken.cpp
     ${path_UiUtils}/Agenda.cpp
     ${path_UiUtils}/AttachmentCollector.cpp
+    ${path_UiUtils}/ClamdScanner.cpp
     ${path_UiUtils}/Color.cpp
     ${path_UiUtils}/Conversations.cpp
     ${path_UiUtils}/Formatting.cpp
@@ -375,6 +376,7 @@ set(libDesktopServices_SOURCES
     ${path_UiUtils}/DesktopFeedback.cpp
     ${path_UiUtils}/DestructiveActions.cpp
     ${path_UiUtils}/FileSearch.cpp
+    ${path_UiUtils}/MailSafetySettings.cpp
     ${path_UiUtils}/PlasmaSearch.cpp
     ${path_UiUtils}/SavedSearches.cpp
 )

@@ -176,6 +176,7 @@
 #include "Imap/Model/ModelTest/modeltest.h"
 #include "UiUtils/BackgroundRunning.h"
 #include "UiUtils/IconLoader.h"
+#include "UiUtils/MailSafetySettings.h"
 #include "UiUtils/MessageId.h"
 #include "UiUtils/MessageIdLookup.h"
 #include "UiUtils/PlasmaSearch.h"
@@ -4759,6 +4760,8 @@ void MainWindow::handleMarkAsJunk(const bool value)
                               : i18ncp("@info", "Removing the junk mark from %1 message…", "Removing the junk mark from %1 messages…",
                                        count),
                         done, failed);
+        if (value)
+            moveAfterJunkMark(translatedIndexes, true);
     }
 }
 
@@ -4791,7 +4794,30 @@ void MainWindow::handleMarkAsNotJunk(const bool value)
                               : i18ncp("@info", "Removing the not-junk mark from %1 message…",
                                        "Removing the not-junk mark from %1 messages…", count),
                         done, failed);
+        if (value)
+            moveAfterJunkMark(translatedIndexes, false);
     }
+}
+
+void MainWindow::moveAfterJunkMark(const QModelIndexList &messages, const bool junk)
+{
+    Imap::Mailbox::Model *model = imapModel();
+    if (!model || messages.isEmpty() || !model->isNetworkAvailable()
+        || !UiUtils::MailSafetySettings::movesJunk(*KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"))))
+        return;
+    const QString junkFolder = model->specialFolderMailbox(Imap::Mailbox::SpecialUse::Junk);
+    const QString source = messages.constFirst().data(Imap::Mailbox::RoleMailboxName).toString();
+    if (junkFolder.isEmpty() || source.isEmpty()
+        || !std::all_of(messages.cbegin(), messages.cend(), [&source](const QModelIndex &message) {
+               return message.data(Imap::Mailbox::RoleMailboxName).toString() == source;
+           }))
+        return;
+    // Junk leaves any other folder for the Junk folder; not junk leaves only the Junk folder, for the inbox
+    if ((source == junkFolder) == junk)
+        return;
+    const QString target = junk ? junkFolder : QStringLiteral("INBOX");
+    trackMove(model->copyMoveMessages(target, messages, Imap::Mailbox::CopyMoveOperation::MOVE), source, target, messages.size(),
+              MoveKind::Folder);
 }
 
 void MainWindow::slotMoveToArchiveFailed(const QString &error, const int count)

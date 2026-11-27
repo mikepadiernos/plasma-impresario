@@ -713,6 +713,8 @@ private:
     QString currentMailboxName() const;
     /** @short The mailbox holding all of @arg messages, such as a message opened from another folder, else the list's */
     QString sourceMailboxName(const QModelIndexList &messages) const;
+    /** @short Move @arg messages just marked as @arg junk or not junk between the Junk folder and the inbox, if turned on */
+    void moveAfterJunkMark(const QModelIndexList &messages, bool junk);
     /** @short Ask before a permanent operation unless the user opted out; true means go ahead */
     bool confirmPermanentAction(UiUtils::DestructiveActions::Confirmation kind, const QString &title, const QString &text,
                                 const QString &acceptText);

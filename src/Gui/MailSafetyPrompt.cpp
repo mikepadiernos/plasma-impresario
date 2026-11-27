@@ -3,13 +3,20 @@
 */
 #include "Gui/MailSafetyPrompt.h"
 
+#include <QApplication>
 #include <QMessageBox>
+#include <QPointer>
 #include <QPushButton>
+#include <QTimer>
 
 #include <KLocalizedString>
+#include <KSharedConfig>
 
+#include "Common/PrivateFiles.h"
 #include "Cryptography/MessageModel.h"
 #include "Imap/Model/ItemRoles.h"
+#include "UiUtils/ClamdScanner.h"
+#include "UiUtils/MailSafetySettings.h"
 
 namespace Gui {
 
@@ -56,7 +63,7 @@ QString scanResultText(ScanResult scan, const QString &fileName)
     return QString();
 }
 
-bool confirmOpening(QWidget *parent, JunkVerdict verdict, ScanResult scan, const QString &fileName)
+bool confirmOpening(QWidget *parent, JunkVerdict verdict, ScanResult scan, const QString &fileName, const QString &threat)
 {
     const OpenDecision decision = UiUtils::MailSafety::openDecision(verdict, scan);
     if (decision == OpenDecision::Open)
@@ -67,7 +74,10 @@ bool confirmOpening(QWidget *parent, JunkVerdict verdict, ScanResult scan, const
                         QMessageBox::Close, parent);
         box.setObjectName(QStringLiteral("attachmentBlocked"));
         box.setTextFormat(Qt::PlainText);
-        box.setInformativeText(i18nc("@info", "You can still save it, for example to send it for analysis."));
+        QString details = i18nc("@info", "You can still save it, for example to send it for analysis.");
+        if (!threat.isEmpty())
+            details = i18nc("@info %1 is the name of a virus or other threat", "Threat: %1", threat) + QLatin1Char('\n') + details;
+        box.setInformativeText(details);
         box.exec();
         return false;
     }
@@ -89,6 +99,34 @@ bool confirmOpening(QWidget *parent, JunkVerdict verdict, ScanResult scan, const
     box.setDefaultButton(QMessageBox::Cancel);
     box.exec();
     return box.clickedButton() == open;
+}
+
+void scanBeforeOpening(QWidget *parent, const QString &file, const QString &fileName, std::function<void(bool)> done)
+{
+    const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    if (!UiUtils::MailSafetySettings::scansAttachments(*config)) {
+        done(true);
+        return;
+    }
+
+    // Not owned by the parent, so that a parent closed during the scan does not leave the opened copy behind
+    auto *scanner = new UiUtils::ClamdScanner();
+    QPointer<QWidget> guard(parent);
+    QApplication::setOverrideCursor(Qt::BusyCursor);
+    QObject::connect(scanner, &UiUtils::ClamdScanner::finished, scanner,
+                     [scanner, guard, file, fileName, done](ScanResult result, const QString &threat) {
+        scanner->deleteLater();
+        QApplication::restoreOverrideCursor();
+        if (!guard) {
+            Common::PrivateFiles::removeOpenedAttachment(Common::PrivateFiles::openedAttachmentsFolder(), file);
+            return;
+        }
+        // The question runs its own event loop, which must not run inside the scanner's signal
+        QTimer::singleShot(0, guard, [guard, result, threat, fileName, done]() {
+            done(confirmOpening(guard, JunkVerdict::Unclassified, result, fileName, threat));
+        });
+    });
+    scanner->scanFile(file, UiUtils::MailSafetySettings::scannerSocketToUse(*config));
 }
 
 }

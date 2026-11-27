@@ -62,6 +62,7 @@
 #include "Plugins/PluginManager.h"
 #include "UiUtils/BackgroundRunning.h"
 #include "UiUtils/DesktopFeedback.h"
+#include "UiUtils/MailSafetySettings.h"
 #include "UiUtils/PlasmaSearch.h"
 #include "UiUtils/IconLoader.h"
 #include "SettingsOAuthControls.h"
@@ -461,6 +462,8 @@ GeneralPage::GeneralPage(SettingsDialog *parent, QSettings &s):
         });
         guiPlasmaSearchCheckbox->setChecked(UiUtils::PlasmaSearch::isEnabled(*config));
         guiUnreadCountCheckbox->setChecked(UiUtils::DesktopFeedback::showsUnreadCount(*config));
+        guiScanAttachmentsCheckbox->setChecked(UiUtils::MailSafetySettings::scansAttachments(*config));
+        guiMoveJunkCheckbox->setChecked(UiUtils::MailSafetySettings::movesJunk(*config));
     }
 
     preferPlaintextCheckbox->setChecked(s.value(Common::SettingsNames::guiPreferPlaintextRendering).toBool());
@@ -691,6 +694,8 @@ void GeneralPage::save(QSettings &s)
         }
         UiUtils::PlasmaSearch::setEnabled(*config, guiPlasmaSearchCheckbox->isChecked());
         UiUtils::DesktopFeedback::setShowsUnreadCount(*config, guiUnreadCountCheckbox->isChecked());
+        UiUtils::MailSafetySettings::setScansAttachments(*config, guiScanAttachmentsCheckbox->isChecked());
+        UiUtils::MailSafetySettings::setMovesJunk(*config, guiMoveJunkCheckbox->isChecked());
     }
 
 #define HANDLE_PLUGIN(LOWERCASE, UPPERCASE) \
