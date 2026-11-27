@@ -58,6 +58,13 @@ bool isRunning()
         QDBusConnection::sessionBus().interface()->isServiceRegistered(service());
 }
 
+void handOverActivationToken(const QString &token)
+{
+    // Messages on one connection arrive in order, so the token is there before the request it belongs to
+    if (!token.isEmpty())
+        interface().call(QDBus::NoBlock, QStringLiteral("setActivationToken"), token);
+}
+
 void showMainWindow()
 {
     interface().call(QDBus::NoBlock, QStringLiteral("showMainWindow"));
@@ -125,7 +132,8 @@ bool registerInstance(Gui::MainWindow *window, QString &error)
             }
             return result;
         },
-        [window](const QString &matchId) { window->openPlasmaSearchMatch(matchId); }, window);
+        [window](const QString &matchId) { window->openPlasmaSearchMatch(matchId); },
+        [window](const QString &token) { window->setActivationToken(token); }, window);
     if (!conn.registerObject(KRunnerBridge::objectPath(), runner, QDBusConnection::ExportAllSlots)) {
         // Only Plasma Search goes without mail
         qWarning() << "Cannot offer mail to Plasma Search:" << conn.lastError().message();

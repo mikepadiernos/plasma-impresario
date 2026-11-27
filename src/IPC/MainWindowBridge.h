@@ -40,6 +40,8 @@ public:
     MainWindowBridge(Gui::MainWindow *window);
 
 public slots:
+    /** The token which lets the window shown for the next request come to the front */
+    void setActivationToken(const QString &token);
     void showMainWindow();
     void showAddressbookWindow();
     void composeMail(const QString &url);

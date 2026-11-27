@@ -75,6 +75,7 @@
 #include <KLocalizedString>
 #include <KService>
 #include <KSharedConfig>
+#include <KWindowSystem>
 
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_KNOTIFICATIONS
@@ -2548,9 +2549,40 @@ void MainWindow::slotIconActivated(const QSystemTrayIcon::ActivationReason reaso
 
 void MainWindow::showMainWindow()
 {
-    setVisible(true);
-    activateWindow();
-    raise();
+    activateForRequest(this);
+}
+
+void MainWindow::setActivationToken(const QString &token)
+{
+    m_activationToken.handOver(token, QDateTime::currentDateTimeUtc());
+}
+
+bool MainWindow::hasActivationToken() const
+{
+    return m_activationToken.isPending();
+}
+
+void MainWindow::activateForRequest(QWidget *window)
+{
+    window->setVisible(true);
+    window->raise();
+    window->activateWindow();
+    const QString token = m_activationToken.take(QDateTime::currentDateTimeUtc());
+    QWindow *handle = window->windowHandle();
+    if (!handle)
+        return;
+    if (!token.isEmpty()) {
+        if (KWindowSystem::isPlatformWayland()) {
+            KWindowSystem::setCurrentXdgActivationToken(token);
+        } else if (KWindowSystem::isPlatformX11()) {
+            // KWindowSystem reads the startup ID of a request handled by a running instance from the environment
+            qputenv("DESKTOP_STARTUP_ID", token.toLatin1());
+            KWindowSystem::updateStartupId(handle);
+            qunsetenv("DESKTOP_STARTUP_ID");
+        }
+    }
+    // Without a token, Plasma may only mark the window as wanting attention instead of raising it
+    KWindowSystem::activateWindow(handle);
 }
 
 void MainWindow::saveMessageSelection(const QModelIndex &index)
@@ -3740,7 +3772,8 @@ void MainWindow::notifyBackgroundAccount(const QString &accountId)
     notification->setText(text.toHtmlEscaped());
     notification->setWindow(windowHandle());
     KNotificationAction *open = notification->addDefaultAction(i18nc("@action:button", "Open Account"));
-    connect(open, &KNotificationAction::activated, this, [this, accountId]() {
+    connect(open, &KNotificationAction::activated, this, [this, accountId, notification]() {
+        setActivationToken(notification->xdgActivationToken());
         switchAccount(accountId);
         showMainWindow();
     });
@@ -5746,14 +5779,15 @@ void MainWindow::slotComposeMailUrl(const QUrl &url)
 
 void MainWindow::composeMailFromOtherApplication(const QUrl &url, const QStringList &files)
 {
-    if (url.isEmpty() && files.isEmpty()) {
-        slotComposeMail();
-        return;
-    }
-    ComposeWidget::warnIfMsaNotConfigured(
-        ComposeWidget::createFromUrl(this, url.isEmpty() ? QUrl(QStringLiteral("mailto:")) : url,
-                                     ComposeWidget::UrlOrigin::OtherApplication, files),
-        this);
+    ComposeWidget *composer = url.isEmpty() && files.isEmpty()
+        ? ComposeWidget::warnIfMsaNotConfigured(ComposeWidget::createBlank(this), this)
+        : ComposeWidget::warnIfMsaNotConfigured(
+              ComposeWidget::createFromUrl(this, url.isEmpty() ? QUrl(QStringLiteral("mailto:")) : url,
+                                           ComposeWidget::UrlOrigin::OtherApplication, files),
+              this);
+    // The composer is the window the request is about, so it comes to the front rather than the main window
+    if (composer)
+        activateForRequest(composer);
 }
 
 void MainWindow::slotManageContact(const QUrl &url)

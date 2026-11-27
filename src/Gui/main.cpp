@@ -27,6 +27,7 @@
 #include <QFileInfo>
 #include <QLibraryInfo>
 #include <QObject>
+#include <QProcessEnvironment>
 #include <QSettings>
 #include <QTimer>
 #include <QTextStream>
@@ -46,6 +47,7 @@
 #endif
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "IPC/IPC.h"
+#include "UiUtils/ActivationToken.h"
 #include "UiUtils/BackgroundRunning.h"
 #include "UiUtils/IconLoader.h"
 
@@ -57,6 +59,9 @@ int main(int argc, char **argv)
     Gui::WebEngineMessageProfile::registerScheme();
 #endif
     Common::registerMetaTypes();
+
+    // Read before Qt clears the startup ID; a running instance needs it to come to the front for this launch
+    const QString activationToken = UiUtils::ActivationToken::fromEnvironment(QProcessEnvironment::systemEnvironment());
 
     QApplication app(argc, argv);
 
@@ -191,6 +196,7 @@ int main(int argc, char **argv)
     }
 
     if (IPC::Instance::isRunning()) {
+        IPC::Instance::handOverActivationToken(activationToken);
         if (showMainWindow)
             IPC::Instance::showMainWindow();
         if (showAddressbookWindow)

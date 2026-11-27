@@ -83,7 +83,7 @@ find_package(KF6 REQUIRED
 )
 
 if(WITH_DESKTOP)
-    find_package(KF6 REQUIRED COMPONENTS Config I18n KIO)
+    find_package(KF6 REQUIRED COMPONENTS Config I18n KIO WindowSystem)
     ki18n_install(po)
 endif()
 
@@ -324,6 +324,7 @@ set(libOAuth_SOURCES
 
 set(path_UiUtils ${CMAKE_CURRENT_SOURCE_DIR}/src/UiUtils)
 set(libUiUtils_SOURCES
+    ${path_UiUtils}/ActivationToken.cpp
     ${path_UiUtils}/Agenda.cpp
     ${path_UiUtils}/AttachmentCollector.cpp
     ${path_UiUtils}/Color.cpp
@@ -1018,6 +1019,7 @@ if(WITH_DESKTOP)
             KF6::I18n
             KF6::KIOGui
             KF6::KIOWidgets
+            KF6::WindowSystem
             Cryptography
             IPC
             MSA

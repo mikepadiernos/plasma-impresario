@@ -41,6 +41,7 @@
 #include "Imap/Model/GroupingMsgListModel.h"
 #include "Imap/Model/SpecialFolder.h"
 #include "Imap/Parser/Uids.h"
+#include "UiUtils/ActivationToken.h"
 #include "UiUtils/Agenda.h"
 #include "UiUtils/DestructiveActions.h"
 #include "UiUtils/PlasmaSearch.h"
@@ -157,7 +158,16 @@ class MainWindow: public QMainWindow
 public:
     MainWindow(QSettings *settings);
     ~MainWindow() override;
+    /** @short Show the window and bring it to the front, with the activation token handed over for a request */
     void showMainWindow();
+    /** @short Keep the token which lets the next window shown for a request come to the front
+
+    Requests from launchers, other applications and Plasma Search hand their token over before they are handled; see
+    UiUtils::ActivationToken.
+    */
+    void setActivationToken(const QString &token);
+    /** @short Whether a handed-over activation token waits for a window */
+    bool hasActivationToken() const;
     QSize sizeHint() const override;
 
     Imap::Mailbox::Model *imapModel() const;
@@ -414,6 +424,8 @@ protected:
     void resizeEvent(QResizeEvent *) override;
 
 private:
+    /** Show @arg window and bring it to the front with the activation token, which is spent */
+    void activateForRequest(QWidget *window);
     void reply(const Composer::ReplyMode mode);
     /** @short Select and open a mailbox of the active account, showing the message list */
     void goToMailbox(const QString &mailbox);
@@ -807,6 +819,7 @@ private:
 
     Common::AccountRegistry *m_accounts = nullptr;
     Common::AccountStatusTracker *m_accountStatus = nullptr;
+    UiUtils::ActivationToken m_activationToken;
     QHash<QString, Imap::ImapAccess *> m_accountAccess;
     QComboBox *m_accountSwitcher = nullptr;
     Imap::ImapAccess *m_imapAccess;

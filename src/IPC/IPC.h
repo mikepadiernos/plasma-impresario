@@ -36,6 +36,11 @@ namespace IPC {
     namespace Instance {
         /** Return true if Trojita instance is running. This is blocking function. */
         bool isRunning();
+        /** @short Hand the token which lets the next window of the running instance come to the front over to it
+
+        Call before the request which shows the window; an empty token is not sent.
+        */
+        void handOverActivationToken(const QString &token);
         /** Show main window of running instance. */
         void showMainWindow();
         /** Show addressbook window of running instance. */

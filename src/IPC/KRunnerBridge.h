@@ -46,8 +46,9 @@ const QDBusArgument &operator>>(const QDBusArgument &argument, RunnerAction &act
 /** @short The org.kde.krunner1 interface, through which Plasma Search asks the application for matches
 
 KRunner finds the object through the plugin metadata installed in share/krunner/dbusplugins, calls Match() as the user
-types and Run() with the ID of the chosen match. Finding and opening the matches is left to the two functions given,
-so that this class knows nothing of the windows.
+types and Run() with the ID of the chosen match. On Wayland, KRunner calls SetActivationToken() just before Run() so
+that the window showing the match can come to the front. Finding and opening the matches and keeping the token are left
+to the functions given, so that this class knows nothing of the windows.
 */
 class KRunnerBridge : public QObject
 {
@@ -57,11 +58,12 @@ class KRunnerBridge : public QObject
 public:
     using Search = std::function<RunnerMatches(const QString &query)>;
     using Open = std::function<void(const QString &matchId)>;
+    using HandOverToken = std::function<void(const QString &token)>;
 
     /** KRunner's CategoryRelevance::Low, formerly PossibleMatch, for matches which are suggestions */
     static constexpr int categoryRelevanceLow = 30;
 
-    KRunnerBridge(Search search, Open open, QObject *parent = nullptr);
+    KRunnerBridge(Search search, Open open, HandOverToken handOverToken = {}, QObject *parent = nullptr);
 
     /** The object path which the plugin metadata names */
     static QString objectPath();
@@ -71,6 +73,8 @@ public:
 public slots:
     IPC::RunnerActions Actions();
     IPC::RunnerMatches Match(const QString &query);
+    /** The XDG activation token for the Run() call which follows */
+    void SetActivationToken(const QString &token);
     void Run(const QString &matchId, const QString &actionId);
     /** Called when a search session ends; nothing is kept between queries */
     void Teardown();
@@ -78,6 +82,7 @@ public slots:
 private:
     Search m_search;
     Open m_open;
+    HandOverToken m_handOverToken;
 };
 
 }

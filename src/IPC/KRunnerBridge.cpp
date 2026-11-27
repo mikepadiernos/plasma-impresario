@@ -43,10 +43,11 @@ const QDBusArgument &operator>>(const QDBusArgument &argument, RunnerAction &act
     return argument;
 }
 
-KRunnerBridge::KRunnerBridge(Search search, Open open, QObject *parent)
+KRunnerBridge::KRunnerBridge(Search search, Open open, HandOverToken handOverToken, QObject *parent)
     : QObject(parent)
     , m_search(std::move(search))
     , m_open(std::move(open))
+    , m_handOverToken(std::move(handOverToken))
 {
     registerTypes();
 }
@@ -73,6 +74,12 @@ RunnerActions KRunnerBridge::Actions()
 RunnerMatches KRunnerBridge::Match(const QString &query)
 {
     return m_search ? m_search(query) : RunnerMatches();
+}
+
+void KRunnerBridge::SetActivationToken(const QString &token)
+{
+    if (m_handOverToken)
+        m_handOverToken(token);
 }
 
 void KRunnerBridge::Run(const QString &matchId, const QString &actionId)

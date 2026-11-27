@@ -35,6 +35,11 @@ MainWindowBridge::MainWindowBridge(Gui::MainWindow *window) : QObject(window), m
 
 }
 
+void MainWindowBridge::setActivationToken(const QString &token)
+{
+    m_window->setActivationToken(token);
+}
+
 void MainWindowBridge::showMainWindow()
 {
     m_window->showMainWindow();

@@ -33,6 +33,11 @@ bool isRunning()
     return false;
 }
 
+void handOverActivationToken(const QString &)
+{
+    Q_ASSERT(false);
+}
+
 void showMainWindow()
 {
     Q_ASSERT(false);
