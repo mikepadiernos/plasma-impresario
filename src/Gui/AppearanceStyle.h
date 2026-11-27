@@ -70,6 +70,8 @@ public:
 private:
     bool drawItemPanel(const QStyleOption *option, QPainter *painter, const QWidget *widget) const;
     bool drawBranch(const QStyleOption *option, QPainter *painter, const QWidget *widget) const;
+    /** @short Draw a mail tab with the shape, colour and indicator of the Theme settings */
+    bool drawTabShape(const QStyleOption *option, QPainter *painter, const QWidget *widget) const;
     void drawMenuMarker(const QStyleOptionComplex *option, QPainter *painter) const;
 };
 

@@ -3,6 +3,7 @@
 */
 #pragma once
 
+#include <QColor>
 #include <QTabBar>
 
 #include "UiUtils/MailTabs.h"
@@ -21,6 +22,8 @@ public:
     struct Entry {
         QString label;
         QString toolTip;
+        /** The folder colour of the tab, else its account colour, if any */
+        QColor color = QColor();
     };
 
     explicit MailTabBar(QWidget *parent = nullptr);
@@ -31,6 +34,8 @@ public:
     void setPlacement(UiUtils::MailTabs::Region region, Qt::Orientation orientation);
     UiUtils::MailTabs::Region region() const;
     Qt::Orientation orientation() const;
+    /** @short The colour of tab @arg index, which the Theme settings show as text, a tint or a strong fill */
+    QColor tabColor(int index) const;
 
     /** @short The shape of the tabs for @arg region and @arg orientation, opening towards the content */
     static QTabBar::Shape shapeFor(UiUtils::MailTabs::Region region, Qt::Orientation orientation);
@@ -40,6 +45,10 @@ signals:
     void tabActivated(int index);
 
 private:
+    /** @short Colour the text of the tabs as the colour strength of the Theme settings asks */
+    void applyColors();
+
+    QList<QColor> m_colors;
     UiUtils::MailTabs::Region m_region = UiUtils::MailTabs::Region::Header;
     Qt::Orientation m_orientation = Qt::Horizontal;
     bool m_updating = false;

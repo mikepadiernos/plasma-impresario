@@ -3,14 +3,18 @@
 */
 #include "Gui/AppearanceManager.h"
 #include "Gui/AppearanceStyle.h"
+#include "Gui/MailTabBar.h"
+#include "UiUtils/Color.h"
 #include "UiUtils/SettingsStore.h"
 #include "UiUtils/Theme.h"
 
 #include <KConfig>
 #include <KLocalizedString>
 #include <QApplication>
+#include <QLabel>
 #include <QMenu>
 #include <QStandardPaths>
+#include <QStatusBar>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QToolButton>
@@ -32,6 +36,8 @@ private slots:
     void spacingScalesTheStyle();
     void animationsCanBeTurnedOff();
     void loadReadsTheConfigAndWorkspacesCanBeIgnored();
+    void tabsShowTheirColourShapeAndIndicator();
+    void statusBarStyles();
 
 private:
     static Theme::Values with(std::initializer_list<std::pair<const char *, QVariant>> changes)
@@ -165,6 +171,74 @@ void AppearanceTest::loadReadsTheConfigAndWorkspacesCanBeIgnored()
     AppearanceManager::instance()->load(config);
     QVERIFY(AppearanceManager::instance()->value(QStringLiteral("StripeFolderTree")).toBool());
     AppearanceManager::instance()->setWorkspaceAppearanceDisabled(false);
+}
+
+void AppearanceTest::tabsShowTheirColourShapeAndIndicator()
+{
+    Gui::MailTabBar bar;
+    const QColor folder(0xf6, 0x74, 0x00);
+    bar.setEntries({{QStringLiteral("Inbox"), QString(), folder}, {QStringLiteral("Archive"), QString(), QColor()}}, 0);
+    bar.resize(320, bar.sizeHint().height());
+    bar.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&bar));
+    QCOMPARE(bar.tabColor(0), folder);
+    QVERIFY(!bar.tabColor(1).isValid());
+    QVERIFY(!bar.tabColor(5).isValid());
+
+    // Coloured text by default, readable on the window, and the palette's text without a colour
+    const QColor window = bar.palette().color(QPalette::Window);
+    QVERIFY(bar.tabTextColor(0).isValid());
+    QVERIFY(UiUtils::contrastRatio(bar.tabTextColor(0), window) >= 4.4);
+    QVERIFY(!bar.tabTextColor(1).isValid());
+    const QImage plain = bar.grab().toImage();
+
+    apply(with({{"TabColorStrength", QStringLiteral("Tint")}}));
+    QVERIFY(!bar.tabTextColor(0).isValid());
+    const QImage tinted = bar.grab().toImage();
+    QVERIFY(tinted != plain);
+
+    apply(with({{"TabColorStrength", QStringLiteral("Strong")}}));
+    QCOMPARE(bar.tabTextColor(0), UiUtils::readableTextColor(folder));
+    QVERIFY(bar.grab().toImage() != tinted);
+
+    // A shape of the app's own, with each indicator
+    QImage previous = plain;
+    for (const char *shape : {"Rounded", "Square", "Flat"}) {
+        apply(with({{"TabShape", QString::fromLatin1(shape)}}));
+        const QImage line = bar.grab().toImage();
+        QVERIFY2(line != previous, shape);
+        apply(with({{"TabShape", QString::fromLatin1(shape)}, {"TabIndicator", QStringLiteral("ThickLine")}}));
+        const QImage thick = bar.grab().toImage();
+        QVERIFY2(thick != line, shape);
+        apply(with({{"TabShape", QString::fromLatin1(shape)}, {"TabIndicator", QStringLiteral("None")}}));
+        QVERIFY2(bar.grab().toImage() != line, shape);
+        previous = line;
+    }
+
+    // Back to the defaults, the style draws the tabs as before
+    apply(Theme::defaults());
+    QCOMPARE(bar.grab().toImage(), plain);
+}
+
+void AppearanceTest::statusBarStyles()
+{
+    QStatusBar status;
+    status.addWidget(new QLabel(QStringLiteral("Online")));
+    status.addPermanentWidget(new QLabel(QStringLiteral("3 unread")));
+    status.addPermanentWidget(new QLabel(QStringLiteral("Synced")));
+    status.resize(360, status.sizeHint().height() + 6);
+    status.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&status));
+    const QImage style = status.grab().toImage();
+    apply(with({{"StatusBarStyle", QStringLiteral("Separated")}}));
+    const QImage separated = status.grab().toImage();
+    QVERIFY(separated != style);
+    apply(with({{"StatusBarStyle", QStringLiteral("Shaded")}}));
+    const QImage shaded = status.grab().toImage();
+    QVERIFY(shaded != style);
+    QVERIFY(shaded != separated);
+    apply(Theme::defaults());
+    QCOMPARE(status.grab().toImage(), style);
 }
 
 QTEST_MAIN(AppearanceTest)

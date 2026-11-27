@@ -18,6 +18,8 @@
 #include <QTreeView>
 
 #include "Gui/AppearanceManager.h"
+#include "Gui/MailTabBar.h"
+#include "UiUtils/Color.h"
 #include "UiUtils/Theme.h"
 
 namespace Gui {
@@ -81,6 +83,69 @@ QPainterPath cellPath(const QRectF &rect, qreal radius, QStyleOptionViewItem::Vi
     QPainterPath clip;
     clip.addRect(rect);
     return rounded.intersected(clip);
+}
+
+/** @short The edge of a tab which faces the content it shows */
+Qt::Edge contentEdge(QTabBar::Shape shape)
+{
+    switch (shape) {
+    case QTabBar::RoundedSouth:
+    case QTabBar::TriangularSouth:
+        return Qt::TopEdge;
+    case QTabBar::RoundedWest:
+    case QTabBar::TriangularWest:
+        return Qt::RightEdge;
+    case QTabBar::RoundedEast:
+    case QTabBar::TriangularEast:
+        return Qt::LeftEdge;
+    default:
+        return Qt::BottomEdge;
+    }
+}
+
+/** @short The outline of a tab with rounded corners away from the content */
+QPainterPath tabPath(const QRectF &rect, qreal radius, Qt::Edge content)
+{
+    QPainterPath path;
+    if (radius <= 0) {
+        path.addRect(rect);
+        return path;
+    }
+    // Extend the rectangle under the content edge, so that only the outer corners are rounded
+    QRectF rounded = rect;
+    switch (content) {
+    case Qt::TopEdge:
+        rounded.setTop(rect.top() - radius);
+        break;
+    case Qt::BottomEdge:
+        rounded.setBottom(rect.bottom() + radius);
+        break;
+    case Qt::LeftEdge:
+        rounded.setLeft(rect.left() - radius);
+        break;
+    case Qt::RightEdge:
+        rounded.setRight(rect.right() + radius);
+        break;
+    }
+    path.addRoundedRect(rounded, radius, radius);
+    QPainterPath clip;
+    clip.addRect(rect);
+    return path.intersected(clip);
+}
+
+QRect edgeLine(const QRect &rect, Qt::Edge edge, int width)
+{
+    switch (edge) {
+    case Qt::TopEdge:
+        return QRect(rect.left(), rect.top(), rect.width(), width);
+    case Qt::BottomEdge:
+        return QRect(rect.left(), rect.bottom() - width + 1, rect.width(), width);
+    case Qt::LeftEdge:
+        return QRect(rect.left(), rect.top(), width, rect.height());
+    case Qt::RightEdge:
+        return QRect(rect.right() - width + 1, rect.top(), width, rect.height());
+    }
+    return QRect();
 }
 
 /** @short Opens the menu of a button with a corner marker from the keyboard and
@@ -329,10 +394,31 @@ void AppearanceStyle::drawPrimitive(PrimitiveElement element, const QStyleOption
         }
         break;
     }
-    case PE_FrameStatusBarItem:
-        if (!followsStyle("StatusBarStyle"))
-            return;
-        break;
+    case PE_FrameStatusBarItem: {
+        const QString style = Gui::option("StatusBarStyle");
+        if (style == QLatin1String("FollowStyle"))
+            break;
+        painter->save();
+        const QRect r = option->rect;
+        if (style == QLatin1String("Shaded")) {
+            painter->setRenderHint(QPainter::Antialiasing);
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(option->palette.brush(QPalette::AlternateBase));
+            const qreal radius = qMax(0, scaledRadius(widget));
+            painter->drawRoundedRect(QRectF(r).adjusted(0.5, 1.5, -0.5, -1.5), radius, radius);
+        } else {
+            // A line before each item, except where an item starts at the edge of the bar
+            const bool rtl = option->direction == Qt::RightToLeft;
+            const int x = rtl ? r.right() : r.left();
+            const bool atEdge = widget && (rtl ? x >= widget->rect().right() - 3 : x <= widget->rect().left() + 3);
+            if (!atEdge) {
+                painter->setPen(neutralLine(option->palette));
+                painter->drawLine(x, r.top() + 3, x, r.bottom() - 3);
+            }
+        }
+        painter->restore();
+        return;
+    }
     case PE_PanelLineEdit:
     case PE_PanelTipLabel: {
         const int radius = scaledRadius(widget);
@@ -385,6 +471,10 @@ void AppearanceStyle::drawControl(ControlElement element, const QStyleOption *op
                 return;
             }
         }
+        break;
+    case CE_TabBarTabShape:
+        if (drawTabShape(option, painter, widget))
+            return;
         break;
     case CE_Splitter: {
         const QString dividers = Gui::option("Dividers");
@@ -450,6 +540,66 @@ void AppearanceStyle::drawControl(ControlElement element, const QStyleOption *op
         break;
     }
     QProxyStyle::drawControl(element, option, painter, widget);
+}
+
+bool AppearanceStyle::drawTabShape(const QStyleOption *option, QPainter *painter, const QWidget *widget) const
+{
+    const auto *bar = qobject_cast<const MailTabBar *>(widget);
+    const auto *tab = qstyleoption_cast<const QStyleOptionTab *>(option);
+    if (!bar || !tab)
+        return false;
+    const QString shape = Gui::option("TabShape");
+    const QString indicator = Gui::option("TabIndicator");
+    const QString strength = Gui::option("TabColorStrength");
+    const QColor color = bar->tabColor(tab->tabIndex);
+    const bool fill = color.isValid() && strength != QLatin1String("Text");
+    const bool followStyle = shape == QLatin1String("FollowStyle");
+    // The defaults leave the tabs to the style, with its own indicator
+    if (followStyle && !fill && indicator != QLatin1String("ThickLine"))
+        return false;
+
+    const bool selected = tab->state & State_Selected;
+    const bool hovered = (tab->state & State_MouseOver) && (tab->state & State_Enabled);
+    const Qt::Edge content = contentEdge(tab->shape);
+    const QRect r = tab->rect;
+    qreal radius = 0;
+    if (shape == QLatin1String("Rounded")) {
+        const int chosen = scaledRadius(widget);
+        radius = chosen > 0 ? chosen : qMax(3, widget->fontMetrics().height() / 4);
+    }
+    const QPainterPath path = tabPath(QRectF(r).adjusted(0.5, 0.5, -0.5, -0.5), radius, content);
+
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing);
+    if (followStyle) {
+        QProxyStyle::drawControl(CE_TabBarTabShape, option, painter, widget);
+    } else {
+        const QColor window = option->palette.color(QPalette::Window);
+        QColor background;
+        if (selected)
+            background = option->palette.color(QPalette::Base);
+        else if (hovered || shape != QLatin1String("Flat")) {
+            QColor shade = option->palette.color(QPalette::WindowText);
+            shade.setAlphaF(hovered ? 0.1 : 0.04);
+            background = UiUtils::tintColor(window, shade);
+        }
+        if (background.isValid())
+            painter->fillPath(path, background);
+    }
+    if (fill) {
+        QColor tint = color;
+        const bool strong = strength == QLatin1String("Strong");
+        // Strong fills stay close to the colour, which the tab bar picks the text colour against
+        tint.setAlphaF(strong ? (selected ? 0.9 : 0.75) : (selected ? 0.3 : 0.16));
+        painter->fillPath(path, tint);
+    }
+    if (selected && indicator != QLatin1String("None") && (!followStyle || indicator == QLatin1String("ThickLine"))) {
+        const int width = indicator == QLatin1String("ThickLine") ? 4 : 2;
+        painter->setRenderHint(QPainter::Antialiasing, false);
+        painter->fillRect(edgeLine(r, content, width), AppearanceManager::instance()->accent());
+    }
+    painter->restore();
+    return true;
 }
 
 void AppearanceStyle::drawMenuMarker(const QStyleOptionComplex *option, QPainter *painter) const

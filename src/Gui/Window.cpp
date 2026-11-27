@@ -3546,6 +3546,8 @@ void MainWindow::applyListAppearance()
     mboxTree->setAlternatingRowColors(appearance->value(QStringLiteral("StripeFolderTree")).toBool());
     msgListWidget->tree->viewport()->update();
     mboxTree->viewport()->update();
+    // Folder and account colours of the tabs can have changed
+    refreshTabs();
 }
 
 void MainWindow::followActivity(const QString &activityId)
@@ -3984,8 +3986,12 @@ void MainWindow::refreshTabs()
                     separator = found.at(0);
             }
         }
+        auto *appearance = AppearanceManager::instance();
+        QColor color = appearance->folderColor(tab.accountId, tab.mailbox, separator);
+        if (!color.isValid())
+            color = appearance->accountColor(tab.accountId);
         entries.append({UiUtils::MailTabs::label(tab, separator),
-                        UiUtils::MailTabs::toolTip(tab, m_accounts->displayName(tab.accountId))});
+                        UiUtils::MailTabs::toolTip(tab, m_accounts->displayName(tab.accountId)), color});
     }
     m_tabBar->setEntries(entries, m_tabSession.current);
     const bool several = m_tabSession.tabs.size() > 1;
