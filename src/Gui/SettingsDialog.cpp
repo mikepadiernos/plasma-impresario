@@ -61,6 +61,7 @@
 #include "Plugins/PasswordPlugin.h"
 #include "Plugins/PluginManager.h"
 #include "UiUtils/BackgroundRunning.h"
+#include "UiUtils/PlasmaSearch.h"
 #include "UiUtils/IconLoader.h"
 #include "SettingsOAuthControls.h"
 #include "UiUtils/PasswordWatcher.h"
@@ -454,6 +455,7 @@ GeneralPage::GeneralPage(SettingsDialog *parent, QSettings &s):
             if (!checked)
                 guiStartAfterLoginCheckbox->setChecked(false);
         });
+        guiPlasmaSearchCheckbox->setChecked(UiUtils::PlasmaSearch::isEnabled(*config));
     }
 
     preferPlaintextCheckbox->setChecked(s.value(Common::SettingsNames::guiPreferPlaintextRendering).toBool());
@@ -682,6 +684,7 @@ void GeneralPage::save(QSettings &s)
             if (StartAfterLogin::apply(startAfterLogin, this))
                 Background::setStartsAfterLogin(*config, startAfterLogin);
         }
+        UiUtils::PlasmaSearch::setEnabled(*config, guiPlasmaSearchCheckbox->isChecked());
     }
 
 #define HANDLE_PLUGIN(LOWERCASE, UPPERCASE) \

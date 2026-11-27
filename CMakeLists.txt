@@ -361,6 +361,7 @@ if(WITH_DESKTOP)
         ${path_UiUtils}/BackgroundRunning.cpp
         ${path_UiUtils}/DestructiveActions.cpp
         ${path_UiUtils}/FileSearch.cpp
+        ${path_UiUtils}/PlasmaSearch.cpp
     )
 endif()
 
@@ -369,6 +370,7 @@ set(path_IPC ${CMAKE_CURRENT_SOURCE_DIR}/src/IPC)
 if(WITH_DBUS)
     set(libIPC_SOURCES
         ${path_IPC}/DBusInterface.cpp
+        ${path_IPC}/KRunnerBridge.cpp
         ${path_IPC}/MainWindowBridge.cpp
     )
 else()
@@ -1075,6 +1077,11 @@ if(WITH_DESKTOP)
         install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/InstallDesktopLaunchers.cmake" COMPONENT DesktopLaunchers)
     endif()
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/io.github.mikepadiernos.plasma_impresario.metainfo.xml DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/metainfo/")
+    if(WITH_DBUS)
+        # Plasma Search asks the running application; the setting in the application decides whether it answers
+        install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui/plasma-runner-plasma-impresario.desktop
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/krunner/dbusplugins/")
+    endif()
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/plasma-impresario.svg DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps/")
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/icons/plasma-impresario.svg DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps/"
         RENAME io.github.mikepadiernos.plasma_impresario.svg COMPONENT ApplicationIcon)

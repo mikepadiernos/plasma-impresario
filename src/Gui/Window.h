@@ -42,6 +42,7 @@
 #include "Imap/Model/SpecialFolder.h"
 #include "Imap/Parser/Uids.h"
 #include "UiUtils/DestructiveActions.h"
+#include "UiUtils/PlasmaSearch.h"
 #include "UiUtils/QuickFilters.h"
 #include "UiUtils/RecentFolders.h"
 #include "UiUtils/SavedSearches.h"
@@ -207,6 +208,14 @@ public:
     using FileManagerLauncher = std::function<void(const QUrl &, const std::function<void(const QString &)> &)>;
     /** @short Replace the desktop's file manager service, for example in tests; an empty function restores it */
     void setFileManagerLauncher(const FileManagerLauncher &launcher);
+
+    /** @short Messages for Plasma Search: none unless it is turned on, and only from accounts with an offline search index
+
+    Matches the subject and the sender of the indexed messages; the title and the subtext of each match are filled in.
+    */
+    QList<UiUtils::PlasmaSearch::Match> plasmaSearchMatches(const QString &query) const;
+    /** @short Show the message which Plasma Search named by @arg matchId; unknown IDs are ignored */
+    void openPlasmaSearchMatch(const QString &matchId);
 
 signals:
     /** @short An account was added, renamed or removed */

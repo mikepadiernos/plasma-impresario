@@ -116,6 +116,16 @@ public:
         uint uidValidity = 0;
     };
 
+    /** @short The headers of an indexed message which a quick search shows */
+    struct Summary {
+        Location location;
+        QString subject;
+        /** The From addresses, as indexed */
+        QString sender;
+        /** Day of the Date header; invalid when the message has none */
+        QDate sent;
+    };
+
     struct Result {
         /** Why the index could not answer, or empty */
         QString problem;
@@ -186,6 +196,13 @@ public:
 
     /** @short Messages matching the IMAP SEARCH keys @arg conditions in @arg mailboxes, or in all folders if empty */
     Result search(const QStringList &conditions, const QStringList &mailboxes) const;
+
+    /** @short The newest messages whose subject or sender contains every one of @arg words, at most @arg limit
+
+    Only the subject and the sender are searched, never the text of the messages. Each word matches any part of the
+    subject or the sender regardless of case, as SUBJECT and FROM do.
+    */
+    QList<Summary> quickMatches(const QStringList &words, int limit) const;
 
     /** @short Translate IMAP SEARCH keys to an SQL condition on the messages, binding @arg values in order
 

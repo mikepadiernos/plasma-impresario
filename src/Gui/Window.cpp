@@ -168,6 +168,7 @@
 #include "UiUtils/IconLoader.h"
 #include "UiUtils/MessageId.h"
 #include "UiUtils/MessageIdLookup.h"
+#include "UiUtils/PlasmaSearch.h"
 #include "UiUtils/QaimDfsIterator.h"
 #include "UiUtils/RelatedMessages.h"
 #include "UiUtils/Relevance.h"
@@ -8980,6 +8981,43 @@ void MainWindow::openMessageById(const QString &messageId)
               QString::fromUtf8(parsed.messageId)),
         {{i18nc("@action:button", "Search Servers"), QStringLiteral("network-server"), QStringLiteral("searchServersForMessage"),
           [this]() { searchServersForMessage(); }}});
+}
+
+QList<UiUtils::PlasmaSearch::Match> MainWindow::plasmaSearchMatches(const QString &query) const
+{
+    namespace PlasmaSearch = UiUtils::PlasmaSearch;
+    if (!PlasmaSearch::isEnabled(*KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"))))
+        return {};
+    QList<PlasmaSearch::Source> sources;
+    const QStringList accountIds = m_accounts->accountIds();
+    for (const QString &accountId : accountIds) {
+        Imap::ImapAccess *access = m_accountAccess.value(accountId);
+        if (!access || !access->isConfigured())
+            continue;
+        // An account whose index is off has no indexer, and its mail is never offered
+        const Imap::Mailbox::SearchIndexer *indexer = access->searchIndexer();
+        if (indexer && indexer->isAvailable() && indexer->index())
+            sources << PlasmaSearch::Source{accountId, indexer->index()};
+    }
+    auto matches = PlasmaSearch::matches(query, sources);
+    for (auto &match : matches) {
+        match.title = match.subject.isEmpty() ? i18nc("@item a message without a subject", "(No subject)") : match.subject;
+        const QString sender = match.sender.isEmpty() ? i18nc("@item a message without a sender", "(Unknown sender)") : match.sender;
+        match.subtext = match.sent.isValid()
+            ? i18nc("@item %1 is the sender of a message, %2 the date it was sent", "%1, %2", sender,
+                    QLocale().toString(match.sent, QLocale::ShortFormat))
+            : sender;
+    }
+    return matches;
+}
+
+void MainWindow::openPlasmaSearchMatch(const QString &matchId)
+{
+    UiUtils::PlasmaSearch::Target target;
+    if (!UiUtils::PlasmaSearch::parseMatchId(matchId, &target) || !m_accounts->accountIds().contains(target.accountId))
+        return;
+    showMainWindow();
+    revealLocation(target.accountId, target.mailbox, target.uidValidity, target.uid);
 }
 
 void MainWindow::searchServersForMessage()

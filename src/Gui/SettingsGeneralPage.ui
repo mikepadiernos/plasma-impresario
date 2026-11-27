@@ -194,6 +194,16 @@
       </property>
      </widget>
     </item>
+    <item row="13" column="0" colspan="2">
+     <widget class="QCheckBox" name="guiPlasmaSearchCheckbox">
+      <property name="toolTip">
+       <string>While the application runs, Plasma Search can find messages in the offline search index by their subject or sender. Only the subject, the sender and the date are shown, and accounts without an offline search index are never searched.</string>
+      </property>
+      <property name="text">
+       <string>Show indexed mail in Plasma Search</string>
+      </property>
+     </widget>
+    </item>
     <item row="4" column="0" colspan="2">
      <widget class="Line" name="line">
       <property name="orientation">

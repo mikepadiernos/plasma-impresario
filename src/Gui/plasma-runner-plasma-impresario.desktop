@@ -1,0 +1,16 @@
+[Desktop Entry]
+Name=Plasma Impresario Mail
+Comment=Messages in Plasma Impresario's offline search index, by subject or sender
+Icon=io.github.mikepadiernos.plasma_impresario
+Type=Service
+X-KDE-ServiceTypes=Plasma/Runner
+X-KDE-PluginInfo-Name=plasma-impresario-mail
+X-KDE-PluginInfo-Author=Plasma Impresario contributors
+X-KDE-PluginInfo-License=GPL-2.0-or-later
+X-KDE-PluginInfo-EnabledByDefault=true
+X-Plasma-API=DBus
+X-Plasma-API-Minimum-Version=2
+X-Plasma-DBusRunner-Service=net.flaska.trojita
+X-Plasma-DBusRunner-Path=/runner
+X-Plasma-Request-Actions-Once=true
+X-Plasma-Runner-Min-Letter-Count=3

@@ -23,7 +23,10 @@
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusInterface>
+#include <QDebug>
 
+#include "Gui/Window.h"
+#include "KRunnerBridge.h"
 #include "MainWindowBridge.h"
 
 #include "IPC.h"
@@ -103,6 +106,30 @@ bool registerInstance(Gui::MainWindow *window, QString &error)
         delete object;
         conn.unregisterService(service());
         return false;
+    }
+
+    // Plasma Search asks the same service; the window answers only once the user turned it on
+    auto *runner = new KRunnerBridge(
+        [window](const QString &query) {
+            RunnerMatches result;
+            const auto matches = window->plasmaSearchMatches(query);
+            for (const auto &match : matches) {
+                RunnerMatch shown;
+                shown.id = match.id;
+                shown.text = match.title;
+                shown.iconName = QStringLiteral("mail-message");
+                shown.categoryRelevance = KRunnerBridge::categoryRelevanceLow;
+                shown.relevance = match.relevance;
+                shown.properties.insert(QStringLiteral("subtext"), match.subtext);
+                result << shown;
+            }
+            return result;
+        },
+        [window](const QString &matchId) { window->openPlasmaSearchMatch(matchId); }, window);
+    if (!conn.registerObject(KRunnerBridge::objectPath(), runner, QDBusConnection::ExportAllSlots)) {
+        // Only Plasma Search goes without mail
+        qWarning() << "Cannot offer mail to Plasma Search:" << conn.lastError().message();
+        delete runner;
     }
 
     return true;
