@@ -23,8 +23,7 @@ namespace {
 /** Toolbar-sized buttons use the -symbolic variant where the theme has one */
 QIcon barIcon(const QString &name)
 {
-    const QString symbolic = name + QLatin1String("-symbolic");
-    return QIcon::hasThemeIcon(symbolic) ? QIcon::fromTheme(symbolic) : UiUtils::loadIcon(name);
+    return UiUtils::SymbolicIcon::fromTheme(name);
 }
 
 }

@@ -73,7 +73,10 @@
 namespace Gui
 {
 
-QString SettingsDialog::warningStyleSheet = Util::cssWarningBorder() + QStringLiteral("font-weight: bold;");
+QString SettingsDialog::warningStyleSheet()
+{
+    return Util::cssWarningBorder() + QStringLiteral("font-weight: bold;");
+}
 
 /** @short Check a text field for being non empty. If it's empty, show an error to the user. */
 template<typename T>
@@ -880,7 +883,7 @@ ImapPage::ImapPage(SettingsDialog *parent, QSettings &s): QScrollArea(parent), U
     connect(encryption, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &ImapPage::maybeShowPortWarning);
     connect(method, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &ImapPage::maybeShowPortWarning);
     connect(encryption, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &ImapPage::changePort);
-    portWarning->setStyleSheet(SettingsDialog::warningStyleSheet);
+    portWarning->setStyleSheet(SettingsDialog::warningStyleSheet());
     connect(imapPass, &QLineEdit::textChanged, this, &ImapPage::updateWidgets);
     imapUser->setText(s.value(SettingsNames::imapUserKey).toString());
     processPath->setText(s.value(SettingsNames::imapProcessKey).toString());
@@ -998,7 +1001,7 @@ void ImapPage::updateWidgets()
         passwordWarning->setText(tr("This password will be saved in encrypted storage. "
             "If you do not enter password here, Plasma Impresario will prompt for one when needed."));
     } else {
-        passwordWarning->setStyleSheet(SettingsDialog::warningStyleSheet);
+        passwordWarning->setStyleSheet(SettingsDialog::warningStyleSheet());
         passwordWarning->setText(tr("This password will be saved in clear text. "
             "If you do not enter password here, Plasma Impresario will prompt for one when needed."));
     }
@@ -1297,7 +1300,7 @@ OutgoingPage::OutgoingPage(SettingsDialog *parent, QSettings &s): QScrollArea(pa
     Ui_OutgoingPage::setupUi(this);
     m_smtpAccountSettings = new MSA::Account(this, &s, m_parent->imapAccess()->accountName());
 
-    portWarningLabel->setStyleSheet(SettingsDialog::warningStyleSheet);
+    portWarningLabel->setStyleSheet(SettingsDialog::warningStyleSheet());
 
     method->insertItem(NETWORK, tr("Network"));
     method->insertItem(SENDMAIL, tr("Local sendmail-compatible"));
@@ -1473,7 +1476,7 @@ void OutgoingPage::updateWidgets()
             passwordWarning->setText(tr("This password will be saved in encrypted storage. "
                 "If you do not enter password here, Plasma Impresario will prompt for one when needed."));
         } else {
-            passwordWarning->setStyleSheet(SettingsDialog::warningStyleSheet);
+            passwordWarning->setStyleSheet(SettingsDialog::warningStyleSheet());
             passwordWarning->setText(tr("This password will be saved in clear text. "
                 "If you do not enter password here, Plasma Impresario will prompt for one when needed."));
         }

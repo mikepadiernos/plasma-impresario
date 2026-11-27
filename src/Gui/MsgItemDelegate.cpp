@@ -29,6 +29,7 @@
 #include "Imap/Model/SpecialFolder.h"
 #include "Imap/Model/Utils.h"
 #include "MsgListView.h"
+#include "UiUtils/Color.h"
 #include "UiUtils/IconLoader.h"
 #include <KLocalizedString>
 #include <QApplication>
@@ -256,10 +257,8 @@ MsgItemDelegate::RowLayout MsgItemDelegate::multiLineLayout(const QStyleOptionVi
 QIcon MsgItemDelegate::indicatorIcon(const QString &name) const
 {
     auto it = m_icons.constFind(name);
-    if (it == m_icons.constEnd()) {
-        const QString symbolic = name + QLatin1String("-symbolic");
-        it = m_icons.insert(name, QIcon::hasThemeIcon(symbolic) ? QIcon::fromTheme(symbolic) : UiUtils::loadIcon(name));
-    }
+    if (it == m_icons.constEnd())
+        it = m_icons.insert(name, UiUtils::SymbolicIcon::fromTheme(name));
     return *it;
 }
 
@@ -326,7 +325,7 @@ void MsgItemDelegate::paintMultiLineRow(QPainter *painter, const QStyleOptionVie
         badgeFont.setBold(true);
         badgeFont.setPixelSize(qMax(6, layout.avatar.height() * 2 / 5));
         painter->setFont(badgeFont);
-        painter->setPen(darkBase ? QColor(Qt::white) : QColor(Qt::black));
+        painter->setPen(UiUtils::readableTextColor(fill));
         painter->drawText(layout.avatar, Qt::AlignCenter, initials);
     }
 

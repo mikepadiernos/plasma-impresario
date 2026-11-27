@@ -164,6 +164,7 @@
 #endif
 #include "Streams/SocketFactory.h"
 #include "TaskProgressIndicator.h"
+#include "StateColors.h"
 #include "Util.h"
 #include "Window.h"
 #include "ShortcutHandler/ShortcutHandler.h"
@@ -452,8 +453,7 @@ namespace {
 /** @short Icon for an action shown at toolbar size, where Plasma prefers the -symbolic variant */
 QIcon quickActionIcon(const QString &name)
 {
-    const QString symbolic = name + QLatin1String("-symbolic");
-    return QIcon::hasThemeIcon(symbolic) ? QIcon::fromTheme(symbolic) : UiUtils::loadIcon(name);
+    return UiUtils::SymbolicIcon::fromTheme(name);
 }
 
 /** @short Sort indicator stored in a saved QHeaderView state, or (-1, ascending) when there is none */
@@ -1457,11 +1457,13 @@ void MainWindow::createActions()
     networkIndicator = new QToolButton(this);
     // This is deliberate; we want to show this button in the same style as the other ones in the toolbar
     networkIndicator->setPopupMode(QToolButton::MenuButtonPopup);
+    networkIndicator->setAccessibleName(i18nc("@action:button", "Network access"));
     m_mainToolbar->addWidget(networkIndicator);
 
     m_menuFromToolBar = new QToolButton(this);
     m_menuFromToolBar->setIcon(UiUtils::loadIcon(QStringLiteral("menu_new")));
     m_menuFromToolBar->setText(QChar(0x205d)); // Unicode 'TRICOLON'
+    m_menuFromToolBar->setAccessibleName(i18nc("@action:button", "Main menu"));
     m_menuFromToolBar->setPopupMode(QToolButton::MenuButtonPopup);
     connect(m_menuFromToolBar, &QAbstractButton::clicked, m_menuFromToolBar, &QToolButton::showMenu);
     m_mainToolbar->addWidget(m_menuFromToolBar);
@@ -1759,8 +1761,7 @@ void MainWindow::createWidgets()
     m_backgroundAlerts->setAccessibleName(i18nc("@label", "Other accounts needing attention"));
     m_backgroundAlerts->setAutoRaise(true);
     m_backgroundAlerts->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-    m_backgroundAlerts->setIcon(QIcon::fromTheme(QStringLiteral("dialog-warning-symbolic"),
-                                                 QIcon::fromTheme(QStringLiteral("dialog-warning"))));
+    m_backgroundAlerts->setIcon(UiUtils::SymbolicIcon::fromTheme(QStringLiteral("dialog-warning")));
     m_backgroundAlerts->hide();
     connect(m_backgroundAlerts, &QToolButton::clicked, this, [this]() {
         switchAccount(m_backgroundAlerts->property("accountId").toString());
@@ -1772,8 +1773,7 @@ void MainWindow::createWidgets()
     m_oauthSignIn->setObjectName(QStringLiteral("oauthSignInButton"));
     m_oauthSignIn->setAutoRaise(true);
     m_oauthSignIn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-    m_oauthSignIn->setIcon(QIcon::fromTheme(QStringLiteral("dialog-password-symbolic"),
-                                            QIcon::fromTheme(QStringLiteral("dialog-password"))));
+    m_oauthSignIn->setIcon(UiUtils::SymbolicIcon::fromTheme(QStringLiteral("dialog-password")));
     m_oauthSignIn->setText(i18nc("@action:button", "Sign In…"));
     m_oauthSignIn->setToolTip(i18nc("@info:tooltip", "Sign in to this account again in your web browser"));
     m_oauthSignIn->hide();
@@ -1794,6 +1794,7 @@ void MainWindow::createWidgets()
     connect(qApp, &QCoreApplication::aboutToQuit, this, &MainWindow::flushUiState);
 
     mboxTree = new MailBoxTreeView(nullptr, m_settings);
+    mboxTree->setAccessibleName(i18nc("@info:accessible", "Folders"));
     mboxTree->setItemDelegate(new DensityDelegate(mboxTree));
     mboxTree->setDesiredExpansion(expandedMailboxes());
     connect(mboxTree, &QWidget::customContextMenuRequested, this, &MainWindow::showContextMenuMboxTree);
@@ -2456,7 +2457,7 @@ void MainWindow::handleTrayIconChange()
         QPainter painter(&pixmap);
         painter.setRenderHint(QPainter::Antialiasing);
         painter.setPen(QColor(255,255,255, 180));
-        painter.setBrush(isOffline ? Qt::red : Qt::black);
+        painter.setBrush(isOffline ? StateColors::text(StateColors::State::Negative) : QColor(Qt::black));
         painter.drawPath(path);
 
         //: This is a tooltip for the tray icon. It will be prefixed by something like "Trojita" or "Trojita [work]"
@@ -9867,6 +9868,7 @@ void MainWindow::updateConnectionStatus(const QString &message)
 void MainWindow::showStatusMessage(const QString &message)
 {
     networkIndicator->setToolTip(message);
+    networkIndicator->setAccessibleDescription(message);
     if (isActiveWindow())
         QToolTip::showText(networkIndicator->mapToGlobal(QPoint(0, 0)), message);
 }

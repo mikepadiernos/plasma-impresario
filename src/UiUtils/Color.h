@@ -24,11 +24,30 @@
 #ifndef TROJITA_UIUTILS_COLOR_H
 #define TROJITA_UIUTILS_COLOR_H
 
+#include <QtGlobal>
+
 class QColor;
 
 namespace UiUtils {
 
 QColor tintColor(const QColor &color, const QColor &tintColor);
+
+/** @short WCAG 2 relative luminance of an opaque color, from 0 (black) to 1 (white) */
+qreal relativeLuminance(const QColor &color);
+
+/** @short WCAG 2 contrast ratio between two opaque colors, from 1 (none) to 21 (black on white) */
+qreal contrastRatio(const QColor &first, const QColor &second);
+
+/** @short Black or white, whichever contrasts more with @arg background */
+QColor readableTextColor(const QColor &background);
+
+/** @short @arg preferred when it reaches @arg minimum contrast against @arg background
+
+Otherwise its lightness is moved away from the background, keeping the hue, until the
+contrast is reached; black or white is the last resort. The default is the WCAG AA
+level for normal text.
+*/
+QColor ensureContrast(const QColor &preferred, const QColor &background, qreal minimum = 4.5);
 
 }
 

@@ -38,7 +38,7 @@
 #include <QWebEngineView>
 #include "LineEdit.h"
 #include "Gui/EmbeddedWebView.h"
-#include "UiUtils/Color.h"
+#include "Gui/StateColors.h"
 #include "UiUtils/IconLoader.h"
 
 namespace Gui {
@@ -178,14 +178,8 @@ void FindBar::setVisible(bool visible)
 
 void FindBar::notifyMatch(bool match)
 {
-    if (m_lineEdit->text().isEmpty()) {
-        m_lineEdit->setPalette(QPalette());
-    } else {
-        QColor backgroundTint = match ? QColor(0, 0xff, 0, 0x20) : QColor(0xff, 0, 0, 0x20);
-        QPalette p;
-        p.setColor(QPalette::Base, UiUtils::tintColor(p.color(QPalette::Base), backgroundTint));
-        m_lineEdit->setPalette(p);
-    }
+    using StateColors::State;
+    StateColors::applyToField(m_lineEdit, m_lineEdit->text().isEmpty() ? State::Normal : match ? State::Positive : State::Negative);
 }
 
 void FindBar::findText(const QString &search)

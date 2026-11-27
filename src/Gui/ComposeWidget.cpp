@@ -73,6 +73,7 @@
 #include "Gui/PasswordDialog.h"
 #include "Gui/RemoteAttachmentFetcher.h"
 #include "Gui/ProgressPopUp.h"
+#include "Gui/StateColors.h"
 #include "Gui/Util.h"
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
@@ -83,7 +84,6 @@
 #include "Plugins/AddressbookPlugin.h"
 #include "Plugins/PluginManager.h"
 #include "ShortcutHandler/ShortcutHandler.h"
-#include "UiUtils/Color.h"
 #include "UiUtils/Formatting.h"
 #include "UiUtils/IconLoader.h"
 
@@ -1518,13 +1518,10 @@ void ComposeWidget::slotCheckAddressOfSender()
 void ComposeWidget::slotCheckAddress(QLineEdit *edit)
 {
     Imap::Message::MailAddress addr;
-    if (edit->text().isEmpty() || Imap::Message::MailAddress::fromPrettyString(addr, edit->text())) {
-        edit->setPalette(QPalette());
-    } else {
-        QPalette p;
-        p.setColor(QPalette::Base, UiUtils::tintColor(p.color(QPalette::Base), QColor(0xff, 0, 0, 0x20)));
-        edit->setPalette(p);
-    }
+    const bool valid = edit->text().isEmpty() || Imap::Message::MailAddress::fromPrettyString(addr, edit->text());
+    StateColors::applyToField(edit, valid ? StateColors::State::Normal : StateColors::State::Negative);
+    // The tint alone does not reach screen readers
+    edit->setAccessibleDescription(valid ? QString() : i18nc("@info:accessibility", "Not a valid e-mail address"));
 }
 
 void ComposeWidget::removeRecipient(int pos)

@@ -83,7 +83,7 @@ find_package(KF6 REQUIRED
 )
 
 if(WITH_DESKTOP)
-    find_package(KF6 REQUIRED COMPONENTS Config CoreAddons I18n KIO WindowSystem)
+    find_package(KF6 REQUIRED COMPONENTS ColorScheme Config CoreAddons I18n KIO WindowSystem)
     ki18n_install(po)
 endif()
 
@@ -514,6 +514,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/ShellHeader.cpp
     ${path_DesktopGui}/ShortcutOverviewDialog.cpp
     ${path_DesktopGui}/Spinner.cpp
+    ${path_DesktopGui}/StateColors.cpp
     ${path_DesktopGui}/TagAddDialog.cpp
     ${path_DesktopGui}/TagHandler.cpp
     ${path_DesktopGui}/TagListWidget.cpp
@@ -1028,6 +1029,7 @@ if(WITH_DESKTOP)
         PRIVATE
             Qt::DBus
             Qt::Network
+            KF6::ColorScheme
             KF6::ConfigCore
             KF6::I18n
             KF6::KIOGui
@@ -1190,7 +1192,7 @@ if(BUILD_TESTING)
             src/Gui/DensityDelegate.cpp src/Gui/DensityDelegate.h
             src/Gui/DensityMenu.cpp src/Gui/DensityMenu.h)
         target_compile_definitions(test_DensityMenu PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
-        target_link_libraries(test_DensityMenu PRIVATE Qt6::Widgets Qt6::Test KF6::ConfigCore KF6::I18n)
+        target_link_libraries(test_DensityMenu PRIVATE UiUtils Qt6::Widgets Qt6::Test KF6::ConfigCore KF6::I18n)
         add_executable(test_AttachmentPanel tests/Gui/test_AttachmentPanel.cpp)
         target_link_libraries(test_AttachmentPanel PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_FileChooser tests/Gui/test_FileChooser.cpp)

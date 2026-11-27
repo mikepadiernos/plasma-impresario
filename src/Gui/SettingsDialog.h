@@ -370,7 +370,7 @@ public:
 
     void setOriginalPlugins(const QString &passwordPlugin, const QString &addressBookPlugin, const QString& spellcheckerPlugin);
 
-    static QString warningStyleSheet;
+    static QString warningStyleSheet();
 
 signals:
     void reloadPasswordsRequested();

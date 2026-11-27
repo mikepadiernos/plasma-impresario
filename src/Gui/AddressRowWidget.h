@@ -22,7 +22,7 @@
 #ifndef GUI_ADDRESSROWWIDGET_H
 #define GUI_ADDRESSROWWIDGET_H
 
-#include <QLabel>
+#include <QAbstractButton>
 
 namespace Imap {
 namespace Message {
@@ -36,20 +36,21 @@ namespace Plugins {
 
 namespace Gui {
 
-/** @short A label with expansion indicating text and "clicked" signal */
-class Expander : public QLabel
+/** @short A button that shows or hides the addresses beyond the first few
+
+It takes the keyboard focus, shows it, and is announced as a button by screen readers.
+*/
+class Expander : public QAbstractButton
 {
     Q_OBJECT
 public:
     explicit Expander(QWidget *parent, int count = 0);
     int expanding() const;
     void setExpanding(const int expanding);
-    QSize sizeHint() const;
-signals:
-    void clicked();
+    QSize sizeHint() const override;
 protected:
-    void mouseReleaseEvent(QMouseEvent *me);
-    void paintEvent(QPaintEvent *pe);
+    void keyPressEvent(QKeyEvent *event) override;
+    void paintEvent(QPaintEvent *pe) override;
 private:
     int m_expanding;
 };

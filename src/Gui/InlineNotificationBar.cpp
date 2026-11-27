@@ -4,6 +4,9 @@
 
 #include "InlineNotificationBar.h"
 
+#include "StateColors.h"
+#include "UiUtils/IconLoader.h"
+
 #include <QAccessible>
 #include <QApplication>
 #include <QEvent>
@@ -24,14 +27,14 @@ namespace {
 
 QIcon themedIcon(const QString &name)
 {
-    return QIcon::fromTheme(name + QLatin1String("-symbolic"), QIcon::fromTheme(name));
+    return UiUtils::SymbolicIcon::fromTheme(name);
 }
 
 QColor accentColor(const QPalette &palette, Gui::InlineNotificationBar::Kind kind)
 {
     if (kind == Gui::InlineNotificationBar::Kind::Error) {
-        // Breeze "negative" colour; the palette has no dedicated error role
-        return QColor(218, 68, 83);
+        // The palette has no error role; the color scheme has
+        return Gui::StateColors::text(Gui::StateColors::State::Negative);
     }
     return palette.color(QPalette::Highlight);
 }

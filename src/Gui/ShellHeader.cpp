@@ -16,6 +16,7 @@
 
 #include "Common/AccountRegistry.h"
 #include "Common/AccountStatus.h"
+#include "UiUtils/IconLoader.h"
 
 namespace {
 const char showHeaderKey[] = "ShowHeader";
@@ -82,8 +83,7 @@ void ShellHeader::setAccount(const Common::AccountRegistry &accounts,
     m_status->setToolTip(accountStatus.detail);
     const int size = style()->pixelMetric(QStyle::PM_SmallIconSize);
     m_statusIcon->setPixmap(
-        QIcon::fromTheme(QStringLiteral("dialog-warning-symbolic"),
-                         QIcon::fromTheme(QStringLiteral("dialog-warning")))
+        UiUtils::SymbolicIcon::fromTheme(QStringLiteral("dialog-warning"))
             .pixmap(size, size));
   } else {
     m_status->clear();

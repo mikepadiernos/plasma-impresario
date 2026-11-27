@@ -28,10 +28,12 @@
 #include <QTextStream>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <KColorScheme>
 #include "ProtocolLoggerWidget.h"
 #include "Util.h"
 #include "Common/FileLogger.h"
 #include "Imap/Model/Utils.h"
+#include "UiUtils/Color.h"
 
 namespace Gui {
 
@@ -172,17 +174,27 @@ void ProtocolLoggerWidget::flushToWidget(const uint connectionId, Common::RingBu
 
     QPlainTextEdit *w = getLogger(connectionId);
 
+    // The log follows the color scheme, with each color readable on its background
+    const KColorScheme scheme(QPalette::Active, KColorScheme::View);
+    const QColor normalBackground = scheme.background(KColorScheme::NormalBackground).color();
+    const QColor alternateBackground = scheme.background(KColorScheme::AlternateBackground).color();
+    auto color = [&scheme](KColorScheme::ForegroundRole role, const QColor &background) {
+        return UiUtils::ensureContrast(scheme.foreground(role).color(), background).name();
+    };
+    const QString dimmed = color(KColorScheme::InactiveText, normalBackground);
+
     if (buf.skippedCount()) {
-        w->appendHtml(QStringLiteral("<p style=\"color: #bb0000\"><i><b>%1</b> %2/i></p>")
+        w->appendHtml(QStringLiteral("<p style=\"color: %3\"><i><b>%1</b> %2</i></p>")
                       .arg(
                       //~ singular %n message
                       //~ plural %n messages
                       tr("%n message(s)", nullptr, buf.skippedCount()),
-                      tr("were skipped because this widget was hidden.")));
+                      tr("were skipped because this widget was hidden."),
+                      color(KColorScheme::NegativeText, normalBackground)));
     }
 
     for (RingBuffer<LogMessage>::const_iterator it = buf.begin(); it != buf.end(); ++it) {
-        QString message = QStringLiteral("<pre><span style=\"color: #808080\">%1</span> %2<span style=\"color: %3;%4\">%5</span>%6</pre>");
+        QString message = QStringLiteral("<pre><span style=\"color: %7\">%1</span> %2<span style=\"color: %3;%4\">%5</span>%6</pre>");
         QString direction;
         QString textColor;
         QString bgColor;
@@ -191,20 +203,20 @@ void ProtocolLoggerWidget::flushToWidget(const uint connectionId, Common::RingBu
         switch (it->kind) {
         case LOG_IO_WRITTEN:
             if (it->message.startsWith(QLatin1String("***"))) {
-                textColor = QStringLiteral("#800080");
-                bgColor = QStringLiteral("#d0d0d0");
+                textColor = color(KColorScheme::VisitedText, alternateBackground);
+                bgColor = alternateBackground.name();
             } else {
-                textColor = QStringLiteral("#800000");
-                direction = QStringLiteral("<span style=\"color: #c0c0c0;\">&gt;&gt;&gt;&nbsp;</span>");
+                textColor = color(KColorScheme::LinkText, normalBackground);
+                direction = QStringLiteral("<span style=\"color: %1;\">&gt;&gt;&gt;&nbsp;</span>").arg(dimmed);
             }
             break;
         case LOG_IO_READ:
             if (it->message.startsWith(QLatin1String("***"))) {
-                textColor = QStringLiteral("#808000");
-                bgColor = QStringLiteral("#d0d0d0");
+                textColor = color(KColorScheme::NeutralText, alternateBackground);
+                bgColor = alternateBackground.name();
             } else {
-                textColor = QStringLiteral("#008000");
-                direction = QStringLiteral("<span style=\"color: #c0c0c0;\">&lt;&lt;&lt;&nbsp;</span>");
+                textColor = color(KColorScheme::PositiveText, normalBackground);
+                direction = QStringLiteral("<span style=\"color: %1;\">&lt;&lt;&lt;&nbsp;</span>").arg(dimmed);
             }
             break;
         case LOG_MAILBOX_SYNC:
@@ -213,15 +225,15 @@ void ProtocolLoggerWidget::flushToWidget(const uint connectionId, Common::RingBu
         case LOG_PARSE_ERROR:
         case LOG_TASKS:
         case LOG_SUBMISSION:
-            direction = QLatin1String("<span style=\"color: #c0c0c0;\">") + it->source + QLatin1String("</span> ");
+            direction = QStringLiteral("<span style=\"color: %1;\">").arg(dimmed) + it->source + QLatin1String("</span> ");
             break;
         }
 
         if (it->truncatedBytes) {
-            trimmedInfo = QStringLiteral("<br/><span style=\"color: #808080; font-style: italic;\">%1</span>")
+            trimmedInfo = QStringLiteral("<br/><span style=\"color: %2; font-style: italic;\">%1</span>")
                 //~ singular %n more byte
                 //~ plural %n more bytes
-                .arg(tr("+ %n more byte(s)", nullptr, it->truncatedBytes));
+                .arg(tr("+ %n more byte(s)", nullptr, it->truncatedBytes), dimmed);
         }
 
         QString niceLine = it->message.toHtmlEscaped();
@@ -231,7 +243,7 @@ void ProtocolLoggerWidget::flushToWidget(const uint connectionId, Common::RingBu
         w->appendHtml(message.arg(it->timestamp.toString(QStringLiteral("hh:mm:ss.zzz")),
                                   direction, textColor,
                                   bgColor.isEmpty() ? QString() : QStringLiteral("background-color: %1").arg(bgColor),
-                                  niceLine, trimmedInfo));
+                                  niceLine, trimmedInfo, dimmed));
     }
     buf.clear();
 }

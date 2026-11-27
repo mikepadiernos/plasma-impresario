@@ -21,6 +21,7 @@
 */
 
 #include "ColoredItemDelegate.h"
+#include "UiUtils/Color.h"
 
 namespace Gui
 {
@@ -48,17 +49,10 @@ void ColoredItemDelegate::applyForegroundToSelection(QStyleOptionViewItem &viewO
         // Thunderbird works like this and we like it
         viewOption.palette.setColor(QPalette::ColorGroup::Active, QPalette::Highlight, itemForegroundColor);
 
-        // We have to make sure that the text remains readable with the new Highlight color.
-        // This covers most of the cases out there if not all. Feel free to extend if you are using a very
-        // special theme.
-        auto fgLightnessF = viewOption.palette.color(QPalette::ColorGroup::Active, QPalette::HighlightedText).lightnessF();
-        auto bgLightnessF = viewOption.palette.color(QPalette::ColorGroup::Active, QPalette::Highlight).lightnessF();
-        if (fgLightnessF > 0.75 && bgLightnessF > 0.75) {
-            viewOption.palette.setColor(QPalette::ColorGroup::Active, QPalette::HighlightedText, Qt::black);
-        } else
-        if (fgLightnessF < 0.25 && bgLightnessF < 0.25) {
-            viewOption.palette.setColor(QPalette::ColorGroup::Active, QPalette::HighlightedText, Qt::white);
-        }
+        // Keep the selected text readable on the tag color, at the WCAG AA contrast for normal text
+        const QColor highlightedText = viewOption.palette.color(QPalette::ColorGroup::Active, QPalette::HighlightedText);
+        viewOption.palette.setColor(QPalette::ColorGroup::Active, QPalette::HighlightedText,
+                                    UiUtils::ensureContrast(highlightedText, itemForegroundColor));
 
         viewOption.palette.setColor(QPalette::ColorGroup::Inactive, QPalette::HighlightedText, itemForegroundColor);
     }
