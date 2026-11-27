@@ -63,23 +63,23 @@ Legend: ![Backlog][backlog] · ![Defined][defined] ·
 ![Merged][merged]. The count is green when all are done, amber once work starts
 and gray before. **Board** is the parent issue's status.
 
-| Milestone                                                 | Focus                                          | Parent issue                                                          | Done                                                                 | Board                                                                                                                                    |
-| --------------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| [M01](#m01-kde--qt6-compatibility-baseline)               | KDE / Qt 6 compatibility baseline              | [#1](https://github.com/mikepadiernos/plasma-impresario/issues/1)     | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
-| [M02](#m02-shell-accounts-and-core-mailbox-foundation)    | Shell, accounts and core mailbox foundation    | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)     | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
-| [M03](#m03-mail-operations-sorting-and-folder-management) | Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)     | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
-| [M04](#m04-reading-and-conversation-flow)                 | Reading and conversation flow                  | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6)     | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
-| [M05](#m05-search-and-indexing)                           | Search and indexing                            | [#324](https://github.com/mikepadiernos/plasma-impresario/issues/324) | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Merged][merged]: merged in [PR #455](https://github.com/mikepadiernos/plasma-impresario/pull/455)                                      |
-| [M06](#m06-desktop-integration-and-provider-support)      | Desktop integration and provider support       | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)     | ![26 of 26 done](https://img.shields.io/badge/26%2F26-100%25-1a7f37) | ![Merged][merged]: merged in [PR #489](https://github.com/mikepadiernos/plasma-impresario/pull/489)                                      |
-| [M07](#m07-output-notifications-and-rules-automation)     | Output, notifications and rules automation     | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8)     | ![11 of 11 done](https://img.shields.io/badge/11%2F11-100%25-1a7f37) | ![Merged][merged]: merged in [PR #493](https://github.com/mikepadiernos/plasma-impresario/pull/493)                                      |
-| [M08](#m08-settings-and-workspace-configuration)          | Settings and workspace configuration           | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9)     | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]: merged in [PR #500](https://github.com/mikepadiernos/plasma-impresario/pull/500)                                      |
-| [M09](#m09-themes-and-branding-foundation)                | Themes and branding foundation                 | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)   | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development]: M09.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
-| [M10](#m10-reliability-sync-and-notification-quality)     | Reliability, sync and notification quality     | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11)   | ![0 of 12 done](https://img.shields.io/badge/0%2F12-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
-| [M11](#m11-release-readiness-and-polish)                  | Release readiness and polish                   | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12)   | ![0 of 10 done](https://img.shields.io/badge/0%2F10-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
-| [M12](#m12-nextcloud-and-digital-asset-management)        | Nextcloud and digital asset management         | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31)   | ![0 of 7 done](https://img.shields.io/badge/0%2F7-0%25-6e7781)       | ![Backlog][backlog]                                                                                                                      |
-| [M13](#m13-microsoft-accounts-and-exchange)               | Microsoft accounts and Exchange                | [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388) | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
-| [M14](#m14-refinements)                                   | Refinements                                    | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)   | ![0 of 86 done](https://img.shields.io/badge/0%2F86-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
-| [M15](#m15-real-plasma-session-verification)              | Real Plasma session verification               | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ![0 of 4 done](https://img.shields.io/badge/0%2F4-0%25-6e7781)       | ![Defined][defined]                                                                                                                      |
+| Milestone                                                 | Focus                                          | Parent issue                                                          | Done                                                                 | Board                                                                                               |
+| --------------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| [M01](#m01-kde--qt6-compatibility-baseline)               | KDE / Qt 6 compatibility baseline              | [#1](https://github.com/mikepadiernos/plasma-impresario/issues/1)     | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]                                                                                   |
+| [M02](#m02-shell-accounts-and-core-mailbox-foundation)    | Shell, accounts and core mailbox foundation    | [#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)     | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]                                                                                   |
+| [M03](#m03-mail-operations-sorting-and-folder-management) | Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)     | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]                                                                                   |
+| [M04](#m04-reading-and-conversation-flow)                 | Reading and conversation flow                  | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6)     | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]                                                                                   |
+| [M05](#m05-search-and-indexing)                           | Search and indexing                            | [#324](https://github.com/mikepadiernos/plasma-impresario/issues/324) | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Merged][merged]: merged in [PR #455](https://github.com/mikepadiernos/plasma-impresario/pull/455) |
+| [M06](#m06-desktop-integration-and-provider-support)      | Desktop integration and provider support       | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)     | ![26 of 26 done](https://img.shields.io/badge/26%2F26-100%25-1a7f37) | ![Merged][merged]: merged in [PR #489](https://github.com/mikepadiernos/plasma-impresario/pull/489) |
+| [M07](#m07-output-notifications-and-rules-automation)     | Output, notifications and rules automation     | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8)     | ![11 of 11 done](https://img.shields.io/badge/11%2F11-100%25-1a7f37) | ![Merged][merged]: merged in [PR #493](https://github.com/mikepadiernos/plasma-impresario/pull/493) |
+| [M08](#m08-settings-and-workspace-configuration)          | Settings and workspace configuration           | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9)     | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]: merged in [PR #500](https://github.com/mikepadiernos/plasma-impresario/pull/500) |
+| [M09](#m09-themes-and-branding-foundation)                | Themes and branding foundation                 | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)   | ![32 of 32 done](https://img.shields.io/badge/32%2F32-100%25-1a7f37) | ![Merged][merged]: merged in [PR #504](https://github.com/mikepadiernos/plasma-impresario/pull/504) |
+| [M10](#m10-reliability-sync-and-notification-quality)     | Reliability, sync and notification quality     | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11)   | ![0 of 12 done](https://img.shields.io/badge/0%2F12-0%25-6e7781)     | ![Backlog][backlog]                                                                                 |
+| [M11](#m11-release-readiness-and-polish)                  | Release readiness and polish                   | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12)   | ![0 of 10 done](https://img.shields.io/badge/0%2F10-0%25-6e7781)     | ![Backlog][backlog]                                                                                 |
+| [M12](#m12-nextcloud-and-digital-asset-management)        | Nextcloud and digital asset management         | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31)   | ![0 of 7 done](https://img.shields.io/badge/0%2F7-0%25-6e7781)       | ![Backlog][backlog]                                                                                 |
+| [M13](#m13-microsoft-accounts-and-exchange)               | Microsoft accounts and Exchange                | [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388) | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781)     | ![Backlog][backlog]                                                                                 |
+| [M14](#m14-refinements)                                   | Refinements                                    | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)   | ![0 of 86 done](https://img.shields.io/badge/0%2F86-0%25-6e7781)     | ![Backlog][backlog]                                                                                 |
+| [M15](#m15-real-plasma-session-verification)              | Real Plasma session verification               | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ![0 of 4 done](https://img.shields.io/badge/0%2F4-0%25-6e7781)       | ![Defined][defined]                                                                                 |
 
 ## Recommended priority
 
@@ -813,13 +813,10 @@ Workspace integrations [#48](https://github.com/mikepadiernos/plasma-impresario/
 
 ### M09: Themes and branding foundation
 
-**Status:** ![Development][development]
-![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700) ·
-**Parent issue:** [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10).
-M09.01 ([#269](https://github.com/mikepadiernos/plasma-impresario/issues/269))
-started with the merged rename
-[#221](https://github.com/mikepadiernos/plasma-impresario/issues/221); the rest
-of M09 is in the Backlog.
+**Status:** ![Merged][merged]
+![32 of 32 done](https://img.shields.io/badge/32%2F32-100%25-1a7f37) ·
+**Parent issue:** [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10) ·
+merged in [PR #504](https://github.com/mikepadiernos/plasma-impresario/pull/504)
 
 **Project:** M09 milestone [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)
 
@@ -836,14 +833,14 @@ policy.
   **Project:** Subsection [#269](https://github.com/mikepadiernos/plasma-impresario/issues/269)
 
   - [x] Rename the application, installed identity, documentation, repository, and project board to Plasma Impresario while preserving Trojitá configuration and compatibility aliases [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)
-  - [ ] Transition project-owned functions, symbols, namespaces, filenames, and
+  - [x] Transition project-owned functions, symbols, namespaces, filenames, and
         code conventions to Plasma Impresario. Preserve historical Trojitá references
         in parity documents, old folders, `inspirations.md`, and README files, as
         well as required copyright and license attribution. Plan and verify
         migration of existing configuration and launch compatibility.
         [#242](https://github.com/mikepadiernos/plasma-impresario/issues/242)
-  - [ ] Define the default visual language, palette, and KDE-native desktop styling [#49](https://github.com/mikepadiernos/plasma-impresario/issues/49)
-  - [ ] Align the product shell with Plasma visual expectations for polish and
+  - [x] Define the default visual language, palette, and KDE-native desktop styling [#49](https://github.com/mikepadiernos/plasma-impresario/issues/49)
+  - [x] Align the product shell with Plasma visual expectations for polish and
         clarity. Replace the carets beside navigation toolbar icons that open menus with
         small theme-accented corner markers on the icons. The marker indicates an
         available menu, not selection. Preserve contrast, accessible menu semantics,
@@ -855,30 +852,30 @@ policy.
 
   **Project:** Subsection [#270](https://github.com/mikepadiernos/plasma-impresario/issues/270)
 
-  - [ ] Follow the active Plasma color scheme, accent, icon theme, and light or
+  - [x] Follow the active Plasma color scheme, accent, icon theme, and light or
         dark appearance. Provide an option to use a symbolic icon from the active
         icon theme in the system tray.
         [#124](https://github.com/mikepadiernos/plasma-impresario/issues/124)
-  - [ ] Offer app-local light and dark presets and installed KDE color schemes
+  - [x] Offer app-local light and dark presets and installed KDE color schemes
         without changing the desktop's global appearance, widget style, or window
         decorations.
         [#271](https://github.com/mikepadiernos/plasma-impresario/issues/271)
-  - [ ] Apply app-local colors consistently across Plasma Impresario windows,
+  - [x] Apply app-local colors consistently across Plasma Impresario windows,
         panes, the composer, and dialogs, respecting accessibility settings, native
         icon themes, and the appearance boundaries of the HTML message reader and
         external components. Leave HTML message content to the reader's own
         rendering and privacy policy.
         [#272](https://github.com/mikepadiernos/plasma-impresario/issues/272)
-  - [ ] Provide an app-local color editor with named palette roles, including
+  - [x] Provide an app-local color editor with named palette roles, including
         unread, flagged, and account colors, and live preview. Preserve readable
         text, selection, and focus indicators; validate contrast and allow changes
         to be reverted without saving.
         [#273](https://github.com/mikepadiernos/plasma-impresario/issues/273)
-  - [ ] Follow Plasma's accent color by default or choose an app-local accent for
+  - [x] Follow Plasma's accent color by default or choose an app-local accent for
         selection, focus, the active pane, progress, unread indicators, and tab
         indicators. Validate contrast against the active color scheme.
         [#274](https://github.com/mikepadiernos/plasma-impresario/issues/274)
-  - [ ] Tint the background of all panes, or only the active or inactive pane.
+  - [x] Tint the background of all panes, or only the active or inactive pane.
         Keep text, selection, unread state, and account and folder colors readable.
         [#275](https://github.com/mikepadiernos/plasma-impresario/issues/275)
 
@@ -886,17 +883,17 @@ policy.
 
   **Project:** Subsection [#276](https://github.com/mikepadiernos/plasma-impresario/issues/276)
 
-  - [ ] Offer optional background blur behind translucent windows and panels
+  - [x] Offer optional background blur behind translucent windows and panels
         using KWin's blur effect through KWindowEffects; blur strength follows
         KWin's effect settings. Without KWin compositing, report blur as unavailable
         and keep an opaque background. If translucency cannot change live, apply it
         when the window next opens.
         [#277](https://github.com/mikepadiernos/plasma-impresario/issues/277)
-  - [ ] Adjust background opacity separately for windows, panes, and panels,
+  - [x] Adjust background opacity separately for windows, panes, and panels,
         with or without blur, while keeping text, icons, selection, and message
         content fully opaque.
         [#278](https://github.com/mikepadiernos/plasma-impresario/issues/278)
-  - [ ] Choose a corner radius (none, small, medium, large, or a custom value
+  - [x] Choose a corner radius (none, small, medium, large, or a custom value
         scaled with the display) for item highlights, message cards, panels, input
         fields, tabs, and tooltips, using custom delegates and app-local style
         rules. Leave window corners to KWin and the window decoration, and document
@@ -907,16 +904,16 @@ policy.
 
   **Project:** Subsection [#280](https://github.com/mikepadiernos/plasma-impresario/issues/280)
 
-  - [ ] Show, thin, or hide visible dividers, including splitter handles, panel
+  - [x] Show, thin, or hide visible dividers, including splitter handles, panel
         and toolbar separators, header and grid lines, and pane frames. Hidden
         splitters keep a resize area, cursor feedback, keyboard resizing, and
         pane-size reset, and can optionally reveal themselves on hover.
         [#281](https://github.com/mikepadiernos/plasma-impresario/issues/281)
-  - [ ] Show or hide tree lines in the folder tree and threaded message lists,
+  - [x] Show or hide tree lines in the folder tree and threaded message lists,
         and choose solid or dotted lines. Draw the lines in Plasma Impresario when
         the widget style does not provide the chosen style.
         [#282](https://github.com/mikepadiernos/plasma-impresario/issues/282)
-  - [ ] Color tree lines with a single color, a configurable palette by nesting
+  - [x] Color tree lines with a single color, a configurable palette by nesting
         depth, or each account's or folder's color. Validate contrast and keep
         nesting and thread structure distinguishable without relying on color
         alone.
@@ -926,7 +923,7 @@ policy.
 
   **Project:** Subsection [#284](https://github.com/mikepadiernos/plasma-impresario/issues/284)
 
-  - [ ] Add a card layout alongside compact and comfortable message rows. Show
+  - [x] Add a card layout alongside compact and comfortable message rows. Show
         each message as a card with the sender, subject, date, an optional preview
         snippet when available, its account or folder color, and unread, flag,
         attachment, and thread indicators. Support card size, density, selection
@@ -934,7 +931,7 @@ policy.
         and remember the layout wherever row density is remembered, including
         workspace layouts.
         [#285](https://github.com/mikepadiernos/plasma-impresario/issues/285)
-  - [ ] Choose row striping in the message list and folder tree, hover
+  - [x] Choose row striping in the message list and folder tree, hover
         highlighting, and a selection style such as filled, outlined, rounded, or
         an accent bar. Keep focus, selection, and unread state distinguishable for
         keyboard users.
@@ -944,7 +941,7 @@ policy.
 
   **Project:** Subsection [#287](https://github.com/mikepadiernos/plasma-impresario/issues/287)
 
-  - [ ] Assign colors to accounts and folders and show them consistently in the
+  - [x] Assign colors to accounts and folders and show them consistently in the
         folder tree, unified-inbox source indicators, message cards, tabs, and
         folder pickers. Use the icon theme's colored folder icons, such as Breeze's
         `folder-red`, when available and tint them otherwise; alternatively show a
@@ -952,7 +949,7 @@ policy.
         changing server folders, and never rely on color alone to identify an
         account.
         [#288](https://github.com/mikepadiernos/plasma-impresario/issues/288)
-  - [ ] Color folders by rules that match an account, folder path, or name
+  - [x] Color folders by rules that match an account, folder path, or name
         pattern, with optional inheritance by subfolders. Explicit folder colors
         take precedence over rules, and rules never modify folders, messages, or
         server state.
@@ -962,17 +959,17 @@ policy.
 
   **Project:** Subsection [#290](https://github.com/mikepadiernos/plasma-impresario/issues/290)
 
-  - [ ] Establish spacing, density, and readability rules for all mail panes.
+  - [x] Establish spacing, density, and readability rules for all mail panes.
         Provide theme spacing options for compact, normal, comfortable, and custom
         spacing. [#50](https://github.com/mikepadiernos/plasma-impresario/issues/50)
-  - [ ] Follow Plasma's fonts by default or override the font family, size, and
+  - [x] Follow Plasma's fonts by default or override the font family, size, and
         weight for the message list, folder tree, message headers, plain-text
         messages, tabs, and the status bar, scaled consistently with the display.
         [#291](https://github.com/mikepadiernos/plasma-impresario/issues/291)
-  - [ ] Scale padding and spacing globally, extending M02 row density to
+  - [x] Scale padding and spacing globally, extending M02 row density to
         toolbars, tabs, panels, and the status bar.
         [#292](https://github.com/mikepadiernos/plasma-impresario/issues/292)
-  - [ ] Style the optional tabs and the status bar, including the tab shape, the
+  - [x] Style the optional tabs and the status bar, including the tab shape, the
         active tab indicator, and the strength of account and folder colors on tabs.
         [#293](https://github.com/mikepadiernos/plasma-impresario/issues/293)
 
@@ -980,36 +977,36 @@ policy.
 
   **Project:** Subsection [#294](https://github.com/mikepadiernos/plasma-impresario/issues/294)
 
-  - [ ] Follow Plasma's animation speed by default, or reduce or disable Plasma
+  - [x] Follow Plasma's animation speed by default, or reduce or disable Plasma
         Impresario transitions such as pane changes, panel slides, and hover fades.
         [#295](https://github.com/mikepadiernos/plasma-impresario/issues/295)
-  - [ ] Offer to suspend blur, translucency, tints, and custom corner radii with
+  - [x] Offer to suspend blur, translucency, tints, and custom corner radii with
         high-contrast color schemes, and validate contrast for every custom color.
         Provide a one-step reset of global appearance options to Plasma defaults
         from settings and the command line, and a way to start without workspace
         appearance overrides.
         [#296](https://github.com/mikepadiernos/plasma-impresario/issues/296)
-  - [ ] Validate contrast, text scaling, focus indicators, and high-contrast behavior across panes [#125](https://github.com/mikepadiernos/plasma-impresario/issues/125)
-  - [ ] Keep compact and comfortable layouts readable across common window sizes and display scales [#126](https://github.com/mikepadiernos/plasma-impresario/issues/126)
+  - [x] Validate contrast, text scaling, focus indicators, and high-contrast behavior across panes [#125](https://github.com/mikepadiernos/plasma-impresario/issues/125)
+  - [x] Keep compact and comfortable layouts readable across common window sizes and display scales [#126](https://github.com/mikepadiernos/plasma-impresario/issues/126)
 
 - **M09.09: Profiles and stylesheets**
 
   **Project:** Subsection [#297](https://github.com/mikepadiernos/plasma-impresario/issues/297)
 
-  - [ ] Save, import, and export versioned app-owned theme profiles with palette
+  - [x] Save, import, and export versioned app-owned theme profiles with palette
         choices, the appearance options in this milestone, and optional
         stylesheets. Validate them, confirm overwrites, and offer a safe reset to
         system appearance; do not execute code from theme files. Report unavailable
         themes and preserve saved references for retry.
         [#298](https://github.com/mikepadiernos/plasma-impresario/issues/298)
-  - [ ] Support an optional app-local Qt Style Sheet (QSS, a CSS-like subset
+  - [x] Support an optional app-local Qt Style Sheet (QSS, a CSS-like subset
         rather than full web CSS) entered in a text box or imported from a file.
         Allow preview, application, disabling, reversion, and export separately or
         with a theme profile. Report invalid or unsupported input, bound resource
         use, and prevent unapproved external resource loading. Stylesheets style
         the application, not HTML message content.
         [#299](https://github.com/mikepadiernos/plasma-impresario/issues/299)
-  - [ ] Carry theme settings over from Plasma Opus and back. Import its
+  - [x] Carry theme settings over from Plasma Opus and back. Import its
         app-local appearance choice, palette roles and theme profile, optionally
         following later changes, and export the Plasma Impresario theme for Plasma
         Opus to import. Validate shared profiles, keep applying opt-in and
@@ -1021,7 +1018,7 @@ policy.
 
   **Project:** Subsection [#300](https://github.com/mikepadiernos/plasma-impresario/issues/300)
 
-  - [ ] Attach a theme profile and selected appearance options, such as the
+  - [x] Attach a theme profile and selected appearance options, such as the
         message card layout, folder color rules, blur, corner radius, and divider
         visibility, to an M08 workspace. Choose all, selected, or none of them as
         workspace behaviors and apply them live when switching workspaces. Layer
@@ -1031,6 +1028,15 @@ policy.
         KWin, and keep saved references for retry. Workspaces associated with
         Plasma Activities apply their appearance with that Activity.
         [#301](https://github.com/mikepadiernos/plasma-impresario/issues/301)
+
+**Caveats:**
+
+- [Themes and appearance](CAVEATS.md#themes-and-appearance)
+  ([#502](https://github.com/mikepadiernos/plasma-impresario/issues/502))
+  ![Backlog][backlog]
+- [Project naming and compatibility](CAVEATS.md#project-naming-and-compatibility)
+  ([#503](https://github.com/mikepadiernos/plasma-impresario/issues/503))
+  ![Backlog][backlog]
 
 ### M10: Reliability, sync, and notification quality
 
