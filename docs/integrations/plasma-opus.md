@@ -110,8 +110,11 @@ handed over in a `mailto:` URL or with `--attach`.
 
 ## Workspaces and Plasma Activities
 
-Planned in [M08](../ROADMAP.md#m08-settings-and-workspace-configuration)
-workspace settings.
+Implemented in [M08](../ROADMAP.md#m08-settings-and-workspace-configuration)
+([#48](https://github.com/mikepadiernos/plasma-impresario/issues/48)): **Workspaces** in the settings groups accounts, a notes
+folder and a Plasma Activity, read from the Activity Manager over D-Bus, and
+the window can follow the current activity. Contacts are not yet scoped to a
+workspace; see [Settings and workspaces](../CAVEATS.md#settings-and-workspaces).
 
 - **What:** Allow email accounts to be attached to workspaces and thereby
   associated with the corresponding Plasma Activities.
@@ -227,9 +230,14 @@ Planned in [M09](../ROADMAP.md#m09-themes-and-branding-foundation)
 
 ## Vim mode and shortcuts
 
-Planned in [M08](../ROADMAP.md#m08-settings-and-workspace-configuration)
+Implemented in [M08](../ROADMAP.md#m08-settings-and-workspace-configuration)
 ([#437](https://github.com/mikepadiernos/plasma-impresario/issues/437),
-[#438](https://github.com/mikepadiernos/plasma-impresario/issues/438)).
+[#438](https://github.com/mikepadiernos/plasma-impresario/issues/438)): Vim
+mode is off by default; **Keyboard** in the settings exports a versioned JSON
+profile, imports one with a preview and **Undo Import**, and can follow a
+profile file as it changes. Mail-only commands stay app-local. Vim bindings
+are kept in KConfig rather than as KDE shortcut actions; see
+[Vim mode and shared shortcuts](../CAVEATS.md#vim-mode-and-shared-shortcuts).
 
 - **What:** Offer the same optional Vim mode as Plasma Opus and sync its
   settings in both directions, so keyboard navigation behaves the same in both

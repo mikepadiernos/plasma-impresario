@@ -130,7 +130,7 @@ check is [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315).
 | Search Results panel                                                                                       | ![Done][done]               | M05.05    | [#348](https://github.com/mikepadiernos/plasma-impresario/issues/348)                                                                                                                                           |
 | My Day / Agenda panel                                                                                      | ![Done][done]               | M06.04    | [#304](https://github.com/mikepadiernos/plasma-impresario/issues/304)                                                                                                                                           |
 | Address-book names, photos and organizations in Contacts                                                   | ![Done][done]               | M06.04    | [#305](https://github.com/mikepadiernos/plasma-impresario/issues/305)                                                                                                                                           |
-| Optional mail workspace tabs                                                                               | ![Planned][planned]         | M08       | [#246](https://github.com/mikepadiernos/plasma-impresario/issues/246)                                                                                                                                           |
+| Optional mail workspace tabs                                                                               | ![Done][done]               | M08       | [#246](https://github.com/mikepadiernos/plasma-impresario/issues/246)                                                                                                                                           |
 | Themes and appearance                                                                                      | ![In progress][in-progress] | M09       | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10); [roadmap](../ROADMAP.md#m09-themes-and-branding-foundation)                                                                                |
 | Designed header with search, compose, account switcher and status                                          | ![Planned][planned]         | M14.02    | [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306)                                                                                                                                           |
 | Sliding and floating panels; rearranging panels in customization mode                                      | ![Planned][planned]         | M14.02    | [#307](https://github.com/mikepadiernos/plasma-impresario/issues/307)                                                                                                                                           |
@@ -850,9 +850,9 @@ losing existing behavior.
 
 > [!NOTE]
 >
-> Planned for M08
-> ([#246](https://github.com/mikepadiernos/plasma-impresario/issues/246),
-> Defined on the board); not implemented.
+> Implemented in M08
+> ([#246](https://github.com/mikepadiernos/plasma-impresario/issues/246)). See
+> the [Mail tabs](../CAVEATS.md#mail-tabs) caveat.
 
 ![Decided][decided] Offer a Thunderbird-inspired tabbed mail workspace as an
 explicit setting, **off by default**. With tabs disabled, use the normal
@@ -979,11 +979,12 @@ proposed Impresario behaviors, not claims about the current client.
 
 > [!NOTE]
 >
-> Planned for M08
-> ([#114](https://github.com/mikepadiernos/plasma-impresario/issues/114)). Today
-> row density, per-account identities, plain-text identity signatures and the
-> composer's account selector are available; the other options below are not
-> implemented.
+> M08 ([#114](https://github.com/mikepadiernos/plasma-impresario/issues/114))
+> added grouped settings, the Compact, Comfortable and Focus layouts, reading
+> settings per account and folder, notification settings and the optional Vim
+> mode, alongside per-account identities, plain-text signatures and the
+> composer's account selector. Per-surface text sizing, gestures, rich-text
+> signatures and sync schedules are not implemented.
 
 Aqua Mail's customization patterns are adapted to the Plasma desktop rather
 than copied from its mobile interface:
@@ -1146,7 +1147,8 @@ otherwise.
 
 The **Compact**, **Wide** and **One At a Time** layouts arrange panes; the
 separate **Row Density** menu sets compact or comfortable row spacing. A
-focus-reading mode remains planned (M08 settings, validated in M14.02).
+**Focus** layout preset in the settings hides the side regions to focus on
+reading (M08); it is validated in M14.02.
 
 Prototype each density with realistic mail data and long folder names. Preserve
 saved splitter sizes where practical, and test keyboard navigation and message
