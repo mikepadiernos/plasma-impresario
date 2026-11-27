@@ -7,7 +7,7 @@
 This page records the supported build target and the evidence for it, as of
 2026-11-26. It is not a claim of full reader or desktop-session support. The
 [M01 release gate](../ROADMAP.md#m01-kde--qt6-compatibility-baseline) is merged
-into `main`, as are M02 through M05. Live account, reading and composing checks
+into `main`, as are M02 through M06. Live account, reading and composing checks
 have run only against a synthetic Dovecot server; desktop-session checks are
 deferred, as recorded in
 [pending tasks](../TODO.md#m01-release-gate-and-integration).
