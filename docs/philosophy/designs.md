@@ -7,10 +7,10 @@
 
 This guide is the single source for Plasma Impresario's interface and layout:
 what the shell looks like today and where it is headed. Statuses are as of
-2026-11-25.
+2026-11-26.
 
 - [Current interface](#current-interface) describes what the code implements
-  after M01 through M04, all merged into `main`.
+  after M01 through M05, all merged into `main`.
 - [Proposed Plasma Impresario shell](#proposed-plasma-impresario-shell) and the
   sections after it describe design intent, not implemented behavior, except
   where a badge says otherwise.
@@ -125,9 +125,9 @@ check is [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315).
 | [Reader colors](#reader-colors) in dark color schemes                                                      | ![Done][done]               | M04       | [#370](https://github.com/mikepadiernos/plasma-impresario/issues/370)                                                                                                                                           |
 | [Accounts in reading and composing](#accounts-in-reading-and-composing)                                    | ![Done][done]               | M04       | [#224](https://github.com/mikepadiernos/plasma-impresario/issues/224), [#41](https://github.com/mikepadiernos/plasma-impresario/issues/41)                                                                      |
 | Verified signature and decryption results in Message Details                                               | ![Done][done]               | M04       | [#303](https://github.com/mikepadiernos/plasma-impresario/issues/303), caveat [#442](https://github.com/mikepadiernos/plasma-impresario/issues/442)                                                             |
-| Related messages from the server and other folders                                                         | ![Planned][planned]         | M05.01    | [#302](https://github.com/mikepadiernos/plasma-impresario/issues/302)                                                                                                                                           |
-| Search across folders and accounts, saved searches as virtual folders                                      | ![Planned][planned]         | M05       | [Roadmap](../ROADMAP.md#m05-search-and-indexing)                                                                                                                                                                |
-| Search Results panel                                                                                       | ![Planned][planned]         | M05.05    | [#348](https://github.com/mikepadiernos/plasma-impresario/issues/348)                                                                                                                                           |
+| Related messages from the server and other folders                                                         | ![Done][done]               | M05.01    | [#302](https://github.com/mikepadiernos/plasma-impresario/issues/302)                                                                                                                                           |
+| Search across folders and accounts, saved searches as virtual folders                                      | ![Done][done]               | M05       | [Roadmap](../ROADMAP.md#m05-search-and-indexing)                                                                                                                                                                |
+| Search Results panel                                                                                       | ![Done][done]               | M05.05    | [#348](https://github.com/mikepadiernos/plasma-impresario/issues/348)                                                                                                                                           |
 | My Day / Agenda panel                                                                                      | ![Planned][planned]         | M06.04    | [#304](https://github.com/mikepadiernos/plasma-impresario/issues/304)                                                                                                                                           |
 | Address-book names, photos and organizations in Contacts                                                   | ![Planned][planned]         | M06.04    | [#305](https://github.com/mikepadiernos/plasma-impresario/issues/305)                                                                                                                                           |
 | Optional mail workspace tabs                                                                               | ![Planned][planned]         | M08       | [#246](https://github.com/mikepadiernos/plasma-impresario/issues/246)                                                                                                                                           |
