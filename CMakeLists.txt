@@ -457,6 +457,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/FromAddressProxyModel.cpp
     ${path_DesktopGui}/InlineNotificationBar.cpp
     ${path_DesktopGui}/LineEdit.cpp
+    ${path_DesktopGui}/LinkTarget.cpp
     ${path_DesktopGui}/MailBoxTreeView.cpp
     ${path_DesktopGui}/MailboxPickerDialog.cpp
     ${path_DesktopGui}/SearchBuilderDialog.cpp

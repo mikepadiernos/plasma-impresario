@@ -779,6 +779,8 @@ private:
     QString m_viewMailbox;
     /** Nonzero while the message list is arranged from m_view rather than by the user */
     int m_applyingView = 0;
+    /** Counts link hovers, so that a delayed tooltip for a link left meanwhile is not shown */
+    unsigned m_hoveredLinkGeneration = 0;
     /** Sorting from the saved header state, the default of all accounts */
     std::optional<std::pair<int, Qt::SortOrder>> m_globalSort;
     /** Positions in the message lists, per account ID */

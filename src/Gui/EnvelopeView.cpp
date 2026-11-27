@@ -31,6 +31,7 @@
 #include <QLayoutItem>
 #include <QVBoxLayout>
 #include "Gui/AddressRowWidget.h"
+#include "Gui/LinkTarget.h"
 #include "Gui/MessageView.h"
 #include "Gui/Util.h"
 #include "Imap/Model/ItemRoles.h"
@@ -256,7 +257,7 @@ void EnvelopeView::setMessage(const QModelIndex &index)
         for (qsizetype i = 0; i < m_listActions.size(); ++i) {
             const QUrl &url = m_listActions.at(i).url;
             links << QStringLiteral("<a href=\"list-action:%1\" title=\"%2\">%3</a>")
-                         .arg(QString::number(i), url.toDisplayString().toHtmlEscaped(),
+                         .arg(QString::number(i), url.toString(QUrl::FullyEncoded).toHtmlEscaped(),
                               listActionText(m_listActions.at(i).action).toHtmlEscaped());
         }
         if (!links.isEmpty())
@@ -268,7 +269,7 @@ void EnvelopeView::setMessage(const QModelIndex &index)
         connect(lbl, &QLabel::linkHovered, lbl, [this, lbl](const QString &link) {
             const int position = link.startsWith(QLatin1String("list-action:")) ? link.mid(12).toInt() : -1;
             lbl->setToolTip(position >= 0 && position < m_listActions.size()
-                                ? m_listActions.at(position).url.toDisplayString()
+                                ? linkTargetDescription(m_listActions.at(position).url, QString())
                                 : QString());
         });
         connect(lbl, &QLabel::linkActivated, this, [this](const QString &link) {

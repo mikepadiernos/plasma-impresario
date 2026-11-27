@@ -28,6 +28,9 @@ enum class LinkWarning {
   /** The target host has internationalized labels, which can imitate
      another name */
   InternationalHost,
+  /** A mailto: link whose text is an e-mail address other than the one
+     it writes to */
+  TextShowsOtherAddress,
 };
 
 struct LinkAssessment {
@@ -37,6 +40,10 @@ struct LinkAssessment {
   /** Host which the link text shows, or empty if the text is not an address
    */
   QString textHost;
+  /** For a mailto: link, the address it writes to and the address its text
+   * shows, if the text is one */
+  QString address;
+  QString textAddress;
   QList<LinkWarning> warnings;
 };
 
@@ -49,7 +56,10 @@ The result is lower-case and in its ASCII (punycode) form.
 */
 QString linkTextHost(const QString &text);
 
-/** @short Checks an http or https @arg target clicked as @arg text */
+/** @short Checks an http, https or mailto: @arg target shown as @arg text
+
+Other schemes get no warnings.
+*/
 LinkAssessment assessLink(const QUrl &target, const QString &text);
 
 /** @short Whether @arg host is @arg site or a subdomain of it, ignoring a

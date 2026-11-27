@@ -613,8 +613,7 @@ void MessageView::partContextMenuRequested(const QPoint &point)
 void MessageView::partLinkHovered(const QString &link, const QString &title, const QString &textContent)
 {
     Q_UNUSED(title);
-    Q_UNUSED(textContent);
-    emit linkHovered(link);
+    emit linkHovered(link, textContent);
 }
 
 QSettings* MessageView::profileSettings() const

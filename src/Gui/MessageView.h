@@ -138,7 +138,8 @@ private slots:
 signals:
     void messageChanged();
     void messageModelChanged(QAbstractItemModel *model);
-    void linkHovered(const QString &url);
+    /** The mouse points at a link to @p url whose text is @p text, or at no link if @p url is empty */
+    void linkHovered(const QString &url, const QString &text);
     void searchRequestedBy(Gui::EmbeddedWebView *webView);
     /** @short The first loaded part of the current message which contains the highlight term */
     void highlightTermFound(Gui::EmbeddedWebView *webView, const QString &term);

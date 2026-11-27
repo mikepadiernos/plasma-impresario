@@ -25,12 +25,15 @@
 #include <QClipboard>
 #include <QFileDialog>
 #include <QFontDatabase>
+#include <QLabel>
 #include <QMenu>
+#include <QPointer>
 #include <QNetworkReply>
 #include <QWebEngineContextMenuRequest>
 #include <QWebEnginePage>
 #include <QWebEngineSettings>
 #include <QWheelEvent>
+#include <QWidgetAction>
 
 #include "SimplePartWidget.h"
 #include "Common/MetaTypes.h"
@@ -38,6 +41,7 @@
 #include "Common/PrivateFiles.h"
 #include "Composer/Mailto.h"
 #include "Gui/MessageView.h" // so that the compiler knows that it's a QObject
+#include "Gui/LinkTarget.h"
 #include "Gui/WebEngineMessagePage.h"
 #include "Gui/Util.h"
 #include "Imap/Encoders.h"
@@ -107,7 +111,17 @@ SimplePartWidget::SimplePartWidget(QWidget *parent, Imap::Network::MsgPartNetAcc
         // The targets expect the sender() of the signal to be a SimplePartWidget, not a QWebPage,
         // which means we have to do this indirection
         connect(page(), &QWebEnginePage::linkHovered, this, [this](const QString &link) {
-            emit linkHovered(link, QString(), QString());
+            m_hoveredLink = link;
+            if (link.isEmpty()) {
+                emit linkHovered(link, QString(), QString());
+                return;
+            }
+            // The link's text is looked up first, so that a text which shows another address can be pointed out
+            QPointer<SimplePartWidget> self(this);
+            messagePage()->linkText(link, WebEngineMessagePage::LinkSource::Hovered, [self, link](const QString &text) {
+                if (self && self->m_hoveredLink == link)
+                    emit self->linkHovered(link, QString(), text);
+            });
         });
         connect(this, &SimplePartWidget::linkHovered, m_messageView, &MessageView::partLinkHovered);
 
@@ -210,6 +224,26 @@ void SimplePartWidget::buildContextMenu(const QPoint &point, QMenu &menu)
     const QUrl linkUrl = request ? request->linkUrl() : QUrl();
     if (!linkUrl.isEmpty()) {
         menu.addSeparator();
+        // The full target and any reasons for caution, before the link is opened or copied
+        auto *target = new QLabel(linkTargetDescription(linkUrl, request->linkText()), &menu);
+        target->setObjectName(QStringLiteral("linkTarget"));
+        target->setTextFormat(Qt::RichText);
+        target->setWordWrap(true);
+        target->setMaximumWidth(target->fontMetrics().averageCharWidth() * 60);
+        const int margin = target->fontMetrics().height() / 2;
+        target->setContentsMargins(margin, margin / 2, margin, margin / 2);
+        auto *targetAction = new QWidgetAction(&menu);
+        targetAction->setDefaultWidget(target);
+        targetAction->setEnabled(false);
+        menu.addAction(targetAction);
+        const QString scheme = linkUrl.scheme().toLower();
+        if (scheme == QLatin1String("http") || scheme == QLatin1String("https") || scheme == QLatin1String("mailto")) {
+            a = menu.addAction(UiUtils::loadIcon(QStringLiteral("internet-services")), tr("Open Link"));
+            a->setObjectName(QStringLiteral("openLink"));
+            connect(a, &QAction::triggered, this, [this, linkUrl, text = request->linkText()] {
+                slotLinkClicked(linkUrl, text);
+            });
+        }
         auto oneMail = Composer::extractOneMailAddress(linkUrl);
         if (!oneMail.isEmpty()) {
             a = m_copyMail;

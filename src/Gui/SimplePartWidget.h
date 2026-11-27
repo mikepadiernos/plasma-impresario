@@ -87,6 +87,8 @@ private:
     QAction *m_saveMessage;
     QAction *m_findAction;
     QAction *m_copyMail;
+    /** The link under the mouse pointer, so that the text of a link left meanwhile is not reported */
+    QString m_hoveredLink;
     MessageView *m_messageView;
     Imap::Network::MsgPartNetAccessManager *m_netAccessManager;
 

@@ -137,6 +137,7 @@
 #include "MessageRowsMenu.h"
 #include "MessageView.h"
 #include "MessageSourceWidget.h"
+#include "Gui/LinkTarget.h"
 #include "Gui/MessageHeadersWidget.h"
 #include "MsgListView.h"
 #include "MessageSelectionRestorer.h"
@@ -1850,13 +1851,17 @@ void MainWindow::createWidgets()
     m_messageWidget->messageView->setAccountResolver(accountName);
     connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::scrollMessageUp);
     connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::slotUpdateMessageActions);
-    connect(m_messageWidget->messageView, &MessageView::linkHovered, [](const QString &url) {
+    connect(m_messageWidget->messageView, &MessageView::linkHovered, this, [this](const QString &url, const QString &text) {
+        // A tooltip still waiting for the previous link is dropped
+        ++m_hoveredLinkGeneration;
         if (url.isEmpty()) {
             QToolTip::hideText();
         } else {
             // indirection due to https://bugs.kde.org/show_bug.cgi?id=363783
-            QTimer::singleShot(250, [url]() {
-                QToolTip::showText(QCursor::pos(), QObject::tr("Link target: %1").arg(UiUtils::Formatting::htmlEscaped(url)));
+            const unsigned generation = m_hoveredLinkGeneration;
+            QTimer::singleShot(250, this, [this, url, text, generation]() {
+                if (generation == m_hoveredLinkGeneration)
+                    QToolTip::showText(QCursor::pos(), linkTargetDescription(QUrl(url), text));
             });
         }
     });
