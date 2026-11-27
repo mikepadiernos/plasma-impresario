@@ -71,7 +71,7 @@ and gray before. **Board** is the parent issue's status.
 | [M04](#m04-reading-and-conversation-flow)                 | Reading and conversation flow                  | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6)     | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
 | [M05](#m05-search-and-indexing)                           | Search and indexing                            | [#324](https://github.com/mikepadiernos/plasma-impresario/issues/324) | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Merged][merged]: merged in [PR #455](https://github.com/mikepadiernos/plasma-impresario/pull/455)                                      |
 | [M06](#m06-desktop-integration-and-provider-support)      | Desktop integration and provider support       | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)     | ![26 of 26 done](https://img.shields.io/badge/26%2F26-100%25-1a7f37) | ![Merged][merged]: merged in [PR #489](https://github.com/mikepadiernos/plasma-impresario/pull/489)                                      |
-| [M07](#m07-output-notifications-and-rules-automation)     | Output, notifications and rules automation     | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8)     | ![0 of 11 done](https://img.shields.io/badge/0%2F11-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
+| [M07](#m07-output-notifications-and-rules-automation)     | Output, notifications and rules automation     | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8)     | ![11 of 11 done](https://img.shields.io/badge/11%2F11-100%25-1a7f37) | ![Completed][completed]: ready to merge from `feature/m07-automation`                                                                    |
 | [M08](#m08-settings-and-workspace-configuration)          | Settings and workspace configuration           | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9)     | ![0 of 15 done](https://img.shields.io/badge/0%2F15-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
 | [M09](#m09-themes-and-branding-foundation)                | Themes and branding foundation                 | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)   | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development]: M09.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
 | [M10](#m10-reliability-sync-and-notification-quality)     | Reliability, sync and notification quality     | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11)   | ![0 of 12 done](https://img.shields.io/badge/0%2F12-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
@@ -83,12 +83,12 @@ and gray before. **Board** is the parent issue's status.
 
 ## Recommended priority
 
-| Priority | Focus                            | Recommended next work                                                                                                                                                                                 | Where it stands (2026-11-26)                                                                                                                                                                                                                                                                                                                                                                                        |
+| Priority | Focus                            | Recommended next work                                                                                                                                                                                 | Where it stands (2026-11-27)                                                                                                                                                                                                                                                                                                                                                                                        |
 | -------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **P0**   | Reproducible, safe baseline      | Confirm product identity and supported build matrix; establish verified TLS and safe credential defaults; document cache and logging behavior; add focused connection/security and launch smoke tests | Build matrix, installer and launch smoke tests merged with M01 ([#1](https://github.com/mikepadiernos/plasma-impresario/issues/1)); the product rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) is merged. Other distribution families and protected prefixes are [pending](TODO.md#m01-release-gate-and-integration)                                                                  |
 | **P1**   | Rendering and account boundaries | Verify live reader workflows; design stable per-account settings, cache and credentials before adding simultaneous accounts                                                                           | Per-account settings, cache and credentials merged with M02 ([#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)), together with simultaneous accounts ([#222](https://github.com/mikepadiernos/plasma-impresario/issues/222)); live reader workflows verified against synthetic Dovecot in M04 ([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)). Real-session checks are in M15 |
 | **P2**   | Shell and reliability            | Prototype the Plasma Impresario layout over existing mailbox/list/reader behavior; validate accessibility, keyboard use, responsive layouts and partial-failure recovery                              | Shell merged with M02 ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); accessibility, responsive layouts and recovery continue in M09, M10, M11 and M14                                                                                                                                                                                                                                       |
-| **P3**   | Optional productivity features   | Add provider APIs, rules, Nextcloud, calendar/contacts and workspace features only after core reliability, permissions and privacy behavior are defined                                               | M05 and M06 are merged; planned in M07, M08, M12 and M13, whose parent issues are in the Backlog                                                                                                                                                                                                                                                                                                                    |
+| **P3**   | Optional productivity features   | Add provider APIs, rules, Nextcloud, calendar/contacts and workspace features only after core reliability, permissions and privacy behavior are defined                                               | M05 and M06 are merged and M07, rules and notifications, is complete; planned in M08, M12 and M13, whose parent issues are in the Backlog                                                                                                                                                                                                                                                                           |
 
 These are sequencing priorities, not issue statuses or completion markers.
 Follow the [board workflow](../CONTRIBUTING.md#board-statuses) before updating
@@ -703,31 +703,40 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 
 ### M07: Output, notifications, and rules automation
 
-**Status:** ![Backlog][backlog]
-![0 of 11 done](https://img.shields.io/badge/0%2F11-0%25-6e7781) ·
+**Status:** ![Completed][completed]
+![11 of 11 done](https://img.shields.io/badge/11%2F11-100%25-1a7f37) ·
 **Parent issue:** [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8)
 
 **Project:** M07 milestone [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8) ·
 Output and notifications [#45](https://github.com/mikepadiernos/plasma-impresario/issues/45) ·
 Rule execution [#46](https://github.com/mikepadiernos/plasma-impresario/issues/46)
 
-- [ ] Define the output surfaces for sync status, alerts, notifications, and background job feedback [#45](https://github.com/mikepadiernos/plasma-impresario/issues/45)
-- [ ] Add a rules engine for sender, subject, attachment, folder, and tag-based message automation [#46](https://github.com/mikepadiernos/plasma-impresario/issues/46)
-- [ ] Support actions such as move, flag, archive, notify, and tag assignment [#107](https://github.com/mikepadiernos/plasma-impresario/issues/107)
-- [ ] Keep notification and automation behavior separate from the core shell and reader milestones [#108](https://github.com/mikepadiernos/plasma-impresario/issues/108)
-- [ ] This milestone is a blocker for workflow tuning, spam handling, and high-volume mail management [#109](https://github.com/mikepadiernos/plasma-impresario/issues/109)
-- [ ] Support per-account and per-folder notification controls, with summaries that avoid interrupting focused work [#110](https://github.com/mikepadiernos/plasma-impresario/issues/110)
-- [ ] Define rule order, matching conditions, actions, and account or folder scope for incoming mail [#111](https://github.com/mikepadiernos/plasma-impresario/issues/111)
-- [ ] Preview or test rule matches and report execution failures before rules perform destructive actions [#112](https://github.com/mikepadiernos/plasma-impresario/issues/112)
-- [ ] Make background sync, scanning, and rule activity visible with actionable error and progress states [#113](https://github.com/mikepadiernos/plasma-impresario/issues/113)
-- [ ] Create a rule or notification from a search or saved search, previewing
+- [x] Define the output surfaces for sync status, alerts, notifications, and background job feedback [#45](https://github.com/mikepadiernos/plasma-impresario/issues/45)
+- [x] Add a rules engine for sender, subject, attachment, folder, and tag-based message automation [#46](https://github.com/mikepadiernos/plasma-impresario/issues/46)
+- [x] Support actions such as move, flag, archive, notify, and tag assignment [#107](https://github.com/mikepadiernos/plasma-impresario/issues/107)
+- [x] Keep notification and automation behavior separate from the core shell and reader milestones [#108](https://github.com/mikepadiernos/plasma-impresario/issues/108)
+- [x] This milestone is a blocker for workflow tuning, spam handling, and high-volume mail management [#109](https://github.com/mikepadiernos/plasma-impresario/issues/109)
+- [x] Support per-account and per-folder notification controls, with summaries that avoid interrupting focused work [#110](https://github.com/mikepadiernos/plasma-impresario/issues/110)
+- [x] Define rule order, matching conditions, actions, and account or folder scope for incoming mail [#111](https://github.com/mikepadiernos/plasma-impresario/issues/111)
+- [x] Preview or test rule matches and report execution failures before rules perform destructive actions [#112](https://github.com/mikepadiernos/plasma-impresario/issues/112)
+- [x] Make background sync, scanning, and rule activity visible with actionable error and progress states [#113](https://github.com/mikepadiernos/plasma-impresario/issues/113)
+- [x] Create a rule or notification from a search or saved search, previewing
       the matching messages first. See [M05](#m05-search-and-indexing).
       [#355](https://github.com/mikepadiernos/plasma-impresario/issues/355)
-- [ ] Keep one updatable new-mail notification per account, skip old mail moved
+- [x] Keep one updatable new-mail notification per account, skip old mail moved
       into the inbox and the conversation being read, and offer Mark as read and
       Delete actions; test the notification decisions without a desktop. See
       [E-Mail](philosophy/inspirations.md#e-mail).
       [#377](https://github.com/mikepadiernos/plasma-impresario/issues/377)
+
+**Caveats:**
+
+- [Mail rules](CAVEATS.md#mail-rules)
+  ([#491](https://github.com/mikepadiernos/plasma-impresario/issues/491))
+  ![Backlog][backlog]
+- [New-mail notifications and activity](CAVEATS.md#new-mail-notifications-and-activity)
+  ([#492](https://github.com/mikepadiernos/plasma-impresario/issues/492))
+  ![Backlog][backlog]
 
 ### M08: Settings and workspace configuration
 
