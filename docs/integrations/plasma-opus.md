@@ -49,8 +49,9 @@ Milestone numbers in the first column are Plasma Opus milestones; those in the
 Tracking column are Plasma Impresario milestones. As of 2026-11-26, the M05
 issues listed are Defined or further along, and the others are in the Backlog.
 Plasma Impresario opens files with `QFileDialog`, accepts only dropped local
-files, opens Plasma's file search through KIO, and shows a saved file through
-`org.freedesktop.FileManager1`.
+files, opens Plasma's file search through KIO, shows a saved file through
+`org.freedesktop.FileManager1`, and attaches files handed over in a `mailto:`
+URL or with `--attach`.
 
 | Plasma Opus feature                                                                                                         | Plasma Opus status                                        | Use in Plasma Impresario                                                       | Tracking                                                                                                                                                                                                                                                             |
 | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -133,8 +134,9 @@ Planned in M06.01 and M06.03 in
 [#263](https://github.com/mikepadiernos/plasma-impresario/issues/263),
 [#265](https://github.com/mikepadiernos/plasma-impresario/issues/265),
 [#266](https://github.com/mikepadiernos/plasma-impresario/issues/266)).
-**Show in Folder** after saving (#266) is implemented; the other handoffs are
-planned.
+**Show in Folder** after saving (#266) and composing with handed-over files
+(#263) are implemented; remote files (#265) and the portal file chooser (#101)
+are planned.
 
 - **What:** Open, share or forward attachments and related documents through
   suitable desktop or companion applications.

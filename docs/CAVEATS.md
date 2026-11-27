@@ -39,6 +39,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Local data and opened attachments](#local-data-and-opened-attachments)
   - [Outgoing headers and Bcc](#outgoing-headers-and-bcc)
   - [Saved files in the file manager](#saved-files-in-the-file-manager)
+  - [Files handed over by file managers](#files-handed-over-by-file-managers)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -64,6 +65,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Search            | Date ranges follow the day in each message's Date header, in the sender's time zone, and a search of several folders selects each folder of the account in turn and loads every result's headers; `has:attachment` approximates by message type, folder suggestions cover only the shown account's listed folders, virtual folders count only while shown, and offline search covers only mail kept and indexed on this computer ([details](#search)) | [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454)                                                                        |
 | ![Limitation][limitation] | Desktop           | Closing the window quits unless running in the background is on, even with the tray icon shown; both options apply to every profile, and starting after login is not verified in a Plasma session or through the sandbox portal ([details](#desktop-integration))                                                                                                                                                                                     | [#457](https://github.com/mikepadiernos/plasma-impresario/issues/457)                                                                        |
 | ![Limitation][limitation] | Saved files       | **Show in Folder** is offered in the main window only, and is not checked with Dolphin or Plasma Opus in a real Plasma session ([details](#saved-files-in-the-file-manager))                                                                                                                                                                                                                                                                          | [#460](https://github.com/mikepadiernos/plasma-impresario/issues/460)                                                                        |
+| ![Limitation][limitation] | Handed-over files | A `mailto:` URL may not attach hidden or system files, remote files are refused, drafts drop the files, and nothing is checked with the portal, Dolphin or Plasma Opus in a real Plasma session ([details](#files-handed-over-by-file-managers))                                                                                                                                                                                                      | [#461](https://github.com/mikepadiernos/plasma-impresario/issues/461)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -1480,6 +1482,54 @@ Plasma session; that check is
   errors there are reported too.
 - Keep the offer available after another notice replaces it, for example in a
   list of recent saves.
+
+### Files handed over by file managers
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                           |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [#461](https://github.com/mikepadiernos/plasma-impresario/issues/461) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/461#issuecomment-7209609909) | `mailto:` URLs with `attach=` or `attachment=` items from another application, `plasma-impresario --attach <file>` and the `composeMailWithFiles` D-Bus call ([#263](https://github.com/mikepadiernos/plasma-impresario/issues/263)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Files that another application hands over, such as a
+  file manager through KDE's e-mail launcher or the XDG Email portal, a second
+  start of the application, or `--attach`, are attached to a new unsent
+  message. Nothing is sent until you send it
+  ([#263](https://github.com/mikepadiernos/plasma-impresario/issues/263)).
+- ![Resolved][resolved] A notice at the top of the composer names every
+  attached file and stays until dismissed. Files that could not be attached
+  are listed with the reason instead of being dropped.
+- ![Resolved][resolved] A `mailto:` link clicked inside a message attaches
+  nothing; the composer says that it asked for files.
+- ![Limitation][limitation] A `mailto:` URL may not attach hidden files, files
+  in hidden folders or files in `/proc`, `/sys`, `/dev`, `/etc`, `/boot` and
+  `/root`, also through links. The list is fixed. Files named with `--attach`
+  only have to be readable regular files.
+- ![Limitation][limitation] Remote files, such as `sftp:` or `smb:` URLs, are
+  refused and listed; fetching them is
+  [#265](https://github.com/mikepadiernos/plasma-impresario/issues/265).
+- ![Limitation][limitation] Drafts do not keep attachments
+  ([#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)), so handed-over files must be attached again after
+  reopening a draft or recovering an unsent message.
+- ![Limitation][limitation] It has not been checked with the XDG Email portal,
+  Dolphin or Plasma Opus in a real Plasma session; tests build the URLs the way
+  KDE's e-mail launcher does and call the D-Bus entry point directly. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- To send a hidden or system file, attach it with **Attach** in the composer,
+  or name it with `--attach`.
+- For a remote file, copy it to a local folder first, then attach it.
+- After reopening a draft or recovering an unsent message, attach the files
+  again.
+
+**Proposed improvements:**
+
+- Fetch remote files through KIO with progress and cancellation
+  ([#265](https://github.com/mikepadiernos/plasma-impresario/issues/265)).
+- Keep attachments with drafts ([#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)).
+- Ask before reading files that an unknown application requests.
 
 ## Before reporting results
 
