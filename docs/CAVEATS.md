@@ -51,6 +51,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Unread count on the task manager](#unread-count-on-the-task-manager)
   - [Accessibility and theming](#accessibility-and-theming)
   - [Provider setup and Gmail](#provider-setup-and-gmail)
+  - [Junk and attachment safety](#junk-and-attachment-safety)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -88,6 +89,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Task manager      | The task manager entry shows the unread messages in every account's INBOX, but nothing is checked in a Plasma session; the tray icon counts other folders, and accounts not yet connected add nothing ([details](#unread-count-on-the-task-manager))                                                                                                                                                                                                  | [#471](https://github.com/mikepadiernos/plasma-impresario/issues/471)                                                                        |
 | ![Limitation][limitation] | Accessibility     | Icons, state colors and contrast follow Plasma's theme and the main controls have accessible names, but nothing is checked with a screen reader, a high-contrast scheme or in a Plasma session, and there are no translations yet ([details](#accessibility-and-theming))                                                                                                                                                                             | [#472](https://github.com/mikepadiernos/plasma-impresario/issues/472)                                                                        |
 | ![Limitation][limitation] | Providers         | The provider guide is untried with real accounts; on Gmail, **Archive** creates an `Archive` label and sent messages are uploaded twice unless set otherwise ([details](#provider-setup-and-gmail))                                                                                                                                                                                                                                                   | [#473](https://github.com/mikepadiernos/plasma-impresario/issues/473)                                                                        |
+| ![Limitation][limitation] | Security          | Junk comes only from IMAP keywords, **Mark as Junk** does not move mail, no virus scanner is connected, and only **Open** asks first ([details](#junk-and-attachment-safety))                                                                                                                                                                                                                                                                         | [#474](https://github.com/mikepadiernos/plasma-impresario/issues/474)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -2106,6 +2108,56 @@ Plasma session; that check is
   archive to `\All`, turn off saving sent copies, and show labels as labels
   rather than duplicate folders.
 - Check each built-in provider with a real account in a Plasma 6 session.
+
+### Junk and attachment safety
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                   |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| [#474](https://github.com/mikepadiernos/plasma-impresario/issues/474) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/474#issuecomment-7214741902) | Junk verdicts and attachment opening ([#105](https://github.com/mikepadiernos/plasma-impresario/issues/105)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] A message with a `$Junk` or `Junk` keyword shows a
+  warning banner above the reader. Its **Not Junk** button removes `$Junk` and
+  adds `$NotJunk` on the server. A `$NotJunk`, `NotJunk` or `NonJunk` keyword
+  always wins over a junk mark.
+- ![Resolved][resolved] Junk rows show the `mail-mark-junk` icon, and screen
+  readers hear "Marked as junk".
+- ![Resolved][resolved] Opening an attachment of junk mail from the reader or
+  the attachments panel asks first. **Cancel** is the default, and nothing is
+  downloaded until the user agrees.
+- ![Resolved][resolved] Scan results have fixed meanings: an infected
+  attachment is blocked, and a failed or unavailable scan asks first and is
+  never shown as clean.
+- ![Limitation][limitation] The verdict comes only from IMAP keywords. Spam
+  headers such as `X-Spam-Status` are not read, so mail that the server files
+  into the Junk folder without a keyword is not marked.
+- ![Limitation][limitation] **Mark as Junk** and **Not Junk** change only
+  keywords; neither moves the message into or out of the Junk folder.
+- ![Limitation][limitation] No virus scanner is connected yet, so every
+  attachment is "not scanned".
+- ![Limitation][limitation] Only **Open** asks first. Saving or dragging an
+  attachment of junk mail does not.
+- ![Limitation][limitation] With column rows, the junk mark replaces the
+  replied and forwarded icon in the subject column. Closing the reader's junk
+  banner hides it until another message is shown.
+
+**Workarounds:**
+
+- Let the server's spam filter set `$Junk`, for example Dovecot with Rspamd
+  or SpamAssassin and a Sieve `addflag`, so its verdict reaches the reader.
+- To file junk away, use **Move to** after **Mark as Junk**.
+- Save suspicious attachments and scan them with ClamAV (`clamscan`) before
+  opening them.
+
+**Proposed improvements:**
+
+- Scan with a local `clamd` before an attachment opens, and optionally move
+  junk to the Junk folder
+  ([#44](https://github.com/mikepadiernos/plasma-impresario/issues/44)).
+- Read the server's spam headers when they are cached, and treat mail in the
+  Junk folder as junk.
+- Ask before saving or dragging attachments of junk mail as well.
 
 ## Before reporting results
 
