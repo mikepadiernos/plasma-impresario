@@ -30,6 +30,7 @@ private slots:
     void testFlagsAndRemovedMessages();
     void testUidValidityChange();
     void testMessagesWithId();
+    void testQuickMatches();
     void testRemovedFolder();
     void testDropAndReopen();
     void testPlainTextOfHtml();

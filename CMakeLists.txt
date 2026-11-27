@@ -1276,7 +1276,8 @@ if(BUILD_TESTING)
                     accountSettingsEditOnlyTheActiveAccount cancellingAccountSettingsKeepsTheAccount
                     addingAnAccountOpensItsAccountSettings clientSecretStaysOutOfTheSettings
                     searchIndexIsChosenPerAccount searchIndexAttachmentsAreChosenPerAccount
-                    searchIndexPrivacyIsKeptPerAccount memoryOnlyCacheLeavesNoIndex startAfterLoginNeedsBackgroundRunning)
+                    searchIndexPrivacyIsKeptPerAccount memoryOnlyCacheLeavesNoIndex startAfterLoginNeedsBackgroundRunning
+                    plasmaSearchIsOptIn)
                 add_test(NAME test_AccountSettingsDialog_${settings_case} COMMAND test_AccountSettingsDialog ${settings_case})
                 set_tests_properties(test_AccountSettingsDialog_${settings_case} PROPERTIES
                     TIMEOUT 60
@@ -1452,6 +1453,15 @@ if(BUILD_TESTING)
     target_link_libraries(test_SearchResultsModel PRIVATE UiUtils)
     trojita_test(Misc LinkSafety)
     target_link_libraries(test_LinkSafety PRIVATE UiUtils)
+    if(WITH_DBUS)
+        add_executable(test_KRunnerBridge tests/Misc/test_KRunnerBridge.cpp src/IPC/KRunnerBridge.cpp src/IPC/KRunnerBridge.h)
+        target_compile_definitions(test_KRunnerBridge PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+        target_include_directories(test_KRunnerBridge PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+        target_link_libraries(test_KRunnerBridge PRIVATE Qt6::DBus Qt6::Test)
+        if(NOT CMAKE_CROSSCOMPILING)
+            add_test(test_KRunnerBridge test_KRunnerBridge)
+        endif()
+    endif()
     if(WITH_DESKTOP)
         trojita_test(Misc DestructiveActions)
         target_link_libraries(test_DestructiveActions PRIVATE UiUtils KF6::ConfigCore)
@@ -1459,6 +1469,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_FileSearch PRIVATE UiUtils KF6::ConfigCore)
         trojita_test(Misc BackgroundRunning)
         target_link_libraries(test_BackgroundRunning PRIVATE UiUtils KF6::ConfigCore)
+        trojita_test(Misc PlasmaSearch)
+        target_link_libraries(test_PlasmaSearch PRIVATE UiUtils KF6::ConfigCore)
     endif()
 
 endif()

@@ -8,6 +8,7 @@
 #include "Gui/SearchIndexDialog.h"
 #include "Gui/Window.h"
 #include "UiUtils/BackgroundRunning.h"
+#include "UiUtils/PlasmaSearch.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/Model.h"
 #include "Imap/Model/SearchIndexer.h"
@@ -236,6 +237,30 @@ private slots:
         QVERIFY(!Background::startsAfterLogin(*config));
         QVERIFY(qApp->quitOnLastWindowClosed());
         QVERIFY(!QFile::exists(entry));
+    }
+
+    void plasmaSearchIsOptIn()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        Gui::MainWindow window(&settings);
+        auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        QVERIFY(!UiUtils::PlasmaSearch::isEnabled(*config));
+        QVERIFY(window.plasmaSearchMatches(QStringLiteral("report")).isEmpty());
+
+        for (const bool enable : {true, false}) {
+            QVERIFY(handleDialog([&]() { QMetaObject::invokeMethod(&window, "slotShowSettings", Qt::DirectConnection); },
+                [&](QDialog *dialog) {
+                    auto *checkBox = dialog->findChild<QCheckBox *>(QStringLiteral("guiPlasmaSearchCheckbox"));
+                    QVERIFY(checkBox);
+                    QCOMPARE(checkBox->isChecked(), !enable);
+                    checkBox->setChecked(enable);
+                    save(dialog);
+                }));
+            QCOMPARE(UiUtils::PlasmaSearch::isEnabled(*config), enable);
+        }
     }
 
     void accountSettingsEditOnlyTheActiveAccount()

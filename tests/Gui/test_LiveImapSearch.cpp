@@ -29,6 +29,7 @@
 #include "Imap/Model/Utils.h"
 #include "UiUtils/MailingLists.h"
 #include "UiUtils/MessageIdLookup.h"
+#include "UiUtils/PlasmaSearch.h"
 #include "UiUtils/SavedSearches.h"
 #include "UiUtils/SearchScope.h"
 #include "configure.cmake.h"
@@ -1276,6 +1277,43 @@ private slots:
         QVERIFY(lookup.found().constFirst().uidValidity != 0);
         QCOMPARE(lookup.start("quarterly-report@example", {Lookup::Account{QStringLiteral("account-1"), nullptr, indexer}}),
                  Lookup::State::NotFound);
+
+        // Plasma Search is silent until it is turned on, then finds indexed mail by subject and sender only
+        {
+            auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+            const auto titles = [&window](const QString &query) {
+                QStringList result;
+                const auto found = window.plasmaSearchMatches(query);
+                for (const auto &match : found)
+                    result << match.title;
+                return result;
+            };
+            QVERIFY(!UiUtils::PlasmaSearch::isEnabled(*config));
+            QVERIFY(window.plasmaSearchMatches(QStringLiteral("release")).isEmpty());
+            UiUtils::PlasmaSearch::setEnabled(*config, true);
+            QCOMPARE(titles(QStringLiteral("release")),
+                     (QStringList{QStringLiteral("[dev] Release notes"), QStringLiteral("Release plan")}));
+            QCOMPARE(titles(QStringLiteral("ANN")), (QStringList{QStringLiteral("Release plan"), QStringLiteral("Quarterly report")}));
+            // Words only in the text of a message are not looked at, nor is Alpha, which has no index
+            QVERIFY(titles(QStringLiteral("noon")).isEmpty());
+            QVERIFY(titles(QStringLiteral("invoice")).isEmpty());
+            QVERIFY(titles(QStringLiteral("re")).isEmpty());
+            const auto quarterly = window.plasmaSearchMatches(QStringLiteral("ann quarterly"));
+            QCOMPARE(quarterly.size(), 1);
+            QVERIFY2(quarterly.constFirst().subtext.contains(QLatin1String("Ann Example")), qPrintable(quarterly.constFirst().subtext));
+            QVERIFY2(quarterly.constFirst().subtext.contains(QLocale().toString(QDate(2025, 6, 10), QLocale::ShortFormat)),
+                     qPrintable(quarterly.constFirst().subtext));
+            QVERIFY(!quarterly.constFirst().subtext.contains(QLatin1String("attached")));
+
+            // Choosing a match shows the message; IDs naming nothing are ignored
+            window.openPlasmaSearchMatch(QStringLiteral("message/account-9/INBOX/1/1"));
+            window.openPlasmaSearchMatch(QStringLiteral("not a match"));
+            QCOMPARE(current(), QStringLiteral("Release plan"));
+            window.openPlasmaSearchMatch(quarterly.constFirst().id);
+            QTRY_COMPARE_WITH_TIMEOUT(current(), QStringLiteral("Quarterly report"), 10000);
+            UiUtils::PlasmaSearch::setEnabled(*config, false);
+            QVERIFY(window.plasmaSearchMatches(QStringLiteral("release")).isEmpty());
+        }
 
         // A message which is only on a server is searched for after the user agrees, from a mid: URL
         bar->dismiss();
