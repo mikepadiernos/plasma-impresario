@@ -570,6 +570,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/SettingsGroups.cpp
     ${path_DesktopGui}/AppearanceManager.cpp
     ${path_DesktopGui}/AppearanceStyle.cpp
+    ${path_DesktopGui}/ThemeGroup.cpp
     ${path_DesktopGui}/PlasmaActivities.cpp
     ${path_DesktopGui}/MailTabBar.cpp
     ${path_DesktopGui}/VimMode.cpp

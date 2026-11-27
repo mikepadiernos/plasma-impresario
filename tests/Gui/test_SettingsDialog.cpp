@@ -21,6 +21,7 @@
 
 #include "Common/SettingsNames.h"
 #include "Gui/SettingsGroups.h"
+#include "Gui/ThemeGroup.h"
 #include "UiUtils/Keymap.h"
 #include "UiUtils/SettingsStore.h"
 
@@ -271,6 +272,45 @@ private slots:
         undo->click();
         QVERIFY(!vimMode->isChecked());
         QCOMPARE(SettingsStore::value(*config(), nullptr, QStringLiteral("Keyboard/VimMode")), QVariant(false));
+    }
+
+    void themeOptionsProfilesAndRulesAreSaved()
+    {
+        m_context.confirm = [](QWidget *, const QString &, const QString &) { return true; };
+        m_context.chooseFile = [](QWidget *, const QString &, SettingsContext::FileMode, const QString &) {
+            return QString();
+        };
+        ThemeGroup group(m_context, nullptr);
+        child<QCheckBox>(&group, QStringLiteral("livePreview"))->setChecked(false);
+        auto *stripes = child<QCheckBox>(&group, QStringLiteral("theme-StripeRows"));
+        auto *blur = child<QCheckBox>(&group, QStringLiteral("theme-BackgroundBlur"));
+        QVERIFY(stripes && blur);
+        QVERIFY(stripes->isChecked());
+        QVERIFY(!blur->isChecked());
+        stripes->setChecked(false);
+        blur->setChecked(true);
+        QCOMPARE(UiUtils::Theme::value(group.values(), QStringLiteral("StripeRows")), QVariant(false));
+
+        child<QLineEdit>(&group, QStringLiteral("profileName"))->setText(QStringLiteral("Calm"));
+        child<QPushButton>(&group, QStringLiteral("saveProfile"))->click();
+        QCOMPARE(child<QListWidget>(&group, QStringLiteral("themeProfiles"))->count(), 1);
+
+        child<QLineEdit>(&group, QStringLiteral("rulePattern"))->setText(QStringLiteral("Lists"));
+        child<QPushButton>(&group, QStringLiteral("addFolderRule"))->click();
+        QCOMPARE(child<QListWidget>(&group, QStringLiteral("folderColorRules"))->count(), 1);
+
+        QSettings unused;
+        group.save(unused);
+        const UiUtils::Theme::Values saved = SettingsStore::theme(*config());
+        QCOMPARE(UiUtils::Theme::value(saved, QStringLiteral("StripeRows")), QVariant(false));
+        QCOMPARE(UiUtils::Theme::value(saved, QStringLiteral("BackgroundBlur")), QVariant(true));
+        const auto profiles = SettingsStore::themeProfiles(*config());
+        QCOMPARE(profiles.size(), 1);
+        QCOMPARE(profiles.first().name, QStringLiteral("Calm"));
+        QCOMPARE(UiUtils::Theme::value(profiles.first().values, QStringLiteral("StripeRows")), QVariant(false));
+        const auto rules = SettingsStore::folderColors(*config()).rules;
+        QCOMPARE(rules.size(), 1);
+        QCOMPARE(rules.first().pattern, QStringLiteral("Lists"));
     }
 
 private:

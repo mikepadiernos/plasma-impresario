@@ -208,7 +208,7 @@ private slots:
             }));
         QCOMPARE(groups,
                  (QStringList { QStringLiteral("general"), QStringLiteral("accounts"), QStringLiteral("appearance"),
-                                QStringLiteral("reading"), QStringLiteral("composition"), QStringLiteral("privacy"),
+                                QStringLiteral("theme"), QStringLiteral("reading"), QStringLiteral("composition"), QStringLiteral("privacy"),
                                 QStringLiteral("notifications"), QStringLiteral("search"),
                                 QStringLiteral("integrations"), QStringLiteral("workspaces"),
                                 QStringLiteral("keyboard") }));

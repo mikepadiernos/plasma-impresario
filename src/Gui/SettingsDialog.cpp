@@ -52,6 +52,7 @@
 #include "Common/SettingsNames.h"
 #include "Composer/AccountIdentities.h"
 #include "Gui/StartAfterLogin.h"
+#include "Gui/ThemeGroup.h"
 #include "Gui/Util.h"
 #include "Gui/Window.h"
 #include "Imap/Model/AccountCapabilities.h"
@@ -180,6 +181,8 @@ void SettingsDialog::addApplicationGroups()
             QStringLiteral("system-users")},
         {new AppearanceGroup(favoriteTags, context, this), i18nc("@title:group of settings", "Appearance"),
             QStringLiteral("preferences-desktop-theme-global")},
+        {new ThemeGroup(context, this), i18nc("@title:group of settings", "Theme"),
+            QStringLiteral("preferences-desktop-color")},
         {new ReadingGroup(general, context, this), i18nc("@title:group of settings", "Reading"),
             QStringLiteral("mail-read")},
         {new CompositionGroup(general, context, this), i18nc("@title:group of settings", "Composition"),
