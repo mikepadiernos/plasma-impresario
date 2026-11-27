@@ -51,6 +51,7 @@ public:
     enum class ServerKind {
         Imap,
         Smtp,
+        Pop3,
     };
 
     Q_INVOKABLE static QString prettySize(quint64 bytes);
