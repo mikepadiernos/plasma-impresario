@@ -1160,11 +1160,12 @@ see the [Microsoft guide](integrations/microsoft.md) and its
 
   **Project:** Subsection [#390](https://github.com/mikepadiernos/plasma-impresario/issues/390)
 
-  - [ ] Add Microsoft Graph as an optional mail protocol in the account model
-        in the first M13 release, reusing KDE PIM's Graph client, with delta sync,
+  - [ ] Add Microsoft Graph as an optional mail protocol in the account model in
+        the first M13 release, reusing KDE PIM's Graph client, with delta sync,
         sending through Graph when SMTP AUTH is turned off (first, if the M06.05
-        protocol layer is not ready) and Retry-After handling for throttling, and
-        register its capabilities with `CapabilityActionGate`
+        protocol layer is not ready) and Retry-After handling for throttling,
+        register its capabilities with `CapabilityActionGate` and apply the
+        lessons of KDE's Graph resource
         [#400](https://github.com/mikepadiernos/plasma-impresario/issues/400)
   - [ ] Support consumer Outlook.com, Hotmail, and Live accounts using
         provider-supported OAuth and mail interfaces
@@ -1263,19 +1264,22 @@ see the [Microsoft guide](integrations/microsoft.md) and its
 
   **Project:** Subsection [#395](https://github.com/mikepadiernos/plasma-impresario/issues/395)
 
-  - [ ] Reuse Microsoft accounts already set up in KDE PIM's Graph or EWS
-        resources (KDE Online Accounts has no Microsoft provider), and offer to
-        add Outlook calendars and contacts to KDE PIM so Merkuro and Plasma Opus
-        can use them
+  - [ ] Reuse Microsoft accounts already set up in KDE PIM's EWS resource or
+        Graph resource (`akonadi_graph_resource`, from KDE Gear 26.12 or the
+        standalone akonadi-microsoft365 build; KDE Online Accounts has no
+        Microsoft provider), and offer to add Outlook calendars and contacts to
+        KDE PIM so Merkuro and Plasma Opus can use them
         [#414](https://github.com/mikepadiernos/plasma-impresario/issues/414)
   - [ ] Show the Microsoft permissions granted for each feature, let users turn
         features off per account and remove their cached data, and send no telemetry
         [#415](https://github.com/mikepadiernos/plasma-impresario/issues/415)
   - [ ] Test Microsoft interfaces offline against local fake Graph, EWS (reusing
-        KDE PIM's fake EWS server), Autodiscover and OAuth servers with anonymized
-        recordings, covering throttling, consent errors and delta resets, and run
-        opt-in live tests with a disposable Outlook.com account, a Microsoft 365
-        test tenant and an Exchange Server; real-session checks belong in M15
+        KDE PIM's fake EWS server and Graph tests), Autodiscover and OAuth
+        servers with anonymized recordings, covering throttling, consent errors
+        and delta resets, and run opt-in live tests, adapted from
+        akonadi-microsoft365's tools, with a disposable Outlook.com account, a
+        Microsoft 365 test tenant and an Exchange Server; real-session checks
+        belong in M15
         [#416](https://github.com/mikepadiernos/plasma-impresario/issues/416)
   - [ ] Document Microsoft account setup for users and administrators, including
         turning on IMAP and SMTP AUTH, app consent and Conditional Access, with
