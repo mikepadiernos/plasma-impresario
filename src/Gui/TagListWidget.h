@@ -44,6 +44,10 @@ class TagListWidget : public QWidget
 public:
     explicit TagListWidget(QWidget *parent, Imap::Mailbox::FavoriteTagsModel *m_favoriteTags);
     void setTagList(QStringList list);
+    /** @short Show the message's Gmail labels as read-only chips before its tags */
+    void setLabelList(const QStringList &labels);
+    /** @short How a Gmail label is shown; empty for labels which the reader shows otherwise, such as \\Starred */
+    static QString gmailLabelDisplayName(const QString &label);
 
 signals:
     void tagAdded(const QString &tag);
@@ -59,7 +63,10 @@ private:
     TagWidget *addButton;
     QList<QObject *> children;
     QSet<QString> unsupportedReservedKeywords;
+    QStringList m_tags;
+    QStringList m_labels;
     void empty();
+    void rebuild();
 };
 
 }

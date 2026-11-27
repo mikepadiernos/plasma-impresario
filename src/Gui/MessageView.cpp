@@ -66,6 +66,34 @@
 namespace Gui
 {
 
+namespace {
+
+/** @short The message's Gmail labels, without the one that names the folder it is shown in */
+QStringList visibleGmailLabels(const QModelIndex &message)
+{
+    const QStringList labels = message.data(Imap::Mailbox::RoleMessageGmailLabels).toStringList();
+    if (labels.isEmpty())
+        return labels;
+    const QString mailbox = message.data(Imap::Mailbox::RoleMailboxName).toString();
+    const auto *model = qobject_cast<const Imap::Mailbox::Model *>(message.model());
+    using Imap::Mailbox::SpecialUse;
+    const SpecialUse kind = model ? model->mailboxSpecialUse(mailbox) : SpecialUse::None;
+    QStringList out;
+    for (const QString &label : labels) {
+        const QString system = label.startsWith(QLatin1Char('\\')) ? label.mid(1).toLower() : QString();
+        const bool namesThisFolder = label == mailbox
+            || (system == QLatin1String("inbox") && kind == SpecialUse::Inbox)
+            || (system == QLatin1String("sent") && kind == SpecialUse::Sent)
+            || (system == QLatin1String("trash") && kind == SpecialUse::Trash)
+            || (system == QLatin1String("spam") && kind == SpecialUse::Junk);
+        if (!namesThisFolder)
+            out << label;
+    }
+    return out;
+}
+
+}
+
 MessageView::MessageView(QWidget *parent, QSettings *settings, Plugins::PluginManager *pluginManager,
         Imap::Mailbox::FavoriteTagsModel *m_favoriteTags)
     : QWidget(parent)
@@ -325,11 +353,15 @@ void MessageView::showMessageNow()
     m_envelope->setMessage(message);
 
     auto updateTagList = [this]() {
+        tags->setLabelList(visibleGmailLabels(message));
         tags->setTagList(m_taghandler.tags(message));
         updateJunkBanner();
     };
     connect(messageModel, &QAbstractItemModel::dataChanged, this, updateTagList);
     updateTagList();
+    // Labels change without notice, so they are asked for again each time the message is shown
+    if (auto *model = const_cast<Imap::Mailbox::Model *>(qobject_cast<const Imap::Mailbox::Model *>(message.model())))
+        model->requestGmailLabels(message);
 
     UiUtils::PartLoadingOptions loadingMode;
     if (m_settings->value(Common::SettingsNames::guiPreferPlaintextRendering, QVariant(true)).toBool())

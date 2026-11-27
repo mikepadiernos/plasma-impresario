@@ -360,6 +360,48 @@ private slots:
         QVERIFY(OAuth::TokenSource::find(window.imapModel()));
     }
 
+    void gmailKeepsItsOwnSentCopiesAndArchiveIsAutomatic()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        Gui::MainWindow window(&settings);
+
+        bool archiveAutomatic = false;
+        bool offForGmail = false;
+        bool backElsewhere = false;
+        QVERIFY(
+            handleDialog([&]() { window.findChild<QAction *>(QStringLiteral("action_account_settings"))->trigger(); },
+                [&](QDialog *dialog) {
+                    auto *archive = dialog->findChild<QLineEdit *>(QStringLiteral("archiveFolderName"));
+                    auto *smtpHost = dialog->findChild<QLineEdit *>(QStringLiteral("smtpHost"));
+                    auto *saveToImap = dialog->findChild<QCheckBox *>(QStringLiteral("saveToImap"));
+                    QVERIFY(archive && smtpHost && saveToImap);
+                    archiveAutomatic = archive->text().isEmpty() && !archive->placeholderText().isEmpty();
+                    archive->setText(QStringLiteral("  "));
+                    auto setHost = [smtpHost](const QString &host) {
+                        smtpHost->setText(host);
+                        emit smtpHost->editingFinished();
+                    };
+                    // Gmail files sent mail itself, so the option is shown off without being changed
+                    setHost(QStringLiteral("SMTP.gmail.com"));
+                    offForGmail = !saveToImap->isChecked() && !saveToImap->isEnabled() && !saveToImap->toolTip().isEmpty();
+                    setHost(QStringLiteral("smtp.work.example.test"));
+                    backElsewhere = saveToImap->isChecked() && saveToImap->isEnabled() && saveToImap->toolTip().isEmpty();
+                    setHost(QStringLiteral("smtp.gmail.com"));
+                    save(dialog);
+                }));
+        QVERIFY(archiveAutomatic);
+        QVERIFY(offForGmail);
+        QVERIFY(backElsewhere);
+        QSettings work(directory.filePath(QStringLiteral("main-account-1.conf")), QSettings::IniFormat);
+        QCOMPARE(work.value(Common::SettingsNames::imapArchiveFolderName).toString(), QString());
+        QCOMPARE(work.value(Common::SettingsNames::smtpHostKey).toString(), QStringLiteral("smtp.gmail.com"));
+        QVERIFY(work.value(Common::SettingsNames::composerSaveToImapKey, true).toBool());
+        QCOMPARE(window.imapModel()->archiveFolderName(), QString());
+    }
+
     void searchIndexIsChosenPerAccount()
     {
         QTemporaryDir directory;

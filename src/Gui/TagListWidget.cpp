@@ -28,6 +28,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QStringList>
+#include <KLocalizedString>
 
 #include "TagListWidget.h"
 #include "FlowLayout.h"
@@ -57,10 +58,55 @@ TagListWidget::TagListWidget(QWidget *parent, Imap::Mailbox::FavoriteTagsModel *
 
 void TagListWidget::setTagList(QStringList list)
 {
+    m_tags = list;
+    rebuild();
+}
+
+void TagListWidget::setLabelList(const QStringList &labels)
+{
+    if (labels == m_labels)
+        return;
+    m_labels = labels;
+    rebuild();
+}
+
+QString TagListWidget::gmailLabelDisplayName(const QString &label)
+{
+    if (!label.startsWith(QLatin1Char('\\')))
+        return label;
+    const QString name = label.mid(1).toLower();
+    // Starred and Draft already show as the message's flag and folder
+    if (name == QLatin1String("starred") || name == QLatin1String("draft") || name.isEmpty())
+        return QString();
+    if (name == QLatin1String("inbox"))
+        return i18nc("@label Gmail system label", "Inbox");
+    if (name == QLatin1String("important"))
+        return i18nc("@label Gmail system label", "Important");
+    if (name == QLatin1String("sent"))
+        return i18nc("@label Gmail system label", "Sent");
+    if (name == QLatin1String("trash"))
+        return i18nc("@label Gmail system label", "Trash");
+    if (name == QLatin1String("spam"))
+        return i18nc("@label Gmail system label", "Spam");
+    return label.mid(1);
+}
+
+void TagListWidget::rebuild()
+{
     empty();
     parentLayout->removeWidget(addButton);
 
-    Q_FOREACH(const QString &tagName, list) {
+    for (const QString &label : std::as_const(m_labels)) {
+        const QString displayName = gmailLabelDisplayName(label);
+        if (displayName.isEmpty())
+            continue;
+        TagWidget *lbl = TagWidget::serverLabel(label, displayName);
+        lbl->setToolTip(i18nc("@info:tooltip", "Gmail label %1", displayName));
+        parentLayout->addWidget(lbl);
+        children << lbl;
+    }
+
+    Q_FOREACH(const QString &tagName, m_tags) {
         QString tagNameLowerCase = tagName.toLower();
         if (Imap::Mailbox::FlagNames::toCanonical.contains(tagNameLowerCase)) {
             if (unsupportedReservedKeywords.contains(tagNameLowerCase)) {

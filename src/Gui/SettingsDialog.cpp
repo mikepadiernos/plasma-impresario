@@ -900,8 +900,9 @@ ImapPage::ImapPage(SettingsDialog *parent, QSettings &s): QScrollArea(parent), U
     imapIdleRenewal->setValue(s.value(SettingsNames::imapIdleRenewal, QVariant(29)).toInt());
     imapNumberRefreshInterval->setValue(m_parent->imapAccess()->numberRefreshInterval());
     accountIcon->setText(s.value(SettingsNames::imapAccountIcon).toString());
-    archiveFolderName->setText(s.value(SettingsNames::imapArchiveFolderName).toString().isEmpty() ?
-        SettingsNames::imapDefaultArchiveFolderName : s.value(SettingsNames::imapArchiveFolderName).toString());
+    archiveFolderName->setText(s.value(SettingsNames::imapArchiveFolderName).toString());
+    archiveFolderName->setPlaceholderText(i18nc("@info:placeholder archive folder chosen from the server", "Automatic"));
+    archiveFolderName->setToolTip(i18nc("@info:tooltip", "Leave empty to use the server's archive folder, a folder called Archive, or All Mail on Gmail"));
 
     m_imapPort = s.value(SettingsNames::imapPortKey, QString::number(defaultImapPort)).value<quint16>();
 
@@ -1071,7 +1072,7 @@ void ImapPage::save(QSettings &s)
     m_parent->imapAccess()->setNumberRefreshInterval(imapNumberRefreshInterval->value());
 
     s.setValue(SettingsNames::imapAccountIcon, accountIcon->text().isEmpty() ? QVariant() : QVariant(accountIcon->text()));
-    s.setValue(SettingsNames::imapArchiveFolderName, archiveFolderName->text());
+    s.setValue(SettingsNames::imapArchiveFolderName, archiveFolderName->text().trimmed());
 
     if (usesOAuth())
         s.setValue(SettingsNames::imapAuthMethodKey, SettingsNames::authMethodOAuth);
