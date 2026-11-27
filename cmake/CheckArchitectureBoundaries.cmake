@@ -2,8 +2,8 @@
 #
 # Usage: cmake -DSOURCE_DIR=<tree> -DLINKS_FILE=<file> [-DDESKTOP_SOURCES=a.cpp|b.cpp] -P CheckArchitectureBoundaries.cmake
 #
-# The mail core is the IMAP, SMTP, composer, crypto, OAuth and plugin-interface code together with UiUtils. It may
-# use Qt, the mail libraries and two KDE Frameworks that are plain libraries rather than desktop services:
+# The mail core is the IMAP, POP3, local mail, SMTP, composer, crypto, OAuth and plugin-interface code together with
+# UiUtils. It may use Qt, the mail libraries and two KDE Frameworks that are plain libraries rather than desktop services:
 # KItemModels and KFileMetaData. Everything that talks to the desktop (KConfig, KIO, KNotifications, KWindowSystem,
 # Akonadi, KDE PIM, D-Bus) belongs to DesktopServices, IPC, DesktopGui or a plugin.
 #
@@ -15,7 +15,7 @@ if(NOT SOURCE_DIR OR NOT LINKS_FILE)
 endif()
 get_filename_component(SOURCE_DIR "${SOURCE_DIR}" ABSOLUTE)
 
-set(core_dirs AppVersion Common Composer Cryptography Imap MSA OAuth Streams UiUtils qwwsmtpclient)
+set(core_dirs AppVersion Common Composer Cryptography Imap LocalMail MSA OAuth Pop3 Streams UiUtils qwwsmtpclient)
 set(integration_targets DesktopGui DesktopServices IPC WebEngineMessageRenderer)
 set(allowed_frameworks KF6::ItemModels KF6::FileMetaData)
 # Headers of desktop services; <KDescendantsProxyModel> (KItemModels) and <KFileMetaData/...> are allowed

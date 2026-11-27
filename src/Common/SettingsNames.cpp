@@ -58,6 +58,13 @@ const QString SettingsNames::methodSSL = QStringLiteral("SSL");
 const QString SettingsNames::methodProcess = QStringLiteral("process");
 const QString SettingsNames::imapHostKey = QStringLiteral("imap.host");
 const QString SettingsNames::imapPortKey = QStringLiteral("imap.port");
+const QString SettingsNames::pop3HostKey = QStringLiteral("pop3.host");
+const QString SettingsNames::pop3PortKey = QStringLiteral("pop3.port");
+const QString SettingsNames::pop3SecurityKey = QStringLiteral("pop3.security");
+const QString SettingsNames::pop3UserKey = QStringLiteral("pop3.user");
+const QString SettingsNames::pop3RetentionKey = QStringLiteral("pop3.retention");
+const QString SettingsNames::pop3RetentionDaysKey = QStringLiteral("pop3.retentionDays");
+const QString SettingsNames::pop3IntervalKey = QStringLiteral("pop3.interval");
 const QString SettingsNames::imapStartTlsKey = QStringLiteral("imap.starttls");
 const QString SettingsNames::imapUserKey = QStringLiteral("imap.auth.user");
 // in use by the cleartext password plugin: "imap.auth.pass"
