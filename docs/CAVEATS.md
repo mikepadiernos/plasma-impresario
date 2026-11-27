@@ -42,6 +42,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Files handed over by file managers](#files-handed-over-by-file-managers)
   - [Files fetched from other computers](#files-fetched-from-other-computers)
   - [Plasma Search mail](#plasma-search-mail)
+  - [Contacts from the address book](#contacts-from-the-address-book)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -70,6 +71,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Handed-over files | A `mailto:` URL may not attach hidden or system files or name this computer through the network, drafts drop the files, and nothing is checked with the portal, Dolphin or Plasma Opus in a real Plasma session ([details](#files-handed-over-by-file-managers))                                                                                                                                                                                      | [#461](https://github.com/mikepadiernos/plasma-impresario/issues/461)                                                                        |
 | ![Limitation][limitation] | Fetched files     | Only HTTP is tested, SFTP, SMB and WebDAV are not, drafts drop fetched files, and nothing is checked in a real Plasma session ([details](#files-fetched-from-other-computers))                                                                                                                                                                                                                                                                        | [#462](https://github.com/mikepadiernos/plasma-impresario/issues/462)                                                                        |
 | ![Limitation][limitation] | Plasma Search     | Mail appears only while the app runs, for the default profile, by subject or sender; nothing is checked with KRunner or in a Plasma session ([details](#plasma-search-mail))                                                                                                                                                                                                                                                                          | [#463](https://github.com/mikepadiernos/plasma-impresario/issues/463)                                                                        |
+| ![Limitation][limitation] | Contacts panel    | abook has no organizations and Akonadi is not run against a server; photos come only from the address book ([details](#contacts-from-the-address-book))                                                                                                                                                                                                                                                                                               | [#464](https://github.com/mikepadiernos/plasma-impresario/issues/464)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -1628,6 +1630,54 @@ Plasma session; that check is
 - Pass KRunner's activation token so that Wayland raises the window.
 - Check the plugin with KRunner in a Plasma 6 session, and add KRunner to the
   development image for an end-to-end test.
+
+### Contacts from the address book
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                          |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#464](https://github.com/mikepadiernos/plasma-impresario/issues/464) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/464#issuecomment-7210647420) | Names, organizations and photos from the address book in the Contacts panel ([#305](https://github.com/mikepadiernos/plasma-impresario/issues/305)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] With an address book that can describe contacts, the
+  Contacts panel looks up each address in the background. Known contacts show
+  the address book's name, organization and stored photo; unknown addresses
+  offer **Add to Address Book** next to **Open in Address Book**, in the
+  panel's header button and context menu.
+- ![Resolved][resolved] Lookups read only the local address book. They are
+  cancelled when the message changes and repeated when the address book
+  changes. Photos and states have accessible descriptions.
+- ![Resolved][resolved] Without an address book, or with one that cannot
+  describe contacts, the panel lists the addresses from the headers only.
+- ![Limitation][limitation] abook, the default address book, has no
+  organization field. Its photos are read only from a file next to the address
+  book or a local path, up to 2 MiB.
+- ![Limitation][limitation] Akonadi (**KDE Addressbook (Akonadi)**) supplies
+  the name, the organization and photos stored in the contact. It opens
+  contacts in the KDE contact viewer and adds them through Akonadi's dialog.
+  It is built and compiled but has not been run against an Akonadi server.
+- ![Limitation][limitation] No photo is fetched from a URL, Gravatar or a
+  server.
+- ![Limitation][limitation] Not checked in a Plasma session: photo size, theme
+  icons and how Akonadi's dialogs are parented on Wayland. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- To see organizations, choose **KDE Addressbook (Akonadi)** under
+  **Settings › General › Addressbook**, and keep the organization in the
+  contact.
+- For abook contacts, store the photo as a file next to the address book and
+  name it in the contact's photo field.
+- If Akonadi's dialog opens behind the window, bring it forward from the task
+  manager.
+
+**Proposed improvements:**
+
+- Test the Akonadi plugin against an isolated Akonadi instance (`akonaditest`
+  with the knut resource).
+- Check photo size, icons and dialog parenting in a Plasma 6 session.
+- Let abook contacts keep an organization in a custom field.
 
 ## Before reporting results
 

@@ -70,7 +70,7 @@ and gray before. **Board** is the parent issue's status.
 | [M03](#m03-mail-operations-sorting-and-folder-management) | Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)     | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
 | [M04](#m04-reading-and-conversation-flow)                 | Reading and conversation flow                  | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6)     | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
 | [M05](#m05-search-and-indexing)                           | Search and indexing                            | [#324](https://github.com/mikepadiernos/plasma-impresario/issues/324) | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Merged][merged]: merged in [PR #455](https://github.com/mikepadiernos/plasma-impresario/pull/455)                                      |
-| [M06](#m06-desktop-integration-and-provider-support)      | Desktop integration and provider support       | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)     | ![7 of 27 done](https://img.shields.io/badge/7%2F27-26%25-9a6700)    | ![Development][development]: on `feature/m06-desktop`                                                                                    |
+| [M06](#m06-desktop-integration-and-provider-support)      | Desktop integration and provider support       | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)     | ![8 of 27 done](https://img.shields.io/badge/8%2F27-30%25-9a6700)    | ![Development][development]: on `feature/m06-desktop`                                                                                    |
 | [M07](#m07-output-notifications-and-rules-automation)     | Output, notifications and rules automation     | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8)     | ![0 of 11 done](https://img.shields.io/badge/0%2F11-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
 | [M08](#m08-settings-and-workspace-configuration)          | Settings and workspace configuration           | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9)     | ![0 of 15 done](https://img.shields.io/badge/0%2F15-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
 | [M09](#m09-themes-and-branding-foundation)                | Themes and branding foundation                 | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)   | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development]: M09.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
@@ -517,7 +517,7 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 ### M06: Desktop integration and provider support
 
 **Status:** ![Development][development]
-![7 of 27 done](https://img.shields.io/badge/7%2F27-26%25-9a6700) ·
+![8 of 27 done](https://img.shields.io/badge/8%2F27-30%25-9a6700) ·
 **Parent issue:** [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)
 
 **Project:** [M06 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498116)
@@ -534,7 +534,7 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   - [ ] Define workspace-aware behavior for cross-context desktop usage and Plasma conventions [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569584)
   - [ ] Support accessibility and theming parity with KDE/Plasma, including contrast, focus visibility, localization, and icon consistency [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569771)
   - [ ] Keep service integrations in this milestone so provider and desktop features are not mixed into core app deliverables [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569594)
-  - [ ] Provide an opt-in KRunner (Plasma Search) provider for mail from the
+  - [x] Provide an opt-in KRunner (Plasma Search) provider for mail from the
         local search index, showing only subject, sender and date, and staying
         silent when the index is off. See [M05](#m05-search-and-indexing).
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317853140)
@@ -630,6 +630,12 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   ![Backlog][backlog]
 - [Files fetched from other computers](CAVEATS.md#files-fetched-from-other-computers)
   ([#462](https://github.com/mikepadiernos/plasma-impresario/issues/462))
+  ![Backlog][backlog]
+- [Plasma Search mail](CAVEATS.md#plasma-search-mail)
+  ([#463](https://github.com/mikepadiernos/plasma-impresario/issues/463))
+  ![Backlog][backlog]
+- [Contacts from the address book](CAVEATS.md#contacts-from-the-address-book)
+  ([#464](https://github.com/mikepadiernos/plasma-impresario/issues/464))
   ![Backlog][backlog]
 
 ### M07: Output, notifications, and rules automation
