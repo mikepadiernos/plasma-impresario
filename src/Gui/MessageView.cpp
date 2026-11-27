@@ -364,7 +364,8 @@ void MessageView::showMessageNow()
         model->requestGmailLabels(message);
 
     UiUtils::PartLoadingOptions loadingMode;
-    if (m_settings->value(Common::SettingsNames::guiPreferPlaintextRendering, QVariant(true)).toBool())
+    if (readingSetting(QStringLiteral("Reading/PreferPlainText"), Common::SettingsNames::guiPreferPlaintextRendering, true)
+            .toBool())
         loadingMode |= UiUtils::PART_PREFER_PLAINTEXT_OVER_HTML;
     auto viewer = factory->walk(messageModel->index(0,0, rootPartIndex), 0, loadingMode);
     viewer->setParent(this);
@@ -376,10 +377,14 @@ void MessageView::showMessageNow()
     m_stack->setCurrentWidget(m_messageWidget);
 
     if (m_netWatcher && m_netWatcher->effectiveNetworkPolicy() != Imap::Mailbox::NETWORK_OFFLINE
-            && m_settings->value(Common::SettingsNames::autoMarkReadEnabled, QVariant(true)).toBool()) {
+            && readingSetting(QStringLiteral("Reading/AutoMarkRead"), Common::SettingsNames::autoMarkReadEnabled, true)
+                   .toBool()) {
         // No additional delay is needed here because the MsgListView won't open a message while the user keeps scrolling,
         // which was AFAIK the original intention
-        markAsReadTimer->start(m_settings->value(Common::SettingsNames::autoMarkReadSeconds, QVariant(0)).toUInt() * 1000);
+        markAsReadTimer->start(
+                readingSetting(QStringLiteral("Reading/MarkReadDelay"), Common::SettingsNames::autoMarkReadSeconds, 0)
+                        .toUInt()
+                * 1000);
     }
 
     emit messageChanged();
@@ -526,6 +531,22 @@ FORWARD_METHOD(zoomIn)
 FORWARD_METHOD(zoomOut)
 FORWARD_METHOD(zoomOriginal)
 FORWARD_METHOD(searchDialogRequested)
+
+void MessageView::setSettingResolver(
+        const std::function<QVariant(const QString &key, const QModelIndex &message)> &resolver)
+{
+    m_settingResolver = resolver;
+}
+
+QVariant MessageView::readingSetting(const QString &key, const QString &legacyKey, const QVariant &fallback) const
+{
+    if (m_settingResolver) {
+        const QVariant value = m_settingResolver(key, message);
+        if (value.isValid())
+            return value;
+    }
+    return m_settings->value(legacyKey, fallback);
+}
 
 void MessageView::setAccountResolver(const std::function<QString(const QModelIndex &)> &resolver)
 {
