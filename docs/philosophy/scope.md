@@ -26,7 +26,7 @@ Legend: ![Decided][decided] · ![Done][done] ·
 ```mermaid
 flowchart TD
     F["Foundations: compatibility, shell and accounts, mail operations, reading (M01–M04, merged)"]
-    X["Expansion: search, desktop and providers, rules, settings, themes, reliability, release, Nextcloud, Microsoft, refinements (M05–M14)"]
+    X["Expansion: search (M05, merged), desktop and providers, rules, settings, themes, reliability, release, Nextcloud, Microsoft, refinements (M05–M14)"]
     V["Real Plasma session checks (M15, runs alongside)"]
     F --> X
     F --> V
@@ -42,7 +42,7 @@ implementation, [designs](designs.md#current-interface) describes the current
 interface, and [caveats](../CAVEATS.md) records security and platform
 limitations.
 
-M01 through M04 are merged into `main`. Live checks so far run against a
+M01 through M05 are merged into `main`. Live checks so far run against a
 synthetic Dovecot server in `tools/dev-container/`; nothing has been checked in
 a real Plasma session, which M15
 ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)) tracks.
@@ -57,7 +57,7 @@ a real Plasma session, which M15
 | Mail operations, sorting and the unified inbox                | ![Done][done]                             | Merged in M03, including the unified inbox ([#223](https://github.com/mikepadiernos/plasma-impresario/issues/223)); see [mail operations](designs.md#mail-operations).                                                                                                                                                  |
 | Reading, conversations and account-aware replies              | ![Done][done]                             | Merged in M04 ([#39](https://github.com/mikepadiernos/plasma-impresario/issues/39), [#40](https://github.com/mikepadiernos/plasma-impresario/issues/40), [#224](https://github.com/mikepadiernos/plasma-impresario/issues/224)); see [reading and triage](designs.md#reading-and-triage).                               |
 | OAuth account authentication                                  | ![Needs verification][needs-verification] | Merged in M02 ([#218](https://github.com/mikepadiernos/plasma-impresario/issues/218)); live sign-in in [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317) and limitations in [caveats](../CAVEATS.md#oauth-sign-in).                                                                                 |
-| Search across folders and accounts with an opt-in local index | ![Planned][planned]                       | M05. Server search stays the default; the index covers downloaded mail only.                                                                                                                                                                                                                                            |
+| Search across folders and accounts with an opt-in local index | ![Done][done]                             | Merged in M05 ([#324](https://github.com/mikepadiernos/plasma-impresario/issues/324)); server search stays the default and the index covers downloaded mail only; see [caveats](../CAVEATS.md#search).                                                                                                                  |
 | POP3 retrieval with SMTP submission                           | ![Planned][planned]                       | M06.05. POP3 stores retrieved mail locally and has no IMAP-style server folder synchronization.                                                                                                                                                                                                                         |
 | JMAP accounts                                                 | ![Planned][planned]                       | M06.05. Capabilities depend on the server.                                                                                                                                                                                                                                                                              |
 | Themes and branding                                           | ![In progress][in-progress]               | M09 ([#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)) is in Development; the rename ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)) is merged and branding ([#269](https://github.com/mikepadiernos/plasma-impresario/issues/269)) has started. No theme options exist yet. |

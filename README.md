@@ -32,9 +32,9 @@ Other desktop environments are outside the supported scope.
 >
 > Plasma Impresario is in development. The four foundation milestones (M01–M04:
 > the KDE / Qt 6 baseline, the shell and accounts, mail operations, and
-> reading) are merged into `main`. They are verified with offscreen tests and a
-> disposable IMAP server, but nothing has been checked in a real Plasma session
-> yet. See [project status](#project-status).
+> reading) and M05, search and indexing, are merged into `main`. They are
+> verified with offscreen tests and a disposable IMAP server, but nothing has
+> been checked in a real Plasma session yet. See [project status](#project-status).
 
 ## Contents
 
@@ -93,17 +93,17 @@ As of 2026-11-26. **Done** counts roadmap features whose issues are
 [project board](https://github.com/users/mikepadiernos/projects/4); **Board**
 is the milestone's parent issue.
 
-| Milestone                                                                                | Branch               | Done                                                                 | Board                       | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ---------------------------------------------------------------------------------------- | -------------------- | -------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [M01](docs/ROADMAP.md#m01-kde--qt6-compatibility-baseline) KDE / Qt 6 baseline           | `main`               | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]           | Builds, installs and launches with Qt 6 and KF6                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| [M02](docs/ROADMAP.md#m02-shell-accounts-and-core-mailbox-foundation) Shell and accounts | `main`               | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]           | Checks in a real Plasma session moved to M15                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| [M03](docs/ROADMAP.md#m03-mail-operations-sorting-and-folder-management) Mail operations | `main`               | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]           | Destructive actions verified against a live server                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| [M04](docs/ROADMAP.md#m04-reading-and-conversation-flow) Reading and conversations       | `main`               | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #451](https://github.com/mikepadiernos/plasma-impresario/pull/451)                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| [M05](docs/ROADMAP.md#m05-search-and-indexing) Search and indexing                       | `feature/m05-search` | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Development][development] | Search scope, server search, query syntax, search builder, search with filters, search history and suggestions, saved searches as virtual folders, managing saved searches, mailing-list views, offline index, index coverage and controls, index-first search, index privacy, attachment text indexing, search snippets and relevance, search facets, Search Results panel, keyboard access to search, Baloo file search, opening messages by Message-ID and search conventions shared with Plasma Opus done |
-| M06–M08: desktop integration, automation, settings                                       | —                    | —                                                                    | ![Backlog][backlog]         | Not started                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| [M09](docs/ROADMAP.md#m09-themes-and-branding-foundation) Themes and branding            | —                    | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development] | Started with the product rename ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221))                                                                                                                                                                                                                                                                                                                                                                                                       |
-| M10–M14: reliability, release, Nextcloud, Microsoft, refinements                         | —                    | —                                                                    | ![Backlog][backlog]         | Not started                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| [M15](docs/ROADMAP.md#m15-real-plasma-session-verification) Real Plasma session checks   | —                    | ![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781)       | ![Defined][defined]         | Needs a real Plasma session                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Milestone                                                                                | Branch | Done                                                                 | Board                       | Notes                                                                                                   |
+| ---------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------- |
+| [M01](docs/ROADMAP.md#m01-kde--qt6-compatibility-baseline) KDE / Qt 6 baseline           | `main` | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]           | Builds, installs and launches with Qt 6 and KF6                                                         |
+| [M02](docs/ROADMAP.md#m02-shell-accounts-and-core-mailbox-foundation) Shell and accounts | `main` | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]           | Checks in a real Plasma session moved to M15                                                            |
+| [M03](docs/ROADMAP.md#m03-mail-operations-sorting-and-folder-management) Mail operations | `main` | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]           | Destructive actions verified against a live server                                                      |
+| [M04](docs/ROADMAP.md#m04-reading-and-conversation-flow) Reading and conversations       | `main` | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #451](https://github.com/mikepadiernos/plasma-impresario/pull/451)                        |
+| [M05](docs/ROADMAP.md#m05-search-and-indexing) Search and indexing                       | `main` | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #455](https://github.com/mikepadiernos/plasma-impresario/pull/455)                        |
+| M06–M08: desktop integration, automation, settings                                       | —      | —                                                                    | ![Backlog][backlog]         | Not started                                                                                             |
+| [M09](docs/ROADMAP.md#m09-themes-and-branding-foundation) Themes and branding            | —      | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development] | Started with the product rename ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)) |
+| M10–M14: reliability, release, Nextcloud, Microsoft, refinements                         | —      | —                                                                    | ![Backlog][backlog]         | Not started                                                                                             |
+| [M15](docs/ROADMAP.md#m15-real-plasma-session-verification) Real Plasma session checks   | —      | ![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781)       | ![Defined][defined]         | Needs a real Plasma session                                                                             |
 
 The [roadmap overview](docs/ROADMAP.md#milestones-at-a-glance) tracks every
 milestone, and [pending tasks](docs/TODO.md#in-progress) record what each one
@@ -111,7 +111,7 @@ is waiting on.
 
 ## Implemented today
 
-What works in `main` after M01–M04, as of 2026-11-25.
+What works in `main` after M01–M05, as of 2026-11-26.
 
 Legend: ![Verified][verified] against a disposable Dovecot server ·
 ![Offscreen tests][offscreen] covered by automated tests without a live server
@@ -223,6 +223,36 @@ other results are covered offscreen.
 > ([composing and sending](docs/CAVEATS.md#composing-and-sending)). The live
 > compose test sends through a local sendmail script, so SMTP submission has
 > not been exercised end to end.
+
+### Added in M05
+
+Search and indexing
+([#324](https://github.com/mikepadiernos/plasma-impresario/issues/324)).
+
+| Area                 | What works                                                                                                                                                                                                          | Status                        |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Places               | The quick search covers the shown folder, chosen folders, a whole account or all accounts; results arrive per folder, labelled with account and folder, with **Stop** and **Retry** for places that failed          | ![Verified][verified]         |
+| Queries              | `from:`, `subject:`, `body:`, `tag:`, `is:`, `has:attachment`, `list:`, dates and sizes, negation, `OR` and groups; a search builder; searches the server cannot run are explained instead of showing an empty list | ![Verified][verified]         |
+| Filters              | Date ranges narrow any search; **Clear All** clears the search and the filters in one step and keeps the selection                                                                                                  | ![Verified][verified]         |
+| Virtual folders      | Saved searches appear in the sidebar with counts and can be edited, renamed, reordered and moved between accounts                                                                                                   | ![Verified][verified]         |
+| Mailing lists        | Lists found in loaded messages can be shown, pinned as a saved search and unsubscribed from after confirming                                                                                                        | ![Verified][verified]         |
+| Offline index        | An opt-in local index answers searches offline and first online, with **Search Server** adding the server's results; coverage, pausing, exclusions and deletion in a status dialog                                  | ![Verified][verified]         |
+| Attachment text      | Downloaded attachments within a size limit are read into the index when the option is on                                                                                                                            | ![Verified][verified]         |
+| Results              | Snippets with marked matches, sorting by relevance, facets by account, folder, sender, date, attachments and tag, and a Search Results panel with **Show in Folder**                                                | ![Verified][verified]         |
+| Message-ID           | `mid:` links and `--message-id` open a message from the list, the index or a server search                                                                                                                          | ![Verified][verified]         |
+| Keyboard             | <kbd>Ctrl</kbd>+<kbd>F</kbd> moves to the quick search from the list and opens the find bar in the reader; <kbd>Esc</kbd> and <kbd>F6</kbd> move between them                                                       | ![Verified][verified]         |
+| History, suggestions | Recent searches, and `tag:`, contact and folder suggestions while typing, both optional                                                                                                                             | ![Offscreen tests][offscreen] |
+| Saved files          | **Find Saved Files** searches downloaded attachments through Baloo, following its indexed folders, or searches live                                                                                                 | ![Offscreen tests][offscreen] |
+
+`test_LiveImapSearch` exercises the rows marked ![Verified][verified] against
+the disposable server, and `test_LiveImapPanels` the keyboard row.
+
+> [!WARNING]
+>
+> Some M05 behavior has known limits: `has:attachment` follows the top-level
+> message type, the index holds only the mail the offline cache keeps, and an
+> online search of the shown folder alone still runs on the server. See the
+> [search caveats](docs/CAVEATS.md#search).
 
 ## Using it
 
@@ -478,7 +508,7 @@ release quality. Real Plasma session checks run alongside as M15.
 
 ```mermaid
 flowchart TD
-    A[M01-M04 foundations: baseline, shell and accounts, operations, reading] --> B[M05 search and indexing]
+    A[M01-M04 foundations: baseline, shell and accounts, operations, reading] --> B[M05 search and indexing, merged]
     B --> C[M06-M08 desktop integration, automation, settings]
     C --> D[M09-M11 themes, reliability, release readiness]
     D --> E[M12-M13 Nextcloud, Microsoft accounts and Exchange]
