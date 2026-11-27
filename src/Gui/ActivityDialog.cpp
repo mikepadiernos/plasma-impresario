@@ -55,8 +55,10 @@ ActivityDialog::ActivityDialog(ActivityLog *log, QWidget *parent)
     , m_log(log)
     , m_tree(new QTreeWidget(this))
     , m_action(new QPushButton(this))
-    , m_clear(new QPushButton(UiUtils::loadIcon(QStringLiteral("edit-clear-history")),
-                              i18nc("@action:button", "Clear Finished"), this))
+    , m_retryAll(new QPushButton(
+          UiUtils::loadIcon(QStringLiteral("view-refresh")), i18nc("@action:button", "Retry All Failed"), this))
+    , m_clear(new QPushButton(
+          UiUtils::loadIcon(QStringLiteral("edit-clear-history")), i18nc("@action:button", "Clear Finished"), this))
 {
     setObjectName(QStringLiteral("activityDialog"));
     setWindowTitle(i18nc("@title:window", "Activity"));
@@ -69,12 +71,14 @@ ActivityDialog::ActivityDialog(ActivityLog *log, QWidget *parent)
     m_tree->header()->setSectionResizeMode(2, QHeaderView::Stretch);
     m_tree->setAccessibleName(i18nc("@label", "Background activity, newest first"));
     m_action->setObjectName(QStringLiteral("activityAction"));
+    m_retryAll->setObjectName(QStringLiteral("activityRetryAll"));
     m_clear->setObjectName(QStringLiteral("activityClear"));
 
     auto *layout = new QVBoxLayout(this);
     layout->addWidget(m_tree, 1);
     auto *row = new QHBoxLayout;
     row->addWidget(m_action);
+    row->addWidget(m_retryAll);
     row->addStretch();
     row->addWidget(m_clear);
     auto *box = new QDialogButtonBox(QDialogButtonBox::Close, this);
@@ -84,6 +88,7 @@ ActivityDialog::ActivityDialog(ActivityLog *log, QWidget *parent)
 
     connect(box, &QDialogButtonBox::rejected, this, &QDialog::reject);
     connect(m_clear, &QPushButton::clicked, m_log, &ActivityLog::clearFinished);
+    connect(m_retryAll, &QPushButton::clicked, m_log, &ActivityLog::retryAll);
     connect(m_action, &QPushButton::clicked, this, &ActivityDialog::triggerSelected);
     connect(m_tree, &QTreeWidget::currentItemChanged, this, &ActivityDialog::updateButtons);
     connect(m_tree, &QTreeWidget::itemActivated, this, &ActivityDialog::triggerSelected);
@@ -99,6 +104,11 @@ ActivityDialog::ActivityDialog(ActivityLog *log, QWidget *parent)
 QTreeWidget *ActivityDialog::tree() const
 {
     return m_tree;
+}
+
+QPushButton *ActivityDialog::retryAllButton() const
+{
+    return m_retryAll;
 }
 
 void ActivityDialog::rebuild()
@@ -138,6 +148,7 @@ void ActivityDialog::rebuild()
         m_tree->setCurrentItem(current);
     blocker.unblock();
     m_clear->setEnabled(m_log->count() > m_log->runningCount() + m_log->failedCount());
+    m_retryAll->setEnabled(m_log->retryableCount() > 0);
     updateButtons();
 }
 
@@ -149,6 +160,9 @@ void ActivityDialog::updateButtons()
         const int row = item->data(0, Qt::UserRole + 1).toInt();
         if (row >= 0 && row < m_log->count())
             action = m_log->entry(row).action;
+        // A failure whose work cannot run again any more has nothing to retry
+        if (action == ActivityLog::Action::Retry && !m_log->canRetry(m_log->entry(row).key))
+            action = ActivityLog::Action::None;
     }
     const QString name = ActivityLog::actionName(action);
     m_action->setText(name.isEmpty() ? i18nc("@action:button", "No Action Needed") : name);
@@ -166,6 +180,10 @@ void ActivityDialog::triggerSelected()
     const ActivityLog::Entry entry = m_log->entry(row);
     if (entry.action == ActivityLog::Action::None)
         return;
+    if (entry.action == ActivityLog::Action::Retry) {
+        m_log->retry(entry.key);
+        return;
+    }
     emit actionRequested(entry);
 }
 
