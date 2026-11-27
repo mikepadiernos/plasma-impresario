@@ -10,7 +10,7 @@ what the shell looks like today and where it is headed. Statuses are as of
 2026-11-26.
 
 - [Current interface](#current-interface) describes what the code implements
-  after M01 through M05, all merged into `main`.
+  after M01 through M06, all merged into `main`.
 - [Proposed Plasma Impresario shell](#proposed-plasma-impresario-shell) and the
   sections after it describe design intent, not implemented behavior, except
   where a badge says otherwise.
