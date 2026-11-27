@@ -336,6 +336,7 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/ClamdScanner.cpp
     ${path_UiUtils}/Color.cpp
     ${path_UiUtils}/Conversations.cpp
+    ${path_UiUtils}/FolderColors.cpp
     ${path_UiUtils}/Formatting.cpp
     ${path_UiUtils}/IconLoader.cpp
     ${path_UiUtils}/Keymap.cpp
@@ -369,6 +370,9 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/ServerDiscovery.cpp
     ${path_UiUtils}/ServerDiscoveryNetwork.cpp
     ${path_UiUtils}/ShortcutOverview.cpp
+    ${path_UiUtils}/StyleSheets.cpp
+    ${path_UiUtils}/Theme.cpp
+    ${path_UiUtils}/ThemeProfiles.cpp
     ${path_UiUtils}/UnreadFolders.cpp
     ${path_UiUtils}/ViewStateStore.cpp
     ${path_UiUtils}/Workspaces.cpp
@@ -1723,6 +1727,8 @@ if(BUILD_TESTING)
     target_link_libraries(test_MailToProductivity PRIVATE UiUtils)
     trojita_test(Misc MailTabs)
     target_link_libraries(test_MailTabs PRIVATE UiUtils)
+    trojita_test(Misc Theme)
+    target_link_libraries(test_Theme PRIVATE UiUtils)
     if(WITH_DBUS)
         add_executable(test_KRunnerBridge tests/Misc/test_KRunnerBridge.cpp src/IPC/KRunnerBridge.cpp src/IPC/KRunnerBridge.h)
         target_compile_definitions(test_KRunnerBridge PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
