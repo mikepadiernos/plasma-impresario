@@ -321,6 +321,7 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     watchSharedKeymap();
     applyTabSettings();
     registerAppearance();
+    watchFollowedTheme();
     m_vimPending = new QLabel(statusBar());
     m_vimPending->setObjectName(QStringLiteral("vimPending"));
     m_vimPending->setAccessibleName(i18nc("@label", "Vim keys typed"));
@@ -3407,6 +3408,9 @@ void MainWindow::slotShowSettings()
         slotToggleSysTray();
         scheduleAccountUnreadRefresh();
         applyApplicationSettings();
+    } else {
+        // A preview that was not saved goes back to the saved appearance
+        applyAppearance();
     }
 }
 
@@ -3431,6 +3435,7 @@ void MainWindow::applyApplicationSettings()
     }
     msgListWidget->applySearchSettings();
     watchSharedKeymap();
+    watchFollowedTheme();
     applyTabSettings();
     applyVimSettings();
     applyProductivitySettings();
@@ -3522,6 +3527,45 @@ void MainWindow::watchSharedKeymap()
     connect(m_keymapWatcher, &QFileSystemWatcher::fileChanged, this, import);
     if (QFileInfo::exists(path))
         m_keymapWatcher->addPath(path);
+    import();
+}
+
+void MainWindow::watchFollowedTheme()
+{
+    const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    const QString path = UiUtils::SettingsStore::followedTheme(*config);
+    if (m_themeWatcher) {
+        if (m_themeWatcher->files() == QStringList{path})
+            return;
+        delete m_themeWatcher;
+        m_themeWatcher = nullptr;
+    }
+    if (path.isEmpty())
+        return;
+    m_themeWatcher = new QFileSystemWatcher(this);
+    const auto import = [this, path]() {
+        // Editors replace the file when saving it, which drops it from the watcher
+        if (m_themeWatcher && !m_themeWatcher->files().contains(path) && QFileInfo::exists(path))
+            m_themeWatcher->addPath(path);
+        if (!QFileInfo::exists(path))
+            return;
+        const UiUtils::ThemeProfiles::ParseResult result = UiUtils::ThemeProfiles::importFile(path);
+        if (!result.profile) {
+            qWarning() << "The followed theme" << path << "could not be read:" << result.error;
+            return;
+        }
+        const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        const UiUtils::Theme::Values global = UiUtils::SettingsStore::theme(*config);
+        const UiUtils::Theme::Values applied = UiUtils::ThemeProfiles::appliedTo(global, *result.profile);
+        if (applied == global)
+            return;
+        UiUtils::SettingsStore::setTheme(*config, applied);
+        config->sync();
+        applyAppearance();
+    };
+    connect(m_themeWatcher, &QFileSystemWatcher::fileChanged, this, import);
+    if (QFileInfo::exists(path))
+        m_themeWatcher->addPath(path);
     import();
 }
 
