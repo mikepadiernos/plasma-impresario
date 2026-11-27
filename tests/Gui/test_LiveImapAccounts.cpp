@@ -227,6 +227,8 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(sidebar->unreadCount(QStringLiteral("account-1")), 2, 10000);
         QTRY_COMPARE_WITH_TIMEOUT(sidebar->unreadCount(QStringLiteral("account-2")), 1, 20000);
         QCOMPARE(sidebar->headers().at(1)->text(), QStringLiteral("Home (1)"));
+        // The task manager entry shows the unread messages of both inboxes
+        QTRY_COMPARE_WITH_TIMEOUT(window.unreadCountOnTaskManager(), 3, 10000);
 
         // Each account saves its own mailbox and message selection.
         QTRY_VERIFY_WITH_TIMEOUT(messages->model()->index(1, 0).data(Imap::Mailbox::RoleMessageUid).toUInt() > 0, 10000);

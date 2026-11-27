@@ -14,6 +14,7 @@
 #include "Gui/ShellHeader.h"
 #include "Gui/Window.h"
 #include "UiUtils/BackgroundRunning.h"
+#include "UiUtils/DesktopFeedback.h"
 #include "Imap/Model/AccountCapabilities.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
@@ -820,6 +821,23 @@ private slots:
     QVERIFY(newDrafts().isEmpty());
     delete edited;
     delete untouched;
+  }
+
+  void taskManagerShowsTheUnreadCount() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                       QSettings::IniFormat);
+    configureOffline(settings, QStringLiteral("work.example.test"));
+    settings.setValue(Common::SettingsNames::settingsVersion, 2);
+    settings.setValue(Common::SettingsNames::guiShowSystray, false);
+    auto config =
+        KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    QVERIFY(UiUtils::DesktopFeedback::showsUnreadCount(*config));
+    Gui::MainWindow window(&settings);
+    // Nothing is known offline, so the first count clears whatever an earlier
+    // run left on the task manager entry
+    QTRY_COMPARE(window.unreadCountOnTaskManager(), 0);
   }
 
   void closingQuitsByDefault() { verifyClose(false); }

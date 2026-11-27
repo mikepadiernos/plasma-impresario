@@ -1543,6 +1543,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_BackgroundRunning PRIVATE DesktopServices KF6::ConfigCore)
         trojita_test(Misc PlasmaSearch)
         target_link_libraries(test_PlasmaSearch PRIVATE DesktopServices KF6::ConfigCore)
+        trojita_test(Misc DesktopFeedback)
+        target_link_libraries(test_DesktopFeedback PRIVATE DesktopServices KF6::ConfigCore Qt6::DBus)
     endif()
 
     # The mail core neither includes nor links KDE desktop services; see docs/integrations/kde-plasma.md
