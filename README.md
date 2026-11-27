@@ -528,7 +528,7 @@ boundaries.
 | --------------------------------------------------- | --------------------------------------------------------------- |
 | [Documentation index](docs/README.md)               | Every guide, grouped by purpose                                 |
 | [Installation](docs/INSTALL.md)                     | Installer options, prerequisites and troubleshooting            |
-| [Roadmap](docs/ROADMAP.md)                          | Milestones, status and project-board links                      |
+| [Roadmap](docs/ROADMAP.md)                          | Milestones, status and issue links                              |
 | [Interface design](docs/philosophy/designs.md)      | The current shell and the planned Plasma Impresario design      |
 | [Pending tasks](docs/TODO.md)                       | Blockers, verification records and handoffs                     |
 | [Bugs](docs/BUGS.md) and [caveats](docs/CAVEATS.md) | Reported issues, limitations and security guidance              |
