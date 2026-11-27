@@ -55,6 +55,7 @@
 #include "Composer/Submission.h"
 #include "Common/InvokeMethod.h"
 #include "Common/Paths.h"
+#include "Common/PrivateFiles.h"
 #include "Common/SettingsNames.h"
 #include "Common/TrustedCertificates.h"
 #include "Gui/CompleteMessageWidget.h"
@@ -367,7 +368,7 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
 
     // these are for the automatically saved drafts, i.e. no i18n for the dir name
     m_autoSavePath = QString(Common::writablePath(Common::LOCATION_CACHE) + QLatin1String("Drafts/"));
-    QDir().mkpath(m_autoSavePath);
+    Common::PrivateFiles::makeFolder(m_autoSavePath);
 
     m_autoSavePath += QString::number(QDateTime::currentMSecsSinceEpoch()) + QLatin1String(".draft");
 

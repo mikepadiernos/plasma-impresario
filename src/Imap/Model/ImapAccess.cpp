@@ -31,6 +31,7 @@
 #include "Common/MetaTypes.h"
 #include "Common/Paths.h"
 #include "Common/PortNumbers.h"
+#include "Common/PrivateFiles.h"
 #include "Common/SettingsNames.h"
 #include "Common/TrustedCertificates.h"
 #include "Imap/Model/CombinedCache.h"
@@ -329,7 +330,7 @@ void ImapAccess::doConnect()
             m_settings->value(Common::SettingsNames::cacheOfflineKey).toString() == Common::SettingsNames::cacheOfflineNone;
     bool shouldUsePersistentCache = !memoryOnly;
 
-    if (shouldUsePersistentCache && !QDir().mkpath(m_cacheDir)) {
+    if (shouldUsePersistentCache && !Common::PrivateFiles::makeFolder(m_cacheDir)) {
         onCacheError(tr("Failed to create directory %1").arg(m_cacheDir));
         shouldUsePersistentCache = false;
     }

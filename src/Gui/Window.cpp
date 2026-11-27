@@ -57,6 +57,7 @@
 #include <QStackedWidget>
 #include <QStandardItemModel>
 #include <QStatusBar>
+#include <QThreadPool>
 #include <QTimer>
 #include <QTextDocument>
 #include <QToolBar>
@@ -78,6 +79,7 @@
 #include "Common/InvokeMethod.h"
 #include "Common/Paths.h"
 #include "Common/PortNumbers.h"
+#include "Common/PrivateFiles.h"
 #include "Common/SettingsNames.h"
 #include "Composer/AccountIdentities.h"
 #include "Composer/Mailto.h"
@@ -338,6 +340,7 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     });
     slotToggleSysTray();
     slotPluginsChanged();
+    keepPrivateFilesTidy();
 
     slotFavoriteTagsChanged();
     connect(m_favoriteTags, &QAbstractItemModel::modelReset, this, &MainWindow::slotFavoriteTagsChanged);
@@ -2278,6 +2281,30 @@ void MainWindow::removeSysTray()
 {
     delete m_trayIcon;
     m_trayIcon = nullptr;
+}
+
+void MainWindow::keepPrivateFilesTidy()
+{
+    // Caches written before they were kept private are tightened once at startup, away from the GUI thread
+    // The paths are looked up here, since looking them up is not thread-safe
+    const QString cache = Common::writablePath(Common::LOCATION_CACHE);
+    const QString opened = Common::PrivateFiles::openedAttachmentsFolder();
+    const bool hasProfile = !qEnvironmentVariableIsEmpty("TROJITA_PROFILE");
+    QThreadPool::globalInstance()->start([cache, opened, hasProfile]() {
+        namespace Private = Common::PrivateFiles;
+        // A profile's cache is inside the application's, which holds the other profiles' caches
+        if (hasProfile && QFileInfo::exists(cache))
+            Private::makeFolder(QFileInfo(QDir::cleanPath(cache)).path());
+        Private::tighten(cache);
+        Private::removeOldOpenedAttachments(opened);
+    });
+    // Running in the background can last for days, so the copies of opened attachments are checked every hour
+    auto *timer = new QTimer(this);
+    timer->setInterval(std::chrono::hours(1));
+    connect(timer, &QTimer::timeout, this, []() {
+        Common::PrivateFiles::removeOldOpenedAttachments(Common::PrivateFiles::openedAttachmentsFolder());
+    });
+    timer->start();
 }
 
 bool MainWindow::runsInBackground() const
@@ -5882,7 +5909,7 @@ void MainWindow::slotDownloadTransferError(const QString &errorString)
 
 void MainWindow::slotDownloadMessageFileNameRequested(QString *fileName)
 {
-    *fileName = QFileDialog::getSaveFileName(this, tr("Save Message"), QDir(Util::savedFilesFolder()).filePath(*fileName),
+    *fileName = QFileDialog::getSaveFileName(this, tr("Save Message"), QDir(Util::savedFilesFolder()).filePath(Common::PrivateFiles::safeFileName(*fileName)),
                                              QString(), nullptr, QFileDialog::HideNameFilterDetails);
     Util::rememberSavedFile(*fileName);
 }

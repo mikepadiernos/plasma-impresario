@@ -12,12 +12,12 @@
 #include <QMenu>
 #include <QMimeData>
 #include <QMimeDatabase>
-#include <QTemporaryFile>
 #include <QTimer>
 #include <QToolButton>
 #include <QUrl>
 #include <memory>
 
+#include "Common/PrivateFiles.h"
 #include "Imap/Model/DragAndDrop.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Network/FileDownloadManager.h"
@@ -271,12 +271,13 @@ void AttachmentPanel::openCurrent()
 
     auto *manager = new Imap::Network::FileDownloadManager(this, m_netAccess, part);
     auto fileName = std::make_shared<QString>();
-    connect(manager, &Imap::Network::FileDownloadManager::fileNameRequested, manager, [fileName](QString *requested) {
-        // Keep the file after the QTemporaryFile object goes away; the external application needs it.
-        QTemporaryFile file(QDir::tempPath() + QLatin1String("/plasma-impresario-attachment-XXXXXX-")
-                            + requested->replace(QLatin1Char('/'), QLatin1Char('_')));
-        file.setAutoRemove(false);
-        *requested = file.open() ? file.fileName() : QString();
+    connect(manager, &Imap::Network::FileDownloadManager::fileNameRequested, manager, [this, fileName](QString *requested) {
+        // The copy outlives the download; the other application needs it, and it is removed after a day
+        QString error;
+        *requested = Common::PrivateFiles::createOpenedAttachment(Common::PrivateFiles::openedAttachmentsFolder(),
+                                                                  *requested, &error);
+        if (requested->isEmpty())
+            emit transferError(i18nc("@info", "Cannot prepare a copy of the attachment to open: %1", error));
         *fileName = *requested;
     });
     connect(manager, &Imap::Network::FileDownloadManager::succeeded, manager, [manager, fileName]() {
@@ -286,8 +287,7 @@ void AttachmentPanel::openCurrent()
         manager->deleteLater();
     });
     connect(manager, &Imap::Network::FileDownloadManager::transferError, this, [this, manager, fileName](const QString &error) {
-        if (!fileName->isEmpty())
-            QFile::remove(*fileName);
+        Common::PrivateFiles::removeOpenedAttachment(Common::PrivateFiles::openedAttachmentsFolder(), *fileName);
         emit transferError(error);
         manager->deleteLater();
     });
@@ -304,7 +304,7 @@ void AttachmentPanel::saveCurrent()
     auto *manager = new Imap::Network::FileDownloadManager(this, m_netAccess, part);
     connect(manager, &Imap::Network::FileDownloadManager::fileNameRequested, this, [this](QString *requested) {
         *requested = QFileDialog::getSaveFileName(this, i18nc("@title:window", "Save Attachment"),
-                                                  QDir(Util::savedFilesFolder()).filePath(*requested), QString(), nullptr,
+                                                  QDir(Util::savedFilesFolder()).filePath(Common::PrivateFiles::safeFileName(*requested)), QString(), nullptr,
                                                   QFileDialog::HideNameFilterDetails);
         Util::rememberSavedFile(*requested);
     });

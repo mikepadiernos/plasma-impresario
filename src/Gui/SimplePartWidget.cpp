@@ -35,6 +35,7 @@
 #include "SimplePartWidget.h"
 #include "Common/MetaTypes.h"
 #include "Common/Paths.h"
+#include "Common/PrivateFiles.h"
 #include "Composer/Mailto.h"
 #include "Gui/MessageView.h" // so that the compiler knows that it's a QObject
 #include "Gui/WebEngineMessagePage.h"
@@ -135,7 +136,7 @@ void SimplePartWidget::slotMarkupPlainText(bool success)
 void SimplePartWidget::slotFileNameRequested(QString *fileName)
 {
     *fileName = QFileDialog::getSaveFileName(this, tr("Save Attachment"),
-                QDir(Gui::Util::savedFilesFolder()).filePath(*fileName), QString(),
+                QDir(Gui::Util::savedFilesFolder()).filePath(Common::PrivateFiles::safeFileName(*fileName)), QString(),
                 0, QFileDialog::HideNameFilterDetails
                                             );
     Gui::Util::rememberSavedFile(*fileName);

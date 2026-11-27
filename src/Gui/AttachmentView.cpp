@@ -36,10 +36,10 @@
 #include <QLabel>
 #include <QStyle>
 #include <QStyleOption>
-#include <QTemporaryFile>
 #include <QTimer>
 #include <QToolButton>
 
+#include "Common/PrivateFiles.h"
 #include "Gui/MessageView.h" // so that the compiler knows it's a QObject
 #include "Gui/Window.h"
 #include "Imap/Network/FileDownloadManager.h"
@@ -63,7 +63,6 @@ AttachmentView::AttachmentView(QWidget *parent, Imap::Network::MsgPartNetAccessM
     , m_showHideAttachment(nullptr)
     , m_showSource(nullptr)
     , m_netAccess(manager)
-    , m_tmpFile(nullptr)
     , m_contentWidget(contentWidget)
 {
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
@@ -214,7 +213,9 @@ void AttachmentView::slotOpenAttachment()
     connect(manager, &Imap::Network::FileDownloadManager::transferError, m_messageView, &MessageView::transferError);
     connect(manager, &Imap::Network::FileDownloadManager::transferError, this, &AttachmentView::onOpenFailed);
     connect(manager, &Imap::Network::FileDownloadManager::transferError, manager, &QObject::deleteLater);
-    // we aren't connecting to cancelled() as it cannot really happen -- the filename is never empty
+    // Cancelled when the copy could not be created
+    connect(manager, &Imap::Network::FileDownloadManager::cancelled, this, &AttachmentView::onOpenFailed);
+    connect(manager, &Imap::Network::FileDownloadManager::cancelled, manager, &QObject::deleteLater);
     connect(manager, &Imap::Network::FileDownloadManager::succeeded, this, &AttachmentView::openDownloadedAttachment);
     connect(manager, &Imap::Network::FileDownloadManager::succeeded, manager, &QObject::deleteLater);
     manager->downloadPart();
@@ -222,17 +223,18 @@ void AttachmentView::slotOpenAttachment()
 
 void AttachmentView::slotFileNameRequestedOnOpen(QString *fileName)
 {
-    Q_ASSERT(!m_tmpFile);
-    m_tmpFile = new QTemporaryFile(QDir::tempPath() + QLatin1String("/trojita-attachment-XXXXXX-") +
-                                   fileName->replace(QLatin1Char('/'), QLatin1Char('_')));
-    m_tmpFile->setAutoRemove(false);
-    m_tmpFile->open();
-    *fileName = m_tmpFile->fileName();
+    Q_ASSERT(m_openedFile.isEmpty());
+    QString error;
+    m_openedFile = Common::PrivateFiles::createOpenedAttachment(Common::PrivateFiles::openedAttachmentsFolder(), *fileName,
+                                                                &error);
+    if (m_openedFile.isEmpty())
+        emit m_messageView->transferError(tr("Cannot prepare a copy of the attachment to open: %1").arg(error));
+    *fileName = m_openedFile;
 }
 
 void AttachmentView::slotFileNameRequested(QString *fileName)
 {
-    QString fileLocation = QDir(Gui::Util::savedFilesFolder()).filePath(*fileName);
+    QString fileLocation = QDir(Gui::Util::savedFilesFolder()).filePath(Common::PrivateFiles::safeFileName(*fileName));
     *fileName = QFileDialog::getSaveFileName(this, tr("Save Attachment"), fileLocation, QString(), nullptr, QFileDialog::HideNameFilterDetails);
     Gui::Util::rememberSavedFile(*fileName);
 }
@@ -244,20 +246,19 @@ void AttachmentView::enableDownloadAgain()
 
 void AttachmentView::onOpenFailed()
 {
-    delete m_tmpFile;
-    m_tmpFile = nullptr;
+    Common::PrivateFiles::removeOpenedAttachment(Common::PrivateFiles::openedAttachmentsFolder(), m_openedFile);
+    m_openedFile.clear();
     m_openAttachment->setEnabled(true);
 }
 
 void AttachmentView::openDownloadedAttachment()
 {
-    Q_ASSERT(m_tmpFile);
+    Q_ASSERT(!m_openedFile.isEmpty());
 
-    // Make sure that the file is read-only so that the launched application does not attempt to modify it
-    m_tmpFile->setPermissions(QFile::ReadOwner);
-    QDesktopServices::openUrl(QUrl::fromLocalFile(m_tmpFile->fileName()));
-    delete m_tmpFile;
-    m_tmpFile = nullptr;
+    // Read-only, so that the launched application does not attempt to modify it; removed after a day
+    QFile::setPermissions(m_openedFile, QFile::ReadOwner);
+    QDesktopServices::openUrl(QUrl::fromLocalFile(m_openedFile));
+    m_openedFile.clear();
     m_openAttachment->setEnabled(true);
 }
 

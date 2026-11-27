@@ -34,6 +34,7 @@
 #include <QSysInfo>
 
 #include "Common/Paths.h"
+#include "Common/PrivateFiles.h"
 #include "Common/SettingsNames.h"
 #include "Imap/Model/NetworkPolicy.h"
 
@@ -50,7 +51,7 @@ QString persistentLogFileName()
     if (logFileName.isEmpty()) {
         logFileName = QDir::homePath() + QLatin1String("/.trojita-connection-log");
     } else {
-        QDir().mkpath(logFileName);
+        Common::PrivateFiles::makeFolder(logFileName);
         logFileName += QLatin1String("/trojita-connection-log");
     }
     return logFileName;

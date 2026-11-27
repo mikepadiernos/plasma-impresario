@@ -21,6 +21,7 @@
 */
 
 #include "DiskPartCache.h"
+#include "Common/PrivateFiles.h"
 #include <QDebug>
 #include <QDir>
 
@@ -109,11 +110,10 @@ QByteArray DiskPartCache::messagePart(const QString &mailbox, const uint uid, co
 void DiskPartCache::setMsgPart(const QString &mailbox, const uint uid, const QByteArray &partId, const QByteArray &data)
 {
     QString myPath = dirForMailbox(mailbox);
-    QDir dir(myPath);
-    dir.mkpath(myPath);
+    Common::PrivateFiles::makeFolder(myPath);
     QString fileName(fileForPart(mailbox, uid, partId));
     QFile buf(fileName);
-    if (! buf.open(QIODevice::WriteOnly)) {
+    if (! buf.open(QIODevice::WriteOnly, QFile::ReadOwner | QFile::WriteOwner)) {
         m_errorHandler(QObject::tr("Couldn't save the part %1 of message %2 (mailbox %3) into file %4: %5 (%6)").arg(
                            QString::fromUtf8(partId), QString::number(uid), mailbox, fileName, buf.errorString(),
                            fileErrorToString(buf.error())));

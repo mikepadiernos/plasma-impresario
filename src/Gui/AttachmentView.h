@@ -30,7 +30,6 @@ class QLabel;
 class QMenu;
 class QNetworkReply;
 class QPushButton;
-class QTemporaryFile;
 class QToolButton;
 
 namespace Imap
@@ -101,7 +100,8 @@ private:
 
     Imap::Network::MsgPartNetAccessManager *m_netAccess;
 
-    QTemporaryFile *m_tmpFile;
+    // The copy of the attachment being opened in another application
+    QString m_openedFile;
     QWidget *m_contentWidget;
 
     QPoint m_dragStartPos;

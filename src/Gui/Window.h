@@ -578,6 +578,8 @@ private:
     void removeSysTray();
     /** Whether closing the window keeps the application running, as chosen in the settings */
     bool runsInBackground() const;
+    /** Keep the cache user-only and remove copies of opened attachments after a day */
+    void keepPrivateFilesTidy();
 
     /** @short The selected messages as indexes of the MsgListModel, without the headers of groups */
     Q_INVOKABLE QModelIndexList translatedSelection() const;

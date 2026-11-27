@@ -291,6 +291,7 @@ set(libCommon_SOURCES
     ${path_Common}/FileLogger.cpp
     ${path_Common}/MetaTypes.cpp
     ${path_Common}/Paths.cpp
+    ${path_Common}/PrivateFiles.cpp
     ${path_Common}/SettingsNames.cpp
     ${path_Common}/StashingReverseIterator.h
 )
