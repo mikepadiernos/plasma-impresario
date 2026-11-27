@@ -447,6 +447,14 @@ set(libStreams_SOURCES
     ${path_Streams}/SocketFactory.cpp
 )
 
+set(path_LocalMail ${CMAKE_CURRENT_SOURCE_DIR}/src/LocalMail)
+set(libLocalMail_SOURCES
+    ${path_LocalMail}/ImapSession.cpp
+    ${path_LocalMail}/LocalSocket.cpp
+    ${path_LocalMail}/Mime.cpp
+    ${path_LocalMail}/Store.cpp
+)
+
 set(path_Cryptography ${CMAKE_CURRENT_SOURCE_DIR}/src/Cryptography)
 set(libCryptography_SOURCES
     ${path_Cryptography}/MessageModel.cpp
@@ -815,6 +823,18 @@ target_link_libraries(Streams
         Imap
 )
 
+add_library(LocalMail STATIC ${libLocalMail_SOURCES})
+set_property(TARGET LocalMail APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+target_link_libraries(LocalMail
+    PUBLIC
+        Qt::Core
+        Qt::Sql
+        Streams
+    PRIVATE
+        Common
+        Imap
+)
+
 add_library(IPC STATIC ${libIPC_SOURCES})
 set_property(TARGET IPC APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
 if(WITH_DBUS)
@@ -879,6 +899,7 @@ target_link_libraries(Imap
     PRIVATE
         Qt::Gui
         KF6::ItemModels
+        LocalMail
         OAuth
         Streams
 )
@@ -1214,6 +1235,7 @@ if(BUILD_TESTING)
                 Composer
                 Cryptography
                 Imap
+                LocalMail
                 MSA
                 Streams
                 test_LibMailboxSync
@@ -1506,6 +1528,9 @@ if(BUILD_TESTING)
     endif()
 
     trojita_test(Misc PrivateFiles)
+    trojita_test(LocalMail LocalMailMime)
+    trojita_test(LocalMail LocalMailStore)
+    trojita_test(LocalMail LocalImapServer)
     trojita_test(Misc Rfc5322)
     trojita_test(Misc RingBuffer)
     trojita_test(Misc SenderIdentitiesModel)
