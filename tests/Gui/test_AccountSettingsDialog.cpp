@@ -5,6 +5,7 @@
 #include "Common/SettingsNames.h"
 #include "Composer/AccountIdentities.h"
 #include "Composer/SenderIdentitiesModel.h"
+#include "Gui/AddAccountDialog.h"
 #include "Gui/SearchIndexDialog.h"
 #include "Gui/Window.h"
 #include "UiUtils/BackgroundRunning.h"
@@ -85,13 +86,29 @@ QStringList tabTitles(QDialog *dialog)
 }
 
 /** @short Run @arg handler on the first settings dialog that appears while @arg
- * trigger blocks in exec() */
-bool handleDialog(const std::function<void()> &trigger, const std::function<void(QDialog *)> &handler)
+ * trigger blocks in exec()
+
+An Add Account dialog on the way is filled in by @arg addAccount, or named "Travel" without one, and accepted.
+*/
+bool handleDialog(const std::function<void()> &trigger, const std::function<void(QDialog *)> &handler,
+                  const std::function<void(Gui::AddAccountDialog *)> &addAccount = {})
 {
     bool handled = false;
+    bool added = false;
     QTimer poll;
     QObject::connect(&poll, &QTimer::timeout, [&]() {
         auto *modal = QApplication::activeModalWidget();
+        if (auto *add = qobject_cast<Gui::AddAccountDialog *>(modal)) {
+            if (added)
+                return;
+            added = true;
+            if (addAccount)
+                addAccount(add);
+            else
+                add->findChild<QLineEdit *>(QStringLiteral("accountName"))->setText(QStringLiteral("Travel"));
+            add->accept();
+            return;
+        }
         if (auto *input = qobject_cast<QInputDialog *>(modal)) {
             input->setTextValue(QStringLiteral("Travel"));
             input->accept();
@@ -600,16 +617,53 @@ private slots:
 
         QStringList titles;
         QString windowTitle;
+        QString shownHost;
+        QString foundIn;
+        bool oauthOffered = false;
         QVERIFY(handleDialog([&]() { QMetaObject::invokeMethod(&window, "slotAddAccount", Qt::DirectConnection); },
             [&](QDialog *dialog) {
                 titles = tabTitles(dialog);
                 windowTitle = dialog->windowTitle();
+                if (auto *host = dialog->findChild<QLineEdit *>(QStringLiteral("imapHost")))
+                    shownHost = host->text();
                 dialog->reject();
+            },
+            [&](Gui::AddAccountDialog *add) {
+                add->findChild<QLineEdit *>(QStringLiteral("realName"))->setText(QStringLiteral("Tess Traveller"));
+                add->findChild<QLineEdit *>(QStringLiteral("emailAddress"))->setText(QStringLiteral("tess@gmail.com"));
+                add->findChild<QLineEdit *>(QStringLiteral("accountName"))->setText(QStringLiteral("Travel"));
+                // A built-in provider needs no network
+                add->findChild<QPushButton *>(QStringLiteral("findSettings"))->click();
+                QTRY_VERIFY(add->result().isValid());
+                foundIn = add->findChild<QLabel *>(QStringLiteral("settingsSource"))->text();
+                oauthOffered = !add->findChild<QCheckBox *>(QStringLiteral("useOAuth"))->isHidden();
+                add->findChild<QCheckBox *>(QStringLiteral("useOAuth"))->setChecked(false);
             }));
         QVERIFY(titles.contains(QStringLiteral("IMAP")));
         QVERIFY(!titles.contains(QStringLiteral("General")));
         QVERIFY(windowTitle.contains(QStringLiteral("Travel")));
+        QVERIFY(!foundIn.isEmpty());
+        QVERIFY(oauthOffered);
         QCOMPARE(window.imapAccess()->credentialAccountId(), QStringLiteral("account-3"));
+        // The settings dialog opens with the servers that were found
+        QCOMPARE(shownHost, QStringLiteral("imap.gmail.com"));
+
+        QSettings travel(directory.filePath(QStringLiteral("main-account-3.conf")), QSettings::IniFormat);
+        QCOMPARE(travel.value(Common::SettingsNames::imapHostKey).toString(), QStringLiteral("imap.gmail.com"));
+        QCOMPARE(travel.value(Common::SettingsNames::imapPortKey).toInt(), 993);
+        QCOMPARE(travel.value(Common::SettingsNames::imapMethodKey).toString(), Common::SettingsNames::methodSSL);
+        QCOMPARE(travel.value(Common::SettingsNames::imapUserKey).toString(), QStringLiteral("tess@gmail.com"));
+        QCOMPARE(travel.value(Common::SettingsNames::smtpHostKey).toString(), QStringLiteral("smtp.gmail.com"));
+        QCOMPARE(travel.value(Common::SettingsNames::msaMethodKey).toString(), Common::SettingsNames::methodSSMTP);
+        // OAuth was turned off, so the account signs in with a password
+        QVERIFY(!travel.contains(Common::SettingsNames::imapAuthMethodKey));
+        Composer::SenderIdentitiesModel identities;
+        identities.loadFromSettings(travel);
+        QCOMPARE(identities.rowCount(), 1);
+        QCOMPARE(identities.data(identities.index(0, Composer::SenderIdentitiesModel::COLUMN_NAME)).toString(),
+                 QStringLiteral("Tess Traveller"));
+        QCOMPARE(identities.data(identities.index(0, Composer::SenderIdentitiesModel::COLUMN_EMAIL)).toString(),
+                 QStringLiteral("tess@gmail.com"));
     }
 };
 
