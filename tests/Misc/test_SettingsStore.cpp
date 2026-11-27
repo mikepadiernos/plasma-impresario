@@ -165,6 +165,120 @@ private slots:
         QCOMPARE(SettingsStore::workspaces(*open(path)), QList<Workspaces::Workspace>{list.at(1)});
     }
 
+    void themePersists()
+    {
+        const QString path = freshPath();
+        {
+            auto config = open(path);
+            Theme::Values values;
+            values.insert(QStringLiteral("WindowOpacity"), 80);
+            values.insert(QStringLiteral("StripeRows"), true);
+            values.insert(QStringLiteral("MessageListStyle"), QStringLiteral("Cards"));
+            values.insert(QStringLiteral("PaneTintColor"), QColor(QStringLiteral("#123456")));
+            values.insert(QStringLiteral("TreeLinePalette"), QStringList{QStringLiteral("#ff0000")});
+            // Defaults and invalid values are not stored
+            values.insert(QStringLiteral("PaneOpacity"), 100);
+            values.insert(QStringLiteral("CornerRadius"), QStringLiteral("Huge"));
+            values.insert(QStringLiteral("Unknown"), 1);
+            SettingsStore::setTheme(*config, values);
+        }
+        KConfig reread(path, KConfig::SimpleConfig);
+        const KConfigGroup group(&reread, QLatin1String(Theme::Group));
+        QCOMPARE(group.readEntry("PaneTintColor", QString()), QStringLiteral("#123456"));
+        QVERIFY(!group.hasKey("PaneOpacity"));
+        QVERIFY(!group.hasKey("CornerRadius"));
+        QVERIFY(!group.hasKey("Unknown"));
+        const Theme::Values stored = SettingsStore::theme(reread);
+        QCOMPARE(stored.size(), 5);
+        QCOMPARE(stored.value(QStringLiteral("WindowOpacity")).toInt(), 80);
+        QCOMPARE(stored.value(QStringLiteral("MessageListStyle")).toString(), QStringLiteral("Cards"));
+        QCOMPARE(stored.value(QStringLiteral("PaneTintColor")).value<QColor>(), QColor(QStringLiteral("#123456")));
+
+        // KConfig's own colour form is read too, and values edited by hand are checked
+        auto config = open(path);
+        KConfigGroup edited = config->group(QLatin1String(Theme::Group));
+        edited.writeEntry("PaneTintColor", QStringLiteral("18,52,86"));
+        edited.writeEntry("WindowOpacity", 5);
+        const Theme::Values reloaded = SettingsStore::theme(*config);
+        QCOMPARE(reloaded.value(QStringLiteral("PaneTintColor")).value<QColor>(), QColor(18, 52, 86));
+        QVERIFY(!reloaded.contains(QStringLiteral("WindowOpacity")));
+    }
+
+    void themeProfilesPersist()
+    {
+        auto config = open(freshPath());
+        QList<ThemeProfiles::Profile> profiles{
+            {QStringLiteral("p1"), QStringLiteral("Night"), {{QStringLiteral("WindowOpacity"), 90}}},
+            {QStringLiteral("p2"), QStringLiteral("Day"), {}},
+        };
+        SettingsStore::setThemeProfiles(*config, profiles);
+        QStringList problems;
+        const QList<ThemeProfiles::Profile> restored = SettingsStore::themeProfiles(*config, &problems);
+        QCOMPARE(problems, QStringList());
+        QCOMPARE(restored.size(), 2);
+        QCOMPARE(restored.at(0).name, QStringLiteral("Night"));
+        QCOMPARE(restored.at(0).values.value(QStringLiteral("WindowOpacity")).toInt(), 90);
+        SettingsStore::setThemeProfiles(*config, {});
+        QVERIFY(SettingsStore::themeProfiles(*config).isEmpty());
+
+        QCOMPARE(SettingsStore::followedTheme(*config), QString());
+        SettingsStore::setFollowedTheme(*config, QStringLiteral("/tmp/opus.json"));
+        QCOMPARE(SettingsStore::followedTheme(*config), QStringLiteral("/tmp/opus.json"));
+        SettingsStore::setFollowedTheme(*config, QString());
+        QCOMPARE(SettingsStore::followedTheme(*config), QString());
+    }
+
+    void colorsFollowAccountsAndFolders()
+    {
+        auto config = open(freshPath());
+        SettingsStore::setAccountColor(*config, QStringLiteral("work"), QColor(Qt::red));
+        SettingsStore::setAccountColor(*config, QStringLiteral("home"), QColor(Qt::blue));
+        const QString odd = QStringLiteral("Weird]/[name=x");
+        for (const QString &folder : {QStringLiteral("Lists"), QStringLiteral("Lists/KDE"), odd})
+            SettingsStore::setFolderColor(*config, QStringLiteral("work"), folder, QColor(Qt::green));
+        SettingsStore::setFolderColor(*config, QStringLiteral("home"), QStringLiteral("INBOX"), QColor(Qt::yellow));
+
+        FolderColors::Colors colors = SettingsStore::folderColors(*config);
+        QCOMPARE(colors.accounts.value(QStringLiteral("work")), QColor(Qt::red));
+        QCOMPARE(colors.folders.value(QStringLiteral("work")).size(), 3);
+        QCOMPARE(colors.folders.value(QStringLiteral("work")).value(odd), QColor(Qt::green));
+
+        SettingsStore::renameFolder(*config, QStringLiteral("work"), QStringLiteral("Lists"), QStringLiteral("Mail"),
+                                    QLatin1Char('/'));
+        colors = SettingsStore::folderColors(*config);
+        QVERIFY(colors.folders.value(QStringLiteral("work")).contains(QStringLiteral("Mail/KDE")));
+        QVERIFY(!colors.folders.value(QStringLiteral("work")).contains(QStringLiteral("Lists")));
+
+        // An invalid colour removes the folder's colour
+        SettingsStore::setFolderColor(*config, QStringLiteral("work"), odd, QColor());
+        QCOMPARE(SettingsStore::folderColors(*config).folders.value(QStringLiteral("work")).size(), 2);
+
+        SettingsStore::removeAccount(*config, QStringLiteral("work"));
+        colors = SettingsStore::folderColors(*config);
+        QVERIFY(!colors.accounts.contains(QStringLiteral("work")));
+        QVERIFY(!colors.folders.contains(QStringLiteral("work")));
+        QCOMPARE(colors.accounts.value(QStringLiteral("home")), QColor(Qt::blue));
+        QCOMPARE(colors.folders.value(QStringLiteral("home")).value(QStringLiteral("INBOX")), QColor(Qt::yellow));
+    }
+
+    void workspaceAppearancePersists()
+    {
+        const QString path = freshPath();
+        Workspaces::Workspace workspace{QStringLiteral("w1"), QStringLiteral("Work"), {}, QString(), QString()};
+        workspace.appearance = Workspaces::Workspace::Appearance::Selected;
+        workspace.themeProfile = QStringLiteral("p1");
+        workspace.selectedAppearance = {QStringLiteral("MessageListStyle")};
+        workspace.appearanceOverrides.insert(QStringLiteral("MessageListStyle"), QStringLiteral("Cards"));
+        SettingsStore::setWorkspaces(*open(path), {workspace});
+        const QList<Workspaces::Workspace> restored = SettingsStore::workspaces(KConfig(path, KConfig::SimpleConfig));
+        QCOMPARE(restored.size(), 1);
+        QCOMPARE(restored.at(0).appearance, Workspaces::Workspace::Appearance::Selected);
+        QCOMPARE(restored.at(0).themeProfile, QStringLiteral("p1"));
+        QCOMPARE(restored.at(0).selectedAppearance, QStringList{QStringLiteral("MessageListStyle")});
+        QCOMPARE(restored.at(0).appearanceOverrides.value(QStringLiteral("MessageListStyle")).toString(),
+                 QStringLiteral("Cards"));
+    }
+
     void keymapImportCanBeUndone()
     {
         auto config = open(freshPath());

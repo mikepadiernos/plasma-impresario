@@ -4,6 +4,8 @@
 #include "UiUtils/SettingsStore.h"
 
 #include <KConfigGroup>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QSettings>
 #include <algorithm>
 
@@ -20,6 +22,41 @@ const char workspacesGroup[] = "Workspaces";
 const char keymapGroup[] = "Keymap";
 const char keymapBackupGroup[] = "KeymapBackup";
 const char tabsGroup[] = "MailTabs";
+const char themeProfilesGroup[] = "ThemeProfiles";
+const char accountColorsGroup[] = "AccountColors";
+const char folderColorsGroup[] = "FolderColors";
+
+/** The folder colours of one account, a JSON object per folder, as folder names may contain any character */
+QHash<QString, QColor> storedFolderColors(const KConfigGroup &group)
+{
+    QHash<QString, QColor> colors;
+    const QStringList entries = group.readEntry("Colors", QStringList());
+    for (const QString &entry : entries) {
+        const QJsonObject object = QJsonDocument::fromJson(entry.toUtf8()).object();
+        const QString folder = object.value(QStringLiteral("folder")).toString();
+        const QColor color = QColor::fromString(object.value(QStringLiteral("color")).toString());
+        if (!folder.isEmpty() && color.isValid())
+            colors.insert(folder, QColor(color.rgb()));
+    }
+    return colors;
+}
+
+void storeFolderColors(KConfigGroup group, const QHash<QString, QColor> &colors)
+{
+    if (colors.isEmpty()) {
+        group.deleteGroup();
+        return;
+    }
+    QStringList folders = colors.keys();
+    folders.sort();
+    QStringList entries;
+    for (const QString &folder : std::as_const(folders)) {
+        const QJsonObject object{{QStringLiteral("folder"), folder},
+                                 {QStringLiteral("color"), colors.value(folder).name(QColor::HexRgb)}};
+        entries << QString::fromUtf8(QJsonDocument(object).toJson(QJsonDocument::Compact));
+    }
+    group.writeEntry("Colors", entries);
+}
 
 KConfigGroup accountGroup(const KConfigBase &config, const QString &accountId)
 {
@@ -211,6 +248,8 @@ void removeAccount(KConfigBase &config, const QString &accountId)
     KConfigGroup overrides = config.group(QLatin1String(overridesGroup));
     overrides.group(accountId).deleteGroup();
     overrides.sync();
+    config.group(QLatin1String(accountColorsGroup)).deleteEntry(accountId);
+    config.group(QLatin1String(folderColorsGroup)).group(accountId).deleteGroup();
 }
 
 void renameFolder(KConfigBase &config, const QString &accountId, const QString &from, const QString &to,
@@ -231,6 +270,20 @@ void renameFolder(KConfigBase &config, const QString &accountId, const QString &
             group.writeEntry(nameEntry, QString(to + folder.mid(from.size())));
     }
     account.sync();
+
+    KConfigGroup colorsGroup = config.group(QLatin1String(folderColorsGroup)).group(accountId);
+    const QHash<QString, QColor> stored = storedFolderColors(colorsGroup);
+    QHash<QString, QColor> moved;
+    for (auto it = stored.constBegin(); it != stored.constEnd(); ++it) {
+        if (it.key() == from)
+            moved.insert(to, it.value());
+        else if (it.key().startsWith(from + separator))
+            moved.insert(to + it.key().mid(from.size()), it.value());
+        else
+            moved.insert(it.key(), it.value());
+    }
+    if (moved != stored)
+        storeFolderColors(colorsGroup, moved);
 }
 
 SettingsSchema::Layers layers(const KConfigBase &config, const QSettings *legacy, const QString &accountId,
@@ -269,6 +322,15 @@ QList<Workspaces::Workspace> workspaces(const KConfigBase &config)
         workspace.accounts = entry.readEntry("Accounts", QStringList());
         workspace.activityId = entry.readEntry("Activity", QString());
         workspace.notesFolder = entry.readEntry("NotesFolder", QString());
+        workspace.appearance = Workspaces::appearanceFromConfigName(entry.readEntry("Appearance", QString()));
+        workspace.themeProfile = entry.readEntry("ThemeProfile", QString());
+        workspace.selectedAppearance = entry.readEntry("SelectedAppearance", QStringList());
+        const QJsonObject overrides
+            = QJsonDocument::fromJson(entry.readEntry("AppearanceOverrides", QString()).toUtf8()).object();
+        for (auto it = overrides.constBegin(); it != overrides.constEnd(); ++it) {
+            // Kept as stored, valid or not, so that a value which cannot apply now is not lost
+            workspace.appearanceOverrides.insert(it.key(), it.value().toVariant());
+        }
         result << workspace;
     }
     return result;
@@ -289,10 +351,177 @@ void setWorkspaces(KConfigBase &config, const QList<Workspaces::Workspace> &list
         entry.writeEntry("Accounts", workspace.accounts);
         entry.writeEntry("Activity", workspace.activityId);
         entry.writeEntry("NotesFolder", workspace.notesFolder);
+        if (workspace.appearance != Workspaces::Workspace::Appearance::None)
+            entry.writeEntry("Appearance", Workspaces::configName(workspace.appearance));
+        if (!workspace.themeProfile.isEmpty())
+            entry.writeEntry("ThemeProfile", workspace.themeProfile);
+        if (!workspace.selectedAppearance.isEmpty())
+            entry.writeEntry("SelectedAppearance", workspace.selectedAppearance);
+        if (!workspace.appearanceOverrides.isEmpty()) {
+            QJsonObject overrides;
+            for (auto it = workspace.appearanceOverrides.constBegin(); it != workspace.appearanceOverrides.constEnd();
+                 ++it) {
+                const QVariant &value = it.value();
+                overrides.insert(it.key(), value.typeId() == QMetaType::QColor
+                                               ? QJsonValue(value.value<QColor>().name(QColor::HexRgb))
+                                               : QJsonValue::fromVariant(value));
+            }
+            entry.writeEntry("AppearanceOverrides",
+                             QString::fromUtf8(QJsonDocument(overrides).toJson(QJsonDocument::Compact)));
+        }
         order << workspace.id;
     }
     group.writeEntry("Order", order);
     group.sync();
+}
+
+Theme::Values theme(const KConfigBase &config)
+{
+    Theme::Values values;
+    const KConfigGroup group = config.group(QLatin1String(Theme::Group));
+    for (const Theme::Option &option : Theme::options()) {
+        if (!group.hasKey(option.entry))
+            continue;
+        QVariant stored;
+        switch (option.type) {
+        case Theme::Type::Bool:
+            stored = group.readEntry(option.entry, option.defaultValue.toBool());
+            break;
+        case Theme::Type::Int:
+            stored = group.readEntry(option.entry, option.defaultValue.toInt());
+            break;
+        case Theme::Type::StringList:
+            stored = group.readEntry(option.entry, option.defaultValue.toStringList());
+            break;
+        case Theme::Type::Color: {
+            // As a name such as #3daee9, or as KConfig writes colours: red, green and blue
+            const QString text = group.readEntry(option.entry, QString()).trimmed();
+            const QStringList parts = text.split(QLatin1Char(','));
+            stored = text;
+            if (parts.size() == 3) {
+                bool ok[3] = {false, false, false};
+                const QColor color(parts.at(0).trimmed().toInt(&ok[0]), parts.at(1).trimmed().toInt(&ok[1]),
+                                   parts.at(2).trimmed().toInt(&ok[2]));
+                if (ok[0] && ok[1] && ok[2] && color.isValid())
+                    stored = color.name(QColor::HexRgb);
+            }
+            break;
+        }
+        case Theme::Type::String:
+        case Theme::Type::Choice:
+            stored = group.readEntry(option.entry, option.defaultValue.toString());
+            break;
+        }
+        if (const auto checked = Theme::validate(option.entry, stored))
+            values.insert(option.entry, *checked);
+    }
+    return values;
+}
+
+void setTheme(KConfigBase &config, const Theme::Values &values)
+{
+    KConfigGroup group = config.group(QLatin1String(Theme::Group));
+    for (const Theme::Option &option : Theme::options()) {
+        const auto it = values.constFind(option.entry);
+        const std::optional<QVariant> checked
+            = it == values.constEnd() ? std::nullopt : Theme::validate(option.entry, it.value());
+        if (!checked || *checked == option.defaultValue) {
+            group.deleteEntry(option.entry);
+            continue;
+        }
+        switch (option.type) {
+        case Theme::Type::Bool:
+            group.writeEntry(option.entry, checked->toBool());
+            break;
+        case Theme::Type::Int:
+            group.writeEntry(option.entry, checked->toInt());
+            break;
+        case Theme::Type::StringList:
+            group.writeEntry(option.entry, checked->toStringList());
+            break;
+        case Theme::Type::Color:
+            group.writeEntry(option.entry, checked->value<QColor>().name(QColor::HexRgb));
+            break;
+        case Theme::Type::String:
+        case Theme::Type::Choice:
+            group.writeEntry(option.entry, checked->toString());
+            break;
+        }
+    }
+}
+
+QList<ThemeProfiles::Profile> themeProfiles(const KConfigBase &config, QStringList *problems)
+{
+    const KConfigGroup group = config.group(QLatin1String(themeProfilesGroup));
+    return ThemeProfiles::restore(group.readEntry("Profiles", QStringList()), problems);
+}
+
+void setThemeProfiles(KConfigBase &config, const QList<ThemeProfiles::Profile> &profiles)
+{
+    KConfigGroup group = config.group(QLatin1String(themeProfilesGroup));
+    if (profiles.isEmpty())
+        group.deleteEntry("Profiles");
+    else
+        group.writeEntry("Profiles", ThemeProfiles::store(profiles));
+}
+
+QString followedTheme(const KConfigBase &config)
+{
+    return config.group(QLatin1String(themeProfilesGroup)).readEntry("FollowedFile", QString());
+}
+
+void setFollowedTheme(KConfigBase &config, const QString &path)
+{
+    KConfigGroup group = config.group(QLatin1String(themeProfilesGroup));
+    if (path.isEmpty())
+        group.deleteEntry("FollowedFile");
+    else
+        group.writeEntry("FollowedFile", path);
+}
+
+FolderColors::Colors folderColors(const KConfigBase &config)
+{
+    FolderColors::Colors colors;
+    const KConfigGroup accounts = config.group(QLatin1String(accountColorsGroup));
+    const QStringList accountIds = accounts.keyList();
+    for (const QString &accountId : accountIds) {
+        const QColor color = QColor::fromString(accounts.readEntry(accountId, QString()));
+        if (color.isValid())
+            colors.accounts.insert(accountId, QColor(color.rgb()));
+    }
+    const KConfigGroup folders = config.group(QLatin1String(folderColorsGroup));
+    const QStringList folderAccounts = folders.groupList();
+    for (const QString &accountId : folderAccounts) {
+        const QHash<QString, QColor> stored = storedFolderColors(folders.group(accountId));
+        if (!stored.isEmpty())
+            colors.folders.insert(accountId, stored);
+    }
+    colors.rules = FolderColors::rules(Theme::value(theme(config), QStringLiteral("FolderColorRules")).toStringList());
+    return colors;
+}
+
+void setAccountColor(KConfigBase &config, const QString &accountId, const QColor &color)
+{
+    if (accountId.isEmpty())
+        return;
+    KConfigGroup group = config.group(QLatin1String(accountColorsGroup));
+    if (color.isValid())
+        group.writeEntry(accountId, color.name(QColor::HexRgb));
+    else
+        group.deleteEntry(accountId);
+}
+
+void setFolderColor(KConfigBase &config, const QString &accountId, const QString &folder, const QColor &color)
+{
+    if (accountId.isEmpty() || folder.isEmpty())
+        return;
+    KConfigGroup group = config.group(QLatin1String(folderColorsGroup)).group(accountId);
+    QHash<QString, QColor> stored = storedFolderColors(group);
+    if (color.isValid())
+        stored.insert(folder, QColor(color.rgb()));
+    else
+        stored.remove(folder);
+    storeFolderColors(group, stored);
 }
 
 Keymap::Bindings bindings(const KConfigBase &config)

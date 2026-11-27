@@ -7,9 +7,12 @@
 #include <QString>
 #include <QStringList>
 
+#include "UiUtils/FolderColors.h"
 #include "UiUtils/Keymap.h"
 #include "UiUtils/MailTabs.h"
 #include "UiUtils/SettingsSchema.h"
+#include "UiUtils/Theme.h"
+#include "UiUtils/ThemeProfiles.h"
 #include "UiUtils/Workspaces.h"
 
 class KConfigBase;
@@ -46,9 +49,9 @@ void setFolderValue(KConfigBase &config, const QString &accountId, const QString
 /** @short Folders of @arg accountId with settings of their own, sorted */
 QStringList folders(const KConfigBase &config, const QString &accountId);
 
-/** @short Forget the overrides of @arg accountId, and its folders */
+/** @short Forget the overrides and colours of @arg accountId, and of its folders */
 void removeAccount(KConfigBase &config, const QString &accountId);
-/** @short Move the overrides of @arg from, and of its subfolders, to @arg to */
+/** @short Move the overrides and colours of @arg from, and of its subfolders, to @arg to */
 void renameFolder(KConfigBase &config, const QString &accountId, const QString &from, const QString &to,
                   QChar separator);
 
@@ -76,6 +79,24 @@ bool restoreKeymap(KConfigBase &config);
 /** @short The profile file whose changes are followed, or empty when none is */
 QString followedProfile(const KConfigBase &config);
 void setFollowedProfile(KConfigBase &config, const QString &path);
+
+/** @short The stored global appearance options of group Theme; invalid entries are left out */
+Theme::Values theme(const KConfigBase &config);
+/** @short Store @arg values; options at their defaults are removed, so that they keep following Plasma */
+void setTheme(KConfigBase &config, const Theme::Values &values);
+/** @short The saved theme profiles; unreadable ones are skipped and described in @arg problems */
+QList<ThemeProfiles::Profile> themeProfiles(const KConfigBase &config, QStringList *problems = nullptr);
+void setThemeProfiles(KConfigBase &config, const QList<ThemeProfiles::Profile> &profiles);
+/** @short The theme profile file whose changes are followed, such as one exported by Plasma Opus, or empty */
+QString followedTheme(const KConfigBase &config);
+void setFollowedTheme(KConfigBase &config, const QString &path);
+
+/** @short Account colours, folder colours and the folder colour rules of the Theme group */
+FolderColors::Colors folderColors(const KConfigBase &config);
+/** @short Set the colour of @arg accountId; an invalid colour removes it */
+void setAccountColor(KConfigBase &config, const QString &accountId, const QColor &color);
+/** @short Set the colour of @arg folder of @arg accountId; an invalid colour removes it */
+void setFolderColor(KConfigBase &config, const QString &accountId, const QString &folder, const QColor &color);
 
 /** @short The tabs saved in @arg state, the application's state file */
 MailTabs::Session tabs(const KConfigBase &state);
