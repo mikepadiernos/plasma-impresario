@@ -28,6 +28,7 @@
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "Imap/Model/Utils.h"
 #include "UiUtils/MailingLists.h"
+#include "UiUtils/MessageIdLookup.h"
 #include "UiUtils/SavedSearches.h"
 #include "UiUtils/SearchScope.h"
 #include "configure.cmake.h"
@@ -45,6 +46,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QComboBox>
+#include <QDesktopServices>
 #include <QDialog>
 #include <QFile>
 #include <QHostAddress>
@@ -1169,6 +1171,155 @@ private slots:
     }
 
     /**
+     * gamma@example.test, kept offline and indexed, and alpha@example.test, whose "Synthetic invoice-alpha-old" with
+     * the Message-ID <invoice-alpha-old@example.test> is only in Archive/2024. A Message-ID or a mid: URL opens the
+     * message which is loaded or indexed at once; one which is only on a server is searched for after the user agrees,
+     * and the search can be stopped. Invalid and unknown IDs are reported. Pass the slot name to run only this test.
+     */
+    void opensMessagesByMessageId()
+    {
+        using Lookup = UiUtils::MessageIdLookup;
+        bool ok = false;
+        const int port = qEnvironmentVariableIntValue("PLASMA_TEST_IMAPS_PORT", &ok);
+        QVERIFY(ok && port > 0 && port <= 65535);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        settings.setValue(Common::SettingsNames::guiShowSystray, false);
+        settings.setValue(Common::SettingsNames::autoMarkReadEnabled, false);
+        settings.setValue(Common::SettingsNames::passwordPlugin, QStringLiteral("cleartextpassword"));
+        settings.setValue(QStringLiteral("accounts/ids"), QStringList{QStringLiteral("account-1"), QStringLiteral("account-2")});
+        settings.setValue(QStringLiteral("accounts/active"), QStringLiteral("account-1"));
+        settings.setValue(QStringLiteral("accounts/next"), 3);
+        settings.setValue(QStringLiteral("accounts/names/account-1"), QStringLiteral("Gamma"));
+        settings.setValue(QStringLiteral("accounts/names/account-2"), QStringLiteral("Alpha"));
+        settings.setValue(QStringLiteral("accountPasswords/account-1/imap"), syntheticPassword);
+        settings.setValue(QStringLiteral("accountPasswords/account-2/imap"), syntheticPassword);
+        settings.sync();
+        const QString gammaFile = directory.filePath(QStringLiteral("main-account-1.conf"));
+        configureAccount(gammaFile, port, QStringLiteral("gamma@example.test"));
+        {
+            QSettings account(gammaFile, QSettings::IniFormat);
+            account.setValue(Common::SettingsNames::cacheOfflineKey, Common::SettingsNames::cacheOfflineAll);
+            account.setValue(Common::SettingsNames::searchIndexKey, true);
+            account.sync();
+        }
+        configureAccount(directory.filePath(QStringLiteral("main-account-2.conf")), port, QStringLiteral("alpha@example.test"));
+
+        QTimer dialogs;
+        connect(&dialogs, &QTimer::timeout, this, &answerDialogs);
+        dialogs.start(20);
+
+        Gui::MainWindow window(&settings);
+        window.resize(1000, 700);
+        window.show();
+        auto *switcher = accountSwitcher(window);
+        auto *tree = window.findChild<Gui::MailBoxTreeView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
+        auto *bar = window.findChild<Gui::InlineNotificationBar *>(QStringLiteral("messageNotificationBar"));
+        QVERIFY(switcher && tree && messages && bar);
+        bar->setAutoHideTimeout(0);
+        Imap::Mailbox::SearchIndexer *indexer = window.imapAccess()->searchIndexer();
+        QVERIFY(indexer);
+        QVERIFY2(indexer->isAvailable(), qPrintable(indexer->unavailableReason()));
+        indexer->setTimings(200, 20, 200);
+
+        QModelIndex inbox;
+        QTRY_VERIFY_WITH_TIMEOUT((inbox = findMailbox(tree->model(), QStringLiteral("INBOX"))).isValid(), 20000);
+        tree->scrollTo(inbox);
+        QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(inbox).center());
+        QTRY_COMPARE_WITH_TIMEOUT(messages->model()->rowCount(), 4, 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(indexer->index()->entries(QStringLiteral("INBOX")).size(), 4, 20000);
+        QTRY_VERIFY_WITH_TIMEOUT(!indexer->isRunning(), 20000);
+
+        const auto barText = [bar]() {
+            return QStringLiteral("[%1] %2").arg(bar->isVisible() ? QStringLiteral("shown") : QStringLiteral("hidden"), bar->text());
+        };
+        const auto button = [bar](const QString &name) -> QPushButton * {
+            const auto buttons = bar->actionButtons();
+            for (QPushButton *candidate : buttons) {
+                if (candidate->objectName() == name && candidate->isVisible())
+                    return candidate;
+            }
+            return nullptr;
+        };
+        const auto current = [messages]() { return messages->currentIndex().data(Imap::Mailbox::RoleMessageSubject).toString(); };
+        const auto shownAccount = [switcher]() { return switcher->currentText().section(QLatin1String(" ("), 0, 0); };
+
+        // Invalid IDs are explained without searching
+        window.openMessageById(QStringLiteral("not an id"));
+        QCOMPARE(bar->kind(), Gui::InlineNotificationBar::Kind::Error);
+        QVERIFY2(bar->text().contains(QLatin1String("Cannot open the message")), qPrintable(barText()));
+        window.openMessageById(QStringLiteral("mid:release-plan"));
+        QVERIFY2(bar->text().contains(QLatin1String("\"@\"")), qPrintable(barText()));
+
+        // A loaded message is selected at once, in brackets or as a mid: URL
+        QModelIndex lunch;
+        for (int row = 0; row < messages->model()->rowCount(); ++row) {
+            if (messages->model()->index(row, 0).data(Imap::Mailbox::RoleMessageSubject).toString() == QLatin1String("Lunch on Friday"))
+                lunch = messages->model()->index(row, 0);
+        }
+        QVERIFY(lunch.isValid());
+        messages->setCurrentIndex(lunch);
+        bar->dismiss();
+        window.openMessageById(QStringLiteral("<release-plan@example.test>"));
+        QTRY_COMPARE_WITH_TIMEOUT(current(), QStringLiteral("Release plan"), 10000);
+        QVERIFY2(!bar->isVisible() || bar->kind() != Gui::InlineNotificationBar::Kind::Error, qPrintable(barText()));
+
+        // The index answers for messages which are not loaded
+        Lookup lookup;
+        QCOMPARE(lookup.start("quarterly-report@example.test", {Lookup::Account{QStringLiteral("account-1"), nullptr, indexer}}),
+                 Lookup::State::Found);
+        QCOMPARE(lookup.found().size(), 1);
+        QCOMPARE(lookup.found().constFirst().mailbox, QStringLiteral("INBOX"));
+        QVERIFY(lookup.found().constFirst().uid != 0);
+        QVERIFY(lookup.found().constFirst().uidValidity != 0);
+        QCOMPARE(lookup.start("quarterly-report@example", {Lookup::Account{QStringLiteral("account-1"), nullptr, indexer}}),
+                 Lookup::State::NotFound);
+
+        // A message which is only on a server is searched for after the user agrees, from a mid: URL
+        bar->dismiss();
+        QVERIFY(QDesktopServices::openUrl(QUrl(QStringLiteral("mid:invoice-alpha-old@example.test"))));
+        QTRY_VERIFY2_WITH_TIMEOUT(button(QStringLiteral("searchServersForMessage")), qPrintable(barText()), 5000);
+        QVERIFY2(bar->text().contains(QLatin1String("not on this computer")), qPrintable(barText()));
+        QCOMPARE(shownAccount(), QStringLiteral("Gamma"));
+        QTest::mouseClick(button(QStringLiteral("searchServersForMessage")), Qt::LeftButton);
+        QTRY_VERIFY2_WITH_TIMEOUT(shownAccount() == QLatin1String("Alpha")
+                                      && current() == QLatin1String("Synthetic invoice-alpha-old"),
+                                  qPrintable(shownAccount() + QStringLiteral(" / ") + current() + QStringLiteral(" / ") + barText()),
+                                  30000);
+        QCOMPARE(messages->currentIndex().data(Imap::Mailbox::RoleMailboxName).toString(), QStringLiteral("Archive/2024"));
+        QVERIFY2(!bar->isVisible() || bar->kind() != Gui::InlineNotificationBar::Kind::Error, qPrintable(barText()));
+
+        // Loaded in another account now, so it opens without asking; Gamma's message switches back
+        bar->dismiss();
+        window.openMessageById(QStringLiteral("mid:%3Crelease-plan@example.test%3E"));
+        QTRY_VERIFY2_WITH_TIMEOUT(shownAccount() == QLatin1String("Gamma") && current() == QLatin1String("Release plan"),
+                                  qPrintable(shownAccount() + QStringLiteral(" / ") + current() + QStringLiteral(" / ") + barText()),
+                                  15000);
+
+        // The server search can be stopped
+        window.openMessageById(QStringLiteral("stopped@example.test"));
+        QTRY_VERIFY2_WITH_TIMEOUT(button(QStringLiteral("searchServersForMessage")), qPrintable(barText()), 5000);
+        QTest::mouseClick(button(QStringLiteral("searchServersForMessage")), Qt::LeftButton);
+        QTRY_VERIFY2_WITH_TIMEOUT(button(QStringLiteral("stopMessageSearch")), qPrintable(barText()), 5000);
+        QTest::mouseClick(button(QStringLiteral("stopMessageSearch")), Qt::LeftButton);
+        QTRY_VERIFY2_WITH_TIMEOUT(bar->text().contains(QLatin1String("was stopped")), qPrintable(barText()), 5000);
+
+        // An unknown ID is reported once every folder was searched
+        window.openMessageById(QStringLiteral("missing@example.test"));
+        QTRY_VERIFY2_WITH_TIMEOUT(button(QStringLiteral("searchServersForMessage")), qPrintable(barText()), 5000);
+        QTest::mouseClick(button(QStringLiteral("searchServersForMessage")), Qt::LeftButton);
+        QTRY_VERIFY2_WITH_TIMEOUT(bar->kind() == Gui::InlineNotificationBar::Kind::Error
+                                      && bar->text().contains(QLatin1String("No message with the Message-ID \"missing@example.test\"")),
+                                  qPrintable(barText()), 30000);
+        QVERIFY2(!bar->text().contains(QLatin1String("could not be searched")), qPrintable(barText()));
+        // The shown folder is selected again after the search
+        QCOMPARE(shownAccount(), QStringLiteral("Gamma"));
+        QTRY_COMPARE_WITH_TIMEOUT(current(), QStringLiteral("Release plan"), 5000);
+    }
+
+    /**
      * gamma@example.test, whose "[dev] Release notes" names its list in List-Id "Developers
      * <dev.lists.example.test>" and offers List-Post, List-Unsubscribe and List-Archive. The list is offered as a view
      * of the loaded messages, shows the message on the server, and can be pinned as a saved search of every account;
@@ -1276,12 +1427,17 @@ private slots:
             return nullptr;
         };
         QTRY_VERIFY_WITH_TIMEOUT((envelope = shownEnvelope()), 10000);
+        // Rows added to a shown view appear once the event loop runs
         QLabel *row = nullptr;
-        for (auto *label : envelope->findChildren<QLabel *>(QStringLiteral("envelopeMailingList"))) {
-            if (label->isVisible())
-                row = label;
-        }
-        QVERIFY(row);
+        QTRY_VERIFY_WITH_TIMEOUT(
+            [&]() {
+                for (auto *label : envelope->findChildren<QLabel *>(QStringLiteral("envelopeMailingList"))) {
+                    if (label->isVisible())
+                        row = label;
+                }
+                return row != nullptr;
+            }(),
+            5000);
         QVERIFY2(row->text().contains(QStringLiteral("Developers (dev.lists.example.test)")), qPrintable(row->text()));
         int unsubscribe = -1;
         const auto actions = envelope->listActions();

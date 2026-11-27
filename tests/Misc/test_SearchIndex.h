@@ -29,6 +29,7 @@ private slots:
     void testTextArrivingLater();
     void testFlagsAndRemovedMessages();
     void testUidValidityChange();
+    void testMessagesWithId();
     void testRemovedFolder();
     void testDropAndReopen();
     void testPlainTextOfHtml();

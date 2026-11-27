@@ -453,6 +453,39 @@ void SearchIndexTest::testUidValidityChange()
     QCOMPARE(matches({QStringLiteral("FROM"), QStringLiteral("alice")}, archive), QList<uint>{5});
 }
 
+void SearchIndexTest::testMessagesWithId()
+{
+    const SearchIndex *index = m_indexer->index();
+    const auto inInbox = index->messagesWithId(QStringLiteral("2@example.org"));
+    QCOMPARE(inInbox.size(), 1);
+    QCOMPARE(inInbox.constFirst().mailbox, inbox);
+    QCOMPARE(inInbox.constFirst().uid, 2u);
+    QCOMPARE(inInbox.constFirst().uidValidity, 100u);
+    const auto inArchive = index->messagesWithId(QStringLiteral("5@example.org"));
+    QCOMPARE(inArchive.size(), 1);
+    QCOMPARE(inArchive.constFirst().mailbox, archive);
+    QCOMPARE(inArchive.constFirst().uidValidity, 7u);
+    // Unlike HEADER Message-ID, part of an ID matches nothing
+    QVERIFY(index->messagesWithId(QStringLiteral("2@example")).isEmpty());
+    QVERIFY(index->messagesWithId(QStringLiteral("example.org")).isEmpty());
+    QVERIFY(index->messagesWithId(QString()).isEmpty());
+    QVERIFY(!matches({QStringLiteral("HEADER"), QStringLiteral("Message-ID"), QStringLiteral("example.org")}).isEmpty());
+
+    // A copy of the same message in another folder is listed too, the newest first
+    m_cache->setUidMapping(archive, Imap::Uids{5, 6});
+    m_cache->setMailboxSyncState(archive, syncState(7, 2, 7));
+    auto copy = message(6, QStringLiteral("Lunch"), QStringLiteral("Bob"), QDate(2026, 2, 5), QDate(2026, 2, 7), 50000, plainText);
+    copy.envelope.messageId = "<2@example.org>";
+    m_cache->setMessageMetadata(archive, 6, copy);
+    m_cache->setMsgFlags(archive, 6, {});
+    runIndexer();
+    const auto both = index->messagesWithId(QStringLiteral("2@example.org"));
+    QCOMPARE(both.size(), 2);
+    QCOMPARE(both.at(0).mailbox, archive);
+    QCOMPARE(both.at(0).uid, 6u);
+    QCOMPARE(both.at(1).mailbox, inbox);
+}
+
 void SearchIndexTest::testRemovedFolder()
 {
     m_cache->setChildMailboxes(QString(), {MailboxMetadata(inbox, QStringLiteral("/"), {QStringLiteral("\\HasNoChildren")})});
