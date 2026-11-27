@@ -565,6 +565,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/SettingsDialog.cpp
     ${path_DesktopGui}/SettingsGroups.cpp
     ${path_DesktopGui}/PlasmaActivities.cpp
+    ${path_DesktopGui}/MailTabBar.cpp
     ${path_DesktopGui}/SettingsOAuthControls.cpp
     ${path_DesktopGui}/ShellHeader.cpp
     ${path_DesktopGui}/ShortcutOverviewDialog.cpp

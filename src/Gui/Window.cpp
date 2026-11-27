@@ -166,6 +166,7 @@
 #include "SettingsDialog.h"
 #include "SettingsGroups.h"
 #include "PlasmaActivities.h"
+#include "MailTabBar.h"
 #include "ShortcutOverviewDialog.h"
 #ifdef TROJITA_HAVE_WEBENGINE
 #include "SimplePartWidget.h"
@@ -312,6 +313,7 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     m_activities = new PlasmaActivities(this);
     connect(m_activities, &PlasmaActivities::currentChanged, this, &MainWindow::followActivity);
     watchSharedKeymap();
+    applyTabSettings();
     // Choosing a folder leaves the Unified Inbox and the search results for it
     const auto showChosenFolder = [this]() {
         // A folder shows all of its messages, not what the saved search found
@@ -690,6 +692,14 @@ void MainWindow::defineActions()
     shortcutHandler->defineAction(QStringLiteral("action_tag_9"), QStringLiteral("mail-tag-9"), tr("Tag with &9th tag"), QStringLiteral("9"));
     shortcutHandler->defineAction(QStringLiteral("action_shortcut_overview"), QStringLiteral("help-keyboard-shortcuts"),
                                   i18nc("@action", "&Keyboard Shortcuts"), QStringLiteral("?"));
+    shortcutHandler->defineAction(QStringLiteral("action_new_tab"), QStringLiteral("tab-new"), i18nc("@action", "New &Tab"),
+                                  QStringLiteral("Ctrl+T"));
+    shortcutHandler->defineAction(QStringLiteral("action_close_tab"), QStringLiteral("tab-close"), i18nc("@action", "&Close Tab"),
+                                  QStringLiteral("Ctrl+W"));
+    shortcutHandler->defineAction(QStringLiteral("action_next_tab"), QStringLiteral("go-next-view"), i18nc("@action", "Ne&xt Tab"),
+                                  QStringLiteral("Ctrl+PgDown"));
+    shortcutHandler->defineAction(QStringLiteral("action_previous_tab"), QStringLiteral("go-previous-view"),
+                                  i18nc("@action", "Pre&vious Tab"), QStringLiteral("Ctrl+PgUp"));
 }
 
 void MainWindow::createActions()
@@ -1557,6 +1567,38 @@ void MainWindow::createActions()
         }
     }
 
+    // Tabs: hidden, and so without working shortcuts, until they are turned on
+    m_actionOpenInNewTab = new QAction(quickActionIcon(QStringLiteral("tab-new")), i18nc("@action", "Open in New &Tab"), this);
+    m_actionOpenInNewTab->setObjectName(QStringLiteral("action_open_in_new_tab"));
+    connect(m_actionOpenInNewTab, &QAction::triggered, this, [this]() { openTab(m_newTabCandidate); });
+    m_actionNewTab = ShortcutHandler::instance()->createAction(QStringLiteral("action_new_tab"), this);
+    connect(m_actionNewTab, &QAction::triggered, this, [this]() {
+        const QModelIndex selected = msgListWidget->tree->currentIndex();
+        UiUtils::MailTabs::Tab tab = selected.isValid() && msgListWidget->tree->selectionModel()->isSelected(selected)
+            ? messageTab(selected)
+            : UiUtils::MailTabs::Tab();
+        if (tab.accountId.isEmpty())
+            tab = currentLocationTab();
+        openTab(tab);
+    });
+    m_actionCloseTab = ShortcutHandler::instance()->createAction(QStringLiteral("action_close_tab"), this);
+    connect(m_actionCloseTab, &QAction::triggered, this, [this]() { closeTab(m_tabSession.current); });
+    m_actionNextTab = ShortcutHandler::instance()->createAction(QStringLiteral("action_next_tab"), this);
+    m_actionNextTab->setShortcuts({m_actionNextTab->shortcut(), QKeySequence(Qt::CTRL | Qt::Key_Tab)});
+    connect(m_actionNextTab, &QAction::triggered, this, [this]() {
+        if (m_tabSession.tabs.size() > 1)
+            activateTab((m_tabSession.current + 1) % m_tabSession.tabs.size());
+    });
+    m_actionPreviousTab = ShortcutHandler::instance()->createAction(QStringLiteral("action_previous_tab"), this);
+    m_actionPreviousTab->setShortcuts({m_actionPreviousTab->shortcut(), QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Backtab),
+                                       QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Tab)});
+    connect(m_actionPreviousTab, &QAction::triggered, this, [this]() {
+        if (m_tabSession.tabs.size() > 1)
+            activateTab((m_tabSession.current + m_tabSession.tabs.size() - 1) % m_tabSession.tabs.size());
+    });
+    for (QAction *action : {m_actionOpenInNewTab, m_actionNewTab, m_actionCloseTab, m_actionNextTab, m_actionPreviousTab})
+        action->setVisible(false);
+
     updateMessageFlags();
 }
 
@@ -1687,6 +1729,11 @@ void MainWindow::createMenus()
         viewMenu->addAction(m_actionResetFolderView);
         viewMenu->addSeparator();
         ADD_ACTION(viewMenu, m_actionShowOnlySubscribed);
+        viewMenu->addSeparator();
+        ADD_ACTION(viewMenu, m_actionNewTab);
+        ADD_ACTION(viewMenu, m_actionCloseTab);
+        ADD_ACTION(viewMenu, m_actionNextTab);
+        ADD_ACTION(viewMenu, m_actionPreviousTab);
 
     QMenu *mailboxMenu = menuBar()->addMenu(tr("Mail&box"));
         mailboxMenu->addMenu(m_goToFolderMenu);
@@ -1991,6 +2038,7 @@ void MainWindow::createWidgets()
     connect(m_messageWidget->messageView, &MessageView::messageModelChanged, m_messageDetailsPanel, &MessageDetailsPanel::setMessageModel);
     m_contactPanel = new ContactPanel();
     m_relatedMessagesPanel = new RelatedMessagesPanel();
+    connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::syncCurrentTab);
     for (MessageContextPanel *panel : std::initializer_list<MessageContextPanel *>{m_messageDetailsPanel, m_contactPanel, m_relatedMessagesPanel}) {
         connect(m_messageWidget->messageView, &MessageView::messageChanged, panel, [this, panel]() {
             panel->setMessage(m_messageWidget->messageView->currentMessage());
@@ -2213,6 +2261,7 @@ void MainWindow::setupModels(bool reconnect)
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::modelReset, msgListWidget, &MessageListWidget::slotAutoEnableDisableSearch);
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::modelReset, this, &MainWindow::updateMessageFlags);
     connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, this, &MainWindow::slotMailboxChanged);
+    connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, this, &MainWindow::syncCurrentTab);
     // Reloading the folder list, as after going online again, replaces the shown folder with a new item
     connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxLost, this, [this](const QString &mailbox) {
         if (!m_unifiedInbox)
@@ -2832,6 +2881,12 @@ void MainWindow::showContextMenuMboxTree(const QPoint &position)
     QList<QAction *> actionList;
     const QModelIndex clicked = mboxTree->indexAt(position);
     if (clicked.isValid()) {
+        if (m_tabsEnabled && clicked.data(Imap::Mailbox::RoleMailboxIsSelectable).toBool()) {
+            m_newTabCandidate = UiUtils::MailTabs::Tab();
+            m_newTabCandidate.accountId = currentAccountId();
+            m_newTabCandidate.mailbox = clicked.data(Imap::Mailbox::RoleMailboxName).toString();
+            actionList.append(m_actionOpenInNewTab);
+        }
         actionList.append(createChildMailbox);
         m_renameMailbox->setEnabled(canRenameMailbox(clicked));
         actionList.append(m_renameMailbox);
@@ -2874,6 +2929,11 @@ void MainWindow::showContextMenuMsgListTree(const QPoint &position)
         index = QModelIndex();
     if (index.isValid()) {
         updateMessageFlagsOf(index);
+        if (m_tabsEnabled) {
+            m_newTabCandidate = messageTab(index);
+            if (!m_newTabCandidate.accountId.isEmpty())
+                actionList.append(m_actionOpenInNewTab);
+        }
         actionList.append(markAsRead);
         actionList.append(m_markAsUnread);
         actionList.append(markAsDeleted);
@@ -3303,6 +3363,7 @@ void MainWindow::applyApplicationSettings()
     }
     msgListWidget->applySearchSettings();
     watchSharedKeymap();
+    applyTabSettings();
 }
 
 void MainWindow::followActivity(const QString &activityId)
@@ -3354,6 +3415,249 @@ void MainWindow::watchSharedKeymap()
     if (QFileInfo::exists(path))
         m_keymapWatcher->addPath(path);
     import();
+}
+
+void MainWindow::applyTabSettings()
+{
+    const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    const bool enabled = UiUtils::SettingsStore::value(*config, m_settings, QStringLiteral("Tabs/Enabled")).toBool();
+    const bool wasEnabled = std::exchange(m_tabsEnabled, enabled);
+    for (QAction *action : {m_actionOpenInNewTab, m_actionNewTab, m_actionCloseTab, m_actionNextTab, m_actionPreviousTab}) {
+        if (action)
+            action->setVisible(enabled);
+    }
+    placeTabBar();
+    if (!enabled || wasEnabled) {
+        if (enabled)
+            refreshTabs();
+        return;
+    }
+    // Tabs of accounts which are gone are dropped; the others open as they were left
+    m_tabSession = UiUtils::MailTabs::restorable(UiUtils::SettingsStore::tabs(*KSharedConfig::openStateConfig()),
+                                                 m_accounts->accountIds());
+    if (m_tabSession.tabs.isEmpty()) {
+        // The first tab holds what is shown, and follows it once a folder opens
+        UiUtils::MailTabs::Tab here = currentLocationTab();
+        if (here.accountId.isEmpty()) {
+            here.accountId = m_accounts->activeAccount();
+            here.mailbox = currentMailboxName();
+        }
+        m_tabSession.tabs.append(here);
+        m_tabSession.current = 0;
+        refreshTabs();
+        return;
+    }
+    refreshTabs();
+    QTimer::singleShot(0, this, [this]() { activateTab(m_tabSession.current); });
+}
+
+void MainWindow::placeTabBar()
+{
+    if (!m_tabBar || !m_shellLayout || !m_mainAreaLayout)
+        return;
+    using UiUtils::MailTabs::Region;
+    const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    Region region = UiUtils::MailTabs::regionFromConfigName(
+        UiUtils::SettingsStore::value(*config, m_settings, QStringLiteral("Tabs/Region")).toString());
+    const Qt::Orientation orientation =
+        UiUtils::SettingsStore::value(*config, m_settings, QStringLiteral("Tabs/Orientation")).toString() == QLatin1String("vertical")
+        ? Qt::Vertical
+        : Qt::Horizontal;
+    // The focus layout hides the side columns, but not the tabs
+    if (m_focusLayout && (region == Region::Left || region == Region::Right))
+        region = Region::Main;
+
+    QWidget *wanted = nullptr;
+    switch (region) {
+    case Region::Header:
+    case Region::Footer:
+        wanted = centralWidget();
+        break;
+    case Region::Main:
+        wanted = m_mainArea;
+        break;
+    case Region::Left:
+        wanted = m_shellLeft.widget;
+        break;
+    case Region::Right:
+        wanted = m_shellRight.widget;
+        break;
+    }
+    const bool moved = !m_tabsEnabled || m_tabBar->parentWidget() != wanted || m_tabBar->region() != region
+        || m_tabBar->orientation() != orientation;
+    if (moved) {
+        m_shellLayout->removeWidget(m_tabBar);
+        m_mainAreaLayout->removeWidget(m_tabBar);
+        // Taking it out of a column's splitter
+        m_tabBar->setParent(this);
+        m_tabBar->hide();
+    }
+    if (m_tabsEnabled && moved) {
+        m_tabBar->setPlacement(region, orientation);
+        const Qt::Alignment alignment = orientation == Qt::Vertical ? Qt::AlignLeft : Qt::Alignment();
+        switch (region) {
+        case Region::Header:
+            m_shellLayout->insertWidget(m_shellLayout->indexOf(m_shellHeader) + 1, m_tabBar, 0, alignment);
+            break;
+        case Region::Footer:
+            m_shellLayout->addWidget(m_tabBar, 0, alignment);
+            break;
+        case Region::Main:
+            m_mainAreaLayout->setDirection(orientation == Qt::Horizontal ? QBoxLayout::TopToBottom : QBoxLayout::LeftToRight);
+            m_mainAreaLayout->insertWidget(0, m_tabBar);
+            break;
+        case Region::Left:
+        case Region::Right: {
+            QSplitter *column = static_cast<QSplitter *>(wanted);
+            column->addWidget(m_tabBar);
+            const int index = column->indexOf(m_tabBar);
+            column->setStretchFactor(index, 0);
+            column->setCollapsible(index, false);
+            break;
+        }
+        }
+        m_tabBar->show();
+    }
+    updateShellRegions(true, false);
+}
+
+void MainWindow::saveTabs()
+{
+    UiUtils::MailTabs::Session saved = m_tabSession;
+    // Subjects stay out of the state file; a restored tab shows its folder until its message opens again
+    for (UiUtils::MailTabs::Tab &tab : saved.tabs)
+        tab.subject.clear();
+    UiUtils::SettingsStore::setTabs(*KSharedConfig::openStateConfig(), saved);
+}
+
+void MainWindow::refreshTabs()
+{
+    if (!m_tabBar || !m_tabsEnabled)
+        return;
+    m_tabSession.current = std::clamp(m_tabSession.current, 0, std::max(0, int(m_tabSession.tabs.size()) - 1));
+    QList<MailTabBar::Entry> entries;
+    for (const UiUtils::MailTabs::Tab &tab : std::as_const(m_tabSession.tabs)) {
+        QChar separator = QLatin1Char('/');
+        if (Imap::ImapAccess *access = m_accountAccess.value(tab.accountId)) {
+            if (auto *model = qobject_cast<Imap::Mailbox::Model *>(access->imapModel())) {
+                const QString found = model->mailboxIndexByName(tab.mailbox).data(Imap::Mailbox::RoleMailboxSeparator).toString();
+                if (!found.isEmpty())
+                    separator = found.at(0);
+            }
+        }
+        entries.append({UiUtils::MailTabs::label(tab, separator),
+                        UiUtils::MailTabs::toolTip(tab, m_accounts->displayName(tab.accountId))});
+    }
+    m_tabBar->setEntries(entries, m_tabSession.current);
+    const bool several = m_tabSession.tabs.size() > 1;
+    for (QAction *action : {m_actionCloseTab, m_actionNextTab, m_actionPreviousTab}) {
+        if (action)
+            action->setEnabled(several);
+    }
+    if (auto *column = qobject_cast<QSplitter *>(m_tabBar->parentWidget()))
+        fitPanelRegion(column);
+    saveTabs();
+}
+
+UiUtils::MailTabs::Tab MainWindow::messageTab(const QModelIndex &message) const
+{
+    UiUtils::MailTabs::Tab tab;
+    const QModelIndex index = Imap::deproxifiedIndex(message);
+    if (!index.isValid() || !index.data(Imap::Mailbox::RoleMessageUid).toUInt())
+        return tab;
+    tab.accountId = accountOfModel(qobject_cast<const Imap::Mailbox::Model *>(index.model()));
+    tab.mailbox = index.data(Imap::Mailbox::RoleMailboxName).toString();
+    tab.uidValidity = index.data(Imap::Mailbox::RoleMailboxUidValidity).toUInt();
+    tab.uid = index.data(Imap::Mailbox::RoleMessageUid).toUInt();
+    tab.subject = index.data(Imap::Mailbox::RoleMessageSubject).toString();
+    if (tab.accountId.isEmpty() || tab.mailbox.isEmpty())
+        return UiUtils::MailTabs::Tab();
+    return tab;
+}
+
+UiUtils::MailTabs::Tab MainWindow::currentLocationTab() const
+{
+    const QString mailbox = m_unifiedInbox ? QString() : currentMailboxName();
+#ifdef TROJITA_HAVE_WEBENGINE
+    if (m_messageWidget) {
+        const UiUtils::MailTabs::Tab shown = messageTab(m_messageWidget->messageView->currentMessage());
+        // A message of the folder, or one found by a search or in the Unified Inbox, which show other folders' mail
+        if (!shown.accountId.isEmpty()
+            && (mailbox.isEmpty() || searchShownInList()
+                || (shown.mailbox == mailbox && shown.accountId == m_accounts->activeAccount())))
+            return shown;
+    }
+#endif
+    UiUtils::MailTabs::Tab tab;
+    if (mailbox.isEmpty())
+        return tab;
+    tab.accountId = m_accounts->activeAccount();
+    tab.mailbox = mailbox;
+    return tab;
+}
+
+void MainWindow::syncCurrentTab()
+{
+    if (!m_tabsEnabled || m_activatingTab || m_tabSession.tabs.isEmpty())
+        return;
+    const UiUtils::MailTabs::Tab here = currentLocationTab();
+    if (here.accountId.isEmpty())
+        return;
+    UiUtils::MailTabs::Tab &current = m_tabSession.tabs[m_tabSession.current];
+    if (current == here)
+        return;
+    current = here;
+    refreshTabs();
+}
+
+void MainWindow::activateTab(int index)
+{
+    if (!m_tabsEnabled || index < 0 || index >= m_tabSession.tabs.size())
+        return;
+    m_tabSession.current = index;
+    refreshTabs();
+    const UiUtils::MailTabs::Tab tab = m_tabSession.tabs.at(index);
+    const UiUtils::MailTabs::Tab here = currentLocationTab();
+    if (tab.accountId.isEmpty() || tab.mailbox.isEmpty()
+        || (here.accountId == tab.accountId && here.mailbox == tab.mailbox && here.uid == tab.uid))
+        return;
+    m_activatingTab = true;
+    if (tab.uid) {
+        // A message which is gone leaves its folder shown, and the tab then holds the folder
+        revealLocation(tab.accountId, tab.mailbox, tab.uidValidity, tab.uid);
+    } else {
+        if (searchShownInList())
+            leaveSearchAcross();
+        if (tab.accountId != m_accounts->activeAccount())
+            switchAccount(tab.accountId);
+        if (tab.accountId == m_accounts->activeAccount())
+            goToMailbox(tab.mailbox);
+    }
+    m_activatingTab = false;
+}
+
+void MainWindow::openTab(const UiUtils::MailTabs::Tab &tab)
+{
+    if (!m_tabsEnabled || tab.accountId.isEmpty() || tab.mailbox.isEmpty())
+        return;
+    const int at = std::min(m_tabSession.current + 1, int(m_tabSession.tabs.size()));
+    m_tabSession.tabs.insert(at, tab);
+    activateTab(at);
+}
+
+void MainWindow::closeTab(int index)
+{
+    // The last tab stays: it is the view itself
+    if (!m_tabsEnabled || m_tabSession.tabs.size() <= 1 || index < 0 || index >= m_tabSession.tabs.size())
+        return;
+    const bool wasCurrent = index == m_tabSession.current;
+    const int next = UiUtils::MailTabs::currentAfterClose(m_tabSession.tabs.size(), index, m_tabSession.current);
+    m_tabSession.tabs.removeAt(index);
+    m_tabSession.current = std::max(0, next);
+    if (wasCurrent)
+        activateTab(m_tabSession.current);
+    else
+        refreshTabs();
 }
 
 SettingsContext MainWindow::settingsContext()
@@ -4972,6 +5276,22 @@ void MainWindow::removeAccountNow(const QString &accountId)
         UiUtils::SettingsStore::setWorkspaces(
             *config, UiUtils::Workspaces::withoutAccount(UiUtils::SettingsStore::workspaces(*config), accountId));
         config->sync();
+        // Its tabs close; the saved session loses them even while tabs are off
+        auto state = KSharedConfig::openStateConfig();
+        UiUtils::SettingsStore::setTabs(*state, UiUtils::MailTabs::withoutAccount(UiUtils::SettingsStore::tabs(*state), accountId));
+        if (m_tabsEnabled) {
+            const bool currentClosed = !m_tabSession.tabs.isEmpty()
+                && m_tabSession.tabs.at(m_tabSession.current).accountId == accountId;
+            m_tabSession = UiUtils::MailTabs::withoutAccount(m_tabSession, accountId);
+            if (m_tabSession.tabs.isEmpty()) {
+                m_tabSession.tabs.append(currentLocationTab());
+                m_tabSession.current = 0;
+            }
+            if (currentClosed)
+                activateTab(m_tabSession.current);
+            else
+                refreshTabs();
+        }
     }
     if (m_unifiedInbox)
         syncUnifiedSources();
@@ -6691,6 +7011,16 @@ void MainWindow::slotMailboxRenameSucceeded(const QString &oldName, const QStrin
         UiUtils::SettingsStore::renameFolder(*config, currentAccountId(), oldName, newName,
                                              separator.isEmpty() ? QChar() : separator.at(0));
         config->sync();
+        const QChar tabSeparator = separator.isEmpty() ? QLatin1Char('/') : separator.at(0);
+        if (m_tabsEnabled) {
+            m_tabSession = UiUtils::MailTabs::withRenamedFolder(m_tabSession, currentAccountId(), oldName, newName, tabSeparator);
+            refreshTabs();
+        } else {
+            auto state = KSharedConfig::openStateConfig();
+            UiUtils::SettingsStore::setTabs(*state, UiUtils::MailTabs::withRenamedFolder(UiUtils::SettingsStore::tabs(*state),
+                                                                                         currentAccountId(), oldName, newName,
+                                                                                         tabSeparator));
+        }
         if (m_positionMailbox == oldName)
             m_positionMailbox = newName;
     }
@@ -8426,8 +8756,16 @@ void MainWindow::createShell()
     m_shellFooter.widget = new QSplitter(Qt::Horizontal);
     m_shellFooter.widget->setObjectName(QStringLiteral("shellFooter"));
 
+    // The tab bar can sit beside the main column, so the column has a wrapper
+    m_mainArea = new QWidget;
+    m_mainArea->setObjectName(QStringLiteral("shellMainArea"));
+    m_mainAreaLayout = new QBoxLayout(QBoxLayout::TopToBottom, m_mainArea);
+    m_mainAreaLayout->setContentsMargins(0, 0, 0, 0);
+    m_mainAreaLayout->setSpacing(0);
+    m_mainAreaLayout->addWidget(m_mainColumn, 1);
+
     m_shellRow->addWidget(m_shellLeft.widget);
-    m_shellRow->addWidget(m_mainColumn);
+    m_shellRow->addWidget(m_mainArea);
     m_shellRow->addWidget(m_shellRight.widget);
     m_shellRow->setStretchFactor(0, 0);
     m_shellRow->setStretchFactor(1, 1);
@@ -8500,7 +8838,20 @@ void MainWindow::createShell()
     shellLayout->setSpacing(0);
     shellLayout->addWidget(m_shellHeader);
     shellLayout->addWidget(m_shellBody, 1);
+    m_shellLayout = shellLayout;
     setCentralWidget(shell);
+
+    m_tabBar = new MailTabBar(this);
+    m_tabBar->hide();
+    connect(m_tabBar, &MailTabBar::tabActivated, this, &MainWindow::activateTab);
+    connect(m_tabBar, &QTabBar::tabCloseRequested, this, &MainWindow::closeTab);
+    connect(m_tabBar, &QTabBar::tabMoved, this, [this](int from, int to) {
+        if (from < 0 || to < 0 || from >= m_tabSession.tabs.size() || to >= m_tabSession.tabs.size())
+            return;
+        m_tabSession.tabs.move(from, to);
+        m_tabSession.current = m_tabBar->currentIndex();
+        saveTabs();
+    });
 }
 
 void MainWindow::placeMailboxSidebar()
@@ -8575,7 +8926,7 @@ bool MainWindow::shellRegionHasContent(const QSplitter *region) const
 {
     for (int i = 0; i < region->count(); ++i) {
         QWidget *widget = region->widget(i);
-        if (widget == m_accountSidebar)
+        if (widget == m_accountSidebar || (widget == m_tabBar && m_tabsEnabled))
             return true;
         if (auto panel = qobject_cast<EmbeddedPanel *>(widget); panel && panel->shouldBeShown())
             return true;
@@ -8621,11 +8972,12 @@ void MainWindow::fitPanelRegion(QSplitter *region)
     m_panelRegionsPending.remove(region);
 
     int shownPanels = 0;
+    const int tabBarIndex = m_tabBar && !m_tabBar->isHidden() ? region->indexOf(m_tabBar) : -1;
     for (int i = 0; i < region->count(); ++i) {
         if (qobject_cast<EmbeddedPanel *>(region->widget(i)) && !region->widget(i)->isHidden())
             ++shownPanels;
     }
-    if (!shownPanels)
+    if (!shownPanels && tabBarIndex < 0)
         return;
 
     // The splitter gives a panel shown after the region was laid out only its minimum size, so size every
@@ -8635,12 +8987,17 @@ void MainWindow::fitPanelRegion(QSplitter *region)
     int anchorIndex = -1;
     int shown = 0;
     int panelTotal = 0;
+    int fixed = 0;
     for (int i = 0; i < region->count(); ++i) {
         QWidget *widget = region->widget(i);
         int size = 0;
         if (!widget->isHidden()) {
             ++shown;
-            if (auto *panel = qobject_cast<EmbeddedPanel *>(widget)) {
+            if (i == tabBarIndex) {
+                // The tab bar keeps the size of its tabs
+                size = hintExtent(region, widget);
+                fixed += size;
+            } else if (auto *panel = qobject_cast<EmbeddedPanel *>(widget)) {
                 size = m_panelExtents.value(panel, 0);
                 if (size <= 0)
                     size = horizontal ? std::max(panel->sizeHint().width(), available / shownPanels) : panel->sizeHint().height();
@@ -8651,13 +9008,13 @@ void MainWindow::fitPanelRegion(QSplitter *region)
         }
         sizes.append(size);
     }
-    const int space = available - region->handleWidth() * std::max(0, shown - 1);
-    if (space <= 0 || panelTotal <= 0)
+    const int space = available - region->handleWidth() * std::max(0, shown - 1) - fixed;
+    if (space <= 0 || (panelTotal <= 0 && anchorIndex < 0))
         return;
     // The mailbox tree or the reader keeps at least a third of its region; without either, the panels fill it.
     const int panelSpace = anchorIndex >= 0 ? std::min(panelTotal, space * 2 / 3) : space;
     for (int i = 0; i < sizes.size(); ++i) {
-        if (i != anchorIndex && sizes.at(i) > 0)
+        if (i != anchorIndex && i != tabBarIndex && sizes.at(i) > 0 && panelTotal > 0)
             sizes[i] = std::max(1, int(qint64(sizes.at(i)) * panelSpace / panelTotal));
     }
     if (anchorIndex >= 0)
@@ -8743,7 +9100,7 @@ void MainWindow::applyPendingShellSizes(QSplitter *only)
     };
     if (m_shellRowSizesPending && ready(m_shellRow)) {
         m_shellRowSizesPending = false;
-        apply(m_shellRow, m_mainColumn, {&m_shellLeft, &m_shellRight});
+        apply(m_shellRow, m_mainArea, {&m_shellLeft, &m_shellRight});
     }
     if (m_shellBodySizesPending && ready(m_shellBody)) {
         m_shellBodySizesPending = false;
