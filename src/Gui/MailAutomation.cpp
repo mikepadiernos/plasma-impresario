@@ -28,6 +28,7 @@ using UiUtils::ActivityLog;
 using UiUtils::NewMailWatcher;
 namespace MailRules = UiUtils::MailRules;
 namespace NewMail = UiUtils::NewMail;
+namespace OutputSurfaces = UiUtils::OutputSurfaces;
 
 namespace {
 
@@ -461,7 +462,11 @@ void MailAutomation::arrived(const QString &accountId, const QString &folder, co
                                       "let it run on its own.");
         entry.action = ActivityLog::Action::ReviewRule;
         entry.target = ruleId;
+        // Asking once per rule is enough; the log keeps the entry until the rule is previewed
+        const bool known = m_activity->find(entry.key) >= 0;
         m_activity->record(entry);
+        if (!known)
+            report(OutputSurfaces::Event::RuleNeedsReview, entry);
     }
     QList<QPair<MailRules::Message, MailRules::Outcome>> matched;
     for (const auto &pair : std::as_const(outcomes)) {
@@ -651,11 +656,17 @@ int MailAutomation::execute(Account &account, const QString &folder,
     if (tasks.isEmpty() && entry.state == ActivityLog::State::Running)
         entry.state = ActivityLog::State::Done;
     m_activity->record(entry);
-    if (changed > 0 && entry.state != ActivityLog::State::Failed) {
+    if (entry.state == ActivityLog::State::Failed) {
+        report(OutputSurfaces::Event::RuleFailed, entry);
+    } else if (changed > 0) {
         const QString status = manual
             ? i18ncp("@info:status", "Rules changed %1 message", "Rules changed %1 messages", changed)
             : i18ncp("@info:status", "Rules sorted %1 new message", "Rules sorted %1 new messages", changed);
-        if (account.id == m_activeAccount)
+        // Applying rules by hand happens in sight; the entry has no title, so only the status line is decided here
+        ActivityLog::Entry where;
+        where.accountId = account.id;
+        if (manual ? account.id == m_activeAccount
+                   : report(OutputSurfaces::Event::RuleApplied, where).testFlag(OutputSurfaces::Surface::StatusBar))
             emit statusMessage(status);
     }
 
@@ -665,12 +676,19 @@ int MailAutomation::execute(Account &account, const QString &folder,
     auto failure = std::make_shared<QString>();
     const QString key = entry.key;
     QPointer<ActivityLog> log = m_activity;
-    auto settle = [pending, failure, key, log]() {
+    QPointer<MailAutomation> self = this;
+    auto settle = [pending, failure, key, log, self]() {
         if (--*pending > 0 || !log)
             return;
         if (log->find(key) < 0 || log->entry(log->find(key)).state != ActivityLog::State::Running)
             return;
         log->finish(key, failure->isEmpty() ? ActivityLog::State::Done : ActivityLog::State::Failed, *failure);
+        if (!failure->isEmpty() && self) {
+            ActivityLog::Entry failed = log->entry(log->find(key));
+            failed.action = ActivityLog::Action::OpenSettings;
+            failed.target = failed.accountId;
+            self->report(OutputSurfaces::Event::RuleFailed, failed);
+        }
     };
     for (const QPointer<Imap::Mailbox::ImapTask> &task : std::as_const(tasks)) {
         connect(task, &Imap::Mailbox::ImapTask::completed, this, [settle]() { settle(); });
@@ -681,6 +699,20 @@ int MailAutomation::execute(Account &account, const QString &folder,
         });
     }
     return changed;
+}
+
+OutputSurfaces::Surfaces MailAutomation::report(OutputSurfaces::Event event, const ActivityLog::Entry &entry)
+{
+    OutputSurfaces::Context context;
+    context.windowActive = m_windowActive;
+    context.accountShown = entry.accountId.isEmpty() || entry.accountId == m_activeAccount;
+    context.quiet = !entry.accountId.isEmpty() && m_settings.mode(entry.accountId) == NewMail::Mode::Off;
+    const OutputSurfaces::Surfaces surfaces = OutputSurfaces::route(event, context);
+    const OutputSurfaces::Surfaces shown = surfaces
+        & (OutputSurfaces::Surface::InlineBar | OutputSurfaces::Surface::DesktopNotification);
+    if (shown && !entry.title.isEmpty())
+        emit attention(entry, shown);
+    return surfaces;
 }
 
 void MailAutomation::announce(const QString &accountId)

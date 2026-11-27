@@ -16,6 +16,8 @@
 #include "UiUtils/MailRules.h"
 #include "UiUtils/NewMail.h"
 #include "UiUtils/NewMailWatcher.h"
+#include "UiUtils/OutputSurfaces.h"
+#include "UiUtils/ActivityLog.h"
 
 class QTimer;
 
@@ -125,6 +127,9 @@ signals:
     void openRequested(const QString &accountId, const QString &folder, uint uid, const QString &activationToken);
     /** @short A short report for the window's status line */
     void statusMessage(const QString &text);
+    /** @short Something needs the user, such as a rule waiting for a preview or failing; @arg surfaces says where
+    the window shows it besides the activity log, as UiUtils::OutputSurfaces::route() decides */
+    void attention(const UiUtils::ActivityLog::Entry &entry, UiUtils::OutputSurfaces::Surfaces surfaces);
     void rulesChanged();
     void notificationSettingsChanged();
 
@@ -144,6 +149,8 @@ private:
     void forgetMessage(const QString &accountId, const QString &folder, uint uid);
     void renameFolder(const QString &accountId, const QString &oldName, const QString &newName);
     void saveRules();
+    /** Route @arg entry of @arg event to the window, as OutputSurfaces decides; returns where it went */
+    UiUtils::OutputSurfaces::Surfaces report(UiUtils::OutputSurfaces::Event event, const UiUtils::ActivityLog::Entry &entry);
     void saveSettings();
 
     KSharedConfigPtr m_config;

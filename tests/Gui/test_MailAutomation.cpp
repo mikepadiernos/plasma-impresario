@@ -210,7 +210,17 @@ void MailAutomationTest::movingRulesWaitForAPreview()
     rule.folders = {QStringLiteral("a")};
     rule.actions = {{MailRules::ActionKind::Move, QStringLiteral("b")}};
     m_automation->setRules({rule});
+    // The account is shown but the window is not in use: the wait is reported in the window, once
+    m_automation->setActiveAccount(QStringLiteral("work"));
+    QList<UiUtils::OutputSurfaces::Surfaces> attention;
+    connect(m_automation.get(), &MailAutomation::attention, this,
+            [&attention](const UiUtils::ActivityLog::Entry &entry, UiUtils::OutputSurfaces::Surfaces surfaces) {
+        QCOMPARE(entry.target, QStringLiteral("r2"));
+        attention << surfaces;
+    });
     deliverFourth(QStringLiteral("Hello"));
+    QCOMPARE(attention.size(), 1);
+    QCOMPARE(attention.at(0), UiUtils::OutputSurfaces::Surfaces(UiUtils::OutputSurfaces::Surface::InlineBar));
     // Nothing is moved before the rule's matches were seen once; the mail is announced where it is
     QCOMPARE(m_shown->shows, 1);
     UiUtils::ActivityLog *log = m_automation->activity();
