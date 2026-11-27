@@ -39,6 +39,7 @@ Legend: ![Verified][verified] against a synthetic live IMAP server ·
   - [Interface and embedded panels](#interface-and-embedded-panels)
   - [Desktop integration](#desktop-integration)
   - [Rules, notifications and activity](#rules-notifications-and-activity)
+  - [Settings, tabs and keyboard](#settings-tabs-and-keyboard)
 - [Validation checklist](#validation-checklist)
 
 ## Candidate scenarios
@@ -635,6 +636,27 @@ parentheses are the expected behavior.
 | Activity | Newest first, entries with the same key merged, old finished entries dropped before failures, and clearing keeping failures                            | ![Offscreen tests][offscreen] `test_ActivityLog`, `test_ActivityDialog`                  |
 | Activity | Where each event is reported, with progress never reaching the desktop                                                                                 | ![Offscreen tests][offscreen] `test_OutputSurfaces`                                      |
 | Activity | Connection state, offline text downloads and attachment scans appear in the log                                                                        | ![Offscreen tests][offscreen] `test_MainWindowShell`, `test_MailSafetyPrompt`            |
+
+### Settings, tabs and keyboard
+
+| Area         | Scenario                                                                                                                                            | Coverage                                                                                 |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Settings     | A folder value wins over its account, an account value over the application, and settings skip layers they do not allow or values of the wrong type | ![Offscreen tests][offscreen] `test_SettingsSchema`                                      |
+| Settings     | Optional features are off by default and legacy profile keys still apply                                                                            | ![Offscreen tests][offscreen] `test_SettingsSchema`, `test_SettingsStore`                |
+| Settings     | Account and folder overrides persist, stay apart between accounts, follow folder renames and are removed when the last folder value is cleared      | ![Offscreen tests][offscreen] `test_SettingsStore`, `test_SettingsDialog`                |
+| Settings     | An unavailable calendar, notes folder or Activity Manager disables its settings with the reason and keeps their values                              | ![Offscreen tests][offscreen] `test_SettingsDialog`, `test_SettingsStore`                |
+| Settings     | Workspaces are added, edited and saved; removed accounts leave them                                                                                 | ![Offscreen tests][offscreen] `test_SettingsDialog`, `test_SettingsStore`                |
+| Settings     | Plasma Activities switching the shown account in a Plasma 6 session                                                                                 | ![Not validated][not-validated] ([#496](CAVEATS.md#settings-and-workspaces))             |
+| Tabs         | Tabs are off by default; turning them on does not open a tab; tab shapes open towards the content in every region                                   | ![Offscreen tests][offscreen] `test_MainWindowTabs`                                      |
+| Tabs         | Tabs come back in their region; tabs of removed accounts are dropped, renamed folders followed and subjects kept out of the state file              | ![Offscreen tests][offscreen] `test_MailTabs`, `test_MainWindowTabs`                     |
+| Vim mode     | Off by default; single keys and sequences run commands; incomplete sequences time out; Escape cancels                                               | ![Offscreen tests][offscreen] `test_VimMode`, `test_Keymap`                              |
+| Vim mode     | Text fields keep their keys; Vim commands win over single-key window shortcuts; keys sent by the application are not commands                       | ![Offscreen tests][offscreen] `test_VimMode`                                             |
+| Vim mode     | Conflicting and shadowing bindings are reported; `gt` and `gT` switch tabs from the message list                                                    | ![Offscreen tests][offscreen] `test_Keymap`, `test_MainWindowTabs`                       |
+| Keymap       | A profile round-trips, invalid profiles are refused with the reason, unknown commands are ignored, and an import is previewed and can be undone     | ![Offscreen tests][offscreen] `test_Keymap`, `test_SettingsStore`, `test_SettingsDialog` |
+| Keymap       | Following a Plasma Opus profile as it changes, with Plasma Opus installed                                                                           | ![Not validated][not-validated] ([#498](CAVEATS.md#vim-mode-and-shared-shortcuts))       |
+| Productivity | Events are valid iCalendar starting on the next hour; notes are new Markdown files; old event files are removed                                     | ![Offscreen tests][offscreen] `test_MailToProductivity`                                  |
+| Productivity | **Save as Note** is offered only with a notes folder                                                                                                | ![Offscreen tests][offscreen] `test_MainWindowShell`                                     |
+| Productivity | The calendar application and Marknote opening what was handed over                                                                                  | ![Not validated][not-validated] ([#499](CAVEATS.md#messages-to-calendar-and-notes))      |
 
 ## Validation checklist
 
