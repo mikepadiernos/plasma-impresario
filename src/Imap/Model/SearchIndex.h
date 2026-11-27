@@ -124,6 +124,10 @@ public:
         QString sender;
         /** Day of the Date header; invalid when the message has none */
         QDate sent;
+        /** The Message-ID header as indexed; filled in by followUps() only */
+        QString messageId;
+        /** Whether the message carries the $TODO keyword; filled in by followUps() only */
+        bool toDo = false;
     };
 
     struct Result {
@@ -204,6 +208,12 @@ public:
     */
     QList<Summary> quickMatches(const QStringList &words, int limit) const;
 
+    /** @short The newest flagged messages and those with the $TODO keyword, at most @arg limit
+
+    $TODO is the keyword which KMail sets on messages marked as action items. Deleted messages are left out.
+    */
+    QList<Summary> followUps(int limit) const;
+
     /** @short Translate IMAP SEARCH keys to an SQL condition on the messages, binding @arg values in order
 
     Returns false and sets @arg problem for keys the index cannot answer. @arg usesText tells whether a BODY or TEXT
@@ -217,6 +227,8 @@ public:
 
 private:
     QSqlDatabase database() const;
+    /** @short The newest messages matching the SQL @arg condition, with @arg values bound in order */
+    QList<Summary> summaries(const QString &condition, const QVariantList &values, int limit, bool details) const;
     bool fail(const QString &what, const QString &detail) const;
 
     QString m_connection;

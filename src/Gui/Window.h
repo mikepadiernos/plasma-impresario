@@ -41,6 +41,7 @@
 #include "Imap/Model/GroupingMsgListModel.h"
 #include "Imap/Model/SpecialFolder.h"
 #include "Imap/Parser/Uids.h"
+#include "UiUtils/Agenda.h"
 #include "UiUtils/DestructiveActions.h"
 #include "UiUtils/PlasmaSearch.h"
 #include "UiUtils/QuickFilters.h"
@@ -126,6 +127,7 @@ class SavedFilesSearchDialog;
 class SearchIndexDialog;
 class CapabilityActionGate;
 class ShellHeader;
+class AgendaPanel;
 class AttachmentPanel;
 class ReaderActionBar;
 class ContactPanel;
@@ -579,6 +581,23 @@ private:
     void fitPanelRegion(QSplitter *region);
     /** Select a message picked in the related messages panel. */
     void activateRelatedMessage(const QModelIndex &message);
+    /** @short Read calendars for My Day only while the panel is on */
+    void updateAgendaSource();
+    /** @short Collect the messages to follow up for My Day soon, once a burst of changes is over */
+    void scheduleAgendaMessages();
+    /** @short Give My Day the flagged and $TODO messages of the local indexes and of the shown folder */
+    void refreshAgendaMessages();
+    /** @short Open a message listed in My Day in the reader, without leaving the shown folder
+
+    A message which no list has loaded is looked up in its folder first, by its Message-ID or its UID.
+    */
+    void openAgendaMessage(const UiUtils::Agenda::Item &message);
+    void agendaSearchFinished();
+    /** @short Stop looking up a message of My Day, and select the shown folder again */
+    void cancelAgendaSearch();
+    /** @short Hand an event or task of My Day off to the KDE PIM calendar application */
+    void openCalendarApplication();
+    void joinMeeting(const QUrl &url);
     /** @short Run @p fn while actions work on the message open in the reader, and on its account */
     void actOnOpenMessage(const std::function<void()> &fn);
     /** Bring the reader's action bar in line with the open message and its account */
@@ -852,6 +871,16 @@ private:
     ContactPanel *m_contactPanel = nullptr;
     RelatedMessagesPanel *m_relatedMessagesPanel = nullptr;
     SearchResultsPanel *m_searchResultsPanel = nullptr;
+    AgendaPanel *m_agendaPanel = nullptr;
+    /** Events and tasks for My Day, while the panel is on and calendars can be read */
+    UiUtils::AgendaSource *m_agendaSource = nullptr;
+    QTimer *m_agendaMessagesTimer = nullptr;
+    /** Looks up a message of My Day which no list has loaded */
+    QPointer<Imap::Mailbox::FolderSearch> m_agendaSearch;
+    UiUtils::Agenda::Item m_agendaSearchItem;
+    quint64 m_agendaBusy = 0;
+    /** Connections to the shown message list, which may change My Day */
+    QList<QMetaObject::Connection> m_agendaListConnections;
     /** All embedded panels, in their canonical order within a region */
     QList<EmbeddedPanel *> m_embeddedPanels;
 

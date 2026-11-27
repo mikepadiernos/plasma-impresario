@@ -101,6 +101,7 @@ trojita_plugin_option(WITH_QTKEYCHAIN_PLUGIN "Build Qtkeychain password plugin" 
 trojita_plugin_option(WITH_SONNET_PLUGIN "Build a plugin for spellchecking via KDE's Sonnet" "WITH_DESKTOP")
 trojita_option(WITH_KNOTIFICATIONS "Report background account errors as desktop notifications" AUTO "WITH_DESKTOP")
 trojita_option(WITH_KFILEMETADATA "Index the text of downloaded attachments through KFileMetaData" AUTO)
+trojita_option(WITH_AKONADI_CALENDAR "Show KDE PIM events and tasks in the My Day panel" AUTO "WITH_DESKTOP")
 
 trojita_find_package(Git "" "" "" "")
 
@@ -136,6 +137,7 @@ trojita_find_package(Qt6Keychain QUIET "https://github.com/frankosterfeld/qtkeyc
 trojita_find_package(KF6Sonnet ${SONNET_LIB_VERSION} "https://projects.kde.org/projects/frameworks/sonnet" "Qt6 Spell Checking Library from KDE" "Spell checking support" WITH_SONNET_PLUGIN)
 trojita_find_package(KF6Notifications "" "https://invent.kde.org/frameworks/knotifications" "KDE desktop notifications" "Report background account errors as desktop notifications" WITH_KNOTIFICATIONS)
 trojita_find_package(KF6FileMetaData "" "https://invent.kde.org/frameworks/kfilemetadata" "KDE file metadata and text extraction" "Index the text of downloaded attachments" WITH_KFILEMETADATA)
+trojita_find_package(KPim6AkonadiCalendar "" "https://invent.kde.org/pim/akonadi-calendar" "KDE PIM calendars" "Events and tasks in My Day" WITH_AKONADI_CALENDAR)
 if(Qt6Keychain_FOUND OR QtKeychain_FOUND)
     message(STATUS "Found QtKeychain library (includes at ${QTKEYCHAIN_INCLUDE_DIRS}, lib at ${QTKEYCHAIN_LIBRARIES})")
 else()
@@ -267,6 +269,12 @@ else()
     set(TROJITA_HAVE_KFILEMETADATA False)
 endif()
 
+if(WITH_AKONADI_CALENDAR)
+    set(TROJITA_HAVE_AKONADI_CALENDAR True)
+else()
+    set(TROJITA_HAVE_AKONADI_CALENDAR False)
+endif()
+
 if (WITH_WEBENGINE)
     set(TROJITA_HAVE_WEBENGINE True)
     message(STATUS "Support for viewing mails via Qt WebEngine is enabled")
@@ -316,6 +324,7 @@ set(libOAuth_SOURCES
 
 set(path_UiUtils ${CMAKE_CURRENT_SOURCE_DIR}/src/UiUtils)
 set(libUiUtils_SOURCES
+    ${path_UiUtils}/Agenda.cpp
     ${path_UiUtils}/AttachmentCollector.cpp
     ${path_UiUtils}/Color.cpp
     ${path_UiUtils}/Conversations.cpp
@@ -363,6 +372,13 @@ if(WITH_DESKTOP)
         ${path_UiUtils}/DestructiveActions.cpp
         ${path_UiUtils}/FileSearch.cpp
         ${path_UiUtils}/PlasmaSearch.cpp
+    )
+endif()
+
+if(WITH_AKONADI_CALENDAR)
+    set(libUiUtils_SOURCES
+        ${libUiUtils_SOURCES}
+        ${path_UiUtils}/AkonadiAgendaSource.cpp
     )
 endif()
 
@@ -445,6 +461,7 @@ endif()
 set(path_DesktopGui ${CMAKE_CURRENT_SOURCE_DIR}/src/Gui)
 set(libDesktopGui_SOURCES
     ${path_DesktopGui}/AccountSidebar.cpp
+    ${path_DesktopGui}/AgendaPanel.cpp
     ${path_DesktopGui}/AttachmentPanel.cpp
     ${path_DesktopGui}/CapabilityActionGate.cpp
     ${path_DesktopGui}/ContactPanel.cpp
@@ -747,6 +764,9 @@ target_link_libraries(UiUtils
 )
 if(WITH_DESKTOP)
     target_link_libraries(UiUtils PRIVATE KF6::ConfigCore)
+endif()
+if(WITH_AKONADI_CALENDAR)
+    target_link_libraries(UiUtils PRIVATE KPim6::AkonadiCalendar KF6::CalendarCore KPim6::AkonadiCore)
 endif()
 
 add_library(Streams STATIC ${libStreams_SOURCES})

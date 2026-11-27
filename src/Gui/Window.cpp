@@ -68,8 +68,12 @@
 #include <QWheelEvent>
 
 #include <KConfigGroup>
+#include <KIO/ApplicationLauncherJob>
+#include <KIO/JobUiDelegateFactory>
 #include <KIO/OpenFileManagerWindowJob>
+#include <KIO/OpenUrlJob>
 #include <KLocalizedString>
+#include <KService>
 #include <KSharedConfig>
 
 #include "configure.cmake.h"
@@ -109,6 +113,7 @@
 #include "Imap/Model/FavoriteTagsModel.h"
 #include "Imap/Model/GroupingMsgListModel.h"
 #include "Imap/Model/Utils.h"
+#include "Imap/Parser/MailAddress.h"
 #include "Imap/Tasks/CopyMoveMessagesTask.h"
 #include "Imap/Tasks/ImapTask.h"
 #include "Imap/Network/FileDownloadManager.h"
@@ -123,6 +128,7 @@
 #include "DensityDelegate.h"
 #include "Common/AccountRegistry.h"
 #include "Common/AccountStatus.h"
+#include "AgendaPanel.h"
 #include "AttachmentPanel.h"
 #include "ContactPanel.h"
 #include "DensityMenu.h"
@@ -175,6 +181,9 @@
 #include "UiUtils/SavedSearches.h"
 #include "UiUtils/SearchSuggestions.h"
 #include "UiUtils/UnreadFolders.h"
+#ifdef TROJITA_HAVE_AKONADI_CALENDAR
+#include "UiUtils/AkonadiAgendaSource.h"
+#endif
 
 #include <QVBoxLayout>
 #include "Imap/Model/AccountCapabilities.h"
@@ -406,6 +415,7 @@ MainWindow::~MainWindow()
     for (const QPointer<Imap::Mailbox::FolderSearch> &search : std::as_const(m_folderSearches))
         delete search.data();
     m_folderSearches.clear();
+    delete m_agendaSearch.data();
 }
 
 void MainWindow::reply(const Composer::ReplyMode mode)
@@ -1906,6 +1916,8 @@ void MainWindow::createWidgets()
             return i18nc("@info", "The account of the message is not known");
         if (const Imap::Mailbox::FolderSearch *search = m_folderSearches.value(accountId); search && search->isRunning())
             return i18nc("@info", "The server is searched once the search across folders is done");
+        if (m_agendaSearch && m_agendaSearch->isRunning() && m_agendaSearchItem.accountId == accountId)
+            return i18nc("@info", "The server is searched once the message from My Day is open");
         return QString();
     });
     m_relatedMessagesPanel->setConfig(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")));
@@ -1920,7 +1932,17 @@ void MainWindow::createWidgets()
     connect(m_searchResultsPanel, &SearchResultsPanel::retryRequested, this, &MainWindow::retrySearchAcross);
     connect(m_searchResultsPanel, &SearchResultsPanel::searchServerRequested, this, &MainWindow::continueSearchOnServer);
     connect(m_searchResultsPanel, &SearchResultsPanel::enabledChanged, this, &MainWindow::moveSearchResults);
-    m_embeddedPanels = {m_attachmentPanel, m_messageDetailsPanel, m_contactPanel, m_relatedMessagesPanel, m_searchResultsPanel};
+    m_agendaMessagesTimer = new QTimer(this);
+    m_agendaMessagesTimer->setSingleShot(true);
+    m_agendaMessagesTimer->setInterval(500);
+    connect(m_agendaMessagesTimer, &QTimer::timeout, this, &MainWindow::refreshAgendaMessages);
+    m_agendaPanel = new AgendaPanel();
+    connect(m_agendaPanel, &AgendaPanel::messageActivated, this, &MainWindow::openAgendaMessage);
+    connect(m_agendaPanel, &AgendaPanel::joinRequested, this, &MainWindow::joinMeeting);
+    connect(m_agendaPanel, &AgendaPanel::calendarRequested, this, &MainWindow::openCalendarApplication);
+    connect(m_agendaPanel, &AgendaPanel::enabledChanged, this, &MainWindow::updateAgendaSource);
+    m_embeddedPanels = {m_attachmentPanel, m_messageDetailsPanel, m_contactPanel, m_relatedMessagesPanel, m_searchResultsPanel,
+                        m_agendaPanel};
 #else
    m_messageWidget = new QLabel(QStringLiteral("Message Widget placeholder"));
 #endif
@@ -1994,6 +2016,19 @@ void MainWindow::setupModels(bool reconnect)
 #ifdef TROJITA_HAVE_WEBENGINE
     m_messageWidget->messageView->setNetworkWatcher(qobject_cast<Imap::Mailbox::NetworkWatcher*>(m_imapAccess->networkWatcher()));
     m_relatedMessagesPanel->setMessageList(m_imapAccess->msgListModel());
+    for (const QMetaObject::Connection &connection : std::as_const(m_agendaListConnections))
+        disconnect(connection);
+    m_agendaListConnections.clear();
+    if (QAbstractItemModel *list = m_imapAccess->msgListModel()) {
+        m_agendaListConnections = {
+            connect(list, &QAbstractItemModel::dataChanged, this, &MainWindow::scheduleAgendaMessages),
+            connect(list, &QAbstractItemModel::rowsInserted, this, &MainWindow::scheduleAgendaMessages),
+            connect(list, &QAbstractItemModel::rowsRemoved, this, &MainWindow::scheduleAgendaMessages),
+            connect(list, &QAbstractItemModel::modelReset, this, &MainWindow::scheduleAgendaMessages),
+            connect(list, &QAbstractItemModel::layoutChanged, this, &MainWindow::scheduleAgendaMessages),
+        };
+    }
+    scheduleAgendaMessages();
 #endif
 
     auto realThreadingModel = qobject_cast<Imap::Mailbox::ThreadingMsgListModel*>(m_imapAccess->threadingMsgListModel());
@@ -3296,6 +3331,8 @@ Imap::ImapAccess *MainWindow::accountAccess(const QString &accountId)
     };
     connect(access, &Imap::ImapAccess::modelsChanged, this, watchMailboxes);
     watchMailboxes();
+    connect(access, &Imap::ImapAccess::modelsChanged, this, &MainWindow::scheduleAgendaMessages);
+    scheduleAgendaMessages();
     connect(access, &Imap::ImapAccess::checkSslPolicy, this, [this, accountId]() { checkSslPolicy(accountId); },
             Qt::QueuedConnection);
     m_accountAccess.insert(accountId, access);
@@ -4146,8 +4183,11 @@ void MainWindow::removeAccountNow(const QString &accountId)
         m_unifiedModel->removeAccount(accountId);
     if (m_searchResultsPanel)
         m_searchResultsPanel->results()->removeAccount(accountId);
+    if (m_agendaSearch && m_agendaSearchItem.accountId == accountId)
+        cancelAgendaSearch();
     // Deleting the account's models also closes its cache database, so the files can be removed.
     delete m_accountAccess.take(accountId);
+    scheduleAgendaMessages();
     if (!Imap::removeAccountCache(cacheDirectory, Common::writablePath(Common::LOCATION_CACHE))) {
         qWarning() << "Could not delete the offline cache of the removed account in" << cacheDirectory;
         Gui::Util::messageBoxWarning(this, i18n("Offline Mail Not Deleted"),
@@ -7989,6 +8029,238 @@ void MainWindow::revealLocation(const QString &accountId, const QString &mailbox
     }
 }
 
+void MainWindow::updateAgendaSource()
+{
+    if (!m_agendaPanel)
+        return;
+    const bool enabled = m_agendaPanel->isPanelEnabled();
+#ifdef TROJITA_HAVE_AKONADI_CALENDAR
+    if (enabled && !m_agendaSource) {
+        m_agendaSource = new UiUtils::AkonadiAgendaSource(this);
+        m_agendaPanel->setCalendarSource(m_agendaSource);
+    } else if (!enabled && m_agendaSource) {
+        m_agendaPanel->setCalendarSource(nullptr);
+        delete std::exchange(m_agendaSource, nullptr);
+    }
+#endif
+    if (enabled) {
+        scheduleAgendaMessages();
+    } else {
+        if (m_agendaMessagesTimer)
+            m_agendaMessagesTimer->stop();
+        m_agendaPanel->setMessages({});
+    }
+}
+
+void MainWindow::scheduleAgendaMessages()
+{
+    if (m_agendaPanel && m_agendaPanel->isPanelEnabled() && m_agendaMessagesTimer && !m_agendaMessagesTimer->isActive())
+        m_agendaMessagesTimer->start();
+}
+
+void MainWindow::refreshAgendaMessages()
+{
+    using namespace UiUtils::Agenda;
+    if (!m_agendaPanel || !m_agendaPanel->isPanelEnabled())
+        return;
+    QList<MessageSource> sources;
+    for (auto it = m_accountAccess.cbegin(); it != m_accountAccess.cend(); ++it) {
+        Imap::Mailbox::SearchIndexer *indexer = it.value() ? it.value()->searchIndexer() : nullptr;
+        if (!indexer)
+            continue;
+        connect(indexer, &Imap::Mailbox::SearchIndexer::finished, this, &MainWindow::scheduleAgendaMessages, Qt::UniqueConnection);
+        if (indexer->isAvailable())
+            sources.append({it.key(), indexer->index()});
+    }
+
+    // The shown folder knows the latest flags of the messages it has loaded, before the index catches up
+    ShownFolder shown;
+    auto *list = !m_unifiedInbox && m_imapAccess ? qobject_cast<Imap::Mailbox::MsgListModel *>(m_imapAccess->msgListModel()) : nullptr;
+    const QModelIndex mailbox = list ? list->currentMailbox() : QModelIndex();
+    if (mailbox.isValid()) {
+        shown.accountId = m_accounts->activeAccount();
+        shown.mailbox = mailbox.data(Imap::Mailbox::RoleMailboxName).toString();
+        shown.uidValidity = mailbox.data(Imap::Mailbox::RoleMailboxUidValidity).toUInt();
+        for (int row = 0; row < list->rowCount(); ++row) {
+            const QModelIndex message = list->index(row, 0);
+            const uint uid = message.data(Imap::Mailbox::RoleMessageUid).toUInt();
+            // Asking an envelope which is not loaded yet would fetch it
+            if (!uid || !message.data(Imap::Mailbox::RoleIsFetched).toBool())
+                continue;
+            shown.loaded.insert(uid);
+            const QStringList flags = message.data(Imap::Mailbox::RoleMessageFlags).toStringList();
+            const bool flagged = flags.contains(Imap::Mailbox::FlagNames::flagged, Qt::CaseInsensitive);
+            const bool toDo = flags.contains(QStringLiteral("$TODO"), Qt::CaseInsensitive);
+            if ((!flagged && !toDo) || flags.contains(Imap::Mailbox::FlagNames::deleted, Qt::CaseInsensitive))
+                continue;
+            Item item;
+            item.kind = Kind::Message;
+            item.title = message.data(Imap::Mailbox::RoleMessageSubject).toString();
+            item.accountId = shown.accountId;
+            item.mailbox = shown.mailbox;
+            item.uidValidity = shown.uidValidity;
+            item.uid = uid;
+            item.messageId = QString::fromUtf8(message.data(Imap::Mailbox::RoleMessageMessageId).toByteArray());
+            item.sender = Imap::Message::MailAddress::prettyList(message.data(Imap::Mailbox::RoleMessageFrom).toList(),
+                                                                 Imap::Message::MailAddress::FORMAT_JUST_NAME);
+            item.sent = message.data(Imap::Mailbox::RoleMessageDate).toDateTime().toLocalTime().date();
+            item.toDo = toDo;
+            shown.followUps << item;
+        }
+    }
+
+    QList<Item> messages = followUps(sources, shown, maximumMessages);
+    for (Item &item : messages) {
+        item.source = i18nc("@item:intext %1 is an account, %2 a folder", "%1, %2", m_accounts->displayName(item.accountId),
+                            item.mailbox);
+    }
+    m_agendaPanel->setMessages(messages);
+}
+
+void MainWindow::openAgendaMessage(const UiUtils::Agenda::Item &message)
+{
+    using Imap::Mailbox::FolderSearch;
+    Imap::ImapAccess *access = m_accountAccess.value(message.accountId);
+    auto *model = access ? qobject_cast<Imap::Mailbox::Model *>(access->imapModel()) : nullptr;
+    if (!model || message.mailbox.isEmpty() || !message.uid)
+        return;
+    const auto sameMessage = [model, &message](const QModelIndex &candidate) {
+        const QModelIndex found = Imap::deproxifiedIndex(candidate);
+        if (found.data(Imap::Mailbox::RoleMailboxName).toString() != message.mailbox
+            || found.data(Imap::Mailbox::RoleMessageUid).toUInt() != message.uid)
+            return false;
+        const uint uidValidity = model->knownUidValidity(found);
+        return !message.uidValidity || !uidValidity || uidValidity == message.uidValidity;
+    };
+
+    if (!m_unifiedInbox && message.accountId == m_accounts->activeAccount() && currentMailboxName() == message.mailbox) {
+        if (auto *list = qobject_cast<Imap::Mailbox::MsgListModel *>(access->msgListModel())) {
+            for (int row = 0; row < list->rowCount(); ++row) {
+                const QModelIndex candidate = list->index(row, 0);
+                if (candidate.data(Imap::Mailbox::RoleMessageUid).toUInt() == message.uid && sameMessage(candidate)) {
+                    activateRelatedMessage(candidate);
+                    return;
+                }
+            }
+        }
+    }
+    const QByteArray messageId = UiUtils::MessageId::parse(message.messageId).messageId;
+    if (!messageId.isEmpty()) {
+        const QModelIndexList loaded = model->findLoadedMessagesById(messageId);
+        for (const QModelIndex &candidate : loaded) {
+            if (sameMessage(candidate)) {
+                activateRelatedMessage(candidate);
+                return;
+            }
+        }
+    }
+
+    // The message has to be looked up in its folder, which selects that folder on the account's connection
+    if (const FolderSearch *search = m_folderSearches.value(message.accountId); search && search->isRunning())
+        stopSearchAcross();
+    if (m_messageLookup && m_messageLookup->state() == UiUtils::MessageIdLookup::State::SearchingServers) {
+        m_messageLookupStopped = true;
+        m_messageLookup->cancel();
+    }
+    cancelAgendaSearch();
+    auto *search = new FolderSearch(model, this);
+    search->setSearchIndex(access->searchIndexer());
+    m_agendaSearch = search;
+    m_agendaSearchItem = message;
+    connect(search, &FolderSearch::finished, this, &MainWindow::agendaSearchFinished);
+    m_agendaBusy = m_notificationBar->showBusy(i18nc("@info", "Opening the message…"));
+    search->start({message.mailbox}, false,
+                  messageId.isEmpty() ? QStringList{QStringLiteral("UID"), QString::number(message.uid)}
+                                      : UiUtils::MessageId::searchConditions(messageId));
+    if (m_relatedMessagesPanel && m_relatedMessagesPanel->serverSearch()->isRunning()
+        && Imap::deproxifiedIndex(m_relatedMessagesPanel->serverSearch()->message()).model() == model)
+        m_relatedMessagesPanel->restartServerSearch();
+}
+
+void MainWindow::agendaSearchFinished()
+{
+    Imap::Mailbox::FolderSearch *search = m_agendaSearch;
+    if (!search)
+        return;
+    const UiUtils::Agenda::Item item = m_agendaSearchItem;
+    const QModelIndexList results = search->results()->messages();
+    // The local index may not have the message yet
+    if (results.isEmpty() && search->canContinueOnServer() && !search->continuedOnServer()) {
+        search->continueOnServer();
+        return;
+    }
+    QPersistentModelIndex found;
+    for (const QModelIndex &result : results) {
+        const QModelIndex message = Imap::deproxifiedIndex(result);
+        if (message.data(Imap::Mailbox::RoleMailboxName).toString() != item.mailbox)
+            continue;
+        // A Message-ID found in the folder names the message even when the index knew it under an older UID
+        if (!found.isValid() || message.data(Imap::Mailbox::RoleMessageUid).toUInt() == item.uid)
+            found = message;
+    }
+    const QList<Imap::Mailbox::FolderSearch::Failure> failures = search->failures();
+    const QString reason = failures.isEmpty() ? QString() : failures.constFirst().reason;
+    m_agendaSearch = nullptr;
+    search->deleteLater();
+    reselectShownFolder(m_accountAccess.value(item.accountId));
+    m_notificationBar->dismissBusy(std::exchange(m_agendaBusy, 0));
+    resumeRelatedSearch();
+    if (found.isValid()) {
+        activateRelatedMessage(found);
+        return;
+    }
+    const QString title = item.title.isEmpty() ? i18nc("@info message without subject", "(no subject)") : item.title;
+    const QString text = reason.isEmpty()
+        ? i18nc("@info %1 is a subject, %2 a folder", "The message \"%1\" is no longer in %2.", title, item.mailbox)
+        : i18nc("@info %1 is a subject, %2 a reason", "The message \"%1\" could not be opened: %2", title, reason);
+    m_notificationBar->showError(text, {{i18nc("@action:button", "Show in Folder"), QStringLiteral("folder-open"),
+                                         QStringLiteral("agendaShowInFolder"), [this, item]() {
+                                             revealLocation(item.accountId, item.mailbox, item.uidValidity, item.uid);
+                                         }}});
+}
+
+void MainWindow::cancelAgendaSearch()
+{
+    Imap::Mailbox::FolderSearch *search = m_agendaSearch;
+    if (!search)
+        return;
+    m_agendaSearch = nullptr;
+    search->cancel();
+    search->deleteLater();
+    reselectShownFolder(m_accountAccess.value(m_agendaSearchItem.accountId));
+    if (m_agendaBusy)
+        m_notificationBar->dismissBusy(std::exchange(m_agendaBusy, 0));
+    resumeRelatedSearch();
+}
+
+void MainWindow::openCalendarApplication()
+{
+    // My Day never changes calendars; editing belongs to the KDE PIM application
+    const QStringList applications{QStringLiteral("org.kde.korganizer"), QStringLiteral("org.kde.merkuro.calendar")};
+    for (const QString &name : applications) {
+        if (const KService::Ptr service = KService::serviceByDesktopName(name)) {
+            auto *job = new KIO::ApplicationLauncherJob(service);
+            job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, this));
+            job->start();
+            return;
+        }
+    }
+    m_notificationBar->showError(i18nc("@info", "No calendar application was found. Install KOrganizer or Merkuro "
+                                                "Calendar to see and edit events and tasks."));
+}
+
+void MainWindow::joinMeeting(const QUrl &url)
+{
+    // Calendar data comes from other people; only links to a meeting are opened, never local files or programs
+    static const QStringList schemes{QStringLiteral("https"), QStringLiteral("http"), QStringLiteral("sip"),
+                                     QStringLiteral("sips"), QStringLiteral("tel")};
+    if (!url.isValid() || !schemes.contains(url.scheme().toLower()))
+        return;
+    auto *job = new KIO::OpenUrlJob(url);
+    job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, this));
+    job->start();
+}
+
 void MainWindow::actOnOpenMessage(const std::function<void()> &fn)
 {
 #ifdef TROJITA_HAVE_WEBENGINE
@@ -8630,6 +8902,8 @@ void MainWindow::searchAccount(const QString &accountId, const QStringList &mail
         m_messageLookupStopped = true;
         m_messageLookup->cancel();
     }
+    if (m_agendaSearch && m_agendaSearch->model() == model)
+        cancelAgendaSearch();
     if (FolderSearch *search = m_folderSearches.value(accountId); search && search->model() == model) {
         search->setSearchIndex(indexer);
         search->retry(mailboxes, allFolders);
@@ -9043,6 +9317,7 @@ void MainWindow::searchServersForMessage()
         stopSearchAcross();
     if (m_relatedMessagesPanel && m_relatedMessagesPanel->serverSearch()->isRunning())
         m_relatedMessagesPanel->restartServerSearch();
+    cancelAgendaSearch();
     if (!m_messageLookup->searchServers())
         return;
     m_notificationBar->showMessage(
