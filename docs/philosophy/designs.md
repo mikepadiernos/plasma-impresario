@@ -160,9 +160,9 @@ Region sizes follow these rules:
   after it is hidden or moved back, and saved with the layout.
 - Panels sharing a column with the mailbox tree, or the reader column with the
   reader, take at most two thirds of it.
-- ![Limitation][limitation] Sizes saved by versions before the shell are not
-  migrated, so the panes start at their default sizes once after upgrading; see
-  [CAVEATS](../CAVEATS.md#related-messages-and-message-details-panels).
+- Sizes saved by versions before the shell carry over the first time each
+  layout opens, so no resize is needed after upgrading
+  ([#422](https://github.com/mikepadiernos/plasma-impresario/pull/422)).
 
 ### Account sidebar and header
 
@@ -1114,7 +1114,8 @@ otherwise.
   account switcher, folder tree, quick search, message list, reader and each
   shown embedded panel, skipping hidden panes. The quick search comes just
   before the message list
-  ([#349](https://github.com/mikepadiernos/plasma-impresario/issues/349)). The order follows the screen: the header first,
+  ([#349](https://github.com/mikepadiernos/plasma-impresario/issues/349)).
+  The order follows the screen: the header first,
   then each column from the leading side, top to bottom, then the footer. It
   mirrors in right-to-left layouts and follows the folder tree and panel
   placement.
@@ -1157,7 +1158,7 @@ selection while switching layouts.
 | 1. Record the current main-window behavior and its acceptance tests              | ![Done][done] Offscreen QtTest suites such as `test_EmbeddedPanels`, `test_MainWindowDensity` and `test_SessionRestart`                                                                                               |
 | 2. Build the new shell without changing IMAP, cache or composition behavior      | ![Done][done] Merged in M02 ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35))                                                                                                                     |
 | 3. Validate layouts, accessibility and navigation with representative data       | ![In progress][in-progress] Synthetic Dovecot checks (`test_LiveImapPanels`) pass; a real Plasma session (M15, [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)) and accessibility review remain |
-| 4. Migrate settings and saved window state only after the new behavior is tested | ![Limitation][limitation] Pre-shell pane sizes are not migrated; see caveat [#264](https://github.com/mikepadiernos/plasma-impresario/issues/264) (in Review)                                                         |
+| 4. Migrate settings and saved window state only after the new behavior is tested | ![Done][done] Pane sizes saved before the shell carry over the first time each layout opens ([#422](https://github.com/mikepadiernos/plasma-impresario/pull/422))                                                     |
 
 [decided]: https://img.shields.io/badge/Decided-1a7f37
 [done]: https://img.shields.io/badge/Done-1a7f37
