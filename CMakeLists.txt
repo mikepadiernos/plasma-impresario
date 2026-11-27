@@ -1320,12 +1320,9 @@ if(BUILD_TESTING)
 
     enable_testing()
     if(WITH_DESKTOP)
-        add_executable(test_DensityMenu tests/Gui/test_DensityMenu.cpp
-            src/Gui/ColoredItemDelegate.cpp src/Gui/ColoredItemDelegate.h
-            src/Gui/DensityDelegate.cpp src/Gui/DensityDelegate.h
-            src/Gui/DensityMenu.cpp src/Gui/DensityMenu.h)
+        add_executable(test_DensityMenu tests/Gui/test_DensityMenu.cpp)
         target_compile_definitions(test_DensityMenu PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
-        target_link_libraries(test_DensityMenu PRIVATE UiUtils Qt6::Widgets Qt6::Test KF6::ConfigCore KF6::I18n)
+        target_link_libraries(test_DensityMenu PRIVATE DesktopGui UiUtils Qt6::Widgets Qt6::Test KF6::ConfigCore KF6::I18n)
         add_executable(test_AttachmentPanel tests/Gui/test_AttachmentPanel.cpp)
         target_link_libraries(test_AttachmentPanel PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_FileChooser tests/Gui/test_FileChooser.cpp)

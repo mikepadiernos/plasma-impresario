@@ -602,6 +602,8 @@ private:
     void watchSharedKeymap();
     /** @short Apply a followed theme profile file whenever it changes */
     void watchFollowedTheme();
+    /** @short Colours for the folder @arg mailbox of the active account, kept locally */
+    QMenu *folderColorMenu(const QModelIndex &mailbox);
     /** @short The part of the window @p focus is in, as Vim mode sees it */
     std::optional<UiUtils::Keymap::Context> vimContext(QWidget *focus) const;
     /** @short Hand the message in the reader to the calendar application as a new event to review */
@@ -1084,6 +1086,7 @@ private:
     PlasmaActivities *m_activities = nullptr;
     QFileSystemWatcher *m_keymapWatcher = nullptr;
     QFileSystemWatcher *m_themeWatcher = nullptr;
+    QPointer<QMenu> m_folderColorMenu;
     MailTabBar *m_tabBar = nullptr;
     VimMode *m_vimMode = nullptr;
     QAction *m_actionMessageToCalendar = nullptr;

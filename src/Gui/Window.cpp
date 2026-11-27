@@ -26,6 +26,7 @@
 #include <memory>
 #include <QAuthenticator>
 #include <QActionGroup>
+#include <QColorDialog>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDBusConnection>
@@ -77,6 +78,7 @@
 #include <KIO/JobUiDelegateFactory>
 #include <KIO/OpenFileManagerWindowJob>
 #include <KIO/OpenUrlJob>
+#include <KLazyLocalizedString>
 #include <KLocalizedString>
 #include <KApplicationTrader>
 #include <KService>
@@ -200,6 +202,7 @@
 #include "UiUtils/RelatedMessages.h"
 #include "UiUtils/Relevance.h"
 #include "UiUtils/SavedSearches.h"
+#include "UiUtils/FolderColors.h"
 #include "UiUtils/SettingsStore.h"
 #include "UiUtils/Keymap.h"
 #include "UiUtils/Workspaces.h"
@@ -2973,12 +2976,80 @@ void MainWindow::showContextMenuMboxTree(const QPoint &position)
 
         actionList.append(m_actionSubscribeMailbox);
         m_actionSubscribeMailbox->setChecked(mboxTree->indexAt(position).data(Imap::Mailbox::RoleMailboxIsSubscribed).toBool());
+        if (QMenu *colors = folderColorMenu(clicked))
+            actionList.append(colors->menuAction());
     } else {
         actionList.append(createTopMailbox);
     }
     actionList.append(reloadAllMailboxes);
     actionList.append(m_actionShowOnlySubscribed);
     QMenu::exec(actionList, mboxTree->mapToGlobal(position), nullptr, this);
+}
+
+QMenu *MainWindow::folderColorMenu(const QModelIndex &mailbox)
+{
+    const QString accountId = m_accounts->activeAccount();
+    const QString folder = mailbox.data(Imap::Mailbox::RoleMailboxName).toString();
+    if (accountId.isEmpty() || folder.isEmpty())
+        return nullptr;
+    delete m_folderColorMenu;
+    m_folderColorMenu = new QMenu(i18nc("@title:menu", "Folder Colour"), this);
+    m_folderColorMenu->setObjectName(QStringLiteral("folderColorMenu"));
+    m_folderColorMenu->setIcon(UiUtils::SymbolicIcon::fromTheme(QStringLiteral("color-management")));
+    const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    const QColor own = UiUtils::SettingsStore::folderColors(*config).folders.value(accountId).value(folder);
+    const auto store = [this, accountId, folder](const QColor &color) {
+        const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        UiUtils::SettingsStore::setFolderColor(*config, accountId, folder, color);
+        config->sync();
+        applyAppearance();
+    };
+    static const QHash<QString, KLazyLocalizedString> names{
+        {QStringLiteral("red"), kli18nc("@item:inmenu folder colour", "Red")},
+        {QStringLiteral("orange"), kli18nc("@item:inmenu folder colour", "Orange")},
+        {QStringLiteral("yellow"), kli18nc("@item:inmenu folder colour", "Yellow")},
+        {QStringLiteral("green"), kli18nc("@item:inmenu folder colour", "Green")},
+        {QStringLiteral("cyan"), kli18nc("@item:inmenu folder colour", "Cyan")},
+        {QStringLiteral("blue"), kli18nc("@item:inmenu folder colour", "Blue")},
+        {QStringLiteral("violet"), kli18nc("@item:inmenu folder colour", "Violet")},
+        {QStringLiteral("magenta"), kli18nc("@item:inmenu folder colour", "Magenta")},
+        {QStringLiteral("brown"), kli18nc("@item:inmenu folder colour", "Brown")},
+        {QStringLiteral("grey"), kli18nc("@item:inmenu folder colour", "Grey")},
+        {QStringLiteral("black"), kli18nc("@item:inmenu folder colour", "Black")},
+        {QStringLiteral("white"), kli18nc("@item:inmenu folder colour", "White")},
+    };
+    auto *group = new QActionGroup(m_folderColorMenu);
+    for (const QString &name : UiUtils::FolderColors::iconColors()) {
+        const QColor color = UiUtils::FolderColors::iconColor(name);
+        QPixmap swatch(16, 16);
+        swatch.fill(color);
+        // Coloured folder icons of the icon theme where it has them, else a swatch
+        const QString iconName = QStringLiteral("folder-") + name;
+        QAction *action = m_folderColorMenu->addAction(
+            QIcon::hasThemeIcon(iconName) ? QIcon::fromTheme(iconName) : QIcon(swatch), names.value(name).toString());
+        action->setObjectName(QStringLiteral("folderColor-") + name);
+        action->setCheckable(true);
+        action->setChecked(own.isValid() && QColor(own.rgb()) == color);
+        group->addAction(action);
+        connect(action, &QAction::triggered, this, [store, color]() { store(color); });
+    }
+    m_folderColorMenu->addSeparator();
+    QAction *custom = m_folderColorMenu->addAction(UiUtils::SymbolicIcon::fromTheme(QStringLiteral("color-picker")),
+                                                   i18nc("@action:inmenu", "Other Colour…"));
+    custom->setObjectName(QStringLiteral("folderColorCustom"));
+    connect(custom, &QAction::triggered, this, [this, store, own, folder]() {
+        const QColor color = QColorDialog::getColor(own.isValid() ? own : QColor(61, 174, 233), this,
+                                                    i18nc("@title:window %1 is a folder", "Colour of %1", folder));
+        if (color.isValid())
+            store(color);
+    });
+    QAction *remove = m_folderColorMenu->addAction(UiUtils::SymbolicIcon::fromTheme(QStringLiteral("edit-clear")),
+                                                   i18nc("@action:inmenu", "No Colour of Its Own"));
+    remove->setObjectName(QStringLiteral("folderColorRemove"));
+    remove->setToolTip(i18nc("@info:tooltip", "Folder colour rules from the Theme settings can still colour it"));
+    remove->setEnabled(own.isValid());
+    connect(remove, &QAction::triggered, this, [store]() { store(QColor()); });
+    return m_folderColorMenu;
 }
 
 void MainWindow::showContextMenuMsgListTree(const QPoint &position)
@@ -3460,6 +3531,7 @@ void MainWindow::registerAppearance()
 
 void MainWindow::applyAppearance()
 {
+    mboxTree->setAccountId(m_accounts->activeAccount());
     msgListWidget->tree->setAccountId(m_accounts->activeAccount());
     const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
     AppearanceManager::instance()->load(*config, m_activities ? m_activities->current() : QString(),
