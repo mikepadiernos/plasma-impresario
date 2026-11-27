@@ -145,6 +145,7 @@
 #include "MessageRowsMenu.h"
 #include "MessageView.h"
 #include "MessageSourceWidget.h"
+#include "Gui/FileChooser.h"
 #include "Gui/LinkTarget.h"
 #include "Gui/MessageHeadersWidget.h"
 #include "MsgListView.h"
@@ -4431,7 +4432,11 @@ void MainWindow::slotEditDraft()
 {
     QString path(Common::writablePath(Common::LOCATION_DATA) + tr("Drafts"));
     QDir().mkpath(path);
-    path = QFileDialog::getOpenFileName(this, tr("Edit draft"), path, tr("Drafts") + QLatin1String(" (*.draft)"));
+    FileChooser::Request request;
+    request.title = tr("Edit draft");
+    request.folder = QUrl::fromLocalFile(path);
+    request.filters = {{tr("Drafts"), {QStringLiteral("*.draft")}}};
+    path = FileChooser::chooseLocalPath(this, request);
     if (!path.isNull()) {
         ComposeWidget::warnIfMsaNotConfigured(ComposeWidget::createDraft(this, path), this);
     }

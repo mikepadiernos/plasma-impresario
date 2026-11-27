@@ -477,6 +477,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/EmbeddedPanel.cpp
     ${path_DesktopGui}/EmbeddedPanelsMenu.cpp
     ${path_DesktopGui}/ExternalElementsWidget.cpp
+    ${path_DesktopGui}/FileChooser.cpp
     ${path_DesktopGui}/FlowLayout.cpp
     ${path_DesktopGui}/FromAddressProxyModel.cpp
     ${path_DesktopGui}/InlineNotificationBar.cpp

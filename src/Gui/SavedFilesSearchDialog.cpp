@@ -7,7 +7,6 @@
 #include <QDialogButtonBox>
 #include <QEvent>
 #include <QDir>
-#include <QFileDialog>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -21,6 +20,7 @@
 #include <KLocalizedString>
 #include <KProtocolInfo>
 
+#include "Gui/FileChooser.h"
 #include "UiUtils/IconLoader.h"
 
 namespace Gui {
@@ -263,7 +263,11 @@ void SavedFilesSearchDialog::searchLive()
 
 void SavedFilesSearchDialog::chooseFolder()
 {
-    const QString chosen = QFileDialog::getExistingDirectory(this, i18nc("@title:window", "Choose Folder"), folder());
+    FileChooser::Request request;
+    request.title = i18nc("@title:window", "Choose Folder");
+    request.mode = FileChooser::Mode::Folder;
+    request.folder = QUrl::fromLocalFile(folder());
+    const QString chosen = FileChooser::chooseLocalPath(this, request);
     if (!chosen.isEmpty())
         setFolder(chosen);
 }

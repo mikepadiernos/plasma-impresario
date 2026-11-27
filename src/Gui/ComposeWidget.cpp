@@ -64,6 +64,7 @@
 #include "Common/TrustedCertificates.h"
 #include "Gui/CompleteMessageWidget.h"
 #include "Gui/ComposeWidget.h"
+#include "Gui/FileChooser.h"
 #include "Gui/FromAddressProxyModel.h"
 #include "Gui/InlineNotificationBar.h"
 #include "Gui/LineEdit.h"
@@ -1981,8 +1982,12 @@ void ComposeWidget::slotAskForFileAttachment()
 {
     static QUrl directory = QUrl::fromLocalFile(QDir::homePath());
     // KDE's file dialog also browses other computers through KIO; their files are fetched once chosen
-    const QList<QUrl> urls = QFileDialog::getOpenFileUrls(this, tr("Attach File..."), directory, QString(), nullptr,
-                                                          QFileDialog::DontResolveSymlinks);
+    FileChooser::Request request;
+    request.title = tr("Attach File...");
+    request.mode = FileChooser::Mode::Files;
+    request.folder = directory;
+    request.fallbackOptions = QFileDialog::DontResolveSymlinks;
+    const QList<QUrl> urls = FileChooser::choose(this, request);
     if (urls.isEmpty())
         return;
     directory = urls.constFirst().adjusted(QUrl::RemoveFilename);
