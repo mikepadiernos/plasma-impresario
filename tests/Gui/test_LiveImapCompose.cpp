@@ -45,6 +45,7 @@
 #include <QTextEdit>
 #include <QTimer>
 #include <QWebEnginePage>
+#include <algorithm>
 #include <memory>
 
 namespace {
@@ -79,6 +80,21 @@ int storedMessages(const QString &folder)
                + QDir(maildir.filePath(QStringLiteral("new"))).entryList(QDir::Files).size());
 }
 
+/** The newest message which the server stores in a Maildir folder */
+QByteArray newestStoredMessage(const QString &folder)
+{
+    const QDir maildir(qEnvironmentVariable("PLASMA_TEST_MAILDIR") + QLatin1Char('/') + folder);
+    QFileInfoList files = QDir(maildir.filePath(QStringLiteral("cur"))).entryInfoList(QDir::Files)
+                          + QDir(maildir.filePath(QStringLiteral("new"))).entryInfoList(QDir::Files);
+    if (files.isEmpty())
+        return {};
+    std::sort(files.begin(), files.end(), [](const QFileInfo &a, const QFileInfo &b) {
+        return a.lastModified() == b.lastModified() ? a.fileName() < b.fileName() : a.lastModified() < b.lastModified();
+    });
+    QFile file(files.last().filePath());
+    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+}
+
 QStringList autosavedDrafts()
 {
     return QDir(Common::writablePath(Common::LOCATION_CACHE) + QLatin1String("Drafts/"))
@@ -107,6 +123,7 @@ public:
         QFile file(script);
         if (file.open(QIODevice::WriteOnly)) {
             file.write("if [ -e '" + failFile().toUtf8() + "' ]; then echo 'synthetic refusal' >&2; exit 75; fi\n"
+                       "printf '%s\\n' \"$@\" > '" + argumentsFile().toUtf8() + "'\n"
                        "cat > '" + sentFile().toUtf8() + "'\n");
         }
         file.close();
@@ -129,6 +146,15 @@ public:
 
     QString failFile() const { return m_directory.filePath(QStringLiteral("fail")); }
     QString sentFile() const { return m_directory.filePath(QStringLiteral("sent.eml")); }
+    QString argumentsFile() const { return m_directory.filePath(QStringLiteral("sendmail.args")); }
+
+    /** The command-line arguments of the last send, which end with the recipients */
+    QStringList lastArguments() const
+    {
+        QFile file(argumentsFile());
+        return file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts)
+                                              : QStringList();
+    }
 
     QByteArray lastSent() const
     {
@@ -221,6 +247,22 @@ QPointer<Gui::ComposeWidget> visibleComposer()
             return composer;
     }
     return {};
+}
+
+/** The kind of each address field of a composer, such as Composer::ADDRESS_BCC, from the top */
+QList<int> recipientKinds(Gui::ComposeWidget *composer)
+{
+    QList<int> result;
+    auto *envelope = composer->findChild<QFormLayout *>(QStringLiteral("envelopeLayout"));
+    if (!envelope)
+        return result;
+    for (int row = 0; row < envelope->rowCount(); ++row) {
+        QLayoutItem *item = envelope->itemAt(row, QFormLayout::LabelRole);
+        auto *combo = item ? qobject_cast<QComboBox *>(item->widget()) : nullptr;
+        if (combo && combo != composer->findChild<QComboBox *>(QStringLiteral("sender")))
+            result << combo->currentData().toInt();
+    }
+    return result;
 }
 
 /** The address fields of a composer, from the top */
@@ -518,6 +560,83 @@ private slots:
         QVERIFY2(dialogs.errors.isEmpty(), qPrintable(dialogs.errors.join(QLatin1Char('\n'))));
         QCOMPARE(headerLine(profile.lastSent(), "Subject"), QStringLiteral("Subject: Synthetic recovered message"));
         QVERIFY(autosavedDrafts().isEmpty());
+        QCOMPARE(dialogs.passwordPrompts, 0);
+    }
+
+    /** Bcc reaches its recipient and the Sent copy, never the other recipients, and a pasted line break cannot add a
+     * header */
+    void bccAndHeaderSafety()
+    {
+        bool ok = false;
+        const int port = qEnvironmentVariableIntValue("PLASMA_TEST_IMAPS_PORT", &ok);
+        QVERIFY(ok && port > 0 && port <= 65535);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        Profile profile(directory, port);
+        Dialogs dialogs;
+
+        Gui::MainWindow window(&profile.settings);
+        window.resize(1400, 900);
+        window.show();
+        QVERIFY(addIdentity(window));
+        auto *tree = window.findChild<Gui::MailBoxTreeView *>();
+        QVERIFY(tree);
+        QTRY_VERIFY_WITH_TIMEOUT(findMailbox(tree->model(), QStringLiteral("INBOX")).isValid(), 20000);
+        const int sentBefore = storedMessages(QStringLiteral(".Sent"));
+
+        // A link whose subject tries to add a Bcc header of its own
+        const QUrl link(QStringLiteral("mailto:carol@example.test?bcc=dave@example.test"
+                                       "&subject=Synthetic%20hidden%20copy%0D%0ABcc:%20eve@example.test"
+                                       "&body=Synthetic%20hidden%20copy%20body."));
+        QPointer<Gui::ComposeWidget> composer = Gui::ComposeWidget::createFromUrl(&window, link);
+        QVERIFY(composer);
+        const QString subject = QStringLiteral("Synthetic hidden copy Bcc: eve@example.test");
+        QCOMPARE(composer->findChild<QLineEdit *>(QStringLiteral("subject"))->text(), subject);
+        QVERIFY(recipientKinds(composer).contains(Composer::ADDRESS_BCC));
+
+        // A draft keeps the Bcc recipient
+        const QString draft = directory.filePath(QStringLiteral("hidden.draft"));
+        dialogs.draftAnswer = QMessageBox::Save;
+        dialogs.nextFile = draft;
+        QVERIFY(QMetaObject::invokeMethod(composer, "setMessageUpdated"));
+        composer->close();
+        QTRY_VERIFY_WITH_TIMEOUT(!composer, 10000);
+        QVERIFY(QFile::exists(draft));
+        composer = Gui::ComposeWidget::createDraft(&window, draft);
+        QVERIFY(composer);
+        const QList<QLineEdit *> fields = recipientFields(composer);
+        const QList<int> kinds = recipientKinds(composer);
+        QCOMPARE(kinds.size(), fields.size());
+        bool draftHasBcc = false;
+        for (int i = 0; i < fields.size(); ++i) {
+            if (fields[i]->text().contains(QLatin1String("dave@example.test")))
+                draftHasBcc = kinds[i] == Composer::ADDRESS_BCC;
+        }
+        QVERIFY(draftHasBcc);
+
+        dialogs.draftAnswer = QMessageBox::Discard;
+        QVERIFY(QMetaObject::invokeMethod(composer, "send"));
+        QTRY_VERIFY2_WITH_TIMEOUT(!composer, qPrintable(dialogs.errors.join(QLatin1Char('\n'))), 20000);
+        QVERIFY2(dialogs.errors.isEmpty(), qPrintable(dialogs.errors.join(QLatin1Char('\n'))));
+
+        // The delivered message names no hidden recipient, but the outgoing server still sends to it
+        const QByteArray sent = profile.lastSent();
+        QCOMPARE(headerLine(sent, "Subject"), QStringLiteral("Subject: ") + subject);
+        QVERIFY2(headerLine(sent, "Bcc").isEmpty(), sent.constData());
+        QVERIFY2(!sent.contains("dave@example.test"), sent.constData());
+        QVERIFY2(headerLine(sent, "To").contains(QLatin1String("carol@example.test")), sent.constData());
+        const QStringList arguments = profile.lastArguments();
+        QVERIFY2(arguments.contains(QLatin1String("dave@example.test")), qPrintable(arguments.join(QLatin1Char(' '))));
+        QVERIFY2(!arguments.contains(QLatin1String("eve@example.test")), qPrintable(arguments.join(QLatin1Char(' '))));
+
+        // The Sent copy lists it, and both copies share a Message-ID in the sender's domain
+        QTRY_COMPARE_WITH_TIMEOUT(storedMessages(QStringLiteral(".Sent")), sentBefore + 1, 10000);
+        const QByteArray stored = newestStoredMessage(QStringLiteral(".Sent"));
+        QVERIFY2(headerLine(stored, "Bcc").contains(QLatin1String("dave@example.test")), stored.constData());
+        QCOMPARE(headerLine(stored, "Subject"), QStringLiteral("Subject: ") + subject);
+        const QString messageId = headerLine(sent, "Message-ID");
+        QVERIFY2(messageId.endsWith(QLatin1String("@example.test>")), qPrintable(messageId));
+        QCOMPARE(headerLine(stored, "Message-ID"), messageId);
         QCOMPARE(dialogs.passwordPrompts, 0);
     }
 };

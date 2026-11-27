@@ -40,4 +40,5 @@ private slots:
     void testSimpleCompose();
     void testSimpleNo();
     void testCatenate();
+    void testResentBccAndHeaderSafety();
 };

@@ -887,4 +887,94 @@ void ComposerSubmissionTest::testReplyingToRemoved()
     cEmpty();
 }
 
+/** @short Recipients never see Bcc, while the copy saved to Sent lists it */
+void ComposerSubmissionTest::testBccOnlyInSentCopy()
+{
+    FakeCapabilitiesInjector injector(model);
+    injector.injectCapability(QStringLiteral("LITERAL+"));
+    helperSetupProperHeaders();
+    m_composer->setRecipients({
+        qMakePair(Composer::ADDRESS_TO, Imap::Message::MailAddress(QString(), QString(), QStringLiteral("to"),
+                                                                   QStringLiteral("example.net"))),
+        qMakePair(Composer::ADDRESS_BCC, Imap::Message::MailAddress(QString(), QString(), QStringLiteral("hidden"),
+                                                                    QStringLiteral("example.net"))),
+    });
+    m_submission->send();
+
+    for (int i=0; i<5; ++i)
+        QCoreApplication::processEvents();
+    const QByteArray appended = SOCK->writtenStuff();
+    QVERIFY(appended.startsWith(t.mk("APPEND outgoing (\\Seen) ")));
+    QVERIFY(appended.contains("\r\nBcc: <hidden@example.net>\r\n"));
+    QVERIFY(appended.contains("\r\nTo: <to@example.net>\r\n"));
+    cServer(t.last("OK append done\r\n"));
+    cEmpty();
+
+    QCOMPARE(requestedSendingSpy->size(), 1);
+    const QByteArray delivered = requestedSendingSpy->at(0)[2].toByteArray();
+    QVERIFY(delivered.contains("\r\nTo: <to@example.net>\r\n"));
+    QVERIFY(!delivered.contains("hidden@example.net"));
+    QCOMPARE(requestedSendingSpy->at(0)[1].value<QList<QByteArray>>(),
+             (QList<QByteArray>{"to@example.net", "hidden@example.net"}));
+
+    // Both copies are the same message
+    const QByteArray messageId = delivered.mid(delivered.indexOf("Message-ID: "), 60);
+    QVERIFY(appended.contains(messageId));
+
+    m_msaFactory->doEmitSending();
+    m_msaFactory->doEmitSent();
+    QCOMPARE(submissionSucceededSpy->size(), 1);
+    cEmpty();
+}
+
+/** @short With BURL the server delivers the Sent copy itself, so that copy must not list Bcc */
+void ComposerSubmissionTest::testBccOmittedFromBurlCopy()
+{
+    FakeCapabilitiesInjector injector(model);
+    injector.injectCapability(QStringLiteral("CATENATE"));
+    injector.injectCapability(QStringLiteral("URLAUTH"));
+    helperSetupProperHeaders();
+    m_composer->setRecipients({
+        qMakePair(Composer::ADDRESS_BCC, Imap::Message::MailAddress(QString(), QString(), QStringLiteral("hidden"),
+                                                                    QStringLiteral("example.net"))),
+    });
+    m_submission->setImapOptions(true, QStringLiteral("meh"), QStringLiteral("host"), QStringLiteral("usr"), false);
+    m_submission->setSmtpOptions(true, QStringLiteral("smtpUser"));
+    m_msaFactory->setBurlSupport(true);
+
+    helperAttachImapPart(0, "/0");
+    m_submission->send();
+
+    for (int i=0; i<5; ++i)
+        QCoreApplication::processEvents();
+    QString sentSoFar = QString::fromUtf8(SOCK->writtenStuff());
+    QString expected = t.mk("APPEND meh (\\Seen) CATENATE (TEXT {");
+    int octets;
+    EXTRACT_TARILING_NUMBER(octets);
+    cServer("+ carry on\r\n");
+    QString headers;
+    EXTRACT_OCTETS(octets, headers, sentSoFar);
+    QVERIFY(headers.startsWith(QLatin1String("From: ")));
+    QVERIFY(!headers.contains(QLatin1String("hidden@example.net")));
+    QVERIFY(!headers.contains(QLatin1String("\r\nBcc:")));
+    expected = QStringLiteral(" URL \"/a;UIDVALIDITY=333666/;UID=10/;SECTION=1\" TEXT {");
+    EXTRACT_TARILING_NUMBER(octets);
+    cServer("+ carry on\r\n");
+    EAT_OCTETS(octets, sentSoFar);
+    QCOMPARE(sentSoFar, QString::fromUtf8(")\r\n"));
+    cServer(t.last("OK [APPENDUID 666333666 123] append done\r\n"));
+    cClient(t.mk("GENURLAUTH \"imap://usr@host/meh;UIDVALIDITY=666333666/;UID=123;urlauth=submit+smtpUser\" INTERNAL\r\n"));
+    const QString genAuthUrl = QStringLiteral("imap://joe@example.com/INBOX/;uid=20/;section=1.2;urlauth=submit+fred:internal:91354a473744909de610943775f92038");
+    cServer("* GENURLAUTH \"" + genAuthUrl.toUtf8() + "\"\r\n");
+    cServer(t.last("OK genurlauth\r\n"));
+    cEmpty();
+    QCOMPARE(requestedBurlSendingSpy->size(), 1);
+    QCOMPARE(requestedBurlSendingSpy->at(0)[1].value<QList<QByteArray>>(), QList<QByteArray>{"hidden@example.net"});
+    m_msaFactory->doEmitSending();
+    m_msaFactory->doEmitSent();
+    QCOMPARE(submissionSucceededSpy->size(), 1);
+    cEmpty();
+    justKeepTask();
+}
+
 QTEST_GUILESS_MAIN(ComposerSubmissionTest)

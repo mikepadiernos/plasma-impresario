@@ -136,4 +136,33 @@ void ComposerExistingTest::testCatenate()
     cEmpty();
 }
 
+/** @short Resent-Bcc stays out of the delivered copy, and resent headers cannot be split */
+void ComposerExistingTest::testResentBccAndHeaderSafety()
+{
+    FakeCapabilitiesInjector injector(model);
+    injector.injectCapability(QStringLiteral("CATENATE"));
+    using Imap::Message::MailAddress;
+    Composer::ExistingMessageComposer composer(msgListA.model()->index(0, 0, msgListA));
+    composer.setFrom(MailAddress(QStringLiteral("Me\r\nX-Injected: from"), QString(), QStringLiteral("me"),
+                                 QStringLiteral("example.org")));
+    composer.setRecipients({
+        qMakePair(Composer::ADDRESS_RESENT_TO, MailAddress(QString(), QString(), QStringLiteral("to\r\n"),
+                                                           QStringLiteral("example.net"))),
+        qMakePair(Composer::ADDRESS_RESENT_BCC, MailAddress(QString(), QString(), QStringLiteral("hidden"),
+                                                            QStringLiteral("example.net"))),
+    });
+    QString errorMessage;
+    QList<Imap::Mailbox::CatenatePair> data;
+    QVERIFY(composer.asCatenateData(data, &errorMessage));
+    QVERIFY(!data[0].second.contains("hidden@example.net"));
+    QVERIFY(!data[0].second.contains("\r\nX-Injected"));
+    QVERIFY(data[0].second.contains("Resent-To: <to@example.net>\r\n"));
+    QVERIFY(data[0].second.contains("@example.org>\r\n"));
+
+    QVERIFY(composer.asCatenateData(data, &errorMessage, Composer::BccMode::Keep));
+    QVERIFY(data[0].second.contains("Resent-Bcc: <hidden@example.net>\r\n"));
+    QCOMPARE(composer.rawRecipientAddresses(), (QList<QByteArray>{"to@example.net", "hidden@example.net"}));
+    cEmpty();
+}
+
 QTEST_GUILESS_MAIN(ComposerExistingTest)
