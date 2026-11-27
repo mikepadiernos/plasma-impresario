@@ -383,6 +383,7 @@ set(libComposer_SOURCES
     ${path_Composer}/AccountIdentities.cpp
     ${path_Composer}/ComposerAttachments.cpp
     ${path_Composer}/ExistingMessageComposer.cpp
+    ${path_Composer}/HeaderSafety.cpp
     ${path_Composer}/Mailto.cpp
     ${path_Composer}/MessageComposer.cpp
     ${path_Composer}/QuoteText.cpp

@@ -68,8 +68,9 @@ public:
     void prepareForwarding(const QModelIndex &index, const ForwardMode mode);
 
     bool isReadyForSerialization() const override;
-    bool asRawMessage(QIODevice *target, QString *errorMessage) const override;
-    bool asCatenateData(QList<Imap::Mailbox::CatenatePair> &target, QString *errorMessage) const override;
+    bool asRawMessage(QIODevice *target, QString *errorMessage, BccMode bcc = BccMode::Omit) const override;
+    bool asCatenateData(QList<Imap::Mailbox::CatenatePair> &target, QString *errorMessage,
+                        BccMode bcc = BccMode::Omit) const override;
     void setPreloadEnabled(const bool preload) override;
     void setRecipients(const QList<QPair<Composer::RecipientKind, Imap::Message::MailAddress> > &recipients) override;
     void setFrom(const Imap::Message::MailAddress &from) override;
@@ -93,7 +94,7 @@ private:
     static QByteArray encodeHeaderField(const QString &text);
 
     void ensureRandomStrings() const;
-    void writeCommonMessageBeginning(QIODevice *target) const;
+    void writeCommonMessageBeginning(QIODevice *target, BccMode bcc) const;
     bool writeAttachmentHeader(QIODevice *target, QString *errorMessage, const AttachmentItem *attachment) const;
     bool writeAttachmentBody(QIODevice *target, QString *errorMessage, const AttachmentItem *attachment) const;
 

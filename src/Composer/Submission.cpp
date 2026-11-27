@@ -225,13 +225,27 @@ void Submission::slotMessageDataAvailable()
     QString errorMessage;
     QList<Imap::Mailbox::CatenatePair> catenateable;
 
-    if (shouldBuildMessageLocally() && !m_source->asRawMessage(&buf, &errorMessage)) {
+    // Recipients never see Bcc. The Sent copy keeps it, unless the server delivers that very copy through BURL or
+    // the IMAP SUBMIT extension.
+    const BccMode sentCopyBcc = (m_useBurl || m_useImapSubmit) ? BccMode::Omit : BccMode::Keep;
+
+    if (shouldBuildMessageLocally() && !m_source->asRawMessage(&buf, &errorMessage, BccMode::Omit)) {
         gotError(tr("Cannot send right now -- saving failed:\n %1").arg(errorMessage));
         return;
     }
-    if (canCatenate() && !m_source->asCatenateData(catenateable, &errorMessage)) {
+    if (canCatenate() && !m_source->asCatenateData(catenateable, &errorMessage, sentCopyBcc)) {
         gotError(tr("Cannot send right now -- saving (CATENATE) failed:\n %1").arg(errorMessage));
         return;
+    }
+    QByteArray sentCopy = m_rawMessageData;
+    if (m_saveToSentFolder && !canCatenate() && sentCopyBcc == BccMode::Keep) {
+        sentCopy.clear();
+        QBuffer sentBuf(&sentCopy);
+        sentBuf.open(QIODevice::WriteOnly);
+        if (!m_source->asRawMessage(&sentBuf, &errorMessage, BccMode::Keep)) {
+            gotError(tr("Cannot send right now -- saving failed:\n %1").arg(errorMessage));
+            return;
+        }
     }
 
     if (m_saveToSentFolder) {
@@ -255,7 +269,7 @@ void Submission::slotMessageDataAvailable()
             appendTask = QPointer<Imap::Mailbox::AppendTask>(
                         m_model->appendIntoMailbox(
                             m_sentFolderName,
-                            m_rawMessageData,
+                            sentCopy,
                             QStringList() << QStringLiteral("\\Seen"),
                             m_source->timestamp()));
         }

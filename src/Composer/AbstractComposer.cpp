@@ -21,8 +21,10 @@
 */
 
 #include <QModelIndex>
+#include <QUrl>
 #include <QUuid>
 #include "Composer/AbstractComposer.h"
+#include "Composer/HeaderSafety.h"
 
 namespace Composer {
 
@@ -42,13 +44,23 @@ QModelIndex AbstractComposer::forwardingMessage() const
     return QModelIndex();
 }
 
+/** @short A random Message-ID in the sender's domain
+
+The left part is a random UUID and the right part is the domain of the sender's address, so the identifier never
+reveals the computer's host name. Without a usable domain, "localhost" is used instead.
+*/
 QByteArray AbstractComposer::generateMessageId(const Imap::Message::MailAddress &fromAddress)
 {
-    auto domain = fromAddress.host.toUtf8();
+    const QString host = HeaderSafety::stripped(fromAddress.host);
+    QByteArray domain;
+    if (!host.startsWith(QLatin1Char('['))) {
+        domain = QUrl::toAce(host);
+    }
+    domain = HeaderSafety::messageId(domain);
     if (domain.isEmpty()) {
         domain = QByteArrayLiteral("localhost");
     }
-    return QUuid::createUuid().toByteArray().replace("{", "").replace("}", "") + "@" + domain;
+    return QUuid::createUuid().toByteArray(QUuid::WithoutBraces) + "@" + domain;
 }
 
 }

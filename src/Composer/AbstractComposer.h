@@ -31,6 +31,16 @@ class QModelIndex;
 
 namespace Composer {
 
+/** @short Whether a serialized message lists its blind-copy recipients
+
+Recipients never see Bcc, so the copy handed to the submission server omits it. The copy kept in the Sent folder
+lists it so that the sender can still tell who received the message.
+*/
+enum class BccMode {
+    Omit,
+    Keep,
+};
+
 /** @short Something that can provide a message for sending */
 class AbstractComposer
 {
@@ -38,8 +48,9 @@ public:
     virtual ~AbstractComposer();
 
     virtual bool isReadyForSerialization() const = 0;
-    virtual bool asRawMessage(QIODevice *target, QString *errorMessage) const = 0;
-    virtual bool asCatenateData(QList<Imap::Mailbox::CatenatePair> &target, QString *errorMessage) const = 0;
+    virtual bool asRawMessage(QIODevice *target, QString *errorMessage, BccMode bcc = BccMode::Omit) const = 0;
+    virtual bool asCatenateData(QList<Imap::Mailbox::CatenatePair> &target, QString *errorMessage,
+                                BccMode bcc = BccMode::Omit) const = 0;
     virtual QDateTime timestamp() const = 0;
     virtual QByteArray rawFromAddress() const = 0;
     virtual QList<QByteArray> rawRecipientAddresses() const = 0;

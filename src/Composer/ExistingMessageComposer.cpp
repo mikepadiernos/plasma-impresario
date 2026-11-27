@@ -25,6 +25,7 @@
 #include <QUrl>
 #include <QUuid>
 #include "Composer/ExistingMessageComposer.h"
+#include "Composer/HeaderSafety.h"
 #include "Imap/Model/FullMessageCombiner.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/Utils.h"
@@ -53,7 +54,7 @@ void ExistingMessageComposer::setPreloadEnabled(const bool preload)
     }
 }
 
-bool ExistingMessageComposer::asRawMessage(QIODevice *target, QString *errorMessage) const
+bool ExistingMessageComposer::asRawMessage(QIODevice *target, QString *errorMessage, BccMode bcc) const
 {
     m_combiner->load();
     if (!m_combiner->loaded()) {
@@ -61,16 +62,17 @@ bool ExistingMessageComposer::asRawMessage(QIODevice *target, QString *errorMess
         return false;
     }
 
-    target->write(resentChunk() + m_combiner->data());
+    target->write(resentChunk(bcc) + m_combiner->data());
     return true;
 }
 
-bool ExistingMessageComposer::asCatenateData(QList<Imap::Mailbox::CatenatePair> &target, QString *errorMessage) const
+bool ExistingMessageComposer::asCatenateData(QList<Imap::Mailbox::CatenatePair> &target, QString *errorMessage,
+                                             BccMode bcc) const
 {
     target.clear();
     QByteArray url = m_root.data(Imap::Mailbox::RoleIMAPRelativeUrl).toByteArray();
     if (!url.isEmpty()) {
-        target.append(qMakePair(Imap::Mailbox::CATENATE_TEXT, resentChunk()));
+        target.append(qMakePair(Imap::Mailbox::CATENATE_TEXT, resentChunk(bcc)));
         target.append(qMakePair(Imap::Mailbox::CATENATE_URL, url));
         return true;
     } else {
@@ -101,15 +103,17 @@ QList<QByteArray> ExistingMessageComposer::rawRecipientAddresses() const
 
 void ExistingMessageComposer::setRecipients(const QList<QPair<Composer::RecipientKind, Imap::Message::MailAddress>> &recipients)
 {
-    m_recipients = recipients;
+    m_recipients.clear();
+    for (const auto &recipient : recipients)
+        m_recipients.append(qMakePair(recipient.first, HeaderSafety::address(recipient.second)));
 }
 
 void ExistingMessageComposer::setFrom(const Imap::Message::MailAddress &from)
 {
-    m_resentFrom = from;
+    m_resentFrom = HeaderSafety::address(from);
 }
 
-QByteArray ExistingMessageComposer::resentChunk() const
+QByteArray ExistingMessageComposer::resentChunk(const BccMode bcc) const
 {
     if (!m_resentDate.isValid()) {
         m_resentDate = QDateTime::currentDateTime();
@@ -125,7 +129,7 @@ QByteArray ExistingMessageComposer::resentChunk() const
         buf += "Resent-From: " + m_resentFrom.asMailHeader() + "\r\n";
     }
 
-    QList<QByteArray> rcptTo, rcptCc;
+    QList<QByteArray> rcptTo, rcptCc, rcptBcc;
     for (auto it = m_recipients.begin(); it != m_recipients.end(); ++it) {
         switch(it->first) {
         case Composer::ADDRESS_RESENT_TO:
@@ -135,6 +139,8 @@ QByteArray ExistingMessageComposer::resentChunk() const
             rcptCc << it->second.asMailHeader();
             break;
         case Composer::ADDRESS_RESENT_BCC:
+            if (bcc == BccMode::Keep)
+                rcptBcc << it->second.asMailHeader();
             break;
         case Composer::ADDRESS_FROM:
         case Composer::ADDRESS_SENDER:
@@ -159,6 +165,7 @@ QByteArray ExistingMessageComposer::resentChunk() const
     };
     processRcptHeader(QByteArrayLiteral("Resent-To"), rcptTo);
     processRcptHeader(QByteArrayLiteral("Resent-Cc"), rcptCc);
+    processRcptHeader(QByteArrayLiteral("Resent-Bcc"), rcptBcc);
 
     return buf;
 }

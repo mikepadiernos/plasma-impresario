@@ -27,6 +27,7 @@
 #include <QMimeDatabase>
 #include <QProcess>
 #include <QUrl>
+#include "Composer/HeaderSafety.h"
 #include "Composer/MessageComposer.h"
 #include "Imap/Encoders.h"
 #include "Imap/Model/FullMessageCombiner.h"
@@ -109,7 +110,7 @@ QByteArray AttachmentItem::contentDispositionHeader() const
     // when they are not marked with the "filename" option.
     // Either I'm having a really, really bad day and I'm missing something, or they made a rather stupid bug.
 
-    QString shortFileName = contentDispositionFilename();
+    QString shortFileName = HeaderSafety::text(contentDispositionFilename()).trimmed();
     if (shortFileName.isEmpty())
         shortFileName = QStringLiteral("attachment");
     return "Content-Disposition: " + contentDispositionToByteArray(m_contentDisposition) + ";\r\n\t" +
