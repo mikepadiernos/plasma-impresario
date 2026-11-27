@@ -111,6 +111,30 @@ void MsgListView::setMultiLineRows(bool enabled)
     viewport()->update();
 }
 
+void MsgListView::setCards(bool cards)
+{
+    auto *delegate = qobject_cast<MsgItemDelegate *>(itemDelegate());
+    if (!delegate || delegate->showsCards() == cards)
+        return;
+    delegate->setCards(cards);
+    doItemsLayout();
+    viewport()->update();
+}
+
+bool MsgListView::cards() const
+{
+    auto *delegate = qobject_cast<MsgItemDelegate *>(itemDelegate());
+    return delegate && delegate->showsCards();
+}
+
+void MsgListView::setAccountId(const QString &accountId)
+{
+    if (auto *delegate = qobject_cast<MsgItemDelegate *>(itemDelegate())) {
+        delegate->setAccountId(accountId);
+        viewport()->update();
+    }
+}
+
 void MsgListView::setSenderInitials(bool shown)
 {
     if (auto *delegate = qobject_cast<MsgItemDelegate *>(itemDelegate())) {

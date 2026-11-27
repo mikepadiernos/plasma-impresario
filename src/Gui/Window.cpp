@@ -1733,6 +1733,7 @@ void MainWindow::createMenus()
         m_densityMenu = new DensityMenu(mboxTree, msgListWidget->tree, config, viewMenu);
         viewMenu->addMenu(m_densityMenu);
         m_messageRowsMenu = new MessageRowsMenu(msgListWidget->tree, config, viewMenu);
+        connect(m_messageRowsMenu, &MessageRowsMenu::appearanceChanged, this, &MainWindow::applyAppearance);
         viewMenu->addMenu(m_messageRowsMenu);
         if (!m_embeddedPanels.isEmpty()) {
             m_embeddedPanelsMenu = new EmbeddedPanelsMenu(config, viewMenu);
@@ -3459,6 +3460,7 @@ void MainWindow::registerAppearance()
 
 void MainWindow::applyAppearance()
 {
+    msgListWidget->tree->setAccountId(m_accounts->activeAccount());
     const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
     AppearanceManager::instance()->load(*config, m_activities ? m_activities->current() : QString(),
                                         m_accounts->activeAccount());

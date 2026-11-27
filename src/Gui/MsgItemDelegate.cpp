@@ -29,11 +29,14 @@
 #include "Imap/Model/SpecialFolder.h"
 #include "Imap/Model/Utils.h"
 #include "MsgListView.h"
+#include "AppearanceManager.h"
+#include "AppearanceStyle.h"
 #include "UiUtils/Color.h"
 #include "UiUtils/IconLoader.h"
 #include "UiUtils/MailSafety.h"
 #include <KLocalizedString>
 #include <QApplication>
+#include <QPainterPath>
 #include <QRegularExpression>
 #include <QStyle>
 
@@ -124,12 +127,44 @@ QFont MsgItemDelegate::itemFont(const QModelIndex &index) const
     return font;
 }
 
+QColor MsgItemDelegate::stateColor(const QModelIndex &index, const QColor &tagColor) const
+{
+    if (tagColor.isValid())
+        return tagColor;
+    if (!index.data(Imap::Mailbox::RoleIsFetched).toBool())
+        return QColor();
+    // Only colours chosen in the Theme settings colour the text; Plasma's own look stays as it is
+    auto *appearance = AppearanceManager::instance();
+    if (index.data(Imap::Mailbox::RoleMessageIsMarkedFlagged).toBool() && appearance->flaggedColor().isValid())
+        return appearance->flaggedColor();
+    if (!index.data(Imap::Mailbox::RoleMessageIsMarkedRead).toBool() && appearance->unreadColor().isValid())
+        return appearance->unreadColor();
+    return QColor();
+}
+
+QColor MsgItemDelegate::sourceColor(const QModelIndex &index) const
+{
+    auto *appearance = AppearanceManager::instance();
+    const QString account = index.data(Imap::Mailbox::RoleMessageAccountId).toString();
+    const QString accountId = account.isEmpty() ? m_accountId : account;
+    const QModelIndex mailbox = Imap::deproxifiedIndex(index).parent().parent();
+    if (mailbox.isValid()) {
+        const QString separator = mailbox.data(Imap::Mailbox::RoleMailboxSeparator).toString();
+        const QColor folder = appearance->folderColor(accountId, mailbox.data(Imap::Mailbox::RoleMailboxName).toString(),
+                                                      separator.isEmpty() ? QLatin1Char('/') : separator.at(0));
+        if (folder.isValid())
+            return folder;
+    }
+    return accountId.isEmpty() ? QColor() : appearance->accountColor(accountId);
+}
+
 void MsgItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const
 {
     QStyleOptionViewItem viewOption(option);
     auto foregroundColor = itemColor(index);
-    if (foregroundColor.isValid())
-        viewOption.palette.setColor(QPalette::Text, foregroundColor);
+    const QColor textColor = stateColor(index, foregroundColor);
+    if (textColor.isValid())
+        viewOption.palette.setColor(QPalette::Text, textColor);
     viewOption.font = itemFont(index);
     ColoredItemDelegate::paintWithForeground(painter, viewOption, index, foregroundColor);
 }
@@ -141,8 +176,115 @@ QSize MsgItemDelegate::sizeHint(const QStyleOptionViewItem &option, const QModel
         const int line = lineHeight(option);
         const int lines = m_snippetLine ? 3 : 2;
         size.setHeight(lines * line + (isComfortable() ? qMax(8, line) : qMax(4, line / 2)));
+        if (m_cards)
+            size.rheight() += 2 * cardGap(option) + 2;
     }
     return size;
+}
+
+int MsgItemDelegate::cardGap(const QStyleOptionViewItem &option) const
+{
+    return qMax(3, lineHeight(option) / 4);
+}
+
+QRect MsgItemDelegate::cardContents(const QStyleOptionViewItem &option) const
+{
+    // Inside the margin around the card, clear of its frame and of the colour along its edge
+    const int gap = cardGap(option);
+    return option.rect.adjusted(2 * gap, gap + 1, -gap - gap / 2, -gap - 1);
+}
+
+void MsgItemDelegate::setCards(bool cards)
+{
+    m_cards = cards;
+}
+
+void MsgItemDelegate::setAccountId(const QString &accountId)
+{
+    m_accountId = accountId;
+}
+
+void MsgItemDelegate::paintCard(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const
+{
+    auto *appearance = AppearanceManager::instance();
+    const QPalette::ColorGroup group = !(option.state & QStyle::State_Enabled) ? QPalette::Disabled
+                                       : (option.state & QStyle::State_Active) ? QPalette::Normal
+                                                                               : QPalette::Inactive;
+    const QColor base = option.palette.color(group, QPalette::Base);
+    const QColor textColor = option.palette.color(group, QPalette::Text);
+    const QColor accent = option.palette.color(group, QPalette::Highlight);
+    const bool selected = option.state & QStyle::State_Selected;
+    const bool hovered = option.state & QStyle::State_MouseOver;
+    const bool focused = option.state & QStyle::State_HasFocus;
+    const int radius = appearance->cornerRadius() < 0 ? 6 : appearance->cornerRadius();
+    const QRectF card = QRectF(option.rect).adjusted(0.5, 0.5, -0.5, -0.5);
+
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing);
+    QColor fill = blend(base, textColor, 0.04);
+    QColor border = blend(base, textColor, 0.18);
+    qreal width = 1;
+    if (selected) {
+        if (AppearanceStyle::selectionIsFilled()) {
+            fill = accent;
+        } else {
+            fill = blend(base, accent, 0.12);
+            border = accent;
+            width = 2;
+        }
+    } else if (hovered && appearance->value(QStringLiteral("HoverHighlight")).toBool()) {
+        fill = blend(base, accent, 0.07);
+        border = blend(border, accent, 0.5);
+    }
+    QPainterPath path;
+    path.addRoundedRect(card, radius, radius);
+    painter->fillPath(path, fill);
+
+    // The account or folder colour runs along the leading edge; the account is always named in the card too
+    const QColor source = sourceColor(index);
+    if (source.isValid()) {
+        const qreal stripe = qMax<qreal>(3, radius / 2.0);
+        QRectF edge = card;
+        if (option.direction == Qt::RightToLeft)
+            edge.setLeft(card.right() - stripe);
+        else
+            edge.setRight(card.left() + stripe);
+        painter->save();
+        painter->setClipPath(path);
+        painter->fillRect(edge, source);
+        painter->restore();
+    }
+
+    painter->setPen(QPen(border, width));
+    painter->setBrush(Qt::NoBrush);
+    painter->drawPath(path);
+    if (focused && !selected) {
+        // Keyboard focus without a selection stays visible
+        painter->setPen(QPen(accent, 1, Qt::DashLine));
+        const QRectF inner = card.adjusted(2, 2, -2, -2);
+        painter->drawRoundedRect(inner, qMax(0, radius - 2), qMax(0, radius - 2));
+    }
+    painter->restore();
+}
+
+void MsgItemDelegate::paintTinted(QPainter *painter, const QIcon &icon, const QRect &rect, QIcon::Mode mode,
+                                  const QColor &color) const
+{
+    if (!color.isValid()) {
+        icon.paint(painter, rect, Qt::AlignCenter, mode);
+        return;
+    }
+    const qreal ratio = painter->device() ? painter->device()->devicePixelRatioF() : 1.0;
+    QPixmap pixmap = icon.pixmap(rect.size(), ratio, mode);
+    if (pixmap.isNull())
+        return;
+    QPainter tint(&pixmap);
+    tint.setCompositionMode(QPainter::CompositionMode_SourceIn);
+    tint.fillRect(pixmap.rect(), color);
+    tint.end();
+    QRect target(QPoint(), pixmap.deviceIndependentSize().toSize());
+    target.moveCenter(rect.center());
+    painter->drawPixmap(target, pixmap);
 }
 
 void MsgItemDelegate::setMultiLine(bool multiLine)
@@ -247,7 +389,9 @@ MsgItemDelegate::RowLayout MsgItemDelegate::multiLineLayout(const QStyleOptionVi
     if (!account.isEmpty()) {
         const int accountWidth = qMin(option.fontMetrics.horizontalAdvance(account), second.width() / 3);
         layout.source = QRect(second.right() - accountWidth + 1, second.top(), accountWidth, line);
-        second.setRight(qMax(second.left(), layout.source.left() - margin));
+        // Room for the dot of the account's colour, drawn before the name
+        const int dotRoom = !m_cards && sourceColor(index).isValid() ? qMax(6, line / 3) * 2 : 0;
+        second.setRight(qMax(second.left(), layout.source.left() - margin - dotRoom));
     }
     layout.firstLine = first;
     layout.secondLine = second;
@@ -276,26 +420,36 @@ void MsgItemDelegate::paintMultiLineRow(QPainter *painter, const QStyleOptionVie
     const QColor tagColor = itemColor(index);
     applyForegroundToSelection(opt, tagColor);
 
-    // Background, selection and focus come from the style, as for any other item
     opt.text.clear();
     opt.icon = QIcon();
     opt.features = QStyleOptionViewItem::None;
     opt.viewItemPosition = QStyleOptionViewItem::OnlyOne;
-    styleOf(opt)->drawControl(QStyle::CE_ItemViewItem, &opt, painter, opt.widget);
+    if (m_cards) {
+        const int gap = cardGap(opt);
+        opt.rect = opt.rect.adjusted(gap, gap, -gap, -gap);
+        paintCard(painter, opt, index);
+        opt.rect = cardContents(option);
+    } else {
+        // Background, selection and focus come from the style, as for any other item
+        styleOf(opt)->drawControl(QStyle::CE_ItemViewItem, &opt, painter, opt.widget);
+    }
 
     // Asking for the subject fetches the envelope; the flags and the date come with it
     const QFont subjectFont = itemFont(index);
     const bool fetched = index.data(RoleIsFetched).toBool();
     const RowLayout layout = multiLineLayout(opt, index);
 
-    const bool selected = opt.state & QStyle::State_Selected;
+    // Only a filled selection takes the selected text colour; an outlined one keeps the usual colours
+    const bool selected = (opt.state & QStyle::State_Selected) && AppearanceStyle::selectionIsFilled();
     const bool hovered = opt.state & QStyle::State_MouseOver;
+    auto *appearance = AppearanceManager::instance();
     const QPalette::ColorGroup group = !(opt.state & QStyle::State_Enabled) ? QPalette::Disabled
                                        : (opt.state & QStyle::State_Active) ? QPalette::Normal
                                                                             : QPalette::Inactive;
-    const QColor text = selected             ? opt.palette.color(group, QPalette::HighlightedText)
-                        : tagColor.isValid() ? tagColor
-                                             : opt.palette.color(group, QPalette::Text);
+    const QColor state = stateColor(index, tagColor);
+    const QColor text = selected          ? opt.palette.color(group, QPalette::HighlightedText)
+                        : state.isValid() ? state
+                                          : opt.palette.color(group, QPalette::Text);
     const QColor secondary =
         selected ? text : blend(opt.palette.color(group, QPalette::Text), opt.palette.color(group, QPalette::Base), 0.35);
     const QIcon::Mode iconMode = selected ? QIcon::Selected : QIcon::Normal;
@@ -312,7 +466,10 @@ void MsgItemDelegate::paintMultiLineRow(QPainter *painter, const QStyleOptionVie
         dotRect.moveCenter(QPoint(layout.readState.center().x(), layout.firstLine.center().y()));
         if (unread) {
             painter->setPen(Qt::NoPen);
-            painter->setBrush(selected ? text : opt.palette.color(group, QPalette::Highlight));
+            const QColor unreadColor = appearance->unreadColor();
+            painter->setBrush(selected                 ? text
+                              : unreadColor.isValid() ? unreadColor
+                                                      : opt.palette.color(group, QPalette::Highlight));
         } else {
             painter->setPen(QPen(secondary, 1));
             painter->setBrush(Qt::NoBrush);
@@ -350,7 +507,8 @@ void MsgItemDelegate::paintMultiLineRow(QPainter *painter, const QStyleOptionVie
     painter->drawText(layout.date, trailing, index.sibling(index.row(), MsgListModel::DATE).data(Qt::DisplayRole).toString());
 
     if (fetched && index.data(RoleMessageIsMarkedFlagged).toBool()) {
-        indicatorIcon(QStringLiteral("mail-flagged")).paint(painter, layout.flag, Qt::AlignCenter, iconMode);
+        paintTinted(painter, indicatorIcon(QStringLiteral("mail-flagged")), layout.flag, iconMode,
+                    selected ? QColor() : appearance->flaggedColor());
     } else if (fetched && hovered) {
         painter->setOpacity(0.5);
         indicatorIcon(QStringLiteral("mail-unflagged")).paint(painter, layout.flag, Qt::AlignCenter, iconMode);
@@ -377,7 +535,21 @@ void MsgItemDelegate::paintMultiLineRow(QPainter *painter, const QStyleOptionVie
         painter->setFont(opt.font);
         painter->setPen(secondary);
         const QString account = index.data(RoleMessageRowLabel).toString();
-        painter->drawText(layout.source, trailing, opt.fontMetrics.elidedText(account, Qt::ElideRight, layout.source.width()));
+        const QString shown = opt.fontMetrics.elidedText(account, Qt::ElideRight, layout.source.width());
+        painter->drawText(layout.source, trailing, shown);
+        const QColor source = m_cards ? QColor() : sourceColor(index);
+        if (source.isValid()) {
+            // A dot in the account's colour beside the account's name, in lists of several accounts
+            const int dot = qMax(6, lineHeight(opt) / 3);
+            const int textWidth = opt.fontMetrics.horizontalAdvance(shown);
+            QRect dotRect(0, 0, dot, dot);
+            const int x = opt.direction == Qt::RightToLeft ? layout.source.left() + textWidth + dot
+                                                           : layout.source.right() - textWidth - dot;
+            dotRect.moveCenter(QPoint(x, layout.source.center().y()));
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(source);
+            painter->drawEllipse(dotRect);
+        }
     }
     if (layout.snippet.isValid()) {
         const auto snippet = index.data(RoleMessageSearchSnippet).value<SearchSnippet>();
@@ -424,7 +596,10 @@ MsgItemDelegate::RowHit MsgItemDelegate::multiLineHit(const QStyleOptionViewItem
 {
     if (!index.data(Imap::Mailbox::RoleIsFetched).toBool())
         return RowHit::None;
-    const RowLayout layout = multiLineLayout(option, index);
+    QStyleOptionViewItem opt(option);
+    if (m_cards)
+        opt.rect = cardContents(option);
+    const RowLayout layout = multiLineLayout(opt, index);
     if (layout.flag.adjusted(-2, -2, 2, 2).contains(pos))
         return RowHit::Flag;
     if (layout.readState.contains(pos))
