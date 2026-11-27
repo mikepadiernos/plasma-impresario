@@ -52,6 +52,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Accessibility and theming](#accessibility-and-theming)
   - [Provider setup and Gmail](#provider-setup-and-gmail)
   - [Junk and attachment safety](#junk-and-attachment-safety)
+  - [External services and outbound calls](#external-services-and-outbound-calls)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -90,6 +91,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Accessibility     | Icons, state colors and contrast follow Plasma's theme and the main controls have accessible names, but nothing is checked with a screen reader, a high-contrast scheme or in a Plasma session, and there are no translations yet ([details](#accessibility-and-theming))                                                                                                                                                                             | [#472](https://github.com/mikepadiernos/plasma-impresario/issues/472)                                                                        |
 | ![Limitation][limitation] | Providers         | The provider guide is untried with real accounts; on Gmail, **Archive** creates an `Archive` label and sent messages are uploaded twice unless set otherwise ([details](#provider-setup-and-gmail))                                                                                                                                                                                                                                                   | [#473](https://github.com/mikepadiernos/plasma-impresario/issues/473)                                                                        |
 | ![Limitation][limitation] | Security          | Junk comes only from IMAP keywords, **Mark as Junk** does not move mail, no virus scanner is connected, and only **Open** asks first ([details](#junk-and-attachment-safety))                                                                                                                                                                                                                                                                         | [#474](https://github.com/mikepadiernos/plasma-impresario/issues/474)                                                                        |
+| ![Limitation][limitation] | Privacy           | The outbound-call check works per file, GnuPG may fetch keys by its own settings, and version details are sent by default ([details](#external-services-and-outbound-calls))                                                                                                                                                                                                                                                                          | [#475](https://github.com/mikepadiernos/plasma-impresario/issues/475)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -2158,6 +2160,54 @@ Plasma session; that check is
 - Read the server's spam headers when they are cached, and treat mail in the
   Junk folder as junk.
 - Ask before saving or dragging attachments of junk mail as well.
+
+### External services and outbound calls
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                     |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| [#475](https://github.com/mikepadiernos/plasma-impresario/issues/475) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/475#issuecomment-7214973305) | [External services](integrations/external-services.md) ([#106](https://github.com/mikepadiernos/plasma-impresario/issues/106)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Message content goes only to the account's own IMAP
+  and SMTP servers, or the configured `sendmail` program. Every other outbound
+  call is listed in the [register](integrations/external-services.md#register)
+  with what it sends and the user action that comes first.
+- ![Resolved][resolved] `test_ExternalExposure` fails when a source file sends
+  something out without a register entry, or an entry no longer does.
+- ![Limitation][limitation] The check works per file and by known calls. A new
+  outbound call in a file that is already listed, such as
+  `src/Gui/Window.cpp`, passes without a register change, and calls made by
+  other means, such as QML `XMLHttpRequest` or sockets opened by a library,
+  are not found.
+- ![Limitation][limitation] Libraries follow their own settings. With
+  `auto-key-retrieve` in `gpg.conf`, verifying a signature can fetch the
+  signer's key from a key server.
+- ![Limitation][limitation] The IMAP `ID` command and the `User-Agent` header
+  include the version and operating system by default.
+- ![Limitation][limitation] A remote image the user allows still tells its
+  server the time and the reader's network address.
+- ![Limitation][limitation] What notifications, Plasma Search and the portals
+  show has not been checked in a real Plasma session.
+
+**Workarounds:**
+
+- Turn off **Reveal Plasma Impresario's version and platform information** in
+  the **General** settings to send only the application name.
+- Leave `auto-key-retrieve` out of `~/.gnupg/gpg.conf`.
+- Keep **Load Remote Content** for senders you trust.
+- When reviewing a change to a file that is already in the register, check its
+  new outbound calls by hand.
+
+**Proposed improvements:**
+
+- Record outbound calls by function rather than by file, so that a new call in
+  a listed file needs a register change too.
+- Add a runtime test that runs the application's network uses against a local
+  server with a marker in a message, and fails if the marker appears in any
+  request.
+- Check notifications, Plasma Search and the portals in a real Plasma session
+  ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
 
 ## Before reporting results
 

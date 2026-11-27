@@ -4,7 +4,8 @@
 **[Refinements](README.md)** ·
 **[Previous: Search, sorting and automation](05-search-sorting-and-automation.md)** ·
 **[Next: Settings and notifications](07-settings-and-notifications.md)** ·
-**[Security caveats](../CAVEATS.md#security-and-data-protection)**
+**[Security caveats](../CAVEATS.md#security-and-data-protection)** ·
+**[External services](../integrations/external-services.md)**
 
 Refines credential handling, remote-content controls, attachment safety, ClamAV
 and spam feedback, and privacy settings. Board statuses are as of 2026-11-25.

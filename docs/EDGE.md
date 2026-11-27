@@ -554,6 +554,9 @@ parentheses are the expected behavior.
 | Junk and safety   | The junk mark in list rows and its screen reader text; the reader's warning banner style                                                                                          | ![Offscreen tests][offscreen] `test_MessageRows`, `test_InlineNotificationBar`               |
 | Junk and safety   | Marking live mail as junk shows the banner and asks before an attachment opens; **Not Junk** clears both on the server                                                            | ![Verified][verified] `test_LiveImapPanels`                                                  |
 | Junk and safety   | A server spam filter setting `$Junk`, or filing mail into the Junk folder without a keyword                                                                                       | ![Not validated][not-validated] ([caveat](CAVEATS.md#junk-and-attachment-safety))            |
+| Outbound calls    | A source file that sends something out without a register entry, a stale entry, outbound calls only in comments, bundled code                                                     | ![Offscreen tests][offscreen] `test_ExternalExposure` and its fixture tests                  |
+| Outbound calls    | A new outbound call in a file already in the register, or one made through QML or a library                                                                                       | ![Limitation][limitation] ([caveat](CAVEATS.md#external-services-and-outbound-calls))        |
+| Outbound calls    | GnuPG with `auto-key-retrieve` fetching a signer's key while a message is verified                                                                                                | ![Not validated][not-validated] ([caveat](CAVEATS.md#external-services-and-outbound-calls))  |
 
 ## Validation checklist
 

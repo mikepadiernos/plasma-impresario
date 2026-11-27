@@ -2,7 +2,8 @@
 
 **[Documentation](../README.md)** · **[Roadmap](../ROADMAP.md)** ·
 **[Caveats](../CAVEATS.md)** · **[Integrations](README.md)** ·
-**[Plasma Opus](plasma-opus.md)** · **[UI parity](../parity/ui.md)**
+**[Plasma Opus](plasma-opus.md)** · **[UI parity](../parity/ui.md)** ·
+**[External services](external-services.md)**
 
 Plasma Impresario targets KDE Plasma only. This guide lists the intended desktop
 integration, suggested approaches and decisions to validate; the status table
@@ -378,6 +379,9 @@ Defined in **M06.01**
   files.
 - **Verify:** Run `ctest -R ArchitectureBoundaries` after changing a core
   library's sources or links.
+- **Outbound calls:** What each service may receive is defined in
+  [External services](external-services.md); `test_ExternalExposure` keeps
+  its register in step with the sources.
 
 | Layer            | Libraries                                                                                                                                            | May use                                                                              |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
