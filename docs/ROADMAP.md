@@ -70,7 +70,7 @@ and gray before. **Board** is the parent issue's status.
 | [M03](#m03-mail-operations-sorting-and-folder-management) | Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)     | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
 | [M04](#m04-reading-and-conversation-flow)                 | Reading and conversation flow                  | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6)     | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
 | [M05](#m05-search-and-indexing)                           | Search and indexing                            | [#324](https://github.com/mikepadiernos/plasma-impresario/issues/324) | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Merged][merged]: merged in [PR #455](https://github.com/mikepadiernos/plasma-impresario/pull/455)                                      |
-| [M06](#m06-desktop-integration-and-provider-support)      | Desktop integration and provider support       | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)     | ![9 of 27 done](https://img.shields.io/badge/9%2F27-33%25-9a6700)    | ![Development][development]: on `feature/m06-desktop`                                                                                    |
+| [M06](#m06-desktop-integration-and-provider-support)      | Desktop integration and provider support       | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)     | ![10 of 27 done](https://img.shields.io/badge/10%2F27-37%25-9a6700)  | ![Development][development]: on `feature/m06-desktop`                                                                                    |
 | [M07](#m07-output-notifications-and-rules-automation)     | Output, notifications and rules automation     | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8)     | ![0 of 11 done](https://img.shields.io/badge/0%2F11-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
 | [M08](#m08-settings-and-workspace-configuration)          | Settings and workspace configuration           | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9)     | ![0 of 15 done](https://img.shields.io/badge/0%2F15-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
 | [M09](#m09-themes-and-branding-foundation)                | Themes and branding foundation                 | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)   | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development]: M09.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
@@ -517,7 +517,7 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 ### M06: Desktop integration and provider support
 
 **Status:** ![Development][development]
-![9 of 27 done](https://img.shields.io/badge/9%2F27-33%25-9a6700) ·
+![10 of 27 done](https://img.shields.io/badge/10%2F27-37%25-9a6700) ·
 **Parent issue:** [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)
 
 **Project:** [M06 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498116)
@@ -568,7 +568,7 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 
   **Project:** [Subsection](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317153236)
 
-  - [ ] Provide a My Day / Agenda embedded panel with today's events, due tasks, and flagged or follow-up mail, using KDE PIM and Akonadi when available and mail-derived items otherwise. See the [design](philosophy/designs.md#embedded-panels). [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317147641)
+  - [x] Provide a My Day / Agenda embedded panel with today's events, due tasks, and flagged or follow-up mail, using KDE PIM and Akonadi when available and mail-derived items otherwise. See the [design](philosophy/designs.md#embedded-panels). [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317147641)
   - [x] Show KDE address-book names, photos, and organizations in the contacts panel, with open and add actions, without remote lookups [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317147800)
 
 - **M06.05: Mail providers**
@@ -639,6 +639,9 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   ![Backlog][backlog]
 - [My Day calendars and follow-up mail](CAVEATS.md#my-day-calendars-and-follow-up-mail)
   ([#465](https://github.com/mikepadiernos/plasma-impresario/issues/465))
+  ![Backlog][backlog]
+- [Server settings discovery](CAVEATS.md#server-settings-discovery)
+  ([#466](https://github.com/mikepadiernos/plasma-impresario/issues/466))
   ![Backlog][backlog]
 
 ### M07: Output, notifications, and rules automation

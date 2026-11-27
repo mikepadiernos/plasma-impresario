@@ -44,6 +44,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Plasma Search mail](#plasma-search-mail)
   - [Contacts from the address book](#contacts-from-the-address-book)
   - [My Day calendars and follow-up mail](#my-day-calendars-and-follow-up-mail)
+  - [Server settings discovery](#server-settings-discovery)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -74,6 +75,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Plasma Search     | Mail appears only while the app runs, for the default profile, by subject or sender; nothing is checked with KRunner or in a Plasma session ([details](#plasma-search-mail))                                                                                                                                                                                                                                                                          | [#463](https://github.com/mikepadiernos/plasma-impresario/issues/463)                                                                        |
 | ![Limitation][limitation] | Contacts panel    | abook has no organizations and Akonadi is not run against a server; photos come only from the address book ([details](#contacts-from-the-address-book))                                                                                                                                                                                                                                                                                               | [#464](https://github.com/mikepadiernos/plasma-impresario/issues/464)                                                                        |
 | ![Limitation][limitation] | My Day            | Every Akonadi calendar is shown and the Akonadi path is not run against a server; follow-up mail comes from search indexes and the shown folder, up to 50 messages ([details](#my-day-calendars-and-follow-up-mail))                                                                                                                                                                                                                                  | [#465](https://github.com/mikepadiernos/plasma-impresario/issues/465)                                                                        |
+| ![Limitation][limitation] | Add Account       | Found servers are not tried against real providers, guessed servers are only probed for a connection, and most resolvers do not validate DNSSEC, so servers outside the mail domain usually need confirmation ([details](#server-settings-discovery))                                                                                                                                                                                                 | [#466](https://github.com/mikepadiernos/plasma-impresario/issues/466)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -1741,6 +1743,72 @@ Plasma session; that check is
 - Add a window-level test for opening follow-up messages and for the calendar
   hand-off.
 - Let a follow-up lookup run without stopping a search across folders.
+
+### Server settings discovery
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| [#466](https://github.com/mikepadiernos/plasma-impresario/issues/466) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/466#issuecomment-7212352050) | Finding IMAP and SMTP settings in **Add Account** ([#372](https://github.com/mikepadiernos/plasma-impresario/issues/372)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] **Add Account** asks for a name, an email address and
+  an optional account name. **Find Settings** tries the providers built into
+  the application, the domain's autoconfig file over HTTPS, Thunderbird's ISP
+  database (ISPDB), DNS SRV records (RFC 6186 and RFC 8314), the domain's MX
+  hosts and common host names, in that order, and stops at the first source
+  that names an IMAP server. Nothing signs in and no password is sent.
+- ![Resolved][resolved] The dialog shows the provider, the servers, where they
+  were found, and guidance for app passwords, turning on IMAP or OAuth-only
+  providers. Servers found through unsigned DNS outside the mail domain and the
+  known providers must be confirmed before the account can be added. After
+  adding, the settings and an identity are saved and the account settings
+  open.
+- ![Limitation][limitation] The autoconfig request sends the full email address
+  to `autoconfig.<domain>`, as Thunderbird does. The ISPDB request sends only
+  the domain.
+- ![Limitation][limitation] An ISPDB lookup through MX hosts takes the last two
+  labels of the MX host as the provider's domain. This fails for suffixes such
+  as `co.uk`, which then fall back to guessed host names.
+- ![Limitation][limitation] DNS replies count as signed only when the system
+  resolver sets the DNSSEC authenticated-data bit. Most resolvers do not
+  validate, so most SRV or MX servers outside the mail domain need
+  confirmation.
+- ![Limitation][limitation] Guessed servers count as found after a TCP or TLS
+  connection succeeds, even with a certificate error. The IMAP or SMTP greeting
+  and STARTTLS are not checked. Servers without encryption and single-label
+  domains such as `localhost` are not used.
+- ![Limitation][limitation] Nine providers are built in, and the Apple help
+  link is unchecked. Settings can be found only in **Add Account**, and
+  cancelling the account settings that open next keeps the account and the
+  settings found.
+- ![Limitation][limitation] Automated tests use a fake network, apart from
+  probes and fetches against local servers. Nothing is tried against real
+  providers, a validating resolver or in a Plasma session. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- Check the servers shown before adding the account. If they are wrong or
+  missing, add the account anyway and enter the servers in its settings.
+- Confirm servers outside your mail domain only if you recognise them as your
+  provider's.
+- If a guessed server is wrong, or its certificate is rejected when signing in,
+  enter the server named in your provider's help pages.
+- To look up settings again for an existing account, add a new account with the
+  same address and remove the old one.
+- If your domain's autoconfig server should not see your address, enter the
+  settings by hand instead of using **Find Settings**.
+
+**Proposed improvements:**
+
+- Add a live test with Dovecot and a locally served autoconfig file, and check
+  real providers in a Plasma 6 session.
+- Use the public suffix list to find the registered domain of MX hosts.
+- Check the IMAP and SMTP greetings, and STARTTLS, when probing guessed
+  servers, and report certificate errors.
+- Offer **Find Settings** in the settings of existing accounts.
+- Check the Apple help link and extend the built-in providers.
 
 ## Before reporting results
 
