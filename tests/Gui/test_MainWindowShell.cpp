@@ -6,6 +6,7 @@
 #include "Common/MetaTypes.h"
 #include "Common/SettingsNames.h"
 #include "Gui/AccountSidebar.h"
+#include "Gui/ComposeWidget.h"
 #include "Gui/CapabilityActionGate.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MsgListView.h"
@@ -15,6 +16,7 @@
 #include "Imap/Model/AccountCapabilities.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
+#include "IPC/MainWindowBridge.h"
 #include "configure.cmake.h"
 #ifdef TROJITA_HAVE_WEBENGINE
 #include "Gui/WebEngineMessageProfile.h"
@@ -710,6 +712,56 @@ private slots:
     const double ratio = double(panes.at(0)) / std::max(1, panes.at(1));
     QVERIFY2(ratio > 0.35 && ratio < 0.6, qPrintable(QString::number(ratio)));
     verifyLegacyKeysRemoved(settings, group);
+  }
+
+  void requestsBringTheirWindowForward() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                       QSettings::IniFormat);
+    configureOffline(settings, QStringLiteral("work.example.test"));
+    settings.setValue(Common::SettingsNames::settingsVersion, 2);
+    settings.setValue(Common::SettingsNames::guiShowSystray, false);
+    Gui::MainWindow window(&settings);
+    window.accountSettings()->setValue(Common::SettingsNames::msaMethodKey,
+                                       Common::SettingsNames::methodSENDMAIL);
+    window.accountSettings()->setValue(Common::SettingsNames::sendmailKey,
+                                       QStringLiteral("/bin/false"));
+    // As registered on the session bus for requests from other processes
+    auto *bridge = new IPC::MainWindowBridge(&window);
+
+    // Unusable tokens are not kept
+    bridge->setActivationToken(QStringLiteral("not a token"));
+    QVERIFY(!window.hasActivationToken());
+
+    // A launch of the application shows the hidden window and spends the token
+    QVERIFY(window.isHidden());
+    bridge->setActivationToken(QStringLiteral("launcher-token"));
+    QVERIFY(window.hasActivationToken());
+    bridge->showMainWindow();
+    QVERIFY(QTest::qWaitForWindowExposed(&window));
+    QVERIFY(!window.hasActivationToken());
+    QTRY_COMPARE(QApplication::activeWindow(), &window);
+
+    // A mailto: request brings its composer forward, not the main window
+    bridge->setActivationToken(QStringLiteral("portal-token"));
+    bridge->composeMail(QStringLiteral("mailto:bob@example.test?subject=Hello"));
+    QVERIFY(!window.hasActivationToken());
+    Gui::ComposeWidget *composer = nullptr;
+    for (QWidget *widget : QApplication::topLevelWidgets()) {
+      if (auto *found = qobject_cast<Gui::ComposeWidget *>(widget))
+        composer = found;
+    }
+    QVERIFY(composer);
+    QVERIFY(QTest::qWaitForWindowExposed(composer));
+    QTRY_COMPARE(QApplication::activeWindow(), composer);
+
+    // Plasma Search and notifications show the main window again
+    bridge->setActivationToken(QStringLiteral("runner-token"));
+    window.showMainWindow();
+    QVERIFY(!window.hasActivationToken());
+    QTRY_COMPARE(QApplication::activeWindow(), &window);
+    delete composer;
   }
 
   void closingQuitsByDefault() { verifyClose(false); }

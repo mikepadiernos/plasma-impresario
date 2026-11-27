@@ -1310,7 +1310,8 @@ if(BUILD_TESTING)
             foreach(shell_case capabilityGateHidesOnlyUnsupportedActions unsupportedActionsFollowTheActiveAccount
                     sidebarShowsHeadersOnlyForSeveralAccounts sidebarGroupsAccountsInTheWindow sidebarHeaderMenuActsOnItsAccount
                     headerRegionIsOptional headerShowsFolderAndStatus legacyCompactPaneSizesCarryOver
-                    legacyWidePaneSizesCarryOver closingQuitsByDefault closingHidesWhenRunningInBackground)
+                    legacyWidePaneSizesCarryOver closingQuitsByDefault closingHidesWhenRunningInBackground
+                    requestsBringTheirWindowForward)
                 add_test(NAME test_MainWindowShell_${shell_case} COMMAND test_MainWindowShell ${shell_case})
                 set_tests_properties(test_MainWindowShell_${shell_case} PROPERTIES
                     TIMEOUT 60
@@ -1504,6 +1505,8 @@ if(BUILD_TESTING)
     target_link_libraries(test_LinkSafety PRIVATE UiUtils)
     trojita_test(Misc ServerDiscovery)
     target_link_libraries(test_ServerDiscovery PRIVATE UiUtils Qt6::Network)
+    trojita_test(Misc ActivationToken)
+    target_link_libraries(test_ActivationToken PRIVATE UiUtils)
     if(WITH_DBUS)
         add_executable(test_KRunnerBridge tests/Misc/test_KRunnerBridge.cpp src/IPC/KRunnerBridge.cpp src/IPC/KRunnerBridge.h)
         target_compile_definitions(test_KRunnerBridge PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)

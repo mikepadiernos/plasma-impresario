@@ -64,8 +64,13 @@ void KRunnerBridgeTest::signatures()
 void KRunnerBridgeTest::directCalls()
 {
     QStringList opened;
-    KRunnerBridge bridge(&KRunnerBridgeTest::search, [&opened](const QString &id) { opened << id; });
+    QStringList tokens;
+    KRunnerBridge bridge(
+        &KRunnerBridgeTest::search, [&opened](const QString &id) { opened << id; },
+        [&tokens](const QString &token) { tokens << token; });
     QVERIFY(bridge.Actions().isEmpty());
+    bridge.SetActivationToken(QStringLiteral("runner-token"));
+    QCOMPARE(tokens, QStringList{QStringLiteral("runner-token")});
     QVERIFY(bridge.Match(QStringLiteral("lunch")).isEmpty());
     const RunnerMatches found = bridge.Match(QStringLiteral("release"));
     QCOMPARE(found.size(), 1);
@@ -81,6 +86,7 @@ void KRunnerBridgeTest::directCalls()
 
     KRunnerBridge empty(nullptr, nullptr);
     QVERIFY(empty.Match(QStringLiteral("release")).isEmpty());
+    empty.SetActivationToken(QStringLiteral("ignored"));
     empty.Run(found.first().id, QString());
 }
 
@@ -93,8 +99,11 @@ void KRunnerBridgeTest::peerToPeer()
         QSKIP("No peer-to-peer D-Bus server could be started");
     server.setAnonymousAuthenticationAllowed(true);
 
-    QStringList opened;
-    KRunnerBridge bridge(&KRunnerBridgeTest::search, [&opened](const QString &id) { opened << id; });
+    // What happened, in order: KRunner hands the token over just before Run
+    QStringList events;
+    KRunnerBridge bridge(
+        &KRunnerBridgeTest::search, [&events](const QString &id) { events << QStringLiteral("open ") + id; },
+        [&events](const QString &token) { events << QStringLiteral("token ") + token; });
     std::unique_ptr<QDBusConnection> serverSide;
     connect(&server, &QDBusServer::newConnection, this, [&serverSide, &bridge](const QDBusConnection &connection) {
         serverSide = std::make_unique<QDBusConnection>(connection);
@@ -141,10 +150,13 @@ void KRunnerBridgeTest::peerToPeer()
         QCOMPARE(actions.reply().signature(), QStringLiteral("a(sss)"));
         QVERIFY(actions.value().isEmpty());
 
+        QDBusPendingReply<> token = call(QStringLiteral("SetActivationToken"), {QStringLiteral("kwin-token")});
+        QVERIFY(token.isFinished());
+        QVERIFY2(!token.isError(), qPrintable(token.error().message()));
         QDBusPendingReply<> run = call(QStringLiteral("Run"), {found.first().id, QString()});
         QVERIFY(run.isFinished());
         QVERIFY2(!run.isError(), qPrintable(run.error().message()));
-        QCOMPARE(opened, QStringList{found.first().id});
+        QCOMPARE(events, (QStringList{QStringLiteral("token kwin-token"), QStringLiteral("open ") + found.first().id}));
 
         QDBusPendingReply<> teardown = call(QStringLiteral("Teardown"));
         QVERIFY(teardown.isFinished());
