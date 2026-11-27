@@ -7,6 +7,10 @@
 # KItemModels and KFileMetaData. Everything that talks to the desktop (KConfig, KIO, KNotifications, KWindowSystem,
 # Akonadi, KDE PIM, D-Bus) belongs to DesktopServices, IPC, DesktopGui or a plugin.
 #
+# Mail automation (rules, new-mail announcements and where reports go) is kept apart from the shell and the reader:
+# its headers are included only by the automation sources themselves and by src/Gui/Window.cpp, which wires it in.
+# The activity log and its dialog are generic and may be used anywhere.
+#
 # LINKS_FILE has one line per core target: "<target>=<library>|<library>|...". DESKTOP_SOURCES lists the files,
 # relative to SOURCE_DIR, which live in src/UiUtils but are built into DesktopServices; their headers are exempt too.
 
@@ -78,11 +82,36 @@ if(checked EQUAL 0)
     message(FATAL_ERROR "No core sources found under ${SOURCE_DIR}")
 endif()
 
+# Automation headers outside the automation and the window
+set(automation_units MailAutomation RulesDialog RuleEditDialog NotificationsDialog MailRules MailRulesSettings NewMail
+    NewMailSettings NewMailWatcher OutputSurfaces)
+string(REPLACE ";" "|" automation_names "${automation_units}")
+set(automation_include "^[ \t]*#[ \t]*include[ \t]*[<\"]([A-Za-z]+/)?(${automation_names})[.]h[>\"]")
+file(GLOB_RECURSE gui_sources RELATIVE "${SOURCE_DIR}" LIST_DIRECTORIES false
+    "${SOURCE_DIR}/src/*.h" "${SOURCE_DIR}/src/*.cpp")
+set(automation_checked 0)
+foreach(source ${gui_sources})
+    get_filename_component(unit "${source}" NAME_WE)
+    list(FIND automation_units "${unit}" is_automation)
+    if(is_automation GREATER -1 OR source STREQUAL "src/Gui/Window.cpp")
+        continue()
+    endif()
+    math(EXPR automation_checked "${automation_checked} + 1")
+    file(STRINGS "${SOURCE_DIR}/${source}" includes REGEX "^[ \t]*#[ \t]*include")
+    foreach(include ${includes})
+        if(include MATCHES "${automation_include}")
+            string(STRIP "${include}" include)
+            list(APPEND problems "${source} reaches into mail automation: ${include}")
+        endif()
+    endforeach()
+endforeach()
+
 if(problems)
     list(LENGTH problems count)
     string(REPLACE ";" "\n  " listed "${problems}")
     message(FATAL_ERROR "${count} architecture boundary problem(s):\n  ${listed}\n"
-        "Move code that uses KDE desktop services to DesktopServices, IPC, DesktopGui or a plugin; "
-        "see docs/integrations/kde-plasma.md#service-boundaries.")
+        "Move code that uses KDE desktop services to DesktopServices, IPC, DesktopGui or a plugin, and reach mail "
+        "automation only through src/Gui/Window.cpp; see docs/integrations/kde-plasma.md#service-boundaries.")
 endif()
 message(STATUS "Mail core is free of desktop services: ${checked} sources checked")
+message(STATUS "Mail automation is reached only through the window: ${automation_checked} sources checked")

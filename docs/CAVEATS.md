@@ -57,6 +57,8 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Plasma widgets](#plasma-widgets)
   - [POP3 accounts](#pop3-accounts)
   - [JMAP accounts](#jmap-accounts)
+  - [Mail rules](#mail-rules)
+  - [New-mail notifications and activity](#new-mail-notifications-and-activity)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -100,6 +102,8 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Plasma widgets    | The Mail Status and Mail Ticker widgets are untried in a Plasma session; senders and subjects come only from indexed accounts, counts cover INBOX only, and there are no data while the app is not running ([details](#plasma-widgets))                                                                                                                                                                                                               | [#477](https://github.com/mikepadiernos/plasma-impresario/issues/477)                                                                        |
 | ![Limitation][limitation] | POP3              | Mail removed from the server exists only on this computer and goes with the account; one inbox, no offline search index and no sent copies ([details](#pop3-accounts))                                                                                                                                                                                                                                                                                | [#478](https://github.com/mikepadiernos/plasma-impresario/issues/478)                                                                        |
 | ![Limitation][limitation] | JMAP              | No push, so new mail waits for the next synchronization; messages download one at a time; folders made before the first synchronization stay local; no offline search index ([details](#jmap-accounts))                                                                                                                                                                                                                                               | [#488](https://github.com/mikepadiernos/plasma-impresario/issues/488)                                                                        |
+| ![Limitation][limitation] | Mail rules        | Rules see new mail only in folders the application has open, cover IMAP accounts only, cannot check message text, dates or sizes, and preview only the loaded rows ([details](#mail-rules))                                                                                                                                                                                                                                                           | [#491](https://github.com/mikepadiernos/plasma-impresario/issues/491)                                                                        |
+| ![Limitation][limitation] | New mail          | Folders other than a background account's INBOX are announced by count, mail moved by a rule is counted, and POP3 and JMAP mail is not announced ([details](#new-mail-notifications-and-activity))                                                                                                                                                                                                                                                    | [#492](https://github.com/mikepadiernos/plasma-impresario/issues/492)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -2487,6 +2491,122 @@ Plasma session; that check is
 - Run another synchronization when changes were made during one.
 - Index JMAP mail for offline search, Plasma Search and the widgets.
 - Try hosted providers such as Fastmail in a Plasma 6 session.
+
+### Mail rules
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                            |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| [#491](https://github.com/mikepadiernos/plasma-impresario/issues/491) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/491#issuecomment-7223090175) | [M07](ROADMAP.md#m07-output-notifications-and-rules-automation) ([#46](https://github.com/mikepadiernos/plasma-impresario/issues/46)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] **Mail Rules…** in the application menu keeps rules
+  in the order they run. Each covers one account or every account and the
+  INBOX or chosen folders, matches all or any of its conditions on senders,
+  recipients, subject, attachments, folder, tags and junk, and moves,
+  archives, deletes, flags, marks read, tags or announces the message.
+- ![Resolved][resolved] The first matching rule that moves a message decides
+  where it goes and ends the evaluation; **Skip the rules after this one for
+  matching messages** ends it too.
+- ![Resolved][resolved] A rule that moves messages runs on new mail by
+  itself only after its current version was previewed. Until then it waits,
+  and the activity log offers **Review Rule**. **Apply to Folder…** asks
+  before it runs a rule on the folder shown. Actions the server refuses are
+  reported as failed in the activity log.
+- ![Resolved][resolved] **Create Rule from Search…** in the mailbox menu and
+  **Create Rule...** on a saved search turn a search into conditions and
+  preview the matches at once. Searches that rules cannot check are refused
+  with the reason.
+- ![Limitation][limitation] Rules run on mail the application sees arrive.
+  An account that is not shown keeps its INBOX open for this; the shown
+  account's INBOX and every other folder are checked only while open in the
+  window, or when the folder is opened again.
+- ![Limitation][limitation] Only IMAP accounts are covered. POP3 and JMAP
+  accounts keep their mail in a local store that the rules do not watch.
+- ![Limitation][limitation] Message text, dates and sizes cannot be checked
+  on arrival.
+- ![Limitation][limitation] A preview and **Apply to Folder…** look at the
+  folder shown in the window, and only at the messages loaded in its list.
+- ![Limitation][limitation] A rule made from a saved search takes its text
+  only, not its choice of fields. The preview made when it is added counts as
+  its review, so a moving rule made that way runs on its own once saved.
+- ![Limitation][limitation] Rules are tested without a server; moves and
+  refusals on a real server are not exercised, and nothing is checked in a
+  Plasma session. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- Keep the folders a rule covers open in the window now and then, so that
+  rules see their new mail.
+- Load the whole list (scroll to the end) before a preview, then use
+  **Apply to Folder…** for mail that arrived before the rule existed.
+- Use a search or a saved search for conditions on message text, dates or
+  sizes.
+- Check the conditions of a rule made from a saved search before saving.
+- Try a rule that only flags, tags or marks read first, and add moving
+  actions once its matches look right.
+
+**Proposed improvements:**
+
+- Check folders other than the open one in the background.
+- Run rules on POP3 and JMAP accounts through their local stores.
+- Preview against the server with a search instead of the loaded rows.
+- Carry a saved search's field choices into the rule.
+- Validate rules against the disposable Dovecot and in a Plasma session.
+
+### New-mail notifications and activity
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                   |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [#492](https://github.com/mikepadiernos/plasma-impresario/issues/492) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/492#issuecomment-7223091124) | [M07](ROADMAP.md#m07-output-notifications-and-rules-automation) ([#45](https://github.com/mikepadiernos/plasma-impresario/issues/45), [#377](https://github.com/mikepadiernos/plasma-impresario/issues/377)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Each IMAP account has one notification for its new
+  mail, updated as mail arrives, with **Open**, **Mark as Read** and, for a
+  single message, **Delete**. Mail already read, old mail moved into the
+  folder and the conversation being read are skipped.
+- ![Resolved][resolved] **Configure Notifications…** in the application menu
+  chooses per account **Each message, in one updated notification**, **A
+  summary** (every 15 minutes at most by default) or **Nothing**, and the
+  folders announced besides the INBOX. **Wait while the window is in use**
+  and **Show senders and subjects** apply to every account. **Notify About
+  New Mail** on a folder turns it on or off there.
+- ![Resolved][resolved] The **Activity** window, opened from the application
+  menu or the status bar button, lists connections, offline text downloads
+  with progress, attachment scans, rules and announcements, with **Retry**,
+  **Sign In**, **Review Rule**, **Open Settings** or **Open Account** where
+  they help.
+- ![Limitation][limitation] Folders other than a background account's INBOX
+  are announced from their unread counts, looked at every two minutes, so
+  their notification gives a count rather than senders and subjects.
+- ![Limitation][limitation] Mail a rule moves to another folder is announced
+  by count, as its place in that folder is not known yet.
+- ![Limitation][limitation] Mail that arrived while the application was
+  closed is announced only if it is unread and was received after the
+  folder's last check, less ten minutes for delivery delays.
+- ![Limitation][limitation] POP3 and JMAP mail is not announced; their
+  connection state is still in the activity log.
+- ![Limitation][limitation] The decisions are tested without a desktop; the
+  notification and its actions are untried in a Plasma session. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- Open a folder, or add a rule with **Notify** for the mail that matters, to
+  have senders and subjects announced from folders other than the INBOX.
+- Check the **Activity** window after starting the application to see what
+  arrived while it was closed and what rules did.
+- Keep POP3 and JMAP folders open in the window to see their new mail.
+
+**Proposed improvements:**
+
+- Watch announced folders in the background so they can list senders and
+  subjects.
+- Look up where a rule moved a message so it can be listed.
+- Announce POP3 and JMAP mail from their local stores.
+- Try the notification and its actions in a Plasma 6 session.
 
 ## Before reporting results
 

@@ -72,6 +72,8 @@ signals:
     void foldersChoiceRequested(const QString &owner, const QString &id);
     /** @short The folders of the search which are gone should be left out */
     void missingFoldersRemovalRequested(const QString &owner, const QString &id);
+    /** @short The user wants a mail rule which matches what the search finds */
+    void ruleRequested(const QString &owner, const QString &id);
     /** @short The user moved a search; @arg searches are in their new order */
     void orderChanged(const QList<UiUtils::SavedSearch> &searches);
 
@@ -107,6 +109,7 @@ private:
     QMenu *m_menu;
     QAction *m_run;
     QAction *m_edit;
+    QAction *m_makeRule;
     QAction *m_rename;
     QAction *m_moveUp;
     QAction *m_moveDown;

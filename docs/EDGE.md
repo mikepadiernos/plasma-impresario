@@ -38,6 +38,7 @@ Legend: ![Verified][verified] against a synthetic live IMAP server ·
   - [Search](#search)
   - [Interface and embedded panels](#interface-and-embedded-panels)
   - [Desktop integration](#desktop-integration)
+  - [Rules, notifications and activity](#rules-notifications-and-activity)
 - [Validation checklist](#validation-checklist)
 
 ## Candidate scenarios
@@ -613,6 +614,27 @@ parentheses are the expected behavior.
 | Plasma widgets    | Notices for a stopped, silent or non-sharing application; messages, counts when no message can be shown, an empty subject; Left, Right, Enter and Space; paging and pausing                                           | ![Offscreen tests][offscreen] `test_PlasmaWidgetViews`                                                                                                          |
 | Plasma widgets    | Two accounts, the INBOX count matching the folder list, the unread rows of the INBOX as the newest unread mail, account and folder filters, the limit, and opening a message from its ID, on a live server            | ![Verified][verified] `test_LiveImapSearch`                                                                                                                     |
 | Plasma widgets    | Both widgets on a panel and the desktop in Plasma 6, reduced motion, small panels, starting the application from a widget, and a second profile                                                                       | ![Not validated][not-validated] ([caveat](CAVEATS.md#plasma-widgets))                                                                                           |
+
+### Rules, notifications and activity
+
+| Area     | Scenario                                                                                                                                               | Coverage                                                                                 |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Rules    | Each field and comparison, all or any conditions, junk and attachments                                                                                 | ![Offscreen tests][offscreen] `test_MailRules`                                           |
+| Rules    | Disabled rules, rules for another account or folder, and **Skip the rules after this one**                                                             | ![Offscreen tests][offscreen] `test_MailRules`                                           |
+| Rules    | Flags, tags and marks from several rules add up until the first rule that moves the message                                                            | ![Offscreen tests][offscreen] `test_MailRules`                                           |
+| Rules    | A moving rule waits for a preview; a rule that only marks does not                                                                                     | ![Offscreen tests][offscreen] `test_MailRules`, `test_MailAutomation`                    |
+| Rules    | A search with AND, OR and NOT becomes a rule; body text, dates and nested groups are refused                                                           | ![Offscreen tests][offscreen] `test_MailRules`                                           |
+| Rules    | The rule list's order and switches, the editor refusing an incomplete rule, a preview marking the rule reviewed, and **Apply to Folder…** asking first | ![Offscreen tests][offscreen] `test_RulesDialog`                                         |
+| Rules    | Rules and notification settings saved and read back, unreadable entries dropped, an account removed and a folder renamed                               | ![Offscreen tests][offscreen] `test_AutomationSettings`                                  |
+| Rules    | A move or tag refused by a real server, and rules on a live account                                                                                    | ![Not validated][not-validated] ([#491](CAVEATS.md#mail-rules))                          |
+| New mail | Read mail, mail older than the last check, the conversation being read, and folders not announced are skipped                                          | ![Offscreen tests][offscreen] `test_NewMail`                                             |
+| New mail | One entry per message, the newest few listed and the rest counted, and summaries spaced out                                                            | ![Offscreen tests][offscreen] `test_NewMail`                                             |
+| New mail | The first look records what is there; a new UIDVALIDITY starts over; mail that came while the application was closed is reported                       | ![Offscreen tests][offscreen] `test_NewMailWatcher`                                      |
+| New mail | Mail in sight is not announced; mail read elsewhere leaves the notification; **Mark as Read** from the notification                                    | ![Offscreen tests][offscreen] `test_MailAutomation`                                      |
+| New mail | The notification, its actions and Do Not Disturb in a Plasma 6 session                                                                                 | ![Not validated][not-validated] ([#492](CAVEATS.md#new-mail-notifications-and-activity)) |
+| Activity | Newest first, entries with the same key merged, old finished entries dropped before failures, and clearing keeping failures                            | ![Offscreen tests][offscreen] `test_ActivityLog`, `test_ActivityDialog`                  |
+| Activity | Where each event is reported, with progress never reaching the desktop                                                                                 | ![Offscreen tests][offscreen] `test_OutputSurfaces`                                      |
+| Activity | Connection state, offline text downloads and attachment scans appear in the log                                                                        | ![Offscreen tests][offscreen] `test_MainWindowShell`, `test_MailSafetyPrompt`            |
 
 ## Validation checklist
 

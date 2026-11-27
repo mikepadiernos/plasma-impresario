@@ -89,23 +89,24 @@ show the container's default Qt style rather than a Plasma theme.
 
 ## Project status
 
-As of 2026-11-26. **Done** counts roadmap features whose issues are
+As of 2026-11-27. **Done** counts roadmap features whose issues are
 ![Completed][completed] or ![Merged][merged] on the
 [project board](https://github.com/users/mikepadiernos/projects/4); **Board**
 is the milestone's parent issue.
 
-| Milestone                                                                                | Branch | Done                                                                 | Board                       | Notes                                                                                                   |
-| ---------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------- |
-| [M01](docs/ROADMAP.md#m01-kde--qt6-compatibility-baseline) KDE / Qt 6 baseline           | `main` | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]           | Builds, installs and launches with Qt 6 and KF6                                                         |
-| [M02](docs/ROADMAP.md#m02-shell-accounts-and-core-mailbox-foundation) Shell and accounts | `main` | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]           | Checks in a real Plasma session moved to M15                                                            |
-| [M03](docs/ROADMAP.md#m03-mail-operations-sorting-and-folder-management) Mail operations | `main` | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]           | Destructive actions verified against a live server                                                      |
-| [M04](docs/ROADMAP.md#m04-reading-and-conversation-flow) Reading and conversations       | `main` | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #451](https://github.com/mikepadiernos/plasma-impresario/pull/451)                        |
-| [M05](docs/ROADMAP.md#m05-search-and-indexing) Search and indexing                       | `main` | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #455](https://github.com/mikepadiernos/plasma-impresario/pull/455)                        |
-| [M06](docs/ROADMAP.md#m06-desktop-integration-and-provider-support) Desktop integration  | `main` | ![26 of 26 done](https://img.shields.io/badge/26%2F26-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #489](https://github.com/mikepadiernos/plasma-impresario/pull/489)                        |
-| M07–M08: automation, settings                                                            | —      | —                                                                    | ![Backlog][backlog]         | Not started                                                                                             |
-| [M09](docs/ROADMAP.md#m09-themes-and-branding-foundation) Themes and branding            | —      | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development] | Started with the product rename ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)) |
-| M10–M14: reliability, release, Nextcloud, Microsoft, refinements                         | —      | —                                                                    | ![Backlog][backlog]         | Not started                                                                                             |
-| [M15](docs/ROADMAP.md#m15-real-plasma-session-verification) Real Plasma session checks   | —      | ![0 of 4 done](https://img.shields.io/badge/0%2F4-0%25-6e7781)       | ![Defined][defined]         | Needs a real Plasma session                                                                             |
+| Milestone                                                                                    | Branch                   | Done                                                                 | Board                       | Notes                                                                                                   |
+| -------------------------------------------------------------------------------------------- | ------------------------ | -------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------- |
+| [M01](docs/ROADMAP.md#m01-kde--qt6-compatibility-baseline) KDE / Qt 6 baseline               | `main`                   | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]           | Builds, installs and launches with Qt 6 and KF6                                                         |
+| [M02](docs/ROADMAP.md#m02-shell-accounts-and-core-mailbox-foundation) Shell and accounts     | `main`                   | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]           | Checks in a real Plasma session moved to M15                                                            |
+| [M03](docs/ROADMAP.md#m03-mail-operations-sorting-and-folder-management) Mail operations     | `main`                   | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]           | Destructive actions verified against a live server                                                      |
+| [M04](docs/ROADMAP.md#m04-reading-and-conversation-flow) Reading and conversations           | `main`                   | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #451](https://github.com/mikepadiernos/plasma-impresario/pull/451)                        |
+| [M05](docs/ROADMAP.md#m05-search-and-indexing) Search and indexing                           | `main`                   | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #455](https://github.com/mikepadiernos/plasma-impresario/pull/455)                        |
+| [M06](docs/ROADMAP.md#m06-desktop-integration-and-provider-support) Desktop integration      | `main`                   | ![26 of 26 done](https://img.shields.io/badge/26%2F26-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #489](https://github.com/mikepadiernos/plasma-impresario/pull/489)                        |
+| [M07](docs/ROADMAP.md#m07-output-notifications-and-rules-automation) Rules and notifications | `feature/m07-automation` | ![11 of 11 done](https://img.shields.io/badge/11%2F11-100%25-1a7f37) | ![Completed][completed]     | Ready to merge; rules are not yet tried on a live server                                                |
+| M08: settings                                                                                | —                        | —                                                                    | ![Backlog][backlog]         | Not started                                                                                             |
+| [M09](docs/ROADMAP.md#m09-themes-and-branding-foundation) Themes and branding                | —                        | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development] | Started with the product rename ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)) |
+| M10–M14: reliability, release, Nextcloud, Microsoft, refinements                             | —                        | —                                                                    | ![Backlog][backlog]         | Not started                                                                                             |
+| [M15](docs/ROADMAP.md#m15-real-plasma-session-verification) Real Plasma session checks       | —                        | ![0 of 4 done](https://img.shields.io/badge/0%2F4-0%25-6e7781)       | ![Defined][defined]         | Needs a real Plasma session                                                                             |
 
 The [roadmap overview](docs/ROADMAP.md#milestones-at-a-glance) tracks every
 milestone, and [pending tasks](docs/TODO.md#in-progress) record what each one
@@ -586,6 +587,34 @@ be reached with the keyboard. See
 [Appearance and accessibility](docs/integrations/kde-plasma.md#appearance-and-accessibility)
 and [Accessibility and theming](docs/CAVEATS.md#accessibility-and-theming).
 
+### Rules, notifications and activity
+
+**Mail Rules…** in the application menu keeps rules in the order they run.
+Each rule covers one account or every account and the INBOX or chosen
+folders, matches all or any of its conditions on the sender, recipients,
+subject, attachments, folder, tags or junk, and moves, archives, deletes,
+flags, marks read, tags or announces the message. **Preview** lists what a
+rule matches in the folder shown, and **Apply to Folder…** runs it there after
+asking. A rule that moves messages runs on new mail by itself only after its
+current version was previewed; until then the activity log asks for a
+review. **Create Rule from Search…** in the mailbox menu, or **Create
+Rule...** on a saved search, turns a search into a rule and previews it. See
+[Mail rules](docs/CAVEATS.md#mail-rules).
+
+New mail in each IMAP account is announced in one desktop notification,
+updated as mail arrives, with **Open**, **Mark as Read** and, for a single
+message, **Delete**. Mail already read, old mail moved into the INBOX and the
+conversation you are reading are left out. **Configure Notifications…** sets
+each account to every message, a summary or nothing, chooses the folders
+announced besides the INBOX, waits while the window is in use, and can hide
+senders and subjects; **Notify About New Mail** on a folder turns it on there.
+
+The **Activity** window, opened from the application menu or the button in the
+status bar, lists connections, offline text downloads, attachment scans, rules
+and announcements, newest first, with **Retry**, **Sign In** or **Review
+Rule** where they help. See
+[New-mail notifications and activity](docs/CAVEATS.md#new-mail-notifications-and-activity).
+
 ### Command line
 
 | Option                | Effect                                                         |
@@ -659,7 +688,7 @@ flowchart TD
     A -.-> G[M15 real Plasma session checks]
 ```
 
-Rules, theme profiles, an optional Vim mode and workspace features are planned.
+Theme profiles, an optional Vim mode and workspace features are planned.
 [Plasma Opus](docs/integrations/plasma-opus.md) is the companion file manager;
 the two apps are planned to share file dialogs, themes, Vim mode settings and
 workspace context. The [scope](docs/philosophy/scope.md) sets the product
