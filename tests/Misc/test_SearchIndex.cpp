@@ -523,6 +523,44 @@ void SearchIndexTest::testQuickMatches()
     QCOMPARE(found.first().sent, QDate(2026, 2, 5));
 }
 
+void SearchIndexTest::testFollowUps()
+{
+    SearchIndex *index = m_indexer->index();
+    const auto locations = [index](int limit = 10) {
+        QStringList result;
+        const auto found = index->followUps(limit);
+        for (const auto &summary : found) {
+            result << QStringLiteral("%1:%2:%3:%4")
+                          .arg(summary.location.mailbox, QString::number(summary.location.uid),
+                               QString::number(summary.location.uidValidity),
+                               summary.toDo ? QStringLiteral("todo") : QStringLiteral("flag"));
+        }
+        return result;
+    };
+
+    // Only the lunch is flagged
+    QCOMPARE(locations(), QStringList{QStringLiteral("INBOX:2:100:flag")});
+    const auto lunch = index->followUps(10);
+    QCOMPARE(lunch.constFirst().subject, QStringLiteral("Lunch"));
+    QVERIFY(lunch.constFirst().sender.contains(QLatin1String("Bob")));
+    QCOMPARE(lunch.constFirst().sent, QDate(2026, 2, 5));
+    QVERIFY(lunch.constFirst().messageId.contains(QLatin1String("2@example.org")));
+    // Other lookups leave the details out
+    QVERIFY(index->quickMatches({QStringLiteral("lunch")}, 10).constFirst().messageId.isEmpty());
+
+    // $TODO in any case counts, and a deleted message does not
+    m_cache->setMsgFlags(archive, 5, {QStringLiteral("$ToDo"), QStringLiteral("\\Seen")});
+    m_cache->setMsgFlags(inbox, 3, {QStringLiteral("\\Flagged"), QStringLiteral("\\Deleted")});
+    runIndexer();
+    QCOMPARE(locations(), (QStringList{QStringLiteral("INBOX:2:100:flag"), QStringLiteral("Archive:5:7:todo")}));
+    QCOMPARE(locations(1), QStringList{QStringLiteral("INBOX:2:100:flag")});
+    QVERIFY(locations(0).isEmpty());
+
+    m_cache->setMsgFlags(inbox, 2, {QStringLiteral("\\Seen")});
+    runIndexer();
+    QCOMPARE(locations(), QStringList{QStringLiteral("Archive:5:7:todo")});
+}
+
 void SearchIndexTest::testRemovedFolder()
 {
     m_cache->setChildMailboxes(QString(), {MailboxMetadata(inbox, QStringLiteral("/"), {QStringLiteral("\\HasNoChildren")})});
