@@ -55,6 +55,10 @@ public:
 
     NameEmailList complete(const QString &string, const QStringList &ignores, int max = -1) const;
     QStringList prettyNamesForAddress(const QString &mail) const;
+    /** @short The first contact with @arg mail; a photo is read only from a file in the abook folder or a local path */
+    ContactDetails contactDetails(const QString &mail) const;
+    /** Photos larger than this are left out */
+    static constexpr qint64 maximumPhotoSize = 2 * 1024 * 1024;
 
     QStandardItemModel *model() const;
 
@@ -63,6 +67,7 @@ public slots:
     Plugins::AddressbookNamesJob *requestPrettyNamesForAddress(const QString &email) override;
     void openAddressbookWindow() override;
     void openContactWindow(const QString &email, const QString &displayName) override;
+    Plugins::AddressbookContactJob *requestContactDetails(const QString &email) override;
 
     void saveContacts();
     void readAbook(bool update = false);

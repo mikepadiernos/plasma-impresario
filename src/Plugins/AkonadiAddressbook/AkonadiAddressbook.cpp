@@ -22,7 +22,14 @@
 
 #include "AkonadiAddressbook.h"
 #include "AkonadiAddressbookCompletionJob.h"
+#include "AkonadiAddressbookContactJob.h"
 #include "AkonadiAddressbookNamesJob.h"
+
+#include <QApplication>
+#include <QDebug>
+
+#include <Akonadi/AddEmailAddressJob>
+#include <Akonadi/OpenEmailAddressJob>
 
 AkonadiAddressbook::AkonadiAddressbook(QObject *parent): AddressbookPlugin(parent)
 {
@@ -34,7 +41,8 @@ AkonadiAddressbook::~AkonadiAddressbook()
 
 AddressbookPlugin::Features AkonadiAddressbook::features() const
 {
-    return FeatureCompletion | FeaturePrettyNames;
+    return FeatureContactWindow | FeatureAddContact | FeatureEditContact | FeatureCompletion | FeaturePrettyNames
+        | FeatureContactDetails;
 }
 
 AddressbookCompletionJob *AkonadiAddressbook::requestCompletion(const QString &input, const QStringList &ignores, int max)
@@ -54,7 +62,27 @@ void AkonadiAddressbook::openAddressbookWindow()
 
 void AkonadiAddressbook::openContactWindow(const QString &email, const QString &displayName)
 {
-    qWarning() << "AkonadiAddressbook::openContactWindow not implemented";
+    Q_UNUSED(displayName);
+    // Opens the existing contact, or offers to add the address when there is none
+    auto job = new Akonadi::OpenEmailAddressJob(email, QApplication::activeWindow(), this);
+    job->start();
+}
+
+AddressbookContactJob *AkonadiAddressbook::requestContactDetails(const QString &email)
+{
+    return new AkonadiAddressbookContactJob(email, this);
+}
+
+void AkonadiAddressbook::addContact(const QString &email, const QString &displayName)
+{
+    QString address = email;
+    if (!displayName.isEmpty()) {
+        QString name = displayName;
+        name.replace(QLatin1Char('\\'), QLatin1String("\\\\")).replace(QLatin1Char('"'), QLatin1String("\\\""));
+        address = QLatin1Char('"') + name + QLatin1String("\" <") + email + QLatin1Char('>');
+    }
+    auto job = new Akonadi::AddEmailAddressJob(address, QApplication::activeWindow(), this);
+    job->start();
 }
 
 QString trojita_plugin_AkonadiAddressbookPlugin::name() const

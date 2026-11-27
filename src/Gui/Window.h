@@ -281,6 +281,7 @@ private slots:
     void authenticationRequested();
     void authenticationContinue(const QString &pass, const QString &errorMessage = QString());
     void slotManageContact(const QUrl &url);
+    void slotAddContact(const QUrl &url);
     /** Report a saved file and offer to show it in the file manager */
     void slotFileSaved(const QString &fileName);
     void showSavedFileInFolder(const QString &fileName);

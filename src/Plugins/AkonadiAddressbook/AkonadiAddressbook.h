@@ -50,6 +50,8 @@ public slots:
     virtual Plugins::AddressbookNamesJob *requestPrettyNamesForAddress(const QString &email);
     virtual void openAddressbookWindow();
     virtual void openContactWindow(const QString &email, const QString &displayName);
+    Plugins::AddressbookContactJob *requestContactDetails(const QString &email) override;
+    void addContact(const QString &email, const QString &displayName) override;
 };
 
 class trojita_plugin_AkonadiAddressbookPlugin : public QObject, public AddressbookPluginInterface

@@ -1894,6 +1894,7 @@ void MainWindow::createWidgets()
     }
     connect(m_contactPanel, &ContactPanel::composeRequested, this, &MainWindow::slotComposeMailUrl);
     connect(m_contactPanel, &ContactPanel::manageContactRequested, this, &MainWindow::slotManageContact);
+    connect(m_contactPanel, &ContactPanel::addContactRequested, this, &MainWindow::slotAddContact);
     connect(m_relatedMessagesPanel, &RelatedMessagesPanel::messageActivated, this, &MainWindow::activateRelatedMessage);
     const auto messageAccount = [this](const QModelIndex &message) {
         return accountOfModel(qobject_cast<const Imap::Mailbox::Model *>(Imap::deproxifiedIndex(message).model()));
@@ -5711,6 +5712,19 @@ void MainWindow::slotManageContact(const QUrl &url)
     addressbook->openContactWindow(addr.mailbox + QLatin1Char('@') + addr.host, addr.name);
 }
 
+void MainWindow::slotAddContact(const QUrl &url)
+{
+    Imap::Message::MailAddress addr;
+    if (!Imap::Message::MailAddress::fromUrl(addr, url, QStringLiteral("x-trojita-manage-contact")))
+        return;
+
+    Plugins::AddressbookPlugin *addressbook = pluginManager()->addressbook();
+    if (!addressbook)
+        return;
+
+    addressbook->addContact(addr.mailbox + QLatin1Char('@') + addr.host, addr.name);
+}
+
 void MainWindow::invokeContactEditor()
 {
     Plugins::AddressbookPlugin *addressbook = pluginManager()->addressbook();
@@ -9467,7 +9481,7 @@ void MainWindow::slotPluginsChanged()
     else
         m_actionContactEditor->setEnabled(true);
     if (m_contactPanel)
-        m_contactPanel->setAddressBookAvailable(addressbook != nullptr);
+        m_contactPanel->setAddressBook(addressbook);
 }
 
 /** @short Update the default action to make sure that we show a correct status of the network connection */

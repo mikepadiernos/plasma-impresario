@@ -92,7 +92,8 @@ if(WITH_WEBENGINE)
 endif()
 
 trojita_find_package(KPim6AkonadiContactCore "" "" "" "Required for building Akonadi address book plugin")
-trojita_plugin_option(WITH_AKONADIADDRESSBOOK_PLUGIN "Build AkonadiAddressbook plugin" KPim6AkonadiContactCore_FOUND)
+trojita_find_package(KPim6AkonadiContactWidgets "" "" "" "Required for opening and adding contacts in the Akonadi address book plugin")
+trojita_plugin_option(WITH_AKONADIADDRESSBOOK_PLUGIN "Build AkonadiAddressbook plugin" KPim6AkonadiContactCore_FOUND KPim6AkonadiContactWidgets_FOUND)
 
 trojita_plugin_option(WITH_ABOOKADDRESSBOOK_PLUGIN "Build AbookAddressbook plugin" STATIC)
 trojita_plugin_option(WITH_CLEARTEXT_PLUGIN "Build Cleartext password plugin" STATIC)
@@ -935,11 +936,13 @@ if(WITH_AKONADIADDRESSBOOK_PLUGIN)
     set(libAkonadiAddressbook_HEADERS
         ${path_AkonadiAddressbook}/AkonadiAddressbook.h
         ${path_AkonadiAddressbook}/AkonadiAddressbookCompletionJob.h
+        ${path_AkonadiAddressbook}/AkonadiAddressbookContactJob.h
         ${path_AkonadiAddressbook}/AkonadiAddressbookNamesJob.h
     )
     set(libAkonadiAddressbook_SOURCES
         ${path_AkonadiAddressbook}/AkonadiAddressbook.cpp
         ${path_AkonadiAddressbook}/AkonadiAddressbookCompletionJob.cpp
+        ${path_AkonadiAddressbook}/AkonadiAddressbookContactJob.cpp
         ${path_AkonadiAddressbook}/AkonadiAddressbookNamesJob.cpp
     )
 
@@ -947,6 +950,7 @@ if(WITH_AKONADIADDRESSBOOK_PLUGIN)
     target_link_libraries(trojita_plugin_AkonadiAddressbookPlugin
         PUBLIC
             KPim6::AkonadiContactCore
+            KPim6::AkonadiContactWidgets
     )
     set_property(TARGET trojita_plugin_AkonadiAddressbookPlugin APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
 endif()
