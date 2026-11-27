@@ -7,7 +7,7 @@
 
 This page is the source of truth for known limitations of implemented
 features, including security and privacy behavior, as verified in the current
-source; caveat statuses match the project board as of 2026-11-25. The
+source; caveat statuses match the project board as of 2026-11-26. The
 [backend](parity/backend.md) and [UI](parity/ui.md) parity references describe
 the implemented baseline alongside recommended parity goals.
 
@@ -37,6 +37,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Search](#search)
   - [Desktop integration](#desktop-integration)
   - [Local data and opened attachments](#local-data-and-opened-attachments)
+  - [Outgoing headers and Bcc](#outgoing-headers-and-bcc)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -66,6 +67,7 @@ issue comment that holds the current recommendation.
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
 | ![Security][security]     | Transport         | Cleartext IMAP remains selectable; account configuration determines whether TLS is used ([details](#security-and-data-protection))                                                                                                                                                                                                                                                                                                                    | —                                                                                                                                            |
 | ![Security][security]     | Local data        | The cache and opened attachments are kept user-only, and opened copies are removed after a day, but the application does not encrypt the cache, and files created between starts are tightened at the next start ([details](#local-data-and-opened-attachments))                                                                                                                                                                                      | [#458](https://github.com/mikepadiernos/plasma-impresario/issues/458)                                                                        |
+| ![Security][security]     | Outgoing headers  | Header input is cleaned and Bcc is left out of delivered mail, but Sent copies delivered through BURL or the IMAP SENDMAIL Extension also omit Bcc, and cleaned input is not pointed out ([details](#outgoing-headers-and-bcc))                                                                                                                                                                                                                       | [#459](https://github.com/mikepadiernos/plasma-impresario/issues/459)                                                                        |
 | ![Planned][planned]       | Integrations      | Plasma new-mail notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                                                                                                                                                                                                                                                                                       | —                                                                                                                                            |
 | ![Limitation][limitation] | Compatibility     | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                                                                                                                                                                                                                                                          | —                                                                                                                                            |
 | ![Limitation][limitation] | Quality evidence  | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded; nothing has been checked in a real Plasma session yet                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
@@ -1374,6 +1376,52 @@ Plasma session; that check is
   setting for how long copies are kept.
 - Offer encryption of the offline cache and index with a key from the wallet.
 
+### Outgoing headers and Bcc
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                           |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [#459](https://github.com/mikepadiernos/plasma-impresario/issues/459) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/459#issuecomment-7208697224) | New messages, replies, forwards, redirected messages, mailto: links, the copy filed in Sent and saved drafts ([#373](https://github.com/mikepadiernos/plasma-impresario/issues/373)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Every value written to a header is cleaned first. In
+  the subject, organization, names and attachment names, each run of line
+  breaks, tabs, C0 and C1 controls, NEL and the Unicode line and paragraph
+  separators becomes one space. In addresses, the SMTP envelope, In-Reply-To,
+  References and MIME types these characters are removed. A mailto: subject is
+  cleaned when the link opens.
+- ![Resolved][resolved] The copy handed to the outgoing server never lists Bcc
+  or Resent-Bcc; the server still delivers to those recipients.
+- ![Resolved][resolved] The copy filed in Sent lists Bcc, and drafts keep each
+  recipient with its kind, Bcc included.
+- ![Resolved][resolved] Message-IDs are a random UUID at the sender's domain,
+  IDN-encoded, and never contain the computer's host name. Without a usable
+  domain, such as an IP address literal, `localhost` is used.
+- ![Limitation][limitation] When **Send with BURL** or the **IMAP SENDMAIL
+  Extension** delivers the copy stored in Sent, that copy omits Bcc, so Sent
+  does not show who was blind-copied.
+- ![Limitation][limitation] Cleaned input is not pointed out; pasted line
+  breaks silently become spaces.
+
+**Workarounds:**
+
+- To keep Bcc in the Sent folder, turn off **Send with BURL** and choose SMTP
+  or a local sendmail instead of the **IMAP SENDMAIL Extension** in the
+  account's outgoing settings.
+- Check the subject after pasting multi-line text.
+- Use a sender address with a domain name rather than an IP address literal.
+- If others can read your Sent folder, send a separate message instead of a
+  blind copy.
+
+**Proposed improvements:**
+
+- Show a short note under a field whose pasted text was cleaned.
+- With BURL or the IMAP SENDMAIL Extension, record Bcc recipients through a
+  private keyword or a local note instead of a header.
+- Offer a setting to leave Bcc out of the Sent copy for shared Sent folders.
+- Use the domain of the account's outgoing server for Message-IDs when the
+  sender address has none.
+
 ## Before reporting results
 
 - [ ] Confirm the desktop environment and display server.
@@ -1398,6 +1446,7 @@ Plasma session; that check is
 | Credentials       | The password-plugin interface supports retrieval, storage and deletion. QtKeychain can provide encrypted storage when built and selected, and is the default for new profiles. Each account keeps its own stored passwords, which are deleted when the account is removed.                                                                         | QtKeychain is optional. Profiles that already have saved cleartext passwords keep the cleartext plugin, which stores IMAP/SMTP secrets in `QSettings`.                                                                                                                                                                      |
 | Message rendering | The reader uses a private profile per message, disables scripts, plugins and persistent storage, blocks local-file and remote requests by default, and delegates permitted external links. Remote images require explicit per-message consent. Switching messages destroys the profile, discarding loaded content and cancelling pending requests. | Renderer behavior has not been smoke-tested in a live Plasma session or across the documented distribution matrix.                                                                                                                                                                                                          |
 | Cached data       | Persistent SQL cache can hold message metadata and fetched parts. Cache folders are 0700 and files 0600, tightened at each start; copies of opened attachments are user-only and removed after a day ([details](#local-data-and-opened-attachments)).                                                                                              | Application-level cache encryption is not present, and the offline search index, with decrypted text when chosen, is stored unencrypted in the cache. Directory permissions do not protect mail from a compromised account or unencrypted disk. Removing an account deletes its cache files without overwriting them first. |
+| Outgoing mail     | Header values are stripped of line breaks and control characters, Bcc and Resent-Bcc are removed from the delivered copy, and Message-IDs use the sender's domain instead of the host name ([details](#outgoing-headers-and-bcc)).                                                                                                                 | Sent copies delivered through BURL or the IMAP SENDMAIL Extension omit Bcc; cleaned input is not pointed out.                                                                                                                                                                                                               |
 | OpenPGP           | Optional GpgME++/Mimetic MIME handling and decryption tests are present.                                                                                                                                                                                                                                                                           | Availability depends on build options; complete signature-status UX and verification policy are not established.                                                                                                                                                                                                            |
 | Diagnostics       | Persistent protocol logging is opt-in at startup; an in-app protocol log is available.                                                                                                                                                                                                                                                             | Treat protocol logs as sensitive and review them before sharing.                                                                                                                                                                                                                                                            |
 
