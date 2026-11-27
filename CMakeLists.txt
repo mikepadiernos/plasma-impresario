@@ -338,9 +338,12 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/Conversations.cpp
     ${path_UiUtils}/Formatting.cpp
     ${path_UiUtils}/IconLoader.cpp
+    ${path_UiUtils}/Keymap.cpp
     ${path_UiUtils}/LinkSafety.cpp
     ${path_UiUtils}/MailRules.cpp
     ${path_UiUtils}/MailSafety.cpp
+    ${path_UiUtils}/MailTabs.cpp
+    ${path_UiUtils}/MailToProductivity.cpp
     ${path_UiUtils}/MailingLists.cpp
     ${path_UiUtils}/MessageId.cpp
     ${path_UiUtils}/MessageIdLookup.cpp
@@ -362,11 +365,13 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/SearchScope.cpp
     ${path_UiUtils}/SearchSuggestions.cpp
     ${path_UiUtils}/SelectionAfterRemoval.cpp
+    ${path_UiUtils}/SettingsSchema.cpp
     ${path_UiUtils}/ServerDiscovery.cpp
     ${path_UiUtils}/ServerDiscoveryNetwork.cpp
     ${path_UiUtils}/ShortcutOverview.cpp
     ${path_UiUtils}/UnreadFolders.cpp
     ${path_UiUtils}/ViewStateStore.cpp
+    ${path_UiUtils}/Workspaces.cpp
 )
 
 if(WITH_WEBENGINE)
@@ -392,6 +397,7 @@ set(libDesktopServices_SOURCES
     ${path_UiUtils}/NewMailSettings.cpp
     ${path_UiUtils}/PlasmaSearch.cpp
     ${path_UiUtils}/SavedSearches.cpp
+    ${path_UiUtils}/SettingsStore.cpp
     ${path_UiUtils}/SleepMonitor.cpp
 )
 
@@ -1687,6 +1693,14 @@ if(BUILD_TESTING)
     target_link_libraries(test_ActivityLog PRIVATE UiUtils)
     trojita_test(Misc OutputSurfaces)
     target_link_libraries(test_OutputSurfaces PRIVATE UiUtils)
+    trojita_test(Misc SettingsSchema)
+    target_link_libraries(test_SettingsSchema PRIVATE UiUtils)
+    trojita_test(Misc Keymap)
+    target_link_libraries(test_Keymap PRIVATE UiUtils)
+    trojita_test(Misc MailToProductivity)
+    target_link_libraries(test_MailToProductivity PRIVATE UiUtils)
+    trojita_test(Misc MailTabs)
+    target_link_libraries(test_MailTabs PRIVATE UiUtils)
     if(WITH_DBUS)
         add_executable(test_KRunnerBridge tests/Misc/test_KRunnerBridge.cpp src/IPC/KRunnerBridge.cpp src/IPC/KRunnerBridge.h)
         target_compile_definitions(test_KRunnerBridge PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
@@ -1750,6 +1764,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_MailStatus PRIVATE DesktopServices KF6::ConfigCore)
         trojita_test(Misc AutomationSettings)
         target_link_libraries(test_AutomationSettings PRIVATE DesktopServices KF6::ConfigCore)
+        trojita_test(Misc SettingsStore)
+        target_link_libraries(test_SettingsStore PRIVATE DesktopServices UiUtils KF6::ConfigCore)
         trojita_test(Gui MailAutomation)
         target_link_libraries(test_MailAutomation PRIVATE DesktopGui UiUtils KF6::ConfigCore KF6::I18n)
         trojita_test(Gui RulesDialog)
