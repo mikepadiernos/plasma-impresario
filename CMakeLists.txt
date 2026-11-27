@@ -357,6 +357,7 @@ endif()
 if(WITH_DESKTOP)
     set(libUiUtils_SOURCES
         ${libUiUtils_SOURCES}
+        ${path_UiUtils}/BackgroundRunning.cpp
         ${path_UiUtils}/DestructiveActions.cpp
         ${path_UiUtils}/FileSearch.cpp
     )
@@ -460,6 +461,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/SavedSearchFolders.cpp
     ${path_DesktopGui}/SearchFoldersDialog.cpp
     ${path_DesktopGui}/SavedFilesSearchDialog.cpp
+    ${path_DesktopGui}/StartAfterLogin.cpp
     ${path_DesktopGui}/SearchIndexDialog.cpp
     ${path_DesktopGui}/SearchResultsPanel.cpp
     ${path_DesktopGui}/MessageActionHandler.cpp
@@ -974,6 +976,7 @@ if(WITH_DESKTOP)
             Composer
             Imap
         PRIVATE
+            Qt::DBus
             Qt::Network
             KF6::ConfigCore
             KF6::I18n
@@ -1019,6 +1022,7 @@ if(WITH_DESKTOP)
             DesktopGui
             IPC
             UiUtils
+            KF6::ConfigCore
             KF6::I18n
             ${STATIC_PLUGINS}
     )
@@ -1242,7 +1246,7 @@ if(BUILD_TESTING)
             foreach(shell_case capabilityGateHidesOnlyUnsupportedActions unsupportedActionsFollowTheActiveAccount
                     sidebarShowsHeadersOnlyForSeveralAccounts sidebarGroupsAccountsInTheWindow sidebarHeaderMenuActsOnItsAccount
                     headerRegionIsOptional headerShowsFolderAndStatus legacyCompactPaneSizesCarryOver
-                    legacyWidePaneSizesCarryOver)
+                    legacyWidePaneSizesCarryOver closingQuitsByDefault closingHidesWhenRunningInBackground)
                 add_test(NAME test_MainWindowShell_${shell_case} COMMAND test_MainWindowShell ${shell_case})
                 set_tests_properties(test_MainWindowShell_${shell_case} PROPERTIES
                     TIMEOUT 60
@@ -1255,7 +1259,7 @@ if(BUILD_TESTING)
                     accountSettingsEditOnlyTheActiveAccount cancellingAccountSettingsKeepsTheAccount
                     addingAnAccountOpensItsAccountSettings clientSecretStaysOutOfTheSettings
                     searchIndexIsChosenPerAccount searchIndexAttachmentsAreChosenPerAccount
-                    searchIndexPrivacyIsKeptPerAccount memoryOnlyCacheLeavesNoIndex)
+                    searchIndexPrivacyIsKeptPerAccount memoryOnlyCacheLeavesNoIndex startAfterLoginNeedsBackgroundRunning)
                 add_test(NAME test_AccountSettingsDialog_${settings_case} COMMAND test_AccountSettingsDialog ${settings_case})
                 set_tests_properties(test_AccountSettingsDialog_${settings_case} PROPERTIES
                     TIMEOUT 60
@@ -1433,6 +1437,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_DestructiveActions PRIVATE UiUtils KF6::ConfigCore)
         trojita_test(Misc FileSearch)
         target_link_libraries(test_FileSearch PRIVATE UiUtils KF6::ConfigCore)
+        trojita_test(Misc BackgroundRunning)
+        target_link_libraries(test_BackgroundRunning PRIVATE UiUtils KF6::ConfigCore)
     endif()
 
 endif()

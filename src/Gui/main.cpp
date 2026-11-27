@@ -30,6 +30,7 @@
 #include <QTimer>
 #include <QTextStream>
 #include <KLocalizedString>
+#include <KSharedConfig>
 
 #include "AppVersion/SetCoreApplication.h"
 #include "Common/Application.h"
@@ -43,6 +44,7 @@
 #endif
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "IPC/IPC.h"
+#include "UiUtils/BackgroundRunning.h"
 #include "UiUtils/IconLoader.h"
 
 #include "static_plugins.h"
@@ -98,6 +100,11 @@ int main(int argc, char **argv)
                                        QObject::tr("Open the message with this Message-ID."), QObject::tr("Message-ID"));
     parser.addOption(messageIdOption);
 
+    QCommandLineOption backgroundOption(UiUtils::BackgroundRunning::backgroundOption(),
+                                        QObject::tr("Start without showing the window, when running in the background "
+                                                    "is turned on in the settings."));
+    parser.addOption(backgroundOption);
+
     parser.addPositionalArgument(QLatin1String("url"),
                                  QObject::tr("Mailto: URL address for composing new e-mail, or mid: URL of a message to open."),
                                  QObject::tr("[url]"));
@@ -123,6 +130,7 @@ int main(int argc, char **argv)
     showAddressbookWindow = parser.isSet(addressbookOption);
     showComposeWindow = parser.isSet(composeOption);
     showMainWindow = parser.isSet(mainwindowOption);
+    const bool startInBackground = parser.isSet(backgroundOption);
     if (parser.isSet(profileOption))
         profileName = parser.value(profileOption);
     if (parser.isSet(messageIdOption))
@@ -144,7 +152,7 @@ int main(int argc, char **argv)
         }
     }
 
-    if (!showMainWindow && !showComposeWindow && !showAddressbookWindow && messageId.isEmpty())
+    if (!showMainWindow && !showComposeWindow && !showAddressbookWindow && messageId.isEmpty() && !startInBackground)
         showMainWindow = true;
 
     if (error) {
@@ -193,7 +201,12 @@ int main(int argc, char **argv)
     if (!IPC::registerInstance(&win, errmsg))
         qErr << QObject::tr("Error: Registering IPC instance failed: %1").arg(errmsg) << Qt::endl;
 
-    if ( settings.value(Common::SettingsNames::guiStartMinimized, QVariant(false)).toBool() ) {
+    // An autostart entry left from before running in the background was turned off shows the window as usual
+    const bool hideWindow = startInBackground && !showMainWindow
+            && UiUtils::BackgroundRunning::runsInBackground(*KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")));
+    if (hideWindow) {
+        // The tray icon and notifications work without the window; opening the application again shows it
+    } else if ( settings.value(Common::SettingsNames::guiStartMinimized, QVariant(false)).toBool() ) {
         if ( !settings.value(Common::SettingsNames::guiShowSystray, QVariant(true)).toBool() ) {
             win.show();
             win.setWindowState(Qt::WindowMinimized);

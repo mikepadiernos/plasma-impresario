@@ -160,6 +160,7 @@
 #include "ui_ImapInfoDialog.h"
 
 #include "Imap/Model/ModelTest/modeltest.h"
+#include "UiUtils/BackgroundRunning.h"
 #include "UiUtils/IconLoader.h"
 #include "UiUtils/MessageId.h"
 #include "UiUtils/MessageIdLookup.h"
@@ -2249,15 +2250,18 @@ void MainWindow::createSysTray()
     if (m_trayIcon)
         return;
 
-    qApp->setQuitOnLastWindowClosed(false);
-
     m_trayIcon = new QSystemTrayIcon(this);
     handleTrayIconChange();
 
-    QAction* quitAction = new QAction(tr("&Quit"), m_trayIcon);
+    QAction *showAction = new QAction(i18nc("@action:inmenu", "&Show Plasma Impresario"), m_trayIcon);
+    connect(showAction, &QAction::triggered, this, &MainWindow::showMainWindow);
+    // Quitting ends every background task, also while the window is closed
+    QAction* quitAction = new QAction(i18nc("@action:inmenu", "&Quit"), m_trayIcon);
     connect(quitAction, &QAction::triggered, qApp, &QApplication::quit);
 
     QMenu *trayIconMenu = new QMenu(this);
+    trayIconMenu->addAction(showAction);
+    trayIconMenu->addSeparator();
     trayIconMenu->addAction(quitAction);
     m_trayIcon->setContextMenu(trayIconMenu);
 
@@ -2274,8 +2278,11 @@ void MainWindow::removeSysTray()
 {
     delete m_trayIcon;
     m_trayIcon = nullptr;
+}
 
-    qApp->setQuitOnLastWindowClosed(true);
+bool MainWindow::runsInBackground() const
+{
+    return UiUtils::BackgroundRunning::runsInBackground(*KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")));
 }
 
 void MainWindow::slotToggleSysTray()
@@ -2286,6 +2293,8 @@ void MainWindow::slotToggleSysTray()
     } else if (!showSystray && m_trayIcon) {
         removeSysTray();
     }
+    // Only running in the background keeps the application alive without a window, not the tray icon alone
+    qApp->setQuitOnLastWindowClosed(!runsInBackground());
 }
 
 void MainWindow::handleTrayIconChange()
@@ -2383,9 +2392,15 @@ void MainWindow::handleTrayIconChange()
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     flushUiState();
-    if (m_trayIcon && m_trayIcon->isVisible()) {
-        Util::askForSomethingUnlessTold(tr("Plasma Impresario"),
-                                        tr("The application will continue in systray. This can be disabled within the settings."),
+    if (runsInBackground()) {
+        const QString reopen = m_trayIcon && m_trayIcon->isVisible()
+                ? i18nc("@info", "Plasma Impresario keeps running in the background, checking for new mail and showing "
+                                 "notifications. Open it again from its icon in the system tray, or quit it there. Running "
+                                 "in the background can be turned off in the settings.")
+                : i18nc("@info", "Plasma Impresario keeps running in the background, checking for new mail and showing "
+                                 "notifications. Open it again from the application launcher. Running in the background "
+                                 "can be turned off in the settings.");
+        Util::askForSomethingUnlessTold(i18nc("@title:window", "Plasma Impresario"), reopen,
                                         Common::SettingsNames::guiOnSystrayClose, QMessageBox::Ok, this, m_settings);
         hide();
         event->ignore();

@@ -51,6 +51,7 @@
 #include "Common/PortNumbers.h"
 #include "Common/SettingsNames.h"
 #include "Composer/AccountIdentities.h"
+#include "Gui/StartAfterLogin.h"
 #include "Gui/Util.h"
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
@@ -59,10 +60,12 @@
 #include "Plugins/AddressbookPlugin.h"
 #include "Plugins/PasswordPlugin.h"
 #include "Plugins/PluginManager.h"
+#include "UiUtils/BackgroundRunning.h"
 #include "UiUtils/IconLoader.h"
 #include "SettingsOAuthControls.h"
 #include "UiUtils/PasswordWatcher.h"
 #include <KLocalizedString>
+#include <KSharedConfig>
 #include "ShortcutHandler/ShortcutHandler.h"
 
 namespace Gui
@@ -439,6 +442,19 @@ GeneralPage::GeneralPage(SettingsDialog *parent, QSettings &s):
 
     guiSystrayCheckbox->setChecked(s.value(Common::SettingsNames::guiShowSystray, QVariant(true)).toBool());
     guiStartMinimizedCheckbox->setChecked(s.value(Common::SettingsNames::guiStartMinimized, QVariant(false)).toBool());
+    {
+        const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        guiRunInBackgroundCheckbox->setChecked(UiUtils::BackgroundRunning::runsInBackground(*config));
+        // Starting after login starts in the background, so it needs running in the background
+        guiStartAfterLoginCheckbox->setChecked(guiRunInBackgroundCheckbox->isChecked()
+                                               && UiUtils::BackgroundRunning::startsAfterLogin(*config));
+        guiStartAfterLoginCheckbox->setEnabled(guiRunInBackgroundCheckbox->isChecked());
+        connect(guiRunInBackgroundCheckbox, &QAbstractButton::toggled, this, [this](bool checked) {
+            guiStartAfterLoginCheckbox->setEnabled(checked);
+            if (!checked)
+                guiStartAfterLoginCheckbox->setChecked(false);
+        });
+    }
 
     preferPlaintextCheckbox->setChecked(s.value(Common::SettingsNames::guiPreferPlaintextRendering).toBool());
     revealTrojitaVersions->setChecked(s.value(Common::SettingsNames::interopRevealVersions, QVariant(true)).toBool());
@@ -656,6 +672,17 @@ void GeneralPage::save(QSettings &s)
     s.setValue(Common::SettingsNames::guiShowSystray, guiSystrayCheckbox->isChecked());
     s.setValue(Common::SettingsNames::guiStartMinimized, guiStartMinimizedCheckbox->isChecked());
     s.setValue(Common::SettingsNames::interopRevealVersions, revealTrojitaVersions->isChecked());
+    {
+        namespace Background = UiUtils::BackgroundRunning;
+        const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        Background::setRunsInBackground(*config, guiRunInBackgroundCheckbox->isChecked());
+        const bool startAfterLogin = guiRunInBackgroundCheckbox->isChecked() && guiStartAfterLoginCheckbox->isChecked();
+        if (startAfterLogin != Background::startsAfterLogin(*config)) {
+            // Turning it off removes the autostart entry; a failure keeps the earlier choice so that it can be retried
+            if (StartAfterLogin::apply(startAfterLogin, this))
+                Background::setStartsAfterLogin(*config, startAfterLogin);
+        }
+    }
 
 #define HANDLE_PLUGIN(LOWERCASE, UPPERCASE) \
     const QString &LOWERCASE##Plugin = m_parent->pluginManager()->LOWERCASE##Plugin(); \
