@@ -85,7 +85,9 @@ QList<Option> makeOptions()
         color("TreeLineColor"),
         list("TreeLinePalette", defaultPalette()),
         choice("MessageListStyle", {QStringLiteral("Rows"), QStringLiteral("Cards")}),
-        flag("StripeRows", false),
+        // The message list has always been striped; the folder tree has not
+        flag("StripeRows", true),
+        flag("StripeFolderTree", false),
         flag("HoverHighlight", true),
         choice("SelectionStyle",
                followStyle +

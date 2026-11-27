@@ -172,7 +172,7 @@ private slots:
             auto config = open(path);
             Theme::Values values;
             values.insert(QStringLiteral("WindowOpacity"), 80);
-            values.insert(QStringLiteral("StripeRows"), true);
+            values.insert(QStringLiteral("StripeRows"), false);
             values.insert(QStringLiteral("MessageListStyle"), QStringLiteral("Cards"));
             values.insert(QStringLiteral("PaneTintColor"), QColor(QStringLiteral("#123456")));
             values.insert(QStringLiteral("TreeLinePalette"), QStringList{QStringLiteral("#ff0000")});

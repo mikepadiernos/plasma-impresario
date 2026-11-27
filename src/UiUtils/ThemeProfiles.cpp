@@ -40,7 +40,8 @@ const QHash<QString, QString> &opusNames()
  * leaves out */
 QStringList mailOnly()
 {
-    return {QStringLiteral("MessageListStyle"), QStringLiteral("MessageHeaderFont"), QStringLiteral("PlainTextFont")};
+    return {QStringLiteral("MessageListStyle"), QStringLiteral("StripeFolderTree"), QStringLiteral("MessageHeaderFont"),
+            QStringLiteral("PlainTextFont")};
 }
 
 QString nameFor(const QString &entry, Target target)

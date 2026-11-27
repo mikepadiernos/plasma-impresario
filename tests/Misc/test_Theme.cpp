@@ -398,7 +398,8 @@ private slots:
         profile.values.insert(QStringLiteral("PaneTintColor"), QColor(Qt::red));
         profile.values.insert(QStringLiteral("MessageListStyle"), QStringLiteral("Cards"));
         profile.values.insert(QStringLiteral("MessageListFont"), QStringLiteral("Noto Sans,10,-1,5,400,0,0,0,0,0"));
-        profile.values.insert(QStringLiteral("StripeRows"), true);
+        profile.values.insert(QStringLiteral("StripeRows"), false);
+        profile.values.insert(QStringLiteral("StripeFolderTree"), true);
         profile.values.insert(QStringLiteral("CustomStyleSheet"), QStringLiteral("QLabel { color: red; }"));
         for (const QString &entry : Theme::entries()) {
             if (!Theme::profileEntries().contains(entry))
@@ -434,6 +435,7 @@ private slots:
         profile.values = {{QStringLiteral("MessageListFont"), QStringLiteral("Noto Sans,10,-1,5,400,0,0,0,0,0")},
                           {QStringLiteral("StripeRows"), true},
                           {QStringLiteral("MessageListStyle"), QStringLiteral("Cards")},
+                          {QStringLiteral("StripeFolderTree"), true},
                           {QStringLiteral("Dividers"), QStringLiteral("Thin")}};
         const QJsonObject object =
             QJsonDocument::fromJson(ThemeProfiles::toJson(profile, ThemeProfiles::Target::Opus)).object();
@@ -445,6 +447,7 @@ private slots:
         QVERIFY(!appearance.contains(QStringLiteral("MessageListFont")));
         QVERIFY(!appearance.contains(QStringLiteral("MessageListStyle")));
         QVERIFY(!appearance.contains(QStringLiteral("PlainTextFont")));
+        QVERIFY(!appearance.contains(QStringLiteral("StripeFolderTree")));
         QCOMPARE(appearance.value(QStringLiteral("Dividers")).toString(), QStringLiteral("Thin"));
 
         // A Plasma Opus profile, with its own names and an option only Plasma Opus
