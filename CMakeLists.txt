@@ -348,7 +348,6 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/SearchQuery.cpp
     ${path_UiUtils}/SearchFacets.cpp
     ${path_UiUtils}/SearchScope.cpp
-    ${path_UiUtils}/SavedSearches.cpp
     ${path_UiUtils}/SearchSuggestions.cpp
     ${path_UiUtils}/SelectionAfterRemoval.cpp
     ${path_UiUtils}/ServerDiscovery.cpp
@@ -368,19 +367,19 @@ if(WITH_WEBENGINE)
     )
 endif()
 
-if(WITH_DESKTOP)
-    set(libUiUtils_SOURCES
-        ${libUiUtils_SOURCES}
-        ${path_UiUtils}/BackgroundRunning.cpp
-        ${path_UiUtils}/DestructiveActions.cpp
-        ${path_UiUtils}/FileSearch.cpp
-        ${path_UiUtils}/PlasmaSearch.cpp
-    )
-endif()
+# Helpers backed by KDE services (KConfig, Akonadi) form their own library, so that the mail core and UiUtils
+# stay free of desktop services; test_ArchitectureBoundaries keeps it that way.
+set(libDesktopServices_SOURCES
+    ${path_UiUtils}/BackgroundRunning.cpp
+    ${path_UiUtils}/DestructiveActions.cpp
+    ${path_UiUtils}/FileSearch.cpp
+    ${path_UiUtils}/PlasmaSearch.cpp
+    ${path_UiUtils}/SavedSearches.cpp
+)
 
 if(WITH_AKONADI_CALENDAR)
-    set(libUiUtils_SOURCES
-        ${libUiUtils_SOURCES}
+    set(libDesktopServices_SOURCES
+        ${libDesktopServices_SOURCES}
         ${path_UiUtils}/AkonadiAgendaSource.cpp
     )
 endif()
@@ -767,11 +766,21 @@ target_link_libraries(UiUtils
         Imap
         Plugins
 )
+
 if(WITH_DESKTOP)
-    target_link_libraries(UiUtils PRIVATE KF6::ConfigCore)
-endif()
-if(WITH_AKONADI_CALENDAR)
-    target_link_libraries(UiUtils PRIVATE KPim6::AkonadiCalendar KF6::CalendarCore KPim6::AkonadiCore)
+    add_library(DesktopServices STATIC ${libDesktopServices_SOURCES})
+    set_property(TARGET DesktopServices APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+    target_link_libraries(DesktopServices
+        PUBLIC
+            Qt::Core
+            Imap
+            UiUtils
+        PRIVATE
+            KF6::ConfigCore
+    )
+    if(WITH_AKONADI_CALENDAR)
+        target_link_libraries(DesktopServices PRIVATE KPim6::AkonadiCalendar KF6::CalendarCore KPim6::AkonadiCore)
+    endif()
 endif()
 
 add_library(Streams STATIC ${libStreams_SOURCES})
@@ -1011,6 +1020,7 @@ if(WITH_DESKTOP)
             Qt::Widgets
             Common
             Composer
+            DesktopServices
             Imap
         PRIVATE
             Qt::DBus
@@ -1490,8 +1500,6 @@ if(BUILD_TESTING)
     target_link_libraries(test_SearchQuery PRIVATE UiUtils)
     trojita_test(Misc SearchScope)
     target_link_libraries(test_SearchScope PRIVATE UiUtils)
-    trojita_test(Misc SavedSearches)
-    target_link_libraries(test_SavedSearches PRIVATE UiUtils KF6::ConfigCore)
     trojita_test(Misc SearchSuggestions)
     target_link_libraries(test_SearchSuggestions PRIVATE UiUtils)
     trojita_test(Misc SearchSupport)
@@ -1517,14 +1525,16 @@ if(BUILD_TESTING)
         endif()
     endif()
     if(WITH_DESKTOP)
+        trojita_test(Misc SavedSearches)
+        target_link_libraries(test_SavedSearches PRIVATE DesktopServices KF6::ConfigCore)
         trojita_test(Misc DestructiveActions)
-        target_link_libraries(test_DestructiveActions PRIVATE UiUtils KF6::ConfigCore)
+        target_link_libraries(test_DestructiveActions PRIVATE DesktopServices KF6::ConfigCore)
         trojita_test(Misc FileSearch)
-        target_link_libraries(test_FileSearch PRIVATE UiUtils KF6::ConfigCore)
+        target_link_libraries(test_FileSearch PRIVATE DesktopServices KF6::ConfigCore)
         trojita_test(Misc BackgroundRunning)
-        target_link_libraries(test_BackgroundRunning PRIVATE UiUtils KF6::ConfigCore)
+        target_link_libraries(test_BackgroundRunning PRIVATE DesktopServices KF6::ConfigCore)
         trojita_test(Misc PlasmaSearch)
-        target_link_libraries(test_PlasmaSearch PRIVATE UiUtils KF6::ConfigCore)
+        target_link_libraries(test_PlasmaSearch PRIVATE DesktopServices KF6::ConfigCore)
     endif()
 
 endif()
