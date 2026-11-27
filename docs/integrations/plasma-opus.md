@@ -174,7 +174,9 @@ saying what File Search is set to index.
 - **How:** Open KIO `baloosearch:` URLs in the default file manager to find
   saved attachments and exported messages, and register a `mid:` URL handler
   (RFC 2392) and command-line option that opens a message by Message-ID. Index
-  mail in Plasma Impresario's own SQLite cache rather than Baloo. Follow the
+  mail in Plasma Impresario's own SQLite cache rather than Baloo; indexing mail
+  in Baloo and a GraphQL layer are
+  [rejected](kde-plasma.md#search-and-indexing). Follow the
   Plasma Opus M21 query syntax where it fits mail, and reuse its parser only if
   Plasma Opus publishes it as a library.
 - **Recommendations:** Keep search fully functional without Plasma Opus. Never
@@ -220,16 +222,19 @@ Planned in [M08](../ROADMAP.md#m08-settings-and-workspace-configuration)
 - **What:** Offer the same optional Vim mode as Plasma Opus and sync its
   settings in both directions, so keyboard navigation behaves the same in both
   apps.
-- **How:** Plasma Opus plans Vim-style movement in its M25 Yazi mode, and Vim
-  mode settings, a which-key style hint panel and shortcut import and export in
-  its M31. Agree on a versioned keymap profile covering Vim mode enablement, the
-  hint panel's enablement and delay, the leader key and bindings for shared
-  actions such as movement, search, selection, panes and tabs; mail-only and
-  file-only actions stay app-local. Plasma Impresario imports the Plasma Opus
-  profile once or keeps following it when it changes, and exports its own for
-  Plasma Opus to import. Exchange profiles through export and import files or a
-  documented shared location; neither app writes the other's configuration.
-  Store the choice in KConfig and reuse KDE shortcut facilities.
+- **How:** Plasma Opus offers Vim-style movement in its M25 Yazi mode and
+  plans Vim mode settings, a which-key style hint panel and shortcut import and
+  export in its M31; its
+  [integration notes](https://github.com/mikepadiernos/plasma-opus/blob/main/docs/integrations/plasma-impresario.md#share-vim-mode-and-shortcuts)
+  describe the same sync from its side. Agree on a
+  versioned keymap profile covering Vim mode enablement, the hint panel's
+  enablement and delay, the leader key and bindings for shared actions such as
+  movement, search, selection, panes and tabs; mail-only and file-only actions
+  stay app-local. Plasma Impresario imports the Plasma Opus profile once or
+  keeps following it when it changes, and exports its own for Plasma Opus to
+  import. Exchange profiles through export and import files or a documented
+  shared location; neither app writes the other's configuration. Store the
+  choice in KConfig and reuse KDE shortcut facilities.
 - **Recommendations:** Keep Vim mode off by default and syncing opt-in, with a
   conflict preview and a way to revert. Never intercept typing in the composer,
   search fields or other text inputs, and keep confirmations and undo for
