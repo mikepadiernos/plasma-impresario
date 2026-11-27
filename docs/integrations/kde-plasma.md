@@ -325,6 +325,22 @@ sender and date of matching messages
 - **Verify:** Test with Baloo indexing on, off and excluding the save location,
   and with the KRunner provider enabled and disabled, using isolated files and
   synthetic messages.
+- **Rejected:**
+  - **Indexing mail in Baloo.** Baloo is the desktop-wide file index, so
+    message content there, including decrypted encrypted mail, would be open to
+    KRunner, file managers and any other app that queries it. It also cannot
+    follow IMAP state such as deletions, CONDSTORE and QRESYNC changes or a
+    new UIDVALIDITY. KDE PIM likewise indexes mail in its own Akonadi search
+    store rather than Baloo. The FTS5 index in each account's cache keeps mail
+    private to the app and in step with the server.
+  - **A GraphQL layer over Baloo or the mail index.** Baloo has no GraphQL
+    interface; it is queried in-process through `Baloo::Query` or through KIO
+    `baloosearch:` URLs. A GraphQL server or schema in front of local queries
+    would add a dependency, a translation layer and an attack surface without
+    making searches faster or more complete; speed and coverage come from FTS5,
+    IMAP `SEARCH` and merging their results. Microsoft Graph in
+    [M13](../ROADMAP.md#m13-microsoft-accounts-and-exchange) is an unrelated
+    REST API for Microsoft accounts.
 
 ## Settings and credentials
 
