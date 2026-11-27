@@ -4,6 +4,7 @@
 #include "Common/AccountRegistry.h"
 #include "Common/AccountStatus.h"
 #include "Common/MetaTypes.h"
+#include "Common/Paths.h"
 #include "Common/SettingsNames.h"
 #include "Gui/AccountSidebar.h"
 #include "Gui/ComposeWidget.h"
@@ -38,6 +39,8 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QDialog>
+#include <QDir>
+#include <QLineEdit>
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QPushButton>
@@ -762,6 +765,61 @@ private slots:
     QVERIFY(!window.hasActivationToken());
     QTRY_COMPARE(QApplication::activeWindow(), &window);
     delete composer;
+  }
+
+  void sessionEndSavesUnsentMessages() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                       QSettings::IniFormat);
+    configureOffline(settings, QStringLiteral("work.example.test"));
+    settings.setValue(Common::SettingsNames::settingsVersion, 2);
+    settings.setValue(Common::SettingsNames::guiShowSystray, false);
+    Gui::MainWindow window(&settings);
+    window.accountSettings()->setValue(Common::SettingsNames::msaMethodKey,
+                                       Common::SettingsNames::methodSENDMAIL);
+    window.accountSettings()->setValue(Common::SettingsNames::sendmailKey,
+                                       QStringLiteral("/bin/false"));
+    const QDir drafts(Common::writablePath(Common::LOCATION_CACHE) +
+                      QLatin1String("Drafts/"));
+    const QStringList filter{QStringLiteral("*.draft")};
+    const QStringList before = drafts.entryList(filter, QDir::Files);
+    const auto newDrafts = [&]() {
+      QStringList found = drafts.entryList(filter, QDir::Files);
+      found.removeIf(
+          [&](const QString &name) { return before.contains(name); });
+      return found;
+    };
+
+    // One composer has an unsent message; another was never edited
+    auto *edited = Gui::ComposeWidget::createBlank(&window);
+    QVERIFY(edited);
+    QTest::qWait(2);
+    auto *untouched = Gui::ComposeWidget::createBlank(&window);
+    QVERIFY(untouched);
+    auto *subject = edited->findChild<QLineEdit *>(QStringLiteral("subject"));
+    QVERIFY(subject);
+    subject->setText(QStringLiteral("Unsent at logout"));
+
+    // The session ends: only the unsent message is saved, without asking
+    window.saveUnsentMessages();
+    const QStringList saved = newDrafts();
+    QCOMPARE(saved.size(), 1);
+    const QString path = drafts.filePath(saved.first());
+
+    // The draft reopens with the message
+    auto *recovered = Gui::ComposeWidget::createDraft(&window, path);
+    QVERIFY(recovered);
+    QCOMPARE(recovered->findChild<QLineEdit *>(QStringLiteral("subject"))->text(),
+             QStringLiteral("Unsent at logout"));
+    delete recovered;
+
+    // Nothing changed since, so nothing is written again
+    QVERIFY(QFile::remove(path));
+    window.saveUnsentMessages();
+    QVERIFY(newDrafts().isEmpty());
+    delete edited;
+    delete untouched;
   }
 
   void closingQuitsByDefault() { verifyClose(false); }
