@@ -409,6 +409,8 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
 
 ComposeWidget::~ComposeWidget()
 {
+    // The child widgets are destroyed after this destructor; a focused one moves the application focus then
+    disconnect(qApp, &QApplication::focusChanged, this, &ComposeWidget::handleFocusChange);
     delete ui;
 }
 
