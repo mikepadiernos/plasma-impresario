@@ -216,6 +216,27 @@ private slots:
         QVERIFY(f.status().contains(QStringLiteral("Find Settings")));
     }
 
+    void jmapIsNotLookedUpAndExplainsItself()
+    {
+        Fixture f;
+        auto *protocol = f.child<QComboBox>("accountProtocol");
+        auto *note = f.child<QLabel>("pop3Note");
+        QVERIFY(f.lookUp(QStringLiteral("jo@fastmail.com")));
+        protocol->setCurrentIndex(protocol->findData(static_cast<int>(Imap::AccountProtocol::Jmap)));
+        QCOMPARE(f.dialog->protocol(), Imap::AccountProtocol::Jmap);
+        QVERIFY(!f.dialog->result().isValid());
+        QVERIFY(!f.dialog->useOAuth());
+        QVERIFY(f.servers()->isHidden());
+        QVERIFY(f.find()->isHidden());
+        QVERIFY(note->isVisible());
+        QVERIFY(note->text().contains(QStringLiteral("JMAP")));
+        QVERIFY(f.ok()->isEnabled());
+        // Each protocol explains itself, not the one chosen before
+        protocol->setCurrentIndex(protocol->findData(static_cast<int>(Imap::AccountProtocol::Pop3)));
+        QVERIFY(note->text().contains(QStringLiteral("POP3")));
+        QVERIFY(!note->text().contains(QStringLiteral("JMAP")));
+    }
+
     void stopEndsTheLookup()
     {
         Fixture f;
