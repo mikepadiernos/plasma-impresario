@@ -45,6 +45,7 @@
 #include "UiUtils/Agenda.h"
 #include "UiUtils/DesktopFeedback.h"
 #include "UiUtils/DestructiveActions.h"
+#include "UiUtils/MailStatus.h"
 #include "UiUtils/PlasmaSearch.h"
 #include "UiUtils/QuickFilters.h"
 #include "UiUtils/RecentFolders.h"
@@ -239,9 +240,19 @@ public:
     /** @short Show the message which Plasma Search named by @arg matchId; unknown IDs are ignored */
     void openPlasmaSearchMatch(const QString &matchId);
 
+    /** @short Every account for the Plasma widgets, with the unread count of its INBOX and its state */
+    QList<UiUtils::MailStatus::Account> mailStatusAccounts() const;
+    /** @short The newest unread messages for the Plasma widgets, only from accounts with an offline search index */
+    QList<UiUtils::MailStatus::Message> mailStatusUnread(const QStringList &accounts, const QStringList &folders,
+                                                         int limit) const;
+    /** @short Show the window with @arg accountId, as a Plasma widget asked; an unknown account only shows the window */
+    void showAccountFromWidget(const QString &accountId);
+
 signals:
     /** @short An account was added, renamed or removed */
     void accountsChanged();
+    /** @short Unread counts, account states or indexed messages may have changed, as the Plasma widgets show them */
+    void mailStatusChanged();
 
 public slots:
     /** @short Compose from a mailto: link inside the application; attachments it asks for are refused */
@@ -1117,6 +1128,8 @@ private:
     QAction *m_checkMail = nullptr;
     QTimer *m_accountUnreadTimer = nullptr;
     UiUtils::DesktopFeedback::UnreadBadge m_unreadBadge;
+    /** The unread INBOX count of each account last read, negative while not known */
+    QHash<QString, int> m_inboxUnread;
     QMenu *m_goToFolderMenu;
     QMap<Imap::Mailbox::SpecialUse, QAction *> m_goToSpecialFolderActions;
 

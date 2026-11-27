@@ -397,6 +397,7 @@ if(WITH_DBUS)
     set(libIPC_SOURCES
         ${path_IPC}/DBusInterface.cpp
         ${path_IPC}/KRunnerBridge.cpp
+        ${path_IPC}/MailStatusBridge.cpp
         ${path_IPC}/MainWindowBridge.cpp
     )
 else()
@@ -819,6 +820,8 @@ if(WITH_DBUS)
         PRIVATE
             Qt::DBus
             DesktopGui
+            DesktopServices
+            KF6::ConfigCore
     )
 else()
     target_link_libraries(IPC
@@ -1561,6 +1564,13 @@ if(BUILD_TESTING)
         target_link_libraries(test_KRunnerBridge PRIVATE Qt6::DBus Qt6::Test)
         if(NOT CMAKE_CROSSCOMPILING)
             add_test(test_KRunnerBridge test_KRunnerBridge)
+        endif()
+        add_executable(test_MailStatusBridge tests/Misc/test_MailStatusBridge.cpp src/IPC/MailStatusBridge.cpp src/IPC/MailStatusBridge.h)
+        target_compile_definitions(test_MailStatusBridge PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+        target_include_directories(test_MailStatusBridge PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+        target_link_libraries(test_MailStatusBridge PRIVATE Qt6::DBus Qt6::Test)
+        if(NOT CMAKE_CROSSCOMPILING)
+            add_test(test_MailStatusBridge test_MailStatusBridge)
         endif()
     endif()
     if(WITH_DESKTOP)

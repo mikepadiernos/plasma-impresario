@@ -3324,6 +3324,8 @@ void MainWindow::setupAccounts()
     m_accountStatus = new Common::AccountStatusTracker(this);
     m_accountNotices = new UiUtils::AccountNotices(this);
     m_accountNotices->setObjectName(QStringLiteral("accountNotices"));
+    connect(m_accountStatus, &Common::AccountStatusTracker::statusChanged, this, &MainWindow::mailStatusChanged);
+    connect(this, &MainWindow::accountsChanged, this, &MainWindow::mailStatusChanged);
     connect(m_accountStatus, &Common::AccountStatusTracker::statusChanged, this, [this](const QString &accountId) {
         if (m_accountSwitcher)
             refreshAccountSwitcher();
@@ -3922,8 +3924,14 @@ void MainWindow::refreshAccountUnread()
         if (m_accountSidebar)
             m_accountSidebar->setUnreadCount(accountId, count);
         counts.append(count);
+        m_inboxUnread.insert(accountId, count);
+        // The widgets' unread messages come from the index, which catches up after the counts
+        if (Imap::Mailbox::SearchIndexer *indexer = access ? access->searchIndexer() : nullptr)
+            connect(indexer, &Imap::Mailbox::SearchIndexer::finished, this, &MainWindow::mailStatusChanged,
+                    Qt::UniqueConnection);
     }
     publishUnreadCount(UiUtils::DesktopFeedback::totalUnread(counts));
+    emit mailStatusChanged();
 }
 
 void MainWindow::publishUnreadCount(int unread)
@@ -9411,6 +9419,75 @@ void MainWindow::openMessageById(const QString &messageId)
               QString::fromUtf8(parsed.messageId)),
         {{i18nc("@action:button", "Search Servers"), QStringLiteral("network-server"), QStringLiteral("searchServersForMessage"),
           [this]() { searchServersForMessage(); }}});
+}
+
+QList<UiUtils::MailStatus::Account> MainWindow::mailStatusAccounts() const
+{
+    namespace MailStatus = UiUtils::MailStatus;
+    using Kind = Common::AccountStatusKind;
+    QList<MailStatus::Account> result;
+    const QStringList accountIds = m_accounts->accountIds();
+    for (const QString &accountId : accountIds) {
+        MailStatus::Account account;
+        account.id = accountId;
+        account.name = m_accounts->displayName(accountId);
+        account.unread = m_inboxUnread.value(accountId, -1);
+        switch (m_accountStatus->status(accountId).kind) {
+        case Kind::Idle:
+            account.state = MailStatus::State::Idle;
+            break;
+        case Kind::Connecting:
+            account.state = MailStatus::State::Connecting;
+            break;
+        case Kind::Connected:
+            account.state = MailStatus::State::Online;
+            break;
+        case Kind::Offline:
+            account.state = MailStatus::State::Offline;
+            break;
+        case Kind::NetworkError:
+            account.state = MailStatus::State::Failed;
+            break;
+        case Kind::AuthRequired:
+        case Kind::AuthFailed:
+            account.state = MailStatus::State::SignInNeeded;
+            break;
+        }
+        result << account;
+    }
+    return result;
+}
+
+QList<UiUtils::MailStatus::Message> MainWindow::mailStatusUnread(const QStringList &accounts, const QStringList &folders,
+                                                                 int limit) const
+{
+    namespace MailStatus = UiUtils::MailStatus;
+    QList<MailStatus::Source> sources;
+    const QStringList accountIds = m_accounts->accountIds();
+    for (const QString &accountId : accountIds) {
+        Imap::ImapAccess *access = m_accountAccess.value(accountId);
+        if (!access || !access->isConfigured())
+            continue;
+        // As for Plasma Search, an account whose index is off gives only its count
+        const Imap::Mailbox::SearchIndexer *indexer = access->searchIndexer();
+        if (indexer && indexer->isAvailable() && indexer->index())
+            sources << MailStatus::Source{accountId, m_accounts->displayName(accountId), indexer->index()};
+    }
+    auto messages = MailStatus::unreadMessages(sources, accounts, folders, limit);
+    for (auto &message : messages) {
+        if (message.sender.isEmpty())
+            message.sender = i18nc("@item a message without a sender", "(Unknown sender)");
+        if (message.subject.isEmpty())
+            message.subject = i18nc("@item a message without a subject", "(No subject)");
+    }
+    return messages;
+}
+
+void MainWindow::showAccountFromWidget(const QString &accountId)
+{
+    if (m_accounts->accountIds().contains(accountId))
+        switchAccount(accountId);
+    showMainWindow();
 }
 
 QList<UiUtils::PlasmaSearch::Match> MainWindow::plasmaSearchMatches(const QString &query) const
