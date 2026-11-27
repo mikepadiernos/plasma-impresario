@@ -149,6 +149,7 @@ class InlineNotificationBar;
 class MailBoxTreeView;
 class MessageListWidget;
 class MessageSelectionRestorer;
+class JmapSyncer;
 class Pop3Fetcher;
 class ProtocolLoggerWidget;
 class ShortcutOverviewDialog;
@@ -854,6 +855,8 @@ private:
     QHash<QString, Imap::ImapAccess *> m_accountAccess;
     /** Checks the servers of the POP3 accounts; each belongs to its account's access */
     QHash<QString, QPointer<Pop3Fetcher>> m_pop3Fetchers;
+    /** Synchronize the JMAP accounts with their mail on this computer; each belongs to its account's access */
+    QHash<QString, QPointer<JmapSyncer>> m_jmapSyncers;
     QComboBox *m_accountSwitcher = nullptr;
     Imap::ImapAccess *m_imapAccess;
 

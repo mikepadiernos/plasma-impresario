@@ -123,12 +123,13 @@ AddAccountDialog::AddAccountDialog(QWidget *parent, std::unique_ptr<Network> net
     m_buttons->button(QDialogButtonBox::Ok)->setText(i18nc("@action:button", "Add Account"));
     m_protocol->addItem(i18nc("@item:inlistbox account type", "IMAP"), static_cast<int>(Imap::AccountProtocol::Imap));
     m_protocol->addItem(i18nc("@item:inlistbox account type", "POP3"), static_cast<int>(Imap::AccountProtocol::Pop3));
+    m_protocol->addItem(i18nc("@item:inlistbox account type", "JMAP"), static_cast<int>(Imap::AccountProtocol::Jmap));
     m_protocol->setItemData(0, i18nc("@info:tooltip", "Mail stays on the server, in its folders"), Qt::ToolTipRole);
     m_protocol->setItemData(1, i18nc("@info:tooltip", "Mail is downloaded from the server's inbox to this computer"),
                             Qt::ToolTipRole);
-    m_pop3Note->setText(i18nc("@info", "POP3 downloads the server's inbox to this computer, and the mail is then read "
-                                       "only here. Read and flagged states, folders and searches stay on this computer. "
-                                       "Enter the POP3 and SMTP servers in the account settings, which open next."));
+    m_protocol->setItemData(2, i18nc("@info:tooltip", "Mail stays on the server and is synchronized with a copy on this "
+                                                      "computer, over the web"),
+                            Qt::ToolTipRole);
 
     auto *form = new QFormLayout;
     form->addRow(i18nc("@label:textbox", "Your name:"), m_realName);
@@ -230,6 +231,17 @@ void AddAccountDialog::protocolChanged()
     m_result = Result();
     m_servers->hide();
     m_pop3Note->setVisible(!imap);
+    if (protocol() == Imap::AccountProtocol::Jmap)
+        m_pop3Note->setText(i18nc("@info", "JMAP keeps the mail on the server and a copy on this computer, which is "
+                                           "synchronized every few minutes and soon after each change. Enter the JMAP "
+                                           "server's address, or only its host name, in the account settings, which "
+                                           "open next. Messages are sent through the JMAP server unless you choose "
+                                           "an SMTP server there."));
+    else if (protocol() == Imap::AccountProtocol::Pop3)
+        m_pop3Note->setText(i18nc("@info", "POP3 downloads the server's inbox to this computer, and the mail is then "
+                                           "read only here. Read and flagged states, folders and searches stay on this "
+                                           "computer. Enter the POP3 and SMTP servers in the account settings, which "
+                                           "open next."));
     m_status->setVisible(imap);
     m_status->setText(imap ? discoveryIntroduction() : QString());
     setBusy(false);

@@ -57,6 +57,7 @@
 #include "Imap/Model/AccountCapabilities.h"
 #include "Imap/Model/ImapAccess.h"
 #include "MSA/Account.h"
+#include "Jmap/Settings.h"
 #include "Pop3/FetchJob.h"
 #include "OAuth/OAuth.h"
 #include "Plugins/AddressbookPlugin.h"
@@ -113,15 +114,26 @@ SettingsDialog::SettingsDialog(MainWindow *parent, Scope scope, Composer::Sender
     if (scope == Scope::Account) {
         addPage(new IdentitiesPage(this, *m_accountSettings, *m_settings, m_accountIdentities, m_senderIdentities),
                 i18nc("@title:tab", "I&dentities"), m_accountSettings);
-        if (Imap::AccountCapabilities::forAccount(*m_accountSettings).protocol() == Imap::AccountProtocol::Pop3) {
+        const Imap::AccountProtocol protocol = Imap::AccountCapabilities::forAccount(*m_accountSettings).protocol();
+        JmapPage *jmapPage = nullptr;
+        if (protocol == Imap::AccountProtocol::Pop3) {
             // The mail is on this computer already, so there is no cache to configure
             addPage(new Pop3Page(this, *m_accountSettings), i18nc("@title:tab", "&POP3"), m_accountSettings);
+        } else if (protocol == Imap::AccountProtocol::Jmap) {
+            // The synchronized copy is the account's whole mail on this computer, so there is no cache either
+            jmapPage = new JmapPage(this, *m_accountSettings);
+            addPage(jmapPage, i18nc("@title:tab", "&JMAP"), m_accountSettings);
         } else {
             m_imapPage = new ImapPage(this, *m_accountSettings);
             addPage(m_imapPage, tr("I&MAP"), m_accountSettings);
             addPage(new CachePage(this, *m_accountSettings), tr("&Offline"), m_accountSettings);
         }
-        addPage(new OutgoingPage(this, *m_accountSettings), tr("&SMTP"), m_accountSettings);
+        auto *outgoing = new OutgoingPage(this, *m_accountSettings);
+        addPage(outgoing, tr("&SMTP"), m_accountSettings);
+        if (jmapPage) {
+            outgoing->setJmapSending(jmapPage->sendsThroughJmap());
+            connect(jmapPage, &JmapPage::sendingChanged, outgoing, &OutgoingPage::setJmapSending);
+        }
     } else {
         addPage(new GeneralPage(this, *m_settings), tr("&General"), m_settings);
         addPage(new FavoriteTagsPage(this, *m_settings, m_favoriteTags), tr("Favorite &tags"), m_settings);
@@ -1493,19 +1505,220 @@ bool Pop3Page::passwordFailures(QString &message) const
     return true;
 }
 
+JmapPage::JmapPage(SettingsDialog *parent, QSettings &s)
+    : QScrollArea(parent)
+    , m_url(new QLineEdit)
+    , m_urlStatus(new QLabel)
+    , m_user(new QLineEdit)
+    , m_authentication(new QComboBox)
+    , m_password(new QLineEdit)
+    , m_passwordStatus(new QLabel)
+    , m_interval(new QSpinBox)
+    , m_sending(new QComboBox)
+    , m_sendingWarning(new QLabel)
+    , m_canSubmit(true)
+    , m_pwWatcher(new UiUtils::PasswordWatcher(this, parent->pluginManager(), parent->imapAccess()->credentialAccountId(),
+                                               QStringLiteral("jmap")))
+{
+    const Jmap::Settings settings = Jmap::Settings::fromSettings(s);
+    m_canSubmit = settings.canSubmit;
+
+    auto *contents = new QWidget;
+    auto *layout = new QVBoxLayout(contents);
+    auto *serverGroup = new QGroupBox(i18nc("@title:group", "JMAP Server"), contents);
+    auto *serverForm = new QFormLayout(serverGroup);
+    auto *syncGroup = new QGroupBox(i18nc("@title:group", "Synchronizing and Sending"), contents);
+    auto *syncForm = new QFormLayout(syncGroup);
+
+    m_url->setObjectName(QStringLiteral("jmapUrl"));
+    m_urlStatus->setObjectName(QStringLiteral("jmapUrlStatus"));
+    m_user->setObjectName(QStringLiteral("jmapUser"));
+    m_authentication->setObjectName(QStringLiteral("jmapAuthentication"));
+    m_password->setObjectName(QStringLiteral("jmapPassword"));
+    m_passwordStatus->setObjectName(QStringLiteral("jmapPasswordStatus"));
+    m_interval->setObjectName(QStringLiteral("jmapInterval"));
+    m_sending->setObjectName(QStringLiteral("jmapSending"));
+    m_sendingWarning->setObjectName(QStringLiteral("jmapSendingWarning"));
+
+    m_url->setText(settings.url);
+    m_url->setPlaceholderText(i18nc("@info:placeholder", "jmap.example.com"));
+    m_url->setToolTip(i18nc("@info:tooltip", "The server's host name, whose /.well-known/jmap address is asked, or the "
+                                             "full address of its JMAP session"));
+    m_urlStatus->setWordWrap(true);
+    m_urlStatus->setTextFormat(Qt::PlainText);
+    m_user->setText(settings.user);
+    m_authentication->addItem(i18nc("@item:inlistbox sign-in", "Password"),
+                              static_cast<int>(Jmap::Authentication::Basic));
+    m_authentication->addItem(i18nc("@item:inlistbox sign-in", "Access token"),
+                              static_cast<int>(Jmap::Authentication::Bearer));
+    m_authentication->setItemData(1, i18nc("@info:tooltip", "A token made in the provider's settings, such as an app "
+                                                            "token; the username is then only shown"),
+                                  Qt::ToolTipRole);
+    m_authentication->setCurrentIndex(m_authentication->findData(static_cast<int>(settings.authentication)));
+    m_password->setEchoMode(QLineEdit::Password);
+    m_password->setPlaceholderText(i18nc("@info:placeholder", "Asked for when needed"));
+    m_passwordStatus->setWordWrap(true);
+
+    m_interval->setRange(0, 1440);
+    m_interval->setValue(settings.interval);
+    m_interval->setSuffix(i18nc("@item:valuesuffix", " minutes"));
+    m_interval->setSpecialValueText(i18nc("@item:valuetext", "Only when asked"));
+    m_interval->setToolTip(i18nc("@info:tooltip", "Changes made here are sent soon after they are made; reloading the "
+                                                  "folders also synchronizes"));
+    m_sending->addItem(i18nc("@item:inlistbox", "Through the JMAP server"), static_cast<int>(Jmap::Sending::Jmap));
+    m_sending->addItem(i18nc("@item:inlistbox", "Through the SMTP server on the SMTP page"),
+                       static_cast<int>(Jmap::Sending::Smtp));
+    m_sending->setCurrentIndex(m_sending->findData(static_cast<int>(settings.sending)));
+    m_sendingWarning->setWordWrap(true);
+    m_sendingWarning->setStyleSheet(SettingsDialog::warningStyleSheet());
+    m_sendingWarning->setText(i18nc("@info", "When last asked, this server did not offer sending for the account. "
+                                             "Choose the SMTP server if sending fails."));
+
+    serverForm->addRow(i18nc("@label:textbox", "Server:"), m_url);
+    serverForm->addRow(m_urlStatus);
+    serverForm->addRow(i18nc("@label:textbox", "Username:"), m_user);
+    serverForm->addRow(i18nc("@label:listbox", "Sign in with:"), m_authentication);
+    serverForm->addRow(i18nc("@label:textbox", "Password:"), m_password);
+    serverForm->addRow(m_passwordStatus);
+    syncForm->addRow(i18nc("@label:spinbox", "Check for new mail every:"), m_interval);
+    syncForm->addRow(i18nc("@label:listbox", "Send messages:"), m_sending);
+    syncForm->addRow(m_sendingWarning);
+
+    auto *note = new QLabel(contents);
+    note->setObjectName(QStringLiteral("jmapLimitations"));
+    note->setWordWrap(true);
+    note->setTextFormat(Qt::RichText);
+    note->setText(i18nc("@info", "<p>The mail is kept on the server, with a copy on this computer that the mail "
+                                 "views read. Removing the account deletes the copy.</p><ul>"
+                                 "<li>New mail is found at the interval above; the server's push notifications are "
+                                 "not used yet.</li>"
+                                 "<li>Folders that the server did not have when the account was first synchronized "
+                                 "stay on this computer only.</li></ul>"));
+
+    layout->addWidget(serverGroup);
+    layout->addWidget(syncGroup);
+    layout->addWidget(note);
+    layout->addStretch();
+    setWidget(contents);
+    setWidgetResizable(true);
+    setFrameShape(QFrame::NoFrame);
+
+    connect(m_url, &QLineEdit::textChanged, this, &JmapPage::updateWidgets);
+    connect(m_authentication, &QComboBox::currentIndexChanged, this, &JmapPage::updateWidgets);
+    connect(m_sending, &QComboBox::currentIndexChanged, this, &JmapPage::updateWidgets);
+    connect(m_sending, &QComboBox::currentIndexChanged, this, [this]() { emit sendingChanged(sendsThroughJmap()); });
+    connect(m_password, &QLineEdit::textChanged, this, &JmapPage::updateWidgets);
+    connect(m_pwWatcher, &UiUtils::PasswordWatcher::stateChanged, this, &JmapPage::updateWidgets);
+    connect(m_pwWatcher, &UiUtils::PasswordWatcher::savingFailed, this, &JmapPage::saved);
+    connect(m_pwWatcher, &UiUtils::PasswordWatcher::savingDone, this, &JmapPage::saved);
+    connect(m_pwWatcher, &UiUtils::PasswordWatcher::readingDone, this, [this]() { m_password->setText(m_pwWatcher->password()); });
+    connect(parent, &SettingsDialog::reloadPasswordsRequested, m_password, &QLineEdit::clear);
+    connect(parent, &SettingsDialog::reloadPasswordsRequested, m_pwWatcher, &UiUtils::PasswordWatcher::reloadPassword);
+
+    updateWidgets();
+}
+
+bool JmapPage::sendsThroughJmap() const
+{
+    return static_cast<Jmap::Sending>(m_sending->currentData().toInt()) == Jmap::Sending::Jmap;
+}
+
+void JmapPage::updateWidgets()
+{
+    const QString entered = m_url->text().trimmed();
+    const QUrl session = Jmap::Settings::sessionUrlFor(entered);
+    QString urlStatus;
+    bool urlProblem = false;
+    if (!entered.isEmpty() && !session.isValid()) {
+        urlStatus = i18nc("@info", "This is not a server address.");
+        urlProblem = true;
+    } else if (session.isValid() && !Jmap::Settings::isAcceptable(session)) {
+        urlStatus = i18nc("@info", "Only https addresses can be used, so that the sign-in and the mail are encrypted; "
+                                   "plain http is allowed only to this computer.");
+        urlProblem = true;
+    } else if (session.isValid()) {
+        urlStatus = i18nc("@info %1 is an address", "Asks %1", session.toDisplayString());
+    }
+    m_urlStatus->setText(urlStatus);
+    m_urlStatus->setStyleSheet(urlProblem ? SettingsDialog::warningStyleSheet() : QString());
+    m_urlStatus->setVisible(!urlStatus.isEmpty());
+
+    const bool token = static_cast<Jmap::Authentication>(m_authentication->currentData().toInt())
+        == Jmap::Authentication::Bearer;
+    if (auto *form = qobject_cast<QFormLayout *>(m_password->parentWidget()->layout())) {
+        if (auto *label = qobject_cast<QLabel *>(form->labelForField(m_password)))
+            label->setText(token ? i18nc("@label:textbox", "Token:") : i18nc("@label:textbox", "Password:"));
+    }
+    m_sendingWarning->setVisible(sendsThroughJmap() && !m_canSubmit);
+
+    const bool usable = m_pwWatcher->isPluginAvailable() && !m_pwWatcher->isWaitingForPlugin();
+    m_password->setEnabled(usable);
+    QString status = m_pwWatcher->progressMessage();
+    if (status.isEmpty() && usable && !m_password->text().isEmpty() && !m_pwWatcher->isStorageEncrypted())
+        status = token ? i18nc("@info", "This token will be saved in clear text.")
+                       : i18nc("@info", "This password will be saved in clear text.");
+    m_passwordStatus->setText(status);
+    m_passwordStatus->setVisible(!status.isEmpty());
+    emit widgetsUpdated();
+}
+
+void JmapPage::save(QSettings &s)
+{
+    Jmap::Settings settings = Jmap::Settings::fromSettings(s);
+    settings.url = m_url->text().trimmed();
+    settings.user = m_user->text().trimmed();
+    settings.authentication = static_cast<Jmap::Authentication>(m_authentication->currentData().toInt());
+    settings.interval = m_interval->value();
+    settings.sending = static_cast<Jmap::Sending>(m_sending->currentData().toInt());
+    settings.save(s);
+
+    if (m_pwWatcher->isPluginAvailable() && !m_pwWatcher->isWaitingForPlugin())
+        m_pwWatcher->setPassword(m_password->text());
+    else
+        emit saved();
+}
+
+QWidget *JmapPage::asWidget()
+{
+    return this;
+}
+
+bool JmapPage::checkValidity() const
+{
+    if (checkProblemWithEmptyTextField(m_url, i18nc("@info:tooltip", "The JMAP server is missing here")))
+        return false;
+    const QUrl session = Jmap::Settings::sessionUrlFor(m_url->text());
+    if (!session.isValid() || !Jmap::Settings::isAcceptable(session)) {
+        QToolTip::showText(m_url->mapToGlobal(QPoint(10, m_url->height() / 2)),
+                           i18nc("@info:tooltip", "Enter an https address or a host name here"), nullptr);
+        return false;
+    }
+    return true;
+}
+
+bool JmapPage::passwordFailures(QString &message) const
+{
+    if (!m_pwWatcher->isPluginAvailable() || m_pwWatcher->isWaitingForPlugin() || m_pwWatcher->didWriteOk())
+        return false;
+    message = m_pwWatcher->progressMessage();
+    return true;
+}
+
 OutgoingPage::OutgoingPage(SettingsDialog *parent, QSettings &s): QScrollArea(parent), Ui_OutgoingPage(), m_parent(parent)
 {
     using Common::SettingsNames;
     Ui_OutgoingPage::setupUi(this);
     m_smtpAccountSettings = new MSA::Account(this, &s, m_parent->imapAccess()->accountName());
-    m_pop3 = Imap::AccountCapabilities::forAccount(s).protocol() == Imap::AccountProtocol::Pop3;
+    const Imap::AccountProtocol protocol = Imap::AccountCapabilities::forAccount(s).protocol();
+    m_pop3 = protocol == Imap::AccountProtocol::Pop3;
+    m_noImapSignIn = protocol != Imap::AccountProtocol::Imap;
 
     portWarningLabel->setStyleSheet(SettingsDialog::warningStyleSheet());
 
     method->insertItem(NETWORK, tr("Network"));
     method->insertItem(SENDMAIL, tr("Local sendmail-compatible"));
     method->insertItem(IMAP_SENDMAIL, tr("IMAP SENDMAIL Extension"));;
-    if (m_pop3) {
+    if (m_noImapSignIn) {
         if (auto *items = qobject_cast<QStandardItemModel *>(method->model()))
             items->item(IMAP_SENDMAIL)->setEnabled(false);
     }
@@ -1560,7 +1773,16 @@ OutgoingPage::OutgoingPage(SettingsDialog *parent, QSettings &s): QScrollArea(pa
     formLayout->insertRow(authRow + 1, tr("Authentication method:"), smtpAuthMethod);
     formLayout->insertRow(authRow + 2, smtpOAuthNote);
     connect(smtpAuthMethod, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &OutgoingPage::updateWidgets);
-    if (m_pop3) {
+    if (protocol == Imap::AccountProtocol::Jmap) {
+        m_jmapNote = new QLabel(i18nc("@info", "Messages are sent through the JMAP server. These settings are used "
+                                               "only when the JMAP page sends through an SMTP server instead."),
+                                this);
+        m_jmapNote->setObjectName(QStringLiteral("smtpJmapNote"));
+        m_jmapNote->setWordWrap(true);
+        m_jmapNote->setVisible(false);
+        formLayout->insertRow(0, m_jmapNote);
+    }
+    if (m_noImapSignIn) {
         // Sending signs in with its own password: there is no IMAP sign-in or OAuth set up to borrow
         smtpAuthMethod->setCurrentIndex(0);
         if (m_smtpAccountSettings->reuseImapAuthentication())
@@ -1662,9 +1884,9 @@ void OutgoingPage::updateWidgets()
         lay->labelForField(smtpAuth)->setVisible(true);
         bool authEnabled = m_smtpAccountSettings->authenticateEnabled();
         smtpAuth->setChecked(authEnabled);
-        smtpAuthReuseImapCreds->setVisible(authEnabled && !m_pop3);
-        lay->labelForField(smtpAuthReuseImapCreds)->setVisible(authEnabled && !m_pop3);
-        bool reuseImapCreds = m_smtpAccountSettings->reuseImapAuthentication() && !m_pop3;
+        smtpAuthReuseImapCreds->setVisible(authEnabled && !m_noImapSignIn);
+        lay->labelForField(smtpAuthReuseImapCreds)->setVisible(authEnabled && !m_noImapSignIn);
+        bool reuseImapCreds = m_smtpAccountSettings->reuseImapAuthentication() && !m_noImapSignIn;
         smtpAuthReuseImapCreds->setChecked(reuseImapCreds);
         smtpUser->setVisible(authEnabled && !reuseImapCreds);
         lay->labelForField(smtpUser)->setVisible(authEnabled && !reuseImapCreds);
@@ -1682,8 +1904,8 @@ void OutgoingPage::updateWidgets()
             saveToImap->setToolTip(serverKeepsCopy ?
                 i18nc("@info:tooltip", "This server already keeps a copy of each message it sends in the Sent folder") : QString());
         }
-        smtpBurl->setVisible(saveToImap->isChecked() && !m_pop3);
-        lay->labelForField(smtpBurl)->setVisible(saveToImap->isChecked() && !m_pop3);
+        smtpBurl->setVisible(saveToImap->isChecked() && !m_noImapSignIn);
+        lay->labelForField(smtpBurl)->setVisible(saveToImap->isChecked() && !m_noImapSignIn);
         smtpBurl->setChecked(m_smtpAccountSettings->useBurl());
 
         if (!m_pwWatcher->isPluginAvailable())
@@ -1710,7 +1932,7 @@ void OutgoingPage::updateWidgets()
         lay->labelForField(smtpPass)->setEnabled(m_pwWatcher->isPluginAvailable() && !m_pwWatcher->isWaitingForPlugin());
 
         if (smtpAuthMethod) {
-            lay->setRowVisible(smtpAuthMethod, authEnabled && !m_pop3);
+            lay->setRowVisible(smtpAuthMethod, authEnabled && !m_noImapSignIn);
             smtpOAuthNote->setVisible(authEnabled && usesOAuth());
             if (authEnabled && usesOAuth()) {
                 // The account's OAuth sign-in replaces the SMTP password
@@ -1805,6 +2027,13 @@ void OutgoingPage::showPortWarning(const QString &warning)
 
 }
 
+void OutgoingPage::setJmapSending(bool jmap)
+{
+    m_jmapSending = jmap;
+    if (m_jmapNote)
+        m_jmapNote->setVisible(jmap);
+}
+
 QWidget *OutgoingPage::asWidget()
 {
     return this;
@@ -1812,6 +2041,8 @@ QWidget *OutgoingPage::asWidget()
 
 bool OutgoingPage::checkValidity() const
 {
+    if (m_jmapSending)
+        return true;
     switch (m_smtpAccountSettings->submissionMethod()) {
     case MSA::Account::Method::SMTP:
     case MSA::Account::Method::SMTP_STARTTLS:

@@ -154,6 +154,9 @@
 #include "OnePanelAtTimeWidget.h"
 #include "PasswordDialog.h"
 #include "Pop3Fetcher.h"
+#include "JmapSyncer.h"
+#include "Jmap/Submission.h"
+#include "Common/TrustedCertificates.h"
 #include "ReaderActionBar.h"
 #include "RelatedMessagesPanel.h"
 #include "SearchResultsPanel.h"
@@ -706,11 +709,13 @@ void MainWindow::createActions()
     connect(resyncMbox, &QAction::triggered, this, &MainWindow::slotResyncMbox);
 
     reloadAllMailboxes = new QAction(tr("&Reload Everything"), this);
-    // connect later; POP3 accounts check their server instead, as their folders are on this computer
+    // connect later; POP3 and JMAP accounts visit their server instead, as their folders are on this computer
     for (QAction *check : {resyncMbox, reloadAllMailboxes}) {
         connect(check, &QAction::triggered, this, [this]() {
             if (Pop3Fetcher *fetcher = m_pop3Fetchers.value(m_accounts->activeAccount()))
                 fetcher->check(true);
+            if (JmapSyncer *syncer = m_jmapSyncers.value(m_accounts->activeAccount()))
+                syncer->sync(true);
         });
     }
 
@@ -3252,6 +3257,8 @@ void MainWindow::slotShowAccountSettings()
         setUnifiedInbox(false, false);
         if (Pop3Fetcher *fetcher = m_pop3Fetchers.value(m_accounts->activeAccount()))
             fetcher->settingsChanged();
+        if (JmapSyncer *syncer = m_jmapSyncers.value(m_accounts->activeAccount()))
+            syncer->settingsChanged();
         // FIXME: wipe cache in case we're moving between servers
         commitFolderPosition();
         nukeModels();
@@ -3267,6 +3274,11 @@ void MainWindow::slotShowAccountSettings()
             Gui::Util::messageBoxCritical(this, i18nc("@title:window", "No Configuration"),
                                           i18nc("@info", "No POP3 server is configured. Plasma Impresario cannot "
                                                          "download mail for this account without one."));
+    } else if (m_imapAccess->protocol() == Imap::AccountProtocol::Jmap) {
+        if (accountSettings()->value(Common::SettingsNames::jmapUrlKey).toString().isEmpty())
+            Gui::Util::messageBoxCritical(this, i18nc("@title:window", "No Configuration"),
+                                          i18nc("@info", "No JMAP server is configured. Plasma Impresario cannot "
+                                                         "synchronize mail for this account without one."));
     } else if (method != Common::SettingsNames::methodTCP && method != Common::SettingsNames::methodSSL &&
             method != Common::SettingsNames::methodProcess ) {
         Gui::Util::messageBoxCritical(this, tr("No Configuration"),
@@ -3870,13 +3882,26 @@ void MainWindow::monitorAccount(const QString &accountId)
     auto *model = qobject_cast<Imap::Mailbox::Model *>(access->imapModel());
     Q_ASSERT(model);
     using Common::AccountStatusKind;
-    if (access->protocol() == Imap::AccountProtocol::Pop3) {
+    if (access->protocol() != Imap::AccountProtocol::Imap) {
         // The folders are on this computer and always open; the status is that of the last visit to the server
-        Pop3Fetcher *fetcher = m_pop3Fetchers.value(accountId);
-        if (!fetcher) {
-            fetcher = new Pop3Fetcher(accountId, access, m_accounts->settings(accountId), m_settings, pluginManager(),
-                                      m_accountStatus, this);
-            m_pop3Fetchers.insert(accountId, fetcher);
+        Pop3Fetcher *fetcher = nullptr;
+        JmapSyncer *syncer = nullptr;
+        if (access->protocol() == Imap::AccountProtocol::Pop3) {
+            fetcher = m_pop3Fetchers.value(accountId);
+            if (!fetcher) {
+                fetcher = new Pop3Fetcher(accountId, access, m_accounts->settings(accountId), m_settings,
+                                          pluginManager(), m_accountStatus, this);
+                m_pop3Fetchers.insert(accountId, fetcher);
+            }
+        } else {
+            syncer = m_jmapSyncers.value(accountId);
+            if (!syncer) {
+                syncer = new JmapSyncer(accountId, access, m_accounts->settings(accountId), m_settings,
+                                        pluginManager(), m_accountStatus, this);
+                m_jmapSyncers.insert(accountId, syncer);
+                // Folders made, renamed or removed on the server appear without asking the folder list again
+                connect(syncer, &JmapSyncer::foldersChanged, model, &Imap::Mailbox::Model::reloadMailboxList);
+            }
         }
         for (auto signal : {&Imap::Mailbox::Model::networkPolicyOnline, &Imap::Mailbox::Model::networkPolicyExpensive})
             connect(model, signal, model, &Imap::Mailbox::Model::reloadMailboxList, Qt::SingleShotConnection);
@@ -3887,9 +3912,12 @@ void MainWindow::monitorAccount(const QString &accountId)
         });
         scheduleAccountUnreadRefresh();
         QPointer<Pop3Fetcher> guard = fetcher;
-        QMetaObject::invokeMethod(this, [this, guard, accountId]() {
+        QPointer<JmapSyncer> syncerGuard = syncer;
+        QMetaObject::invokeMethod(this, [this, guard, syncerGuard, accountId]() {
             if (guard)
                 guard->check(accountId == m_accounts->activeAccount());
+            if (syncerGuard)
+                syncerGuard->sync(accountId == m_accounts->activeAccount());
         }, Qt::QueuedConnection);
         return;
     }
@@ -4061,6 +4089,9 @@ void MainWindow::switchAccount(const QString &accountId)
         // Shown now, so a check may ask for the password or the certificate it could not ask for before
         if (Common::AccountStatusTracker::needsAttention(status.kind))
             fetcher->check(true);
+    } else if (JmapSyncer *syncer = m_jmapSyncers.value(accountId)) {
+        if (Common::AccountStatusTracker::needsAttention(status.kind))
+            syncer->sync(true);
     } else if (status.kind == Common::AccountStatusKind::AuthRequired) {
         m_ignoreStoredPassword = !status.detail.isEmpty();
         authenticationRequested();
@@ -4080,6 +4111,12 @@ void MainWindow::slotAddAccount()
         // Most providers sign in with the address, and sending cannot borrow an IMAP sign-in
         if (UiUtils::ServerDiscovery::parseAddress(dialog.emailAddress()).isValid()) {
             settings->setValue(Common::SettingsNames::pop3UserKey, dialog.emailAddress());
+            settings->setValue(Common::SettingsNames::smtpUserKey, dialog.emailAddress());
+        }
+    } else if (dialog.protocol() == Imap::AccountProtocol::Jmap) {
+        Imap::AccountCapabilities::setProtocol(*settings, Imap::AccountProtocol::Jmap);
+        if (UiUtils::ServerDiscovery::parseAddress(dialog.emailAddress()).isValid()) {
+            settings->setValue(Common::SettingsNames::jmapUserKey, dialog.emailAddress());
             settings->setValue(Common::SettingsNames::smtpUserKey, dialog.emailAddress());
         }
     }
@@ -4281,6 +4318,10 @@ void MainWindow::confirmRemoveAccount(const QString &accountId)
         question += QLatin1String("\n\n")
             + i18n("This is a POP3 account: mail already removed from the server exists only on this computer and "
                    "cannot be recovered after the account is removed.");
+    else if (Imap::AccountCapabilities::forAccount(settings).protocol() == Imap::AccountProtocol::Jmap)
+        question += QLatin1String("\n\n")
+            + i18n("This is a JMAP account: folders that exist only on this computer, and the messages in them, "
+                   "cannot be recovered after the account is removed.");
     if (usesOAuth(settings)) {
         const OAuth::Provider provider = OAuth::AccountConfig::fromSettings(settings, accountId).provider;
         if (provider.isValid() && !provider.revocationEndpoint.isValid())
@@ -4339,7 +4380,8 @@ void MainWindow::removeAccountNow(const QString &accountId)
     const bool revokeOAuth = usesOAuth(removed) && !sharesOAuthGrant(accountId);
     const OAuth::AccountConfig oauthConfig = OAuth::AccountConfig::fromSettings(removed, access->credentialAccountId());
     if (Plugins::PasswordPlugin *password = pluginManager()->password()) {
-        QStringList types{QStringLiteral("imap"), QStringLiteral("smtp"), Pop3Fetcher::passwordType()};
+        QStringList types{QStringLiteral("imap"), QStringLiteral("smtp"), Pop3Fetcher::passwordType(),
+                          JmapSyncer::passwordType()};
         // Revoking deletes the stored grant once the provider has answered
         if (!revokeOAuth)
             types << OAuth::credentialType();
@@ -4357,6 +4399,7 @@ void MainWindow::removeAccountNow(const QString &accountId)
         ? QString()
         : Imap::ImapAccess::localStoreFolder(access->credentialAccountId());
     m_pop3Fetchers.remove(accountId);
+    m_jmapSyncers.remove(accountId);
     if (m_unifiedModel)
         m_unifiedModel->removeAccount(accountId);
     if (m_searchResultsPanel)
@@ -4376,7 +4419,7 @@ void MainWindow::removeAccountNow(const QString &accountId)
     // The access held the last reference to the local store, so its database is closed by now
     if (!localStoreFolder.isEmpty() && QFileInfo::exists(localStoreFolder)
         && !Imap::removeAccountCache(localStoreFolder, QFileInfo(localStoreFolder).path())) {
-        qWarning() << "Could not delete the mail of the removed POP3 account in" << localStoreFolder;
+        qWarning() << "Could not delete the mail of the removed account in" << localStoreFolder;
         Gui::Util::messageBoxWarning(this, i18n("Mail Not Deleted"),
                                      i18n("The mail kept on this computer for the removed account could not be "
                                           "deleted. Remove the folder %1 to delete it.",
@@ -5996,6 +6039,20 @@ void MainWindow::invokeContactEditor()
 MSA::MSAFactory *MainWindow::msaFactory()
 {
     using namespace Common;
+    if (JmapSyncer::sendsThroughJmap(*accountSettings())) {
+        QPointer<QSettings> profile = m_settings;
+        // The server files the message in Sent; the next synchronization brings that copy here
+        QPointer<JmapSyncer> syncer = m_jmapSyncers.value(m_accounts->activeAccount());
+        return new Jmap::SubmissionFactory(
+            Jmap::Settings::fromSettings(*accountSettings()),
+            [profile](const QString &host, const QSslCertificate &certificate) {
+                return profile && Common::TrustedCertificates::isTrusted(*profile, host, certificate);
+            },
+            [syncer]() {
+                if (syncer)
+                    syncer->sync(false);
+            });
+    }
     QString method = accountSettings()->value(SettingsNames::msaMethodKey).toString();
     MSA::MSAFactory *msaFactory = nullptr;
     if (method == SettingsNames::methodSMTP || method == SettingsNames::methodSSMTP) {

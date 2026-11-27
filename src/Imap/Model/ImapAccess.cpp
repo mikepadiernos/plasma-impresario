@@ -766,7 +766,7 @@ bool ImapAccess::isConfigured() const
     case AccountProtocol::Pop3:
         return !m_settings->value(Common::SettingsNames::pop3HostKey).toString().isEmpty();
     case AccountProtocol::Jmap:
-        return false;
+        return !m_settings->value(Common::SettingsNames::jmapUrlKey).toString().isEmpty();
     }
     return false;
 }

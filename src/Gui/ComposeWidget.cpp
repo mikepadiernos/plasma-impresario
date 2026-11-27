@@ -85,6 +85,7 @@
 #include "Plugins/PluginManager.h"
 #include "ShortcutHandler/ShortcutHandler.h"
 #include "UiUtils/Formatting.h"
+#include "JmapSyncer.h"
 #include "UiUtils/IconLoader.h"
 #include "UiUtils/ServerDiscovery.h"
 
@@ -961,7 +962,8 @@ void ComposeWidget::passwordRequested(const QString &user, const QString &host)
         m_submission->cancelPassword();
         return;
     }
-    if (m_accountSettings->value(Common::SettingsNames::smtpAuthReuseImapCredsKey, false).toBool()) {
+    const bool jmap = JmapSyncer::sendsThroughJmap(*m_accountSettings);
+    if (!jmap && m_accountSettings->value(Common::SettingsNames::smtpAuthReuseImapCredsKey, false).toBool()) {
         auto password = qobject_cast<const Imap::Mailbox::Model*>(m_imapAccess->imapModel())->imapPassword();
         if (password.isNull()) {
             // This can happen for example when we've always been offline since the last profile change,
@@ -983,7 +985,8 @@ void ComposeWidget::passwordRequested(const QString &user, const QString &host)
         return;
     }
 
-    Plugins::PasswordJob *job = password->requestPassword(m_submission->accountId(), QStringLiteral("smtp"));
+    Plugins::PasswordJob *job = password->requestPassword(m_submission->accountId(),
+                                                          jmap ? JmapSyncer::passwordType() : QStringLiteral("smtp"));
     if (!job) {
         askPassword(user, host);
         return;
@@ -1008,29 +1011,34 @@ void ComposeWidget::passwordError()
 
 void ComposeWidget::certificateCheckRequested(const QList<QSslCertificate> &chain, const QList<QSslError> &errors)
 {
-    const QString host = m_accountSettings ? m_accountSettings->value(Common::SettingsNames::smtpHostKey).toString()
-                                           : QString();
+    // A JMAP account sending through its server has no SMTP host; its key is kept with the trusted certificates only
+    const bool jmap = m_accountSettings && JmapSyncer::sendsThroughJmap(*m_accountSettings);
+    QSettings *pinned = jmap ? nullptr : m_accountSettings.data();
+    const QString host = !m_accountSettings ? QString()
+        : jmap ? Jmap::Settings::fromSettings(*m_accountSettings).host()
+               : m_accountSettings->value(Common::SettingsNames::smtpHostKey).toString();
     QSettings *profile = m_mainWindow ? m_mainWindow->settings() : nullptr;
     if (profile && !chain.isEmpty() && Common::TrustedCertificates::isTrusted(*profile, host, chain.first())) {
         // Another account, or this host's IMAP service, already got the user's approval for this key
-        if (m_accountSettings)
-            m_accountSettings->setValue(Common::SettingsNames::smtpSslPemPubKey, chain.first().publicKey().toPem());
+        if (pinned)
+            pinned->setValue(Common::SettingsNames::smtpSslPemPubKey, chain.first().publicKey().toPem());
         m_submission->setCertificateAccepted(true);
         return;
     }
-    const QByteArray oldPubKey = m_accountSettings ?
-                m_accountSettings->value(Common::SettingsNames::smtpSslPemPubKey).toByteArray() : QByteArray();
+    const QByteArray oldPubKey = pinned ? pinned->value(Common::SettingsNames::smtpSslPemPubKey).toByteArray()
+                                        : QByteArray();
     QString title, message;
     UiUtils::Formatting::IconType icon;
     UiUtils::Formatting::formatSslState(chain, oldPubKey, errors, &title, &message, &icon,
-                                        UiUtils::Formatting::ServerKind::Smtp);
+                                        jmap ? UiUtils::Formatting::ServerKind::Jmap
+                                             : UiUtils::Formatting::ServerKind::Smtp);
     QPointer<ComposeWidget> guard(this);
     const bool accepted = QMessageBox(static_cast<QMessageBox::Icon>(icon), title, message,
                                       QMessageBox::Yes | QMessageBox::No, this).exec() == QMessageBox::Yes;
     if (!guard)
         return;
-    if (accepted && m_accountSettings && !chain.isEmpty())
-        m_accountSettings->setValue(Common::SettingsNames::smtpSslPemPubKey, chain.first().publicKey().toPem());
+    if (accepted && pinned && m_accountSettings && !chain.isEmpty())
+        pinned->setValue(Common::SettingsNames::smtpSslPemPubKey, chain.first().publicKey().toPem());
     if (accepted && profile && !chain.isEmpty())
         Common::TrustedCertificates::trust(*profile, host, chain.first());
     m_submission->setCertificateAccepted(accepted);
@@ -1038,8 +1046,10 @@ void ComposeWidget::certificateCheckRequested(const QList<QSslCertificate> &chai
 
 void ComposeWidget::askPassword(const QString &user, const QString &host)
 {
+    const bool jmap = m_accountSettings && JmapSyncer::sendsThroughJmap(*m_accountSettings);
     auto w = Gui::PasswordDialog::getPassword(this, tr("Authentication Required"),
-                                              tr("<p>Please provide SMTP password for user <b>%1</b> on <b>%2</b>:</p>").arg(
+                                              (jmap ? tr("<p>Please provide the JMAP password for user <b>%1</b> on <b>%2</b>:</p>")
+                                                    : tr("<p>Please provide SMTP password for user <b>%1</b> on <b>%2</b>:</p>")).arg(
                                                   user.toHtmlEscaped(),
                                                   host.toHtmlEscaped()));
     connect(w, &Gui::PasswordDialog::gotPassword, m_submission, &Composer::Submission::setPassword);
@@ -1223,8 +1233,10 @@ void ComposeWidget::send()
         && UiUtils::ServerDiscovery::keepsSentCopies(account.value(Common::SettingsNames::smtpHostKey).toString());
     // A POP3 account has only its inbox, so there is no Sent folder to keep a copy in
     const bool hasSentFolder = Imap::AccountCapabilities::forAccount(account).supports(Imap::AccountOperation::ServerFolders);
+    // A JMAP server files what it sends in Sent itself, and the next synchronization brings that copy here
+    const bool jmapKeepsCopy = JmapSyncer::sendsThroughJmap(account);
     m_submission->setImapOptions(account.value(Common::SettingsNames::composerSaveToImapKey, true).toBool() && !serverKeepsCopy
-                                     && hasSentFolder,
+                                     && hasSentFolder && !jmapKeepsCopy,
                                  account.value(Common::SettingsNames::composerImapSentKey, QStringLiteral("Sent")).toString(),
                                  account.value(Common::SettingsNames::imapHostKey).toString(),
                                  account.value(Common::SettingsNames::imapUserKey).toString(),

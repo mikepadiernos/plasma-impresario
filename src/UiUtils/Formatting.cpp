@@ -169,12 +169,14 @@ void Formatting::formatSslState(const QList<QSslCertificate> &sslChain, const QB
                                       ServerKind server)
 {
     // Whole sentences per server, so that translations need not combine fragments
-    const auto pick = [server](const QString &imap, const QString &smtp, const QString &pop3) {
+    const auto pick = [server](const QString &imap, const QString &smtp, const QString &pop3, const QString &jmap) {
         switch (server) {
         case ServerKind::Smtp:
             return smtp;
         case ServerKind::Pop3:
             return pop3;
+        case ServerKind::Jmap:
+            return jmap;
         case ServerKind::Imap:
             break;
         }
@@ -202,6 +204,9 @@ void Formatting::formatSslState(const QList<QSslCertificate> &sslChain, const QB
                                "<p>Would you like to connect anyway and remember the new certificate?</p>"),
                             tr("<p>The public key of the SSL certificate of the POP3 server has changed since the last time "
                                "and your system doesn't believe that the new certificate is genuine.</p>\n%1\n%2\n"
+                               "<p>Would you like to connect anyway and remember the new certificate?</p>"),
+                            tr("<p>The public key of the SSL certificate of the JMAP server has changed since the last time "
+                               "and your system doesn't believe that the new certificate is genuine.</p>\n%1\n%2\n"
                                "<p>Would you like to connect anyway and remember the new certificate?</p>")).
                     arg(sslChainToHtml(sslChain), sslErrorsToHtml(sslErrors));
             *icon = IconType::Critical;
@@ -218,6 +223,9 @@ void Formatting::formatSslState(const QList<QSslCertificate> &sslChain, const QB
                                "<p>Would you like to connect and remember this certificate's public key for the next time?</p>"),
                             tr("<p>This is the first time you're connecting to this POP3 server; the certificate is trusted "
                                "by this system.</p>\n%1\n%2\n"
+                               "<p>Would you like to connect and remember this certificate's public key for the next time?</p>"),
+                            tr("<p>This is the first time you're connecting to this JMAP server; the certificate is trusted "
+                               "by this system.</p>\n%1\n%2\n"
                                "<p>Would you like to connect and remember this certificate's public key for the next time?</p>"))
                     .arg(sslChainToHtml(sslChain), sslErrorsToHtml(sslErrors));
             *icon = IconType::Information;
@@ -230,6 +238,9 @@ void Formatting::formatSslState(const QList<QSslCertificate> &sslChain, const QB
                                "validation test.</p>\n%1\n\n%2\n"
                                "<p>Would you like to connect and remember this certificate's public key for the next time?</p>"),
                             tr("<p>This is the first time you're connecting to this POP3 server and the server certificate failed "
+                               "validation test.</p>\n%1\n\n%2\n"
+                               "<p>Would you like to connect and remember this certificate's public key for the next time?</p>"),
+                            tr("<p>This is the first time you're connecting to this JMAP server and the server certificate failed "
                                "validation test.</p>\n%1\n\n%2\n"
                                "<p>Would you like to connect and remember this certificate's public key for the next time?</p>"))
                     .arg(sslChainToHtml(sslChain), sslErrorsToHtml(sslErrors));

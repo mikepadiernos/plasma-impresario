@@ -52,6 +52,7 @@ public:
         Imap,
         Smtp,
         Pop3,
+        Jmap,
     };
 
     Q_INVOKABLE static QString prettySize(quint64 bytes);

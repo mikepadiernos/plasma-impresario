@@ -26,7 +26,7 @@ Find Settings looks the address up through UiUtils::ServerDiscovery and shows wh
 here: the password or the OAuth 2.0 sign-in is entered in the account settings afterwards. The account can also be
 added without servers, which are then entered by hand.
 
-A POP3 account is not looked up: its server is entered in the account settings, which open next.
+A POP3 or JMAP account is not looked up: its server is entered in the account settings, which open next.
 */
 class AddAccountDialog : public QDialog
 {

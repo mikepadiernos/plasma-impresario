@@ -247,6 +247,8 @@ public:
     QWidget *asWidget() override;
     bool checkValidity() const override;
     bool passwordFailures(QString &message) const override;
+    /** For a JMAP account: whether it sends through its JMAP server rather than with these settings */
+    void setJmapSending(bool jmap);
 
 private slots:
     void slotSetSubmissionMethod();
@@ -264,8 +266,13 @@ private:
     UiUtils::PasswordWatcher *m_pwWatcher;
 
     MSA::Account *m_smtpAccountSettings;
-    /** A POP3 account has no IMAP sign-in to reuse, and no IMAP server to send through */
+    /** A POP3 account has no IMAP sign-in to reuse, no IMAP server to send through, and no Sent folder */
     bool m_pop3 = false;
+    /** A POP3 or JMAP account has no IMAP sign-in to reuse and no IMAP server to send through */
+    bool m_noImapSignIn = false;
+    /** The JMAP account sends through its server, so nothing on this page is needed */
+    bool m_jmapSending = false;
+    QLabel *m_jmapNote = nullptr;
     QComboBox *smtpAuthMethod = nullptr;
     QLabel *smtpOAuthNote = nullptr;
 
@@ -381,6 +388,44 @@ private:
 signals:
     void saved();
     void widgetsUpdated();
+};
+
+/** @short Server, sign-in, schedule and sending of a JMAP account, shown in place of the IMAP and Offline pages */
+class JmapPage : public QScrollArea, public ConfigurationWidgetInterface
+{
+    Q_OBJECT
+public:
+    JmapPage(SettingsDialog *parent, QSettings &s);
+    void save(QSettings &s) override;
+    QWidget *asWidget() override;
+    bool checkValidity() const override;
+    bool passwordFailures(QString &message) const override;
+    /** Whether messages are to go through the JMAP server, as currently chosen */
+    bool sendsThroughJmap() const;
+
+private slots:
+    void updateWidgets();
+
+private:
+    QLineEdit *m_url;
+    QLabel *m_urlStatus;
+    QLineEdit *m_user;
+    QComboBox *m_authentication;
+    QLineEdit *m_password;
+    QLabel *m_passwordStatus;
+    QSpinBox *m_interval;
+    QComboBox *m_sending;
+    QLabel *m_sendingWarning;
+    bool m_canSubmit;
+    UiUtils::PasswordWatcher *m_pwWatcher;
+
+    JmapPage(const JmapPage &) = delete;
+    JmapPage &operator=(const JmapPage &) = delete;
+
+signals:
+    void saved();
+    void widgetsUpdated();
+    void sendingChanged(bool jmap);
 };
 
 
