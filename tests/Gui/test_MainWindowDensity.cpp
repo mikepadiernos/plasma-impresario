@@ -146,7 +146,9 @@ private slots:
         QVERIFY(body && row && leftColumn && rightColumn && mainColumn && footer);
         QCOMPARE(body->parentWidget(), window.centralWidget());
         QCOMPARE(row->indexOf(leftColumn), 0);
-        QCOMPARE(row->indexOf(mainColumn), 1);
+        // The main column sits in a wrapper which can hold the tab bar beside it
+        QCOMPARE(mainColumn->parentWidget()->objectName(), QStringLiteral("shellMainArea"));
+        QCOMPARE(row->indexOf(mainColumn->parentWidget()), 1);
         QCOMPARE(row->indexOf(rightColumn), 2);
         QCOMPARE(body->indexOf(footer), 1);
         QCOMPARE(sidebar->parentWidget(), rightColumn);

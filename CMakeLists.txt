@@ -1342,6 +1342,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_MsgListViewTeardown PRIVATE DesktopGui Qt6::Test KF6::I18n)
         add_executable(test_MainWindowDensity tests/Gui/test_MainWindowDensity.cpp)
         target_link_libraries(test_MainWindowDensity PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_MainWindowTabs tests/Gui/test_MainWindowTabs.cpp)
+        target_link_libraries(test_MainWindowTabs PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_MailBoxTreeView tests/Gui/test_MailBoxTreeView.cpp)
         target_link_libraries(test_MailBoxTreeView PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_MailboxNavigation tests/Gui/test_MailboxNavigation.cpp)
@@ -1499,6 +1501,10 @@ if(BUILD_TESTING)
             endforeach()
             set_tests_properties(test_MainWindowDensity PROPERTIES
                 TIMEOUT 30
+                ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
+            add_test(NAME test_MainWindowTabs COMMAND test_MainWindowTabs)
+            set_tests_properties(test_MainWindowTabs PROPERTIES
+                TIMEOUT 60
                 ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
             add_test(NAME test_MainWindowDensityNamedProfile COMMAND test_MainWindowDensity)
             set_tests_properties(test_MainWindowDensityNamedProfile PROPERTIES
