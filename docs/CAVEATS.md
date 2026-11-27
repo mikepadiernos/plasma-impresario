@@ -608,9 +608,9 @@ Plasma session; that check is
 
 ### Search
 
-| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                                                                                                                                                                                       |
-| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/454#issuecomment-7181065871) | The quick search's query syntax and builder, **Date** and **Search In** menus, saved searches with a date range or places, searches the server cannot run, **Clear All**, search history and suggestions, saved searches as virtual folders, mailing-list views, the offline search index, search snippets and relevance, search facets, the Search Results panel, and keyboard access to search |
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/454#issuecomment-7181065871) | The quick search's query syntax and builder, **Date** and **Search In** menus, saved searches with a date range or places, searches the server cannot run, **Clear All**, search history and suggestions, saved searches as virtual folders, mailing-list views, the offline search index, search snippets and relevance, search facets, the Search Results panel, keyboard access to search, and finding saved files |
 
 **Current behavior:**
 
@@ -822,6 +822,16 @@ Plasma session; that check is
   just before the message list, and at the Search Results panel when it is
   shown
   ([#349](https://github.com/mikepadiernos/plasma-impresario/issues/349)).
+- ![Resolved][resolved] **Mailbox › Find Saved Files…**, and **Find Saved
+  Copies…** in the attachment panel, find saved attachments and messages with
+  Plasma's File Search in the default file manager, through a `baloosearch:`
+  URL, or with a live search of the names and text of a folder's files through
+  `filenamesearch:`. The dialog reads File Search's settings and says when it
+  is not installed or turned off, does not include or skips the folder, skips
+  hidden folders, or indexes only file names. The save dialogs for
+  attachments, parts and messages share a remembered folder, which the search
+  starts from
+  ([#350](https://github.com/mikepadiernos/plasma-impresario/issues/350)).
 - ![Limitation][limitation] The server compares the calendar day in each
   message's Date header, in the sender's time zone, because IMAP's `SENTSINCE`
   and `SENTBEFORE` disregard the time and zone. The list shows local time, so a
@@ -943,6 +953,15 @@ Plasma session; that check is
   the list first. <kbd>F6</kbd> skips the quick search while it is unavailable,
   such as before a folder is chosen
   ([#349](https://github.com/mikepadiernos/plasma-impresario/issues/349)).
+- ![Limitation][limitation] The coverage notice reads File Search's settings,
+  not its index: files saved in the last few minutes, or before their folder
+  was added, may not be indexed yet, and indexing progress is not shown. File
+  name exclude filters are not checked, so a file type that File Search skips
+  is reported as covered. Without the `filenamesearch` worker, **Live Search**
+  opens the folder instead. Only the last save folder is remembered. If hidden
+  folders are indexed, File Search can also index the files in the app's cache
+  folder
+  ([#350](https://github.com/mikepadiernos/plasma-impresario/issues/350)).
 - ![Limitation][limitation] Decrypted text is added only when a message is
   opened and decrypted in the reader with the option on; messages decrypted
   earlier are not added until they are opened again. Inline PGP is indexed as
@@ -1095,6 +1114,10 @@ Plasma session; that check is
 - To find text in the open message from the list, press <kbd>F6</kbd> until
   the reader has focus, then <kbd>Ctrl</kbd>+<kbd>F</kbd>, or choose
   **Search...** in the reader's context menu.
+- To find a copy saved in a folder that File Search does not index, use
+  **Live Search**, or add the folder in **System Settings › Search › File
+  Search**; the notice updates when you return to the dialog. For a copy saved
+  somewhere other than the last save folder, pick its folder with **Choose…**.
 - Leave decrypted indexing off unless the disk is encrypted, and exclude
   folders whose text should not be copied into the index. To free the space
   as well, remove the account, which deletes its cache files, and add it
@@ -1171,6 +1194,11 @@ Plasma session; that check is
 - Move the quick search into the designed header with M14.02, and offer
   **Find in Message** in the reader's action bar and from the embedded panels
   ([#349](https://github.com/mikepadiernos/plasma-impresario/issues/349)).
+- Ask File Search over D-Bus for its indexing progress and whether a folder
+  is indexed yet, check its exclude filters, remember several save folders,
+  search a folder in the app when the file manager has no live search, and
+  keep the app's cache out of File Search
+  ([#350](https://github.com/mikepadiernos/plasma-impresario/issues/350)).
 
 ## Before reporting results
 

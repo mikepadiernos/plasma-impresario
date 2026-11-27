@@ -48,8 +48,8 @@ whose branding work is in Development.
 | [Windows and session lifecycle](#windows-and-session-lifecycle)       | ![Needs verification][needs-verification] | Shell layout, panel and density preferences are stored with KConfig; the selected folder and message with `KSharedConfig::openStateConfig()`. No Plasma session-restore hooks                   | M06.01         |
 | [Notifications and status](#notifications-and-status)                 | ![Limitation][limitation]                 | The footer shows connection status; an optional tray icon shows unread counts and network errors. KNotification is used only for background-account errors; there are no new-mail notifications | M06.01, M07    |
 | [Plasma widgets](#plasma-widgets)                                     | ![Planned][planned]                       | None                                                                                                                                                                                            | M06.02         |
-| [Files and attachments](#files-and-attachments)                       | ![Limitation][limitation]                 | `QFileDialog` for open and save; attachments open through desktop file associations; the composer accepts dropped local files only. KIO is not used                                             | M06.01, M06.03 |
-| [Search and indexing](#search-and-indexing)                           | ![Planned][planned]                       | Search runs on the IMAP server for the selected mailbox; Baloo, KRunner and a local index are not used                                                                                          | M05, M06.01    |
+| [Files and attachments](#files-and-attachments)                       | ![Limitation][limitation]                 | `QFileDialog` for open and save; attachments open through desktop file associations; the composer accepts dropped local files only. KIO opens Plasma's file search for saved files              | M06.01, M06.03 |
+| [Search and indexing](#search-and-indexing)                           | ![Limitation][limitation]                 | Search runs on the IMAP server or in an opt-in index in the app's cache; saved files are found with Baloo or a live search in the file manager. KRunner is not used                             | M05, M06.01    |
 | [Settings and credentials](#settings-and-credentials)                 | ![Limitation][limitation]                 | Account settings use `QSettings`; app preferences use KConfig; passwords use the QtKeychain or cleartext plugin ([details](../CAVEATS.md#security-and-data-protection))                         | M06.01         |
 | [Appearance and accessibility](#appearance-and-accessibility)         | ![Needs verification][needs-verification] | Theme icons and a row density selector; accessibility, high-contrast and scaling checks are not recorded                                                                                        | M06.01, M09    |
 | [Desktop actions and availability](#desktop-actions-and-availability) | ![Needs verification][needs-verification] | The desktop entry registers the `mailto:` scheme handler and a Composer action                                                                                                                  | M06.01         |
@@ -126,7 +126,10 @@ showing saved attachments in the file manager
 ([#266](https://github.com/mikepadiernos/plasma-impresario/issues/266)) are
 part of **M06.03** (see
 [Plasma Opus integrations](plasma-opus.md#plasma-opus-features-to-use)). Today,
-files are chosen with `QFileDialog` and opened with `QDesktopServices`.
+files are chosen with `QFileDialog` and opened with `QDesktopServices`. Saved
+attachments and messages are found through KIO, and the save dialogs remember
+the last folder
+([#350](https://github.com/mikepadiernos/plasma-impresario/issues/350)).
 
 - **What:** Save, open, preview and share attachments using familiar Plasma file
   workflows.
@@ -143,11 +146,13 @@ files are chosen with `QFileDialog` and opened with `QDesktopServices`.
 
 ## Search and indexing
 
-Mail search and the optional local index are planned in
+Mail search and the optional local index are part of
 [M05](../ROADMAP.md#m05-search-and-indexing), with Baloo file search in M05.06
 ([#350](https://github.com/mikepadiernos/plasma-impresario/issues/350)); the
 KRunner provider is part of **M06.01** (see [Plasma Opus search and
-indexing](plasma-opus.md#search-and-indexing)).
+indexing](plasma-opus.md#search-and-indexing)). Today, **Find Saved Files…**
+opens a `baloosearch:` or `filenamesearch:` URL in the default file manager and
+explains, from File Search's settings, whether it indexes the chosen folder.
 
 - **What:** Find saved attachments and exported messages with Plasma's file
   search, and optionally find mail from KRunner (Plasma Search).
