@@ -14,6 +14,7 @@
 #include "Gui/MessageDetailsPanel.h"
 #include "Gui/MsgListView.h"
 #include "Gui/ReaderActionBar.h"
+#include "IPC/MainWindowBridge.h"
 #include "Gui/Window.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
@@ -45,6 +46,7 @@
 #include <QTest>
 #include <QTextEdit>
 #include <QTimer>
+#include <QUrlQuery>
 #include <QWebEnginePage>
 #include <algorithm>
 #include <memory>
@@ -310,6 +312,38 @@ QString headerLine(const QByteArray &message, const QByteArray &name)
             field = trimmed;
     }
     return QString::fromUtf8(field);
+}
+
+/** A mailto: URL built the way KIO's KEMailClientLauncherJob hands files from a file manager to a mail client */
+QUrl launcherUrl(const QString &query, const QStringList &attachments)
+{
+    QUrl url(QStringLiteral("mailto:carol@example.test"));
+    QUrlQuery items(query);
+    for (const QString &attachment : attachments) {
+        const QString value = attachment.startsWith(QLatin1Char('/')) ? QUrl::fromLocalFile(attachment).toString() : attachment;
+        items.addQueryItem(QStringLiteral("attach"), QString::fromUtf8(QUrl::toPercentEncoding(value)));
+    }
+    url.setQuery(items);
+    return url;
+}
+
+/** The names of the files attached in a composer */
+QStringList attachmentNames(Gui::ComposeWidget *composer)
+{
+    QStringList result;
+    auto *view = composer->findChild<QAbstractItemView *>(QStringLiteral("attachmentsView"));
+    if (!view || !view->model())
+        return result;
+    for (int row = 0; row < view->model()->rowCount(); ++row)
+        result << view->model()->index(row, 0).data().toString();
+    return result;
+}
+
+bool writeFile(const QString &path, const QByteArray &content)
+{
+    QDir().mkpath(QFileInfo(path).absolutePath());
+    QFile file(path);
+    return file.open(QIODevice::WriteOnly) && file.write(content) == content.size();
 }
 
 }
@@ -693,6 +727,123 @@ private slots:
         QVERIFY2(messageId.endsWith(QLatin1String("@example.test>")), qPrintable(messageId));
         QCOMPARE(headerLine(stored, "Message-ID"), messageId);
         QCOMPARE(dialogs.passwordPrompts, 0);
+    }
+
+    /** Files which a file manager hands over, through a mailto: URL or the command line, are attached and named in a
+     * notice; refused ones are listed, and a link in a message cannot attach any */
+    void filesFromOtherApplications()
+    {
+        bool ok = false;
+        const int port = qEnvironmentVariableIntValue("PLASMA_TEST_IMAPS_PORT", &ok);
+        QVERIFY(ok && port > 0 && port <= 65535);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        Profile profile(directory, port);
+        Dialogs dialogs;
+        // A composer left open by an earlier failure would be taken for the ones opened here
+        while (QPointer<Gui::ComposeWidget> leftover = visibleComposer())
+            delete leftover;
+
+        Gui::MainWindow window(&profile.settings);
+        window.resize(1400, 900);
+        window.show();
+        QVERIFY(addIdentity(window));
+        auto *tree = window.findChild<Gui::MailBoxTreeView *>();
+        QVERIFY(tree);
+        QTRY_VERIFY_WITH_TIMEOUT(findMailbox(tree->model(), QStringLiteral("INBOX")).isValid(), 20000);
+        const int sentBefore = storedMessages(QStringLiteral(".Sent"));
+
+        const QString notes = directory.filePath(QStringLiteral("files/handoff-notes.txt"));
+        const QString spaced = directory.filePath(QStringLiteral("files/100% plan & budget.txt"));
+        const QString chosen = directory.filePath(QStringLiteral("files/chosen-on-command-line.txt"));
+        const QString hidden = directory.filePath(QStringLiteral("files/.hidden-secret"));
+        QVERIFY(writeFile(notes, "Synthetic handoff notes\n"));
+        QVERIFY(writeFile(spaced, "Synthetic plan and budget\n"));
+        QVERIFY(writeFile(chosen, "Synthetic command line file\n"));
+        QVERIFY(writeFile(hidden, "Synthetic secret\n"));
+        const auto noticeOf = [](Gui::ComposeWidget *composer) {
+            return composer->findChild<Gui::InlineNotificationBar *>(QStringLiteral("composerHandoffNotice"));
+        };
+
+        // A file manager's request: the files are attached, the hidden and remote ones refused and listed, and the
+        // file also named on the command line attached once
+        const QUrl request = launcherUrl(QStringLiteral("subject=Synthetic%20handoff&body=Files%20attached."),
+                                         {notes, spaced, hidden, QStringLiteral("sftp://host.example.test/files/remote.txt"), chosen});
+        window.composeMailFromOtherApplication(QUrl::fromEncoded(request.toEncoded()), {chosen});
+        QPointer<Gui::ComposeWidget> composer;
+        QTRY_VERIFY_WITH_TIMEOUT((composer = visibleComposer()), 10000);
+        QCOMPARE(composer->findChild<QLineEdit *>(QStringLiteral("subject"))->text(), QStringLiteral("Synthetic handoff"));
+        QCOMPARE(attachmentNames(composer),
+                 (QStringList{QStringLiteral("chosen-on-command-line.txt"), QStringLiteral("handoff-notes.txt"),
+                              QStringLiteral("100% plan & budget.txt")}));
+        auto *notice = noticeOf(composer);
+        QVERIFY(notice);
+        QVERIFY(notice->isVisible());
+        QCOMPARE(notice->kind(), Gui::InlineNotificationBar::Kind::Error);
+        for (const QString &expected : {QStringLiteral(".hidden-secret"), QStringLiteral("sftp://host.example.test/files/remote.txt"),
+                                        QStringLiteral("handoff-notes.txt"), QStringLiteral("chosen-on-command-line.txt")})
+            QVERIFY2(notice->text().contains(expected), qPrintable(notice->text()));
+        QVERIFY2(notice->text().contains(QLatin1String("2 requested files could not be attached")), qPrintable(notice->text()));
+        // It stays until dismissed, for the files to be checked before sending
+        QTest::qWait(500);
+        QVERIFY(notice->isVisible());
+
+        // The attached files are sent
+        QVERIFY(QMetaObject::invokeMethod(composer, "send"));
+        QTRY_VERIFY2_WITH_TIMEOUT(!composer, qPrintable(dialogs.errors.join(QLatin1Char('\n'))), 20000);
+        QVERIFY2(dialogs.errors.isEmpty(), qPrintable(dialogs.errors.join(QLatin1Char('\n'))));
+        const QByteArray sent = profile.lastSent();
+        QCOMPARE(headerLine(sent, "Subject"), QStringLiteral("Subject: Synthetic handoff"));
+        QVERIFY2(sent.contains("filename=handoff-notes.txt"), sent.constData());
+        QVERIFY2(sent.contains("filename=chosen-on-command-line.txt"), sent.constData());
+        QVERIFY2(sent.contains("filename*=utf-8''100%25%20plan%20%26%20budget.txt"), sent.constData());
+        QVERIFY2(!sent.contains("hidden-secret"), sent.constData());
+        QVERIFY2(!sent.contains("remote.txt"), sent.constData());
+        QTRY_COMPARE_WITH_TIMEOUT(storedMessages(QStringLiteral(".Sent")), sentBefore + 1, 10000);
+
+        // Through D-Bus, as a second start of the application forwards it, everything requested is attached
+        IPC::MainWindowBridge bridge(&window);
+        bridge.composeMailWithFiles(QString::fromUtf8(launcherUrl(QString(), {notes}).toEncoded()), {chosen});
+        QTRY_VERIFY_WITH_TIMEOUT((composer = visibleComposer()), 10000);
+        QCOMPARE(attachmentNames(composer),
+                 (QStringList{QStringLiteral("chosen-on-command-line.txt"), QStringLiteral("handoff-notes.txt")}));
+        notice = noticeOf(composer);
+        QVERIFY(notice && notice->isVisible());
+        QCOMPARE(notice->kind(), Gui::InlineNotificationBar::Kind::Info);
+        QVERIFY2(notice->text().contains(QLatin1String("Attached 2 files")), qPrintable(notice->text()));
+        QVERIFY2(notice->text().contains(QLatin1String("handoff-notes.txt")), qPrintable(notice->text()));
+        composer->close();
+        QTRY_VERIFY_WITH_TIMEOUT(!composer, 10000);
+
+        // Files alone open a blank message with them
+        bridge.composeMailWithFiles(QString(), {notes});
+        QTRY_VERIFY_WITH_TIMEOUT((composer = visibleComposer()), 10000);
+        QCOMPARE(attachmentNames(composer), QStringList{QStringLiteral("handoff-notes.txt")});
+        QCOMPARE(noticeOf(composer)->kind(), Gui::InlineNotificationBar::Kind::Info);
+        composer->close();
+        QTRY_VERIFY_WITH_TIMEOUT(!composer, 10000);
+
+        // Nothing at all opens a blank message without a notice
+        bridge.composeMailWithFiles(QString(), {});
+        QTRY_VERIFY_WITH_TIMEOUT((composer = visibleComposer()), 10000);
+        QVERIFY(attachmentNames(composer).isEmpty());
+        QVERIFY(!noticeOf(composer) || !noticeOf(composer)->isVisible());
+        composer->close();
+        QTRY_VERIFY_WITH_TIMEOUT(!composer, 10000);
+
+        // A link in a message may not pick files to send, whatever it asks
+        composer = Gui::ComposeWidget::createFromUrl(&window, request);
+        QVERIFY(composer);
+        QCOMPARE(composer->findChild<QLineEdit *>(QStringLiteral("subject"))->text(), QStringLiteral("Synthetic handoff"));
+        QVERIFY(attachmentNames(composer).isEmpty());
+        notice = noticeOf(composer);
+        QVERIFY(notice && notice->isVisible());
+        QCOMPARE(notice->kind(), Gui::InlineNotificationBar::Kind::Error);
+        QVERIFY2(notice->text().contains(QLatin1String("5 files")), qPrintable(notice->text()));
+        composer->close();
+        QTRY_VERIFY_WITH_TIMEOUT(!composer, 10000);
+        QCOMPARE(dialogs.passwordPrompts, 0);
+        QVERIFY2(dialogs.errors.isEmpty(), qPrintable(dialogs.errors.join(QLatin1Char('\n'))));
     }
 };
 
