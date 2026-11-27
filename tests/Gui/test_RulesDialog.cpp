@@ -232,6 +232,19 @@ void RulesDialogTest::addRuleGoesThroughEditor()
     QCOMPARE(dialog.rules().size(), 2);
     QCOMPARE(dialog.rules().at(1).name, QStringLiteral("From search"));
     QCOMPARE(dialog.list()->currentRow(), 1);
+    // Without a shown folder there is nothing to preview
+    QCOMPARE(dialog.previewList()->topLevelItemCount(), 0);
+
+    // With one, the added rule's matches are shown at once
+    dialog.setShownFolder(QStringLiteral("work"), QStringLiteral("INBOX"), []() {
+        return QList<MailRules::Message>{message(1, QStringLiteral("Invoice 12")), message(2, QStringLiteral("Hello"))};
+    });
+    MailRules::Rule invoices = rule(QStringLiteral("r9"), QStringLiteral("invoice"), MailRules::ActionKind::Flag);
+    dialog.addRule(invoices);
+    QCOMPARE(dialog.rules().size(), 3);
+    QCOMPARE(dialog.list()->currentRow(), 2);
+    QCOMPARE(dialog.previewList()->topLevelItemCount(), 1);
+    QVERIFY(dialog.rules().at(2).isReviewed());
 }
 
 QTEST_MAIN(RulesDialogTest)

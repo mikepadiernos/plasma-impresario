@@ -268,6 +268,8 @@ void RulesDialog::addRule(const MailRules::Rule &rule)
         return;
     m_rules << edited;
     fillList(static_cast<int>(m_rules.size()) - 1);
+    // What the new rule matches is shown before it is saved
+    previewSelected();
 }
 
 void RulesDialog::editSelected()

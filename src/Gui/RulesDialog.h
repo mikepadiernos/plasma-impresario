@@ -51,7 +51,8 @@ public:
 
     /** Select the rule @arg id, as when the activity log asks to review it */
     void selectRule(const QString &id);
-    /** @short Offer @arg rule as a new rule in the editor, as made from a search; it is added when the editor accepts */
+    /** @short Offer @arg rule as a new rule in the editor, as made from a search; it is added when the editor accepts
+    and previewed on the shown folder, if there is one */
     void addRule(const UiUtils::MailRules::Rule &rule);
 
     /** Preview the selected rule on the shown folder */
