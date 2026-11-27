@@ -26,11 +26,13 @@
 #include <QActionGroup>
 #include <QBuffer>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFormLayout>
 #include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QLocale>
 #include <QMenu>
 #include <QMessageBox>
 #include <QProgressDialog>
@@ -38,6 +40,7 @@
 #include <QRegularExpression>
 #include <QSettings>
 #include <QScreen>
+#include <QSet>
 #include <QSignalBlocker>
 #include <QSslKey>
 #include <QTimer>
@@ -47,6 +50,7 @@
 #include "configure.cmake.h"
 #include "ui_ComposeWidget.h"
 #include "Composer/AccountIdentities.h"
+#include "Composer/AttachmentRequests.h"
 #include "Composer/ExistingMessageComposer.h"
 #include "Composer/MessageComposer.h"
 #include "Composer/ReplaceSignature.h"
@@ -61,6 +65,7 @@
 #include "Gui/CompleteMessageWidget.h"
 #include "Gui/ComposeWidget.h"
 #include "Gui/FromAddressProxyModel.h"
+#include "Gui/InlineNotificationBar.h"
 #include "Gui/LineEdit.h"
 #include "Gui/MessageView.h"
 #include "Gui/OverlayWidget.h"
@@ -179,6 +184,7 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
     , m_sourceModel(mainWindow->imapModel())
     , m_account(nullptr)
     , m_accountWarning(nullptr)
+    , m_handoffNotice(nullptr)
     , m_composer(messageComposer)
     , m_submission(nullptr)
     , m_completionPopup(nullptr)
@@ -225,6 +231,12 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
     m_accountWarning->setStyleSheet(Gui::Util::cssWarningBorder());
     m_accountWarning->hide();
     ui->verticalLayout_2->insertWidget(0, m_accountWarning);
+
+    m_handoffNotice = new InlineNotificationBar(this);
+    m_handoffNotice->setObjectName(QStringLiteral("composerHandoffNotice"));
+    // Stays until dismissed, so that the requested files are checked before sending
+    m_handoffNotice->setAutoHideTimeout(0);
+    ui->verticalLayout_2->insertWidget(0, m_handoffNotice);
 
     if (interactiveComposer()) {
         interactiveComposer()->setReportTrojitaVersions(m_settings->value(Common::SettingsNames::interopRevealVersions, true).toBool());
@@ -648,7 +660,8 @@ ComposeWidget *ComposeWidget::createDraft(MainWindow *mainWindow, const QString 
 }
 
 /** @short Create a composer window with data from a URL */
-ComposeWidget *ComposeWidget::createFromUrl(MainWindow *mainWindow, const QUrl &url)
+ComposeWidget *ComposeWidget::createFromUrl(MainWindow *mainWindow, const QUrl &url, const UrlOrigin origin,
+                                            const QStringList &files)
 {
     MSA::MSAFactory *msaFactory = mainWindow->msaFactory();
     if (!msaFactory)
@@ -691,9 +704,68 @@ ComposeWidget *ComposeWidget::createFromUrl(MainWindow *mainWindow, const QUrl &
       // We don't need to expose any UI here, but we want the in-reply-to and references information to be carried with this message
       w->m_actionInReplyTo->setChecked(true);
     }
+
+    const QStringList requested = Composer::AttachmentRequests::fromMailto(url);
+    if (origin == UrlOrigin::OtherApplication) {
+        if (!requested.isEmpty() || !files.isEmpty())
+            w->attachRequestedFiles(requested, files);
+    } else if (!requested.isEmpty()) {
+        // A link in a message could otherwise pick any file of the user's to send
+        w->m_handoffNotice->showError(
+            i18ncp("@info", "The link asked to attach a file, which links in messages may not do. Use Attach to add it yourself.",
+                   "The link asked to attach %1 files, which links in messages may not do. Use Attach to add them yourself.",
+                   requested.size()));
+    }
     w->placeOnMainWindow();
     w->show();
     return w;
+}
+
+void ComposeWidget::attachRequestedFiles(const QStringList &fromUrl, const QStringList &fromCommandLine)
+{
+    using namespace Composer::AttachmentRequests;
+    auto composer = interactiveComposer();
+    if (!composer)
+        return;
+    InhibitComposerDirtying inhibitor(this);
+    const QList<Request> requests = resolveAll(fromCommandLine, Source::CommandLine)
+            + resolveAll(fromUrl, Source::MailtoUrl);
+    QStringList attached;
+    QStringList refused;
+    QSet<QString> seen;
+    for (const Request &request : requests) {
+        if (request.accepted()) {
+            const QString key = QFileInfo(request.path).canonicalFilePath();
+            if (seen.contains(key))
+                continue;
+            seen.insert(key);
+            if (composer->addFileAttachment(request.path)) {
+                attached << QFileInfo(request.path).fileName();
+                continue;
+            }
+            refused << i18nc("@item %1 is a requested file, %2 why it was not attached", "%1: %2", request.requested,
+                             i18nc("@info", "It cannot be read."));
+        } else {
+            refused << i18nc("@item %1 is a requested file, %2 why it was not attached", "%1: %2", request.requested, request.problem);
+        }
+    }
+
+    // The files were chosen elsewhere, so they are named here to be checked before sending
+    const QString done = attached.isEmpty() ? QString()
+            : i18ncp("@info %2 is a list of file names", "Attached %2 at another application's request; check it before sending.",
+                     "Attached %1 files at another application's request: %2. Check them before sending.", attached.size(),
+                     QLocale().createSeparatedList(attached));
+    if (refused.isEmpty()) {
+        m_handoffNotice->showInfo(done);
+        return;
+    }
+    QString text = i18ncp("@info", "A requested file could not be attached:", "%1 requested files could not be attached:",
+                          refused.size());
+    for (const QString &line : std::as_const(refused))
+        text += QLatin1Char('\n') + line;
+    if (!done.isEmpty())
+        text += QLatin1Char('\n') + done;
+    m_handoffNotice->showError(text);
 }
 
 /** @short Create a composer window for a reply */

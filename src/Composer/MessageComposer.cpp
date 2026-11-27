@@ -769,11 +769,12 @@ QList<QByteArray> MessageComposer::rawRecipientAddresses() const
 
 bool MessageComposer::addFileAttachment(const QString &path)
 {
-    beginInsertRows(QModelIndex(), m_attachments.size(), m_attachments.size());
     auto attachment = std::make_unique<FileAttachmentItem>(path);
 
+    // Checked before the rows are announced, which a refused file would leave unfinished
     if (!attachment->isAvailableLocally())
         return false;
+    beginInsertRows(QModelIndex(), m_attachments.size(), m_attachments.size());
     if (m_shouldPreload)
         attachment->preload();
     m_attachments << attachment.release();

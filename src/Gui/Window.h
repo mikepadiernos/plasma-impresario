@@ -213,7 +213,14 @@ signals:
     void accountsChanged();
 
 public slots:
+    /** @short Compose from a mailto: link inside the application; attachments it asks for are refused */
     void slotComposeMailUrl(const QUrl &url);
+    /** @short Compose what another application asked for, such as a file manager through the e-mail portal
+
+    The attachments requested by the mailto: @arg url, which may be empty, and the @arg files named on the command line
+    are attached and listed in the composer. Nothing is sent without the user.
+    */
+    void composeMailFromOtherApplication(const QUrl &url, const QStringList &files);
     /** @short Open the message with @arg messageId, a Message-ID or a mid: URL, from the command line or another program
 
     The messages loaded and indexed on this computer are looked at first; the servers are searched only if the user

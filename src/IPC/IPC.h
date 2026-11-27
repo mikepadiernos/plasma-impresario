@@ -23,6 +23,8 @@
 #ifndef IPC_H
 #define IPC_H
 
+#include <QStringList>
+
 class QString;
 
 namespace Gui {
@@ -40,6 +42,8 @@ namespace IPC {
         void showAddressbookWindow();
         /** Invoke compose window from mailto: url */
         void composeMail(const QString &url);
+        /** Invoke compose window from a mailto: url, attaching the absolute paths or file: URLs in @arg files */
+        void composeMail(const QString &url, const QStringList &files);
         /** Open the message with a Message-ID, or named by a mid: URL */
         void openMessage(const QString &messageId);
     }

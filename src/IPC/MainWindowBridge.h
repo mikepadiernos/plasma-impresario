@@ -43,6 +43,8 @@ public slots:
     void showMainWindow();
     void showAddressbookWindow();
     void composeMail(const QString &url);
+    /** Compose from a mailto: @arg url, or a blank message, attaching @arg files given on the command line */
+    void composeMailWithFiles(const QString &url, const QStringList &files);
     void openMessage(const QString &messageId);
 
 private:

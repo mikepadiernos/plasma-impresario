@@ -24,11 +24,13 @@
 #include <QCommandLineOption>
 #include <QCommandLineParser>
 #include <QFile>
+#include <QFileInfo>
 #include <QLibraryInfo>
 #include <QObject>
 #include <QSettings>
 #include <QTimer>
 #include <QTextStream>
+#include <QUrl>
 #include <KLocalizedString>
 #include <KSharedConfig>
 
@@ -105,6 +107,11 @@ int main(int argc, char **argv)
                                                     "is turned on in the settings."));
     parser.addOption(backgroundOption);
 
+    QCommandLineOption attachOption(QStringList() << QLatin1String("attach"),
+                                    QObject::tr("Compose a new e-mail with this file attached; may be given more than once."),
+                                    QObject::tr("file"));
+    parser.addOption(attachOption);
+
     parser.addPositionalArgument(QLatin1String("url"),
                                  QObject::tr("Mailto: URL address for composing new e-mail, or mid: URL of a message to open."),
                                  QObject::tr("[url]"));
@@ -135,6 +142,15 @@ int main(int argc, char **argv)
         profileName = parser.value(profileOption);
     if (parser.isSet(messageIdOption))
         messageId = parser.value(messageIdOption);
+    QStringList attachments;
+    const QStringList attachValues = parser.values(attachOption);
+    for (const QString &file : attachValues) {
+        // A running copy has another working folder, so relative paths are resolved here
+        const bool isUrl = file.startsWith(QLatin1String("file:")) || file.contains(QLatin1String("://"));
+        attachments << (isUrl ? file : QFileInfo(file).absoluteFilePath());
+    }
+    if (!attachments.isEmpty())
+        showComposeWindow = true;
     if (parser.positionalArguments().size() > 0) {
         if (parser.positionalArguments().size() == 1) {
             url = parser.positionalArguments().at(0);
@@ -180,7 +196,7 @@ int main(int argc, char **argv)
         if (showAddressbookWindow)
             IPC::Instance::showAddressbookWindow();
         if (showComposeWindow)
-            IPC::Instance::composeMail(url);
+            IPC::Instance::composeMail(url, attachments);
         if (!messageId.isEmpty())
             IPC::Instance::openMessage(messageId);
         return 0;
@@ -219,10 +235,8 @@ int main(int argc, char **argv)
         win.invokeContactEditor();
 
     if (showComposeWindow) {
-        if (url.isEmpty())
-            win.slotComposeMail();
-        else
-            win.slotComposeMailUrl(QUrl::fromEncoded(url.toUtf8()));
+        // Launched by the user or another application, such as the e-mail portal, which may hand over files
+        win.composeMailFromOtherApplication(url.isEmpty() ? QUrl() : QUrl::fromEncoded(url.toUtf8()), attachments);
     }
 
     if (!messageId.isEmpty()) {

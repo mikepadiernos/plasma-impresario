@@ -70,6 +70,11 @@ void composeMail(const QString &url)
     interface().call(QDBus::NoBlock, QStringLiteral("composeMail"), url);
 }
 
+void composeMail(const QString &url, const QStringList &files)
+{
+    interface().call(QDBus::NoBlock, QStringLiteral("composeMailWithFiles"), url, files);
+}
+
 void openMessage(const QString &messageId)
 {
     interface().call(QDBus::NoBlock, QStringLiteral("openMessage"), messageId);

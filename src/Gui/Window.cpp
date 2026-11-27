@@ -5680,6 +5680,18 @@ void MainWindow::slotComposeMailUrl(const QUrl &url)
     ComposeWidget::warnIfMsaNotConfigured(ComposeWidget::createFromUrl(this, url), this);
 }
 
+void MainWindow::composeMailFromOtherApplication(const QUrl &url, const QStringList &files)
+{
+    if (url.isEmpty() && files.isEmpty()) {
+        slotComposeMail();
+        return;
+    }
+    ComposeWidget::warnIfMsaNotConfigured(
+        ComposeWidget::createFromUrl(this, url.isEmpty() ? QUrl(QStringLiteral("mailto:")) : url,
+                                     ComposeWidget::UrlOrigin::OtherApplication, files),
+        this);
+}
+
 void MainWindow::slotManageContact(const QUrl &url)
 {
     Imap::Message::MailAddress addr;

@@ -48,6 +48,11 @@ void composeMail(const QString &)
     Q_ASSERT(false);
 }
 
+void composeMail(const QString &, const QStringList &)
+{
+    Q_ASSERT(false);
+}
+
 void openMessage(const QString &)
 {
     Q_ASSERT(false);
