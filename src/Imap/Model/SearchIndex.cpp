@@ -427,6 +427,7 @@ bool SearchIndex::open()
                        "list_id TEXT, list_post TEXT, has_text INTEGER, text_parts TEXT, "
                        "decrypted INTEGER NOT NULL DEFAULT 0, attachment_parts TEXT, attachment_report TEXT, "
                        "UNIQUE (mailbox, uid))"),
+        QStringLiteral("CREATE INDEX IF NOT EXISTS search_docs_message_id ON search_docs (message_id)"),
         QStringLiteral("CREATE VIRTUAL TABLE IF NOT EXISTS search_text USING fts5(subject, sender, recipient_to, "
                        "recipient_cc, recipient_bcc, body, attachments, attachment_text, tokenize='trigram')"),
     };
@@ -516,6 +517,32 @@ bool SearchIndex::clear()
     if (!savepoint.release())
         return fail(tr("Cannot empty the search index"), db.lastError().text());
     return true;
+}
+
+QList<SearchIndex::Location> SearchIndex::messagesWithId(const QString &messageId) const
+{
+    QList<Location> result;
+    if (messageId.isEmpty())
+        return result;
+    QSqlQuery q(database());
+    q.prepare(QStringLiteral("SELECT d.mailbox, d.uid, f.uidvalidity FROM search_docs d "
+                             "LEFT JOIN search_folders f ON f.mailbox = d.mailbox "
+                             "WHERE d.message_id IN (?, ?) ORDER BY d.received DESC, d.mailbox, d.uid"));
+    // Envelopes usually hold the ID without angle brackets, but one written with them is the same message
+    q.addBindValue(messageId);
+    q.addBindValue(QString(QLatin1Char('<') + messageId + QLatin1Char('>')));
+    if (!q.exec()) {
+        fail(tr("Cannot read the search index"), q.lastError().text());
+        return result;
+    }
+    while (q.next()) {
+        Location location;
+        location.mailbox = q.value(0).toString();
+        location.uid = q.value(1).toUInt();
+        location.uidValidity = q.value(2).toUInt();
+        result << location;
+    }
+    return result;
 }
 
 QList<SearchIndex::Folder> SearchIndex::folders() const

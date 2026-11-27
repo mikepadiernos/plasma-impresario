@@ -48,6 +48,11 @@ void composeMail(const QString &)
     Q_ASSERT(false);
 }
 
+void openMessage(const QString &)
+{
+    Q_ASSERT(false);
+}
+
 } //namespace Instance
 
 bool registerInstance(Gui::MainWindow *, QString &)

@@ -7,7 +7,7 @@ Exec=plasma-impresario %u
 Icon=io.github.mikepadiernos.plasma_impresario
 NoDisplay=true
 Terminal=false
-MimeType=x-scheme-handler/mailto;
+MimeType=x-scheme-handler/mailto;x-scheme-handler/mid;
 Actions=Composer;
 
 [Desktop Action Composer]

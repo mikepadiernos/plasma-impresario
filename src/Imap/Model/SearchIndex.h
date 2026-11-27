@@ -108,6 +108,14 @@ public:
         QDateTime updated;
     };
 
+    /** @short Where an indexed message is */
+    struct Location {
+        QString mailbox;
+        uint uid = 0;
+        /** UIDVALIDITY of the folder when it was indexed; 0 when unknown */
+        uint uidValidity = 0;
+    };
+
     struct Result {
         /** Why the index could not answer, or empty */
         QString problem;
@@ -168,6 +176,13 @@ public:
     bool setSetting(const QString &key, const QString &value);
     bool setFlags(const QString &mailbox, const QHash<uint, QStringList> &flags);
     bool remove(const QString &mailbox, const QList<uint> &uids);
+
+    /** @short Indexed messages whose Message-ID is exactly @arg messageId, given without angle brackets, newest first
+
+    Unlike a HEADER Message-ID search, which matches any part of the ID, only the same ID matches, stored with or
+    without angle brackets.
+    */
+    QList<Location> messagesWithId(const QString &messageId) const;
 
     /** @short Messages matching the IMAP SEARCH keys @arg conditions in @arg mailboxes, or in all folders if empty */
     Result search(const QStringList &conditions, const QStringList &mailboxes) const;

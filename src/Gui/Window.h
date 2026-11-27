@@ -106,6 +106,11 @@ namespace Plugins
 class PluginManager;
 }
 
+namespace UiUtils
+{
+class MessageIdLookup;
+}
+
 namespace MSA
 {
 class MSAFactory;
@@ -204,6 +209,14 @@ signals:
 
 public slots:
     void slotComposeMailUrl(const QUrl &url);
+    /** @short Open the message with @arg messageId, a Message-ID or a mid: URL, from the command line or another program
+
+    The messages loaded and indexed on this computer are looked at first; the servers are searched only if the user
+    agrees. Problems and the outcome are reported in the notification bar.
+    */
+    void openMessageById(const QString &messageId);
+    /** @short Open the message named by a mid: URL (RFC 2392); see openMessageById() */
+    void openMessageUrl(const QUrl &url);
     void slotComposeMail();
     void invokeContactEditor();
 protected:
@@ -500,6 +513,16 @@ private:
     Results shown in the message list give way to the folder; those in the Search Results panel stay.
     */
     void revealInFolder(const QModelIndex &message);
+    /** @short Show @arg mailbox of @arg accountId and select the message @arg uid there; see revealInFolder() */
+    void revealLocation(const QString &accountId, const QString &mailbox, uint uidValidity, uint uid);
+    /** @short Whether a message of @arg mailbox of the shown account is about to be revealed or still being selected
+
+    Restoring the folder's saved position or selection then would replace the revealed message.
+    */
+    bool isRevealing(const QString &mailbox) const;
+    /** @short Search the servers for the message of openMessageById(), after the user agreed */
+    void searchServersForMessage();
+    void messageLookupFinished();
 
     void createMailboxBelow(const QModelIndex &index);
 
@@ -1079,6 +1102,12 @@ private:
         uint uid = 0;
     };
     PendingReveal m_pendingReveal;
+    /** The reveal which the message restorer is selecting, so that a queued restore of the folder's position keeps it */
+    PendingReveal m_activeReveal;
+    /** Finds the message of openMessageById() */
+    UiUtils::MessageIdLookup *m_messageLookup = nullptr;
+    /** Whether the user stopped the server search of m_messageLookup */
+    bool m_messageLookupStopped = false;
     /** While an action works on messages of another account than the shown one */
     Imap::ImapAccess *m_actingAccess = nullptr;
     QString m_actingAccountId;

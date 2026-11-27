@@ -90,7 +90,7 @@ Keywords[tr]=posta;e-posta;IMAP;SMTP;eml;MUA;
 Keywords[uk]=mail;e-mail;IMAP;SMTP;eml;MUA;пошта;електронна;емейл;імейл;імап;аймап;смтп;емл;
 Keywords[zh_CN]=mail;e-mail;IMAP;SMTP;eml;MUA;电子邮件;邮件;电邮;邮箱;dianyou;dianziyoujian;youxiang;youjian;
 StartupNotify=true
-MimeType=x-scheme-handler/mailto;
+MimeType=x-scheme-handler/mailto;x-scheme-handler/mid;
 Actions=Composer;
 
 [Desktop Action Composer]

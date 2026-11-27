@@ -70,6 +70,11 @@ void composeMail(const QString &url)
     interface().call(QDBus::NoBlock, QStringLiteral("composeMail"), url);
 }
 
+void openMessage(const QString &messageId)
+{
+    interface().call(QDBus::NoBlock, QStringLiteral("openMessage"), messageId);
+}
+
 } //namespace Instance
 
 bool registerInstance(Gui::MainWindow *window, QString &error)

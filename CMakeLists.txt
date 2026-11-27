@@ -321,6 +321,8 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/IconLoader.cpp
     ${path_UiUtils}/LinkSafety.cpp
     ${path_UiUtils}/MailingLists.cpp
+    ${path_UiUtils}/MessageId.cpp
+    ${path_UiUtils}/MessageIdLookup.cpp
     ${path_UiUtils}/MessageSecurity.cpp
     ${path_UiUtils}/PasswordWatcher.cpp
     ${path_UiUtils}/PlainTextFormatter.cpp

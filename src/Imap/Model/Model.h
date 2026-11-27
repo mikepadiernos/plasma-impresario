@@ -298,6 +298,18 @@ public:
 
     /** @short Return an index for the message specified by the mailbox name and the message UID */
     QModelIndex messageIndexByUid(const QString &mailboxName, const uint uid);
+    /** @short Messages already in the model whose Message-ID is @arg messageId, with or without angle brackets
+
+    Only message lists and envelopes which were loaded are looked at, so nothing is fetched from the server or the cache.
+    */
+    QModelIndexList findLoadedMessagesById(const QByteArray &messageId) const;
+
+    /** @short UIDVALIDITY of the mailbox which holds @arg message, as last synced, or 0
+
+    Unlike RoleMailboxUidValidity, this never asks for the message list and still answers while the list is being
+    resynced, from the cache if needed.
+    */
+    uint knownUidValidity(const QModelIndex &message) const;
 
     /** @short Index of a mailbox which is already known to the model, or an invalid index */
     QModelIndex mailboxIndexByName(const QString &mailboxName);

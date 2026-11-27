@@ -161,6 +161,8 @@
 
 #include "Imap/Model/ModelTest/modeltest.h"
 #include "UiUtils/IconLoader.h"
+#include "UiUtils/MessageId.h"
+#include "UiUtils/MessageIdLookup.h"
 #include "UiUtils/QaimDfsIterator.h"
 #include "UiUtils/RelatedMessages.h"
 #include "UiUtils/Relevance.h"
@@ -269,6 +271,7 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
         const bool savedSearch = !msgListWidget->activeSavedSearchOwner().isEmpty();
         msgListWidget->forgetActiveSavedSearch();
         m_pendingReveal = PendingReveal();
+        m_activeReveal = PendingReveal();
         // The results in the Search Results panel stay while other folders are looked at
         if (searchShownInList()) {
             leaveSearchAcross();
@@ -345,6 +348,7 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
 
     // Please note that Qt 4.6.1 really requires passing the method signature this way, *not* using the SLOT() macro
     QDesktopServices::setUrlHandler(QStringLiteral("mailto"), this, "slotComposeMailUrl");
+    QDesktopServices::setUrlHandler(QStringLiteral("mid"), this, "openMessageUrl");
     QDesktopServices::setUrlHandler(QStringLiteral("x-trojita-manage-contact"), this, "slotManageContact");
 
     slotUpdateWindowTitle();
@@ -2195,6 +2199,9 @@ void MainWindow::setupModels(bool reconnect)
         if (m_unifiedInbox)
             return;
         const QString name = mailbox.data(Imap::Mailbox::RoleMailboxName).toString();
+        // A message which was asked for wins over the one selected last time
+        if (isRevealing(name))
+            return;
         if (name == accountSelection.readEntry("MessageMailbox", QString())) {
             messageRestorer->restore(name, accountSelection.readEntry("MessageUidValidity", 0u),
                                      accountSelection.readEntry("MessageUid", 0u));
@@ -6652,14 +6659,28 @@ void MainWindow::restoreFolderPosition()
     if (m_pendingReveal.accountId == m_accounts->activeAccount() && m_pendingReveal.mailbox == m_positionMailbox) {
         // The message which revealInFolder() asked for, rather than the one selected before
         const PendingReveal reveal = std::exchange(m_pendingReveal, PendingReveal());
+        m_activeReveal = reveal;
         m_messageRestorer->restore(reveal.mailbox, reveal.uidValidity, reveal.uid);
         return;
     }
+    // Switching accounts queues a restore of the position, which would replace the revealed message still being selected
+    if (isRevealing(m_positionMailbox))
+        return;
+    m_activeReveal = PendingReveal();
     const auto position = folderPositions().position(m_positionMailbox);
     if (!position)
         return;
     m_messageRestorer->restorePosition(m_positionMailbox, position->uidValidity, position->uid, position->anchorUid,
                                        position->selectedUids);
+}
+
+bool MainWindow::isRevealing(const QString &mailbox) const
+{
+    const QString accountId = m_accounts->activeAccount();
+    if (m_pendingReveal.accountId == accountId && m_pendingReveal.mailbox == mailbox)
+        return true;
+    return m_messageRestorer && m_messageRestorer->isPending() && m_activeReveal.accountId == accountId
+        && m_activeReveal.mailbox == mailbox;
 }
 
 void MainWindow::saveFolderPositions()
@@ -7807,10 +7828,14 @@ void MainWindow::revealInFolder(const QModelIndex &message)
     const QModelIndex deproxified = Imap::deproxifiedIndex(message);
     if (!deproxified.isValid())
         return;
-    const QString accountId = accountOfModel(qobject_cast<const Imap::Mailbox::Model *>(deproxified.model()));
-    const QString mailbox = deproxified.data(Imap::Mailbox::RoleMailboxName).toString();
-    const uint uidValidity = deproxified.data(Imap::Mailbox::RoleMailboxUidValidity).toUInt();
-    const uint uid = deproxified.data(Imap::Mailbox::RoleMessageUid).toUInt();
+    revealLocation(accountOfModel(qobject_cast<const Imap::Mailbox::Model *>(deproxified.model())),
+                   deproxified.data(Imap::Mailbox::RoleMailboxName).toString(),
+                   deproxified.data(Imap::Mailbox::RoleMailboxUidValidity).toUInt(),
+                   deproxified.data(Imap::Mailbox::RoleMessageUid).toUInt());
+}
+
+void MainWindow::revealLocation(const QString &accountId, const QString &mailbox, uint uidValidity, uint uid)
+{
     if (accountId.isEmpty() || mailbox.isEmpty() || !uid)
         return;
     // Results in the message list, or a search of the folder, would hide the other messages of the folder
@@ -8468,6 +8493,10 @@ void MainWindow::searchAccount(const QString &accountId, const QStringList &mail
     if (m_relatedMessagesPanel && m_relatedMessagesPanel->serverSearch()->isRunning()
         && m_relatedMessagesPanel->serverSearch()->message().model() == model)
         m_relatedMessagesPanel->restartServerSearch();
+    if (m_messageLookup && m_messageLookup->state() == UiUtils::MessageIdLookup::State::SearchingServers) {
+        m_messageLookupStopped = true;
+        m_messageLookup->cancel();
+    }
     if (FolderSearch *search = m_folderSearches.value(accountId); search && search->model() == model) {
         search->setSearchIndex(indexer);
         search->retry(mailboxes, allFolders);
@@ -8775,6 +8804,120 @@ void MainWindow::chooseRelatedFolders(const QString &accountId)
         m_relatedMessagesPanel->setServerScope(UiUtils::RelatedSearch::Scope::ChosenFolders);
     });
     dialog->open();
+}
+
+void MainWindow::openMessageUrl(const QUrl &url)
+{
+    openMessageById(url.toString(QUrl::FullyEncoded));
+}
+
+void MainWindow::openMessageById(const QString &messageId)
+{
+    using UiUtils::MessageId::Problem;
+    using Lookup = UiUtils::MessageIdLookup;
+    showMainWindow();
+    if (!m_notificationBar)
+        return;
+    const UiUtils::MessageId::Parsed parsed = UiUtils::MessageId::parse(messageId);
+    QString problem;
+    switch (parsed.problem) {
+    case Problem::None:
+        break;
+    case Problem::Empty:
+        problem = i18nc("@info", "No Message-ID was given.");
+        break;
+    case Problem::InvalidCharacter:
+        problem = i18nc("@info", "A Message-ID cannot contain spaces, control characters or angle brackets inside it.");
+        break;
+    case Problem::MissingAt:
+        problem = i18nc("@info", "A Message-ID has an \"@\" with text on both sides.");
+        break;
+    case Problem::TooLong:
+        problem = i18nc("@info", "The Message-ID is too long to come from a message.");
+        break;
+    }
+    if (!problem.isEmpty()) {
+        m_notificationBar->showError(i18nc("@info %1 is the reason", "Cannot open the message: %1", problem));
+        return;
+    }
+    if (!m_messageLookup) {
+        m_messageLookup = new Lookup(this);
+        connect(m_messageLookup, &Lookup::finished, this, &MainWindow::messageLookupFinished);
+        connect(m_messageLookup, &Lookup::selectionChanged, this,
+                [this](Imap::Mailbox::Model *model) { reselectShownFolder(m_accountAccess.value(accountOfModel(model))); });
+    }
+    m_messageLookupStopped = false;
+    QList<Lookup::Account> accounts;
+    const QStringList accountIds = m_accounts->accountIds();
+    for (const QString &accountId : accountIds) {
+        Imap::ImapAccess *access = m_accountAccess.value(accountId);
+        if (!access || !access->isConfigured())
+            continue;
+        accounts << Lookup::Account{accountId, qobject_cast<Imap::Mailbox::Model *>(access->imapModel()), access->searchIndexer()};
+    }
+    if (m_messageLookup->start(parsed.messageId, accounts) != Lookup::State::NeedsServer)
+        return;
+    m_notificationBar->showInfo(
+        i18nc("@info %1 is a Message-ID", "The message \"%1\" is not on this computer. Search every folder on the mail servers for it?",
+              QString::fromUtf8(parsed.messageId)),
+        {{i18nc("@action:button", "Search Servers"), QStringLiteral("network-server"), QStringLiteral("searchServersForMessage"),
+          [this]() { searchServersForMessage(); }}});
+}
+
+void MainWindow::searchServersForMessage()
+{
+    if (!m_messageLookup || m_messageLookup->state() != UiUtils::MessageIdLookup::State::NeedsServer)
+        return;
+    // These searches would select folders on the same connections
+    if (isSearchAcrossRunning())
+        stopSearchAcross();
+    if (m_relatedMessagesPanel && m_relatedMessagesPanel->serverSearch()->isRunning())
+        m_relatedMessagesPanel->restartServerSearch();
+    if (!m_messageLookup->searchServers())
+        return;
+    m_notificationBar->showMessage(
+        InlineNotificationBar::Kind::Busy,
+        i18nc("@info %1 is a Message-ID", "Searching the mail servers for the message \"%1\"...",
+              QString::fromUtf8(m_messageLookup->messageId())),
+        {{i18nc("@action:button", "Stop"), QStringLiteral("process-stop"), QStringLiteral("stopMessageSearch"), [this]() {
+              m_messageLookupStopped = true;
+              m_messageLookup->cancel();
+          }}});
+}
+
+void MainWindow::messageLookupFinished()
+{
+    const QString messageId = QString::fromUtf8(m_messageLookup->messageId());
+    const auto found = m_messageLookup->found();
+    if (m_messageLookup->state() == UiUtils::MessageIdLookup::State::Found && !found.isEmpty()) {
+        if (m_notificationBar->isBusy())
+            m_notificationBar->dismiss();
+        const auto &first = found.constFirst();
+        revealLocation(first.accountId, first.mailbox, first.uidValidity, first.uid);
+        if (found.size() > 1) {
+            QStringList others;
+            for (auto it = found.cbegin() + 1; it != found.cend(); ++it) {
+                others << (it->accountId == first.accountId
+                               ? it->mailbox
+                               : i18nc("@item account name, folder", "%1: %2", m_accounts->displayName(it->accountId), it->mailbox));
+            }
+            others.removeDuplicates();
+            m_notificationBar->showInfo(i18ncp("@info %2 lists folders", "The message is also in this folder: %2",
+                                               "The message is also in these folders: %2", others.size(),
+                                               others.join(i18nc("@item separator of folders", ", "))));
+        }
+        return;
+    }
+    QString text = m_messageLookupStopped
+        ? i18nc("@info %1 is a Message-ID", "The search for the message \"%1\" was stopped.", messageId)
+        : i18nc("@info %1 is a Message-ID", "No message with the Message-ID \"%1\" was found.", messageId);
+    const QStringList failures = m_messageLookup->failures();
+    if (!failures.isEmpty()) {
+        text += QLatin1Char(' ')
+            + i18nc("@info %1 lists folders and reasons", "These could not be searched: %1",
+                    failures.join(i18nc("@item separator of failures", "; ")));
+    }
+    m_notificationBar->showError(text);
 }
 
 void MainWindow::resumeRelatedSearch()

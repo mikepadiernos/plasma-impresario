@@ -51,4 +51,9 @@ void MainWindowBridge::composeMail(const QString &url)
         m_window->slotComposeMailUrl(QUrl::fromEncoded(url.toUtf8()));
 }
 
+void MainWindowBridge::openMessage(const QString &messageId)
+{
+    m_window->openMessageById(messageId);
+}
+
 }
