@@ -43,16 +43,16 @@ Notification controls are also part of
 themes are part of [M09](../ROADMAP.md#m09-themes-and-branding-foundation),
 whose branding work is in Development.
 
-| Area                                                                  | Status                                    | Current behavior                                                                                                                                                                                                               | Roadmap        |
-| --------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
-| [Windows and session lifecycle](#windows-and-session-lifecycle)       | ![Needs verification][needs-verification] | Shell layout, panel and density preferences are stored with KConfig; the selected folder and message with `KSharedConfig::openStateConfig()`. Opt-in background running and start after login. No Plasma session-restore hooks | M06.01         |
-| [Notifications and status](#notifications-and-status)                 | ![Limitation][limitation]                 | The footer shows connection status; an optional tray icon shows unread counts and network errors. KNotification is used only for background-account errors; there are no new-mail notifications                                | M06.01, M07    |
-| [Plasma widgets](#plasma-widgets)                                     | ![Planned][planned]                       | None                                                                                                                                                                                                                           | M06.02         |
-| [Files and attachments](#files-and-attachments)                       | ![Limitation][limitation]                 | `QFileDialog` for open and save; attachments open through desktop file associations; the composer accepts dropped local files only. KIO opens Plasma's file search for saved files                                             | M06.01, M06.03 |
-| [Search and indexing](#search-and-indexing)                           | ![Limitation][limitation]                 | Search runs on the IMAP server or in an opt-in index in the app's cache; saved files are found with Baloo or a live search in the file manager. KRunner is not used                                                            | M05, M06.01    |
-| [Settings and credentials](#settings-and-credentials)                 | ![Limitation][limitation]                 | Account settings use `QSettings`; app preferences use KConfig; passwords use the QtKeychain or cleartext plugin ([details](../CAVEATS.md#security-and-data-protection))                                                        | M06.01         |
-| [Appearance and accessibility](#appearance-and-accessibility)         | ![Needs verification][needs-verification] | Theme icons and a row density selector; accessibility, high-contrast and scaling checks are not recorded                                                                                                                       | M06.01, M09    |
-| [Desktop actions and availability](#desktop-actions-and-availability) | ![Needs verification][needs-verification] | The desktop entry registers the `mailto:` and `mid:` scheme handlers and a Composer action                                                                                                                                     | M06.01         |
+| Area                                                                  | Status                                    | Current behavior                                                                                                                                                                                                                   | Roadmap        |
+| --------------------------------------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| [Windows and session lifecycle](#windows-and-session-lifecycle)       | ![Needs verification][needs-verification] | Shell layout, panel and density preferences are stored with KConfig; the selected folder and message with `KSharedConfig::openStateConfig()`. Opt-in background running and start after login. No Plasma session-restore hooks     | M06.01         |
+| [Notifications and status](#notifications-and-status)                 | ![Limitation][limitation]                 | The footer shows connection status; an optional tray icon shows unread counts and network errors. KNotification is used only for background-account errors; there are no new-mail notifications                                    | M06.01, M07    |
+| [Plasma widgets](#plasma-widgets)                                     | ![Planned][planned]                       | None                                                                                                                                                                                                                               | M06.02         |
+| [Files and attachments](#files-and-attachments)                       | ![Limitation][limitation]                 | `QFileDialog` for open and save; attachments open through desktop file associations; the composer attaches dropped local files and fetches remote ones through KIO. KIO opens Plasma's file search for saved files                 | M06.01, M06.03 |
+| [Search and indexing](#search-and-indexing)                           | ![Limitation][limitation]                 | Search runs on the IMAP server or in an opt-in index in the app's cache; saved files are found with Baloo or a live search in the file manager. Plasma Search (KRunner) can show indexed mail by subject or sender, off by default | M05, M06.01    |
+| [Settings and credentials](#settings-and-credentials)                 | ![Limitation][limitation]                 | Account settings use `QSettings`; app preferences use KConfig; passwords use the QtKeychain or cleartext plugin ([details](../CAVEATS.md#security-and-data-protection))                                                            | M06.01         |
+| [Appearance and accessibility](#appearance-and-accessibility)         | ![Needs verification][needs-verification] | Theme icons and a row density selector; accessibility, high-contrast and scaling checks are not recorded                                                                                                                           | M06.01, M09    |
+| [Desktop actions and availability](#desktop-actions-and-availability) | ![Needs verification][needs-verification] | The desktop entry registers the `mailto:` and `mid:` scheme handlers and a Composer action                                                                                                                                         | M06.01         |
 
 ## Windows and session lifecycle
 
@@ -156,11 +156,15 @@ the last folder
 Mail search and the optional local index are part of
 [M05](../ROADMAP.md#m05-search-and-indexing), with Baloo file search in M05.06
 ([#350](https://github.com/mikepadiernos/plasma-impresario/issues/350)); the
-KRunner provider is part of **M06.01** (see [Plasma Opus search and
-indexing](plasma-opus.md#search-and-indexing)). Today, **Find Saved Files…**
+opt-in KRunner provider is part of **M06.01**
+([#354](https://github.com/mikepadiernos/plasma-impresario/issues/354); see
+[Plasma Opus search and indexing](plasma-opus.md#search-and-indexing)). Today, **Find Saved Files…**
 opens a `baloosearch:` or `filenamesearch:` URL in the default file manager and
 explains, from File Search's settings, whether it is set to index the chosen
-folder or a folder inside it.
+folder or a folder inside it. With **Show indexed mail in Plasma Search** on,
+the running app answers KRunner from the offline index with the subject,
+sender and date of matching messages
+([caveat](../CAVEATS.md#plasma-search-mail)).
 
 - **What:** Find saved attachments and exported messages with Plasma's file
   search, and optionally find mail from KRunner (Plasma Search).

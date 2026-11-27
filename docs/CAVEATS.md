@@ -41,6 +41,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Saved files in the file manager](#saved-files-in-the-file-manager)
   - [Files handed over by file managers](#files-handed-over-by-file-managers)
   - [Files fetched from other computers](#files-fetched-from-other-computers)
+  - [Plasma Search mail](#plasma-search-mail)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -68,6 +69,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Saved files       | **Show in Folder** is offered in the main window only, and is not checked with Dolphin or Plasma Opus in a real Plasma session ([details](#saved-files-in-the-file-manager))                                                                                                                                                                                                                                                                          | [#460](https://github.com/mikepadiernos/plasma-impresario/issues/460)                                                                        |
 | ![Limitation][limitation] | Handed-over files | A `mailto:` URL may not attach hidden or system files or name this computer through the network, drafts drop the files, and nothing is checked with the portal, Dolphin or Plasma Opus in a real Plasma session ([details](#files-handed-over-by-file-managers))                                                                                                                                                                                      | [#461](https://github.com/mikepadiernos/plasma-impresario/issues/461)                                                                        |
 | ![Limitation][limitation] | Fetched files     | Only HTTP is tested, SFTP, SMB and WebDAV are not, drafts drop fetched files, and nothing is checked in a real Plasma session ([details](#files-fetched-from-other-computers))                                                                                                                                                                                                                                                                        | [#462](https://github.com/mikepadiernos/plasma-impresario/issues/462)                                                                        |
+| ![Limitation][limitation] | Plasma Search     | Mail appears only while the app runs, for the default profile, by subject or sender; nothing is checked with KRunner or in a Plasma session ([details](#plasma-search-mail))                                                                                                                                                                                                                                                                          | [#463](https://github.com/mikepadiernos/plasma-impresario/issues/463)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -1579,6 +1581,53 @@ Plasma session; that check is
   in the live test.
 - Keep attachments with drafts ([#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)).
 - Warn before fetching a very large file, and fetch several at once.
+
+### Plasma Search mail
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                    |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#463](https://github.com/mikepadiernos/plasma-impresario/issues/463) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/463#issuecomment-7210363971) | Mail offered to Plasma Search (KRunner) from the offline search index ([#354](https://github.com/mikepadiernos/plasma-impresario/issues/354)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] **Settings › General › Show indexed mail in Plasma
+  Search** is off by default. When it is on, the running app answers
+  KRunner's `org.kde.krunner1` calls at `/runner`
+  ([#354](https://github.com/mikepadiernos/plasma-impresario/issues/354)).
+- ![Resolved][resolved] Only accounts with an offline search index are
+  searched. Every word of three or more letters must appear in the subject or
+  the sender; message text is never searched. At most ten matches are shown,
+  newest first, each with the subject, the sender and the date.
+- ![Resolved][resolved] Choosing a match shows the window and opens the
+  message. A match names the account, folder, UIDVALIDITY and UID; other IDs
+  are ignored.
+- ![Limitation][limitation] Results appear only while the app is running;
+  KRunner does not start it.
+- ![Limitation][limitation] Only the default profile answers, because the
+  plugin names its D-Bus service.
+- ![Limitation][limitation] KRunner lists the plugin as enabled, but it shows
+  nothing until the option in the app is on.
+- ![Limitation][limitation] Not checked with KRunner itself or in a Plasma
+  session: the plugin's metadata under KF6, the second line with the sender and
+  date, and whether the window comes to the front on Wayland. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- Turn on **Run in the background** so that the app is there to answer.
+- Keep the accounts whose mail should appear in Plasma Search in the default
+  profile.
+- If the window stays behind after choosing a match, open it from the tray
+  icon or the launcher; the message is already selected.
+
+**Proposed improvements:**
+
+- Let KRunner start the app in the background through a D-Bus service file,
+  still answering nothing while the option is off.
+- Answer for named profiles too.
+- Pass KRunner's activation token so that Wayland raises the window.
+- Check the plugin with KRunner in a Plasma 6 session, and add KRunner to the
+  development image for an end-to-end test.
 
 ## Before reporting results
 

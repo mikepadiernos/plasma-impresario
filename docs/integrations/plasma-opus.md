@@ -49,9 +49,9 @@ Milestone numbers in the first column are Plasma Opus milestones; those in the
 Tracking column are Plasma Impresario milestones. As of 2026-11-26, the M05
 issues listed are Defined or further along, and the others are in the Backlog.
 Plasma Impresario opens files with `QFileDialog`, attaches dropped local files
-and fetches remote ones through KIO, opens Plasma's file search through KIO, shows a saved file through
-`org.freedesktop.FileManager1`, and attaches files handed over in a `mailto:`
-URL or with `--attach`.
+and fetches remote ones through KIO, opens Plasma's file search through KIO,
+shows a saved file through `org.freedesktop.FileManager1`, and attaches files
+handed over in a `mailto:` URL or with `--attach`.
 
 | Plasma Opus feature                                                                                                         | Plasma Opus status                                        | Use in Plasma Impresario                                                       | Tracking                                                                                                                                                                                                                                                             |
 | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -161,9 +161,9 @@ Part of [M05](../ROADMAP.md#m05-search-and-indexing)
 ([#350](https://github.com/mikepadiernos/plasma-impresario/issues/350),
 [#351](https://github.com/mikepadiernos/plasma-impresario/issues/351),
 [#352](https://github.com/mikepadiernos/plasma-impresario/issues/352)), with the
-KRunner provider in M06.01 and search settings in M08. **Find Saved Files…**
-already opens `baloosearch:` and `filenamesearch:` URLs in the default file
-manager, which is Plasma Opus when it is the default; this is not yet tested
+opt-in KRunner provider in M06.01 and search settings in M08. **Find Saved
+Files…** already opens `baloosearch:` and `filenamesearch:` URLs in the default
+file manager, which is Plasma Opus when it is the default; this is not yet tested
 with Plasma Opus. A `mid:` URL or `--message-id` opens a message by its
 Message-ID, which the `.eml` preview can use once it offers that action. The
 query syntax follows Plasma Opus M21 where it fits mail and reads its
