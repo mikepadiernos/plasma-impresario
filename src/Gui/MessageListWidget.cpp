@@ -63,6 +63,7 @@
 #include "UiUtils/IconLoader.h"
 #include "UiUtils/MailingLists.h"
 #include "UiUtils/QuickFilters.h"
+#include "UiUtils/SettingsStore.h"
 
 namespace Gui {
 
@@ -561,7 +562,37 @@ MessageListWidget::MessageListWidget(QWidget *parent, Imap::Mailbox::FavoriteTag
             slotApplySearch();
     });
 
+    applySearchSettings();
     slotAutoEnableDisableSearch();
+}
+
+void MessageListWidget::applySearchSettings()
+{
+    const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    const int limit = UiUtils::SettingsStore::value(*config, nullptr, QStringLiteral("Search/HistoryLimit")).toInt();
+    if (limit > 0 && limit != m_searchHistory.limit()) {
+        m_searchHistory = UiUtils::SearchHistory(m_searchHistory.entries(), limit);
+        if (m_rememberSearches->isChecked())
+            saveSearchHistory();
+        updateHistoryActions();
+    }
+    const KConfigGroup quickSearch = quickSearchGroup();
+    m_rememberSearches->setChecked(quickSearch.readEntry("RememberSearches", true));
+    m_suggestWhileTyping->setChecked(quickSearch.readEntry("SuggestWhileTyping", true));
+
+    Places places = UiUtils::SearchScope::placesFromConfigName(
+            UiUtils::SettingsStore::value(*config, nullptr, QStringLiteral("Search/DefaultPlaces")).toString());
+    // Picked folders belong to one search, so they are never where every search starts
+    if (places == Places::SelectedFolders)
+        places = Places::CurrentFolder;
+    if (places == m_defaultPlaces)
+        return;
+    const bool idle = m_quickSearchText->text().isEmpty() && m_places == m_defaultPlaces;
+    m_defaultPlaces = places;
+    if (idle) {
+        m_places = places;
+        showDateRange();
+    }
 }
 
 void MessageListWidget::saveCurrentSearch()

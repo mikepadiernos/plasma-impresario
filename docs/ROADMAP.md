@@ -72,7 +72,7 @@ and gray before. **Board** is the parent issue's status.
 | [M05](#m05-search-and-indexing)                           | Search and indexing                            | [#324](https://github.com/mikepadiernos/plasma-impresario/issues/324) | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Merged][merged]: merged in [PR #455](https://github.com/mikepadiernos/plasma-impresario/pull/455)                                      |
 | [M06](#m06-desktop-integration-and-provider-support)      | Desktop integration and provider support       | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)     | ![26 of 26 done](https://img.shields.io/badge/26%2F26-100%25-1a7f37) | ![Merged][merged]: merged in [PR #489](https://github.com/mikepadiernos/plasma-impresario/pull/489)                                      |
 | [M07](#m07-output-notifications-and-rules-automation)     | Output, notifications and rules automation     | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8)     | ![11 of 11 done](https://img.shields.io/badge/11%2F11-100%25-1a7f37) | ![Merged][merged]: merged in [PR #493](https://github.com/mikepadiernos/plasma-impresario/pull/493)                                      |
-| [M08](#m08-settings-and-workspace-configuration)          | Settings and workspace configuration           | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9)     | ![0 of 15 done](https://img.shields.io/badge/0%2F15-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
+| [M08](#m08-settings-and-workspace-configuration)          | Settings and workspace configuration           | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9)     | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Completed][completed]: ready to merge from `feature/m08-settings`                                                                      |
 | [M09](#m09-themes-and-branding-foundation)                | Themes and branding foundation                 | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)   | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development]: M09.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
 | [M10](#m10-reliability-sync-and-notification-quality)     | Reliability, sync and notification quality     | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11)   | ![0 of 12 done](https://img.shields.io/badge/0%2F12-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
 | [M11](#m11-release-readiness-and-polish)                  | Release readiness and polish                   | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12)   | ![0 of 10 done](https://img.shields.io/badge/0%2F10-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
@@ -88,7 +88,7 @@ and gray before. **Board** is the parent issue's status.
 | **P0**   | Reproducible, safe baseline      | Confirm product identity and supported build matrix; establish verified TLS and safe credential defaults; document cache and logging behavior; add focused connection/security and launch smoke tests | Build matrix, installer and launch smoke tests merged with M01 ([#1](https://github.com/mikepadiernos/plasma-impresario/issues/1)); the product rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) is merged. Other distribution families and protected prefixes are [pending](TODO.md#m01-release-gate-and-integration)                                                                  |
 | **P1**   | Rendering and account boundaries | Verify live reader workflows; design stable per-account settings, cache and credentials before adding simultaneous accounts                                                                           | Per-account settings, cache and credentials merged with M02 ([#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)), together with simultaneous accounts ([#222](https://github.com/mikepadiernos/plasma-impresario/issues/222)); live reader workflows verified against synthetic Dovecot in M04 ([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)). Real-session checks are in M15 |
 | **P2**   | Shell and reliability            | Prototype the Plasma Impresario layout over existing mailbox/list/reader behavior; validate accessibility, keyboard use, responsive layouts and partial-failure recovery                              | Shell merged with M02 ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); accessibility, responsive layouts and recovery continue in M09, M10, M11 and M14                                                                                                                                                                                                                                       |
-| **P3**   | Optional productivity features   | Add provider APIs, rules, Nextcloud, calendar/contacts and workspace features only after core reliability, permissions and privacy behavior are defined                                               | M05, M06 and M07, rules and notifications, are merged; planned in M08, M12 and M13, whose parent issues are in the Backlog                                                                                                                                                                                                                                                                                          |
+| **P3**   | Optional productivity features   | Add provider APIs, rules, Nextcloud, calendar/contacts and workspace features only after core reliability, permissions and privacy behavior are defined                                               | M05, M06 and M07 are merged and M08, settings and workspaces, is complete; planned in M12 and M13, whose parent issues are in the Backlog                                                                                                                                                                                                                                                                           |
 
 These are sequencing priorities, not issue statuses or completion markers.
 Follow the [board workflow](../CONTRIBUTING.md#board-statuses) before updating
@@ -740,22 +740,22 @@ Rule execution [#46](https://github.com/mikepadiernos/plasma-impresario/issues/4
 
 ### M08: Settings and workspace configuration
 
-**Status:** ![Backlog][backlog]
-![0 of 15 done](https://img.shields.io/badge/0%2F15-0%25-6e7781) ·
+**Status:** ![Completed][completed]
+![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) ·
 **Parent issue:** [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9)
 
 **Project:** M08 milestone [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9) ·
 Mail settings [#47](https://github.com/mikepadiernos/plasma-impresario/issues/47) ·
 Workspace integrations [#48](https://github.com/mikepadiernos/plasma-impresario/issues/48)
 
-- [ ] Design the settings surface using a Plasma Opus-style layout: grouped, readable, and extensible [#47](https://github.com/mikepadiernos/plasma-impresario/issues/47)
-- [ ] Provide Thunderbird-inspired tabs for mail views and messages as an
+- [x] Design the settings surface using a Plasma Opus-style layout: grouped, readable, and extensible [#47](https://github.com/mikepadiernos/plasma-impresario/issues/47)
+- [x] Provide Thunderbird-inspired tabs for mail views and messages as an
       optional setting, **off by default**. Allow the tab bar in any shell region,
       horizontally or vertically; when first enabled, place it in the header by
       default. Save its placement and orientation. Preserve tab context, keyboard
       access, drafts and pending work when switching, closing or disabling tabs.
       [#246](https://github.com/mikepadiernos/plasma-impresario/issues/246)
-- [ ] Cover appearance, density, mail behavior, notifications, workspaces, and
+- [x] Cover appearance, density, mail behavior, notifications, workspaces, and
       productivity preferences. Adapt Aqua Mail customization to the desktop:
       list and reader display, folder indicators, actions and shortcuts, account
       identities and signatures, sync, notifications, and optional gestures and
@@ -764,24 +764,24 @@ Workspace integrations [#48](https://github.com/mikepadiernos/plasma-impresario/
       orientation. See the
       [customization design](philosophy/designs.md#aqua-mail-inspired-desktop-customization).
       [#114](https://github.com/mikepadiernos/plasma-impresario/issues/114)
-- [ ] Define account-specific options and default configuration for the app shell [#115](https://github.com/mikepadiernos/plasma-impresario/issues/115)
-- [ ] Keep the settings model separate from the core feature work so it can evolve after the app is working [#116](https://github.com/mikepadiernos/plasma-impresario/issues/116)
-- [ ] Group account, appearance, reading, composition, privacy, notifications, and integration settings consistently [#117](https://github.com/mikepadiernos/plasma-impresario/issues/117)
-- [ ] Provide compact, comfortable, and focus layout preferences with accessible defaults [#118](https://github.com/mikepadiernos/plasma-impresario/issues/118)
-- [ ] Support per-account and per-folder behavior where appropriate and explain inherited defaults [#119](https://github.com/mikepadiernos/plasma-impresario/issues/119)
-- [ ] Validate settings persistence, account isolation, and behavior when an integration is unavailable [#120](https://github.com/mikepadiernos/plasma-impresario/issues/120)
-- [ ] Define product-level workspace settings for mail, notes, contacts, and
+- [x] Define account-specific options and default configuration for the app shell [#115](https://github.com/mikepadiernos/plasma-impresario/issues/115)
+- [x] Keep the settings model separate from the core feature work so it can evolve after the app is working [#116](https://github.com/mikepadiernos/plasma-impresario/issues/116)
+- [x] Group account, appearance, reading, composition, privacy, notifications, and integration settings consistently [#117](https://github.com/mikepadiernos/plasma-impresario/issues/117)
+- [x] Provide compact, comfortable, and focus layout preferences with accessible defaults [#118](https://github.com/mikepadiernos/plasma-impresario/issues/118)
+- [x] Support per-account and per-folder behavior where appropriate and explain inherited defaults [#119](https://github.com/mikepadiernos/plasma-impresario/issues/119)
+- [x] Validate settings persistence, account isolation, and behavior when an integration is unavailable [#120](https://github.com/mikepadiernos/plasma-impresario/issues/120)
+- [x] Define product-level workspace settings for mail, notes, contacts, and
       cross-app context as part of a Plasma Opus-aware workflow. Allow email
       accounts to be attached to workspaces and thereby associated with the
       corresponding Plasma Activities.
       [#48](https://github.com/mikepadiernos/plasma-impresario/issues/48)
-- [ ] Add defaults and toggles for mail-to-calendar, mail-to-notes, and work-context-aware productivity actions when those integrations are enabled [#121](https://github.com/mikepadiernos/plasma-impresario/issues/121)
-- [ ] Keep unavailable or optional integrations gracefully hidden and clearly explained in the settings surface [#122](https://github.com/mikepadiernos/plasma-impresario/issues/122)
-- [ ] Provide search and index settings for default scope, server or local
+- [x] Add defaults and toggles for mail-to-calendar, mail-to-notes, and work-context-aware productivity actions when those integrations are enabled [#121](https://github.com/mikepadiernos/plasma-impresario/issues/121)
+- [x] Keep unavailable or optional integrations gracefully hidden and clearly explained in the settings surface [#122](https://github.com/mikepadiernos/plasma-impresario/issues/122)
+- [x] Provide search and index settings for default scope, server or local
       search, indexed accounts, excluded folders, attachment indexing, history
       retention and reset, stored in KConfig. See [M05](#m05-search-and-indexing).
       [#356](https://github.com/mikepadiernos/plasma-impresario/issues/356)
-- [ ] Offer an optional Vim mode, off by default, for keyboard-first mail
+- [x] Offer an optional Vim mode, off by default, for keyboard-first mail
       handling: Vim-style movement and multi-key actions in the folder tree,
       message list and reader, a mode indicator in the footer, a which-key style
       hint panel and a searchable shortcut reference. Store it in KConfig through
@@ -789,12 +789,27 @@ Workspace integrations [#48](https://github.com/mikepadiernos/plasma-impresario/
       text inputs, and resolve conflicts with existing single-key shortcuts.
       Adapted from Plasma Opus M25 and M31.
       [#437](https://github.com/mikepadiernos/plasma-impresario/issues/437)
-- [ ] Sync Vim mode and shared shortcut settings with Plasma Opus in both
+- [x] Sync Vim mode and shared shortcut settings with Plasma Opus in both
       directions. Import its keymap profile once or follow later changes, and
       export ours for Plasma Opus to import. Keep syncing opt-in, previewable and
       reversible, keep mail-only actions app-local, and keep the local settings
       without Plasma Opus. See [Plasma Opus integrations](integrations/plasma-opus.md#vim-mode-and-shortcuts).
       [#438](https://github.com/mikepadiernos/plasma-impresario/issues/438)
+
+**Caveats:**
+
+- [Settings and workspaces](CAVEATS.md#settings-and-workspaces)
+  ([#496](https://github.com/mikepadiernos/plasma-impresario/issues/496))
+  ![Backlog][backlog]
+- [Mail tabs](CAVEATS.md#mail-tabs)
+  ([#497](https://github.com/mikepadiernos/plasma-impresario/issues/497))
+  ![Backlog][backlog]
+- [Vim mode and shared shortcuts](CAVEATS.md#vim-mode-and-shared-shortcuts)
+  ([#498](https://github.com/mikepadiernos/plasma-impresario/issues/498))
+  ![Backlog][backlog]
+- [Messages to calendar and notes](CAVEATS.md#messages-to-calendar-and-notes)
+  ([#499](https://github.com/mikepadiernos/plasma-impresario/issues/499))
+  ![Backlog][backlog]
 
 ### M09: Themes and branding foundation
 

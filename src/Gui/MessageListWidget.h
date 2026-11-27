@@ -85,6 +85,10 @@ public:
     void setCurrentPlaceText(const QString &text);
     /** @short Empty the quick search and its date range, keeping the places, and apply that */
     void clearSearch();
+    /** @short Use the search settings: the default places, the history limit, remembering and suggesting
+
+    The places change only while no search is shown, so that a search in progress keeps its scope. */
+    void applySearchSettings();
 
     /** Key saved searches to another account, for example after switching accounts. */
     void setAccountId(const QString &accountId);
@@ -309,6 +313,8 @@ private:
     QActionGroup *m_placesActions;
     QAction *m_currentPlace;
     UiUtils::SearchScope::Places m_places = UiUtils::SearchScope::Places::CurrentFolder;
+    /** Where a new search looks, as chosen in the settings */
+    UiUtils::SearchScope::Places m_defaultPlaces = UiUtils::SearchScope::Places::CurrentFolder;
     QStringList m_selectedFolders;
     QString m_currentPlaceText;
     QString m_searchToolTip;

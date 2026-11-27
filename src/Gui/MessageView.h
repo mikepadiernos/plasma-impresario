@@ -93,6 +93,10 @@ public:
     void setNetworkWatcher(Imap::Mailbox::NetworkWatcher *netWatcher);
     /** @short Name the account of the shown message in its header; an empty name leaves it out */
     void setAccountResolver(const std::function<QString(const QModelIndex &)> &resolver);
+    /** @short Look up a reading setting, such as "Reading/AutoMarkRead", for the account and folder of a message
+
+    Without a resolver, the application values in the profile settings are used. */
+    void setSettingResolver(const std::function<QVariant(const QString &key, const QModelIndex &message)> &resolver);
     QModelIndex currentMessage() const;
     /** @short Find text in the shown message; the main window gives Find to it while the reader has focus */
     QAction *findAction() const;
@@ -197,6 +201,8 @@ private:
     std::unique_ptr<PartWidgetFactory> factory;
     Spinner *m_loadingSpinner;
     QSettings *m_settings;
+    std::function<QVariant(const QString &, const QModelIndex &)> m_settingResolver;
+    QVariant readingSetting(const QString &key, const QString &legacyKey, const QVariant &fallback) const;
     Plugins::PluginManager *m_pluginManager;
     TagHandler m_taghandler;
     QSet<QWebEngineView*> m_loadingItems;

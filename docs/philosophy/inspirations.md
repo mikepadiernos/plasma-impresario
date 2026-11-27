@@ -159,7 +159,7 @@ views accessible in tabs.
 - Adapt tab navigation to Plasma Impresario's pane layout rather than
   reproducing Thunderbird's interface.
 
-Tabs are a planned optional feature for M08
+Tabs are an optional feature since M08
 ([#246](https://github.com/mikepadiernos/plasma-impresario/issues/246)).
 ![Decided][decided] They are **off by default**; that default is a project
 decision, not a Thunderbird claim. See

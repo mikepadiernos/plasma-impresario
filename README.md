@@ -33,9 +33,10 @@ Other desktop environments are outside the supported scope.
 > Plasma Impresario is in development. The four foundation milestones (M01–M04:
 > the KDE / Qt 6 baseline, the shell and accounts, mail operations, and
 > reading), M05, search and indexing, M06, desktop integration and provider
-> support, and M07, rules and notifications, are merged into `main`. They are verified with offscreen tests and
-> disposable mail servers, but nothing has been checked in a real Plasma
-> session yet. See [project status](#project-status).
+> support, and M07, rules and notifications, are merged into `main`; M08,
+> settings and workspaces, is complete and about to merge. They are verified
+> with offscreen tests and disposable mail servers, but nothing has been
+> checked in a real Plasma session yet. See [project status](#project-status).
 
 ## Contents
 
@@ -94,19 +95,19 @@ As of 2026-11-27. **Done** counts roadmap features whose issues are
 [project board](https://github.com/users/mikepadiernos/projects/4); **Board**
 is the milestone's parent issue.
 
-| Milestone                                                                                    | Branch | Done                                                                 | Board                       | Notes                                                                                                   |
-| -------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------- |
-| [M01](docs/ROADMAP.md#m01-kde--qt6-compatibility-baseline) KDE / Qt 6 baseline               | `main` | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]           | Builds, installs and launches with Qt 6 and KF6                                                         |
-| [M02](docs/ROADMAP.md#m02-shell-accounts-and-core-mailbox-foundation) Shell and accounts     | `main` | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]           | Checks in a real Plasma session moved to M15                                                            |
-| [M03](docs/ROADMAP.md#m03-mail-operations-sorting-and-folder-management) Mail operations     | `main` | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]           | Destructive actions verified against a live server                                                      |
-| [M04](docs/ROADMAP.md#m04-reading-and-conversation-flow) Reading and conversations           | `main` | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #451](https://github.com/mikepadiernos/plasma-impresario/pull/451)                        |
-| [M05](docs/ROADMAP.md#m05-search-and-indexing) Search and indexing                           | `main` | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #455](https://github.com/mikepadiernos/plasma-impresario/pull/455)                        |
-| [M06](docs/ROADMAP.md#m06-desktop-integration-and-provider-support) Desktop integration      | `main` | ![26 of 26 done](https://img.shields.io/badge/26%2F26-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #489](https://github.com/mikepadiernos/plasma-impresario/pull/489)                        |
-| [M07](docs/ROADMAP.md#m07-output-notifications-and-rules-automation) Rules and notifications | `main` | ![11 of 11 done](https://img.shields.io/badge/11%2F11-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #493](https://github.com/mikepadiernos/plasma-impresario/pull/493)                        |
-| M08: settings                                                                                | —      | —                                                                    | ![Backlog][backlog]         | Not started                                                                                             |
-| [M09](docs/ROADMAP.md#m09-themes-and-branding-foundation) Themes and branding                | —      | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development] | Started with the product rename ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)) |
-| M10–M14: reliability, release, Nextcloud, Microsoft, refinements                             | —      | —                                                                    | ![Backlog][backlog]         | Not started                                                                                             |
-| [M15](docs/ROADMAP.md#m15-real-plasma-session-verification) Real Plasma session checks       | —      | ![0 of 4 done](https://img.shields.io/badge/0%2F4-0%25-6e7781)       | ![Defined][defined]         | Needs a real Plasma session                                                                             |
+| Milestone                                                                                    | Branch                 | Done                                                                 | Board                       | Notes                                                                                                   |
+| -------------------------------------------------------------------------------------------- | ---------------------- | -------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------- |
+| [M01](docs/ROADMAP.md#m01-kde--qt6-compatibility-baseline) KDE / Qt 6 baseline               | `main`                 | ![19 of 19 done](https://img.shields.io/badge/19%2F19-100%25-1a7f37) | ![Merged][merged]           | Builds, installs and launches with Qt 6 and KF6                                                         |
+| [M02](docs/ROADMAP.md#m02-shell-accounts-and-core-mailbox-foundation) Shell and accounts     | `main`                 | ![14 of 14 done](https://img.shields.io/badge/14%2F14-100%25-1a7f37) | ![Merged][merged]           | Checks in a real Plasma session moved to M15                                                            |
+| [M03](docs/ROADMAP.md#m03-mail-operations-sorting-and-folder-management) Mail operations     | `main`                 | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]           | Destructive actions verified against a live server                                                      |
+| [M04](docs/ROADMAP.md#m04-reading-and-conversation-flow) Reading and conversations           | `main`                 | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #451](https://github.com/mikepadiernos/plasma-impresario/pull/451)                        |
+| [M05](docs/ROADMAP.md#m05-search-and-indexing) Search and indexing                           | `main`                 | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #455](https://github.com/mikepadiernos/plasma-impresario/pull/455)                        |
+| [M06](docs/ROADMAP.md#m06-desktop-integration-and-provider-support) Desktop integration      | `main`                 | ![26 of 26 done](https://img.shields.io/badge/26%2F26-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #489](https://github.com/mikepadiernos/plasma-impresario/pull/489)                        |
+| [M07](docs/ROADMAP.md#m07-output-notifications-and-rules-automation) Rules and notifications | `main`                 | ![11 of 11 done](https://img.shields.io/badge/11%2F11-100%25-1a7f37) | ![Merged][merged]           | Merged in [PR #493](https://github.com/mikepadiernos/plasma-impresario/pull/493)                        |
+| [M08](docs/ROADMAP.md#m08-settings-and-workspace-configuration) Settings and workspaces      | `feature/m08-settings` | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Completed][completed]     | Ready to merge                                                                                          |
+| [M09](docs/ROADMAP.md#m09-themes-and-branding-foundation) Themes and branding                | —                      | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development] | Started with the product rename ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)) |
+| M10–M14: reliability, release, Nextcloud, Microsoft, refinements                             | —                      | —                                                                    | ![Backlog][backlog]         | Not started                                                                                             |
+| [M15](docs/ROADMAP.md#m15-real-plasma-session-verification) Real Plasma session checks       | —                      | ![0 of 4 done](https://img.shields.io/badge/0%2F4-0%25-6e7781)       | ![Defined][defined]         | Needs a real Plasma session                                                                             |
 
 The [roadmap overview](docs/ROADMAP.md#milestones-at-a-glance) tracks every
 milestone, and [pending tasks](docs/TODO.md#in-progress) record what each one
@@ -114,7 +115,7 @@ is waiting on.
 
 ## Implemented today
 
-What works in `main` after M01–M07, as of 2026-11-27.
+What works in `main` after M01–M07, and on `feature/m08-settings`, as of 2026-11-27.
 
 Legend: ![Verified][verified] against a disposable Dovecot server ·
 ![Offscreen tests][offscreen] covered by automated tests without a live server
@@ -303,6 +304,29 @@ Output, notifications and rules automation
 > covered. See the [Mail rules](docs/CAVEATS.md#mail-rules) and
 > [New-mail notifications and activity](docs/CAVEATS.md#new-mail-notifications-and-activity)
 > caveats.
+
+### Added in M08
+
+Settings and workspace configuration
+([#9](https://github.com/mikepadiernos/plasma-impresario/issues/9)), on `feature/m08-settings` until it merges.
+
+| Area         | What works                                                                                                                                                       | Status                                    |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| Settings     | **Settings...** groups General, Accounts, Appearance, Reading, Composition, Privacy, Notifications, Search, Integrations, Workspaces and Keyboard in a page list | ![Offscreen tests][offscreen]             |
+| Overrides    | Reading, message and search settings per account or folder, each explaining where an inherited value comes from                                                  | ![Offscreen tests][offscreen]             |
+| Layout       | Compact, Comfortable and Focus layout presets                                                                                                                    | ![Offscreen tests][offscreen]             |
+| Workspaces   | Accounts, a notes folder and a Plasma Activity grouped together; the window can follow the current activity                                                      | ![Needs verification][needs-verification] |
+| Tabs         | Optional mail tabs, off by default, in any shell region, horizontally or vertically, restored at the next start                                                  | ![Offscreen tests][offscreen]             |
+| Vim mode     | Optional Vim keys, off by default, for the folder tree, message list and reader, with hints and a status indicator                                               | ![Offscreen tests][offscreen]             |
+| Keymap       | Export, import with a preview, undo and follow a keymap shared with Plasma Opus                                                                                  | ![Offscreen tests][offscreen]             |
+| Productivity | **Add to Calendar…** and **Save as Note**, off by default and explained when unavailable                                                                         | ![Offscreen tests][offscreen]             |
+
+> [!WARNING]
+>
+> Activities, the calendar hand-off and Marknote have not been tried in a
+> Plasma session. See the [Settings and workspaces](docs/CAVEATS.md#settings-and-workspaces), [Mail tabs](docs/CAVEATS.md#mail-tabs),
+> [Vim mode and shared shortcuts](docs/CAVEATS.md#vim-mode-and-shared-shortcuts) and
+> [Messages to calendar and notes](docs/CAVEATS.md#messages-to-calendar-and-notes) caveats.
 
 ## Using it
 
@@ -634,6 +658,35 @@ and announcements, newest first, with **Retry**, **Sign In** or **Review
 Rule** where they help. See
 [New-mail notifications and activity](docs/CAVEATS.md#new-mail-notifications-and-activity).
 
+### Settings, tabs and Vim mode
+
+**Settings...** in the application menu shows every group in a page list and
+reopens the one shown last. Under **Accounts**, reading, message and search
+settings can be set for one account or one folder, including **Folder shown
+first**; each override says where the inherited value comes from, such as
+**Inherited from account Work**, and can be removed. **Appearance** chooses
+the Compact, Comfortable or Focus layout and turns on **Open folders and
+messages in tabs**, with the tab bar's region and orientation. **Search**
+chooses where searches look, whether the offline index or the server answers
+while online, how many searches are kept and which accounts are indexed. See
+[Settings and workspaces](docs/CAVEATS.md#settings-and-workspaces) and [Mail tabs](docs/CAVEATS.md#mail-tabs).
+
+**Workspaces** groups accounts, a notes folder and a Plasma Activity; with
+**Show a workspace's account when its activity becomes current** on, the
+window follows the activity. Under **Integrations**, **Add to Calendar…**
+hands the message in the reader to the calendar application and **Save as
+Note** writes it to a notes folder, such as Marknote's; both are off by
+default and explain why when they cannot be offered. See
+[Messages to calendar and notes](docs/CAVEATS.md#messages-to-calendar-and-notes).
+
+**Keyboard** turns on the optional Vim mode: `j` and `k` move, sequences such
+as `gt` switch tabs, a hint popup lists what may follow, and the status bar
+shows the pending keys. Text fields keep their keys. **Export…**,
+**Import…**, **Undo Import** and **Follow changes to a shared keymap file**
+share Vim mode and the shared commands with
+[Plasma Opus](docs/integrations/plasma-opus.md#vim-mode-and-shortcuts). See
+[Vim mode and shared shortcuts](docs/CAVEATS.md#vim-mode-and-shared-shortcuts).
+
 ### Command line
 
 | Option                | Effect                                                         |
@@ -699,18 +752,18 @@ release quality. Real Plasma session checks run alongside as M15.
 
 ```mermaid
 flowchart TD
-    A[M01-M04 foundations: baseline, shell and accounts, operations, reading] --> B[M05-M07 search, desktop integration, providers and automation, merged]
-    B --> C[M08 settings]
-    C --> D[M09-M11 themes, reliability, release readiness]
+    A[M01-M04 foundations: baseline, shell and accounts, operations, reading] --> B[M05-M08 search, desktop integration, providers, automation and settings]
+    B --> C[M09 themes]
+    C --> D[M10-M11 reliability, release readiness]
     D --> E[M12-M13 Nextcloud, Microsoft accounts and Exchange]
     E --> F[M14 refinements]
     A -.-> G[M15 real Plasma session checks]
 ```
 
-Theme profiles, an optional Vim mode and workspace features are planned.
+Theme profiles are planned; Vim mode and workspaces arrived in M08.
 [Plasma Opus](docs/integrations/plasma-opus.md) is the companion file manager;
-the two apps are planned to share file dialogs, themes, Vim mode settings and
-workspace context. The [scope](docs/philosophy/scope.md) sets the product
+the two apps share Vim mode settings through a keymap file and are planned to
+share file dialogs, themes and workspace context. The [scope](docs/philosophy/scope.md) sets the product
 boundaries.
 
 ## Documentation

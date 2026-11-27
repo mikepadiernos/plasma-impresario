@@ -83,7 +83,7 @@ find_package(KF6 REQUIRED
 )
 
 if(WITH_DESKTOP)
-    find_package(KF6 REQUIRED COMPONENTS ColorScheme Config CoreAddons I18n KIO WindowSystem)
+    find_package(KF6 REQUIRED COMPONENTS ColorScheme Config CoreAddons I18n KIO WidgetsAddons WindowSystem)
     ki18n_install(po)
 endif()
 
@@ -338,9 +338,12 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/Conversations.cpp
     ${path_UiUtils}/Formatting.cpp
     ${path_UiUtils}/IconLoader.cpp
+    ${path_UiUtils}/Keymap.cpp
     ${path_UiUtils}/LinkSafety.cpp
     ${path_UiUtils}/MailRules.cpp
     ${path_UiUtils}/MailSafety.cpp
+    ${path_UiUtils}/MailTabs.cpp
+    ${path_UiUtils}/MailToProductivity.cpp
     ${path_UiUtils}/MailingLists.cpp
     ${path_UiUtils}/MessageId.cpp
     ${path_UiUtils}/MessageIdLookup.cpp
@@ -362,11 +365,13 @@ set(libUiUtils_SOURCES
     ${path_UiUtils}/SearchScope.cpp
     ${path_UiUtils}/SearchSuggestions.cpp
     ${path_UiUtils}/SelectionAfterRemoval.cpp
+    ${path_UiUtils}/SettingsSchema.cpp
     ${path_UiUtils}/ServerDiscovery.cpp
     ${path_UiUtils}/ServerDiscoveryNetwork.cpp
     ${path_UiUtils}/ShortcutOverview.cpp
     ${path_UiUtils}/UnreadFolders.cpp
     ${path_UiUtils}/ViewStateStore.cpp
+    ${path_UiUtils}/Workspaces.cpp
 )
 
 if(WITH_WEBENGINE)
@@ -392,6 +397,7 @@ set(libDesktopServices_SOURCES
     ${path_UiUtils}/NewMailSettings.cpp
     ${path_UiUtils}/PlasmaSearch.cpp
     ${path_UiUtils}/SavedSearches.cpp
+    ${path_UiUtils}/SettingsStore.cpp
     ${path_UiUtils}/SleepMonitor.cpp
 )
 
@@ -557,6 +563,10 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/RelatedMessagesPanel.cpp
     ${path_DesktopGui}/ReplaceCharValidator.cpp
     ${path_DesktopGui}/SettingsDialog.cpp
+    ${path_DesktopGui}/SettingsGroups.cpp
+    ${path_DesktopGui}/PlasmaActivities.cpp
+    ${path_DesktopGui}/MailTabBar.cpp
+    ${path_DesktopGui}/VimMode.cpp
     ${path_DesktopGui}/SettingsOAuthControls.cpp
     ${path_DesktopGui}/ShellHeader.cpp
     ${path_DesktopGui}/ShortcutOverviewDialog.cpp
@@ -1120,6 +1130,7 @@ if(WITH_DESKTOP)
             KF6::I18n
             KF6::KIOGui
             KF6::KIOWidgets
+            KF6::WidgetsAddons
             KF6::WindowSystem
             Cryptography
             IPC
@@ -1332,6 +1343,10 @@ if(BUILD_TESTING)
         target_link_libraries(test_MsgListViewTeardown PRIVATE DesktopGui Qt6::Test KF6::I18n)
         add_executable(test_MainWindowDensity tests/Gui/test_MainWindowDensity.cpp)
         target_link_libraries(test_MainWindowDensity PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_MainWindowTabs tests/Gui/test_MainWindowTabs.cpp)
+        target_link_libraries(test_MainWindowTabs PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_VimMode tests/Gui/test_VimMode.cpp)
+        target_link_libraries(test_VimMode PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_MailBoxTreeView tests/Gui/test_MailBoxTreeView.cpp)
         target_link_libraries(test_MailBoxTreeView PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_MailboxNavigation tests/Gui/test_MailboxNavigation.cpp)
@@ -1381,6 +1396,11 @@ if(BUILD_TESTING)
         target_link_libraries(test_SessionRestart PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_AccountSettingsDialog tests/Gui/test_AccountSettingsDialog.cpp)
         target_link_libraries(test_AccountSettingsDialog PRIVATE AppVersion DesktopGui IPC Pop3 Jmap UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_SettingsDialog tests/Gui/test_SettingsDialog.cpp)
+        target_link_libraries(test_SettingsDialog PRIVATE AppVersion DesktopGui IPC Pop3 Jmap UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        # The settings groups derive from the pages of the settings dialog, whose forms uic generates
+        add_dependencies(test_SettingsDialog DesktopGui)
+        target_include_directories(test_SettingsDialog PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/DesktopGui_autogen/include ${path_DesktopGui})
         if(NOT CMAKE_CROSSCOMPILING)
             add_test(NAME test_DensityMenu COMMAND test_DensityMenu)
             set_tests_properties(test_DensityMenu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
@@ -1400,12 +1420,16 @@ if(BUILD_TESTING)
             add_test(NAME test_AgendaPanel COMMAND test_AgendaPanel)
             set_tests_properties(test_AgendaPanel PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             set_tests_properties(test_EmbeddedPanels PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_SettingsDialog COMMAND test_SettingsDialog)
+            set_tests_properties(test_SettingsDialog PROPERTIES TIMEOUT 60 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             if(TARGET test_ContactPanelAddressBook)
                 add_test(NAME test_ContactPanelAddressBook COMMAND test_ContactPanelAddressBook)
                 set_tests_properties(test_ContactPanelAddressBook PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             endif()
             add_test(NAME test_MsgListViewTeardown COMMAND test_MsgListViewTeardown)
             set_tests_properties(test_MsgListViewTeardown PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_VimMode COMMAND test_VimMode)
+            set_tests_properties(test_VimMode PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MailBoxTreeView COMMAND test_MailBoxTreeView)
             set_tests_properties(test_MailBoxTreeView PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_MailboxNavigation COMMAND test_MailboxNavigation)
@@ -1482,6 +1506,10 @@ if(BUILD_TESTING)
             endforeach()
             set_tests_properties(test_MainWindowDensity PROPERTIES
                 TIMEOUT 30
+                ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
+            add_test(NAME test_MainWindowTabs COMMAND test_MainWindowTabs)
+            set_tests_properties(test_MainWindowTabs PROPERTIES
+                TIMEOUT 60
                 ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
             add_test(NAME test_MainWindowDensityNamedProfile COMMAND test_MainWindowDensity)
             set_tests_properties(test_MainWindowDensityNamedProfile PROPERTIES
@@ -1687,6 +1715,14 @@ if(BUILD_TESTING)
     target_link_libraries(test_ActivityLog PRIVATE UiUtils)
     trojita_test(Misc OutputSurfaces)
     target_link_libraries(test_OutputSurfaces PRIVATE UiUtils)
+    trojita_test(Misc SettingsSchema)
+    target_link_libraries(test_SettingsSchema PRIVATE UiUtils)
+    trojita_test(Misc Keymap)
+    target_link_libraries(test_Keymap PRIVATE UiUtils)
+    trojita_test(Misc MailToProductivity)
+    target_link_libraries(test_MailToProductivity PRIVATE UiUtils)
+    trojita_test(Misc MailTabs)
+    target_link_libraries(test_MailTabs PRIVATE UiUtils)
     if(WITH_DBUS)
         add_executable(test_KRunnerBridge tests/Misc/test_KRunnerBridge.cpp src/IPC/KRunnerBridge.cpp src/IPC/KRunnerBridge.h)
         target_compile_definitions(test_KRunnerBridge PRIVATE QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
@@ -1750,6 +1786,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_MailStatus PRIVATE DesktopServices KF6::ConfigCore)
         trojita_test(Misc AutomationSettings)
         target_link_libraries(test_AutomationSettings PRIVATE DesktopServices KF6::ConfigCore)
+        trojita_test(Misc SettingsStore)
+        target_link_libraries(test_SettingsStore PRIVATE DesktopServices UiUtils KF6::ConfigCore)
         trojita_test(Gui MailAutomation)
         target_link_libraries(test_MailAutomation PRIVATE DesktopGui UiUtils KF6::ConfigCore KF6::I18n)
         trojita_test(Gui RulesDialog)

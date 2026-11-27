@@ -32,6 +32,7 @@
 #include <QSet>
 #include <QSystemTrayIcon>
 #include <functional>
+#include <optional>
 
 #include "configure.cmake.h"
 #include "Composer/Recipients.h"
@@ -45,7 +46,10 @@
 #include "UiUtils/Agenda.h"
 #include "UiUtils/DesktopFeedback.h"
 #include "UiUtils/DestructiveActions.h"
+#include "UiUtils/Keymap.h"
 #include "UiUtils/MailStatus.h"
+#include "UiUtils/MailToProductivity.h"
+#include "UiUtils/MailTabs.h"
 #include "UiUtils/PlasmaSearch.h"
 #include "UiUtils/QuickFilters.h"
 #include "UiUtils/RecentFolders.h"
@@ -57,6 +61,8 @@
 
 class QActionGroup;
 class QAuthenticator;
+class QBoxLayout;
+class QFileSystemWatcher;
 class QComboBox;
 class QCloseEvent;
 class QFile;
@@ -125,6 +131,10 @@ class MSAFactory;
 namespace Gui
 {
 
+struct SettingsContext;
+class PlasmaActivities;
+class MailTabBar;
+class VimMode;
 class AccountSidebar;
 class SavedSearchFolders;
 class SearchFoldersDialog;
@@ -214,6 +224,12 @@ public:
     QString composerAccountId() const;
     /** @short The name of the account which @p message belongs to while several accounts are set up, otherwise empty */
     QString messageAccountName(const QModelIndex &message) const;
+    /** @short A setting of UiUtils::SettingsSchema for the account and folder of @arg message, overrides included */
+    QVariant messageSetting(const QString &key, const QModelIndex &message) const;
+    /** @short What the groups of the application settings need to know about the window */
+    SettingsContext settingsContext();
+    /** @short Show the search index dialog above @p parent, which may be modal */
+    void showSearchIndexOver(QWidget *parent);
     /** @short Run @p fn while accountSettings(), imapAccess(), imapModel(), senderIdentitiesModel() and msaFactory()
     refer to @p accountId
 
@@ -284,6 +300,15 @@ protected:
     bool eventFilter(QObject *o, QEvent *e) override;
     void changeEvent(QEvent *event) override;
 private slots:
+    /** @short Show, place or hide the tab bar as the settings say, restoring the saved tabs when it appears */
+    void applyTabSettings();
+    /** @short Turn Vim mode on or off and use its settings and bindings */
+    void applyVimSettings();
+    /** @short Offer Add to Calendar and Save as Note when they are turned on and can work */
+    void applyProductivitySettings();
+    /** @short Show what tab @p index holds */
+    void activateTab(int index);
+    void closeTab(int index);
     void showContextMenuMboxTree(const QPoint &position);
     void showContextMenuMsgListTree(const QPoint &position);
     void slotReloadMboxList();
@@ -563,6 +588,38 @@ private:
     void offerRuleFromQuery(const QString &text, const QString &name);
     void showActivity();
     void configureNotifications();
+    /** @short Apply the application settings which the window shows, after the settings dialog saved them */
+    void applyApplicationSettings();
+    /** @short Show the account of @p activityId's workspace, when the workspaces follow the activities */
+    void followActivity(const QString &activityId);
+    /** @short Watch the keymap shared with Plasma Opus, when it is followed, and import it when it changes */
+    void watchSharedKeymap();
+    /** @short The part of the window @p focus is in, as Vim mode sees it */
+    std::optional<UiUtils::Keymap::Context> vimContext(QWidget *focus) const;
+    /** @short Hand the message in the reader to the calendar application as a new event to review */
+    void messageToCalendar();
+    /** @short Save the message in the reader as a Markdown note in the notes folder */
+    void messageToNote();
+    /** @short Where notes go: the current workspace's folder with Work Context on, or else the notes folder */
+    QString notesFolder() const;
+    /** @short Call @p fn with the message in the reader, its text read first unless it is encrypted */
+    void withReaderMessage(const std::function<void(const UiUtils::MailToProductivity::Message &)> &fn);
+    /** @short Carry out the Vim command @p command typed in @p context */
+    void runVimCommand(const QString &command, UiUtils::Keymap::Context context);
+    /** @short Put the tab bar in its region, or take it out when tabs are off */
+    void placeTabBar();
+    /** @short Show the session's tabs in the tab bar and save the session */
+    void refreshTabs();
+    /** @short Let the current tab follow the folder and message shown */
+    void syncCurrentTab();
+    /** @short Open @p tab after the current tab and show it */
+    void openTab(const UiUtils::MailTabs::Tab &tab);
+    /** @short Save the tabs in the state file, without the subjects of their messages */
+    void saveTabs();
+    /** @short The folder and message shown, as a tab; no account when nothing a tab can hold is shown */
+    UiUtils::MailTabs::Tab currentLocationTab() const;
+    /** @short The message at @p message, of any account, as a tab */
+    UiUtils::MailTabs::Tab messageTab(const QModelIndex &message) const;
     /** @short Show the mail which a notification announced: message @p uid of @p folder, or the folder when 0 */
     void openAnnouncedMail(const QString &accountId, const QString &folder, uint uid, const QString &activationToken);
     /** @short Point the folder's Notify About New Mail action at @p mailbox */
@@ -973,6 +1030,11 @@ private:
     QSplitter *m_shellRow = nullptr;
     /** The message list and the reader column side by side or stacked, or one panel at a time */
     QSplitter *m_mainColumn = nullptr;
+    /** The main column with the tab bar beside it, when the tab bar is in the main region */
+    QWidget *m_mainArea = nullptr;
+    QBoxLayout *m_mainAreaLayout = nullptr;
+    /** The header, the shell body and the tab bar when it is in the header or the footer */
+    QBoxLayout *m_shellLayout = nullptr;
     ShellRegion m_shellLeft;
     ShellRegion m_shellRight;
     ShellRegion m_shellFooter;
@@ -1009,6 +1071,27 @@ private:
 
     LayoutMode m_layoutMode;
     bool m_mailboxSidebarOnRight = false;
+    /** Whether the side and footer regions are hidden, as in the Focus layout preset */
+    bool m_focusLayout = false;
+    PlasmaActivities *m_activities = nullptr;
+    QFileSystemWatcher *m_keymapWatcher = nullptr;
+    MailTabBar *m_tabBar = nullptr;
+    VimMode *m_vimMode = nullptr;
+    QAction *m_actionMessageToCalendar = nullptr;
+    QAction *m_actionMessageToNote = nullptr;
+    /** Shows the keys of an incomplete Vim sequence, while Vim mode is on */
+    QLabel *m_vimPending = nullptr;
+    UiUtils::MailTabs::Session m_tabSession;
+    bool m_tabsEnabled = false;
+    /** While a tab's folder and message are being opened, the tab is not changed to what is shown on the way */
+    bool m_activatingTab = false;
+    QAction *m_actionOpenInNewTab = nullptr;
+    QAction *m_actionNewTab = nullptr;
+    QAction *m_actionCloseTab = nullptr;
+    QAction *m_actionNextTab = nullptr;
+    QAction *m_actionPreviousTab = nullptr;
+    /** The message or folder which the context menu offers to open in a new tab */
+    UiUtils::MailTabs::Tab m_newTabCandidate;
     bool m_skipSavingOfUI;
     QTimer *m_delayedStateSaving;
 
