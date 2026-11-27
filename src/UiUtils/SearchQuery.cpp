@@ -180,6 +180,27 @@ const QHash<QString, Field> &fieldNames()
     return names;
 }
 
+/** Names Plasma Opus gives to the same kind of field, read as the mail field and always written with its name */
+const QHash<QString, Field> &fieldAliases()
+{
+    static const QHash<QString, Field> aliases = {
+        {QStringLiteral("content"), Field::Body},
+        {QStringLiteral("contents"), Field::Body},
+        {QStringLiteral("tags"), Field::Tag},
+    };
+    return aliases;
+}
+
+std::optional<Field> fieldNamed(const QString &name)
+{
+    const QString lower = name.toLower();
+    if (const auto field = fieldNames().constFind(lower); field != fieldNames().constEnd())
+        return *field;
+    if (const auto alias = fieldAliases().constFind(lower); alias != fieldAliases().constEnd())
+        return *alias;
+    return std::nullopt;
+}
+
 std::optional<Comparison> comparisonFor(const Token &token)
 {
     const QString &op = token.op;
@@ -306,8 +327,8 @@ Error buildTerm(const Token &token, const QDate &today, Term &term, bool &relati
         return {};
     }
 
-    const auto field = fieldNames().constFind(token.field.toLower());
-    if (field == fieldNames().constEnd()) {
+    const std::optional<Field> field = fieldNamed(token.field);
+    if (!field) {
         // "Re:" or "Note:" followed by a space is text, not a field
         if (token.colon && token.op.isEmpty() && token.value.isEmpty() && !token.quoted) {
             term.field = Field::Text;

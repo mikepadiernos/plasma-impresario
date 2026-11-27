@@ -41,15 +41,21 @@ struct Status {
     /** The folder which decided the coverage: the excluded folder, the hidden folder or the indexed folder; empty
     when none did */
     QString decidingFolder;
+    /** When the folder itself is not indexed: an indexed folder inside it, whose files a Baloo search of the folder
+    still finds; empty when there is none */
+    QString indexedSubfolder;
 
-    /** Whether a Baloo search can find files in the folder, if only by name */
+    /** Whether a Baloo search can find files in the folder, if only by name or only in an indexed subfolder */
     bool isSearchable() const;
+    /** Whether Baloo is set to index the whole folder, if only by name; this does not confirm that it has */
+    bool coversWholeFolder() const;
 };
 
 /** The coverage of @arg folder by the Baloo settings in @arg balooConfig, normally baloofilerc
 
 Follows Baloo's own rules: the closest configured folder decides whether a folder is indexed, and hidden folders
 below it are skipped unless hidden folders are indexed. Exclude filters on file and folder names are not checked.
+For a folder that is not indexed or is excluded, an indexed folder inside it is reported as Status::indexedSubfolder.
 */
 Status coverage(const KConfig &balooConfig, const QString &folder, bool installed);
 

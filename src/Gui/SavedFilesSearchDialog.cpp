@@ -162,6 +162,7 @@ void SavedFilesSearchDialog::refresh()
                               : UiUtils::FileSearch::Status();
 
     const QString deciding = displayedPath(m_coverage.decidingFolder);
+    const QString indexedInside = displayedPath(m_coverage.indexedSubfolder);
     QString text;
     if (!folderExists) {
         text = path.isEmpty() ? i18nc("@info", "Choose the folder in which you saved the files.")
@@ -177,12 +178,24 @@ void SavedFilesSearchDialog::refresh()
                                   "through it instead, or turn on File Search in System Settings.");
             break;
         case Coverage::NotIncluded:
-            text = i18nc("@info", "File Search does not index this folder. A live search looks through it instead, "
-                                  "or add the folder to File Search in System Settings.");
+            if (indexedInside.isEmpty()) {
+                text = i18nc("@info", "File Search is not set to index this folder. A live search looks through it "
+                                      "instead, or add the folder to File Search in System Settings.");
+            } else {
+                text = i18nc("@info %1 is a folder", "File Search is set to index only %1 inside this folder. Search "
+                                                     "the index for files there, or a live search looks through the "
+                                                     "whole folder.", indexedInside);
+            }
             break;
         case Coverage::Excluded:
-            text = i18nc("@info %1 is a folder", "File Search skips %1, so this folder is not indexed. A live search "
-                                                 "looks through it instead.", deciding);
+            if (indexedInside.isEmpty()) {
+                text = i18nc("@info %1 is a folder", "File Search skips %1, so this folder is not indexed. A live "
+                                                     "search looks through it instead.", deciding);
+            } else {
+                text = i18nc("@info %1 and %2 are folders", "File Search skips %1, except %2 inside it. Search the "
+                                                             "index for files there, or a live search looks through "
+                                                             "the whole folder.", deciding, indexedInside);
+            }
             break;
         case Coverage::Hidden:
             text = i18nc("@info %1 is a folder", "File Search skips hidden folders such as %1, so this folder is not "
@@ -193,8 +206,9 @@ void SavedFilesSearchDialog::refresh()
                                   "A live search also looks inside the files.");
             break;
         case Coverage::Covered:
-            text = i18nc("@info", "File Search indexes this folder. Files saved in the last few minutes may be "
-                                  "missing until it indexes them; a live search finds them right away.");
+            text = i18nc("@info", "File Search is set to index this folder, which does not guarantee that every "
+                                  "file is indexed yet: files saved in the last few minutes may be missing. A live "
+                                  "search finds them right away.");
             break;
         }
         if (!m_hasLiveSearch)
@@ -218,8 +232,10 @@ void SavedFilesSearchDialog::refresh()
         m_live->setToolTip(i18nc("@info:tooltip", "Open the folder in your file manager"));
         m_live->setEnabled(folderExists);
     }
-    m_indexed->setDefault(m_indexed->isEnabled());
-    m_live->setDefault(!m_indexed->isEnabled() && m_live->isEnabled());
+    // Only part of the folder is indexed: the live search is the one that looks through all of it
+    const bool preferIndexed = m_indexed->isEnabled() && (m_coverage.coversWholeFolder() || !m_live->isEnabled());
+    m_indexed->setDefault(preferIndexed);
+    m_live->setDefault(!preferIndexed && m_live->isEnabled());
 }
 
 QString SavedFilesSearchDialog::title() const

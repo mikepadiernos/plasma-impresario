@@ -33,6 +33,11 @@ bool isWithin(const QString &path, const QString &folder)
 
 bool Status::isSearchable() const
 {
+    return coversWholeFolder() || !indexedSubfolder.isEmpty();
+}
+
+bool Status::coversWholeFolder() const
+{
     return coverage == Coverage::Covered || coverage == Coverage::NamesOnly;
 }
 
@@ -71,13 +76,27 @@ Status coverage(const KConfig &balooConfig, const QString &folder, bool installe
         }
     }
 
+    // Baloo still indexes a configured folder inside one that it does not index
+    const auto findIndexedSubfolder = [&]() {
+        for (const QString &entry : included) {
+            const QString candidate = normalized(entry);
+            if (!entry.isEmpty() && candidate != path && isWithin(candidate, path)
+                && coverage(balooConfig, candidate, installed).isSearchable()) {
+                status.indexedSubfolder = candidate;
+                return;
+            }
+        }
+    };
+
     if (deciding.isEmpty()) {
         status.coverage = Coverage::NotIncluded;
+        findIndexedSubfolder();
         return status;
     }
     status.decidingFolder = deciding;
     if (!isIncluded) {
         status.coverage = Coverage::Excluded;
+        findIndexedSubfolder();
         return status;
     }
 
