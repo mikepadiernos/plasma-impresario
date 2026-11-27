@@ -349,6 +349,18 @@ public:
     /** @short Selectable mailbox to open for the given special use, or an empty string if there is none */
     QString specialFolderMailbox(SpecialUse kind) const;
 
+    /** @short Whether the server has announced Gmail's label extension (X-GM-EXT-1)
+
+    Remembered once seen, so that it still holds while offline.
+    */
+    bool hasGmailLabels() const;
+
+    /** @short Ask the server for the Gmail labels of @arg message, which arrive as RoleMessageGmailLabels
+
+    Does nothing unless the server has Gmail labels and the network may be used.
+    */
+    void requestGmailLabels(const QModelIndex &message);
+
 public slots:
     /** @short Ask for an updated list of mailboxes on the server */
     void reloadMailboxList();
@@ -514,6 +526,7 @@ private:
     friend class ListChildMailboxesTask;
     friend class NumberOfMessagesTask;
     friend class FetchMsgMetadataTask;
+    friend class FetchGmailLabelsTask;
     friend class ExpungeMailboxTask;
     friend class ExpungeMessagesTask;
     friend class CreateMailboxTask;
@@ -655,6 +668,7 @@ private:
     void announceSpecialFolders();
 
     QString m_archiveFolderName;
+    bool m_hasGmailLabels = false;
     /** @short Classification of the current mailbox tree, recomputed lazily */
     mutable SpecialFolder::Resolution m_specialFolders;
     mutable bool m_specialFoldersDirty = true;

@@ -414,6 +414,13 @@ void TreeItemMailbox::handleFetchResponse(Model *const model,
                     // it's already marked as dirty -> nothing to do here
                 }
             }
+        } else if (it.key() == "X-GM-LABELS") {
+            // Labels are mutable, so they are welcome even before the mailbox is synced
+            const QStringList &labels = static_cast<const Responses::RespData<QStringList>&>(*(it.value())).data;
+            if (!message->data()->gotGmailLabels() || message->data()->gmailLabels() != labels) {
+                message->data()->setGmailLabels(labels);
+                changedMessage = message;
+            }
         } else if (ignoreImmutableData) {
             QByteArray buf;
             QTextStream ss(&buf);
@@ -969,6 +976,7 @@ MessageDataPayload::MessageDataPayload()
     , m_gotBodystructure(false)
     , m_gotHdrReferences(false)
     , m_gotHdrListPost(false)
+    , m_gotGmailLabels(false)
 {
 }
 
@@ -1066,6 +1074,22 @@ void MessageDataPayload::setHdrListPostNo(const bool hdrListPostNo)
 {
     m_hdrListPostNo = hdrListPostNo;
     m_gotHdrListPost = true;
+}
+
+const QStringList &MessageDataPayload::gmailLabels() const
+{
+    return m_gmailLabels;
+}
+
+void MessageDataPayload::setGmailLabels(const QStringList &labels)
+{
+    m_gmailLabels = labels;
+    m_gotGmailLabels = true;
+}
+
+bool MessageDataPayload::gotGmailLabels() const
+{
+    return m_gotGmailLabels;
 }
 
 const QMap<QByteArray, QByteArray> &MessageDataPayload::hdrList() const
@@ -1227,6 +1251,8 @@ QVariant TreeItemMessage::data(Model *const model, int role)
     case RoleMessageFlags:
         // The flags are already sorted by Model::normalizeFlags()
         return m_flags;
+    case RoleMessageGmailLabels:
+        return m_data && m_data->gotGmailLabels() ? QVariant(m_data->gmailLabels()) : QVariant();
     case RoleMessageIsMarkedDeleted:
         return isMarkedAsDeleted();
     case RoleMessageIsMarkedRead:

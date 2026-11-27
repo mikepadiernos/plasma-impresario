@@ -641,6 +641,22 @@ void ImapParserParseTest::testParseUntagged_data()
         << QSharedPointer<AbstractResponse>( new Fetch( 123, fetchData ) );
 
     fetchData.clear();
+    fetchData["X-GM-LABELS"] = QSharedPointer<AbstractData>(new RespData<QStringList>(QStringList{
+        QStringLiteral("\\Inbox"), QStringLiteral("\\Important"), QStringLiteral("Work"),
+        QStringLiteral("Trips/2026"), QStringLiteral("\u00e9t\u00e9"), QStringLiteral("Long name")}));
+    fetchData["UID"] = QSharedPointer<AbstractData>(new RespData<uint>(7));
+    // System labels arrive bare or quoted, user labels as atoms, quoted strings or literals in modified UTF-7
+    QTest::newRow("fetch-gmail-labels")
+        << QByteArray("* 3 FETCH (X-GM-LABELS (\\Inbox \"\\\\Important\" Work \"Trips/2026\" &AOk-t&AOk- {9}\r\nLong name) UID 7)\r\n")
+        << QSharedPointer<AbstractResponse>(new Fetch(3, fetchData));
+
+    fetchData.clear();
+    fetchData["X-GM-LABELS"] = QSharedPointer<AbstractData>(new RespData<QStringList>(QStringList()));
+    QTest::newRow("fetch-gmail-labels-none")
+        << QByteArray("* 3 FETCH (x-gm-labels ())\r\n")
+        << QSharedPointer<AbstractResponse>(new Fetch(3, fetchData));
+
+    fetchData.clear();
     fetchData[ "RFC822.HEADER" ] = QSharedPointer<AbstractData>( new RespData<QByteArray>( "123456789012" ) );
     QTest::newRow("fetch-rfc822-header")
         << QByteArray("* 123 FETCH (rfc822.header {12}\r\n123456789012)\r\n")

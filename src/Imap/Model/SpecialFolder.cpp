@@ -108,7 +108,7 @@ QList<SpecialUse> navigableKinds()
             SpecialUse::Archive, SpecialUse::Junk, SpecialUse::Trash};
 }
 
-Resolution resolve(const QList<Candidate> &candidates, const QString &archiveFolderName)
+Resolution resolve(const QList<Candidate> &candidates, const QString &archiveFolderName, bool allMailArchives)
 {
     // QSet<int> because qHash() for scoped enums is not available in every supported Qt 6 release
     QSet<int> announced;
@@ -137,7 +137,7 @@ Resolution resolve(const QList<Candidate> &candidates, const QString &archiveFol
             const SpecialUse byName = fromName(candidate.mailbox, candidate.separator);
             const int key = static_cast<int>(byName);
             if (byName != SpecialUse::None && !announced.contains(key) && !guessed.contains(key)
-                && !(byName == SpecialUse::Archive && configuredArchiveExists)) {
+                && !(byName == SpecialUse::Archive && (configuredArchiveExists || allMailArchives))) {
                 kind = byName;
                 guessed.insert(key);
             }
@@ -154,6 +154,10 @@ Resolution resolve(const QList<Candidate> &candidates, const QString &archiveFol
         if (!res.primary.contains(kind) || preferred) {
             res.primary.insert(kind, candidate.mailbox);
         }
+    }
+    // Gmail has no archive folder: archiving removes the Inbox label, which a move to All Mail does
+    if (allMailArchives && !res.primary.contains(SpecialUse::Archive) && res.primary.contains(SpecialUse::All)) {
+        res.primary.insert(SpecialUse::Archive, res.primary.value(SpecialUse::All));
     }
     return res;
 }

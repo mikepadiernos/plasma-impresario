@@ -644,6 +644,7 @@ set(libImap_SOURCES
     ${path_Imap}/Tasks/ExpungeMessagesTask.cpp
     ${path_Imap}/Tasks/Fake_ListChildMailboxesTask.cpp
     ${path_Imap}/Tasks/Fake_OpenConnectionTask.cpp
+    ${path_Imap}/Tasks/FetchGmailLabelsTask.cpp
     ${path_Imap}/Tasks/FetchMsgMetadataTask.cpp
     ${path_Imap}/Tasks/FetchMsgPartTask.cpp
     ${path_Imap}/Tasks/GenUrlAuthTask.cpp

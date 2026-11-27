@@ -253,6 +253,9 @@ public:
     void setHdrList(const QMap<QByteArray, QByteArray> &hdrList);
     const QByteArray &rememberedBodyStructure() const;
     void setRememberedBodyStructure(const QByteArray &blob);
+    /** @short Gmail's labels (X-GM-LABELS), which can change at any time */
+    const QStringList &gmailLabels() const;
+    void setGmailLabels(const QStringList &labels);
 
     TreeItemPart *partHeader() const;
     void setPartHeader(std::unique_ptr<TreeItemPart> part);
@@ -267,6 +270,7 @@ public:
     bool gotHdrReferences() const;
     bool gotHdrListPost() const;
     bool gotRemeberedBodyStructure() const;
+    bool gotGmailLabels() const;
 
 private:
     Message::Envelope m_envelope;
@@ -277,6 +281,7 @@ private:
     QByteArray m_rememberedBodyStructure;
     bool m_hdrListPostNo;
     QMap<QByteArray, QByteArray> m_hdrList;
+    QStringList m_gmailLabels;
     std::unique_ptr<TreeItemPart> m_partHeader;
     std::unique_ptr<TreeItemPart> m_partText;
 
@@ -286,6 +291,7 @@ private:
     bool m_gotBodystructure : 1;
     bool m_gotHdrReferences : 1;
     bool m_gotHdrListPost : 1;
+    bool m_gotGmailLabels : 1;
 };
 
 class TreeItemMessage: public TreeItem

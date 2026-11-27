@@ -397,4 +397,54 @@ void CopyAndFlagTest::testMarkReadReportsFailure()
     justKeepTask();
 }
 
+/** @short Gmail's labels are fetched on request and offered through a role, also in the message list */
+void CopyAndFlagTest::testGmailLabels()
+{
+    FakeCapabilitiesInjector injector(model);
+    QVERIFY(!model->hasGmailLabels());
+    injector.injectCapability(QStringLiteral("X-GM-EXT-1"));
+    QVERIFY(model->hasGmailLabels());
+    helperSyncThreeMessages();
+
+    const QModelIndex message = msgListA.model()->index(1, 0, msgListA);
+    QVERIFY(!message.data(RoleMessageGmailLabels).isValid());
+    QSignalSpy changedSpy(model, &QAbstractItemModel::dataChanged);
+    model->requestGmailLabels(message);
+    cClient(t.mk("UID FETCH 2 (X-GM-LABELS)\r\n"));
+    cServer("* 2 FETCH (UID 2 X-GM-LABELS (\\Inbox \"Trips/2026\"))\r\n" + t.last("OK fetched\r\n"));
+    const QStringList expected{QStringLiteral("\\Inbox"), QStringLiteral("Trips/2026")};
+    QCOMPARE(message.data(RoleMessageGmailLabels).toStringList(), expected);
+    QVERIFY(!changedSpy.isEmpty());
+
+    MsgListModel msgListModel(nullptr, model);
+    msgListModel.setMailbox(idxA);
+    QCOMPARE(msgListModel.index(1, 0).data(RoleMessageGmailLabels).toStringList(), expected);
+    // Messages whose labels were never asked for have none yet
+    QVERIFY(!msgListModel.index(0, 0).data(RoleMessageGmailLabels).isValid());
+
+    // Labels are asked for again; an unchanged answer changes nothing, a new one replaces them
+    changedSpy.clear();
+    model->requestGmailLabels(message);
+    cClient(t.mk("UID FETCH 2 (X-GM-LABELS)\r\n"));
+    cServer("* 2 FETCH (X-GM-LABELS (\\Inbox \"Trips/2026\") UID 2)\r\n" + t.last("OK fetched\r\n"));
+    QVERIFY(changedSpy.isEmpty());
+    model->requestGmailLabels(message);
+    cClient(t.mk("UID FETCH 2 (X-GM-LABELS)\r\n"));
+    cServer("* 2 FETCH (UID 2 X-GM-LABELS ())\r\n" + t.last("OK fetched\r\n"));
+    QVERIFY(!changedSpy.isEmpty());
+    QVERIFY(message.data(RoleMessageGmailLabels).isValid());
+    QVERIFY(message.data(RoleMessageGmailLabels).toStringList().isEmpty());
+    cEmpty();
+    justKeepTask();
+}
+
+void CopyAndFlagTest::testNoGmailLabelsWithoutExtension()
+{
+    helperSyncThreeMessages();
+    QVERIFY(!model->hasGmailLabels());
+    model->requestGmailLabels(msgListA.model()->index(0, 0, msgListA));
+    cEmpty();
+    justKeepTask();
+}
+
 QTEST_GUILESS_MAIN(CopyAndFlagTest)

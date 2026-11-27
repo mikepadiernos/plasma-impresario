@@ -40,6 +40,7 @@
 #include "Imap/Tasks/CreateMailboxTask.h"
 #include "Imap/Tasks/ExpungeMailboxTask.h"
 #include "Imap/Tasks/ExpungeMessagesTask.h"
+#include "Imap/Tasks/FetchGmailLabelsTask.h"
 #include "Imap/Tasks/RenameMailboxTask.h"
 #include "Imap/Tasks/UpdateFlagsOfAllMessagesTask.h"
 #include "Imap/Tasks/GetAnyConnectionTask.h"
@@ -1231,6 +1232,10 @@ void Model::updateCapabilities(Parser *parser, const QStringList capabilities)
     } else {
         parser->enableLiteralPlus(Parser::LiteralPlus::Unsupported);
     }
+    if (!m_hasGmailLabels && uppercaseCaps.contains(QStringLiteral("X-GM-EXT-1"))) {
+        m_hasGmailLabels = true;
+        invalidateSpecialFolders();
+    }
 
     for (QMap<Parser *,ParserState>::const_iterator it = m_parsers.constBegin(); it != m_parsers.constEnd(); ++it) {
         if (it->connState == CONN_STATE_LOGOUT) {
@@ -1427,6 +1432,26 @@ QString Model::archiveFolderName() const
     return m_archiveFolderName;
 }
 
+bool Model::hasGmailLabels() const
+{
+    return m_hasGmailLabels;
+}
+
+void Model::requestGmailLabels(const QModelIndex &message)
+{
+    if (!m_hasGmailLabels || !isNetworkAvailable() || !message.isValid())
+        return;
+    QModelIndex realMessage;
+    auto *msg = dynamic_cast<TreeItemMessage *>(realTreeItem(message, nullptr, &realMessage));
+    if (!msg || !msg->uid())
+        return;
+    // The message's parent is the message list, whose parent is the mailbox
+    const QModelIndex mailbox = realMessage.parent().parent();
+    if (!mailbox.isValid())
+        return;
+    new FetchGmailLabelsTask(this, mailbox, Imap::Uids() << msg->uid());
+}
+
 SpecialUse Model::mailboxSpecialUse(const QString &mailbox) const
 {
     ensureSpecialFoldersResolved();
@@ -1469,7 +1494,7 @@ void Model::ensureSpecialFoldersResolved() const
         }
     };
     collect(m_mailboxes);
-    m_specialFolders = SpecialFolder::resolve(candidates, m_archiveFolderName);
+    m_specialFolders = SpecialFolder::resolve(candidates, m_archiveFolderName, m_hasGmailLabels);
 }
 
 void Model::announceSpecialFolders()

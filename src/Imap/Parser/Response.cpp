@@ -913,6 +913,23 @@ Fetch::Fetch(const uint number, const QByteArray &line, int &start): number(numb
                 throw NoData(line, start);
             if (line[start++] != ')')
                 throw UnexpectedHere("FETCH FLAGS must be a list");
+        } else if (identifier == "X-GM-LABELS") {
+            // Gmail's labels: system labels such as \\Inbox as atoms, the user's own as mailbox names
+            if (line[start++] != '(')
+                throw UnexpectedHere("FETCH X-GM-LABELS must be a list", line, start);
+            QStringList labels;
+            while (start < line.size() && line[start] != ')') {
+                if (line[start] == '\\')
+                    labels << QString::fromUtf8(LowLevelParser::getPossiblyBackslashedAtom(line, start));
+                else
+                    labels << LowLevelParser::getMailbox(line, start);
+                LowLevelParser::eatSpaces(line, start);
+            }
+            data[identifier] = QSharedPointer<AbstractData>(new RespData<QStringList>(labels));
+            if (start >= line.size())
+                throw NoData(line, start);
+            if (line[start++] != ')')
+                throw UnexpectedHere("FETCH X-GM-LABELS must be a list", line, start);
         } else if (identifier == "UID") {
             data[identifier] = QSharedPointer<AbstractData>(new RespData<uint>(LowLevelParser::getUInt(line, start)));
         } else if (identifier == "RFC822.SIZE") {

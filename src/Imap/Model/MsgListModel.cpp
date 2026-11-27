@@ -265,6 +265,7 @@ QVariant MsgListModel::data(const QModelIndex &proxyIndex, int role) const
     case RoleMessageHeaderListPostNo:
     case RoleMessageHeaderList:
     case RoleMessageHasAttachments:
+    case RoleMessageGmailLabels:
         return dynamic_cast<TreeItemMessage *>(Model::realTreeItem(
                 proxyIndex))->data(static_cast<Model *>(sourceModel()), role);
     default:

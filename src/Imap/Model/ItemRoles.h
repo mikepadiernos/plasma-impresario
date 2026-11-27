@@ -139,6 +139,8 @@ enum {
     The returned value might be a bit fuzzy.
     */
     RoleMessageHasAttachments,
+    /** @short Gmail's labels of a message (X-GM-LABELS) as a QStringList; invalid until Model::requestGmailLabels() got them */
+    RoleMessageGmailLabels,
 
     /** @short Contents of a message part */
     RolePartData,

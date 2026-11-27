@@ -382,9 +382,8 @@ void ImapAccess::doConnect()
     m_imapModel->setProperty("trojita-imap-id-no-versions", !m_appSettings->value(Common::SettingsNames::interopRevealVersions, true).toBool());
     m_imapModel->setProperty("trojita-imap-idle-renewal", m_appSettings->value(Common::SettingsNames::imapIdleRenewal).toUInt() * 60 * 1000);
     m_imapModel->setNumberRefreshInterval(numberRefreshInterval());
-    const auto archiveFolderName = m_settings->value(Common::SettingsNames::imapArchiveFolderName).toString();
-    m_imapModel->setArchiveFolderName(archiveFolderName.isEmpty() ? Common::SettingsNames::imapDefaultArchiveFolderName
-                                                                  : archiveFolderName);
+    // Empty means automatic: the server's \Archive folder, a folder called Archive, or All Mail on Gmail
+    m_imapModel->setArchiveFolderName(m_settings->value(Common::SettingsNames::imapArchiveFolderName).toString());
     if (OAuth::isEnabled(*m_settings, OAuth::Service::Imap)) {
         // The connections find this token source through the model and authenticate with it instead of a password
         QPointer<Plugins::PluginManager> pluginManager = m_pluginManager;

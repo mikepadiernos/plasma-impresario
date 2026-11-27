@@ -72,7 +72,8 @@ struct Resolution {
 
 @arg candidates must be in tree order (parents before children, siblings in
 display order) because name-based guesses keep only the first match.
-@arg archiveFolderName is the account's configured archive folder.
+@arg archiveFolderName is the account's configured archive folder; empty when none is configured.
+@arg allMailArchives is set for servers with Gmail labels (X-GM-EXT-1), where archiving means moving to All Mail.
 
 Rules, from strongest to weakest:
 - INBOX (any case) is the Inbox.
@@ -86,8 +87,13 @@ Rules, from strongest to weakest:
 The navigation target is the first selectable mailbox of each kind, except
 that the configured archive folder is preferred for Archive and the real INBOX
 for Inbox.
+
+With @arg allMailArchives, no mailbox is guessed to be the Archive by its name,
+because on Gmail such a folder is only a label. When neither an attribute nor
+the configured archive folder names one, the \All mailbox is the Archive's
+navigation target; it is still classified as All.
 */
-Resolution resolve(const QList<Candidate> &candidates, const QString &archiveFolderName);
+Resolution resolve(const QList<Candidate> &candidates, const QString &archiveFolderName, bool allMailArchives = false);
 
 }
 
