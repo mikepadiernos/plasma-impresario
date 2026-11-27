@@ -50,6 +50,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Portal file chooser](#portal-file-chooser)
   - [Unread count on the task manager](#unread-count-on-the-task-manager)
   - [Accessibility and theming](#accessibility-and-theming)
+  - [Provider setup and Gmail](#provider-setup-and-gmail)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -86,6 +87,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | File chooser      | Files are chosen through the XDG portal file chooser, falling back to the KDE dialog, but nothing is checked in a Plasma session or with Plasma Opus; save dialogs still use the KDE dialog, and remote locations in the portal depend on kio-fuse ([details](#portal-file-chooser))                                                                                                                                                                  | [#470](https://github.com/mikepadiernos/plasma-impresario/issues/470)                                                                        |
 | ![Limitation][limitation] | Task manager      | The task manager entry shows the unread messages in every account's INBOX, but nothing is checked in a Plasma session; the tray icon counts other folders, and accounts not yet connected add nothing ([details](#unread-count-on-the-task-manager))                                                                                                                                                                                                  | [#471](https://github.com/mikepadiernos/plasma-impresario/issues/471)                                                                        |
 | ![Limitation][limitation] | Accessibility     | Icons, state colors and contrast follow Plasma's theme and the main controls have accessible names, but nothing is checked with a screen reader, a high-contrast scheme or in a Plasma session, and there are no translations yet ([details](#accessibility-and-theming))                                                                                                                                                                             | [#472](https://github.com/mikepadiernos/plasma-impresario/issues/472)                                                                        |
+| ![Limitation][limitation] | Providers         | The provider guide is untried with real accounts; on Gmail, **Archive** creates an `Archive` label and sent messages are uploaded twice unless set otherwise ([details](#provider-setup-and-gmail))                                                                                                                                                                                                                                                   | [#473](https://github.com/mikepadiernos/plasma-impresario/issues/473)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -2059,6 +2061,51 @@ Plasma session; that check is
   protocol log's source label.
 - Start translations for the `plasma-impresario` domain once the strings
   settle.
+
+### Provider setup and Gmail
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                       |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [#473](https://github.com/mikepadiernos/plasma-impresario/issues/473) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/473#issuecomment-7214308273) | The [Mail providers](integrations/providers.md) guide ([#104](https://github.com/mikepadiernos/plasma-impresario/issues/104)) and Gmail accounts |
+
+**Current behavior:**
+
+- ![Resolved][resolved] [Mail providers](integrations/providers.md) lists the
+  servers, sign-in and first steps of the nine built-in providers, OAuth and
+  app passwords, the IMAP extensions the client uses, sending options and
+  troubleshooting.
+- ![Limitation][limitation] On Gmail, **Archive** moves messages to the folder
+  named by **Archive Folder Name**, or to a folder named `Archive`, which Gmail
+  turns into a new label. Gmail has no `\Archive` folder, and **All Mail** is
+  not used.
+- ![Limitation][limitation] Gmail keeps a copy of every message sent through
+  its SMTP server, so **Save Outgoing Mail**, on by default, uploads each
+  message again.
+- ![Limitation][limitation] Gmail labels appear as folders. A message with
+  several labels appears in each, and removing it from one removes only that
+  label.
+- ![Limitation][limitation] Only Google and Microsoft offer OAuth; Yahoo,
+  iCloud and AOL need app passwords. POP3 and JMAP accounts cannot connect
+  yet.
+- ![Limitation][limitation] Nothing in the guide is tried with real provider
+  accounts; the tests use a fake network and local Dovecot servers. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- For Gmail, set **Archive Folder Name** to `[Gmail]/All Mail` under
+  **Account Settings › IMAP**, and turn off **Save Outgoing Mail** under
+  **Account Settings › SMTP**.
+- For Yahoo, iCloud and AOL, create an app password.
+- For providers that offer POP3 or JMAP besides IMAP, use IMAP.
+
+**Proposed improvements:**
+
+- Recognize Gmail in provider support
+  ([#43](https://github.com/mikepadiernos/plasma-impresario/issues/43)):
+  archive to `\All`, turn off saving sent copies, and show labels as labels
+  rather than duplicate folders.
+- Check each built-in provider with a real account in a Plasma 6 session.
 
 ## Before reporting results
 

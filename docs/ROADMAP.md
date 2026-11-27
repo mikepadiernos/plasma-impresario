@@ -591,7 +591,9 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   - [ ] Add provider support for Gmail, Outlook, and other major mail services alongside IMAP [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540857)
   - [ ] Support POP3 mail retrieval with SMTP submission, secure authentication and transport, and explicit local-storage and server-retention behavior [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314594687)
   - [ ] Support JMAP mail accounts with capability discovery, secure authentication, mailbox and message synchronization, and supported sending options [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314594740)
-  - [ ] Document provider authentication, capabilities, limitations, and setup for Gmail, Outlook, and generic IMAP/SMTP [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569776)
+  - [ ] Document provider authentication, capabilities, limitations, and setup for Gmail, Outlook, and generic IMAP/SMTP. See
+        [Mail providers](integrations/providers.md).
+        [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569776)
   - [x] Discover IMAP and SMTP settings from the email address through built-in
         providers, autoconfig and ISPDB, DNS SRV (RFC 6186), MX hosts and common
         host names; show app-password guidance for known providers, and confirm
@@ -667,6 +669,9 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   ![Backlog][backlog]
 - [Accessibility and theming](CAVEATS.md#accessibility-and-theming)
   ([#472](https://github.com/mikepadiernos/plasma-impresario/issues/472))
+  ![Backlog][backlog]
+- [Provider setup and Gmail](CAVEATS.md#provider-setup-and-gmail)
+  ([#473](https://github.com/mikepadiernos/plasma-impresario/issues/473))
   ![Backlog][backlog]
 
 ### M07: Output, notifications, and rules automation

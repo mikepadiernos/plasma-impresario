@@ -545,6 +545,9 @@ parentheses are the expected behavior.
 | Accessibility     | The address expander reached with Tab, opened with Return and Enter, showing its focus and named for its state; address links taking the keyboard                                 | ![Offscreen tests][offscreen] `test_Accessibility`                                           |
 | Accessibility     | Every visible focusable button, field, list and spin box in the main window having an accessible name                                                                             | ![Offscreen tests][offscreen] `test_MainWindowShell`                                         |
 | Accessibility     | Orca, keyboard-only use, high-contrast schemes, 200% scaling, right-to-left languages and translations in Plasma                                                                  | ![Not validated][not-validated] ([caveat](CAVEATS.md#accessibility-and-theming))             |
+| Providers         | Gmail **Archive** without an archive folder set, which creates an `Archive` label                                                                                                 | ![Not validated][not-validated] ([caveat](CAVEATS.md#provider-setup-and-gmail))              |
+| Providers         | Gmail with **Save Outgoing Mail** on, which stores each sent message twice                                                                                                        | ![Not validated][not-validated] ([caveat](CAVEATS.md#provider-setup-and-gmail))              |
+| Providers         | Gmail, Outlook.com, Microsoft 365, Yahoo, iCloud, AOL, GMX, WEB.DE and Posteo signing in with a real account, by password, app password or OAuth                                  | ![Not validated][not-validated] ([caveat](CAVEATS.md#provider-setup-and-gmail))              |
 
 ## Validation checklist
 
