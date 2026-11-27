@@ -39,6 +39,8 @@
 #include <QHeaderView>
 #include <QItemSelectionModel>
 #include <QAbstractScrollArea>
+#include <QStandardPaths>
+#include <QUuid>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
@@ -327,6 +329,7 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
         m_vimPending->setText(keys.isEmpty() ? i18nc("@info:status Vim mode is on", "Vim") : keys);
     });
     applyVimSettings();
+    applyProductivitySettings();
     // Choosing a folder leaves the Unified Inbox and the search results for it
     const auto showChosenFolder = [this]() {
         // A folder shows all of its messages, not what the saved search found
@@ -705,6 +708,10 @@ void MainWindow::defineActions()
     shortcutHandler->defineAction(QStringLiteral("action_tag_9"), QStringLiteral("mail-tag-9"), tr("Tag with &9th tag"), QStringLiteral("9"));
     shortcutHandler->defineAction(QStringLiteral("action_shortcut_overview"), QStringLiteral("help-keyboard-shortcuts"),
                                   i18nc("@action", "&Keyboard Shortcuts"), QStringLiteral("?"));
+    shortcutHandler->defineAction(QStringLiteral("action_message_to_calendar"), QStringLiteral("appointment-new"),
+                                  i18nc("@action", "Add to &Calendar…"));
+    shortcutHandler->defineAction(QStringLiteral("action_message_to_note"), QStringLiteral("view-pim-notes"),
+                                  i18nc("@action", "Save as &Note"));
     shortcutHandler->defineAction(QStringLiteral("action_new_tab"), QStringLiteral("tab-new"), i18nc("@action", "New &Tab"),
                                   QStringLiteral("Ctrl+T"));
     shortcutHandler->defineAction(QStringLiteral("action_close_tab"), QStringLiteral("tab-close"), i18nc("@action", "&Close Tab"),
@@ -1020,6 +1027,18 @@ void MainWindow::createActions()
     saveWholeMessage = ShortcutHandler::instance()->createAction(QStringLiteral("action_save_message_as"), this, SLOT(slotSaveCurrentMessageBody()), this);
     msgListWidget->tree->addAction(saveWholeMessage);
 
+    // Offered once turned on and usable; see applyProductivitySettings()
+    m_actionMessageToCalendar = ShortcutHandler::instance()->createAction(QStringLiteral("action_message_to_calendar"), this);
+    m_actionMessageToCalendar->setToolTip(i18nc("@info:tooltip", "Open an event about this message in the calendar "
+                                                                 "application, to review before it is saved"));
+    connect(m_actionMessageToCalendar, &QAction::triggered, this, &MainWindow::messageToCalendar);
+    m_actionMessageToNote = ShortcutHandler::instance()->createAction(QStringLiteral("action_message_to_note"), this);
+    m_actionMessageToNote->setToolTip(i18nc("@info:tooltip", "Save this message as a Markdown note in the notes folder"));
+    connect(m_actionMessageToNote, &QAction::triggered, this, &MainWindow::messageToNote);
+    for (QAction *action : {m_actionMessageToCalendar, m_actionMessageToNote}) {
+        action->setVisible(false);
+        action->setEnabled(false);
+    }
 
     viewMsgSource = ShortcutHandler::instance()->createAction(QStringLiteral("action_view_message_source"), this, SLOT(slotViewMsgSource()), this);
     msgListWidget->tree->addAction(viewMsgSource);
@@ -1838,6 +1857,9 @@ void MainWindow::createMenus()
         ADD_ACTION(messageMenu, m_moveToFolder);
         ADD_ACTION(messageMenu, m_copyToFolder);
         messageMenu->addSeparator();
+        ADD_ACTION(messageMenu, m_actionMessageToCalendar);
+        ADD_ACTION(messageMenu, m_actionMessageToNote);
+        messageMenu->addSeparator();
         // Not added to the window, so that their shortcuts only work in the message list
         messageMenu->addAction(m_actionSelectAllMessages);
         messageMenu->addAction(m_actionSelectThread);
@@ -2004,6 +2026,11 @@ void MainWindow::createWidgets()
             [this](const QString &key, const QModelIndex &message) { return messageSetting(key, message); });
     connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::scrollMessageUp);
     connect(m_messageWidget->messageView, &MessageView::messageChanged, this, &MainWindow::slotUpdateMessageActions);
+    connect(m_messageWidget->messageView, &MessageView::messageChanged, this, [this]() {
+        const bool shown = m_messageWidget->messageView->currentMessage().isValid();
+        m_actionMessageToCalendar->setEnabled(shown);
+        m_actionMessageToNote->setEnabled(shown);
+    });
     // Replies to the conversation being read are not announced
     connect(m_messageWidget->messageView, &MessageView::messageChanged, this, [this]() {
         const QModelIndex message = m_messageWidget->messageView->currentMessage();
@@ -2960,6 +2987,15 @@ void MainWindow::showContextMenuMsgListTree(const QPoint &position)
         actionList.append(m_copyToMenu->menuAction());
         actionList.append(m_actionMarkMailboxAsRead);
         actionList.append(saveWholeMessage);
+#ifdef TROJITA_HAVE_WEBENGINE
+        // They act on the message in the reader, so they are offered for that one only
+        if (Imap::deproxifiedIndex(index) == Imap::deproxifiedIndex(m_messageWidget->messageView->currentMessage())) {
+            for (QAction *action : {m_actionMessageToCalendar, m_actionMessageToNote}) {
+                if (action->isVisible())
+                    actionList.append(action);
+            }
+        }
+#endif
         actionList.append(viewMsgSource);
         actionList.append(viewMsgHeaders);
         // Among results or other narrowed messages, the message can be seen among the rest of its folder
@@ -3379,6 +3415,7 @@ void MainWindow::applyApplicationSettings()
     watchSharedKeymap();
     applyTabSettings();
     applyVimSettings();
+    applyProductivitySettings();
 }
 
 void MainWindow::followActivity(const QString &activityId)
@@ -3449,6 +3486,113 @@ void MainWindow::applyVimSettings()
     m_vimPending->setText(i18nc("@info:status Vim mode is on", "Vim"));
     m_vimPending->setToolTip(i18nc("@info:tooltip", "Vim mode is on; the keys of an unfinished command show here"));
     m_vimPending->setVisible(enabled);
+}
+
+void MainWindow::applyProductivitySettings()
+{
+    if (!m_actionMessageToCalendar)
+        return;
+#ifdef TROJITA_HAVE_WEBENGINE
+    const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    auto setting = [&config, this](const char *key) {
+        return UiUtils::SettingsStore::value(*config, m_settings, QLatin1String(key));
+    };
+    m_actionMessageToCalendar->setVisible(setting("Integrations/MailToCalendar").toBool()
+                                          && KApplicationTrader::preferredService(QStringLiteral("text/calendar")));
+    const QString folder = setting("Integrations/NotesFolder").toString();
+    m_actionMessageToNote->setVisible(setting("Integrations/MailToNotes").toBool() && !folder.isEmpty()
+                                      && QFileInfo(folder).isDir());
+#endif
+}
+
+QString MainWindow::notesFolder() const
+{
+    const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    const QString folder = UiUtils::SettingsStore::value(*config, m_settings, QStringLiteral("Integrations/NotesFolder")).toString();
+    if (!m_activities || !UiUtils::SettingsStore::value(*config, m_settings, QStringLiteral("Integrations/WorkContext")).toBool())
+        return folder;
+    return UiUtils::Workspaces::notesFolder(UiUtils::SettingsStore::workspaces(*config), m_activities->current(), folder);
+}
+
+void MainWindow::withReaderMessage(const std::function<void(const UiUtils::MailToProductivity::Message &)> &fn)
+{
+#ifdef TROJITA_HAVE_WEBENGINE
+    const QModelIndex index = Imap::deproxifiedIndex(m_messageWidget->messageView->currentMessage());
+    if (!index.isValid())
+        return;
+    UiUtils::MailToProductivity::Message message;
+    message.subject = index.data(Imap::Mailbox::RoleMessageSubject).toString();
+    message.from = Imap::Message::MailAddress::prettyList(index.data(Imap::Mailbox::RoleMessageFrom).toList(),
+                                                          Imap::Message::MailAddress::FORMAT_READABLE);
+    const QVariantList to = index.data(Imap::Mailbox::RoleMessageTo).toList();
+    for (const QVariant &address : to)
+        message.to << Imap::Message::MailAddress::prettyList(QVariantList{address}, Imap::Message::MailAddress::FORMAT_READABLE);
+    message.date = index.data(Imap::Mailbox::RoleMessageDate).toDateTime();
+    message.messageId = QString::fromUtf8(index.data(Imap::Mailbox::RoleMessageMessageId).toByteArray());
+    if (message.messageId.startsWith(QLatin1Char('<')) && message.messageId.endsWith(QLatin1Char('>')))
+        message.messageId = message.messageId.mid(1, message.messageId.size() - 2);
+    message.accountName = m_accounts->displayName(accountOfModel(qobject_cast<const Imap::Mailbox::Model *>(index.model())));
+    message.folder = index.data(Imap::Mailbox::RoleMailboxName).toString();
+    if (m_messageWidget->messageView->isCryptoMessage()) {
+        // Decrypted text is not written out where the message's encryption no longer protects it
+        fn(message);
+        return;
+    }
+    QPointer<MainWindow> self(this);
+    QPersistentModelIndex shown(index);
+    m_messageWidget->messageView->quoteText([self, shown, message, fn](const QString &text) mutable {
+        if (!self || !shown.isValid())
+            return;
+        message.text = text;
+        fn(message);
+    });
+#else
+    Q_UNUSED(fn);
+#endif
+}
+
+void MainWindow::messageToCalendar()
+{
+    withReaderMessage([this](const UiUtils::MailToProductivity::Message &message) {
+        using namespace UiUtils::MailToProductivity;
+        const QDateTime now = QDateTime::currentDateTime();
+        const QString uid = QUuid::createUuid().toString(QUuid::WithoutBraces) + QLatin1String("@plasma-impresario");
+        const QByteArray ics = calendarEvent(message, suggestedStart(now), 30, uid, now.toUTC());
+        QString error;
+        const QString path = saveEvent(QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
+                                           + QLatin1String("/events"),
+                                       ics, uid, now, &error);
+        if (path.isEmpty()) {
+            m_notificationBar->showError(error);
+            return;
+        }
+        // The calendar application shows the event to be reviewed and saved there
+        auto *job = new KIO::OpenUrlJob(QUrl::fromLocalFile(path), QStringLiteral("text/calendar"));
+        job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, this));
+        job->start();
+    });
+}
+
+void MainWindow::messageToNote()
+{
+    withReaderMessage([this](const UiUtils::MailToProductivity::Message &message) {
+        QString error;
+        const QString path = UiUtils::MailToProductivity::saveNote(notesFolder(), message, &error);
+        if (path.isEmpty()) {
+            m_notificationBar->showError(error);
+            return;
+        }
+        InlineNotificationBar::Action open;
+        open.text = i18nc("@action:button", "Open Note");
+        open.iconName = QStringLiteral("document-open");
+        open.objectName = QStringLiteral("openNote");
+        open.callback = [this, path]() {
+            auto *job = new KIO::OpenUrlJob(QUrl::fromLocalFile(path));
+            job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, this));
+            job->start();
+        };
+        m_notificationBar->showInfo(i18nc("@info %1 is a file name", "Saved the note %1", QFileInfo(path).fileName()), {open});
+    });
 }
 
 std::optional<UiUtils::Keymap::Context> MainWindow::vimContext(QWidget *focus) const

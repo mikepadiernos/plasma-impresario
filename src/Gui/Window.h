@@ -48,6 +48,7 @@
 #include "UiUtils/DestructiveActions.h"
 #include "UiUtils/Keymap.h"
 #include "UiUtils/MailStatus.h"
+#include "UiUtils/MailToProductivity.h"
 #include "UiUtils/MailTabs.h"
 #include "UiUtils/PlasmaSearch.h"
 #include "UiUtils/QuickFilters.h"
@@ -303,6 +304,8 @@ private slots:
     void applyTabSettings();
     /** @short Turn Vim mode on or off and use its settings and bindings */
     void applyVimSettings();
+    /** @short Offer Add to Calendar and Save as Note when they are turned on and can work */
+    void applyProductivitySettings();
     /** @short Show what tab @p index holds */
     void activateTab(int index);
     void closeTab(int index);
@@ -593,6 +596,14 @@ private:
     void watchSharedKeymap();
     /** @short The part of the window @p focus is in, as Vim mode sees it */
     std::optional<UiUtils::Keymap::Context> vimContext(QWidget *focus) const;
+    /** @short Hand the message in the reader to the calendar application as a new event to review */
+    void messageToCalendar();
+    /** @short Save the message in the reader as a Markdown note in the notes folder */
+    void messageToNote();
+    /** @short Where notes go: the current workspace's folder with Work Context on, or else the notes folder */
+    QString notesFolder() const;
+    /** @short Call @p fn with the message in the reader, its text read first unless it is encrypted */
+    void withReaderMessage(const std::function<void(const UiUtils::MailToProductivity::Message &)> &fn);
     /** @short Carry out the Vim command @p command typed in @p context */
     void runVimCommand(const QString &command, UiUtils::Keymap::Context context);
     /** @short Put the tab bar in its region, or take it out when tabs are off */
@@ -1066,6 +1077,8 @@ private:
     QFileSystemWatcher *m_keymapWatcher = nullptr;
     MailTabBar *m_tabBar = nullptr;
     VimMode *m_vimMode = nullptr;
+    QAction *m_actionMessageToCalendar = nullptr;
+    QAction *m_actionMessageToNote = nullptr;
     /** Shows the keys of an incomplete Vim sequence, while Vim mode is on */
     QLabel *m_vimPending = nullptr;
     UiUtils::MailTabs::Session m_tabSession;
