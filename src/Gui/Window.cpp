@@ -38,6 +38,7 @@
 #include <QFileSystemWatcher>
 #include <QHeaderView>
 #include <QItemSelectionModel>
+#include <QAbstractScrollArea>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
@@ -167,6 +168,7 @@
 #include "SettingsGroups.h"
 #include "PlasmaActivities.h"
 #include "MailTabBar.h"
+#include "VimMode.h"
 #include "ShortcutOverviewDialog.h"
 #ifdef TROJITA_HAVE_WEBENGINE
 #include "SimplePartWidget.h"
@@ -314,6 +316,17 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     connect(m_activities, &PlasmaActivities::currentChanged, this, &MainWindow::followActivity);
     watchSharedKeymap();
     applyTabSettings();
+    m_vimPending = new QLabel(statusBar());
+    m_vimPending->setObjectName(QStringLiteral("vimPending"));
+    m_vimPending->setAccessibleName(i18nc("@label", "Vim keys typed"));
+    m_vimPending->hide();
+    statusBar()->addPermanentWidget(m_vimPending);
+    m_vimMode = new VimMode(this, [this](QWidget *focus) { return vimContext(focus); }, this);
+    connect(m_vimMode, &VimMode::commandTriggered, this, &MainWindow::runVimCommand);
+    connect(m_vimMode, &VimMode::pendingChanged, this, [this](const QString &keys) {
+        m_vimPending->setText(keys.isEmpty() ? i18nc("@info:status Vim mode is on", "Vim") : keys);
+    });
+    applyVimSettings();
     // Choosing a folder leaves the Unified Inbox and the search results for it
     const auto showChosenFolder = [this]() {
         // A folder shows all of its messages, not what the saved search found
@@ -1006,6 +1019,7 @@ void MainWindow::createActions()
 
     saveWholeMessage = ShortcutHandler::instance()->createAction(QStringLiteral("action_save_message_as"), this, SLOT(slotSaveCurrentMessageBody()), this);
     msgListWidget->tree->addAction(saveWholeMessage);
+
 
     viewMsgSource = ShortcutHandler::instance()->createAction(QStringLiteral("action_view_message_source"), this, SLOT(slotViewMsgSource()), this);
     msgListWidget->tree->addAction(viewMsgSource);
@@ -3364,6 +3378,7 @@ void MainWindow::applyApplicationSettings()
     msgListWidget->applySearchSettings();
     watchSharedKeymap();
     applyTabSettings();
+    applyVimSettings();
 }
 
 void MainWindow::followActivity(const QString &activityId)
@@ -3410,11 +3425,118 @@ void MainWindow::watchSharedKeymap()
             return;
         UiUtils::SettingsStore::importKeymap(*config, *result.profile);
         config->sync();
+        applyVimSettings();
     };
     connect(m_keymapWatcher, &QFileSystemWatcher::fileChanged, this, import);
     if (QFileInfo::exists(path))
         m_keymapWatcher->addPath(path);
     import();
+}
+
+void MainWindow::applyVimSettings()
+{
+    if (!m_vimMode)
+        return;
+    const auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+    auto setting = [&config, this](const char *key) {
+        return UiUtils::SettingsStore::value(*config, m_settings, QLatin1String(key));
+    };
+    const bool enabled = setting("Keyboard/VimMode").toBool();
+    m_vimMode->setBindings(UiUtils::Keymap::merged(UiUtils::SettingsStore::bindings(*config)));
+    m_vimMode->setTimeout(setting("Keyboard/VimTimeout").toInt());
+    m_vimMode->setHints(setting("Keyboard/VimHints").toBool(), setting("Keyboard/VimHintDelay").toInt());
+    m_vimMode->setEnabled(enabled);
+    m_vimPending->setText(i18nc("@info:status Vim mode is on", "Vim"));
+    m_vimPending->setToolTip(i18nc("@info:tooltip", "Vim mode is on; the keys of an unfinished command show here"));
+    m_vimPending->setVisible(enabled);
+}
+
+std::optional<UiUtils::Keymap::Context> MainWindow::vimContext(QWidget *focus) const
+{
+    using UiUtils::Keymap::Context;
+    if (!focus)
+        return std::nullopt;
+    if (mboxTree && (focus == mboxTree || mboxTree->isAncestorOf(focus)))
+        return Context::FolderTree;
+    if (msgListWidget && (focus == msgListWidget->tree || msgListWidget->tree->isAncestorOf(focus)))
+        return Context::MessageList;
+    if (m_messageWidget && (focus == m_messageWidget || m_messageWidget->isAncestorOf(focus)))
+        return Context::Reader;
+    return std::nullopt;
+}
+
+void MainWindow::runVimCommand(const QString &command, UiUtils::Keymap::Context context)
+{
+    using UiUtils::Keymap::Context;
+    QWidget *focus = QApplication::focusWidget();
+    auto key = [this, focus](int key) { m_vimMode->sendKey(focus, key); };
+    auto trigger = [](QAction *action) {
+        if (action && action->isEnabled() && action->isVisible())
+            action->trigger();
+    };
+    QTreeView *list = msgListWidget->tree;
+
+    if (command == QLatin1String("move.down")) {
+        key(Qt::Key_Down);
+    } else if (command == QLatin1String("move.up")) {
+        key(Qt::Key_Up);
+    } else if (command == QLatin1String("move.top")) {
+        key(Qt::Key_Home);
+    } else if (command == QLatin1String("move.bottom")) {
+        key(Qt::Key_End);
+    } else if (command == QLatin1String("move.out")) {
+        if (context == Context::FolderTree)
+            key(Qt::Key_Left);
+        else if (context == Context::MessageList)
+            mboxTree->setFocus(Qt::ShortcutFocusReason);
+        else
+            list->setFocus(Qt::ShortcutFocusReason);
+    } else if (command == QLatin1String("move.in")) {
+        if (context == Context::FolderTree) {
+            const QModelIndex current = mboxTree->currentIndex();
+            if (current.isValid() && mboxTree->model()->hasChildren(current) && !mboxTree->isExpanded(current))
+                mboxTree->expand(current);
+            else
+                list->setFocus(Qt::ShortcutFocusReason);
+        } else if (context == Context::MessageList) {
+            const QModelIndex current = list->currentIndex();
+            if (current.isValid()) {
+                msgListClicked(current);
+                if (m_messageWidget->isVisible())
+                    m_messageWidget->setFocus(Qt::ShortcutFocusReason);
+            }
+        }
+    } else if (command == QLatin1String("page.down") || command == QLatin1String("page.up")) {
+        const bool down = command == QLatin1String("page.down");
+        if (context == Context::Reader) {
+            key(down ? Qt::Key_PageDown : Qt::Key_PageUp);
+        } else {
+            QAbstractScrollArea *area = nullptr;
+            for (QWidget *widget = focus; widget && !area; widget = widget->parentWidget())
+                area = qobject_cast<QAbstractScrollArea *>(widget);
+            if (area) {
+                QScrollBar *bar = area->verticalScrollBar();
+                const int step = std::max(1, bar->pageStep() / 2);
+                bar->setValue(bar->value() + (down ? step : -step));
+            }
+        }
+    } else if (command == QLatin1String("search")) {
+        msgListWidget->focusSearch();
+    } else if (command == QLatin1String("select.toggle")) {
+        const QModelIndex current = list->currentIndex();
+        if (current.isValid())
+            list->selectionModel()->select(current, QItemSelectionModel::Toggle | QItemSelectionModel::Rows);
+    } else if (command == QLatin1String("tab.next")) {
+        trigger(m_actionNextTab);
+    } else if (command == QLatin1String("tab.previous")) {
+        trigger(m_actionPreviousTab);
+    } else if (command == QLatin1String("help")) {
+        slotShowShortcutOverview();
+    } else if (command == QLatin1String("go.inbox")) {
+        goToMailbox(QStringLiteral("INBOX"));
+    } else if (const UiUtils::Keymap::Command *local = UiUtils::Keymap::command(command); local && !local->action.isEmpty()) {
+        trigger(findChild<QAction *>(local->action));
+    }
 }
 
 void MainWindow::applyTabSettings()
@@ -6081,7 +6203,8 @@ void MainWindow::slotShowShortcutOverview()
                 areaOrder << UiUtils::ShortcutOverview::plainText(top->text());
         }
         areaOrder << i18nc("@title:group", "Message List") << i18nc("@title:group", "Message Reader")
-                  << i18nc("@title:group", "General") << i18nc("@title:group", "Other Windows");
+                  << i18nc("@title:group", "General") << i18nc("@title:group", "Other Windows")
+                  << i18nc("@title:group", "Vim Mode");
         m_shortcutOverview = new ShortcutOverviewDialog([this]() { return shortcutOverviewEntries(); }, areaOrder, this);
     }
     m_shortcutOverview->show();
@@ -6141,6 +6264,21 @@ QList<UiUtils::ShortcutOverview::Entry> MainWindow::shortcutOverviewEntries() co
         else
             entry.area = owner && owner->window() != this ? otherArea : generalArea;
         entries << entry;
+    }
+    if (m_vimMode && m_vimMode->isEnabled()) {
+        // Vim sequences are not key sequences of actions, so they are named in the text
+        const UiUtils::Keymap::Bindings bindings = UiUtils::Keymap::merged(
+            UiUtils::SettingsStore::bindings(*KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"))));
+        for (const UiUtils::Keymap::Command &command : UiUtils::Keymap::commands()) {
+            const QString keys = bindings.value(command.id);
+            if (keys.isEmpty())
+                continue;
+            Entry entry;
+            entry.id = QLatin1String("vim.") + command.id;
+            entry.area = i18nc("@title:group", "Vim Mode");
+            entry.text = i18nc("@info Vim keys and what they do", "%1: %2", keys, UiUtils::Keymap::description(command.id));
+            entries << entry;
+        }
     }
     return entries;
 }

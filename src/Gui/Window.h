@@ -32,6 +32,7 @@
 #include <QSet>
 #include <QSystemTrayIcon>
 #include <functional>
+#include <optional>
 
 #include "configure.cmake.h"
 #include "Composer/Recipients.h"
@@ -45,6 +46,7 @@
 #include "UiUtils/Agenda.h"
 #include "UiUtils/DesktopFeedback.h"
 #include "UiUtils/DestructiveActions.h"
+#include "UiUtils/Keymap.h"
 #include "UiUtils/MailStatus.h"
 #include "UiUtils/MailTabs.h"
 #include "UiUtils/PlasmaSearch.h"
@@ -131,6 +133,7 @@ namespace Gui
 struct SettingsContext;
 class PlasmaActivities;
 class MailTabBar;
+class VimMode;
 class AccountSidebar;
 class SavedSearchFolders;
 class SearchFoldersDialog;
@@ -298,6 +301,8 @@ protected:
 private slots:
     /** @short Show, place or hide the tab bar as the settings say, restoring the saved tabs when it appears */
     void applyTabSettings();
+    /** @short Turn Vim mode on or off and use its settings and bindings */
+    void applyVimSettings();
     /** @short Show what tab @p index holds */
     void activateTab(int index);
     void closeTab(int index);
@@ -586,6 +591,10 @@ private:
     void followActivity(const QString &activityId);
     /** @short Watch the keymap shared with Plasma Opus, when it is followed, and import it when it changes */
     void watchSharedKeymap();
+    /** @short The part of the window @p focus is in, as Vim mode sees it */
+    std::optional<UiUtils::Keymap::Context> vimContext(QWidget *focus) const;
+    /** @short Carry out the Vim command @p command typed in @p context */
+    void runVimCommand(const QString &command, UiUtils::Keymap::Context context);
     /** @short Put the tab bar in its region, or take it out when tabs are off */
     void placeTabBar();
     /** @short Show the session's tabs in the tab bar and save the session */
@@ -1056,6 +1065,9 @@ private:
     PlasmaActivities *m_activities = nullptr;
     QFileSystemWatcher *m_keymapWatcher = nullptr;
     MailTabBar *m_tabBar = nullptr;
+    VimMode *m_vimMode = nullptr;
+    /** Shows the keys of an incomplete Vim sequence, while Vim mode is on */
+    QLabel *m_vimPending = nullptr;
     UiUtils::MailTabs::Session m_tabSession;
     bool m_tabsEnabled = false;
     /** While a tab's folder and message are being opened, the tab is not changed to what is shown on the way */
