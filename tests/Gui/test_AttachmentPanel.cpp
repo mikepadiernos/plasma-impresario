@@ -123,6 +123,23 @@ private slots:
         QVERIFY(list->item(2)->text().startsWith(QStringLiteral("archive.zip")));
     }
 
+    void findsSavedCopiesByFileName()
+    {
+        Host host;
+        QStandardItemModel model;
+        mixedWithTwoFiles(model);
+        host.panel->setMessageModel(&model);
+        QSignalSpy requested(host.panel, &Gui::AttachmentPanel::findSavedCopiesRequested);
+        child<QListWidget>(host.panel, "attachmentPanelList")->setCurrentRow(1);
+        host.panel->findSavedCopiesOfCurrent();
+        QCOMPARE(requested.size(), 1);
+        QCOMPARE(requested.first().first().toString(), QStringLiteral("photo.png"));
+
+        host.panel->setMessageModel(nullptr);
+        host.panel->findSavedCopiesOfCurrent();
+        QCOMPARE(requested.size(), 1);
+    }
+
     void autoHideFollowsTheCurrentMessage()
     {
         Host host;

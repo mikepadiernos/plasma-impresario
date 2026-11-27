@@ -6,6 +6,7 @@
 #include "Common/Paths.h"
 #include "Common/SettingsNames.h"
 #include "Gui/AccountSidebar.h"
+#include "Gui/AttachmentPanel.h"
 #include "Gui/CompleteMessageWidget.h"
 #include "Gui/ContactPanel.h"
 #include "Gui/MessageDetailsPanel.h"
@@ -21,8 +22,10 @@
 #include "Gui/MessageRowsMenu.h"
 #include "Gui/MsgItemDelegate.h"
 #include "Gui/MsgListView.h"
+#include "Gui/SavedFilesSearchDialog.h"
 #include "Gui/SavedSearchFolders.h"
 #include "Gui/ShortcutHandler/ShortcutHandler.h"
+#include "Gui/Util.h"
 #include "Gui/Window.h"
 #include "Imap/Model/GroupingMsgListModel.h"
 #include "Imap/Model/ImapAccess.h"
@@ -936,6 +939,48 @@ private slots:
         QVERIFY(search->hasFocus());
     }
 #endif
+
+    void findSavedFilesOpensTheDialog()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        // Every save dialog remembers its folder for the next one and for Find Saved Files
+        QVERIFY(QDir(directory.path()).mkpath(QStringLiteral("Saved")));
+        const QString saved = QDir::cleanPath(directory.filePath(QStringLiteral("Saved")));
+        Gui::Util::rememberSavedFile(saved + QStringLiteral("/report.pdf"));
+        QCOMPARE(Gui::Util::savedFilesFolder(), saved);
+
+        Gui::MainWindow window(&settings);
+        auto *action = window.findChild<QAction *>(QStringLiteral("action_find_saved_files"));
+        auto *search = window.findChild<QLineEdit *>(QStringLiteral("quickSearch"));
+        auto *panel = window.findChild<Gui::AttachmentPanel *>();
+        QVERIFY(action && search && panel);
+        bool inMenu = false;
+        for (QMenu *menu : window.findChildren<QMenu *>())
+            inMenu = inMenu || menu->actions().contains(action);
+        QVERIFY(inMenu);
+
+        // From the menu, the quick search's text is looked for in the folder of the last save
+        search->setText(QStringLiteral("budget"));
+        action->trigger();
+        QPointer<Gui::SavedFilesSearchDialog> dialog = window.findChild<Gui::SavedFilesSearchDialog *>();
+        QVERIFY(dialog);
+        QVERIFY(dialog->isVisible());
+        QCOMPARE(dialog->searchText(), QStringLiteral("budget"));
+        QCOMPARE(dialog->folder(), saved);
+
+        // The Attachments panel looks for an attachment's name, in the same dialog
+        emit panel->findSavedCopiesRequested(QStringLiteral("photo.png"));
+        QCOMPARE(window.findChildren<Gui::SavedFilesSearchDialog *>().size(), 1);
+        QCOMPARE(dialog->searchText(), QStringLiteral("photo.png"));
+
+        dialog->reject();
+        QTRY_VERIFY(!dialog);
+        QVERIFY(QDir(saved).removeRecursively());
+        QCOMPARE(Gui::Util::savedFilesFolder(), Common::writablePath(Common::LOCATION_DOWNLOAD));
+    }
 
     void goToFolderActionsWithoutFolders()
     {
