@@ -7,6 +7,7 @@
 #include "Composer/SenderIdentitiesModel.h"
 #include "Gui/SearchIndexDialog.h"
 #include "Gui/Window.h"
+#include "UiUtils/BackgroundRunning.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/Model.h"
 #include "Imap/Model/SearchIndexer.h"
@@ -39,6 +40,8 @@
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <QTemporaryDir>
+#include <KSharedConfig>
+#include <QGuiApplication>
 #include <QTest>
 #include <QTimer>
 #include <functional>
@@ -176,6 +179,63 @@ private slots:
         // models.
         QCOMPARE(window.imapAccess(), access);
         QCOMPARE(window.imapModel(), model);
+    }
+
+    void startAfterLoginNeedsBackgroundRunning()
+    {
+        namespace Background = UiUtils::BackgroundRunning;
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        Gui::MainWindow window(&settings);
+        auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+        const QString entry = Background::autostartPath(QGuiApplication::desktopFileName());
+        QVERIFY(!QFile::exists(entry));
+
+        auto checkBoxes = [](QDialog *dialog) {
+            return std::pair(dialog->findChild<QCheckBox *>(QStringLiteral("guiRunInBackgroundCheckbox")),
+                             dialog->findChild<QCheckBox *>(QStringLiteral("guiStartAfterLoginCheckbox")));
+        };
+        QVERIFY(handleDialog([&]() { QMetaObject::invokeMethod(&window, "slotShowSettings", Qt::DirectConnection); },
+            [&](QDialog *dialog) {
+                auto [background, login] = checkBoxes(dialog);
+                QVERIFY(background && login);
+                // Both are off by default, and starting after login waits for running in the background
+                QVERIFY(!background->isChecked());
+                QVERIFY(!login->isChecked());
+                QVERIFY(!login->isEnabled());
+                background->setChecked(true);
+                QVERIFY(login->isEnabled());
+                login->setChecked(true);
+                save(dialog);
+            }));
+        QVERIFY(Background::runsInBackground(*config));
+        QVERIFY(Background::startsAfterLogin(*config));
+        QVERIFY(!qApp->quitOnLastWindowClosed());
+        QVERIFY(QFile::exists(entry));
+        QVERIFY(Background::isOwnAutostartEntry(entry));
+        QFile file(entry);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QVERIFY(file.readAll().contains("--background"));
+        file.close();
+
+        // Turning running in the background off also stops starting after login and removes the entry
+        QVERIFY(handleDialog([&]() { QMetaObject::invokeMethod(&window, "slotShowSettings", Qt::DirectConnection); },
+            [&](QDialog *dialog) {
+                auto [background, login] = checkBoxes(dialog);
+                QVERIFY(background && login);
+                QVERIFY(background->isChecked());
+                QVERIFY(login->isChecked());
+                background->setChecked(false);
+                QVERIFY(!login->isChecked());
+                QVERIFY(!login->isEnabled());
+                save(dialog);
+            }));
+        QVERIFY(!Background::runsInBackground(*config));
+        QVERIFY(!Background::startsAfterLogin(*config));
+        QVERIFY(qApp->quitOnLastWindowClosed());
+        QVERIFY(!QFile::exists(entry));
     }
 
     void accountSettingsEditOnlyTheActiveAccount()

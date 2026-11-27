@@ -11,6 +11,7 @@
 #include "Gui/MsgListView.h"
 #include "Gui/ShellHeader.h"
 #include "Gui/Window.h"
+#include "UiUtils/BackgroundRunning.h"
 #include "Imap/Model/AccountCapabilities.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
@@ -176,6 +177,30 @@ void verifyLegacyKeysRemoved(QSettings &settings, const QString &group) {
   QVERIFY(!settings.contains(Common::SettingsNames::mainHSplitterState));
   QVERIFY(!settings.contains(Common::SettingsNames::mainVSplitterState));
   settings.endGroup();
+}
+
+void verifyClose(bool background) {
+  auto config = KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc"));
+  QTemporaryDir directory;
+  QVERIFY(directory.isValid());
+  QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                     QSettings::IniFormat);
+  configureOffline(settings, QStringLiteral("work.example.test"));
+  settings.setValue(Common::SettingsNames::settingsVersion, 2);
+  // The notice about running on is answered as if told not to ask again
+  settings.setValue(Common::SettingsNames::guiOnSystrayClose,
+                    int(QMessageBox::Ok));
+  UiUtils::BackgroundRunning::setRunsInBackground(*config, background);
+  Gui::MainWindow window(&settings);
+  window.show();
+  QVERIFY(QTest::qWaitForWindowExposed(&window));
+  // Off by default, closing the last window quits, also with a tray icon
+  QCOMPARE(qApp->quitOnLastWindowClosed(), !background);
+  // In the background the close is refused and the window only hidden, so the
+  // accounts stay connected
+  QCOMPARE(window.close(), !background);
+  QVERIFY(window.isHidden());
+  UiUtils::BackgroundRunning::setRunsInBackground(*config, false);
 }
 
 } // namespace
@@ -686,6 +711,10 @@ private slots:
     QVERIFY2(ratio > 0.35 && ratio < 0.6, qPrintable(QString::number(ratio)));
     verifyLegacyKeysRemoved(settings, group);
   }
+
+  void closingQuitsByDefault() { verifyClose(false); }
+
+  void closingHidesWhenRunningInBackground() { verifyClose(true); }
 
   void headerShowsFolderAndStatus() {
     QTemporaryDir directory;
