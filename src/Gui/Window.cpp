@@ -68,6 +68,7 @@
 #include <QWheelEvent>
 
 #include <KConfigGroup>
+#include <KIO/OpenFileManagerWindowJob>
 #include <KLocalizedString>
 #include <KSharedConfig>
 
@@ -1866,6 +1867,7 @@ void MainWindow::createWidgets()
         }
     });
     connect(m_messageWidget->messageView, &MessageView::transferError, this, &MainWindow::slotDownloadTransferError);
+    connect(m_messageWidget->messageView, &MessageView::fileSaved, this, &MainWindow::slotFileSaved);
     // Space pages through the open message, then continues with the next unread one
     connect(m_messageWidget, &CompleteMessageWidget::pagedPastEnd, this, [this]() {
         if (m_messageWidget->messageView->currentMessage().isValid())
@@ -1876,6 +1878,7 @@ void MainWindow::createWidgets()
     m_attachmentPanel->setNetworkAccessManager(m_messageWidget->messageView->networkAccessManager());
     connect(m_messageWidget->messageView, &MessageView::messageModelChanged, m_attachmentPanel, &AttachmentPanel::setMessageModel);
     connect(m_attachmentPanel, &AttachmentPanel::transferError, this, &MainWindow::slotDownloadTransferError);
+    connect(m_attachmentPanel, &AttachmentPanel::fileSaved, this, &MainWindow::slotFileSaved);
     connect(m_attachmentPanel, &AttachmentPanel::findSavedCopiesRequested, this, &MainWindow::findSavedFiles);
 
     m_messageDetailsPanel = new MessageDetailsPanel();
@@ -4762,6 +4765,54 @@ void MainWindow::setConfirmationPrompt(const ConfirmationPrompt &prompt)
     m_confirmationPrompt = prompt;
 }
 
+void MainWindow::setFileManagerLauncher(const FileManagerLauncher &launcher)
+{
+    m_fileManagerLauncher = launcher;
+}
+
+void MainWindow::slotFileSaved(const QString &fileName)
+{
+    if (fileName.isEmpty())
+        return;
+    // Only reports where the file went; saving says nothing about whether its content is safe to open
+    m_notificationBar->showInfo(
+        i18nc("@info %1 is a file name", "Saved \"%1\".", QFileInfo(fileName).fileName()),
+        {{i18nc("@action:button", "Show in Folder"), QStringLiteral("document-open-folder"),
+          QStringLiteral("showSavedFileInFolder"), [this, fileName]() { showSavedFileInFolder(fileName); }}});
+}
+
+void MainWindow::showSavedFileInFolder(const QString &fileName)
+{
+    const QFileInfo file(fileName);
+    if (!file.exists()) {
+        m_notificationBar->showError(i18nc("@info %1 is a file name, %2 a folder",
+                                           "\"%1\" is no longer in %2; it was moved or deleted.", file.fileName(),
+                                           QDir::toNativeSeparators(file.absolutePath())));
+        return;
+    }
+    const QPointer<MainWindow> self(this);
+    const auto failed = [self, fileName](const QString &error) {
+        if (self)
+            self->m_notificationBar->showError(i18nc("@info %1 is a file name, %2 an error message",
+                                                     "No file manager could show \"%1\": %2",
+                                                     QFileInfo(fileName).fileName(), error));
+    };
+    const QUrl url = QUrl::fromLocalFile(file.absoluteFilePath());
+    if (m_fileManagerLauncher) {
+        m_fileManagerLauncher(url, failed);
+        return;
+    }
+    // Asks the desktop's file manager through org.freedesktop.FileManager1, so that whichever one is registered
+    // selects the file; without that service KIO opens the folder in the default application for folders
+    auto *job = new KIO::OpenFileManagerWindowJob(this);
+    job->setHighlightUrls({url});
+    connect(job, &KJob::result, this, [failed](KJob *finished) {
+        if (finished->error())
+            failed(finished->errorString());
+    });
+    job->start();
+}
+
 bool MainWindow::confirmPermanentAction(const UiUtils::DestructiveActions::Confirmation kind, const QString &title,
                                         const QString &text, const QString &acceptText)
 {
@@ -5893,6 +5944,9 @@ void MainWindow::slotSaveCurrentMessageBody()
         netAccess->setModelMessage(messageIndex);
         Imap::Network::FileDownloadManager *fileDownloadManager =
             new Imap::Network::FileDownloadManager(this, netAccess, messageIndex);
+        connect(fileDownloadManager, &Imap::Network::FileDownloadManager::succeeded, this, [this, fileDownloadManager]() {
+            slotFileSaved(fileDownloadManager->savedFileName());
+        });
         connect(fileDownloadManager, &Imap::Network::FileDownloadManager::succeeded, fileDownloadManager, &QObject::deleteLater);
         connect(fileDownloadManager, &Imap::Network::FileDownloadManager::transferError, fileDownloadManager, &QObject::deleteLater);
         connect(fileDownloadManager, &Imap::Network::FileDownloadManager::fileNameRequested,

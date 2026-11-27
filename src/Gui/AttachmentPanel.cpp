@@ -311,6 +311,9 @@ void AttachmentPanel::saveCurrent()
     connect(manager, &Imap::Network::FileDownloadManager::transferError, this, &AttachmentPanel::transferError);
     connect(manager, &Imap::Network::FileDownloadManager::transferError, manager, &QObject::deleteLater);
     connect(manager, &Imap::Network::FileDownloadManager::cancelled, manager, &QObject::deleteLater);
+    connect(manager, &Imap::Network::FileDownloadManager::succeeded, this, [this, manager]() {
+        emit fileSaved(manager->savedFileName());
+    });
     connect(manager, &Imap::Network::FileDownloadManager::succeeded, manager, &QObject::deleteLater);
     manager->downloadPart();
 }

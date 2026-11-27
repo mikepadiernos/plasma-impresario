@@ -303,6 +303,10 @@ void SimplePartWidget::slotDownloadPart()
     connect(manager, &Imap::Network::FileDownloadManager::fileNameRequested, this, &SimplePartWidget::slotFileNameRequested);
     connect(manager, &Imap::Network::FileDownloadManager::transferError, m_messageView, &MessageView::transferError);
     connect(manager, &Imap::Network::FileDownloadManager::transferError, manager, &QObject::deleteLater);
+    connect(manager, &Imap::Network::FileDownloadManager::succeeded, this, [this, manager]() {
+        if (m_messageView)
+            emit m_messageView->fileSaved(manager->savedFileName());
+    });
     connect(manager, &Imap::Network::FileDownloadManager::succeeded, manager, &QObject::deleteLater);
     manager->downloadPart();
 }
@@ -314,6 +318,10 @@ void SimplePartWidget::slotDownloadMessage()
     connect(manager, &Imap::Network::FileDownloadManager::fileNameRequested, this, &SimplePartWidget::slotFileNameRequested);
     connect(manager, &Imap::Network::FileDownloadManager::transferError, m_messageView, &MessageView::transferError);
     connect(manager, &Imap::Network::FileDownloadManager::transferError, manager, &QObject::deleteLater);
+    connect(manager, &Imap::Network::FileDownloadManager::succeeded, this, [this, manager]() {
+        if (m_messageView)
+            emit m_messageView->fileSaved(manager->savedFileName());
+    });
     connect(manager, &Imap::Network::FileDownloadManager::succeeded, manager, &QObject::deleteLater);
     manager->downloadMessage();
 }
@@ -324,6 +332,10 @@ void SimplePartWidget::slotDownloadImage(const QUrl &url)
     connect(manager, &Imap::Network::FileDownloadManager::fileNameRequested, this, &SimplePartWidget::slotFileNameRequested);
     connect(manager, &Imap::Network::FileDownloadManager::transferError, m_messageView, &MessageView::transferError);
     connect(manager, &Imap::Network::FileDownloadManager::transferError, manager, &QObject::deleteLater);
+    connect(manager, &Imap::Network::FileDownloadManager::succeeded, this, [this, manager]() {
+        if (m_messageView)
+            emit m_messageView->fileSaved(manager->savedFileName());
+    });
     connect(manager, &Imap::Network::FileDownloadManager::succeeded, manager, &QObject::deleteLater);
     manager->downloadPart();
 }

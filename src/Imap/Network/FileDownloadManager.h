@@ -47,6 +47,8 @@ public:
     FileDownloadManager(QObject *parent, Imap::Network::MsgPartNetAccessManager *manager, const QModelIndex &partIndex);
     FileDownloadManager(QObject *parent, Imap::Network::MsgPartNetAccessManager *manager, const QUrl &url, const QModelIndex &relativeRoot);
     static QString toRealFileName(const QModelIndex &index);
+    /** @short The file the data was written to, once fileNameRequested() was answered */
+    QString savedFileName() const;
 private slots:
     void onPartDataTransfered();
     void onReplyTransferError();

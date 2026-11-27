@@ -200,6 +200,10 @@ void AttachmentView::slotDownloadAttachment()
     connect(manager, &Imap::Network::FileDownloadManager::cancelled, this, &AttachmentView::enableDownloadAgain);
     connect(manager, &Imap::Network::FileDownloadManager::cancelled, manager, &QObject::deleteLater);
     connect(manager, &Imap::Network::FileDownloadManager::succeeded, this, &AttachmentView::enableDownloadAgain);
+    connect(manager, &Imap::Network::FileDownloadManager::succeeded, this, [this, manager]() {
+        if (m_messageView)
+            emit m_messageView->fileSaved(manager->savedFileName());
+    });
     connect(manager, &Imap::Network::FileDownloadManager::succeeded, manager, &QObject::deleteLater);
     manager->downloadPart();
 }

@@ -203,6 +203,11 @@ public:
     /** @short Replace the confirmation dialog, for example in tests; an empty function restores the dialog */
     void setConfirmationPrompt(const ConfirmationPrompt &prompt);
 
+    /** @short Show a file in the file manager; calls the second argument with an error message if that fails */
+    using FileManagerLauncher = std::function<void(const QUrl &, const std::function<void(const QString &)> &)>;
+    /** @short Replace the desktop's file manager service, for example in tests; an empty function restores it */
+    void setFileManagerLauncher(const FileManagerLauncher &launcher);
+
 signals:
     /** @short An account was added, renamed or removed */
     void accountsChanged();
@@ -260,6 +265,9 @@ private slots:
     void authenticationRequested();
     void authenticationContinue(const QString &pass, const QString &errorMessage = QString());
     void slotManageContact(const QUrl &url);
+    /** Report a saved file and offer to show it in the file manager */
+    void slotFileSaved(const QString &fileName);
+    void showSavedFileInFolder(const QString &fileName);
     void slotEditDraft();
     void slotReplyTo();
     void slotReplyAllButMe();
@@ -1056,6 +1064,7 @@ private:
     /** @short Feedback about operations on messages and folders, above the message list */
     InlineNotificationBar *m_notificationBar = nullptr;
     ConfirmationPrompt m_confirmationPrompt;
+    FileManagerLauncher m_fileManagerLauncher;
     /** @short For each folder being renamed, the new name of the open mailbox which the rename affects */
     QHash<QString, QString> m_renamedCurrentMailbox;
 
