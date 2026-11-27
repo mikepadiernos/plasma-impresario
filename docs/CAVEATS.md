@@ -47,6 +47,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Server settings discovery](#server-settings-discovery)
   - [Window activation for requests](#window-activation-for-requests)
   - [Saving unsent messages at session end](#saving-unsent-messages-at-session-end)
+  - [Portal file chooser](#portal-file-chooser)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
   - [Recommendations](#recommendations)
@@ -80,6 +81,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Add Account       | Found servers are not tried against real providers, guessed servers are only probed for a connection, and most resolvers do not validate DNSSEC, so servers outside the mail domain usually need confirmation ([details](#server-settings-discovery))                                                                                                                                                                                                 | [#466](https://github.com/mikepadiernos/plasma-impresario/issues/466)                                                                        |
 | ![Limitation][limitation] | Window activation | Requests pass Plasma's activation token to the window they open, but nothing is checked in a Plasma session; a composer opened by a first launch and the address book window may only be marked as wanting attention ([details](#window-activation-for-requests))                                                                                                                                                                                     | [#467](https://github.com/mikepadiernos/plasma-impresario/issues/467)                                                                        |
 | ![Limitation][limitation] | Session end       | Open composers save unsent messages as drafts when the session ends, but nothing is checked in a Plasma session; attachments are not saved, and on Wayland **Save Draft?** may hold up logging out ([details](#saving-unsent-messages-at-session-end))                                                                                                                                                                                                | [#468](https://github.com/mikepadiernos/plasma-impresario/issues/468)                                                                        |
+| ![Limitation][limitation] | File chooser      | Files are chosen through the XDG portal file chooser, falling back to the KDE dialog, but nothing is checked in a Plasma session or with Plasma Opus; save dialogs still use the KDE dialog, and remote locations in the portal depend on kio-fuse ([details](#portal-file-chooser))                                                                                                                                                                  | [#470](https://github.com/mikepadiernos/plasma-impresario/issues/470)                                                                        |
 | ![Limitation][limitation] | Product identity  | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
 | ![Security][security]     | Credentials       | QtKeychain is optional; new profiles default to it, but profiles with saved cleartext passwords keep the cleartext plugin, which stores secrets in `QSettings` ([details](#security-and-data-protection))                                                                                                                                                                                                                                             | —                                                                                                                                            |
@@ -1914,6 +1916,53 @@ Plasma session; that check is
   had attachments.
 - Do not save a message whose sending is under way, or mark it as possibly
   sent.
+
+### Portal file chooser
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                         |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#470](https://github.com/mikepadiernos/plasma-impresario/issues/470) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/470#issuecomment-7213372472) | Choosing files to attach, drafts to edit and folders for saved-file search ([#101](https://github.com/mikepadiernos/plasma-impresario/issues/101)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Attaching files, **Edit Draft…** and choosing a folder
+  for **Find Saved Files…** ask the XDG desktop portal's file chooser first,
+  with the app window as its parent, so whichever program serves the portal,
+  such as Plasma or Plasma Opus, shows its dialog. Filters and the starting
+  folder are passed on.
+- ![Resolved][resolved] When no portal answers, or the portal says it cannot
+  show the dialog, the KDE dialog appears, as before. Cancelling either dialog
+  changes nothing.
+- ![Limitation][limitation] Only the window that asked is disabled while the
+  portal's dialog is open; the app's other windows stay usable.
+- ![Limitation][limitation] Saving attachments and messages still uses the KDE
+  dialog directly.
+- ![Limitation][limitation] Plasma's portal returns local paths, so remote
+  locations chosen in it depend on kio-fuse. Remote URIs a portal returns are
+  fetched through KIO for attachments; **Edit Draft…** and the saved-file
+  search folder take local paths only.
+- ![Limitation][limitation] On Wayland, handing the window to the portal needs
+  KDE Frameworks 6.28 or later. The tests use a fake portal on a private D-Bus
+  connection; nothing is tried in a Plasma session or with Plasma Opus. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- If the portal's dialog does not appear over the app window on Wayland, find
+  it in the task manager; the app window stays disabled until a file is chosen
+  or the dialog is cancelled.
+- To attach a file from a remote location the portal cannot show, drop it on
+  the composer, or install kio-fuse so that the portal offers it as a local
+  path.
+
+**Proposed improvements:**
+
+- Open files in a Plasma 6 session on Wayland and X11, with and without Plasma
+  Opus serving the portal, and check the parent window, filters, starting
+  folder, cancelling and multiple selection.
+- Ask the portal's `SaveFile` for save dialogs as well.
+- Disable every app window while the portal's dialog is open, as a modal
+  dialog would.
 
 ## Before reporting results
 

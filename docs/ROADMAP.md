@@ -70,7 +70,7 @@ and gray before. **Board** is the parent issue's status.
 | [M03](#m03-mail-operations-sorting-and-folder-management) | Mail operations, sorting and folder management | [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5)     | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
 | [M04](#m04-reading-and-conversation-flow)                 | Reading and conversation flow                  | [#6](https://github.com/mikepadiernos/plasma-impresario/issues/6)     | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]                                                                                                                        |
 | [M05](#m05-search-and-indexing)                           | Search and indexing                            | [#324](https://github.com/mikepadiernos/plasma-impresario/issues/324) | ![24 of 24 done](https://img.shields.io/badge/24%2F24-100%25-1a7f37) | ![Merged][merged]: merged in [PR #455](https://github.com/mikepadiernos/plasma-impresario/pull/455)                                      |
-| [M06](#m06-desktop-integration-and-provider-support)      | Desktop integration and provider support       | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)     | ![13 of 27 done](https://img.shields.io/badge/13%2F27-48%25-9a6700)  | ![Development][development]: on `feature/m06-desktop`                                                                                    |
+| [M06](#m06-desktop-integration-and-provider-support)      | Desktop integration and provider support       | [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)     | ![14 of 26 done](https://img.shields.io/badge/14%2F26-54%25-9a6700)  | ![Development][development]: on `feature/m06-desktop`                                                                                    |
 | [M07](#m07-output-notifications-and-rules-automation)     | Output, notifications and rules automation     | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8)     | ![0 of 11 done](https://img.shields.io/badge/0%2F11-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
 | [M08](#m08-settings-and-workspace-configuration)          | Settings and workspace configuration           | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9)     | ![0 of 15 done](https://img.shields.io/badge/0%2F15-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
 | [M09](#m09-themes-and-branding-foundation)                | Themes and branding foundation                 | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)   | ![1 of 32 done](https://img.shields.io/badge/1%2F32-3%25-9a6700)     | ![Development][development]: M09.01 started with the merged rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) |
@@ -79,7 +79,7 @@ and gray before. **Board** is the parent issue's status.
 | [M12](#m12-nextcloud-and-digital-asset-management)        | Nextcloud and digital asset management         | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31)   | ![0 of 7 done](https://img.shields.io/badge/0%2F7-0%25-6e7781)       | ![Backlog][backlog]                                                                                                                      |
 | [M13](#m13-microsoft-accounts-and-exchange)               | Microsoft accounts and Exchange                | [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388) | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
 | [M14](#m14-refinements)                                   | Refinements                                    | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)   | ![0 of 84 done](https://img.shields.io/badge/0%2F84-0%25-6e7781)     | ![Backlog][backlog]                                                                                                                      |
-| [M15](#m15-real-plasma-session-verification)              | Real Plasma session verification               | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781)       | ![Defined][defined]                                                                                                                      |
+| [M15](#m15-real-plasma-session-verification)              | Real Plasma session verification               | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ![0 of 4 done](https://img.shields.io/badge/0%2F4-0%25-6e7781)       | ![Defined][defined]                                                                                                                      |
 
 ## Recommended priority
 
@@ -119,7 +119,7 @@ merged. The deferred live account and message-reading checks were since
 completed against a disposable Dovecot server in M02
 ([#78](https://github.com/mikepadiernos/plasma-impresario/issues/78)) and M04
 ([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)).
-Plasma-session checks remain deferred to M06 and M15. See
+Plasma-session checks remain deferred to M15. See
 [TODO](TODO.md#m01-release-gate-and-integration).
 
 Work through the supported environment, renderer, installer, and verification
@@ -517,7 +517,7 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 ### M06: Desktop integration and provider support
 
 **Status:** ![Development][development]
-![13 of 27 done](https://img.shields.io/badge/13%2F27-48%25-9a6700) ·
+![14 of 26 done](https://img.shields.io/badge/14%2F26-54%25-9a6700) ·
 **Parent issue:** [#7](https://github.com/mikepadiernos/plasma-impresario/issues/7)
 
 **Project:** [M06 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314498116)
@@ -527,12 +527,12 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   **Project:** [KDE and Plasma](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540788)
 
   - [ ] Connect the app to KDE and Plasma system services, notifications, and account lifecycle behavior [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314540788)
-  - [ ] Use KDE-native file, credential, session, and notification services where supported. See
+  - [x] Use KDE-native file, credential, session, and notification services where supported. See
         [KDE services in use](integrations/kde-plasma.md#kde-services-in-use).
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569603)
-  - [ ] Implement KDE Plasma desktop integration for session lifecycle, file dialogs, KIO, KConfig, KWallet, and Plasma notification conventions. Open files through the XDG portal file chooser so that Plasma Opus can provide the file open dialog when it serves the portal, falling back to the standard KDE dialog [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569755)
-  - [ ] Verify live desktop-session startup, recovery, and integration behavior
-        as the M01.04 Plasma-session smoke handoff. [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569755)
+  - [ ] Implement KDE Plasma desktop integration for session lifecycle, file dialogs, KIO, KConfig, KWallet, and Plasma notification conventions. Open files through the XDG portal file chooser so that Plasma Opus can provide the file open dialog when it serves the portal, falling back to the standard KDE dialog. See
+        [Files and attachments](integrations/kde-plasma.md#files-and-attachments).
+        [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569755)
   - [x] Define workspace-aware behavior for cross-context desktop usage and Plasma conventions. See
         [Workspaces and window activation](integrations/kde-plasma.md#workspaces-and-window-activation).
         [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=314569584)
@@ -654,6 +654,9 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   ![Backlog][backlog]
 - [Saving unsent messages at session end](CAVEATS.md#saving-unsent-messages-at-session-end)
   ([#468](https://github.com/mikepadiernos/plasma-impresario/issues/468))
+  ![Backlog][backlog]
+- [Portal file chooser](CAVEATS.md#portal-file-chooser)
+  ([#470](https://github.com/mikepadiernos/plasma-impresario/issues/470))
   ![Backlog][backlog]
 
 ### M07: Output, notifications, and rules automation
@@ -1405,7 +1408,7 @@ implemented features here and document criteria for potential future work.
 ### M15: Real Plasma session verification
 
 **Status:** ![Defined][defined]
-![0 of 3 done](https://img.shields.io/badge/0%2F3-0%25-6e7781) ·
+![0 of 4 done](https://img.shields.io/badge/0%2F4-0%25-6e7781) ·
 **Parent issue:** [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)
 
 **Project:** [M15 milestone](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317303994)
@@ -1423,6 +1426,9 @@ verifies a feature that is already implemented and tested headless.
 - [ ] Verify OAuth authorization, token renewal, and recovery with a real
       provider account in a Plasma session.
       [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=317304160)
+- [ ] Verify live desktop-session startup, recovery, and integration behavior
+      as the M01.04 Plasma-session smoke handoff (moved from M06.01).
+      [Board](https://github.com/users/mikepadiernos/projects/4?pane=issue&itemId=320148805)
 
 This milestone is blocked by M02 but does not block later milestones. Pending
 checks: [M15 handoff](TODO.md#m15-real-plasma-session-verification).

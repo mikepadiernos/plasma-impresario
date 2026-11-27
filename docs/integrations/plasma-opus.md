@@ -48,7 +48,8 @@ Opus. Plasma Opus status was checked against its roadmap on 2026-11-25.
 Milestone numbers in the first column are Plasma Opus milestones; those in the
 Tracking column are Plasma Impresario milestones. As of 2026-11-26, the M05
 issues listed are Defined or further along, and the others are in the Backlog.
-Plasma Impresario opens files with `QFileDialog`, attaches dropped local files
+Plasma Impresario opens files through the XDG portal file chooser, falling
+back to the KDE dialog, attaches dropped local files
 and fetches remote ones through KIO, opens Plasma's file search through KIO,
 shows a saved file through `org.freedesktop.FileManager1`, and attaches files
 handed over in a `mailto:` URL or with `--attach`.
@@ -128,15 +129,16 @@ workspace settings.
 
 ## Files and document handoff
 
-Planned in M06.01 and M06.03 in
+Part of M06.01 and M06.03 in
 [M06](../ROADMAP.md#m06-desktop-integration-and-provider-support)
 ([#101](https://github.com/mikepadiernos/plasma-impresario/issues/101),
 [#263](https://github.com/mikepadiernos/plasma-impresario/issues/263),
 [#265](https://github.com/mikepadiernos/plasma-impresario/issues/265),
 [#266](https://github.com/mikepadiernos/plasma-impresario/issues/266)).
 **Show in Folder** after saving (#266), composing with handed-over files
-(#263) and fetching remote files (#265) are implemented; the portal file
-chooser (#101) is planned.
+(#263), fetching remote files (#265) and the portal file chooser (#101) are
+implemented; see
+[Portal file chooser](../CAVEATS.md#portal-file-chooser).
 
 - **What:** Open, share or forward attachments and related documents through
   suitable desktop or companion applications.

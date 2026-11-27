@@ -52,12 +52,12 @@ whose branding work is in Development.
 | [Workspaces and window activation](#workspaces-and-window-activation) | ![Needs verification][needs-verification] | Requests from launchers, other applications, Plasma Search and notifications bring the window they are about to the front with Plasma's activation token. Windows are not pinned to desktops, Activities or screens                                                                 | M06.01         |
 | [Notifications and status](#notifications-and-status)                 | ![Limitation][limitation]                 | The footer shows connection status; an optional tray icon shows unread counts and network errors. KNotification is used only for background-account errors; there are no new-mail notifications                                                                                     | M06.01, M07    |
 | [Plasma widgets](#plasma-widgets)                                     | ![Planned][planned]                       | None                                                                                                                                                                                                                                                                                | M06.02         |
-| [Files and attachments](#files-and-attachments)                       | ![Limitation][limitation]                 | `QFileDialog` for open and save; attachments open through desktop file associations; the composer attaches dropped local files and fetches remote ones through KIO. KIO opens Plasma's file search for saved files                                                                  | M06.01, M06.03 |
+| [Files and attachments](#files-and-attachments)                       | ![Limitation][limitation]                 | The XDG portal file chooser for open, falling back to the KDE dialog; `QFileDialog` for save; attachments open through desktop file associations; the composer attaches dropped local files and fetches remote ones through KIO. KIO opens Plasma's file search for saved files     | M06.01, M06.03 |
 | [Search and indexing](#search-and-indexing)                           | ![Limitation][limitation]                 | Search runs on the IMAP server or in an opt-in index in the app's cache; saved files are found with Baloo or a live search in the file manager. Plasma Search (KRunner) can show indexed mail by subject or sender, off by default                                                  | M05, M06.01    |
 | [Settings and credentials](#settings-and-credentials)                 | ![Limitation][limitation]                 | Account settings use `QSettings`; app preferences use KConfig; passwords use the QtKeychain or cleartext plugin ([details](../CAVEATS.md#security-and-data-protection))                                                                                                             | M06.01         |
 | [Appearance and accessibility](#appearance-and-accessibility)         | ![Needs verification][needs-verification] | Theme icons and a row density selector; accessibility, high-contrast and scaling checks are not recorded                                                                                                                                                                            | M06.01, M09    |
 | [Desktop actions and availability](#desktop-actions-and-availability) | ![Needs verification][needs-verification] | The desktop entry registers the `mailto:` and `mid:` scheme handlers and a Composer action                                                                                                                                                                                          | M06.01         |
-| [KDE services in use](#kde-services-in-use)                           | ![Needs verification][needs-verification] | Session end, notifications, file handoff, KIO, KConfig and credential plugins, as listed below; file dialogs are Qt's, shown by Plasma's platform theme                                                                                                                             | M06.01         |
+| [KDE services in use](#kde-services-in-use)                           | ![Needs verification][needs-verification] | Session end, notifications, file handoff, KIO, KConfig and credential plugins, as listed below; files are opened through the XDG portal file chooser                                                                                                                                | M06.01         |
 | [Service boundaries](#service-boundaries)                             | ![Tested][tested]                         | The mail core links no KDE desktop service; helpers that use KConfig or Akonadi are built into `DesktopServices`, and `test_ArchitectureBoundaries` checks the boundary                                                                                                             | M06.01         |
 
 ## Windows and session lifecycle
@@ -176,7 +176,7 @@ Planned in **M06.02** (Plasma widgets and desktop feedback,
 
 ## Files and attachments
 
-KDE file dialogs and KIO are part of **M06.01**
+The portal file chooser, KDE file dialogs and KIO are part of **M06.01**
 ([#101](https://github.com/mikepadiernos/plasma-impresario/issues/101));
 compose requests
 ([#263](https://github.com/mikepadiernos/plasma-impresario/issues/263)),
@@ -186,7 +186,12 @@ showing saved attachments in the file manager
 ([#266](https://github.com/mikepadiernos/plasma-impresario/issues/266)) are
 part of **M06.03** (see
 [Plasma Opus integrations](plasma-opus.md#plasma-opus-features-to-use)). Today,
-files are chosen with `QFileDialog` and opened with `QDesktopServices`. Saved
+files to attach, drafts to edit and folders for saved-file search are chosen
+through the XDG desktop portal's file chooser, with the app window as its
+parent, so whichever program serves the portal shows its dialog. When no portal
+answers, `QFileDialog` shows the KDE dialog
+([caveat #470](../CAVEATS.md#portal-file-chooser)). Save dialogs use
+`QFileDialog`, and files are opened with `QDesktopServices`. Saved
 attachments and messages are found through KIO, and the save dialogs remember
 the last folder
 ([#350](https://github.com/mikepadiernos/plasma-impresario/issues/350)).
@@ -324,16 +329,16 @@ Recorded in **M06.01**
 table lists the KDE and freedesktop services the application uses for files,
 credentials, the session and notifications, and what it does without them.
 
-| Need              | Service used                                                                                                               | Without it                                                                                                            |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Session end       | Qt's X11 session manager request and `SIGTERM`, watched with `KSignalHandler`, save unsent messages as drafts              | Drafts saved every 30 seconds are still recovered                                                                     |
-| Background start  | An XDG autostart entry, or the XDG Background portal in a sandbox                                                          | Starting after login is unavailable                                                                                   |
-| Notifications     | KNotifications for account errors, with actions                                                                            | A tray message while the tray icon is shown                                                                           |
-| File dialogs      | `QFileDialog`, which Plasma's platform theme shows as the KDE dialog                                                       | Qt's own dialog; the XDG portal file chooser is [#101](https://github.com/mikepadiernos/plasma-impresario/issues/101) |
-| Files and links   | KIO for remote attachments and saved-file search; desktop file associations open attachments                               | Local files only                                                                                                      |
-| Settings          | KConfig for app preferences and `KSharedConfig::openStateConfig()` for session state; account settings stay in `QSettings` | Not optional                                                                                                          |
-| Credentials       | The QtKeychain plugin, which stores passwords in KWallet or the Secret Service                                             | The cleartext plugin, only with consent ([caveat](../CAVEATS.md#security-and-data-protection))                        |
-| Window activation | KWindowSystem with the request's activation token                                                                          | The window may only be marked as wanting attention                                                                    |
+| Need              | Service used                                                                                                                    | Without it                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Session end       | Qt's X11 session manager request and `SIGTERM`, watched with `KSignalHandler`, save unsent messages as drafts                   | Drafts saved every 30 seconds are still recovered                                              |
+| Background start  | An XDG autostart entry, or the XDG Background portal in a sandbox                                                               | Starting after login is unavailable                                                            |
+| Notifications     | KNotifications for account errors, with actions                                                                                 | A tray message while the tray icon is shown                                                    |
+| File dialogs      | The XDG portal file chooser for opening files; `QFileDialog`, which Plasma's platform theme shows as the KDE dialog, for saving | The KDE dialog for opening files too                                                           |
+| Files and links   | KIO for remote attachments and saved-file search; desktop file associations open attachments                                    | Local files only                                                                               |
+| Settings          | KConfig for app preferences and `KSharedConfig::openStateConfig()` for session state; account settings stay in `QSettings`      | Not optional                                                                                   |
+| Credentials       | The QtKeychain plugin, which stores passwords in KWallet or the Secret Service                                                  | The cleartext plugin, only with consent ([caveat](../CAVEATS.md#security-and-data-protection)) |
+| Window activation | KWindowSystem with the request's activation token                                                                               | The window may only be marked as wanting attention                                             |
 
 [limitation]: https://img.shields.io/badge/Limitation-bc4c00
 [needs-verification]: https://img.shields.io/badge/Needs_verification-0969da
