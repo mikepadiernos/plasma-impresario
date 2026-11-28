@@ -3,10 +3,14 @@
 */
 #include "test_SearchIndex.h"
 
+#include <algorithm>
 #include <QDataStream>
 #include <QDebug>
+#include <QElapsedTimer>
+#include <QFile>
 #include <QSignalSpy>
 #include <QSqlDatabase>
+#include <QSqlError>
 #include <QSqlQuery>
 #include <QStandardItemModel>
 #include <QStandardPaths>
@@ -171,6 +175,54 @@ SyncState syncState(uint uidValidity, uint exists, uint uidNext)
     return state;
 }
 
+SyncState condStoreState(uint uidValidity, uint exists, uint uidNext, quint64 highestModSeq)
+{
+    SyncState state = syncState(uidValidity, exists, uidNext);
+    state.setHighestModSeq(highestModSeq);
+    return state;
+}
+
+/** @short @arg size times IMPRESARIO_WORKLOAD_SCALE, as the IMAP workloads scale theirs */
+int scaled(int size)
+{
+    bool ok = false;
+    const double scale = qEnvironmentVariable("IMPRESARIO_WORKLOAD_SCALE").toDouble(&ok);
+    if (!ok || scale <= 0)
+        return size;
+    return std::max(10, int(size * scale) / 10 * 10);
+}
+
+/** @short Log a workload, append it to IMPRESARIO_WORKLOAD_REPORT and check its budgets when asked to */
+void reportWorkload(
+    const char *name, int items, qint64 elapsedMs, qint64 longestPassMs, qint64 budgetMs, qint64 passBudgetMs)
+{
+    qInfo().noquote() << "WORKLOAD" << name << "items=" << items << "time_ms=" << elapsedMs
+                      << "longest_pass_ms=" << longestPassMs << "budget_ms=" << budgetMs;
+    const QString report = qEnvironmentVariable("IMPRESARIO_WORKLOAD_REPORT");
+    if (!report.isEmpty()) {
+        QFile file(report);
+        if (file.open(QIODevice::Append | QIODevice::Text))
+            file.write(QStringLiteral("%1\t%2\t%3\t%4\t-1\t-1\t%5\n")
+                    .arg(QString::fromLatin1(name))
+                    .arg(items)
+                    .arg(elapsedMs)
+                    .arg(longestPassMs)
+                    .arg(budgetMs)
+                    .toUtf8());
+    }
+    if (qEnvironmentVariableIntValue("IMPRESARIO_WORKLOAD_BUDGETS") == 1) {
+        QVERIFY2(elapsedMs <= budgetMs,
+            qPrintable(QStringLiteral("%1 took %2 ms, over its budget of %3 ms")
+                    .arg(QString::fromLatin1(name))
+                    .arg(elapsedMs)
+                    .arg(budgetMs)));
+        QVERIFY2(longestPassMs <= passBudgetMs,
+            qPrintable(QStringLiteral("%1 kept the event loop busy for %2 ms, over its budget of %3 ms")
+                    .arg(QString::fromLatin1(name))
+                    .arg(longestPassMs)
+                    .arg(passBudgetMs)));
+    }
+}
 }
 
 void SearchIndexTest::initTestCase()
@@ -1169,6 +1221,346 @@ void SearchIndexTest::testEffectiveMimeType()
              QStringLiteral("text/plain"));
     QCOMPARE(AttachmentTextExtractor::effectiveMimeType("data", QStringLiteral("application/x-made-up"), QString()),
              QStringLiteral("application/x-made-up"));
+}
+
+void SearchIndexTest::testIncrementalPasses()
+{
+    // Without CONDSTORE, every folder is looked at in full every time
+    QCOMPARE(m_indexer->lastPass().scanned, 2);
+    QCOMPARE(m_indexer->lastPass().skipped, 0);
+    QVERIFY(m_indexer->lastPass().finished.isValid());
+    runIndexer();
+    QCOMPARE(m_indexer->lastPass().scanned, 2);
+    QCOMPARE(m_indexer->lastPass().messages, 4);
+    QCOMPARE(m_indexer->lastPass().stored, 0);
+
+    m_cache->setMailboxSyncState(inbox, condStoreState(100, 3, 4, 50));
+    m_cache->setMailboxSyncState(archive, condStoreState(7, 1, 6, 9));
+    runIndexer();
+    QCOMPARE(m_indexer->lastPass().scanned, 2);
+    QCOMPARE(m_indexer->index()->folder(inbox).highestModSeq, quint64(50));
+    QCOMPARE(m_indexer->index()->folder(inbox).uidNext, 4u);
+    QCOMPARE(m_indexer->index()->folder(archive).highestModSeq, quint64(9));
+
+    // Nothing changed, so no message is looked at
+    runIndexer();
+    QCOMPARE(m_indexer->lastPass().scanned, 0);
+    QCOMPARE(m_indexer->lastPass().skipped, 2);
+    QCOMPARE(m_indexer->lastPass().messages, 0);
+
+    // A changed flag raises HIGHESTMODSEQ
+    m_cache->setMsgFlags(inbox, 3, {QStringLiteral("\\Flagged")});
+    m_cache->setMailboxSyncState(inbox, condStoreState(100, 3, 4, 51));
+    runIndexer();
+    QCOMPARE(m_indexer->lastPass().scanned, 1);
+    QCOMPARE(m_indexer->lastPass().skipped, 1);
+    QCOMPARE(matches({QStringLiteral("FLAGGED")}), (QList<uint>{2, 3}));
+    QCOMPARE(m_indexer->index()->folder(inbox).highestModSeq, quint64(51));
+
+    // Downloaded text raises nothing; the model reports it instead
+    m_cache->setMsgPart(inbox, 3, "1", "Flights to Lisbon");
+    runIndexer();
+    QCOMPARE(m_indexer->lastPass().scanned, 0);
+    QVERIFY(matches({QStringLiteral("BODY"), QStringLiteral("Lisbon")}).isEmpty());
+
+    QStandardItemModel model;
+    auto *folderItem = new QStandardItem(inbox);
+    folderItem->setData(inbox, RoleMailboxName);
+    auto *list = new QStandardItem;
+    folderItem->appendRow(list);
+    auto *messageItem = new QStandardItem;
+    messageItem->setData(3u, RoleMessageUid);
+    messageItem->setData(inbox, RoleMailboxName);
+    list->appendRow(messageItem);
+    model.appendRow(folderItem);
+
+    // A change to the folder tree says nothing about the messages
+    m_indexer->noteChange(model.indexFromItem(folderItem));
+    QCOMPARE(m_indexer->index()->folder(inbox).highestModSeq, quint64(51));
+
+    m_indexer->noteChange(model.indexFromItem(messageItem));
+    // Recorded at once, so that a restart before the next pass does not lose it
+    QCOMPARE(m_indexer->index()->folder(inbox).highestModSeq, quint64(0));
+    QVERIFY(m_indexer->hasPendingChanges());
+    runIndexer();
+    QCOMPARE(m_indexer->lastPass().scanned, 1);
+    QCOMPARE(m_indexer->lastPass().skipped, 1);
+    QCOMPARE(matches({QStringLiteral("BODY"), QStringLiteral("Lisbon")}), QList<uint>{3});
+    QCOMPARE(m_indexer->index()->folder(inbox).highestModSeq, quint64(51));
+
+    // A message list stands for its folder
+    m_indexer->noteChange(model.indexFromItem(list));
+    QCOMPARE(m_indexer->index()->folder(inbox).highestModSeq, quint64(0));
+    runIndexer();
+    QCOMPARE(m_indexer->lastPass().scanned, 1);
+
+    // An index which lost messages behind the indexer's back is not taken as up to date
+    QVERIFY(m_indexer->index()->remove(archive, {5}));
+    runIndexer();
+    QCOMPARE(m_indexer->lastPass().scanned, 1);
+    QCOMPARE(matches({QStringLiteral("ALL")}, archive), QList<uint>{5});
+
+    // New mail raises UIDNEXT
+    m_cache->setUidMapping(archive, Imap::Uids{5, 6});
+    m_cache->setMessageMetadata(archive, 6,
+        message(6, QStringLiteral("New report"), QStringLiteral("Bob"), QDate(2026, 4, 1), QDate(2026, 4, 1), 1000,
+            plainText));
+    m_cache->setMsgFlags(archive, 6, {});
+    m_cache->setMailboxSyncState(archive, condStoreState(7, 2, 7, 9));
+    runIndexer();
+    QCOMPARE(m_indexer->lastPass().scanned, 1);
+    QCOMPARE(matches({QStringLiteral("ALL")}, archive), (QList<uint>{5, 6}));
+}
+
+void SearchIndexTest::testChangeWhileIndexing()
+{
+    m_cache->setMailboxSyncState(inbox, condStoreState(100, 3, 4, 50));
+    m_cache->setMailboxSyncState(archive, condStoreState(7, 1, 6, 9));
+    runIndexer();
+    QCOMPARE(m_indexer->index()->folder(inbox).highestModSeq, quint64(50));
+
+    m_cache->setMsgFlags(inbox, 1, {QStringLiteral("\\Seen"), QStringLiteral("\\Flagged")});
+    m_cache->setMailboxSyncState(inbox, condStoreState(100, 3, 4, 60));
+    m_indexer->setTimings(0, 100, 1);
+    QSignalSpy finished(m_indexer.get(), &SearchIndexer::finished);
+    m_indexer->update();
+    QTRY_COMPARE_WITH_TIMEOUT(m_indexer->progress().mailbox, inbox, 2000);
+
+    QStandardItemModel model;
+    auto *messageItem = new QStandardItem;
+    messageItem->setData(3u, RoleMessageUid);
+    messageItem->setData(inbox, RoleMailboxName);
+    model.appendRow(messageItem);
+    m_cache->setMsgPart(inbox, 3, "1", "Flights to Lisbon");
+    m_indexer->noteChange(model.indexFromItem(messageItem));
+
+    QVERIFY(finished.wait(5000));
+    // The pass may have looked at the message before its text arrived, so the folder is not up to date
+    QCOMPARE(m_indexer->index()->folder(inbox).highestModSeq, quint64(0));
+    QCOMPARE(matches({QStringLiteral("FLAGGED")}), (QList<uint>{1, 2}));
+
+    // The pass which follows looks at it again
+    QVERIFY(finished.wait(5000));
+    QCOMPARE(m_indexer->lastPass().scanned, 1);
+    QCOMPARE(m_indexer->lastPass().skipped, 1);
+    QCOMPARE(m_indexer->index()->folder(inbox).highestModSeq, quint64(60));
+    QCOMPARE(matches({QStringLiteral("BODY"), QStringLiteral("Lisbon")}), QList<uint>{3});
+}
+
+void SearchIndexTest::testDamagedIndexAtOpen()
+{
+    QCOMPARE(m_indexer->recoveries(), 0);
+    m_cache->finishQueries();
+    {
+        QSqlQuery q(QSqlDatabase::database(m_cache->databaseConnectionName(), false));
+        QVERIFY2(q.exec(QStringLiteral("DELETE FROM search_text WHERE rowid = (SELECT min(rowid) FROM search_text)")),
+            qPrintable(q.lastError().text()));
+    }
+    logged.clear();
+    const QtMessageHandler previous = qInstallMessageHandler(keepMessage);
+    const bool opened = m_indexer->open();
+    qInstallMessageHandler(previous);
+    QVERIFY2(opened, qPrintable(m_indexer->unavailableReason()));
+    QCOMPARE(m_indexer->recoveries(), 1);
+    QVERIFY(logged.join(QLatin1Char('\n')).contains(QStringLiteral("damaged")));
+    // Built again from the cache, which is untouched
+    QVERIFY(m_indexer->index()->folders().isEmpty());
+    QCOMPARE(m_cache->uidMapping(inbox), (Imap::Uids{1, 2, 3}));
+    runIndexer();
+    QCOMPARE(matches({QStringLiteral("SUBJECT"), QStringLiteral("Quarterly")}), QList<uint>{1});
+    QCOMPARE(matches({QStringLiteral("BODY"), QStringLiteral("numbers")}), QList<uint>{2});
+    QString problem;
+    QVERIFY2(m_indexer->index()->verify(true, &problem), qPrintable(problem));
+    QCOMPARE(m_indexer->recoveries(), 1);
+}
+
+void SearchIndexTest::testDamagedIndexWhileSearching()
+{
+    QString problem;
+    QVERIFY2(m_indexer->index()->verify(true, &problem), qPrintable(problem));
+    m_cache->finishQueries();
+    {
+        // Overwrite the full-text index itself, past its averages and structure records
+        QSqlQuery q(QSqlDatabase::database(m_cache->databaseConnectionName(), false));
+        QVERIFY2(q.exec(QStringLiteral("UPDATE search_text_data SET block = x'0102030405' WHERE id > 10")),
+            qPrintable(q.lastError().text()));
+        QVERIFY(q.numRowsAffected() > 0);
+    }
+    logged.clear();
+    const QtMessageHandler previous = qInstallMessageHandler(keepMessage);
+    const SearchIndex::Result result
+        = m_indexer->index()->search({QStringLiteral("BODY"), QStringLiteral("numbers")}, {inbox});
+    QVERIFY(!result.problem.isEmpty());
+    QVERIFY(m_indexer->index()->isCorrupt());
+    QVERIFY(!m_indexer->index()->verify(true));
+
+    // The next pass builds the index again
+    runIndexer();
+    qInstallMessageHandler(previous);
+    QCOMPARE(m_indexer->recoveries(), 1);
+    QVERIFY(!m_indexer->index()->isCorrupt());
+    QCOMPARE(matches({QStringLiteral("BODY"), QStringLiteral("numbers")}), QList<uint>{2});
+    QVERIFY2(m_indexer->index()->verify(true, &problem), qPrintable(problem));
+}
+
+void SearchIndexTest::testOlderFolderRecords()
+{
+    m_cache->finishQueries();
+    {
+        QSqlQuery q(QSqlDatabase::database(m_cache->databaseConnectionName(), false));
+        QVERIFY(q.exec(QStringLiteral("DROP TABLE search_folders")));
+        QVERIFY(q.exec(QStringLiteral("CREATE TABLE search_folders (mailbox TEXT PRIMARY KEY, uidvalidity INTEGER, "
+                                      "messages INTEGER, indexed INTEGER, with_text INTEGER, updated INTEGER)")));
+        QVERIFY(q.exec(QStringLiteral("INSERT INTO search_folders VALUES ('INBOX', 100, 3, 3, 2, 0)")));
+    }
+    QVERIFY2(m_indexer->open(), qPrintable(m_indexer->unavailableReason()));
+    QCOMPARE(m_indexer->recoveries(), 0);
+    const SearchIndex::Folder folder = m_indexer->index()->folder(inbox);
+    QCOMPARE(folder.uidValidity, 100u);
+    QCOMPARE(folder.indexed, 3);
+    QCOMPARE(folder.highestModSeq, quint64(0));
+    QCOMPARE(folder.uidNext, 0u);
+
+    // Such a folder is looked at in full once, and then kept
+    m_cache->setMailboxSyncState(inbox, condStoreState(100, 3, 4, 50));
+    m_cache->setMailboxSyncState(archive, condStoreState(7, 1, 6, 9));
+    runIndexer();
+    QCOMPARE(m_indexer->lastPass().scanned, 2);
+    runIndexer();
+    QCOMPARE(m_indexer->lastPass().skipped, 2);
+}
+
+void SearchIndexTest::testDiskUsage()
+{
+    const qint64 before = m_indexer->index()->diskUsage();
+    if (before < 0)
+        QSKIP("This SQLite library has no dbstat table");
+    QVERIFY(before > 0);
+    QString problem;
+    QVERIFY2(m_indexer->index()->verify(false, &problem), qPrintable(problem));
+}
+
+/** @short Build, update and search an index of 2,000 messages, or more with IMPRESARIO_WORKLOAD_SCALE */
+void SearchIndexTest::testWorkload()
+{
+    const int size = scaled(2000);
+    const QString bulk = QStringLiteral("Bulk");
+    m_cache->setChildMailboxes(QString(),
+        {
+            MailboxMetadata(inbox, QStringLiteral("/"), {QStringLiteral("\\HasNoChildren")}),
+            MailboxMetadata(archive, QStringLiteral("/"), {QStringLiteral("\\HasNoChildren")}),
+            MailboxMetadata(bulk, QStringLiteral("/"), {QStringLiteral("\\HasNoChildren")}),
+        });
+    const QStringList topics{QStringLiteral("budget"), QStringLiteral("travel"), QStringLiteral("release"),
+        QStringLiteral("hiring"), QStringLiteral("security"), QStringLiteral("garden"), QStringLiteral("invoice"),
+        QStringLiteral("meeting")};
+    Imap::Uids uids;
+    uids.reserve(size);
+    for (int i = 1; i <= size; ++i) {
+        const uint uid = uint(i);
+        uids << uid;
+        const QString topic = topics.at(i % topics.size());
+        m_cache->setMessageMetadata(bulk, uid,
+            message(uid, QStringLiteral("Status %1 on %2").arg(i).arg(topic), QStringLiteral("Sender%1").arg(i % 100),
+                QDate(2024, 1, 1).addDays(i % 900), QDate(2024, 1, 1).addDays(i % 900), 2000 + i, plainText));
+        m_cache->setMsgFlags(bulk, uid, i % 3 ? QStringList{QStringLiteral("\\Seen")} : QStringList());
+        // A quarter of the messages were never downloaded
+        if (i % 4 != 0) {
+            QString text = QStringLiteral("Notes on the %1 work, item %2, with the usual figures and follow-ups.")
+                               .arg(topic)
+                               .arg(i);
+            if (i % 1000 == 7)
+                text += QStringLiteral(" Ask about the quokka.");
+            m_cache->setMsgPart(bulk, uid, "1", text.toUtf8());
+        }
+    }
+    m_cache->setUidMapping(bulk, uids);
+    m_cache->setMailboxSyncState(bulk, condStoreState(300, uint(size), uint(size) + 1, 1000));
+    m_cache->setMailboxSyncState(inbox, condStoreState(100, 3, 4, 50));
+    m_cache->setMailboxSyncState(archive, condStoreState(7, 1, 6, 9));
+
+    // As the application runs it, without the pause between batches
+    m_indexer->setTimings(0, 0, 200);
+    const auto pass = [this](qint64 *longest) {
+        QElapsedTimer total;
+        total.start();
+        QElapsedTimer slice;
+        *longest = 0;
+        m_indexer->update();
+        while (m_indexer->isRunning() && total.elapsed() < 30 * 60 * 1000) {
+            slice.start();
+            QCoreApplication::processEvents();
+            *longest = std::max(*longest, slice.elapsed());
+        }
+        return total.elapsed();
+    };
+
+    qint64 longest = 0;
+    const qint64 built = pass(&longest);
+    QVERIFY(!m_indexer->isRunning());
+    QCOMPARE(m_indexer->index()->folder(bulk).indexed, size);
+    QCOMPARE(m_indexer->index()->folder(bulk).withText, size - size / 4);
+    reportWorkload("search_index_build", size, built, longest, std::max<qint64>(5000, size / 5), 250);
+
+    const qint64 disk = m_indexer->index()->diskUsage();
+    qInfo().noquote() << "WORKLOAD search_index_disk items=" << size << "bytes=" << disk
+                      << "bytes_per_message=" << (disk > 0 ? disk / size : -1);
+
+    const auto median = [this, &bulk](const QStringList &conditions, int *found) {
+        QList<qint64> times;
+        for (int run = 0; run < 5; ++run) {
+            QElapsedTimer timer;
+            timer.start();
+            const SearchIndex::Result result = m_indexer->index()->search(conditions, {bulk});
+            times << timer.nsecsElapsed() / 1000;
+            *found = int(result.matches.value(bulk).size());
+        }
+        std::sort(times.begin(), times.end());
+        return times.at(times.size() / 2);
+    };
+    const QList<std::pair<const char *, QStringList>> queries{
+        {"search_query_subject", {QStringLiteral("SUBJECT"), QStringLiteral("security")}},
+        {"search_query_from", {QStringLiteral("FROM"), QStringLiteral("sender42")}},
+        {"search_query_body_common", {QStringLiteral("BODY"), QStringLiteral("figures")}},
+        {"search_query_body_rare", {QStringLiteral("BODY"), QStringLiteral("quokka")}},
+        {"search_query_flags", {QStringLiteral("UNSEEN")}},
+        {"search_query_combined",
+            {QStringLiteral("TEXT"), QStringLiteral("travel"), QStringLiteral("SINCE"), QStringLiteral("1-Jan-2025"),
+                QStringLiteral("SEEN")}},
+    };
+    for (const auto &query : queries) {
+        int found = 0;
+        const qint64 us = median(query.second, &found);
+        QVERIFY2(found > 0, query.first);
+        qInfo().noquote() << "WORKLOAD" << query.first << "median_us=" << us;
+        reportWorkload(query.first, found, us / 1000, us / 1000, 500, 500);
+    }
+
+    // Unchanged folders with CONDSTORE are skipped
+    const qint64 unchanged = pass(&longest);
+    QCOMPARE(m_indexer->lastPass().skipped, 3);
+    QCOMPARE(m_indexer->lastPass().messages, 0);
+    reportWorkload("search_index_unchanged_condstore", size, unchanged, longest, 100, 100);
+
+    // Without it, every message is looked at again
+    m_cache->setMailboxSyncState(bulk, syncState(300, uint(size), uint(size) + 1));
+    const qint64 rescanned = pass(&longest);
+    QCOMPARE(m_indexer->lastPass().scanned, 1);
+    QCOMPARE(m_indexer->lastPass().messages, size);
+    QCOMPARE(m_indexer->lastPass().stored, 0);
+    reportWorkload("search_index_unchanged_rescan", size, rescanned, longest, std::max<qint64>(2000, size / 25), 250);
+
+    QElapsedTimer timer;
+    timer.start();
+    QString problem;
+    QVERIFY2(m_indexer->index()->verify(false, &problem), qPrintable(problem));
+    const qint64 quick = timer.elapsed();
+    reportWorkload("search_index_verify_quick", size, quick, quick, 250, 250);
+    timer.start();
+    QVERIFY2(m_indexer->index()->verify(true, &problem), qPrintable(problem));
+    const qint64 thorough = timer.elapsed();
+    reportWorkload("search_index_verify_thorough", size, thorough, thorough, std::max<qint64>(2000, size / 20),
+        std::max<qint64>(2000, size / 20));
 }
 
 QTEST_GUILESS_MAIN(SearchIndexTest)

@@ -52,6 +52,13 @@ private slots:
     void testAttachmentTextWithKFileMetaData();
     void testEffectiveMimeType();
     void testNothingIndexedIsLogged();
+    void testIncrementalPasses();
+    void testChangeWhileIndexing();
+    void testDamagedIndexAtOpen();
+    void testDamagedIndexWhileSearching();
+    void testOlderFolderRecords();
+    void testDiskUsage();
+    void testWorkload();
 
 private:
     void seed();
