@@ -2,7 +2,8 @@
 #
 # This environment builds the app and runs its QtTest suite with the offscreen
 # platform. Dovecot serves the synthetic live IMAP tests, clamd the live scan
-# test, and Xvfb, x11vnc and Openbox provide the VNC session of vnc.sh. The
+# test, and Xvfb, x11vnc and Openbox provide the VNC session of vnc.sh and the
+# display of the scripted end-to-end scenarios, e2e-scenarios.sh. The
 # Fedora release is pinned; synthetic-dovecot.sh requires the Dovecot 2.4
 # series and prints the exact version on each run. The image does not provide a
 # Plasma session, so D-Bus services, KWallet, notifications, and visual behavior
@@ -78,6 +79,17 @@ RUN dnf -y install --setopt=install_weak_deps=False \
 # gcovr summarizes the coverage build of the release gate, release-gate.sh.
 RUN dnf -y install --setopt=install_weak_deps=False \
         gcovr \
+    && dnf clean all
+
+# The AT-SPI registry, its Python bindings and Pillow drive and photograph the
+# app in the scripted end-to-end scenarios, e2e-scenarios.sh.
+RUN dnf -y install --setopt=install_weak_deps=False \
+        at-spi2-core \
+        python3-pyatspi \
+        python3-dbus \
+        python3-gobject \
+        python3-pillow \
+        xdotool \
     && dnf clean all
 
 ENV CCACHE_DIR=/ccache \
