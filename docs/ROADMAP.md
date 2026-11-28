@@ -1055,7 +1055,7 @@ Mailbox performance [#52](https://github.com/mikepadiernos/plasma-impresario/iss
 - [ ] Test intermittent connections, expired credentials, server errors, retries, and recovery without silent message loss [#129](https://github.com/mikepadiernos/plasma-impresario/issues/129)
 - [ ] Verify folder and unread counts remain consistent across multiple accounts and concurrent changes [#130](https://github.com/mikepadiernos/plasma-impresario/issues/130)
 - [ ] Measure responsiveness and resource use for large mailboxes, long threads, bulk actions, and attachments [#131](https://github.com/mikepadiernos/plasma-impresario/issues/131)
-- [ ] Confirm failed background operations remain visible and can be retried or resolved [#132](https://github.com/mikepadiernos/plasma-impresario/issues/132)
+- [x] Confirm failed background operations remain visible and can be retried or resolved [#132](https://github.com/mikepadiernos/plasma-impresario/issues/132)
 - [ ] Exercise memory, lifetime, undefined-behavior, and data-race-sensitive
       network, cache, and Qt background-task paths with suitable sanitizers before
       extending concurrency or sync behavior [#481](https://github.com/mikepadiernos/plasma-impresario/issues/481)
