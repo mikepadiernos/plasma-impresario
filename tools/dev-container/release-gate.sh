@@ -164,7 +164,7 @@ static_analysis() {
     uname -m
     for tool in cmake ninja g++ clang-format clang-tidy gcovr; do
         printf '%s: ' "$tool"
-        "$tool" --version 2>&1 | grep -m 1 -i version
+        "$tool" --version 2>&1 | grep -m 1 -E '[0-9]+\.[0-9]+'
     done
 } > "$out/environment.txt"
 cat "$out/environment.txt"
