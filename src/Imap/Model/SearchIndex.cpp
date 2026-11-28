@@ -388,6 +388,85 @@ bool SearchIndex::fail(const QString &what, const QString &detail) const
     return false;
 }
 
+bool SearchIndex::fail(const QString &what, const QSqlError &error) const
+{
+    if (isCorruption(error))
+        m_corrupt = true;
+    return fail(what, error.text());
+}
+
+bool SearchIndex::isCorruption(const QSqlError &error)
+{
+    bool ok = false;
+    const int code = error.nativeErrorCode().toInt(&ok);
+    // The low byte of an extended result code, such as FTS5's SQLITE_CORRUPT_VTAB, is the primary one
+    if (ok && ((code & 0xff) == 11 || (code & 0xff) == 26))
+        return true;
+    const QString text = error.databaseText();
+    return text.contains(QLatin1String("malformed"), Qt::CaseInsensitive)
+        || text.contains(QLatin1String("not a database"), Qt::CaseInsensitive);
+}
+
+bool SearchIndex::isCorrupt() const
+{
+    return m_corrupt;
+}
+
+bool SearchIndex::verify(bool thorough, QString *problem) const
+{
+    const auto failed = [this, problem]() {
+        if (problem)
+            *problem = m_error;
+        return false;
+    };
+    QSqlQuery q(database());
+    if (!q.exec(QStringLiteral("SELECT (SELECT count(*) FROM search_docs), (SELECT count(*) FROM search_text)"))
+        || !q.next()) {
+        fail(tr("Cannot read the search index"), q.lastError());
+        return failed();
+    }
+    const qint64 documents = q.value(0).toLongLong();
+    const qint64 texts = q.value(1).toLongLong();
+    q.finish();
+    if (documents != texts) {
+        m_corrupt = true;
+        fail(tr("The search index is damaged: it holds %1 messages but the text of %2").arg(documents).arg(texts),
+            QString());
+        return failed();
+    }
+    // FTS5 compares its index with the text it holds and reports a difference as SQLITE_CORRUPT_VTAB
+    if (thorough && !q.exec(QStringLiteral("INSERT INTO search_text (search_text) VALUES ('integrity-check')"))) {
+        fail(tr("The search index is damaged"), q.lastError());
+        return failed();
+    }
+    return true;
+}
+
+bool SearchIndex::recreate()
+{
+    m_open = false;
+    QSqlDatabase db = database();
+    QSqlQuery q(db);
+    // A damaged table cannot always be emptied, but it can be dropped with its storage
+    for (const QString &table : {QStringLiteral("search_text"), QStringLiteral("search_docs"),
+             QStringLiteral("search_folders"), QStringLiteral("search_meta")}) {
+        if (!q.exec(QStringLiteral("DROP TABLE IF EXISTS %1").arg(table)))
+            return fail(tr("Cannot remove the damaged search index"), q.lastError());
+    }
+    return open();
+}
+
+qint64 SearchIndex::diskUsage() const
+{
+    QSqlQuery q(database());
+    // dbstat is an optional part of SQLite; the full-text table keeps its data in tables named after it
+    if (!q.exec(QStringLiteral("SELECT SUM(pgsize) FROM dbstat WHERE name LIKE 'search\\_%' ESCAPE '\\' "
+                               "OR name LIKE 'sqlite\\_autoindex\\_search\\_%' ESCAPE '\\'"))
+        || !q.next())
+        return -1;
+    return q.value(0).toLongLong();
+}
+
 bool SearchIndex::supportsFullText(const QSqlDatabase &db, QString *problem)
 {
     if (!db.isValid() || !db.isOpen()) {
@@ -411,6 +490,7 @@ bool SearchIndex::supportsFullText(const QSqlDatabase &db, QString *problem)
 bool SearchIndex::open()
 {
     m_open = false;
+    m_corrupt = false;
     QSqlDatabase db = database();
     QString problem;
     if (!supportsFullText(db, &problem))
@@ -420,7 +500,8 @@ bool SearchIndex::open()
     const QStringList statements = {
         QStringLiteral("CREATE TABLE IF NOT EXISTS search_meta (key TEXT PRIMARY KEY, value TEXT)"),
         QStringLiteral("CREATE TABLE IF NOT EXISTS search_folders (mailbox TEXT PRIMARY KEY, uidvalidity INTEGER, "
-                       "messages INTEGER, indexed INTEGER, with_text INTEGER, updated INTEGER)"),
+                       "messages INTEGER, indexed INTEGER, with_text INTEGER, updated INTEGER, "
+                       "highest_modseq INTEGER NOT NULL DEFAULT 0, uid_next INTEGER NOT NULL DEFAULT 0)"),
         QStringLiteral("CREATE TABLE IF NOT EXISTS search_docs (id INTEGER PRIMARY KEY, mailbox TEXT NOT NULL, "
                        "uid INTEGER NOT NULL, sent INTEGER, received INTEGER, size INTEGER, flags TEXT, "
                        "content_type TEXT, has_attachment INTEGER, message_id TEXT, in_reply_to TEXT, refs TEXT, "
@@ -433,16 +514,29 @@ bool SearchIndex::open()
     };
     for (const QString &statement : statements) {
         if (!q.exec(statement))
-            return fail(tr("Cannot create the search index"), q.lastError().text());
+            return fail(tr("Cannot create the search index"), q.lastError());
+    }
+    // Indexes made before folders kept their HIGHESTMODSEQ get the columns; such folders are indexed in full once
+    if (!q.exec(QStringLiteral("PRAGMA table_info(search_folders)")))
+        return fail(tr("Cannot read the search index"), q.lastError());
+    QStringList columns;
+    while (q.next())
+        columns << q.value(1).toString();
+    q.finish();
+    for (const QString &column : {QStringLiteral("highest_modseq"), QStringLiteral("uid_next")}) {
+        if (!columns.contains(column)
+            && !q.exec(
+                QStringLiteral("ALTER TABLE search_folders ADD COLUMN %1 INTEGER NOT NULL DEFAULT 0").arg(column)))
+            return fail(tr("Cannot create the search index"), q.lastError());
     }
     q.prepare(QStringLiteral("SELECT value FROM search_meta WHERE key = 'version'"));
     if (!q.exec())
-        return fail(tr("Cannot read the search index"), q.lastError().text());
+        return fail(tr("Cannot read the search index"), q.lastError());
     if (!q.next()) {
         q.prepare(QStringLiteral("INSERT INTO search_meta (key, value) VALUES ('version', ?)"));
         q.addBindValue(indexVersion);
         if (!q.exec())
-            return fail(tr("Cannot create the search index"), q.lastError().text());
+            return fail(tr("Cannot create the search index"), q.lastError());
     } else if (q.value(0).toInt() != indexVersion) {
         // A different layout is rebuilt rather than read wrongly
         savepoint.release();
@@ -512,10 +606,10 @@ bool SearchIndex::clear()
     QSqlQuery q(db);
     for (const QString &table : {QStringLiteral("search_text"), QStringLiteral("search_docs"), QStringLiteral("search_folders")}) {
         if (!q.exec(QStringLiteral("DELETE FROM %1").arg(table)))
-            return fail(tr("Cannot empty the search index"), q.lastError().text());
+            return fail(tr("Cannot empty the search index"), q.lastError());
     }
     if (!savepoint.release())
-        return fail(tr("Cannot empty the search index"), db.lastError().text());
+        return fail(tr("Cannot empty the search index"), db.lastError());
     return true;
 }
 
@@ -532,7 +626,7 @@ QList<SearchIndex::Location> SearchIndex::messagesWithId(const QString &messageI
     q.addBindValue(messageId);
     q.addBindValue(QString(QLatin1Char('<') + messageId + QLatin1Char('>')));
     if (!q.exec()) {
-        fail(tr("Cannot read the search index"), q.lastError().text());
+        fail(tr("Cannot read the search index"), q.lastError());
         return result;
     }
     while (q.next()) {
@@ -549,9 +643,9 @@ QList<SearchIndex::Folder> SearchIndex::folders() const
 {
     QList<Folder> result;
     QSqlQuery q(database());
-    if (!q.exec(QStringLiteral("SELECT mailbox, uidvalidity, messages, indexed, with_text, updated FROM search_folders "
-                               "ORDER BY mailbox"))) {
-        fail(tr("Cannot read the search index"), q.lastError().text());
+    if (!q.exec(QStringLiteral("SELECT mailbox, uidvalidity, messages, indexed, with_text, updated, highest_modseq, "
+                               "uid_next FROM search_folders ORDER BY mailbox"))) {
+        fail(tr("Cannot read the search index"), q.lastError());
         return result;
     }
     while (q.next()) {
@@ -562,6 +656,8 @@ QList<SearchIndex::Folder> SearchIndex::folders() const
         folder.indexed = q.value(3).toInt();
         folder.withText = q.value(4).toInt();
         folder.updated = updatedAt(q.value(5));
+        folder.highestModSeq = q.value(6).toULongLong();
+        folder.uidNext = q.value(7).toUInt();
         result << folder;
     }
     return result;
@@ -570,13 +666,13 @@ QList<SearchIndex::Folder> SearchIndex::folders() const
 SearchIndex::Folder SearchIndex::folder(const QString &mailbox) const
 {
     QSqlQuery q(database());
-    q.prepare(QStringLiteral("SELECT uidvalidity, messages, indexed, with_text, updated FROM search_folders "
-                             "WHERE mailbox = ?"));
+    q.prepare(QStringLiteral("SELECT uidvalidity, messages, indexed, with_text, updated, highest_modseq, uid_next "
+                             "FROM search_folders WHERE mailbox = ?"));
     q.addBindValue(mailbox);
     Folder folder;
     folder.mailbox = mailbox;
     if (!q.exec()) {
-        fail(tr("Cannot read the search index"), q.lastError().text());
+        fail(tr("Cannot read the search index"), q.lastError());
         return folder;
     }
     if (q.next()) {
@@ -585,6 +681,8 @@ SearchIndex::Folder SearchIndex::folder(const QString &mailbox) const
         folder.indexed = q.value(2).toInt();
         folder.withText = q.value(3).toInt();
         folder.updated = updatedAt(q.value(4));
+        folder.highestModSeq = q.value(5).toULongLong();
+        folder.uidNext = q.value(6).toUInt();
     }
     return folder;
 }
@@ -592,16 +690,19 @@ SearchIndex::Folder SearchIndex::folder(const QString &mailbox) const
 bool SearchIndex::setFolder(const Folder &folder)
 {
     QSqlQuery q(database());
-    q.prepare(QStringLiteral("INSERT OR REPLACE INTO search_folders (mailbox, uidvalidity, messages, indexed, with_text, "
-                             "updated) VALUES (?, ?, ?, ?, ?, ?)"));
+    q.prepare(
+        QStringLiteral("INSERT OR REPLACE INTO search_folders (mailbox, uidvalidity, messages, indexed, with_text, "
+                       "updated, highest_modseq, uid_next) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"));
     q.addBindValue(folder.mailbox);
     q.addBindValue(folder.uidValidity);
     q.addBindValue(folder.messages);
     q.addBindValue(folder.indexed);
     q.addBindValue(folder.withText);
     q.addBindValue(folder.updated.isValid() ? folder.updated.toSecsSinceEpoch() : 0);
+    q.addBindValue(QVariant::fromValue<qulonglong>(folder.highestModSeq));
+    q.addBindValue(folder.uidNext);
     if (!q.exec())
-        return fail(tr("Cannot update the search index"), q.lastError().text());
+        return fail(tr("Cannot update the search index"), q.lastError());
     return true;
 }
 
@@ -613,14 +714,36 @@ bool SearchIndex::removeFolder(const QString &mailbox)
     q.prepare(QStringLiteral("DELETE FROM search_text WHERE rowid IN (SELECT id FROM search_docs WHERE mailbox = ?)"));
     q.addBindValue(mailbox);
     if (!q.exec())
-        return fail(tr("Cannot update the search index"), q.lastError().text());
+        return fail(tr("Cannot update the search index"), q.lastError());
     for (const QString &table : {QStringLiteral("search_docs"), QStringLiteral("search_folders")}) {
         q.prepare(QStringLiteral("DELETE FROM %1 WHERE mailbox = ?").arg(table));
         q.addBindValue(mailbox);
         if (!q.exec())
-            return fail(tr("Cannot update the search index"), q.lastError().text());
+            return fail(tr("Cannot update the search index"), q.lastError());
     }
     return savepoint.release();
+}
+
+bool SearchIndex::markChanged(const QString &mailbox)
+{
+    QSqlQuery q(database());
+    q.prepare(QStringLiteral("UPDATE search_folders SET highest_modseq = 0 WHERE mailbox = ? AND highest_modseq != 0"));
+    q.addBindValue(mailbox);
+    if (!q.exec())
+        return fail(tr("Cannot update the search index"), q.lastError());
+    return true;
+}
+
+int SearchIndex::documentCount(const QString &mailbox) const
+{
+    QSqlQuery q(database());
+    q.prepare(QStringLiteral("SELECT count(*) FROM search_docs WHERE mailbox = ?"));
+    q.addBindValue(mailbox);
+    if (!q.exec() || !q.next()) {
+        fail(tr("Cannot read the search index"), q.lastError());
+        return -1;
+    }
+    return q.value(0).toInt();
 }
 
 QHash<uint, SearchIndex::Entry> SearchIndex::entries(const QString &mailbox) const
@@ -632,7 +755,7 @@ QHash<uint, SearchIndex::Entry> SearchIndex::entries(const QString &mailbox) con
                              "WHERE mailbox = ?"));
     q.addBindValue(mailbox);
     if (!q.exec()) {
-        fail(tr("Cannot read the search index"), q.lastError().text());
+        fail(tr("Cannot read the search index"), q.lastError());
         return result;
     }
     while (q.next()) {
@@ -651,7 +774,7 @@ bool SearchIndex::store(const QList<Document> &documents)
     QSqlDatabase db = database();
     Savepoint savepoint(db);
     if (!savepoint.isActive())
-        return fail(tr("Cannot update the search index"), db.lastError().text());
+        return fail(tr("Cannot update the search index"), db.lastError());
     QSqlQuery find(db);
     find.prepare(QStringLiteral("SELECT id FROM search_docs WHERE mailbox = ? AND uid = ?"));
     QSqlQuery removeText(db);
@@ -674,7 +797,7 @@ bool SearchIndex::store(const QList<Document> &documents)
         find.addBindValue(document.mailbox);
         find.addBindValue(document.uid);
         if (!find.exec())
-            return fail(tr("Cannot update the search index"), find.lastError().text());
+            return fail(tr("Cannot update the search index"), find.lastError());
         const bool exists = find.next();
         const qlonglong existing = exists ? find.value(0).toLongLong() : 0;
         find.finish();
@@ -701,12 +824,12 @@ bool SearchIndex::store(const QList<Document> &documents)
             row.addBindValue(document.uid);
         }
         if (!row.exec())
-            return fail(tr("Cannot update the search index"), row.lastError().text());
+            return fail(tr("Cannot update the search index"), row.lastError());
         qlonglong id = existing;
         if (exists) {
             removeText.addBindValue(id);
             if (!removeText.exec())
-                return fail(tr("Cannot update the search index"), removeText.lastError().text());
+                return fail(tr("Cannot update the search index"), removeText.lastError());
         } else {
             id = row.lastInsertId().toLongLong();
         }
@@ -715,10 +838,10 @@ bool SearchIndex::store(const QList<Document> &documents)
                                     document.body, document.attachments, document.attachmentText})
             insertText.addBindValue(text);
         if (!insertText.exec())
-            return fail(tr("Cannot update the search index"), insertText.lastError().text());
+            return fail(tr("Cannot update the search index"), insertText.lastError());
     }
     if (!savepoint.release())
-        return fail(tr("Cannot update the search index"), db.lastError().text());
+        return fail(tr("Cannot update the search index"), db.lastError());
     return true;
 }
 
@@ -729,7 +852,7 @@ bool SearchIndex::hasMessage(const QString &mailbox, uint uid) const
     q.addBindValue(mailbox);
     q.addBindValue(uid);
     if (!q.exec()) {
-        fail(tr("Cannot read the search index"), q.lastError().text());
+        fail(tr("Cannot read the search index"), q.lastError());
         return false;
     }
     return q.next();
@@ -740,14 +863,14 @@ bool SearchIndex::addDecryptedText(const QString &mailbox, uint uid, const QStri
     QSqlDatabase db = database();
     Savepoint savepoint(db);
     if (!savepoint.isActive())
-        return fail(tr("Cannot update the search index"), db.lastError().text());
+        return fail(tr("Cannot update the search index"), db.lastError());
     QSqlQuery q(db);
     q.prepare(QStringLiteral("SELECT search_docs.id, search_text.body FROM search_docs JOIN search_text "
                              "ON search_text.rowid = search_docs.id WHERE search_docs.mailbox = ? AND search_docs.uid = ?"));
     q.addBindValue(mailbox);
     q.addBindValue(uid);
     if (!q.exec())
-        return fail(tr("Cannot read the search index"), q.lastError().text());
+        return fail(tr("Cannot read the search index"), q.lastError());
     if (!q.next())
         return fail(tr("The message is not in the search index"), QString());
     const qlonglong id = q.value(0).toLongLong();
@@ -763,14 +886,14 @@ bool SearchIndex::addDecryptedText(const QString &mailbox, uint uid, const QStri
         q.addBindValue(body);
         q.addBindValue(id);
         if (!q.exec())
-            return fail(tr("Cannot update the search index"), q.lastError().text());
+            return fail(tr("Cannot update the search index"), q.lastError());
     }
     q.prepare(QStringLiteral("UPDATE search_docs SET decrypted = 1 WHERE id = ?"));
     q.addBindValue(id);
     if (!q.exec())
-        return fail(tr("Cannot update the search index"), q.lastError().text());
+        return fail(tr("Cannot update the search index"), q.lastError());
     if (!savepoint.release())
-        return fail(tr("Cannot update the search index"), db.lastError().text());
+        return fail(tr("Cannot update the search index"), db.lastError());
     return true;
 }
 
@@ -778,7 +901,7 @@ int SearchIndex::decryptedMessages() const
 {
     QSqlQuery q(database());
     if (!q.exec(QStringLiteral("SELECT count(*) FROM search_docs WHERE decrypted = 1")) || !q.next()) {
-        fail(tr("Cannot read the search index"), q.lastError().text());
+        fail(tr("Cannot read the search index"), q.lastError());
         return 0;
     }
     return q.value(0).toInt();
@@ -791,9 +914,9 @@ bool SearchIndex::removeDecrypted()
     QSqlQuery q(db);
     if (!q.exec(QStringLiteral("DELETE FROM search_text WHERE rowid IN (SELECT id FROM search_docs WHERE decrypted = 1)"))
         || !q.exec(QStringLiteral("DELETE FROM search_docs WHERE decrypted = 1")))
-        return fail(tr("Cannot update the search index"), q.lastError().text());
+        return fail(tr("Cannot update the search index"), q.lastError());
     if (!savepoint.release())
-        return fail(tr("Cannot update the search index"), db.lastError().text());
+        return fail(tr("Cannot update the search index"), db.lastError());
     return true;
 }
 
@@ -804,7 +927,7 @@ SearchIndex::AttachmentSummary SearchIndex::attachmentSummary() const
     q.setForwardOnly(true);
     if (!q.exec(QStringLiteral("SELECT attachment_parts, attachment_report FROM search_docs "
                                "WHERE coalesce(attachment_parts, '') <> '' OR coalesce(attachment_report, '') <> ''"))) {
-        fail(tr("Cannot read the search index"), q.lastError().text());
+        fail(tr("Cannot read the search index"), q.lastError());
         return summary;
     }
     while (q.next()) {
@@ -834,9 +957,9 @@ bool SearchIndex::forgetAttachmentText()
     const QString tried = QStringLiteral("coalesce(attachment_report, '') <> ''");
     if (!q.exec(QStringLiteral("DELETE FROM search_text WHERE rowid IN (SELECT id FROM search_docs WHERE %1)").arg(tried))
         || !q.exec(QStringLiteral("DELETE FROM search_docs WHERE %1").arg(tried)))
-        return fail(tr("Cannot update the search index"), q.lastError().text());
+        return fail(tr("Cannot update the search index"), q.lastError());
     if (!savepoint.release())
-        return fail(tr("Cannot update the search index"), db.lastError().text());
+        return fail(tr("Cannot update the search index"), db.lastError());
     return true;
 }
 
@@ -846,7 +969,7 @@ QString SearchIndex::setting(const QString &key) const
     q.prepare(QStringLiteral("SELECT value FROM search_meta WHERE key = ?"));
     q.addBindValue(QString(QLatin1String("setting:") + key));
     if (!q.exec()) {
-        fail(tr("Cannot read the search index"), q.lastError().text());
+        fail(tr("Cannot read the search index"), q.lastError());
         return QString();
     }
     return q.next() ? q.value(0).toString() : QString();
@@ -859,7 +982,7 @@ bool SearchIndex::setSetting(const QString &key, const QString &value)
     q.addBindValue(QString(QLatin1String("setting:") + key));
     q.addBindValue(value);
     if (!q.exec())
-        return fail(tr("Cannot update the search index"), q.lastError().text());
+        return fail(tr("Cannot update the search index"), q.lastError());
     return true;
 }
 
@@ -874,7 +997,7 @@ bool SearchIndex::setFlags(const QString &mailbox, const QHash<uint, QStringList
         q.addBindValue(mailbox);
         q.addBindValue(it.key());
         if (!q.exec())
-            return fail(tr("Cannot update the search index"), q.lastError().text());
+            return fail(tr("Cannot update the search index"), q.lastError());
     }
     return savepoint.release();
 }
@@ -893,7 +1016,7 @@ bool SearchIndex::remove(const QString &mailbox, const QList<uint> &uids)
             q->addBindValue(mailbox);
             q->addBindValue(uid);
             if (!q->exec())
-                return fail(tr("Cannot update the search index"), q->lastError().text());
+                return fail(tr("Cannot update the search index"), q->lastError());
         }
     }
     return savepoint.release();
@@ -950,6 +1073,8 @@ SearchIndex::Result SearchIndex::search(const QStringList &conditions, const QSt
     for (const QVariant &value : std::as_const(values))
         q.addBindValue(value);
     if (!q.exec()) {
+        if (isCorruption(q.lastError()))
+            m_corrupt = true;
         result.problem = tr("The local index could not be searched: %1").arg(q.lastError().text());
         return result;
     }
@@ -1039,7 +1164,7 @@ QList<SearchIndex::Summary> SearchIndex::summaries(const QString &condition, con
         q.addBindValue(value);
     q.addBindValue(limit);
     if (!q.exec()) {
-        fail(tr("The local index could not be searched"), q.lastError().text());
+        fail(tr("The local index could not be searched"), q.lastError());
         return result;
     }
     while (q.next()) {

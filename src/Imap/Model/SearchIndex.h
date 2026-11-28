@@ -9,6 +9,7 @@
 #include <QDateTime>
 #include <QHash>
 #include <QSqlDatabase>
+#include <QSqlError>
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
@@ -106,6 +107,9 @@ public:
         int withText = 0;
         /** When the folder was last indexed; invalid when never */
         QDateTime updated;
+        /** HIGHESTMODSEQ and UIDNEXT of the cached folder when it was indexed; 0 when unknown or changed since */
+        quint64 highestModSeq = 0;
+        uint uidNext = 0;
     };
 
     /** @short Where an indexed message is */
@@ -159,12 +163,34 @@ public:
     /** @short Forget every folder and message, keeping the tables, so that the index can be built again */
     bool clear();
 
+    /** @short Whether a statement failed because the index is damaged, such as a malformed full-text table */
+    bool isCorrupt() const;
+    /** @short Check that every indexed message has its text and every text its message
+
+    The check counts rows, so it is quick enough to run whenever the index is opened. With @arg thorough, it also
+    runs the full-text table's own integrity check, which reads the whole index. Returns false and sets @arg problem
+    when the index is damaged or cannot be read.
+    */
+    bool verify(bool thorough, QString *problem = nullptr) const;
+    /** @short Drop the tables, damaged or not, and create them empty, so that the index can be built again */
+    bool recreate();
+    /** @short Bytes the index takes in the cache file, or -1 when SQLite cannot tell (no dbstat table) */
+    qint64 diskUsage() const;
+
     QList<Folder> folders() const;
     /** @short The state of @arg mailbox; its uidValidity is 0 when the folder is not in the index */
     Folder folder(const QString &mailbox) const;
     bool setFolder(const Folder &folder);
     /** @short Forget a folder and its messages */
     bool removeFolder(const QString &mailbox);
+    /** @short Forget the HIGHESTMODSEQ recorded for @arg mailbox, so that it is indexed in full next time
+
+    Called as soon as the folder changes in the cache, so that a change is not lost if the application ends before
+    the next pass.
+    */
+    bool markChanged(const QString &mailbox);
+    /** @short Number of messages of @arg mailbox in the index */
+    int documentCount(const QString &mailbox) const;
 
     QHash<uint, Entry> entries(const QString &mailbox) const;
     /** @short Add or replace the messages; a replaced message loses any decrypted text added to it */
@@ -236,9 +262,14 @@ private:
     /** @short The newest messages matching the SQL @arg condition, with @arg values bound in order */
     QList<Summary> summaries(const QString &condition, const QVariantList &values, int limit, bool details) const;
     bool fail(const QString &what, const QString &detail) const;
+    /** @short Like fail(), and notes whether @arg error means that the index is damaged */
+    bool fail(const QString &what, const QSqlError &error) const;
+    /** @short Whether @arg error is SQLITE_CORRUPT or SQLITE_NOTADB */
+    static bool isCorruption(const QSqlError &error);
 
     QString m_connection;
     mutable QString m_error;
+    mutable bool m_corrupt = false;
     bool m_open = false;
 };
 

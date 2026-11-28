@@ -436,10 +436,14 @@ void ImapAccess::doConnect()
                 m_searchIndexer->setAttachmentIndexing(
                     m_settings->value(Common::SettingsNames::searchIndexAttachmentsKey, false).toBool(),
                     quint64(limitMB) * 1024 * 1024);
-                // A burst of new messages, flags or downloaded parts leads to one pass a little later
-                connect(m_imapModel, &QAbstractItemModel::rowsInserted, m_searchIndexer, &Imap::Mailbox::SearchIndexer::scheduleUpdate);
-                connect(m_imapModel, &QAbstractItemModel::rowsRemoved, m_searchIndexer, &Imap::Mailbox::SearchIndexer::scheduleUpdate);
-                connect(m_imapModel, &QAbstractItemModel::dataChanged, m_searchIndexer, &Imap::Mailbox::SearchIndexer::scheduleUpdate);
+                // A burst of new messages, flags or downloaded parts leads to one pass a little later, which looks at
+                // the folders that changed
+                connect(m_imapModel, &QAbstractItemModel::rowsInserted, m_searchIndexer,
+                    &Imap::Mailbox::SearchIndexer::noteChange);
+                connect(m_imapModel, &QAbstractItemModel::rowsRemoved, m_searchIndexer,
+                    &Imap::Mailbox::SearchIndexer::noteChange);
+                connect(m_imapModel, &QAbstractItemModel::dataChanged, m_searchIndexer,
+                    &Imap::Mailbox::SearchIndexer::noteChange);
                 QMetaObject::invokeMethod(m_searchIndexer, &Imap::Mailbox::SearchIndexer::update, Qt::QueuedConnection);
             }
         } else {
