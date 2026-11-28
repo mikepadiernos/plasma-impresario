@@ -170,8 +170,10 @@ private slots:
         QTRY_VERIFY(m_server->loginPolls > 0);
         dialog.reject();
         QVERIFY(!dialog.isBusy());
-        const int polls = m_server->loginPolls;
+        // A poll sent just before may still arrive at the server, which runs in this thread
         QTest::qWait(50);
+        const int polls = m_server->loginPolls;
+        QTest::qWait(100);
         QCOMPARE(m_server->loginPolls, polls);
     }
 
