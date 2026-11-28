@@ -926,8 +926,8 @@ IntegrationsGroup::IntegrationsGroup(const SettingsContext &context, QWidget *pa
     connect(m_connectNextcloud, &QPushButton::clicked, this, [this]() {
         if (!m_context.connectNextcloud)
             return;
-        QPointer<IntegrationsGroup> self(this);
         m_nextcloudStatus->hide();
+        QPointer<IntegrationsGroup> self(this);
         m_context.connectNextcloud(this, [self]() {
             if (self)
                 self->loadNextcloud();
