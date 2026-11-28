@@ -15,6 +15,9 @@ CONVERT_LEGACY="${CONVERT_LEGACY:-true}"
 LEGACY_PREFIXES="${LEGACY_PREFIXES-/usr/local:${HOME}/.local}"
 APP_ID="io.github.mikepadiernos.plasma_impresario"
 LEGACY_DESKTOP_ID="org.kde.trojita"
+INSTALL_APPARMOR="${INSTALL_APPARMOR:-true}"
+USERNS_RESTRICTION_FILE="${PLASMA_IMPRESARIO_USERNS_SYSCTL:-/proc/sys/kernel/apparmor_restrict_unprivileged_userns}"
+APPARMOR_DIR="${PLASMA_IMPRESARIO_APPARMOR_DIR:-/etc/apparmor.d}"
 SUDO=""
 PACKAGE_MANAGER=""
 
@@ -33,6 +36,8 @@ Options:
   --with-webengine    Require Qt6 WebEngineWidgets (default; needed to read mail)
   --without-webengine Build without message viewing (incomplete mail client)
   --keep-legacy       Leave Trojita and Plasma Mail installations and mail handler settings unchanged
+  --no-apparmor       Do not install the AppArmor profile that lets the message renderer's sandbox
+                      start where unprivileged user namespaces are restricted (Ubuntu 24.04 and later)
   --help              Show this help message
 EOF
 }
@@ -389,6 +394,48 @@ configure_and_build() {
   fi
 }
 
+# On systems that restrict unprivileged user namespaces through AppArmor, the QtWebEngine renderer
+# sandbox cannot start without a profile that allows them. Install a minimal one for the binary
+# instead of turning the sandbox off.
+install_apparmor_profile() {
+  local restricted="" binary profile tmp_profile template
+  [[ -r "${USERNS_RESTRICTION_FILE}" ]] && restricted="$(< "${USERNS_RESTRICTION_FILE}")"
+  [[ "${restricted}" == "1" ]] || return 0
+
+  binary="$(canonical_path "${PREFIX}/bin")/plasma-impresario"
+  profile="${APPARMOR_DIR}/plasma-impresario"
+  if [[ "${INSTALL_APPARMOR}" != "true" ]]; then
+    echo "[${APP_NAME}] Warning: unprivileged user namespaces are restricted and --no-apparmor was given; message viewing may fail until an AppArmor profile allows them for ${binary}." >&2
+    return 0
+  fi
+  # AppArmor pattern characters, quotes and control characters cannot be written safely.
+  local unsafe='[][\\"*?{}^@,[:cntrl:]]'
+  if [[ "${binary}" =~ ${unsafe} ]]; then
+    echo "[${APP_NAME}] Warning: cannot write an AppArmor profile for ${binary}; install into a path without AppArmor pattern characters, or see the troubleshooting section of docs/INSTALL.md." >&2
+    return 0
+  fi
+  if ! command -v apparmor_parser >/dev/null 2>&1; then
+    echo "[${APP_NAME}] Warning: unprivileged user namespaces are restricted but apparmor_parser is missing; message viewing may fail. See the troubleshooting section of docs/INSTALL.md." >&2
+    return 0
+  fi
+
+  echo "[${APP_NAME}] Unprivileged user namespaces are restricted; installing an AppArmor profile for the message renderer's sandbox."
+  tmp_profile="$(mktemp)"
+  template="$(< "${ROOT_DIR}/packaging/apparmor/plasma-impresario.in")"
+  printf '%s\n' "${template//@BINARY@/"${binary}"}" > "${tmp_profile}"
+  local -a targets=("${profile}")
+  if run_with_access targets install -m 0644 -- "${tmp_profile}" "${profile}" \
+    && run_with_access targets apparmor_parser -r -- "${profile}"; then
+    echo "[${APP_NAME}] AppArmor profile installed: ${profile}"
+  else
+    echo "[${APP_NAME}] Warning: could not install or load the AppArmor profile ${profile}; message viewing may fail. See the troubleshooting section of docs/INSTALL.md." >&2
+  fi
+  rm -f -- "${tmp_profile}"
+  if [[ ! -e "${APPARMOR_DIR}/QtWebEngineProcess" ]]; then
+    echo "[${APP_NAME}] Warning: ${APPARMOR_DIR}/QtWebEngineProcess is missing; the distribution's AppArmor profiles may be too old for the renderer's helper process." >&2
+  fi
+}
+
 canonical_path() {
   if [[ -d "$1" ]]; then
     (cd -P -- "$1" && pwd)
@@ -587,6 +634,10 @@ while [[ $# -gt 0 ]]; do
       CONVERT_LEGACY=false
       shift
       ;;
+    --no-apparmor)
+      INSTALL_APPARMOR=false
+      shift
+      ;;
     --help|-h)
       usage
       exit 0
@@ -617,6 +668,9 @@ if [[ "${CHECK_DEPS_ONLY}" == "true" ]]; then
   exit 0
 fi
 configure_and_build
+if [[ "${BUILD_ONLY}" != "true" && "${WITH_WEBENGINE}" != "false" ]]; then
+  install_apparmor_profile
+fi
 if [[ "${BUILD_ONLY}" != "true" && "${CONVERT_LEGACY}" == "true" ]]; then
   convert_legacy_installations
   convert_mail_handler

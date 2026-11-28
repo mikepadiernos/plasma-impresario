@@ -78,7 +78,7 @@ MessageDetailsPanel::MessageDetailsPanel(QWidget *parent)
     setContentWidget(m_scroll);
     setPreferredRows(5);
 
-    refresh();
+    MessageDetailsPanel::refresh();
 }
 
 QLabel *MessageDetailsPanel::addField(const QString &field, const QString &label)

@@ -7,7 +7,7 @@ set(KF_MIN_VERSION "6.26.0")
 
 set(SONNET_LIB_VERSION "6.21.0")
 
-find_package(ECM REQUIRED NO_MODULE)
+find_package(ECM ${KF_MIN_VERSION} REQUIRED NO_MODULE)
 
 set(CMAKE_MODULE_PATH
     ${CMAKE_MODULE_PATH}
@@ -77,13 +77,13 @@ find_package(Qt6 ${QT_REQUIRED_VERSION} REQUIRED
         Widgets
 )
 
-find_package(KF6 REQUIRED
+find_package(KF6 ${KF_MIN_VERSION} REQUIRED
     COMPONENTS
         ItemModels
 )
 
 if(WITH_DESKTOP)
-    find_package(KF6 REQUIRED COMPONENTS ColorScheme Config CoreAddons I18n KIO WidgetsAddons WindowSystem)
+    find_package(KF6 ${KF_MIN_VERSION} REQUIRED COMPONENTS ColorScheme Config CoreAddons I18n KIO WidgetsAddons WindowSystem)
     ki18n_install(po)
 endif()
 
@@ -305,6 +305,9 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/configure-plugins.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/configure-plugins.cmake.h)
 
 feature_summary(FATAL_ON_MISSING_REQUIRED_PACKAGES INCLUDE_QUIET_PACKAGES DESCRIPTION "\n" WHAT ALL)
+
+include(DependencyVersions)
+impresario_write_dependency_versions()
 
 set(path_Common ${CMAKE_CURRENT_SOURCE_DIR}/src/Common)
 set(libCommon_SOURCES
@@ -1378,6 +1381,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_MainWindowAccounts PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_MainWindowShell tests/Gui/test_MainWindowShell.cpp)
         target_link_libraries(test_MainWindowShell PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_AccessibilityAudit tests/Gui/test_AccessibilityAudit.cpp)
+        target_link_libraries(test_AccessibilityAudit PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n KF6::WidgetsAddons ${STATIC_PLUGINS})
         add_executable(test_Accessibility tests/Gui/test_Accessibility.cpp)
         target_link_libraries(test_Accessibility PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ColorScheme KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_EnvelopeView tests/Gui/test_EnvelopeView.cpp)
@@ -1540,6 +1545,10 @@ if(BUILD_TESTING)
             add_test(NAME test_MainWindowTabs COMMAND test_MainWindowTabs)
             set_tests_properties(test_MainWindowTabs PROPERTIES
                 TIMEOUT 60
+                ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
+            add_test(NAME test_AccessibilityAudit COMMAND test_AccessibilityAudit)
+            set_tests_properties(test_AccessibilityAudit PROPERTIES
+                TIMEOUT 120
                 ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu;QTWEBENGINE_DISABLE_SANDBOX=1")
             add_test(NAME test_LayoutReadability COMMAND test_LayoutReadability)
             set_tests_properties(test_LayoutReadability PROPERTIES

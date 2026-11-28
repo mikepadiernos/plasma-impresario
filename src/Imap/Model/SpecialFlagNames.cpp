@@ -41,6 +41,8 @@ const QString FlagNames::notjunk = QStringLiteral("$NotJunk");
 const QString FlagNames::mdnsent = QStringLiteral("$MDNSent");
 const QString FlagNames::submitted = QStringLiteral("$Submitted");
 const QString FlagNames::submitpending = QStringLiteral("$SubmitPending");
+const QString FlagNames::hasAttachment = QStringLiteral("$HasAttachment");
+const QString FlagNames::hasNoAttachment = QStringLiteral("$HasNoAttachment");
 
 QHash<QString,QString> toCanonicalInit()
 {
@@ -55,7 +57,9 @@ QHash<QString,QString> toCanonicalInit()
             << FlagNames::notjunk
             << FlagNames::mdnsent
             << FlagNames::submitted
-            << FlagNames::submitpending;
+            << FlagNames::submitpending
+            << FlagNames::hasAttachment
+            << FlagNames::hasNoAttachment;
   QHash<QString,QString> flagNamesCanonical = QHash<QString,QString>();
   Q_FOREACH(const QString &flagName, flagNames) {
     flagNamesCanonical[flagName.toLower()] = flagName;

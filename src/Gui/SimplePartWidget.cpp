@@ -223,7 +223,7 @@ void SimplePartWidget::buildContextMenu(const QPoint &point, QMenu &menu)
     menu.addAction(a);
     const QWebEngineContextMenuRequest *request = lastContextMenuRequest();
     const QUrl linkUrl = request ? request->linkUrl() : QUrl();
-    if (!linkUrl.isEmpty()) {
+    if (request && !linkUrl.isEmpty()) {
         menu.addSeparator();
         // The full target and any reasons for caution, before the link is opened or copied
         auto *target = new QLabel(linkTargetDescription(linkUrl, request->linkText()), &menu);

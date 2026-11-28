@@ -78,6 +78,7 @@
 #include <KConfigGroup>
 #include <KLocalizedString>
 #include <KPageWidget>
+#include <QAbstractItemView>
 #include <KSharedConfig>
 #include "ShortcutHandler/ShortcutHandler.h"
 
@@ -145,6 +146,11 @@ SettingsDialog::SettingsDialog(MainWindow *parent, Scope scope, Composer::Sender
         m_pageWidget->setFaceType(KPageView::List);
         layout->addWidget(m_pageWidget);
         addApplicationGroups();
+        // KPageView leaves its group list and search field without names for screen readers
+        if (auto *groups = m_pageWidget->findChild<QAbstractItemView *>())
+            groups->setAccessibleName(i18nc("@label accessible name", "Settings groups"));
+        if (auto *search = m_pageWidget->findChild<QLineEdit *>())
+            search->setAccessibleName(i18nc("@label accessible name", "Search settings"));
     }
 
     buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, Qt::Horizontal, this);

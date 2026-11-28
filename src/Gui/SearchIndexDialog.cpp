@@ -115,6 +115,7 @@ SearchIndexDialog::SearchIndexDialog(QWidget *parent)
     warningRow->addWidget(m_warning, 1);
 
     m_folders->setObjectName(QStringLiteral("indexFolders"));
+    m_folders->setAccessibleName(i18nc("@label accessible name", "Indexed folders"));
     m_folders->setRootIsDecorated(false);
     m_folders->setUniformRowHeights(true);
     m_folders->setAlternatingRowColors(true);

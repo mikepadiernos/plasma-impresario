@@ -22,7 +22,8 @@
 **[Screenshots](#screenshots)** · **[Status](#project-status)** ·
 **[Features](#implemented-today)** · **[Build and run](#build-and-run)** ·
 **[Roadmap](docs/ROADMAP.md)** · **[Documentation](docs/README.md)** ·
-**[Security and limitations](docs/CAVEATS.md#security-and-data-protection)**
+**[Security](SECURITY.md)** ·
+**[Limitations](docs/CAVEATS.md#security-and-data-protection)**
 
 Plasma Impresario turns the Trojitá IMAP client into a Plasma-native mail
 application for focused reading, account management and desktop integration.
@@ -106,8 +107,9 @@ is the milestone's parent issue.
 | [M08](docs/ROADMAP.md#m08-settings-and-workspace-configuration) Settings and workspaces      | `main` | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]   | Merged in [PR #500](https://github.com/mikepadiernos/plasma-impresario/pull/500) |
 | [M09](docs/ROADMAP.md#m09-themes-and-branding-foundation) Themes and branding                | `main` | ![32 of 32 done](https://img.shields.io/badge/32%2F32-100%25-1a7f37) | ![Merged][merged]   | Merged in [PR #504](https://github.com/mikepadiernos/plasma-impresario/pull/504) |
 | [M10](docs/ROADMAP.md#m10-reliability-sync-and-notification-quality) Reliability and sync    | `main` | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]   | Merged in [PR #510](https://github.com/mikepadiernos/plasma-impresario/pull/510) |
-| M11–M14: release, Nextcloud, Microsoft, refinements                                          | —      | —                                                                    | ![Backlog][backlog] | Not started                                                                      |
-| [M15](docs/ROADMAP.md#m15-real-plasma-session-verification) Real Plasma session checks       | —      | ![0 of 4 done](https://img.shields.io/badge/0%2F4-0%25-6e7781)       | ![Defined][defined] | Needs a real Plasma session                                                      |
+| [M11](docs/ROADMAP.md#m11-release-readiness-and-polish) Release readiness                    | `main` | ![10 of 10 done](https://img.shields.io/badge/10%2F10-100%25-1a7f37) | ![Merged][merged]   | Merged in [PR #513](https://github.com/mikepadiernos/plasma-impresario/pull/513) |
+| M12–M14: Nextcloud, Microsoft, refinements                                                   | —      | —                                                                    | ![Backlog][backlog] | Not started                                                                      |
+| [M15](docs/ROADMAP.md#m15-real-plasma-session-verification) Real Plasma session checks       | —      | ![0 of 5 done](https://img.shields.io/badge/0%2F5-0%25-6e7781)       | ![Defined][defined] | Needs a real Plasma session                                                      |
 
 The [roadmap overview](docs/ROADMAP.md#milestones-at-a-glance) tracks every
 milestone, and [pending tasks](docs/TODO.md#in-progress) record what each one
@@ -115,7 +117,7 @@ is waiting on.
 
 ## Implemented today
 
-What works in `main` after M01–M10, as of 2026-11-28.
+What works in `main` after M01–M11, as of 2026-11-28.
 
 Legend: ![Verified][verified] against a disposable Dovecot server ·
 ![Offscreen tests][offscreen] covered by automated tests without a live server
@@ -379,6 +381,29 @@ expansion.
 > [Sanitizers and data races](docs/CAVEATS.md#sanitizers-and-data-races),
 > [Persistent outbox](docs/CAVEATS.md#persistent-outbox) and
 > [Background header loading](docs/CAVEATS.md#background-header-loading) caveats.
+
+### Added in M11
+
+Release readiness and polish
+([#12](https://github.com/mikepadiernos/plasma-impresario/issues/12)): the audits, scenarios, gate and
+guidance that decide whether a release can ship. It is
+[not ready yet](docs/RELEASE.md#release-decision).
+
+| Area              | What works                                                                                                                                       | Status                                    |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
+| Accessibility     | Accessible names, keyboard-only workflows, localization and scaled displays pass an [audit](docs/accessibility.md)                               | ![Offscreen tests][offscreen]             |
+| End-to-end        | Every core workflow, from account setup to reply, compose, search, rules and recovery, maps to a [test](docs/e2e-coverage.md)                    | ![Verified][verified]                     |
+| Desktop scenarios | Nine [scripted scenarios](docs/e2e-coverage.md#desktop-scenarios) drive the installed app through AT-SPI on a virtual display, with screenshots  | ![Verified][verified]                     |
+| Release gate      | Formatting, dependency versions, a reproducible build, the tests with coverage and static analysis pass the [release gate](docs/release-gate.md) | ![Verified][verified]                     |
+| Release guidance  | [Release criteria](docs/RELEASE.md), known issues, a triage of every open caveat, and install, upgrade and security guidance                     | ![Verified][verified]                     |
+| Renderer sandbox  | On Ubuntu 24.04 and later the installer adds an [AppArmor profile](docs/INSTALL.md#renderer-sandbox-on-ubuntu) instead of disabling the sandbox  | ![Needs verification][needs-verification] |
+
+> [!WARNING]
+>
+> The scenarios run plain Qt on a virtual display, not a Plasma session, and
+> the AppArmor profile is untried on Ubuntu; both are checked in
+> [M15](docs/ROADMAP.md#m15-real-plasma-session-verification). See the
+> [Release gate scope](docs/CAVEATS.md#release-gate-scope) caveat.
 
 ## Using it
 
@@ -797,8 +822,9 @@ Run `plasma-impresario --help` for the full list.
 > ./install.sh
 > ```
 >
-> The [installation guide](docs/INSTALL.md) covers per-distribution packages,
-> custom prefixes, build-only mode and troubleshooting.
+> The [installation guide](docs/INSTALL.md) covers supported platforms,
+> per-distribution packages, custom prefixes, updating, uninstalling and
+> troubleshooting.
 
 **Requirements:** CMake, Ninja, a C++20 compiler, Qt 6.7 or later and KDE
 Frameworks 6.26 or later (ItemModels, Config and I18n). Qt WebEngine Widgets is
@@ -846,14 +872,14 @@ flowchart TD
     A[M01-M04 foundations: baseline, shell and accounts, operations, reading] --> B[M05-M08 search, desktop integration, providers, automation and settings, merged]
     B --> C[M09 themes and branding, merged]
     C --> D[M10 reliability and the stabilization gate, merged]
-    D --> H[M11 release readiness]
+    D --> H[M11 release readiness and the release gate, merged]
     H --> E[M12-M13 Nextcloud, Microsoft accounts and Exchange]
     E --> F[M14 refinements]
     A -.-> G[M15 real Plasma session checks]
 ```
 
 Vim mode and workspaces arrived in M08, themes and theme profiles in M09, and
-the outbox and background header loading in M10.
+the outbox and background header loading in M10, and the release gate in M11.
 [Plasma Opus](docs/integrations/plasma-opus.md) is the companion file manager;
 the two apps share Vim mode settings through a keymap file and themes through
 theme profiles, and are planned to share file dialogs and workspace context. The [scope](docs/philosophy/scope.md) sets the product
@@ -861,15 +887,17 @@ boundaries.
 
 ## Documentation
 
-| Start with                                          | For                                                             |
-| --------------------------------------------------- | --------------------------------------------------------------- |
-| [Documentation index](docs/README.md)               | Every guide, grouped by purpose                                 |
-| [Installation](docs/INSTALL.md)                     | Installer options, prerequisites and troubleshooting            |
-| [Roadmap](docs/ROADMAP.md)                          | Milestones, status and issue links                              |
-| [Interface design](docs/philosophy/designs.md)      | The current shell and the planned Plasma Impresario design      |
-| [Pending tasks](docs/TODO.md)                       | Blockers, verification records and handoffs                     |
-| [Bugs](docs/BUGS.md) and [caveats](docs/CAVEATS.md) | Reported issues, limitations and security guidance              |
-| [Contributing](CONTRIBUTING.md)                     | Development workflow, documentation style and the dev container |
+| Start with                                          | For                                                                                 |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [Documentation index](docs/README.md)               | Every guide, grouped by purpose                                                     |
+| [Installation](docs/INSTALL.md)                     | Supported platforms, installer options, updates, data locations and troubleshooting |
+| [Security policy](SECURITY.md)                      | Supported versions, private vulnerability reports and security posture              |
+| [Roadmap](docs/ROADMAP.md)                          | Milestones, status and issue links                                                  |
+| [Interface design](docs/philosophy/designs.md)      | The current shell and the planned Plasma Impresario design                          |
+| [Pending tasks](docs/TODO.md)                       | Blockers, verification records and handoffs                                         |
+| [Release readiness](docs/RELEASE.md)                | Release criteria, known issues and the caveat triage                                |
+| [Bugs](docs/BUGS.md) and [caveats](docs/CAVEATS.md) | Reported issues, limitations and security guidance                                  |
+| [Contributing](CONTRIBUTING.md)                     | Development workflow, documentation style and the dev container                     |
 
 ## Application icon
 

@@ -11,6 +11,7 @@
 #include "Gui/ComposeWidget.h"
 #include "Gui/EmbeddedWebView.h"
 #include "Gui/InlineNotificationBar.h"
+#include "Gui/MailAutomation.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MessageDetailsPanel.h"
 #include "Gui/MsgListView.h"
@@ -18,8 +19,12 @@
 #include "IPC/MainWindowBridge.h"
 #include "Gui/Window.h"
 #include "Imap/Model/ItemRoles.h"
+#include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "Imap/Model/Utils.h"
+#include "UiUtils/ActivityLog.h"
+#include "UiUtils/MailRules.h"
+#include "UiUtils/NewMail.h"
 #include "configure.cmake.h"
 #ifdef IMPRESARIO_HAVE_WEBENGINE
 #include "Gui/WebEngineMessageProfile.h"
@@ -29,6 +34,7 @@
 #include <KLocalizedString>
 #include <QAbstractButton>
 #include <QApplication>
+#include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
 #include <QDialog>
@@ -40,11 +46,13 @@
 #include <QFormLayout>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QLocale>
 #include <QMessageBox>
 #include <QMimeData>
 #include <QPointer>
 #include <QPushButton>
 #include <QSettings>
+#include <QTabWidget>
 #include <QStandardPaths>
 #include <QTcpServer>
 #include <QTcpSocket>
@@ -103,6 +111,38 @@ QByteArray newestStoredMessage(const QString &folder)
     QFile file(files.last().filePath());
     return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
 }
+
+/** The Maildir flags, such as "FS", of the stored message whose file name starts with @p base, or a null string */
+QString storedFlags(const QString &folder, const QString &base)
+{
+    const QDir maildir(qEnvironmentVariable("PLASMA_TEST_MAILDIR") + QLatin1Char('/') + folder);
+    for (const QString &part : {QStringLiteral("cur"), QStringLiteral("new")}) {
+        const QStringList names = QDir(maildir.filePath(part)).entryList({base + QLatin1Char('*')}, QDir::Files);
+        if (!names.isEmpty()) {
+            const QString name = names.first();
+            const int info = name.indexOf(QLatin1String(":2,"));
+            return info < 0 ? QStringLiteral("") : name.mid(info + 3);
+        }
+    }
+    return {};
+}
+
+/** Keeps the last new-mail notification instead of showing it on the desktop */
+class RecordingNotifier : public Gui::MailAutomation::Notifier
+{
+public:
+    void show(const QString &account, const UiUtils::NewMail::Text &text) override
+    {
+        accountId = account;
+        last = text;
+    }
+    void close(const QString &) override
+    {
+        last = UiUtils::NewMail::Text();
+    }
+    QString accountId;
+    UiUtils::NewMail::Text last;
+};
 
 QStringList autosavedDrafts()
 {
@@ -1021,6 +1061,319 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(fetchedCopies().isEmpty(), 5000);
         QCOMPARE(dialogs.passwordPrompts, 0);
         QVERIFY2(dialogs.errors.isEmpty(), qPrintable(dialogs.errors.join(QLatin1Char('\n'))));
+    }
+
+    /**
+     * A new user's first start, through the dialogs the application opens, to triage and a reply, mostly by keyboard.
+     * Expects the server of readingFlowToResponses, with an empty Archive folder.
+     */
+    void firstStartToReply()
+    {
+        bool ok = false;
+        const int port = qEnvironmentVariableIntValue("PLASMA_TEST_IMAPS_PORT", &ok);
+        QVERIFY(ok && port > 0 && port <= 65535);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        // An empty profile; the container has no Secret Service, so the password is kept by the clear-text plugin
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        settings.setValue(Common::SettingsNames::guiShowSystray, false);
+        settings.setValue(Common::SettingsNames::passwordPlugin, QStringLiteral("cleartextpassword"));
+        settings.sync();
+        const QString sentFile = directory.filePath(QStringLiteral("sent.eml"));
+        const QString script = directory.filePath(QStringLiteral("sendmail.sh"));
+        QVERIFY(writeFile(script, "cat > '" + sentFile.toUtf8() + "'\n"));
+
+        // Fill in the account settings which open on the first start, as a user would
+        QStringList errors;
+        QStringList settingsTabs;
+        int settingsShown = 0;
+        int settingsTicks = 0;
+        int passwordPrompts = 0;
+        QTimer driver;
+        connect(&driver, &QTimer::timeout, this, [&]() {
+            for (QWidget *widget : QApplication::topLevelWidgets()) {
+                if (!widget->isVisible())
+                    continue;
+                if (auto *message = qobject_cast<QMessageBox *>(widget)) {
+                    if (message->standardButtons() == (QMessageBox::Yes | QMessageBox::No)) {
+                        // The certificate of the synthetic server
+                        message->button(QMessageBox::Yes)->click();
+                    } else {
+                        errors << message->text();
+                        message->reject();
+                    }
+                } else if (auto *dialog = qobject_cast<QDialog *>(widget);
+                    dialog && dialog->findChild<QLineEdit *>(QStringLiteral("passwordLineEdit"))) {
+                    ++passwordPrompts;
+                    dialog->reject();
+                } else if (auto *dialog = qobject_cast<QDialog *>(widget);
+                    dialog && dialog->findChild<QWidget *>(QStringLiteral("ImapPage")) && settingsShown == 0) {
+                    // The dialog clears and reloads the stored passwords once it is shown; a person types only after
+                    // that
+                    auto *password = dialog->findChild<QLineEdit *>(QStringLiteral("imapPass"));
+                    if (++settingsTicks < 5 || !password || !password->isEnabled())
+                        continue;
+                    ++settingsShown;
+                    auto *tabs = dialog->findChild<QTabWidget *>();
+                    for (int i = 0; tabs && i < tabs->count(); ++i)
+                        settingsTabs << tabs->tabText(i).remove(QLatin1Char('&'));
+                    // Identities: add one through its own dialog
+                    auto *identities = dialog->findChild<QWidget *>(QStringLiteral("IdentitiesPage"));
+                    auto *add = identities->findChild<QPushButton *>(QStringLiteral("addButton"));
+                    add->click();
+                    QDialog *identity = nullptr;
+                    for (auto *candidate : identities->findChildren<QDialog *>()) {
+                        if (candidate->isVisible()
+                            && candidate->findChild<QLineEdit *>(QStringLiteral("emailLineEdit")))
+                            identity = candidate;
+                    }
+                    if (!identity) {
+                        errors << QStringLiteral("no identity dialog; the add button is %1")
+                                      .arg(add->isEnabled() ? QStringLiteral("enabled") : QStringLiteral("disabled"));
+                        dialog->reject();
+                        return;
+                    }
+                    auto *email = identity->findChild<QLineEdit *>(QStringLiteral("emailLineEdit"));
+                    identity->findChild<QLineEdit *>(QStringLiteral("realNameLineEdit"))
+                        ->setText(QStringLiteral("Panels User"));
+                    email->setText(userAddress);
+                    identity->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->click();
+                    // IMAP: the defaults are a network connection with TLS
+                    auto *imap = dialog->findChild<QWidget *>(QStringLiteral("ImapPage"));
+                    imap->findChild<QLineEdit *>(QStringLiteral("imapHost"))->setText(QStringLiteral("127.0.0.1"));
+                    imap->findChild<QLineEdit *>(QStringLiteral("imapPort"))->setText(QString::number(port));
+                    imap->findChild<QLineEdit *>(QStringLiteral("imapUser"))->setText(userAddress);
+                    password->setText(syntheticPassword);
+                    imap->findChild<QCheckBox *>(QStringLiteral("imapNeedsNetwork"))->setChecked(false);
+                    imap->findChild<QCheckBox *>(QStringLiteral("imapUseSystemProxy"))->setChecked(false);
+                    // Sending: a local sendmail-compatible command, with a copy kept in Sent
+                    auto *outgoing = dialog->findChild<QWidget *>(QStringLiteral("OutgoingPage"));
+                    auto *method = outgoing->findChild<QComboBox *>(QStringLiteral("method"));
+                    method->setCurrentIndex(1);
+                    // These two are kept when the field loses focus, as it does when a person moves on
+                    auto *sendmail = outgoing->findChild<QLineEdit *>(QStringLiteral("sendmail"));
+                    sendmail->setText(QStringLiteral("/bin/sh ") + script);
+                    emit sendmail->editingFinished();
+                    outgoing->findChild<QCheckBox *>(QStringLiteral("saveToImap"))->setChecked(true);
+                    auto *sentFolder = outgoing->findChild<QLineEdit *>(QStringLiteral("saveFolderName"));
+                    sentFolder->setText(QStringLiteral("Sent"));
+                    emit sentFolder->editingFinished();
+                    dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Save)->click();
+                }
+            }
+        });
+        driver.start(20);
+
+        Gui::MainWindow window(&settings);
+        window.resize(1400, 900);
+        window.show();
+        QTRY_COMPARE_WITH_TIMEOUT(settingsShown, 1, 10000);
+        QCOMPARE(settingsTabs,
+            (QStringList{QStringLiteral("Identities"), QStringLiteral("IMAP"), QStringLiteral("Offline"),
+                QStringLiteral("SMTP")}));
+        auto *tree = window.findChild<Gui::MailBoxTreeView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
+        auto *details = window.findChild<Gui::MessageDetailsPanel *>();
+        auto *reader = window.findChild<Gui::CompleteMessageWidget *>();
+        QVERIFY(tree && messages && details && reader);
+        QModelIndex inbox;
+        QTRY_VERIFY2_WITH_TIMEOUT((inbox = findMailbox(tree->model(), QStringLiteral("INBOX"))).isValid(),
+            qPrintable(errors.join(QLatin1Char('\n'))), 20000);
+        QVERIFY2(errors.isEmpty(), qPrintable(errors.join(QLatin1Char('\n'))));
+        const int sentBefore = storedMessages(QStringLiteral(".Sent"));
+        const int archivedBefore = storedMessages(QStringLiteral(".Archive"));
+
+        // A reply quotes the body which is shown, so it has to be shown first
+        const auto shown = std::make_shared<QString>();
+        const auto bodyShown = [reader, shown](const QString &text) {
+            for (auto *view : reader->findChildren<Gui::EmbeddedWebView *>()) {
+                if (view->isVisible())
+                    view->page()->toPlainText([shown](const QString &plain) { *shown += plain; });
+            }
+            return shown->contains(text);
+        };
+        const auto openMessage = [&](const QModelIndex &message) {
+            shown->clear();
+            messages->scrollTo(message);
+            QTest::mouseClick(messages->viewport(), Qt::LeftButton, Qt::NoModifier,
+                messages->visualRect(message).intersected(messages->viewport()->rect()).center());
+        };
+
+        // Read: open the inbox and an unread message
+        tree->scrollTo(inbox);
+        QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(inbox).center());
+        QModelIndex lunch;
+        QTRY_VERIFY_WITH_TIMEOUT((lunch = findMessage(messages, QStringLiteral("Lunch on Friday"))).isValid(), 20000);
+        QCOMPARE(storedFlags(QStringLiteral("."), QStringLiteral("5-lunch")).contains(QLatin1Char('S')), false);
+        messages->setFocus();
+        openMessage(lunch);
+        QTRY_COMPARE_WITH_TIMEOUT(details->message().data(Imap::Mailbox::RoleMessageSubject).toString(),
+            QStringLiteral("Lunch on Friday"), 10000);
+        const QPersistentModelIndex original = Imap::deproxifiedIndex(details->message());
+        QVERIFY(original.isValid());
+        QTRY_VERIFY_WITH_TIMEOUT(bodyShown(QStringLiteral("Shall we try the new place")), 15000);
+        QTRY_VERIFY_WITH_TIMEOUT(original.data(Imap::Mailbox::RoleMessageIsMarkedRead).toBool(), 15000);
+        QTRY_VERIFY_WITH_TIMEOUT(
+            storedFlags(QStringLiteral("."), QStringLiteral("5-lunch")).contains(QLatin1Char('S')), 10000);
+
+        // Triage by keyboard: flag it with S; shortcuts work once the main window is active again after the settings
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        messages->setFocus();
+        QTest::keyClick(messages, Qt::Key_S);
+        QTRY_VERIFY_WITH_TIMEOUT(original.data(Imap::Mailbox::RoleMessageIsMarkedFlagged).toBool(), 10000);
+        QTRY_VERIFY_WITH_TIMEOUT(
+            storedFlags(QStringLiteral("."), QStringLiteral("5-lunch")).contains(QLatin1Char('F')), 10000);
+
+        // ...and archive another with A
+        QModelIndex news = findMessage(messages, QStringLiteral("Weekly news"));
+        QVERIFY(news.isValid());
+        openMessage(news);
+        QTRY_COMPARE_WITH_TIMEOUT(details->message().data(Imap::Mailbox::RoleMessageSubject).toString(),
+            QStringLiteral("Weekly news"), 10000);
+        QTest::keyClick(messages, Qt::Key_A);
+        QTRY_COMPARE_WITH_TIMEOUT(storedMessages(QStringLiteral(".Archive")), archivedBefore + 1, 15000);
+        QTRY_VERIFY_WITH_TIMEOUT(!findMessage(messages, QStringLiteral("Weekly news")).isValid(), 15000);
+        QVERIFY2(errors.isEmpty(), qPrintable(errors.join(QLatin1Char('\n'))));
+
+        // Reply to the sender with Ctrl+Shift+A, from the identity added on the first start
+        lunch = findMessage(messages, QStringLiteral("Lunch on Friday"));
+        QVERIFY(lunch.isValid());
+        messages->setFocus();
+        openMessage(lunch);
+        QTRY_COMPARE_WITH_TIMEOUT(details->message().data(Imap::Mailbox::RoleMessageSubject).toString(),
+            QStringLiteral("Lunch on Friday"), 10000);
+        QTRY_VERIFY_WITH_TIMEOUT(bodyShown(QStringLiteral("Shall we try the new place")), 15000);
+        auto *reply = window.findChild<QAction *>(QStringLiteral("action_reply_private"));
+        QVERIFY(reply);
+        QTRY_VERIFY_WITH_TIMEOUT(reply->isEnabled(), 10000);
+        QTest::keyClick(messages, Qt::Key_A, Qt::ControlModifier | Qt::ShiftModifier);
+        QPointer<Gui::ComposeWidget> composer;
+        QTRY_VERIFY_WITH_TIMEOUT((composer = visibleComposer()), 15000);
+        QCOMPARE(
+            composer->findChild<QLineEdit *>(QStringLiteral("subject"))->text(), QStringLiteral("Re: Lunch on Friday"));
+        auto *body = composer->findChild<QTextEdit *>(QStringLiteral("mailText"));
+        QVERIFY(body);
+        QVERIFY2(body->toPlainText().contains(QLatin1String("> Shall we try the new place")),
+            qPrintable(body->toPlainText()));
+        body->append(QStringLiteral("Friday works."));
+        QVERIFY(QMetaObject::invokeMethod(composer, "send"));
+        QTRY_VERIFY2_WITH_TIMEOUT(!composer, qPrintable(errors.join(QLatin1Char('\n'))), 20000);
+        QVERIFY2(errors.isEmpty(), qPrintable(errors.join(QLatin1Char('\n'))));
+        QFile file(sentFile);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QByteArray sent = file.readAll();
+        QVERIFY2(headerLine(sent, "From").contains(QLatin1String("Panels User")), sent.constData());
+        QVERIFY2(headerLine(sent, "From").contains(userAddress), sent.constData());
+        QVERIFY2(headerLine(sent, "To").contains(QLatin1String("alice@example.test")), sent.constData());
+        QCOMPARE(headerLine(sent, "In-Reply-To"), QStringLiteral("In-Reply-To: <lunch@example.test>"));
+        QVERIFY2(sent.contains("Friday works."), sent.constData());
+        QTRY_VERIFY_WITH_TIMEOUT(original.data(Imap::Mailbox::RoleMessageIsMarkedReplied).toBool(), 10000);
+        QTRY_VERIFY_WITH_TIMEOUT(
+            storedFlags(QStringLiteral("."), QStringLiteral("5-lunch")).contains(QLatin1Char('R')), 10000);
+        QTRY_COMPARE_WITH_TIMEOUT(storedMessages(QStringLiteral(".Sent")), sentBefore + 1, 10000);
+        QCOMPARE(passwordPrompts, 0);
+    }
+
+    /**
+     * Mail delivered while the application runs: rules archive and flag it, a rule which moves mail waits for a
+     * preview, and the new mail left in the INBOX is announced. Runs last, as it leaves new messages in the INBOX.
+     */
+    void newMailRulesAndNotifications()
+    {
+        bool ok = false;
+        const int port = qEnvironmentVariableIntValue("PLASMA_TEST_IMAPS_PORT", &ok);
+        QVERIFY(ok && port > 0 && port <= 65535);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        Profile profile(directory, port);
+        Dialogs dialogs;
+
+        Gui::MainWindow window(&profile.settings);
+        window.resize(1400, 900);
+        window.show();
+        auto *tree = window.findChild<Gui::MailBoxTreeView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
+        auto *automation = window.findChild<Gui::MailAutomation *>(QStringLiteral("mailAutomation"));
+        QVERIFY(tree && messages && automation);
+        QModelIndex inbox;
+        QTRY_VERIFY_WITH_TIMEOUT((inbox = findMailbox(tree->model(), QStringLiteral("INBOX"))).isValid(), 20000);
+        tree->scrollTo(inbox);
+        QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(inbox).center());
+        QTRY_VERIFY_WITH_TIMEOUT(findMessage(messages, QStringLiteral("Lunch on Friday")).isValid(), 20000);
+
+        // Notifications as on the desktop, recorded; the window is in the background, where new mail is announced
+        auto notifier = std::make_unique<RecordingNotifier>();
+        RecordingNotifier *shown = notifier.get();
+        automation->setNotifier(std::move(notifier));
+        automation->setWindowActive(false);
+        UiUtils::NewMail::Settings announcements;
+        automation->setNotificationSettings(announcements);
+
+        using namespace UiUtils::MailRules;
+        Rule invoices;
+        invoices.id = QStringLiteral("archive-invoices");
+        invoices.name = QStringLiteral("Invoices");
+        invoices.conditions = {{Field::Subject, Comparison::Contains, QStringLiteral("Invoice")}};
+        invoices.actions = {{ActionKind::Archive, QString()}};
+        invoices.markReviewed();
+        Rule alice;
+        alice.id = QStringLiteral("flag-alice");
+        alice.name = QStringLiteral("Alice");
+        alice.conditions = {{Field::Sender, Comparison::Contains, QStringLiteral("alice@example.test")}};
+        alice.actions = {{ActionKind::Flag, QString()}};
+        // Moves mail and was never previewed, so it only asks for a preview
+        Rule receipts;
+        receipts.id = QStringLiteral("delete-receipts");
+        receipts.name = QStringLiteral("Receipts");
+        receipts.conditions = {{Field::Subject, Comparison::Contains, QStringLiteral("Receipt")}};
+        receipts.actions = {{ActionKind::Delete, QString()}};
+        QVERIFY(invoices.runsAutomatically() && alice.runsAutomatically() && receipts.needsReview());
+        automation->setRules({invoices, alice, receipts});
+
+        const int archivedBefore = storedMessages(QStringLiteral(".Archive"));
+        const QString now
+            = QLocale::c().toString(QDateTime::currentDateTimeUtc(), QStringLiteral("ddd, dd MMM yyyy hh:mm:ss +0000"));
+        const auto deliver = [&](const QString &base, const QByteArray &from, const QByteArray &subject) {
+            QFile file(qEnvironmentVariable("PLASMA_TEST_MAILDIR") + QStringLiteral("/new/") + base
+                + QStringLiteral(".synthetic"));
+            if (!file.open(QIODevice::WriteOnly))
+                return false;
+            file.write("From: " + from + "\r\nTo: Panels User <panels@example.test>\r\nSubject: " + subject
+                + "\r\nDate: " + now.toLatin1() + "\r\nMessage-ID: <" + base.toLatin1()
+                + "@example.test>\r\n\r\nSynthetic body.\r\n");
+            file.close();
+            return file.setPermissions(file.permissions() | QFileDevice::ReadOther | QFileDevice::ReadGroup);
+        };
+        QVERIFY(deliver(QStringLiteral("new-invoice"), "Billing <billing@example.test>", "Invoice 42"));
+        QVERIFY(deliver(QStringLiteral("new-picnic"), "Alice Example <alice@example.test>", "Picnic plans"));
+        QVERIFY(deliver(QStringLiteral("new-receipt"), "Shop <shop@example.test>", "Receipt for your order"));
+        auto *checkMail = window.findChild<QAction *>(QStringLiteral("action_check_mail"));
+        QVERIFY(checkMail);
+        checkMail->trigger();
+
+        // The rules acted on the server: the invoice is archived, Alice's message flagged, the receipt left alone
+        QTRY_COMPARE_WITH_TIMEOUT(storedMessages(QStringLiteral(".Archive")), archivedBefore + 1, 20000);
+        QVERIFY(newestStoredMessage(QStringLiteral(".Archive")).contains("Subject: Invoice 42"));
+        QTRY_VERIFY_WITH_TIMEOUT(
+            storedFlags(QStringLiteral("."), QStringLiteral("new-picnic")).contains(QLatin1Char('F')), 15000);
+        QTRY_VERIFY_WITH_TIMEOUT(!findMessage(messages, QStringLiteral("Invoice 42")).isValid(), 15000);
+        QVERIFY(findMessage(messages, QStringLiteral("Receipt for your order")).isValid());
+        QCOMPARE(storedFlags(QStringLiteral("."), QStringLiteral("new-receipt")).contains(QLatin1Char('T')), false);
+        const int waiting = automation->activity()->find(QStringLiteral("rule-review:delete-receipts"));
+        QVERIFY(waiting >= 0);
+        QCOMPARE(automation->activity()->entry(waiting).state, UiUtils::ActivityLog::State::Waiting);
+
+        // What stayed in the INBOX is announced; the archived invoice is not news
+        QTRY_COMPARE_WITH_TIMEOUT(shown->last.count, 2, 15000);
+        QCOMPARE(shown->accountId, QStringLiteral("account-1"));
+        QVERIFY2(shown->last.body.contains(QLatin1String("Picnic plans")), qPrintable(shown->last.body));
+        QVERIFY2(shown->last.body.contains(QLatin1String("Receipt for your order")), qPrintable(shown->last.body));
+        QVERIFY2(!shown->last.body.contains(QLatin1String("Invoice")), qPrintable(shown->last.body));
+        QVERIFY2(dialogs.errors.isEmpty(), qPrintable(dialogs.errors.join(QLatin1Char('\n'))));
+
+        // Rules are kept in the configuration shared by the tests of this process
+        automation->setRules({});
     }
 };
 

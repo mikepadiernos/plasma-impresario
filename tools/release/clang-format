@@ -1,0 +1,27 @@
+# Plasma Impresario C++ style, used by tools/dev-container/release-gate.sh:
+# clang-format --style=file:tools/release/clang-format
+BasedOnStyle: WebKit
+ColumnLimit: 120
+IndentWidth: 4
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterFunction: true
+  AfterStruct: false
+  AfterNamespace: false
+  AfterEnum: false
+  SplitEmptyFunction: true
+BreakConstructorInitializers: BeforeComma
+NamespaceIndentation: None
+FixNamespaceComments: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+PointerAlignment: Right
+SortIncludes: Never
+ReflowComments: true
+Cpp11BracedListStyle: true
+AccessModifierOffset: -4
+SpaceBeforeCpp11BracedList: false
+KeepEmptyLinesAtTheStartOfBlocks: false
+BreakBeforeBinaryOperators: All
+AlwaysBreakTemplateDeclarations: Yes

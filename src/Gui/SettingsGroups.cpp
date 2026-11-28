@@ -371,6 +371,7 @@ void AccountsGroup::showOverrides()
         QWidget *editor = editorFor(*definition,
                                     overridden ? SettingsSchema::coerce(*definition, own.value(key)) : inherited.value);
         editor->setObjectName(QStringLiteral("overrideValue-") + key);
+        editor->setAccessibleName(settingLabel(key));
         editor->setEnabled(overridden);
         const QString inheritedText = SettingsSchema::explanation(inherited.layer, accountName, folder);
         const QString ownText
@@ -555,7 +556,9 @@ ReadingGroup::ReadingGroup(GeneralPage *general, const SettingsContext &context,
     : SettingsGroupPage(Group::Reading, context, parent)
 {
     QFormLayout *reading = addSection(i18nc("@title:group", "Reading Messages"));
-    reading->addRow(row({take<QCheckBox>(general, "markReadCheckbox"), take<QSpinBox>(general, "markReadSeconds")}));
+    auto *markReadSeconds = take<QSpinBox>(general, "markReadSeconds");
+    markReadSeconds->setAccessibleName(i18nc("@label:spinbox accessible name", "Seconds before marking as read"));
+    reading->addRow(row({take<QCheckBox>(general, "markReadCheckbox"), markReadSeconds}));
     reading->addRow(take<QCheckBox>(general, "preferPlaintextCheckbox"));
     addNote(reading,
             i18nc("@info",
@@ -659,6 +662,7 @@ SearchGroup::SearchGroup(const SettingsContext &context, QWidget *parent)
     m_remember->setObjectName(QStringLiteral("searchRemember"));
     m_suggest->setObjectName(QStringLiteral("searchSuggest"));
     m_accounts->setObjectName(QStringLiteral("searchIndexedAccounts"));
+    m_accounts->setAccessibleName(i18nc("@label accessible name", "Offline index per account"));
 
     QFormLayout *searching = addSection(i18nc("@title:group", "Searching"));
     m_places->addItem(i18nc("@item:inlistbox search places", "The current folder"), QStringLiteral("current"));
@@ -826,6 +830,7 @@ IntegrationsGroup::IntegrationsGroup(const SettingsContext &context, QWidget *pa
     m_notes->setObjectName(QStringLiteral("mailToNotes"));
     m_notesReason->setObjectName(QStringLiteral("mailToNotesReason"));
     m_notesFolder->setObjectName(QStringLiteral("notesFolder"));
+    m_notesFolder->setAccessibleName(i18nc("@label:textbox accessible name", "Notes folder"));
     m_workContext->setObjectName(QStringLiteral("workContext"));
     makeSmall(m_calendarReason);
     makeSmall(m_notesReason);
@@ -923,10 +928,12 @@ WorkspacesGroup::WorkspacesGroup(const SettingsContext &context, QWidget *parent
 {
     m_profiles = SettingsStore::themeProfiles(*config());
     m_list->setObjectName(QStringLiteral("workspaceList"));
+    m_list->setAccessibleName(i18nc("@label accessible name", "Workspaces"));
     m_name->setObjectName(QStringLiteral("workspaceName"));
     m_accounts->setObjectName(QStringLiteral("workspaceAccounts"));
     m_activity->setObjectName(QStringLiteral("workspaceActivity"));
     m_notesFolder->setObjectName(QStringLiteral("workspaceNotesFolder"));
+    m_notesFolder->setAccessibleName(i18nc("@label:textbox accessible name", "Workspace notes folder"));
     m_problems->setObjectName(QStringLiteral("workspaceProblems"));
     m_appearance->setObjectName(QStringLiteral("workspaceAppearance"));
     m_profile->setObjectName(QStringLiteral("workspaceThemeProfile"));
@@ -1235,10 +1242,12 @@ KeyboardGroup::KeyboardGroup(const SettingsContext &context, QWidget *parent)
     m_hints->setObjectName(QStringLiteral("vimHints"));
     m_hintDelay->setObjectName(QStringLiteral("vimHintDelay"));
     m_bindings->setObjectName(QStringLiteral("vimBindings"));
+    m_bindings->setAccessibleName(i18nc("@label accessible name", "Vim keys"));
     m_problems->setObjectName(QStringLiteral("vimProblems"));
     m_status->setObjectName(QStringLiteral("keymapStatus"));
     m_follow->setObjectName(QStringLiteral("followKeymap"));
     m_followed->setObjectName(QStringLiteral("followedKeymap"));
+    m_followed->setAccessibleName(i18nc("@label:textbox accessible name", "Keymap file"));
     m_undo->setObjectName(QStringLiteral("undoKeymapImport"));
     makeSmall(m_problems);
     makeSmall(m_status);

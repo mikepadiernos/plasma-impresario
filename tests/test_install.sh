@@ -50,6 +50,11 @@ export HOME="${tmp}/home"
 export XDG_CONFIG_HOME="${tmp}/home/.config"
 export LEGACY_PREFIXES=""
 export PLASMA_MAIL_OS_RELEASE="${tmp}/os-release"
+# Keep the AppArmor step away from the host's kernel setting and /etc/apparmor.d.
+export PLASMA_IMPRESARIO_USERNS_SYSCTL="${tmp}/userns-restricted"
+export PLASMA_IMPRESARIO_APPARMOR_DIR="${tmp}/apparmor.d"
+printf '0\n' > "${PLASMA_IMPRESARIO_USERNS_SYSCTL}"
+mkdir "${PLASMA_IMPRESARIO_APPARMOR_DIR}"
 printf 'ID=cachyos\nID_LIKE=arch\n' > "${PLASMA_MAIL_OS_RELEASE}"
 
 "${root}/install.sh" --help > "${tmp}/output"
@@ -59,6 +64,7 @@ grep -Fq -- "--without-webengine" "${tmp}/output"
 grep -Fq -- "--check-deps" "${tmp}/output"
 grep -Fq -- "--build-only" "${tmp}/output"
 grep -Fq -- "--keep-legacy" "${tmp}/output"
+grep -Fq -- "--no-apparmor" "${tmp}/output"
 
 : > "${INSTALL_TEST_CALLS}"
 WITH_WEBENGINE=false "${root}/install.sh" --check-deps --build-dir "${tmp}/build" \
@@ -393,5 +399,69 @@ expect_legacy_unchanged "${legacy}" "CONVERT_LEGACY=false"
 LEGACY_PREFIXES="${legacy}" "${root}/install.sh" --no-deps --without-webengine --build-only \
   --build-dir "${tmp}/build" --prefix "${tmp}/install" > "${tmp}/output" 2>&1
 expect_legacy_unchanged "${legacy}" "--build-only"
+
+# AppArmor profile for the renderer sandbox.
+cat > "${tmp}/bin/apparmor_parser" <<'EOF'
+#!/usr/bin/env bash
+printf 'apparmor_parser %s\n' "$*" >> "${INSTALL_TEST_CALLS}"
+EOF
+chmod +x "${tmp}/bin/apparmor_parser"
+profile="${PLASMA_IMPRESARIO_APPARMOR_DIR}/plasma-impresario"
+mkdir -p "${tmp}/install/bin"
+
+: > "${INSTALL_TEST_CALLS}"
+"${root}/install.sh" --no-deps --build-dir "${tmp}/build" --prefix "${tmp}/install" > "${tmp}/output" 2>&1
+if [[ -e "${profile}" ]] || grep -Fq "apparmor_parser" "${INSTALL_TEST_CALLS}"; then
+  echo "An AppArmor profile was installed without the user namespace restriction" >&2
+  exit 1
+fi
+
+printf '1\n' > "${PLASMA_IMPRESARIO_USERNS_SYSCTL}"
+: > "${INSTALL_TEST_CALLS}"
+"${root}/install.sh" --no-deps --build-dir "${tmp}/build" --prefix "${tmp}/install" > "${tmp}/output" 2>&1
+grep -Fq "AppArmor profile installed: ${profile}" "${tmp}/output"
+grep -Fxq "profile plasma-impresario \"$(cd -P "${tmp}/install/bin" && pwd)/plasma-impresario\" flags=(unconfined) {" "${profile}"
+grep -Fxq "  userns," "${profile}"
+if grep -Fq "@BINARY@" "${profile}"; then
+  echo "The AppArmor profile still contains its placeholder" >&2
+  exit 1
+fi
+grep -Fxq "apparmor_parser -r -- ${profile}" "${INSTALL_TEST_CALLS}"
+grep -Fq "QtWebEngineProcess is missing" "${tmp}/output"
+
+: > "${PLASMA_IMPRESARIO_APPARMOR_DIR}/QtWebEngineProcess"
+mkdir -p "${tmp}/a&b/bin"
+"${root}/install.sh" --no-deps --build-dir "${tmp}/build" --prefix "${tmp}/a&b" > "${tmp}/output" 2>&1
+grep -Fq "/a&b/bin/plasma-impresario\" flags=(unconfined)" "${profile}"
+if grep -Fq "QtWebEngineProcess is missing" "${tmp}/output"; then
+  echo "Warned about a QtWebEngineProcess profile that exists" >&2
+  exit 1
+fi
+
+for case in "--no-apparmor" "--without-webengine" "--build-only" "unsafe"; do
+  rm -f -- "${profile}"
+  : > "${INSTALL_TEST_CALLS}"
+  prefix="${tmp}/install"
+  option="${case}"
+  if [[ "${case}" == "unsafe" ]]; then
+    prefix="${tmp}/one,two"
+    option="--no-deps"
+  fi
+  "${root}/install.sh" --no-deps "${option}" --build-dir "${tmp}/build" --prefix "${prefix}" > "${tmp}/output" 2>&1
+  if [[ -e "${profile}" ]] || grep -Fq "apparmor_parser" "${INSTALL_TEST_CALLS}"; then
+    echo "An AppArmor profile was installed with ${case}" >&2
+    exit 1
+  fi
+done
+grep -Fq "cannot write an AppArmor profile" "${tmp}/output"
+"${root}/install.sh" --no-deps --no-apparmor --build-dir "${tmp}/build" --prefix "${tmp}/install" > "${tmp}/output" 2>&1
+grep -Fq -- "--no-apparmor was given" "${tmp}/output"
+
+rm "${tmp}/bin/apparmor_parser"
+: > "${INSTALL_TEST_CALLS}"
+PATH="${tmp}/bin:/usr/bin:/bin" "${root}/install.sh" --no-deps --build-dir "${tmp}/build" --prefix "${tmp}/install" > "${tmp}/output" 2>&1
+grep -Fq "apparmor_parser is missing" "${tmp}/output"
+[[ ! -e "${profile}" ]]
+printf '0\n' > "${PLASMA_IMPRESARIO_USERNS_SYSCTL}"
 
 echo "Installer checks passed."

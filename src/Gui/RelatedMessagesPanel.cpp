@@ -189,7 +189,7 @@ RelatedMessagesPanel::RelatedMessagesPanel(QWidget *parent)
     });
 
     syncMenu();
-    refresh();
+    RelatedMessagesPanel::refresh();
 }
 
 void RelatedMessagesPanel::setMessageList(QAbstractItemModel *messages)

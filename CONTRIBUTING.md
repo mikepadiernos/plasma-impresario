@@ -3,7 +3,7 @@
 **[Documentation](docs/README.md)** · **[Roadmap](docs/ROADMAP.md)** ·
 **[Pending tasks](docs/TODO.md)** · **[Bugs](docs/BUGS.md)** ·
 **[Caveats](docs/CAVEATS.md)** · **[Installation](docs/INSTALL.md)** ·
-**[Project instructions](CLAUDE.md)** ·
+**[Security](SECURITY.md)** · **[Project instructions](CLAUDE.md)** ·
 **[Project board](https://github.com/users/mikepadiernos/projects/4)**
 
 Contributions are welcome for application code, tests, documentation and bug
@@ -117,6 +117,14 @@ QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure
 `BUILD_TESTING` and `WITH_WEBENGINE` default to `ON`. For an installed build and
 its options, see the [installation guide](docs/INSTALL.md).
 
+Format the C++ files you change with the project style, which the
+[release gate](docs/release-gate.md) checks. There is no CMake target for it;
+run `clang-format` directly:
+
+```sh
+clang-format -i --style=file:tools/release/clang-format src/path/to/file.cpp
+```
+
 ## Building outside Plasma
 
 Plasma Impresario targets KDE Plasma on Linux. On other hosts, such as macOS,
@@ -166,6 +174,8 @@ tools/dev-container/run.sh sh tools/dev-container/live-imap-compose.sh
 tools/dev-container/run.sh sh tools/dev-container/live-imap-operations.sh
 tools/dev-container/run.sh sh tools/dev-container/live-pop3.sh
 tools/dev-container/run.sh sh tools/dev-container/live-clamd.sh
+tools/dev-container/run.sh sh tools/dev-container/e2e-scenarios.sh build
+tools/dev-container/run.sh sh tools/dev-container/release-gate.sh -E Cryptography_PGP
 tools/dev-container/vnc.sh
 ```
 
@@ -177,6 +187,8 @@ tools/dev-container/vnc.sh
 | `live-imap-operations.sh` | Seeds INBOX, Trash, Junk and a Projects folder, then runs `test_LiveImapOperations`: moves a message to Trash and undoes it, deletes one permanently, marks one as deleted and expunges it, moves one to Junk and back with **Move messages marked as junk to the Junk folder** on, empties Trash and Junk, and renames the open folder, checking each result in the server's mail files. |
 | `live-pop3.sh`            | Starts the same Dovecot with POP3 on, then runs `test_LivePop3`: refuses an untrusted certificate, downloads two messages over TLS and once more over STLS without fetching them twice, removes mail from the server after download, and reports a wrong password.                                                                                                                        |
 | `live-clamd.sh`           | Starts ClamAV's `clamd` with a one-line test signature, then runs the live case of `test_ClamdScanner`: a clean file, the signature split across small chunks, and a stream over the size limit. No signature database is downloaded.                                                                                                                                                     |
+| `e2e-scenarios.sh`        | Installs the build, seeds the same mailbox and drives the installed application through scripted desktop scenarios over AT-SPI on a virtual display. A comma-separated second argument picks scenarios. See [desktop scenarios](docs/e2e-coverage.md#desktop-scenarios).                                                                                                                  |
+| `release-gate.sh`         | Runs the release gate: formatting, dependency versions, a reproducible build, the tests with coverage and static analysis. It takes about 50 minutes; arguments go to `ctest`, and no live server is needed. See the [release gate](docs/release-gate.md).                                                                                                                                |
 | `vnc.sh`                  | Runs the application on a virtual display with the same seeded mailbox. Connect to `vnc://localhost:5901` with the password `synthvnc`; set `VNC_PORT` for another port. Quit the application, or press <kbd>Ctrl</kbd>+<kbd>C</kbd>, to stop.                                                                                                                                            |
 
 > [!NOTE]
@@ -237,6 +249,11 @@ Push the branch to
 [mikepadiernos/plasma-impresario](https://github.com/mikepadiernos/plasma-impresario)
 and open a pull request into `main`. Describe what changed, why and the
 verification you actually ran, and reference the issue, such as `Closes #123`.
+
+> [!IMPORTANT]
+>
+> Report suspected vulnerabilities privately, as described in the
+> [security policy](SECURITY.md), rather than in an issue or pull request.
 
 Plasma Impresario is a fork of KDE's
 [Trojitá](https://invent.kde.org/pim/trojita), whose merge requests are reviewed

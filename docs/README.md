@@ -24,26 +24,31 @@ Legend: ![Limitation][limitation] · ![Needs verification][needs-verification]
 
 ## Start here
 
-| Guide                                         | What it covers                                                       |
-| --------------------------------------------- | -------------------------------------------------------------------- |
-| [Project README](../README.md)                | What works today, screenshots, quick start and product direction     |
-| [Project status](../README.md#project-status) | Milestone progress and the branch each milestone lives on            |
-| [Installation](INSTALL.md)                    | Installer options, distribution packages and troubleshooting         |
-| [Contributing](../CONTRIBUTING.md)            | Development workflow, documentation style and the headless container |
-| [Project instructions](../CLAUDE.md)          | Conventions for code, roadmap, board and branches                    |
+| Guide                                         | What it covers                                                                      |
+| --------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [Project README](../README.md)                | What works today, screenshots, quick start and product direction                    |
+| [Project status](../README.md#project-status) | Milestone progress and the branch each milestone lives on                           |
+| [Installation](INSTALL.md)                    | Supported platforms, installer options, updates, data locations and troubleshooting |
+| [Security policy](../SECURITY.md)             | Supported versions, private vulnerability reports and security posture              |
+| [Contributing](../CONTRIBUTING.md)            | Development workflow, documentation style and the headless container                |
+| [Project instructions](../CLAUDE.md)          | Conventions for code, roadmap, board and branches                                   |
 
 ## Plan and track
 
-| Document                                                        | Source of truth for                                       |
-| --------------------------------------------------------------- | --------------------------------------------------------- |
-| [Roadmap](ROADMAP.md)                                           | Milestones, scope, architecture and delivery order        |
-| [Pending tasks](TODO.md)                                        | Blockers, verification records and resumable handoffs     |
-| [Reported bugs](BUGS.md)                                        | User-visible bugs and their resolution status             |
-| ![Limitation][limitation] [Caveats and security](CAVEATS.md)    | Current limitations, security posture and recommendations |
-| ![Needs verification][needs-verification] [Edge cases](EDGE.md) | Boundary scenarios and the tests that cover them          |
-| [Performance and resource use](performance.md)                  | Workload measurements, budgets and how to repeat them     |
-| [Sanitizer runs](sanitizers.md)                                 | Sanitizer builds, findings and suppressions               |
-| [Stabilization gate](stabilization-gate.md)                     | The M10 gate's criteria, script and latest result         |
+| Document                                                        | Source of truth for                                                |
+| --------------------------------------------------------------- | ------------------------------------------------------------------ |
+| [Roadmap](ROADMAP.md)                                           | Milestones, scope, architecture and delivery order                 |
+| [Pending tasks](TODO.md)                                        | Blockers, verification records and resumable handoffs              |
+| [Reported bugs](BUGS.md)                                        | User-visible bugs and their resolution status                      |
+| ![Limitation][limitation] [Caveats and security](CAVEATS.md)    | Current limitations, security posture and recommendations          |
+| ![Needs verification][needs-verification] [Edge cases](EDGE.md) | Boundary scenarios and the tests that cover them                   |
+| [Performance and resource use](performance.md)                  | Workload measurements, budgets and how to repeat them              |
+| [Sanitizer runs](sanitizers.md)                                 | Sanitizer builds, findings and suppressions                        |
+| [Stabilization gate](stabilization-gate.md)                     | The M10 gate's criteria, script and latest result                  |
+| [Accessibility audit](accessibility.md)                         | The M11 accessible-name, keyboard, scaling and localization checks |
+| [End-to-end coverage](e2e-coverage.md)                          | The M11 map of user workflows to the live and offscreen tests      |
+| [Release gate](release-gate.md)                                 | The M11 release checks, how to run them and the latest result      |
+| [Release readiness](RELEASE.md)                                 | Release criteria, known issues, the caveat triage and the handoff  |
 
 The documents feed each other as work moves through the
 [project board](https://github.com/users/mikepadiernos/projects/4):
