@@ -19,8 +19,8 @@ Legend: ![Met][met] · ![Pending][pending] · ![Not met][not-met] ·
 > [!IMPORTANT]
 >
 > Plasma Impresario is **not ready to ship**. No open bug or caveat blocks a
-> release, but three criteria are still open: the release gate, the renderer
-> sandbox on Ubuntu, and use in a real Plasma session. See the
+> release, but two criteria are still open: the renderer sandbox on Ubuntu
+> and use in a real Plasma session. See the
 > [decision](#release-decision).
 
 ## Contents
@@ -35,28 +35,28 @@ Legend: ![Met][met] · ![Pending][pending] · ![Not met][not-met] ·
 
 ## Release decision
 
-| Question                                 | Answer                                                                                                                                                                                                                                                                                                                                             |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Can a release be made today?             | No.                                                                                                                                                                                                                                                                                                                                                |
-| What is missing?                         | [R5](#release-criteria) the release gate ([#482](https://github.com/mikepadiernos/plasma-impresario/issues/482)), [R7](#release-criteria) a real Plasma session ([M15](ROADMAP.md#m15-real-plasma-session-verification)) and [R8](#release-criteria) the renderer sandbox ([#381](https://github.com/mikepadiernos/plasma-impresario/issues/381)). |
-| Do open bugs or caveats block a release? | No. There are no open bugs, and every open caveat is a documented known issue.                                                                                                                                                                                                                                                                     |
-| What do users have to be told?           | The [known issues](#known-issues), in the release notes.                                                                                                                                                                                                                                                                                           |
+| Question                                 | Answer                                                                                                                                                                                                                           |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Can a release be made today?             | No.                                                                                                                                                                                                                              |
+| What is missing?                         | [R7](#release-criteria) a real Plasma session ([M15](ROADMAP.md#m15-real-plasma-session-verification)) and [R8](#release-criteria) the renderer sandbox ([#381](https://github.com/mikepadiernos/plasma-impresario/issues/381)). |
+| Do open bugs or caveats block a release? | No. There are no open bugs, and every open caveat is a documented known issue.                                                                                                                                                   |
+| What do users have to be told?           | The [known issues](#known-issues), in the release notes.                                                                                                                                                                         |
 
 ## Release criteria
 
 A release needs every criterion met. Evidence from offscreen tests and
 disposable mail servers counts for R1 to R6; R7 asks for a real session.
 
-| ID     | Criterion                                                                                                                                                                                                                             | Evidence                                                                                                                                                                                                                                                  | Status              |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| **R1** | Data safety: no known way to lose or corrupt mail on the server or on disk without a warning or an explicit choice by the user.                                                                                                       | Live server tests, the persistent outbox and its **Interrupted** state, the draft warning about attachments, and the [triage](#triage)                                                                                                                    | ![Met][met]         |
-| **R2** | Secure defaults: encrypted connections are offered, new profiles store passwords through QtKeychain, remote content and scripts are blocked, and signature results tell invalid, unknown-key and failed checks apart from valid ones. | [Security summary](CAVEATS.md#security-and-data-protection) and the [security policy](../SECURITY.md) with private reporting                                                                                                                              | ![Met][met]         |
-| **R3** | Core workflows pass end to end: account setup, reading, triage and reply; compose, send, attachments, search, rules, notifications and offline recovery.                                                                              | [End-to-end coverage](e2e-coverage.md) ([#133](https://github.com/mikepadiernos/plasma-impresario/issues/133), [#134](https://github.com/mikepadiernos/plasma-impresario/issues/134))                                                                     | ![Met][met]         |
-| **R4** | Accessibility: every control has an accessible name, the core workflows work from the keyboard, and user-visible strings are marked for translation.                                                                                  | [Accessibility audit](accessibility.md) ([#53](https://github.com/mikepadiernos/plasma-impresario/issues/53), [#135](https://github.com/mikepadiernos/plasma-impresario/issues/135))                                                                      | ![Met][met]         |
-| **R5** | Quality gate: clean formatting, a reproducible build, the full test suite passing, a coverage report, recorded dependency versions and static analysis without unresolved findings.                                                   | The [stabilization gate](stabilization-gate.md) covers the suite but leaves out `test_Cryptography_PGP`, whose decryption rows fail with the container's GpgME; the release gate is [#482](https://github.com/mikepadiernos/plasma-impresario/issues/482) | ![Pending][pending] |
-| **R6** | Documentation: installation, security and supported platforms are current, and every known limitation has a caveat with a linked issue and recommendation.                                                                            | [Installation](INSTALL.md), [security policy](../SECURITY.md), [caveats](CAVEATS.md) and the [triage](#triage)                                                                                                                                            | ![Met][met]         |
-| **R7** | Plasma session: the core workflows and the desktop integration work in a real KDE Plasma 6 Wayland session and with at least one real provider.                                                                                       | [M15](ROADMAP.md#m15-real-plasma-session-verification) ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319))                                                                                                                            | ![Not met][not-met] |
-| **R8** | Renderer sandbox: the QtWebEngine sandbox stays on for every supported distribution, including Ubuntu 24.04 and later.                                                                                                                | [#381](https://github.com/mikepadiernos/plasma-impresario/issues/381)                                                                                                                                                                                     | ![Pending][pending] |
+| ID     | Criterion                                                                                                                                                                                                                             | Evidence                                                                                                                                                                                                                                             | Status              |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| **R1** | Data safety: no known way to lose or corrupt mail on the server or on disk without a warning or an explicit choice by the user.                                                                                                       | Live server tests, the persistent outbox and its **Interrupted** state, the draft warning about attachments, and the [triage](#triage)                                                                                                               | ![Met][met]         |
+| **R2** | Secure defaults: encrypted connections are offered, new profiles store passwords through QtKeychain, remote content and scripts are blocked, and signature results tell invalid, unknown-key and failed checks apart from valid ones. | [Security summary](CAVEATS.md#security-and-data-protection) and the [security policy](../SECURITY.md) with private reporting                                                                                                                         | ![Met][met]         |
+| **R3** | Core workflows pass end to end: account setup, reading, triage and reply; compose, send, attachments, search, rules, notifications and offline recovery.                                                                              | [End-to-end coverage](e2e-coverage.md) and its [desktop scenarios](e2e-coverage.md#desktop-scenarios) ([#133](https://github.com/mikepadiernos/plasma-impresario/issues/133), [#134](https://github.com/mikepadiernos/plasma-impresario/issues/134)) | ![Met][met]         |
+| **R4** | Accessibility: every control has an accessible name, the core workflows work from the keyboard, and user-visible strings are marked for translation.                                                                                  | [Accessibility audit](accessibility.md) ([#53](https://github.com/mikepadiernos/plasma-impresario/issues/53), [#135](https://github.com/mikepadiernos/plasma-impresario/issues/135))                                                                 | ![Met][met]         |
+| **R5** | Quality gate: clean formatting, a reproducible build, the full test suite passing, a coverage report, recorded dependency versions and static analysis without unresolved findings.                                                   | The [release gate](release-gate.md) passed with every check; its residual risk is [#511](https://github.com/mikepadiernos/plasma-impresario/issues/511)                                                                                              | ![Met][met]         |
+| **R6** | Documentation: installation, security and supported platforms are current, and every known limitation has a caveat with a linked issue and recommendation.                                                                            | [Installation](INSTALL.md), [security policy](../SECURITY.md), [caveats](CAVEATS.md) and the [triage](#triage)                                                                                                                                       | ![Met][met]         |
+| **R7** | Plasma session: the core workflows and the desktop integration work in a real KDE Plasma 6 Wayland session and with at least one real provider.                                                                                       | [M15](ROADMAP.md#m15-real-plasma-session-verification) ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319))                                                                                                                       | ![Not met][not-met] |
+| **R8** | Renderer sandbox: the QtWebEngine sandbox stays on for every supported distribution, including Ubuntu 24.04 and later.                                                                                                                | [#381](https://github.com/mikepadiernos/plasma-impresario/issues/381)                                                                                                                                                                                | ![Pending][pending] |
 
 ## Known issues
 
@@ -87,12 +87,12 @@ Every open bug and caveat was checked against the
 | Result                          | Count | Meaning                                                                                      |
 | ------------------------------- | ----- | -------------------------------------------------------------------------------------------- |
 | ![Blocker][blocker]             | 0     | Breaks a criterion; must be fixed before a release.                                          |
-| ![Known issue][known-issue]     | 45    | Meets the criteria; documented, with the main ones in the [known issues](#known-issues).     |
+| ![Known issue][known-issue]     | 46    | Meets the criteria; documented, with the main ones in the [known issues](#known-issues).     |
 | ![Session check][session-check] | 18    | Also a known issue, and part of it can be confirmed only in a real Plasma session (R7, M15). |
 
 **Bugs:** none open. All 9 reported bugs are closed; see [reported bugs](BUGS.md).
 
-**Caveats:** 45 open, all known issues.
+**Caveats:** 46 open, all known issues.
 
 <details>
 <summary>Verdict for each open caveat</summary>
@@ -144,6 +144,7 @@ Every open bug and caveat was checked against the
 | [#507](https://github.com/mikepadiernos/plasma-impresario/issues/507) | [Sanitizers and data races](CAVEATS.md#sanitizers-and-data-races)                             |                                 | R5       | Residual risk: ThreadSanitizer needs a Qt built for it.                                                            |
 | [#508](https://github.com/mikepadiernos/plasma-impresario/issues/508) | [Persistent outbox](CAVEATS.md#persistent-outbox)                                             |                                 | R1       | Interrupted messages wait for the user instead of risking a second delivery.                                       |
 | [#509](https://github.com/mikepadiernos/plasma-impresario/issues/509) | [Background header loading](CAVEATS.md#background-header-loading)                             |                                 | R3       | Bounded loading; other folders load when opened.                                                                   |
+| [#511](https://github.com/mikepadiernos/plasma-impresario/issues/511) | [Release gate scope](CAVEATS.md#release-gate-scope)                                           |                                 | R5       | Gate passed; remaining gaps are documented residual risk.                                                          |
 
 </details>
 
@@ -159,12 +160,14 @@ Every open bug and caveat was checked against the
 | Limitations and recommendations     | [Caveats](CAVEATS.md), issues labelled `caveat`                                                  |
 | Which test covers which workflow    | [End-to-end coverage](e2e-coverage.md)                                                           |
 | How to build, test and run the gate | [Contributing](../CONTRIBUTING.md) and the [stabilization gate](stabilization-gate.md)           |
+| Release gate checks and results     | [Release gate](release-gate.md)                                                                  |
 
 ### Cutting a release
 
 Once every criterion is met:
 
-1. Run the release gate and the stabilization gate on the commit to be
+1. Run the [release gate](release-gate.md#how-to-run) and the
+   [stabilization gate](stabilization-gate.md) on the commit to be
    released, and record their results on their pages.
 2. Repeat the [triage](#triage) with the commands below; every open bug
    and caveat needs a verdict against the criteria.

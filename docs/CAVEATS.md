@@ -52,6 +52,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Read state and unread counts](#read-state-and-unread-counts)
   - [Performance and resource use](#performance-and-resource-use)
   - [Sanitizers and data races](#sanitizers-and-data-races)
+  - [Release gate scope](#release-gate-scope)
   - [Persistent outbox](#persistent-outbox)
   - [Background header loading](#background-header-loading)
   - [Accessibility and theming](#accessibility-and-theming)
@@ -106,6 +107,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Read state         | Read and flag changes, and the unread counts, change only once the server confirms them; a change cut off by a lost connection is not replayed ([details](#read-state-and-unread-counts))                                                                                                                                                                                                                                                             | [#505](https://github.com/mikepadiernos/plasma-impresario/issues/505)                                                                        |
 | ![Limitation][limitation] | Performance        | Removing many messages at once slows down with folder size, and a single `VANISHED` report blocks the window while it is applied; quick filters on very large folders and open large attachments are costly ([details](#performance-and-resource-use))                                                                                                                                                                                                | [#506](https://github.com/mikepadiernos/plasma-impresario/issues/506)                                                                        |
 | ![Limitation][limitation] | Sanitizers         | The suite and live tests run clean under ASan, LSan and UBSan, but ThreadSanitizer has not been run, so data races in work on other threads are not checked ([details](#sanitizers-and-data-races))                                                                                                                                                                                                                                                   | [#507](https://github.com/mikepadiernos/plasma-impresario/issues/507)                                                                        |
+| ![Limitation][limitation] | Release gate       | The release gate runs by hand in the dev container, compares builds from one directory only, leaves 763 inherited files outside the formatting check and skips `test_Cryptography_PGP` ([details](#release-gate-scope))                                                                                                                                                                                                                               | [#511](https://github.com/mikepadiernos/plasma-impresario/issues/511)                                                                        |
 | ![Limitation][limitation] | Outbox             | Offline and failed sends wait in a persistent outbox and are never submitted twice, but queued replies set no answered flag, no password is asked for, refused drafts lose attachments, only SMTP refusals count as permanent and IMAP SENDMAIL accounts cannot queue ([details](#persistent-outbox))                                                                                                                                                 | [#508](https://github.com/mikepadiernos/plasma-impresario/issues/508)                                                                        |
 | ![Limitation][limitation] | File chooser       | Files are chosen through the XDG portal file chooser, falling back to the KDE dialog, but nothing is checked in a Plasma session or with Plasma Opus; save dialogs still use the KDE dialog, and remote locations in the portal depend on kio-fuse ([details](#portal-file-chooser))                                                                                                                                                                  | [#470](https://github.com/mikepadiernos/plasma-impresario/issues/470)                                                                        |
 | ![Limitation][limitation] | Task manager       | The task manager entry shows the unread messages in every account's INBOX, but nothing is checked in a Plasma session; the tray icon counts other folders, and accounts not yet connected add nothing ([details](#unread-count-on-the-task-manager))                                                                                                                                                                                                  | [#471](https://github.com/mikepadiernos/plasma-impresario/issues/471)                                                                        |
@@ -2200,6 +2202,49 @@ Plasma session; that check is
 - Build Qt 6 with ThreadSanitizer in a separate container image, add
   `libtsan`, and run `tools/dev-container/sanitizers.sh` with
   `PLASMA_SANITIZERS=thread`, starting with the crypto and cache code.
+
+### Release gate scope
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| [#511](https://github.com/mikepadiernos/plasma-impresario/issues/511) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/511#issuecomment-7237630329) | The release gate ([#482](https://github.com/mikepadiernos/plasma-impresario/issues/482), [release gate](release-gate.md)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] `tools/dev-container/release-gate.sh` checks
+  formatting, dependency versions, a reproducible build, the suite with
+  coverage and static analysis, and passed on 2026-11-28
+  ([result](release-gate.md#result)).
+- ![Limitation][limitation] No hosted CI runs the gate. It runs by hand in the
+  development container, so a change can break formatting, the analysis
+  baseline or reproducibility unnoticed until the next run.
+- ![Limitation][limitation] The reproducible build compares two builds in the
+  same directory, in the same container. Builds in other directories or on
+  other hosts are not compared.
+- ![Limitation][limitation] Formatting is enforced only outside
+  `tools/release/format-baseline.txt`, which lists 763 inherited files.
+- ![Limitation][limitation] The suite runs without `test_Cryptography_PGP`,
+  because two of its decryption rows fail with the container's GpgME.
+
+**Workarounds:**
+
+- Run the gate on the exact commit to be tagged, and record the result in
+  [release gate](release-gate.md).
+- Run the [stabilization gate](stabilization-gate.md) after larger changes to
+  catch test failures between releases.
+- Run `test_Cryptography_PGP` on a Plasma machine whose GpgME decrypts the
+  test messages.
+
+**Proposed improvements:**
+
+- Run the formatting, analysis and test checks in hosted CI on pull
+  requests, using the development container image.
+- Compare a second build in a different directory and on a second machine,
+  and add `-ffile-prefix-map` if paths leak into the binaries.
+- Format baseline files directory by directory, in commits that change
+  nothing else, and remove them from the baseline.
+- Find why GpgME reports the container's decryption rows as failed, and bring
+  `test_Cryptography_PGP` back into the gate.
 
 ### Persistent outbox
 

@@ -47,6 +47,7 @@ Legend: ![Limitation][limitation] · ![Needs verification][needs-verification]
 | [Stabilization gate](stabilization-gate.md)                     | The M10 gate's criteria, script and latest result                  |
 | [Accessibility audit](accessibility.md)                         | The M11 accessible-name, keyboard, scaling and localization checks |
 | [End-to-end coverage](e2e-coverage.md)                          | The M11 map of user workflows to the live and offscreen tests      |
+| [Release gate](release-gate.md)                                 | The M11 release checks, how to run them and the latest result      |
 | [Release readiness](RELEASE.md)                                 | Release criteria, known issues, the caveat triage and the handoff  |
 
 The documents feed each other as work moves through the
