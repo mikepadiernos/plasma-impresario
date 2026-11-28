@@ -502,6 +502,15 @@ set(libJmap_SOURCES
     ${path_Jmap}/SyncJob.cpp
 )
 
+set(path_Nextcloud ${CMAKE_CURRENT_SOURCE_DIR}/src/Nextcloud)
+set(libNextcloud_SOURCES
+    ${path_Nextcloud}/Account.cpp
+    ${path_Nextcloud}/Client.cpp
+    ${path_Nextcloud}/CredentialStore.cpp
+    ${path_Nextcloud}/Files.cpp
+    ${path_Nextcloud}/Shares.cpp
+)
+
 set(path_Cryptography ${CMAKE_CURRENT_SOURCE_DIR}/src/Cryptography)
 set(libCryptography_SOURCES
     ${path_Cryptography}/MessageModel.cpp
@@ -947,6 +956,15 @@ target_link_libraries(Jmap
         Common
 )
 
+add_library(Nextcloud STATIC ${libNextcloud_SOURCES})
+set_property(TARGET Nextcloud APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+target_link_libraries(Nextcloud
+    PUBLIC
+        Qt::Core
+        Qt::Network
+        Plugins
+)
+
 add_library(MSA STATIC ${libMSA_SOURCES})
 set_property(TARGET MSA APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
 target_link_libraries(MSA
@@ -1164,6 +1182,7 @@ if(WITH_DESKTOP)
             Jmap
             Pop3
             MSA
+            Nextcloud
             OAuth
             UiUtils
     )
@@ -1681,6 +1700,10 @@ if(BUILD_TESTING)
     # Opt-in, outside ctest: tools/dev-container/live-jmap.sh starts the server it needs
     add_executable(test_LiveJmap tests/Jmap/test_LiveJmap.cpp)
     target_link_libraries(test_LiveJmap PRIVATE Jmap LocalMail Qt6::Network Qt6::Test)
+    impresario_test(Nextcloud NextcloudFiles)
+    target_link_libraries(test_NextcloudFiles PRIVATE Nextcloud)
+    impresario_test(Nextcloud NextcloudClient)
+    target_link_libraries(test_NextcloudClient PRIVATE Nextcloud)
     impresario_test(Misc Rfc5322)
     impresario_test(Misc ApplicationProfile)
     impresario_test(Misc RingBuffer)
@@ -1864,7 +1887,7 @@ if(BUILD_TESTING)
     endif()
 
     # The mail core neither includes nor links KDE desktop services; see docs/integrations/kde-plasma.md
-    set(boundary_core_targets AppVersion Common Composer Cryptography Imap Jmap LocalMail MSA OAuth Plugins Pop3 Streams UiUtils
+    set(boundary_core_targets AppVersion Common Composer Cryptography Imap Jmap LocalMail MSA Nextcloud OAuth Plugins Pop3 Streams UiUtils
         qwwsmtpclient)
     set(boundary_links "")
     foreach(boundary_target ${boundary_core_targets})
