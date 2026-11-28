@@ -55,6 +55,10 @@ public:
         ReviewRule,
         OpenSettings,
         OpenAccount,
+        /** Open the saved draft or message file in Entry::target */
+        OpenDraft,
+        /** Show the messages waiting to be sent */
+        OpenOutbox,
     };
     Q_ENUM(Action)
 

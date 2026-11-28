@@ -253,6 +253,10 @@ QString ActivityLog::actionName(Action action)
         return tr("Open Settings");
     case Action::OpenAccount:
         return tr("Open Account");
+    case Action::OpenDraft:
+        return tr("Open Draft");
+    case Action::OpenOutbox:
+        return tr("Show Outbox");
     }
     return {};
 }
