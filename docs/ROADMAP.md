@@ -1048,9 +1048,7 @@ policy.
 Connection and recovery [#51](https://github.com/mikepadiernos/plasma-impresario/issues/51) ·
 Mailbox performance [#52](https://github.com/mikepadiernos/plasma-impresario/issues/52)
 
-Blocked: [M10 build environment](TODO.md#m10-build-environment).
-
-- [ ] Harden retry behavior, offline handling, and background task reporting [#51](https://github.com/mikepadiernos/plasma-impresario/issues/51)
+- [x] Harden retry behavior, offline handling, and background task reporting [#51](https://github.com/mikepadiernos/plasma-impresario/issues/51)
 - [ ] Improve connection-state reporting, folder sync stability, and message consistency [#127](https://github.com/mikepadiernos/plasma-impresario/issues/127)
 - [ ] Validate performance and reliability across real-world email workloads [#52](https://github.com/mikepadiernos/plasma-impresario/issues/52)
 - [ ] This milestone is the stabilization gate before broader product expansion [#128](https://github.com/mikepadiernos/plasma-impresario/issues/128)
