@@ -1,6 +1,8 @@
 #!/bin/sh
 # Run the opt-in reading-to-response and composing live IMAP test against a
-# disposable Dovecot.
+# disposable Dovecot. It also drives a first start from the account settings
+# through triage and a reply, and runs mail rules and new-mail notifications on
+# mail delivered while the application runs.
 #
 # Usage: tools/dev-container/run.sh sh tools/dev-container/live-imap-compose.sh [build-dir]
 #
@@ -23,6 +25,8 @@ synthetic_user panels
 python3 "$here/seed-panel-mail.py" "$work/home/panels/Maildir"
 synthetic_maildir "$work/home/panels/Maildir/.Sent"
 touch "$work/home/panels/Maildir/.Sent/maildirfolder"
+synthetic_maildir "$work/home/panels/Maildir/.Archive"
+touch "$work/home/panels/Maildir/.Archive/maildirfolder"
 synthetic_dovecot_start
 
 status=0
