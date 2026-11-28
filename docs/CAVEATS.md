@@ -50,6 +50,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Portal file chooser](#portal-file-chooser)
   - [Unread count on the task manager](#unread-count-on-the-task-manager)
   - [Read state and unread counts](#read-state-and-unread-counts)
+  - [Performance and resource use](#performance-and-resource-use)
   - [Accessibility and theming](#accessibility-and-theming)
   - [Provider setup and Gmail](#provider-setup-and-gmail)
   - [Junk and attachment safety](#junk-and-attachment-safety)
@@ -100,6 +101,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Window activation  | Requests pass Plasma's activation token to the window they open, but nothing is checked in a Plasma session; a composer opened by a first launch and the address book window may only be marked as wanting attention ([details](#window-activation-for-requests))                                                                                                                                                                                     | [#467](https://github.com/mikepadiernos/plasma-impresario/issues/467)                                                                        |
 | ![Limitation][limitation] | Session end        | Open composers save unsent messages as drafts when the session ends, but nothing is checked in a Plasma session; attachments are not saved, and on Wayland **Save Draft?** may hold up logging out ([details](#saving-unsent-messages-at-session-end))                                                                                                                                                                                                | [#468](https://github.com/mikepadiernos/plasma-impresario/issues/468)                                                                        |
 | ![Limitation][limitation] | Read state         | Read and flag changes, and the unread counts, change only once the server confirms them; a change cut off by a lost connection is not replayed ([details](#read-state-and-unread-counts))                                                                                                                                                                                                                                                             | [#505](https://github.com/mikepadiernos/plasma-impresario/issues/505)                                                                        |
+| ![Limitation][limitation] | Performance        | Removing many messages at once slows down with folder size, and a single `VANISHED` report blocks the window while it is applied; quick filters on very large folders and open large attachments are costly ([details](#performance-and-resource-use))                                                                                                                                                                                                | [#506](https://github.com/mikepadiernos/plasma-impresario/issues/506)                                                                        |
 | ![Limitation][limitation] | File chooser       | Files are chosen through the XDG portal file chooser, falling back to the KDE dialog, but nothing is checked in a Plasma session or with Plasma Opus; save dialogs still use the KDE dialog, and remote locations in the portal depend on kio-fuse ([details](#portal-file-chooser))                                                                                                                                                                  | [#470](https://github.com/mikepadiernos/plasma-impresario/issues/470)                                                                        |
 | ![Limitation][limitation] | Task manager       | The task manager entry shows the unread messages in every account's INBOX, but nothing is checked in a Plasma session; the tray icon counts other folders, and accounts not yet connected add nothing ([details](#unread-count-on-the-task-manager))                                                                                                                                                                                                  | [#471](https://github.com/mikepadiernos/plasma-impresario/issues/471)                                                                        |
 | ![Limitation][limitation] | Accessibility      | Icons, state colors and contrast follow Plasma's theme and the main controls have accessible names, but nothing is checked with a screen reader, a high-contrast scheme or in a Plasma session, and there are no translations yet ([details](#accessibility-and-theming))                                                                                                                                                                             | [#472](https://github.com/mikepadiernos/plasma-impresario/issues/472)                                                                        |
@@ -126,7 +128,7 @@ issue comment that holds the current recommendation.
 | ![Security][security]     | Outgoing headers   | Header input is cleaned and Bcc is left out of delivered mail, but Sent copies delivered through BURL or the IMAP SENDMAIL Extension also omit Bcc, and cleaned input is not pointed out ([details](#outgoing-headers-and-bcc))                                                                                                                                                                                                                       | [#459](https://github.com/mikepadiernos/plasma-impresario/issues/459)                                                                        |
 | ![Planned][planned]       | Integrations       | Plasma new-mail notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                                                                                                                                                                                                                                                                                       | —                                                                                                                                            |
 | ![Limitation][limitation] | Compatibility      | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                                                                                                                                                                                                                                                          | —                                                                                                                                            |
-| ![Limitation][limitation] | Quality evidence   | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded; nothing has been checked in a real Plasma session yet                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
+| ![Limitation][limitation] | Quality evidence   | Workloads are measured only against fake servers in a Debug build ([performance](performance.md)); broad accessibility, screen-reader, high-DPI and RTL verification are not recorded; nothing has been checked in a real Plasma session yet                                                                                                                                                                                                          | —                                                                                                                                            |
 
 ### Multiple accounts
 
@@ -2080,6 +2082,54 @@ Plasma session; that check is
   ([#378](https://github.com/mikepadiernos/plasma-impresario/issues/378)).
 - Check the counts with several accounts on the disposable Dovecot server,
   changing flags from a second client.
+
+### Performance and resource use
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                  |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| [#506](https://github.com/mikepadiernos/plasma-impresario/issues/506) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/506#issuecomment-7232463278) | Responsiveness and resource use for large mailboxes ([#131](https://github.com/mikepadiernos/plasma-impresario/issues/131)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Syncing a large folder, long conversations, bulk read
+  and flag changes, and messages with many attachments grow about linearly
+  with their size and stay well inside their budgets; the measurements are in
+  [performance and resource use](performance.md).
+- ![Limitation][limitation] Removing many messages slows down with the square
+  of the folder size, because each removed message renumbers every later one.
+  Reported one `EXPUNGE` at a time, as servers without QRESYNC do, the window
+  keeps responding, but removing 40,000 of 200,000 messages takes about 14 s.
+- ![Limitation][limitation] Reported as one `VANISHED` range, as QRESYNC
+  servers do, the same removal is applied in a single pass and the window stops
+  responding for its whole duration: about 0.5 s for 10,000 of 50,000 messages
+  and 8 s for 40,000 of 200,000.
+- ![Limitation][limitation] The Unread quick filter re-filters the whole list
+  in one pass, which blocks the window for about 1.2 s at 200,000 messages.
+- ![Limitation][limitation] Each synced message costs about 0.9 KiB before its
+  headers load, and an opened attachment is held in memory at about 2.3 times
+  its decoded size while it is open.
+- ![Limitation][limitation] The measurements use fake IMAP servers in a Debug
+  build in a Linux container, not real servers, a Release build or a Plasma
+  session.
+
+**Workarounds:**
+
+- On folders of 100,000 messages or more, archive older mail into yearly
+  folders, and search instead of using quick filters.
+- Delete or move large batches of messages in smaller selections, so that the
+  server reports smaller removals.
+- Save large attachments instead of keeping them open in the reader.
+
+**Proposed improvements:**
+
+- Apply removals in batches: one model removal per run of adjacent messages and
+  one renumbering pass per response, for both `VANISHED` ranges and
+  consecutive `EXPUNGE` responses.
+- Filter large lists incrementally, in chunks between event-loop passes.
+- Stream large attachments to a temporary file instead of keeping them in
+  memory.
+- Repeat the measurements in a Release build against the disposable Dovecot
+  server, and in a Plasma session with the GUI painting.
 
 ### Accessibility and theming
 
