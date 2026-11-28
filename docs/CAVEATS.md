@@ -51,6 +51,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Unread count on the task manager](#unread-count-on-the-task-manager)
   - [Read state and unread counts](#read-state-and-unread-counts)
   - [Performance and resource use](#performance-and-resource-use)
+  - [Sanitizers and data races](#sanitizers-and-data-races)
   - [Accessibility and theming](#accessibility-and-theming)
   - [Provider setup and Gmail](#provider-setup-and-gmail)
   - [Junk and attachment safety](#junk-and-attachment-safety)
@@ -102,6 +103,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Session end        | Open composers save unsent messages as drafts when the session ends, but nothing is checked in a Plasma session; attachments are not saved, and on Wayland **Save Draft?** may hold up logging out ([details](#saving-unsent-messages-at-session-end))                                                                                                                                                                                                | [#468](https://github.com/mikepadiernos/plasma-impresario/issues/468)                                                                        |
 | ![Limitation][limitation] | Read state         | Read and flag changes, and the unread counts, change only once the server confirms them; a change cut off by a lost connection is not replayed ([details](#read-state-and-unread-counts))                                                                                                                                                                                                                                                             | [#505](https://github.com/mikepadiernos/plasma-impresario/issues/505)                                                                        |
 | ![Limitation][limitation] | Performance        | Removing many messages at once slows down with folder size, and a single `VANISHED` report blocks the window while it is applied; quick filters on very large folders and open large attachments are costly ([details](#performance-and-resource-use))                                                                                                                                                                                                | [#506](https://github.com/mikepadiernos/plasma-impresario/issues/506)                                                                        |
+| ![Limitation][limitation] | Sanitizers         | The suite and live tests run clean under ASan, LSan and UBSan, but ThreadSanitizer has not been run, so data races in work on other threads are not checked ([details](#sanitizers-and-data-races))                                                                                                                                                                                                                                                   | [#507](https://github.com/mikepadiernos/plasma-impresario/issues/507)                                                                        |
 | ![Limitation][limitation] | File chooser       | Files are chosen through the XDG portal file chooser, falling back to the KDE dialog, but nothing is checked in a Plasma session or with Plasma Opus; save dialogs still use the KDE dialog, and remote locations in the portal depend on kio-fuse ([details](#portal-file-chooser))                                                                                                                                                                  | [#470](https://github.com/mikepadiernos/plasma-impresario/issues/470)                                                                        |
 | ![Limitation][limitation] | Task manager       | The task manager entry shows the unread messages in every account's INBOX, but nothing is checked in a Plasma session; the tray icon counts other folders, and accounts not yet connected add nothing ([details](#unread-count-on-the-task-manager))                                                                                                                                                                                                  | [#471](https://github.com/mikepadiernos/plasma-impresario/issues/471)                                                                        |
 | ![Limitation][limitation] | Accessibility      | Icons, state colors and contrast follow Plasma's theme and the main controls have accessible names, but nothing is checked with a screen reader, a high-contrast scheme or in a Plasma session, and there are no translations yet ([details](#accessibility-and-theming))                                                                                                                                                                             | [#472](https://github.com/mikepadiernos/plasma-impresario/issues/472)                                                                        |
@@ -2138,6 +2140,36 @@ Plasma session; that check is
   memory.
 - Repeat the measurements in a Release build, with network latency, and in a
   Plasma session with the GUI painting.
+
+### Sanitizers and data races
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                         |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| [#507](https://github.com/mikepadiernos/plasma-impresario/issues/507) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/507#issuecomment-7234348639) | Sanitizer runs of the suite and live tests ([#481](https://github.com/mikepadiernos/plasma-impresario/issues/481)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] The test suite and every live Dovecot and POP3 test
+  pass under AddressSanitizer, LeakSanitizer and UndefinedBehaviorSanitizer
+  with no report. The findings, all fixed, and the third-party suppressions
+  with their reasons are in [sanitizer runs](sanitizers.md).
+- ![Limitation][limitation] ThreadSanitizer has not been run. It needs Qt to
+  be built with it, and the dev container uses Fedora's Qt and has no
+  `libtsan`. Data races in work on other threads, GpgME verification and
+  decryption and the startup cache maintenance, are not checked.
+
+**Workarounds:**
+
+- Rely on the ASan and UBSan runs, which catch a cross-thread mistake when it
+  ends in a use after free or a leak.
+- Keep work handed to threads self-contained, so that it shares no data with
+  the GUI thread while it runs.
+
+**Proposed improvements:**
+
+- Build Qt 6 with ThreadSanitizer in a separate container image, add
+  `libtsan`, and run `tools/dev-container/sanitizers.sh` with
+  `PLASMA_SANITIZERS=thread`, starting with the crypto and cache code.
 
 ### Accessibility and theming
 
