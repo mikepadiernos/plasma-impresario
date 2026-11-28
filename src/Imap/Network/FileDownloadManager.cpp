@@ -93,6 +93,20 @@ void FileDownloadManager::downloadPart()
         emit transferError(tr("FileDownloadManager::downloadPart(): part has disappeared"));
         return;
     }
+
+    // A part which failed earlier is asked for again; offline, that looks in the cache once more
+    if (partIndex.data(Imap::Mailbox::RoleIsUnavailable).toBool())
+        partIndex.data(Imap::Mailbox::RoleRetryIfUnavailable);
+    if (partIndex.data(Imap::Mailbox::RoleIsNetworkOffline).toBool()
+            && !partIndex.data(Imap::Mailbox::RoleIsFetched).toBool()) {
+        partIndex.data(Imap::Mailbox::RolePartForceFetchFromCache);
+        if (!partIndex.data(Imap::Mailbox::RoleIsFetched).toBool()) {
+            // Don't ask where to save a file which cannot be downloaded
+            emit transferError(tr("It has not been downloaded yet, and cannot be while offline. Go online to save it."));
+            return;
+        }
+    }
+
     QString saveFileName = toRealFileName(partIndex);
     emit fileNameRequested(&saveFileName);
     if (saveFileName.isEmpty()) {

@@ -43,6 +43,9 @@ private slots:
     void testFilenameExtraction_data();
 
     void testBinaryFallback();
+
+    void testRefusedMetadataFetch();
+    void testDownloadOffline();
 };
 
 #endif
