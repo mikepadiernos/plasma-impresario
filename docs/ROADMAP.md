@@ -75,11 +75,11 @@ and gray before. **Board** is the parent issue's status.
 | [M08](#m08-settings-and-workspace-configuration)          | Settings and workspace configuration           | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9)     | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]: merged in [PR #500](https://github.com/mikepadiernos/plasma-impresario/pull/500) |
 | [M09](#m09-themes-and-branding-foundation)                | Themes and branding foundation                 | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)   | ![32 of 32 done](https://img.shields.io/badge/32%2F32-100%25-1a7f37) | ![Merged][merged]: merged in [PR #504](https://github.com/mikepadiernos/plasma-impresario/pull/504) |
 | [M10](#m10-reliability-sync-and-notification-quality)     | Reliability, sync and notification quality     | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11)   | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]: merged in [PR #510](https://github.com/mikepadiernos/plasma-impresario/pull/510) |
-| [M11](#m11-release-readiness-and-polish)                  | Release readiness and polish                   | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12)   | ![6 of 10 done](https://img.shields.io/badge/6%2F10-60%25-9a6700)    | ![Development][development]                                                                         |
+| [M11](#m11-release-readiness-and-polish)                  | Release readiness and polish                   | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12)   | ![8 of 10 done](https://img.shields.io/badge/8%2F10-80%25-9a6700)    | ![Development][development]                                                                         |
 | [M12](#m12-nextcloud-and-digital-asset-management)        | Nextcloud and digital asset management         | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31)   | ![0 of 7 done](https://img.shields.io/badge/0%2F7-0%25-6e7781)       | ![Backlog][backlog]                                                                                 |
 | [M13](#m13-microsoft-accounts-and-exchange)               | Microsoft accounts and Exchange                | [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388) | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781)     | ![Backlog][backlog]                                                                                 |
 | [M14](#m14-refinements)                                   | Refinements                                    | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)   | ![0 of 86 done](https://img.shields.io/badge/0%2F86-0%25-6e7781)     | ![Backlog][backlog]                                                                                 |
-| [M15](#m15-real-plasma-session-verification)              | Real Plasma session verification               | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ![0 of 4 done](https://img.shields.io/badge/0%2F4-0%25-6e7781)       | ![Defined][defined]                                                                                 |
+| [M15](#m15-real-plasma-session-verification)              | Real Plasma session verification               | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ![0 of 5 done](https://img.shields.io/badge/0%2F5-0%25-6e7781)       | ![Defined][defined]                                                                                 |
 
 ## Recommended priority
 
@@ -1096,7 +1096,7 @@ Mailbox performance [#52](https://github.com/mikepadiernos/plasma-impresario/iss
 ### M11: Release readiness and polish
 
 **Status:** ![Development][development]
-![6 of 10 done](https://img.shields.io/badge/6%2F10-60%25-9a6700) ·
+![8 of 10 done](https://img.shields.io/badge/8%2F10-80%25-9a6700) ·
 **Parent issue:** [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12)
 
 **Project:** M11 milestone [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12) ·
@@ -1109,8 +1109,8 @@ Release guidance and triage [#54](https://github.com/mikepadiernos/plasma-impres
 - [x] Exercise compose, send, attachments, search, rules, notifications, offline recovery, and supported providers end to end [#134](https://github.com/mikepadiernos/plasma-impresario/issues/134)
 - [x] Verify accessible navigation, screen-reader labels, keyboard-only workflows, localization, and scaled displays [#135](https://github.com/mikepadiernos/plasma-impresario/issues/135)
 - [x] Publish installation, upgrade, troubleshooting, security, and supported-platform guidance [#136](https://github.com/mikepadiernos/plasma-impresario/issues/136)
-- [ ] Triage outstanding bugs and caveats against explicit release criteria before shipping [#137](https://github.com/mikepadiernos/plasma-impresario/issues/137)
-- [ ] Require clean formatting, reproducible CMake builds, test coverage,
+- [x] Triage outstanding bugs and caveats against explicit release criteria before shipping [#137](https://github.com/mikepadiernos/plasma-impresario/issues/137)
+- [x] Require clean formatting, reproducible CMake builds, test coverage,
       supported dependency checks, and static analysis results in the release CI
       gate; document tools, environment, findings, and residual risk [#482](https://github.com/mikepadiernos/plasma-impresario/issues/482)
 - [ ] Script end-to-end user scenarios through AT-SPI in a headless session
@@ -1118,9 +1118,10 @@ Release guidance and triage [#54](https://github.com/mikepadiernos/plasma-impres
       scenario, and generate documentation screenshots from invented example mail.
       See [E-Mail](philosophy/inspirations.md#e-mail).
       [#380](https://github.com/mikepadiernos/plasma-impresario/issues/380)
-- [ ] Verify the QtWebEngine renderer sandbox on Ubuntu 24.04 and later, which
-      restrict unprivileged user namespaces, and install a minimal AppArmor profile
-      when needed instead of disabling the sandbox. See
+- [ ] Install a minimal AppArmor profile from the installer when the system
+      restricts unprivileged user namespaces, as Ubuntu 24.04 and later do, so the
+      QtWebEngine renderer sandbox stays on instead of being disabled; verifying it
+      on Ubuntu moved to M15 ([#512](https://github.com/mikepadiernos/plasma-impresario/issues/512)). See
       [E-Mail](philosophy/inspirations.md#e-mail).
       [#381](https://github.com/mikepadiernos/plasma-impresario/issues/381)
 
@@ -1511,13 +1512,13 @@ implemented features here and document criteria for potential future work.
 ### M15: Real Plasma session verification
 
 **Status:** ![Defined][defined]
-![0 of 4 done](https://img.shields.io/badge/0%2F4-0%25-6e7781) ·
+![0 of 5 done](https://img.shields.io/badge/0%2F5-0%25-6e7781) ·
 **Parent issue:** [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)
 
 **Project:** M15 milestone [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)
 
-Checks that need a real KDE Plasma session, KWallet, or a real provider
-account, and cannot be completed in the headless environment. They moved here
+Checks that need a real KDE Plasma session, KWallet, a real provider
+account or an Ubuntu system, and cannot be completed in the headless environment. They moved here
 from M02 so the headless M02 foundation can be completed and merged; each
 verifies a feature that is already implemented and tested headless.
 
@@ -1532,6 +1533,9 @@ verifies a feature that is already implemented and tested headless.
 - [ ] Verify live desktop-session startup, recovery, and integration behavior
       as the M01.04 Plasma-session smoke handoff (moved from M06.01).
       [#469](https://github.com/mikepadiernos/plasma-impresario/issues/469)
+- [ ] Verify the QtWebEngine renderer sandbox on Ubuntu 24.04 and later with
+      the installer's AppArmor profile (moved from M11).
+      [#512](https://github.com/mikepadiernos/plasma-impresario/issues/512)
 
 This milestone is blocked by M02 but does not block later milestones. Pending
 checks: [M15 handoff](TODO.md#m15-real-plasma-session-verification).

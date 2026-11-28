@@ -87,16 +87,16 @@ The [security and data protection](docs/CAVEATS.md#security-and-data-protection)
 summary describes current behavior and limitations by area. The detailed
 caveats behind it are:
 
-| Area                        | Caveat                                                                                                                                           |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Signed and encrypted mail   | [Message security](docs/CAVEATS.md#message-security)                                                                                             |
-| Remote content and tracking | [Reading privacy](docs/CAVEATS.md#reading-privacy)                                                                                               |
-| Sign-in tokens              | [OAuth sign-in](docs/CAVEATS.md#oauth-sign-in)                                                                                                   |
-| Files on disk               | [Local data and opened attachments](docs/CAVEATS.md#local-data-and-opened-attachments)                                                           |
-| Outgoing headers            | [Outgoing headers and Bcc](docs/CAVEATS.md#outgoing-headers-and-bcc)                                                                             |
-| Junk and risky attachments  | [Junk and attachment safety](docs/CAVEATS.md#junk-and-attachment-safety)                                                                         |
-| Network calls besides mail  | [External services and outbound calls](docs/CAVEATS.md#external-services-and-outbound-calls)                                                     |
-| Renderer sandbox            | ![Limitation][limitation] Unverified on Ubuntu 24.04 and later; tracked in [#381](https://github.com/mikepadiernos/plasma-impresario/issues/381) |
+| Area                        | Caveat                                                                                                                                                                                                                                                                              |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Signed and encrypted mail   | [Message security](docs/CAVEATS.md#message-security)                                                                                                                                                                                                                                |
+| Remote content and tracking | [Reading privacy](docs/CAVEATS.md#reading-privacy)                                                                                                                                                                                                                                  |
+| Sign-in tokens              | [OAuth sign-in](docs/CAVEATS.md#oauth-sign-in)                                                                                                                                                                                                                                      |
+| Files on disk               | [Local data and opened attachments](docs/CAVEATS.md#local-data-and-opened-attachments)                                                                                                                                                                                              |
+| Outgoing headers            | [Outgoing headers and Bcc](docs/CAVEATS.md#outgoing-headers-and-bcc)                                                                                                                                                                                                                |
+| Junk and risky attachments  | [Junk and attachment safety](docs/CAVEATS.md#junk-and-attachment-safety)                                                                                                                                                                                                            |
+| Network calls besides mail  | [External services and outbound calls](docs/CAVEATS.md#external-services-and-outbound-calls)                                                                                                                                                                                        |
+| Renderer sandbox            | ![Limitation][limitation] Kept on; where Ubuntu 24.04 and later restrict user namespaces, the installer adds an [AppArmor profile](docs/INSTALL.md#renderer-sandbox-on-ubuntu). Untried on Ubuntu; checked in [#512](https://github.com/mikepadiernos/plasma-impresario/issues/512) |
 
 [Where data is stored](docs/INSTALL.md#where-data-is-stored) lists every file
 location, for backups and for removing data.

@@ -44,6 +44,8 @@ Legend: board ![Backlog][backlog] · ![Defined][defined] ·
     M15](#m0601-desktop-session-check-moved-to-m15)
   - [M06 item cards](#m06-item-cards)
   - [M13 Microsoft milestone insertion](#m13-microsoft-milestone-insertion)
+  - [M11 renderer sandbox check moved to
+    M15](#m11-renderer-sandbox-check-moved-to-m15)
   - [Roadmap issue links](#roadmap-issue-links)
 
 ## Backlog
@@ -434,13 +436,14 @@ merged; the M06.01 desktop-session check joined them on 2026-11-27.
 the former M02.02 subsection, is now the M15 parent issue. M15 depends on M02,
 which is merged, and does not block later milestones.
 
-| Issue                                                                 | Feature                                                                                                                                  | Board               | State                                                             |
-| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------- |
-| [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | M15 milestone                                                                                                                            | ![Defined][defined] | ![Blocked][blocked] Needs a real Plasma session                   |
-| [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315) | Mail shell and embedded panels in Plasma (from [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35))                      | ![Defined][defined] | ![Blocked][blocked] Needs a real Plasma session                   |
-| [#316](https://github.com/mikepadiernos/plasma-impresario/issues/316) | KWallet credential storage in Plasma (from [#78](https://github.com/mikepadiernos/plasma-impresario/issues/78))                          | ![Defined][defined] | ![Blocked][blocked] Needs a real Plasma session and KWallet       |
-| [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317) | OAuth sign-in with a real provider account (from [#218](https://github.com/mikepadiernos/plasma-impresario/issues/218))                  | ![Defined][defined] | ![Blocked][blocked] Needs a Plasma session and a provider account |
-| [#469](https://github.com/mikepadiernos/plasma-impresario/issues/469) | Desktop-session startup, recovery and integration in Plasma (from [#101](https://github.com/mikepadiernos/plasma-impresario/issues/101)) | ![Defined][defined] | ![Blocked][blocked] Needs a real Plasma session                   |
+| Issue                                                                 | Feature                                                                                                                                  | Board               | State                                                                |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------- | -------------------------------------------------------------------- |
+| [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | M15 milestone                                                                                                                            | ![Defined][defined] | ![Blocked][blocked] Needs a real Plasma session                      |
+| [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315) | Mail shell and embedded panels in Plasma (from [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35))                      | ![Defined][defined] | ![Blocked][blocked] Needs a real Plasma session                      |
+| [#316](https://github.com/mikepadiernos/plasma-impresario/issues/316) | KWallet credential storage in Plasma (from [#78](https://github.com/mikepadiernos/plasma-impresario/issues/78))                          | ![Defined][defined] | ![Blocked][blocked] Needs a real Plasma session and KWallet          |
+| [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317) | OAuth sign-in with a real provider account (from [#218](https://github.com/mikepadiernos/plasma-impresario/issues/218))                  | ![Defined][defined] | ![Blocked][blocked] Needs a Plasma session and a provider account    |
+| [#469](https://github.com/mikepadiernos/plasma-impresario/issues/469) | Desktop-session startup, recovery and integration in Plasma (from [#101](https://github.com/mikepadiernos/plasma-impresario/issues/101)) | ![Defined][defined] | ![Blocked][blocked] Needs a real Plasma session                      |
+| [#512](https://github.com/mikepadiernos/plasma-impresario/issues/512) | Renderer sandbox on Ubuntu 24.04 and later (from [#381](https://github.com/mikepadiernos/plasma-impresario/issues/381))                  | ![Defined][defined] | ![Blocked][blocked] Needs Ubuntu with KDE Frameworks 6.26.0 or newer |
 
 #### How to resume
 
@@ -458,7 +461,11 @@ which is merged, and does not block later milestones.
    provider account you control;
    [#218](https://github.com/mikepadiernos/plasma-impresario/issues/218) is
    implemented.
-4. Advance each issue through the board workflow, then close
+4. Complete [#512](https://github.com/mikepadiernos/plasma-impresario/issues/512) on Ubuntu 24.04 or later with
+   `kernel.apparmor_restrict_unprivileged_userns=1`, following its acceptance
+   criteria; the installer step from
+   [#381](https://github.com/mikepadiernos/plasma-impresario/issues/381) is implemented.
+5. Advance each issue through the board workflow, then close
    [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319).
 
 ## Board and issue handoffs
@@ -623,6 +630,19 @@ issues themselves, and each item is checked when its card moves to Completed.
   5. Ask KDE e.V. whether it can host or publisher-verify the app, and record
      both answers in #396.
 - ![Planned][planned] **Resume:** remove this section when #396 is done.
+
+### M11 renderer sandbox check moved to M15
+
+- ![Done][done] **Moved, 2026-11-28:** the M11 item for
+  [#381](https://github.com/mikepadiernos/plasma-impresario/issues/381) asked both to verify the
+  QtWebEngine renderer sandbox on Ubuntu 24.04 and later and to install an
+  AppArmor profile when needed. The installer step is implemented and covered
+  by mock tests in `tests/test_install.sh`. The check on Ubuntu cannot run
+  here: the dev container is Fedora without AppArmor, and Ubuntu 24.04 ships
+  KDE Frameworks older than the 6.26.0 minimum. It became
+  [#512](https://github.com/mikepadiernos/plasma-impresario/issues/512) in M15, a sub-issue of
+  [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) in Defined; the M11 item and #381 were
+  reworded to the installer step. M15 now has 5 roadmap items.
 
 ### Roadmap issue links
 

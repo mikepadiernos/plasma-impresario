@@ -18,6 +18,7 @@ Legend: ![Verified][verified] · ![Needs verification][needs-verification] ·
 - [Install](#install)
 - [Options](#options)
 - [Supported platforms](#supported-platforms)
+  - [Renderer sandbox on Ubuntu](#renderer-sandbox-on-ubuntu)
 - [Requirements by distribution](#requirements-by-distribution)
 - [What gets installed](#what-gets-installed)
 - [Updating Plasma Impresario](#updating-plasma-impresario)
@@ -46,7 +47,10 @@ The installer then:
    `BUILD_TESTING=OFF` and `WITH_WEBENGINE=ON`, then builds in parallel.
 4. Installs to the prefix, using `sudo` only when the prefix (or its nearest
    existing parent) is not writable.
-5. [Converts older Trojitá or Plasma Mail
+5. Where the system restricts unprivileged user namespaces, as Ubuntu 24.04
+   and later do, installs a [renderer sandbox profile](#renderer-sandbox-on-ubuntu)
+   for AppArmor, using `sudo`.
+6. [Converts older Trojitá or Plasma Mail
    installations](#upgrading-from-trojitá-or-plasma-mail) and makes Plasma
    Impresario the mail handler wherever the user chose them.
 
@@ -73,20 +77,23 @@ Run `./install.sh --help` for the same list.
 | `--with-webengine`    | Require Qt 6 WebEngineWidgets for the message reader. This is the default.                                                                                  |
 | `--without-webengine` | ![Limitation][limitation] Build without message viewing and skip the WebEngine package. See the warning above.                                              |
 | `--keep-legacy`       | Leave Trojitá and Plasma Mail installations and mail handler settings unchanged.                                                                            |
+| `--no-apparmor`       | Do not install the [renderer sandbox profile](#renderer-sandbox-on-ubuntu); the installer warns instead.                                                    |
 | `--help`, `-h`        | Show the option summary and exit.                                                                                                                           |
 
 The installer also reads these environment variables:
 
-| Variable                       | Effect                                                                                            |
-| ------------------------------ | ------------------------------------------------------------------------------------------------- |
-| `PREFIX`                       | Default installation prefix; `--prefix` overrides it.                                             |
-| `BUILD_DIR`                    | Default build directory; `--build-dir` overrides it.                                              |
-| `WITH_WEBENGINE`               | `true` (default) or `false`; the WebEngine options override it.                                   |
-| `INSTALL_DEPS`                 | Any value other than `true` skips dependency handling, like `--no-deps`.                          |
-| `CMAKE_BUILD_PARALLEL_LEVEL`   | Number of parallel build jobs; defaults to `nproc`.                                               |
-| `CONVERT_LEGACY`               | Any value other than `true` skips legacy conversion, like `--keep-legacy`.                        |
-| `LEGACY_PREFIXES`              | Colon-separated prefixes searched for older installations; defaults to `/usr/local:$HOME/.local`. |
-| `PLASMA_IMPRESARIO_OS_RELEASE` | Alternate os-release file. The older `PLASMA_MAIL_OS_RELEASE` name is also supported.             |
+| Variable                                                            | Effect                                                                                                                                                  |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PREFIX`                                                            | Default installation prefix; `--prefix` overrides it.                                                                                                   |
+| `BUILD_DIR`                                                         | Default build directory; `--build-dir` overrides it.                                                                                                    |
+| `WITH_WEBENGINE`                                                    | `true` (default) or `false`; the WebEngine options override it.                                                                                         |
+| `INSTALL_DEPS`                                                      | Any value other than `true` skips dependency handling, like `--no-deps`.                                                                                |
+| `CMAKE_BUILD_PARALLEL_LEVEL`                                        | Number of parallel build jobs; defaults to `nproc`.                                                                                                     |
+| `CONVERT_LEGACY`                                                    | Any value other than `true` skips legacy conversion, like `--keep-legacy`.                                                                              |
+| `LEGACY_PREFIXES`                                                   | Colon-separated prefixes searched for older installations; defaults to `/usr/local:$HOME/.local`.                                                       |
+| `PLASMA_IMPRESARIO_OS_RELEASE`                                      | Alternate os-release file. The older `PLASMA_MAIL_OS_RELEASE` name is also supported.                                                                   |
+| `INSTALL_APPARMOR`                                                  | Any value other than `true` skips the AppArmor profile, like `--no-apparmor`.                                                                           |
+| `PLASMA_IMPRESARIO_USERNS_SYSCTL`, `PLASMA_IMPRESARIO_APPARMOR_DIR` | Alternate restriction setting and profile directory, for tests; default `/proc/sys/kernel/apparmor_restrict_unprivileged_userns` and `/etc/apparmor.d`. |
 
 For example:
 
@@ -107,19 +114,50 @@ operating systems are outside the [product scope](philosophy/scope.md), and no
 Flatpak, Snap or distribution package is published; build from source with the
 installer.
 
-| Platform                                    | Status                                                                                     | Notes                                                                                                                                                                                |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| KDE Plasma 6 on Wayland, Linux x86_64       | ![Verified][verified] build and install; ![Needs verification][needs-verification] session | The release target. Built, tested and installed on CachyOS; use in a real Plasma session is checked in M15 ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)).  |
-| Linux aarch64                               | ![Verified][verified] build and tests                                                      | The full test suite runs offscreen in the headless Fedora 44 [dev container](../CONTRIBUTING.md#building-outside-plasma). No desktop session has been tried.                         |
-| Arch, Debian and Ubuntu, Fedora, openSUSE   | ![Needs verification][needs-verification]                                                  | The installer has a package list for each; see [requirements by distribution](#requirements-by-distribution).                                                                        |
-| Ubuntu 24.04 and later                      | ![Needs verification][needs-verification]                                                  | These releases restrict unprivileged user namespaces, which the QtWebEngine renderer sandbox uses; tracked in [#381](https://github.com/mikepadiernos/plasma-impresario/issues/381). |
-| KDE Plasma 6 on X11                         | ![Limitation][limitation]                                                                  | Not a release target. It may work, but problems specific to X11 are not fixed.                                                                                                       |
-| KDE Plasma 5 and earlier                    | ![Unsupported][unsupported]                                                                | The build needs Qt 6 and KDE Frameworks 6.                                                                                                                                           |
-| Other Linux desktops, such as GNOME or Xfce | ![Unsupported][unsupported]                                                                | Outside the scope. Desktop integration expects Plasma services.                                                                                                                      |
-| macOS and Windows                           | ![Unsupported][unsupported]                                                                | macOS serves only as a host for the dev container. The inherited Windows installer files in `packaging/` are not maintained.                                                         |
+| Platform                                    | Status                                                                                     | Notes                                                                                                                                                                                                                                                                               |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| KDE Plasma 6 on Wayland, Linux x86_64       | ![Verified][verified] build and install; ![Needs verification][needs-verification] session | The release target. Built, tested and installed on CachyOS; use in a real Plasma session is checked in M15 ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)).                                                                                                 |
+| Linux aarch64                               | ![Verified][verified] build and tests                                                      | The full test suite runs offscreen in the headless Fedora 44 [dev container](../CONTRIBUTING.md#building-outside-plasma). No desktop session has been tried.                                                                                                                        |
+| Arch, Debian and Ubuntu, Fedora, openSUSE   | ![Needs verification][needs-verification]                                                  | The installer has a package list for each; see [requirements by distribution](#requirements-by-distribution).                                                                                                                                                                       |
+| Ubuntu 24.04 and later                      | ![Needs verification][needs-verification]                                                  | These releases restrict unprivileged user namespaces, which the QtWebEngine renderer sandbox uses; the installer adds a [profile](#renderer-sandbox-on-ubuntu) for them. Untried on Ubuntu; checked in M15 ([#512](https://github.com/mikepadiernos/plasma-impresario/issues/512)). |
+| KDE Plasma 6 on X11                         | ![Limitation][limitation]                                                                  | Not a release target. It may work, but problems specific to X11 are not fixed.                                                                                                                                                                                                      |
+| KDE Plasma 5 and earlier                    | ![Unsupported][unsupported]                                                                | The build needs Qt 6 and KDE Frameworks 6.                                                                                                                                                                                                                                          |
+| Other Linux desktops, such as GNOME or Xfce | ![Unsupported][unsupported]                                                                | Outside the scope. Desktop integration expects Plasma services.                                                                                                                                                                                                                     |
+| macOS and Windows                           | ![Unsupported][unsupported]                                                                | macOS serves only as a host for the dev container. The inherited Windows installer files in `packaging/` are not maintained.                                                                                                                                                        |
 
 The [compatibility baseline](philosophy/compatibility.md) records the exact
 versions observed and what each check covered.
+
+### Renderer sandbox on Ubuntu
+
+The message reader runs web content in QtWebEngine's sandboxed renderer, which
+needs unprivileged user namespaces. Ubuntu 24.04 and later allow them only to
+programs with an AppArmor profile, which the system turns on with
+`kernel.apparmor_restrict_unprivileged_userns = 1`. When that setting is on,
+the installer writes `/etc/apparmor.d/plasma-impresario` for the installed
+binary and loads it with `apparmor_parser`. Like the distribution's profiles for
+browsers and for `QtWebEngineProcess`, it allows user namespaces and confines
+nothing else. The template is
+[`packaging/apparmor/plasma-impresario.in`](../packaging/apparmor/plasma-impresario.in).
+
+The installer never turns the sandbox off. If it cannot install the profile,
+because `apparmor_parser` is missing, `--no-apparmor` was given or the prefix
+contains characters that AppArmor treats as patterns, it prints a warning and
+the installation continues.
+
+> [!CAUTION]
+>
+> This step has only been tested with mock commands, not on Ubuntu; that check
+> is [#512](https://github.com/mikepadiernos/plasma-impresario/issues/512). Do not work around a failing
+> sandbox with `QTWEBENGINE_DISABLE_SANDBOX` or `--no-sandbox`: they remove the
+> renderer's isolation from untrusted mail.
+
+The profile is not in the install manifest. To remove it:
+
+```bash
+sudo apparmor_parser -R /etc/apparmor.d/plasma-impresario
+sudo rm /etc/apparmor.d/plasma-impresario
+```
 
 ## Requirements by distribution
 
@@ -259,6 +297,9 @@ xargs -d '\n' rm -f < build/install_manifest.txt
 rm -f ~/.local/bin/trojita
 ```
 
+If the installer added the [renderer sandbox profile](#renderer-sandbox-on-ubuntu),
+remove it as shown there.
+
 The `bin/trojita` compatibility link is created by an install script, so the
 manifest does not list it. Add `sudo` for a protected prefix. Then remove the
 files in [where data is stored](#where-data-is-stored) to delete settings and
@@ -270,22 +311,23 @@ launcher remains in the application menu.
 
 Start Plasma Impresario from the application menu or run `plasma-impresario`.
 
-| Problem                                                            | What to do                                                                                                                                                                                                                            |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `plasma-impresario` is not found on the command line               | Add `$HOME/.local/bin` (or `PREFIX/bin`) to `PATH`. The application-menu launcher does not depend on it.                                                                                                                              |
-| The launcher is missing with a custom prefix                       | Plasma must search the prefix's `share` directory through `XDG_DATA_HOME` or `XDG_DATA_DIRS`. Configure the session environment before logging in, or use the default prefix.                                                         |
-| "Unsupported distribution" or "No supported package manager found" | Install the dependencies manually and run `./install.sh --no-deps`.                                                                                                                                                                   |
-| "Root privileges or sudo are required"                             | Install `sudo`, run as root, or install the missing packages yourself and use `--no-deps`.                                                                                                                                            |
-| CMake fails after the dependency check passed                      | The check does not cover versions or CMake-only requirements. Compare the CMake error with the [compatibility baseline](philosophy/compatibility.md).                                                                                 |
-| "Icon cache … may be stale" or "Could not refresh icon cache"      | Install `gtk-update-icon-cache` and run `gtk-update-icon-cache --force --ignore-theme-index "$PREFIX/share/icons/hicolor"` with `PREFIX` set to the prefix. Run `kbuildsycoca6`, or log out and back in, if the old icon remains.     |
-| Messages do not display                                            | The build is renderer-free. Rebuild with the default `--with-webengine`.                                                                                                                                                              |
-| The handbook or man page describes Trojitá                         | Both come from the historical [`docs/old`](old/README.md) archive and may describe old behavior.                                                                                                                                      |
-| The password is asked for at every start                           | Check the password plugin in the general settings. QtKeychain, the default for new profiles, needs `qtkeychain-qt6` at build time and KWallet or the Secret Service running in the session.                                           |
-| An account fails to connect or behaves oddly                       | Start with `plasma-impresario --log-to-disk` and reproduce the problem. The log is written to `trojita-connection-log` in the cache folder. It can contain mail and personal data; delete it afterwards and redact it before sharing. |
-| A certificate warning appears                                      | Reject it unless the provider confirms the certificate; see [safe operating guidance](CAVEATS.md#safe-operating-guidance).                                                                                                            |
-| The theme or layout looks wrong after a change                     | Start with `plasma-impresario --reset-appearance`, or `--no-workspace-appearance` to skip workspace overrides.                                                                                                                        |
-| A clean configuration is needed to compare                         | Start with `plasma-impresario --profile test`. The profile has its own accounts, settings file and cache; only `plasma-impresariorc` is shared.                                                                                       |
-| The application menu still shows the old launcher                  | Run `kbuildsycoca6`, or log out and back in.                                                                                                                                                                                          |
+| Problem                                                            | What to do                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `plasma-impresario` is not found on the command line               | Add `$HOME/.local/bin` (or `PREFIX/bin`) to `PATH`. The application-menu launcher does not depend on it.                                                                                                                                                          |
+| The launcher is missing with a custom prefix                       | Plasma must search the prefix's `share` directory through `XDG_DATA_HOME` or `XDG_DATA_DIRS`. Configure the session environment before logging in, or use the default prefix.                                                                                     |
+| "Unsupported distribution" or "No supported package manager found" | Install the dependencies manually and run `./install.sh --no-deps`.                                                                                                                                                                                               |
+| "Root privileges or sudo are required"                             | Install `sudo`, run as root, or install the missing packages yourself and use `--no-deps`.                                                                                                                                                                        |
+| CMake fails after the dependency check passed                      | The check does not cover versions or CMake-only requirements. Compare the CMake error with the [compatibility baseline](philosophy/compatibility.md).                                                                                                             |
+| "Icon cache … may be stale" or "Could not refresh icon cache"      | Install `gtk-update-icon-cache` and run `gtk-update-icon-cache --force --ignore-theme-index "$PREFIX/share/icons/hicolor"` with `PREFIX` set to the prefix. Run `kbuildsycoca6`, or log out and back in, if the old icon remains.                                 |
+| Messages do not display                                            | The build is renderer-free. Rebuild with the default `--with-webengine`.                                                                                                                                                                                          |
+| Messages do not display on Ubuntu 24.04 or later                   | The renderer sandbox may lack its AppArmor profile. Check that `/etc/apparmor.d/plasma-impresario` names the installed binary, run the installer again without `--no-apparmor`, and see the [renderer sandbox](#renderer-sandbox-on-ubuntu). Keep the sandbox on. |
+| The handbook or man page describes Trojitá                         | Both come from the historical [`docs/old`](old/README.md) archive and may describe old behavior.                                                                                                                                                                  |
+| The password is asked for at every start                           | Check the password plugin in the general settings. QtKeychain, the default for new profiles, needs `qtkeychain-qt6` at build time and KWallet or the Secret Service running in the session.                                                                       |
+| An account fails to connect or behaves oddly                       | Start with `plasma-impresario --log-to-disk` and reproduce the problem. The log is written to `trojita-connection-log` in the cache folder. It can contain mail and personal data; delete it afterwards and redact it before sharing.                             |
+| A certificate warning appears                                      | Reject it unless the provider confirms the certificate; see [safe operating guidance](CAVEATS.md#safe-operating-guidance).                                                                                                                                        |
+| The theme or layout looks wrong after a change                     | Start with `plasma-impresario --reset-appearance`, or `--no-workspace-appearance` to skip workspace overrides.                                                                                                                                                    |
+| A clean configuration is needed to compare                         | Start with `plasma-impresario --profile test`. The profile has its own accounts, settings file and cache; only `plasma-impresariorc` is shared.                                                                                                                   |
+| The application menu still shows the old launcher                  | Run `kbuildsycoca6`, or log out and back in.                                                                                                                                                                                                                      |
 
 ## Security
 
