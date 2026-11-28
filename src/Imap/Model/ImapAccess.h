@@ -26,6 +26,7 @@
 #include <memory>
 
 #include <QObject>
+#include <QPointer>
 #include <QSslError>
 
 #include "Common/ConnectionMethod.h"
@@ -50,6 +51,7 @@ class PluginManager;
 namespace Imap {
 
 namespace Mailbox {
+class HeaderBackfill;
 class MailboxModel;
 class Model;
 class MsgListModel;
@@ -116,6 +118,8 @@ public:
     UiUtils::PasswordWatcher *passwordWatcher() const;
     /** @short The local search index of the account, or nullptr when it is not enabled */
     Imap::Mailbox::SearchIndexer *searchIndexer() const;
+    /** @short Loads the headers of the open folder in the background, or nullptr for a local account */
+    Imap::Mailbox::HeaderBackfill *headerBackfill() const;
     /** @short Pause or resume the local search index, and remember the choice for the account */
     void setSearchIndexPaused(bool paused);
     /** @short Keep @arg mailboxes out of the local search index, and remember the choice for the account */
@@ -200,6 +204,7 @@ private:
     QSettings *m_appSettings;
     Imap::Mailbox::Model *m_imapModel;
     Imap::Mailbox::SearchIndexer *m_searchIndexer = nullptr;
+    QPointer<Imap::Mailbox::HeaderBackfill> m_headerBackfill;
     Imap::Mailbox::MailboxModel *m_mailboxModel;
     Imap::Mailbox::SubtreeModelOfMailboxModel *m_mailboxSubtreeModel;
     Imap::Mailbox::MsgListModel *m_msgListModel;

@@ -196,6 +196,18 @@ else()
     set(CMAKE_CXX_FLAGS "-Wall -Wsign-compare ${CMAKE_CXX_FLAGS}")
 endif()
 
+# Sanitizer builds for testing, for example -DIMPRESARIO_SANITIZERS="address;undefined"; see docs/sanitizers.md
+set(IMPRESARIO_SANITIZERS "" CACHE STRING "Sanitizers to build with, such as address;undefined or thread (GCC or Clang)")
+if(IMPRESARIO_SANITIZERS)
+    if(MSVC)
+        message(FATAL_ERROR "IMPRESARIO_SANITIZERS needs GCC or Clang")
+    endif()
+    list(JOIN IMPRESARIO_SANITIZERS "," impresario_sanitizers)
+    add_compile_options(-fsanitize=${impresario_sanitizers} -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=${impresario_sanitizers})
+    message(STATUS "Building with sanitizers: ${impresario_sanitizers}")
+endif()
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 # The following is required so that the moc_*.cpp and ui_*.h are found
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
@@ -305,6 +317,7 @@ set(libCommon_SOURCES
     ${path_Common}/MetaTypes.cpp
     ${path_Common}/Paths.cpp
     ${path_Common}/PrivateFiles.cpp
+    ${path_Common}/RetryBackoff.cpp
     ${path_Common}/SettingsNames.cpp
     ${path_Common}/StashingReverseIterator.h
 )
@@ -437,6 +450,7 @@ set(libComposer_SOURCES
     ${path_Composer}/HeaderSafety.cpp
     ${path_Composer}/Mailto.cpp
     ${path_Composer}/MessageComposer.cpp
+    ${path_Composer}/Outbox.cpp
     ${path_Composer}/QuoteText.cpp
     ${path_Composer}/Recipients.cpp
     ${path_Composer}/ReplaceSignature.cpp
@@ -538,6 +552,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/MailAutomation.cpp
     ${path_DesktopGui}/MailBoxTreeView.cpp
     ${path_DesktopGui}/MailboxPickerDialog.cpp
+    ${path_DesktopGui}/OutboxDialog.cpp
     ${path_DesktopGui}/RemoteAttachmentFetcher.cpp
     ${path_DesktopGui}/RuleEditDialog.cpp
     ${path_DesktopGui}/RulesDialog.cpp
@@ -647,6 +662,7 @@ set(libImap_SOURCES
 
     ${path_Imap}/Model/Cache.cpp
     ${path_Imap}/Model/CombinedCache.cpp
+    ${path_Imap}/Model/ConnectionStates.cpp
     ${path_Imap}/Model/DragAndDrop.cpp
     ${path_Imap}/Model/DiskPartCache.cpp
     ${path_Imap}/Model/DummyNetworkWatcher.cpp
@@ -681,6 +697,7 @@ set(libImap_SOURCES
     ${path_Imap}/Model/SearchResultsModel.cpp
     ${path_Imap}/Model/SearchSnippets.cpp
     ${path_Imap}/Model/FolderSearch.cpp
+    ${path_Imap}/Model/HeaderBackfill.cpp
     ${path_Imap}/Model/AttachmentTextExtractor.cpp
     ${path_Imap}/Model/DecryptedTextIndexer.cpp
     ${path_Imap}/Model/SearchIndex.cpp
@@ -1316,8 +1333,6 @@ if(BUILD_TESTING)
         endif()
     endmacro()
 
-    set(UBSAN_ENV_SUPPRESSIONS "UBSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/tests/ubsan.supp")
-
     enable_testing()
     if(WITH_DESKTOP)
         add_executable(test_DensityMenu tests/Gui/test_DensityMenu.cpp)
@@ -1389,6 +1404,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_LiveImapOperations PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_LiveImapSearch tests/Gui/test_LiveImapSearch.cpp)
         target_link_libraries(test_LiveImapSearch PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Network Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_LiveImapWorkloads tests/Gui/test_LiveImapWorkloads.cpp)
+        target_link_libraries(test_LiveImapWorkloads PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_InlineNotificationBar tests/Gui/test_InlineNotificationBar.cpp)
         target_link_libraries(test_InlineNotificationBar PRIVATE DesktopGui Qt6::Test KF6::I18n)
         add_executable(test_AddAccountDialog tests/Gui/test_AddAccountDialog.cpp)
@@ -1493,7 +1510,10 @@ if(BUILD_TESTING)
                     sidebarShowsHeadersOnlyForSeveralAccounts sidebarGroupsAccountsInTheWindow sidebarHeaderMenuActsOnItsAccount
                     headerRegionIsOptional headerShowsFolderAndStatus legacyCompactPaneSizesCarryOver
                     legacyWidePaneSizesCarryOver closingQuitsByDefault closingHidesWhenRunningInBackground
-                    requestsBringTheirWindowForward sessionEndSavesUnsentMessages)
+                    requestsBringTheirWindowForward sessionEndSavesUnsentMessages
+                    sidebarShowsUnreadCounts mailAutomationFollowsTheWindow taskManagerShowsTheUnreadCount
+                    mailToNotesNeedsANotesFolder everyVisibleControlHasAnAccessibleName
+                    failedFolderSyncStaysInTheActivityLog accountStatusCombinesItsConnections)
                 add_test(NAME test_MainWindowShell_${shell_case} COMMAND test_MainWindowShell ${shell_case})
                 set_tests_properties(test_MainWindowShell_${shell_case} PROPERTIES
                     TIMEOUT 60
@@ -1555,6 +1575,7 @@ if(BUILD_TESTING)
         endif()
     endif()
     impresario_test(Composer Composer_Submission)
+    impresario_test(Composer Composer_Outbox)
     impresario_test(Composer Composer_Existing)
     impresario_test(Composer Composer_AttachmentRequests)
     impresario_test(Composer Composer_HeaderSafety)
@@ -1594,6 +1615,10 @@ if(BUILD_TESTING)
     impresario_test(Imap Imap_ViewStatePreservation)
     impresario_test(Imap Imap_BodyParts)
     impresario_test(Imap Imap_Offline)
+    impresario_test(Imap Imap_Reliability)
+    impresario_test(Imap Imap_HeaderBackfill)
+    impresario_test(Imap Imap_Workloads)
+    target_link_libraries(test_Imap_Workloads PRIVATE UiUtils)
     impresario_test(Imap Imap_CopyAndFlagOperations)
     impresario_test(Cryptography Cryptography_MessageModel)
 
@@ -1610,6 +1635,11 @@ if(BUILD_TESTING)
       add_library(fake-dev-random SHARED ${CMAKE_CURRENT_SOURCE_DIR}/tests/Utils/fake-dev-random.c)
       set_target_properties(fake-dev-random PROPERTIES AUTOMOC off)
       target_link_libraries(fake-dev-random ${CMAKE_DL_LIBS})
+      if(IMPRESARIO_SANITIZERS)
+          # Preloaded into the system's gpg, which has no sanitizer runtime
+          target_compile_options(fake-dev-random PRIVATE -fno-sanitize=all)
+          target_link_options(fake-dev-random PRIVATE -fno-sanitize=all)
+      endif()
 
       # FIXME: it would be nice to depend on the contents of keys/, but in my testing it produces Makefiles
       # which suffer from races (the keygen.sh is run multiple times in parallel within the CI environment).
@@ -1659,6 +1689,7 @@ if(BUILD_TESTING)
     impresario_test(Misc AccountRegistry)
     impresario_test(Misc AccountIdentities)
     impresario_test(Misc AccountStatus)
+    impresario_test(Misc RetryBackoff)
     impresario_test(Misc OAuth)
     impresario_test(Misc SmtpClient)
     impresario_test(Misc AttachmentCollector)
@@ -1801,6 +1832,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_PlasmaSearch PRIVATE DesktopServices KF6::ConfigCore)
         impresario_test(Misc DesktopFeedback)
         target_link_libraries(test_DesktopFeedback PRIVATE DesktopServices KF6::ConfigCore Qt6::DBus)
+        impresario_test(Imap Imap_MultiAccountUnread)
+        target_link_libraries(test_Imap_MultiAccountUnread PRIVATE DesktopServices KF6::ConfigCore Qt6::DBus)
         impresario_test(Misc SleepMonitor)
         target_link_libraries(test_SleepMonitor PRIVATE DesktopServices Qt6::DBus)
         impresario_test(Misc MailStatus)
@@ -1815,6 +1848,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_RulesDialog PRIVATE DesktopGui UiUtils KF6::I18n)
         impresario_test(Gui ActivityDialog)
         target_link_libraries(test_ActivityDialog PRIVATE DesktopGui UiUtils KF6::I18n)
+        impresario_test(Gui OutboxDialog)
+        target_link_libraries(test_OutboxDialog PRIVATE DesktopGui UiUtils KF6::I18n)
         impresario_test(Gui NotificationsDialog)
         target_link_libraries(test_NotificationsDialog PRIVATE DesktopGui UiUtils KF6::I18n)
     endif()
@@ -1883,6 +1918,15 @@ if(BUILD_TESTING)
         set_tests_properties(test_ExternalExposure_${exposure_name} PROPERTIES PASS_REGULAR_EXPRESSION "${exposure_expected}")
     endforeach()
 
+    # A sanitizer report fails its test; the suppressions name third-party code only, each with its reason
+    if(IMPRESARIO_SANITIZERS)
+        get_property(impresario_tests DIRECTORY PROPERTY TESTS)
+        set_property(TEST ${impresario_tests} APPEND PROPERTY ENVIRONMENT
+            "ASAN_OPTIONS=detect_leaks=1:abort_on_error=0:strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1"
+            "LSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/tests/lsan.supp:print_suppressions=0"
+            "UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1:suppressions=${CMAKE_CURRENT_SOURCE_DIR}/tests/ubsan.supp"
+            "TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1:suppressions=${CMAKE_CURRENT_SOURCE_DIR}/tests/tsan.supp")
+    endif()
 endif()
 
 if(WIN32) # Check if we are on Windows

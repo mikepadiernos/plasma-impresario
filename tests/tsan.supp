@@ -1,0 +1,3 @@
+# ThreadSanitizer suppressions for builds with IMPRESARIO_SANITIZERS=thread.
+# ThreadSanitizer needs a Qt that is itself built with -sanitize thread;
+# reports from an uninstrumented Qt are not meaningful. See docs/sanitizers.md.

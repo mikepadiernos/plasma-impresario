@@ -10,6 +10,7 @@
 #define GUI_WEBENGINEMESSAGEPAGE_H
 
 #include <functional>
+#include <memory>
 #include <QColor>
 #include <QWebEnginePage>
 
@@ -36,7 +37,7 @@ public:
     bool setMessageHtml(const QString &html, const QUrl &baseUrl);
 
     /** Asynchronously returns selected text, or the rendered page text when nothing is selected.
-     * @param callback Receives the text available for quoting.
+     * @param callback Receives the text available for quoting. It is not called if the page is destroyed first.
      */
     void quoteText(const std::function<void(const QString &)> &callback);
 
@@ -51,7 +52,8 @@ public:
     /** Asynchronously returns the text of the link to @p href.
      * @param href The link target as the page reports it.
      * @param source Which of several links with this target is meant.
-     * @param callback Receives the text, or an empty string if no such link is found.
+     * @param callback Receives the text, or an empty string if no such link is found. It is not called if the page
+     * is destroyed first.
      */
     void linkText(const QString &href, LinkSource source, const std::function<void(const QString &)> &callback);
 
@@ -101,6 +103,8 @@ private:
     QUrl m_partUrl;
     bool m_allowGeneratedMarkup = false;
     bool m_generatedMarkup = false;
+    /** Expires before ~QWebEnginePage() runs the pending script callbacks, when a QPointer still looks valid. */
+    std::shared_ptr<char> m_alive = std::make_shared<char>();
 };
 
 }

@@ -3,8 +3,11 @@
 */
 #pragma once
 
+#include <functional>
+
 #include <QAbstractListModel>
 #include <QDateTime>
+#include <QHash>
 #include <QList>
 
 namespace UiUtils {
@@ -15,6 +18,10 @@ Work which is reported again under the same key, such as the sync of one account
 the top instead of adding another one, so that a long session does not bury failures under progress. The log keeps
 the newest entries up to capacity; failures are dropped last. An entry can name what fixes it, such as signing in or
 reviewing a rule, for the window to offer.
+
+A failed entry whose work can run again carries Action::Retry and a handler set through setRetry(); retry() runs it.
+The handler belongs to that failure: recording the entry again without Action::Retry, as when the work succeeds or
+fails in a way which retrying does not fix, forgets it.
 
 The log is kept for the session only.
 */
@@ -48,6 +55,10 @@ public:
         ReviewRule,
         OpenSettings,
         OpenAccount,
+        /** Open the saved draft or message file in Entry::target */
+        OpenDraft,
+        /** Show the messages waiting to be sent */
+        OpenOutbox,
     };
     Q_ENUM(Action)
 
@@ -91,6 +102,22 @@ public:
     void record(Entry entry);
     /** @short Set the state of the entry with @arg key; returns whether there was one */
     bool finish(const QString &key, State state, const QString &error = QString());
+    /** @short Let the failed entry @arg key run its work again through @arg handler
+
+    The entry offers Action::Retry from now on. Returns false when there is no such entry.
+    */
+    bool setRetry(const QString &key, const std::function<void()> &handler);
+    /** Whether the entry @arg key has a handler which retry() would run */
+    bool canRetry(const QString &key) const;
+    /** @short Run the handler of the entry @arg key, showing the entry as running again
+
+    The handler is used once; the work records the entry again, and sets a new handler if it fails again.
+    */
+    bool retry(const QString &key);
+    /** @short Retry every failed entry which can be retried; returns how many were */
+    int retryAll();
+    /** The number of failed entries which can be retried */
+    int retryableCount() const;
     /** Forget the entries which are done, keeping running, waiting and failed ones */
     void clearFinished();
     /** Forget the entries of @arg accountId, as when the account is removed */
@@ -119,7 +146,10 @@ private:
     void trim();
     void notifyCounts(int failedBefore, int runningBefore);
 
+    void forgetRetry(const QString &key);
+
     QList<Entry> m_entries;
+    QHash<QString, std::function<void()>> m_retries;
 };
 
 }

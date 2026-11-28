@@ -7,7 +7,9 @@
 #include <functional>
 #include <memory>
 #include <QDateTime>
+#include <QElapsedTimer>
 #include <QHash>
+#include <QModelIndex>
 #include <QObject>
 #include <QSet>
 #include <QStringList>
@@ -28,6 +30,13 @@ class AbstractCache;
 The indexer reads the folders, headers, flags and downloaded text parts which the cache already holds, a few messages
 at a time so that the window stays responsive, and never asks the server for anything. Messages whose text was not
 downloaded are indexed by their headers and looked at again in later passes, once their text may have arrived.
+
+A pass looks again at every message of a folder only when the folder may have changed: when the model reported a
+change in it (noteChange()), or when its UIDVALIDITY, HIGHESTMODSEQ, UIDNEXT or message count differ from those of
+the last pass. A folder whose server offers no CONDSTORE has no HIGHESTMODSEQ and is always looked at in full.
+
+The index is checked when it is opened, and a damaged index, found then or by a failing statement, is built again
+from the cache.
 
 The cache is asked for through a function, because the account replaces its cache when the cache fails. The index
 works only with a persistent SQLite cache, see CombinedCache.
@@ -76,6 +85,19 @@ public:
         int messages = 0;
     };
 
+    /** @short What the last finished pass did */
+    struct PassStatistics {
+        /** When it finished; invalid when no pass finished yet */
+        QDateTime finished;
+        qint64 elapsedMs = 0;
+        /** Folders looked at message by message, and folders skipped because they had not changed */
+        int scanned = 0;
+        int skipped = 0;
+        /** Messages looked at, and those of them added or replaced */
+        int messages = 0;
+        int stored = 0;
+    };
+
     explicit SearchIndexer(const CacheSource &cache, QObject *parent = nullptr);
     ~SearchIndexer() override;
 
@@ -91,6 +113,9 @@ public:
     void scheduleUpdate();
     bool isRunning() const;
     Progress progress() const;
+    PassStatistics lastPass() const;
+    /** @short How often the index was found damaged and built again since it was opened */
+    int recoveries() const;
 
     /** @short Stop indexing until resumed; changes to the cache in the meantime are indexed on resume */
     void setPaused(bool paused);
@@ -156,6 +181,14 @@ public:
     bool document(const AbstractCache &cache, const QString &mailbox, uint uid, const QStringList &flags,
                   SearchIndex::Document *document) const;
 
+public slots:
+    /** @short Note that the folder of @arg index changed, and schedule an update
+
+    Takes the index of a message, a message part or a folder's message list, as the model's rowsInserted(),
+    rowsRemoved() and dataChanged() give them; changes to the folder tree itself are ignored.
+    */
+    void noteChange(const QModelIndex &index);
+
 signals:
     void progressChanged();
     void finished();
@@ -172,6 +205,10 @@ private:
     void endFolder();
     void endPass();
     std::shared_ptr<AbstractCache> usableCache() const;
+    /** @short Build a damaged index again; false when even that fails and the index is unavailable */
+    bool recover();
+    /** @short Mark @arg mailbox as changed, in the index too, so that the next pass looks at it in full */
+    void markChanged(const QString &mailbox);
 
     CacheSource m_cache;
     std::unique_ptr<SearchIndex> m_index;
@@ -198,6 +235,12 @@ private:
     Imap::Uids m_uids;
     int m_position = 0;
     QHash<uint, SearchIndex::Entry> m_entries;
+    /** Folders changed since a pass last began to look at them */
+    QSet<QString> m_changed;
+    PassStatistics m_lastPass;
+    PassStatistics m_pass;
+    QElapsedTimer m_passTimer;
+    int m_recoveries = 0;
 };
 
 }

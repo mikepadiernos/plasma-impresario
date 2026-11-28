@@ -140,6 +140,8 @@ private slots:
     void completeRecipients(const QString &text);
     void send();
     void gotError(const QString &error);
+    /** @short The submission failed; offer to keep the message in the outbox unless the server refused it */
+    void submissionFailed(const QString &error);
     void sent();
     void updateRecipientList();
     void scrollRecipients(int);
@@ -203,7 +205,13 @@ private:
     bool shouldBuildMessageLocally() const;
 
     void saveDraft(const QString &path);
+    /** @short The draft as saveDraft() writes it, marked as explicitly saved or not by @p explicitDraft */
+    QByteArray draftData(bool explicitDraft);
     void loadDraft(const QString &path);
+    /** @short The folder which keeps a copy of what this account sends, or an empty string when none is kept here */
+    QString sentCopyFolder() const;
+    /** @short Queue the message in the outbox, with a Sent copy when @p fileCopy, and close; returns whether queued */
+    bool queueInOutbox(bool fileCopy);
 
     std::shared_ptr<Composer::MessageComposer> interactiveComposer();
     /** Attach the files another application asked for and list them, and those refused, in the notice */
@@ -264,6 +272,8 @@ private:
     QString m_draftSender;
     /** Why the message is not sent from the account it was written from */
     QString m_accountProblem;
+    /** Why the server refused this draft when it was sent from the outbox */
+    QString m_refusalProblem;
     QComboBox *m_account;
     QLabel *m_accountWarning;
     /** Reports the files another application asked to attach */

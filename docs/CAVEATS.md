@@ -49,6 +49,11 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Saving unsent messages at session end](#saving-unsent-messages-at-session-end)
   - [Portal file chooser](#portal-file-chooser)
   - [Unread count on the task manager](#unread-count-on-the-task-manager)
+  - [Read state and unread counts](#read-state-and-unread-counts)
+  - [Performance and resource use](#performance-and-resource-use)
+  - [Sanitizers and data races](#sanitizers-and-data-races)
+  - [Persistent outbox](#persistent-outbox)
+  - [Background header loading](#background-header-loading)
   - [Accessibility and theming](#accessibility-and-theming)
   - [Provider setup and Gmail](#provider-setup-and-gmail)
   - [Junk and attachment safety](#junk-and-attachment-safety)
@@ -98,6 +103,10 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Add Account        | Found servers are not tried against real providers, guessed servers are only probed for a connection, and most resolvers do not validate DNSSEC, so servers outside the mail domain usually need confirmation ([details](#server-settings-discovery))                                                                                                                                                                                                 | [#466](https://github.com/mikepadiernos/plasma-impresario/issues/466)                                                                        |
 | ![Limitation][limitation] | Window activation  | Requests pass Plasma's activation token to the window they open, but nothing is checked in a Plasma session; a composer opened by a first launch and the address book window may only be marked as wanting attention ([details](#window-activation-for-requests))                                                                                                                                                                                     | [#467](https://github.com/mikepadiernos/plasma-impresario/issues/467)                                                                        |
 | ![Limitation][limitation] | Session end        | Open composers save unsent messages as drafts when the session ends, but nothing is checked in a Plasma session; attachments are not saved, and on Wayland **Save Draft?** may hold up logging out ([details](#saving-unsent-messages-at-session-end))                                                                                                                                                                                                | [#468](https://github.com/mikepadiernos/plasma-impresario/issues/468)                                                                        |
+| ![Limitation][limitation] | Read state         | Read and flag changes, and the unread counts, change only once the server confirms them; a change cut off by a lost connection is not replayed ([details](#read-state-and-unread-counts))                                                                                                                                                                                                                                                             | [#505](https://github.com/mikepadiernos/plasma-impresario/issues/505)                                                                        |
+| ![Limitation][limitation] | Performance        | Removing many messages at once slows down with folder size, and a single `VANISHED` report blocks the window while it is applied; quick filters on very large folders and open large attachments are costly ([details](#performance-and-resource-use))                                                                                                                                                                                                | [#506](https://github.com/mikepadiernos/plasma-impresario/issues/506)                                                                        |
+| ![Limitation][limitation] | Sanitizers         | The suite and live tests run clean under ASan, LSan and UBSan, but ThreadSanitizer has not been run, so data races in work on other threads are not checked ([details](#sanitizers-and-data-races))                                                                                                                                                                                                                                                   | [#507](https://github.com/mikepadiernos/plasma-impresario/issues/507)                                                                        |
+| ![Limitation][limitation] | Outbox             | Offline and failed sends wait in a persistent outbox and are never submitted twice, but queued replies set no answered flag, no password is asked for, refused drafts lose attachments, only SMTP refusals count as permanent and IMAP SENDMAIL accounts cannot queue ([details](#persistent-outbox))                                                                                                                                                 | [#508](https://github.com/mikepadiernos/plasma-impresario/issues/508)                                                                        |
 | ![Limitation][limitation] | File chooser       | Files are chosen through the XDG portal file chooser, falling back to the KDE dialog, but nothing is checked in a Plasma session or with Plasma Opus; save dialogs still use the KDE dialog, and remote locations in the portal depend on kio-fuse ([details](#portal-file-chooser))                                                                                                                                                                  | [#470](https://github.com/mikepadiernos/plasma-impresario/issues/470)                                                                        |
 | ![Limitation][limitation] | Task manager       | The task manager entry shows the unread messages in every account's INBOX, but nothing is checked in a Plasma session; the tray icon counts other folders, and accounts not yet connected add nothing ([details](#unread-count-on-the-task-manager))                                                                                                                                                                                                  | [#471](https://github.com/mikepadiernos/plasma-impresario/issues/471)                                                                        |
 | ![Limitation][limitation] | Accessibility      | Icons, state colors and contrast follow Plasma's theme and the main controls have accessible names, but nothing is checked with a screen reader, a high-contrast scheme or in a Plasma session, and there are no translations yet ([details](#accessibility-and-theming))                                                                                                                                                                             | [#472](https://github.com/mikepadiernos/plasma-impresario/issues/472)                                                                        |
@@ -124,7 +133,7 @@ issue comment that holds the current recommendation.
 | ![Security][security]     | Outgoing headers   | Header input is cleaned and Bcc is left out of delivered mail, but Sent copies delivered through BURL or the IMAP SENDMAIL Extension also omit Bcc, and cleaned input is not pointed out ([details](#outgoing-headers-and-bcc))                                                                                                                                                                                                                       | [#459](https://github.com/mikepadiernos/plasma-impresario/issues/459)                                                                        |
 | ![Planned][planned]       | Integrations       | Plasma new-mail notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                                                                                                                                                                                                                                                                                       | —                                                                                                                                            |
 | ![Limitation][limitation] | Compatibility      | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                                                                                                                                                                                                                                                          | —                                                                                                                                            |
-| ![Limitation][limitation] | Quality evidence   | Large-mailbox benchmarks and broad accessibility, screen-reader, high-DPI and RTL verification are not recorded; nothing has been checked in a real Plasma session yet                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
+| ![Limitation][limitation] | Quality evidence   | Workloads are measured only against fake servers in a Debug build ([performance](performance.md)); broad accessibility, screen-reader, high-DPI and RTL verification are not recorded; nothing has been checked in a real Plasma session yet                                                                                                                                                                                                          | —                                                                                                                                            |
 
 ### Multiple accounts
 
@@ -1097,6 +1106,19 @@ Plasma session; that check is
   is pressed. Turning decrypted indexing off while indexing is paused leaves
   those messages out of the index until **Resume**
   ([#344](https://github.com/mikepadiernos/plasma-impresario/issues/344)).
+- ![Limitation][limitation] An update skips a folder only when its server
+  offers CONDSTORE and the folder's HIGHESTMODSEQ, UIDNEXT and message count are
+  unchanged; otherwise every cached message's flags are compared again, about
+  156 ms per 50,000 messages. Downloaded text raises no HIGHESTMODSEQ, so the
+  index learns of it from the message list; text stored in the cache by any
+  other way is found at the next change in its folder. The index is checked
+  by counting when it opens. Damage found later, by a failing search or
+  update, makes that search fail with an explanation, and the next update
+  rebuilds the whole index from the cache: until it finishes, offline searches
+  find only what is rebuilt, and decrypted text returns only as messages are
+  opened again. The full FTS5 integrity check is not run on its own
+  ([#357](https://github.com/mikepadiernos/plasma-impresario/issues/357),
+  [measurements](performance.md#search-index)).
 - ![Limitation][limitation] **Offline Search Index…** shows the shown account
   only, and lists only the folders its offline cache knows. A folder is
   **Partly indexed** while some of its cached messages have no headers on this
@@ -1207,6 +1229,9 @@ Plasma session; that check is
   clear.
 - Online, press **Search Server** when an indexed search misses older or
   undownloaded mail, or reports a renumbered folder.
+- If an offline search reports that the index is damaged, leave the account
+  open until **Offline Search Index…** shows every folder **Indexed** again,
+  then search again; **Rebuild** does the same at once.
 - To search the text of an attachment offline, open or save it once while
   online; the index reads it shortly after. For a format the index dialog
   lists as unreadable, install the distribution's KFileMetaData extractors,
@@ -1280,6 +1305,10 @@ Plasma session; that check is
   as well ([#343](https://github.com/mikepadiernos/plasma-impresario/issues/343)).
 - Search the shown folder alone when offline, and refresh the index right
   after a sync rather than after a pause.
+- Rebuild only the damaged folders, starting as soon as a search finds the
+  damage, keep decrypted text in a separate table so that a rebuild keeps
+  it, and run the full integrity check in small steps while the computer is
+  idle ([#357](https://github.com/mikepadiernos/plasma-impresario/issues/357)).
 - Show the index of every account in one place, offer to load the missing
   headers of a **Partly indexed** folder, and show the index state in the
   folder tree.
@@ -2038,6 +2067,238 @@ Plasma session; that check is
 - Count the same folders for the tray icon and the task manager entry, with one
   setting for both.
 - Let the count include other watched folders or only selected accounts.
+
+### Read state and unread counts
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                   |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| [#505](https://github.com/mikepadiernos/plasma-impresario/issues/505) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/505#issuecomment-7232160785) | Unread counts across accounts and concurrent changes ([#130](https://github.com/mikepadiernos/plasma-impresario/issues/130)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] For each account, the folder counter, the message
+  list, the Unified Inbox, the sidebar header and the task manager entry agree.
+  Changes on one account's server leave the other accounts' counts alone.
+- ![Resolved][resolved] A change from another client that arrives while the
+  user's own change is on its way is counted once. Removed and newly arrived
+  messages update the count of their account only, and an account that loses
+  its connection keeps its last count.
+- ![Limitation][limitation] Read and flag changes show only once the server
+  confirms them, so on a slow connection the message and the counts change
+  late.
+- ![Limitation][limitation] A change cut off by a lost connection is not
+  replayed after reconnecting; it stays in the activity log with **Retry**.
+  Read and flag actions are disabled while offline.
+- ![Limitation][limitation] These cases are tested with two fake IMAP servers,
+  not with several real servers at once.
+
+**Workarounds:**
+
+- On a slow server, wait for the message to change; the counts catch up once
+  the server answers.
+- After a dropped connection, use **Retry** in the activity log.
+
+**Proposed improvements:**
+
+- Show pending changes at once with a pending marker, and roll them back if the
+  server refuses them.
+- Queue changes made offline or cut off by a lost connection and replay them
+  after reconnecting, alongside the persistent outbox
+  ([#378](https://github.com/mikepadiernos/plasma-impresario/issues/378)).
+- Check the counts with several accounts on the disposable Dovecot server,
+  changing flags from a second client.
+
+### Performance and resource use
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                  |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| [#506](https://github.com/mikepadiernos/plasma-impresario/issues/506) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/506#issuecomment-7232463278) | Responsiveness and resource use for large mailboxes ([#131](https://github.com/mikepadiernos/plasma-impresario/issues/131)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Syncing a large folder, long conversations, bulk read
+  and flag changes, and messages with many attachments grow about linearly
+  with their size and stay well inside their budgets; the measurements are in
+  [performance and resource use](performance.md).
+- ![Limitation][limitation] Removing many messages slows down with the square
+  of the folder size, because each removed message renumbers every later one.
+  Reported one `EXPUNGE` at a time, as servers without QRESYNC do, the window
+  keeps responding, but removing 40,000 of 200,000 messages takes about 14 s.
+- ![Limitation][limitation] Reported as one `VANISHED` range, as QRESYNC
+  servers do, the same removal is applied in a single pass and the window stops
+  responding for its whole duration: about 0.5 s for 10,000 of 50,000 messages
+  and 8 s for 40,000 of 200,000. Against a local Dovecot server, another client
+  removing 10,000 of 50,000 messages takes about 6 s in the window, which stops
+  responding for up to about 0.5 s at a time.
+- ![Limitation][limitation] The Unread quick filter re-filters the whole list
+  in one pass, which blocks the window for about 1.2 s at 200,000 messages.
+- ![Limitation][limitation] Each synced message costs about 0.9 KiB before its
+  headers load, and an opened attachment is held in memory at about 2.3 times
+  its decoded size while it is open.
+- ![Resolved][resolved] Against a local Dovecot server with 50,000 messages,
+  opening the folder takes about 0.6 s and the Unread quick filter about 0.1 s,
+  down from about 56 s and 16 s before the window stopped updating its actions
+  and scroll position for every changed message
+  ([live server](performance.md#live-server)).
+- ![Limitation][limitation] The measurements use fake IMAP servers and a local
+  Dovecot server in a Linux container, in a Debug configuration compiled with
+  `-O2`; network latency, a Release build and a Plasma session are not
+  measured.
+
+**Workarounds:**
+
+- On folders of 100,000 messages or more, archive older mail into yearly
+  folders, and search instead of using quick filters.
+- Delete or move large batches of messages in smaller selections, so that the
+  server reports smaller removals.
+- Save large attachments instead of keeping them open in the reader.
+
+**Proposed improvements:**
+
+- Apply removals in batches: one model removal per run of adjacent messages and
+  one renumbering pass per response, for both `VANISHED` ranges and
+  consecutive `EXPUNGE` responses.
+- Filter large lists incrementally, in chunks between event-loop passes.
+- Stream large attachments to a temporary file instead of keeping them in
+  memory.
+- Repeat the measurements in a Release build, with network latency, and in a
+  Plasma session with the GUI painting.
+
+### Sanitizers and data races
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                         |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| [#507](https://github.com/mikepadiernos/plasma-impresario/issues/507) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/507#issuecomment-7234348639) | Sanitizer runs of the suite and live tests ([#481](https://github.com/mikepadiernos/plasma-impresario/issues/481)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] The test suite and every live Dovecot and POP3 test
+  pass under AddressSanitizer, LeakSanitizer and UndefinedBehaviorSanitizer
+  with no report. The findings, all fixed, and the third-party suppressions
+  with their reasons are in [sanitizer runs](sanitizers.md).
+- ![Limitation][limitation] ThreadSanitizer has not been run. It needs Qt to
+  be built with it, and the dev container uses Fedora's Qt and has no
+  `libtsan`. Data races in work on other threads, GpgME verification and
+  decryption and the startup cache maintenance, are not checked.
+
+**Workarounds:**
+
+- Rely on the ASan and UBSan runs, which catch a cross-thread mistake when it
+  ends in a use after free or a leak.
+- Keep work handed to threads self-contained, so that it shares no data with
+  the GUI thread while it runs.
+
+**Proposed improvements:**
+
+- Build Qt 6 with ThreadSanitizer in a separate container image, add
+  `libtsan`, and run `tools/dev-container/sanitizers.sh` with
+  `PLASMA_SANITIZERS=thread`, starting with the crypto and cache code.
+
+### Persistent outbox
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| [#508](https://github.com/mikepadiernos/plasma-impresario/issues/508) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/508#issuecomment-7235111012) | Persistent outbox ([#378](https://github.com/mikepadiernos/plasma-impresario/issues/378)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Sending while the account is offline, or choosing
+  **Send Later** after a failure, keeps the message in the outbox under the
+  profile's data folder. It is sent once the account comes online, after a
+  restart too, and the status bar shows how many messages wait; **Show Outbox**
+  lists them.
+- ![Resolved][resolved] A message is recorded as sent as soon as the server
+  accepts it, so a failure to file the Sent copy only retries filing and never
+  submits the message again.
+- ![Limitation][limitation] A message sent from the outbox does not set
+  `\Answered` or `$Forwarded` on the message it replies to or forwards.
+- ![Limitation][limitation] The outbox never asks for a password. Without a
+  stored password, or before the IMAP password is known, the attempt fails and
+  is retried later.
+- ![Limitation][limitation] A refused message comes back as a draft with the
+  server's reason but without its attachments, as every local draft does
+  ([composing](#composing-and-sending)).
+- ![Limitation][limitation] Only SMTP replies of 5xx other than 530 count as
+  permanent refusals. JMAP and sendmail errors are retried with a growing
+  delay of up to 30 minutes, even when another attempt cannot help.
+- ![Limitation][limitation] Accounts that send through the IMAP SENDMAIL
+  extension cannot queue messages; an offline send fails as before, with no
+  **Send Later**.
+- ![Limitation][limitation] A message that was being sent when the application
+  ended, or whose server gave no answer, waits as **Interrupted** until the
+  user chooses **Send Again** or **Move to Drafts**, because it may already have
+  been delivered.
+- ![Limitation][limitation] A message whose attachments are still on the
+  server cannot be queued while offline.
+
+**Workarounds:**
+
+- Store the outgoing password in the keyring, or connect the account once,
+  before relying on the outbox.
+- Mark the original message as answered by hand after a queued reply is sent.
+- Before working offline, open the messages whose attachments you will forward
+  so that they download.
+- For an **Interrupted** message, check the Sent folder or ask a recipient
+  before choosing **Send Again**.
+- Use SMTP instead of IMAP SENDMAIL when you often send while offline.
+
+**Proposed improvements:**
+
+- Record the replied-to and forwarded message with the outbox entry and set the
+  flags after it is sent.
+- Ask for a missing password once, from the outbox.
+- Classify JMAP `EmailSubmission` errors such as `invalidEmail` and
+  `forbiddenToSend`, and sendmail's exit codes, as permanent refusals.
+- Upload a queued message for IMAP SENDMAIL accounts once the account is
+  online.
+- Keep attachments with drafts, which also lifts the composing caveat
+  ([#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)).
+
+### Background header loading
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                        |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| [#509](https://github.com/mikepadiernos/plasma-impresario/issues/509) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/509#issuecomment-7235460254) | Background header loading ([#379](https://github.com/mikepadiernos/plasma-impresario/issues/379)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] While the connection has nothing else to do, the open
+  folder's headers load in the background: first the messages the server
+  received during the last 30 days, newest first, then the rest from the
+  newest down. Anything the user asks for, and a message waiting in the
+  outbox, goes first. Each event-loop pass stays under 25 ms
+  ([measurements](performance.md#background-header-loading)).
+- ![Limitation][limitation] Only the folder that is open in each account is
+  filled; other folders load their headers when they are opened, as before.
+- ![Limitation][limitation] Loading waits while network access is set to
+  expensive and resumes when it is set back to online. Going offline stops
+  it; it starts over once the folder is synchronized again.
+- ![Limitation][limitation] At most 5,000 headers are loaded each time a
+  folder is synchronized, to bound memory use, and headers already in the
+  offline cache count toward that limit.
+- ![Limitation][limitation] "Recent" follows the server's `SINCE` search,
+  which uses the date the server received a message, not its `Date` header,
+  so messages imported or moved recently count as recent.
+- ![Limitation][limitation] A message that the server leaves out of its answer
+  stays shown as loading until the folder is synchronized again, as for any
+  header fetch.
+- ![Limitation][limitation] There is no setting to turn it off or change the
+  limit, and no progress is shown.
+
+**Workarounds:**
+
+- Scroll through a folder once to load headers past the limit.
+- On a metered connection, set network access to online briefly so that the
+  recent headers load, then back to expensive.
+- Reload a folder whose messages stay shown as loading.
+
+**Proposed improvements:**
+
+- Ask once more for headers the server left out of its answer.
+- Add an account setting to turn background loading off and choose the limit.
+- Fill the other cached folders too, one at a time, while nothing else is open.
+- Show progress in the account's status.
+- Count only headers fetched from the server toward the limit.
 
 ### Accessibility and theming
 

@@ -91,6 +91,7 @@ public:
     QString localName;
     QString localNameEncrypted;
     QString errorString;
+    int mailRefusalCode = 0;
 
     // server caps:
     QwwSmtpClient::Options options;
@@ -385,6 +386,7 @@ void QwwSmtpClientPrivate::_q_readFromSocket() {
                     } else {
                         // something went wrong
                         errorString = last_match.captured(2).trimmed();
+                        mailRefusalCode = status;
                         setState(QwwSmtpClient::Connected);
                         emit q->done(false);
                         processNextCommand();
@@ -751,6 +753,7 @@ QStringList QwwSmtpClient::supportedSaslMechanisms() const
 
 int QwwSmtpClient::sendMail(const QByteArray &from, const QList<QByteArray> &to, const QByteArray &content)
 {
+    d->mailRefusalCode = 0;
     QList<QVariant> rcpts;
     for(QList<QByteArray>::const_iterator it = to.begin(); it != to.end(); it ++) {
         rcpts.append(QVariant(*it));
@@ -767,6 +770,7 @@ int QwwSmtpClient::sendMail(const QByteArray &from, const QList<QByteArray> &to,
 
 int QwwSmtpClient::sendMailBurl(const QByteArray &from, const QList<QByteArray> &to, const QByteArray &url)
 {
+    d->mailRefusalCode = 0;
     QList<QVariant> rcpts;
     for(QList<QByteArray>::const_iterator it = to.begin(); it != to.end(); it ++) {
         rcpts.append(QVariant(*it));
@@ -826,6 +830,11 @@ QwwSmtpClient::Options QwwSmtpClient::options() const{
 
 QString QwwSmtpClient::errorString() const{
     return d->errorString;
+}
+
+int QwwSmtpClient::mailRefusalCode() const
+{
+    return d->mailRefusalCode;
 }
 
 #include "moc_qwwsmtpclient.cpp"

@@ -355,6 +355,10 @@ public:
     updated until the mailbox is opened again.
     */
     bool isMailboxOpen(const QModelIndex &mailbox) const;
+    /** @short Whether @p mailbox is open and its connection has nothing else to do, see KeepMailboxOpenTask */
+    bool isMailboxIdle(const QModelIndex &mailbox) const;
+    /** @short Whether a task keeps @p mailbox selected, or is about to select it */
+    bool isMailboxMaintained(const QModelIndex &mailbox) const;
 
     /** @short Whether the server has announced Gmail's label extension (X-GM-EXT-1)
 
@@ -522,6 +526,7 @@ private:
     friend class MailboxModel; // needs access to createIndex()
     friend class ThreadingMsgListModel; // needs access to taskFactory
     friend class FolderSearch; // needs access to taskFactory, the mailbox tree and findMessagesByUids
+    friend class HeaderBackfill; // needs access to taskFactory, findMessagesByUids and askForMsgMetadata
     friend class SubtreeClassSpecificItem<Model>; // needs access to createIndex()
 
     friend class IdleLauncher;

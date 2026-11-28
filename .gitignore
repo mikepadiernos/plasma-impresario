@@ -1,4 +1,5 @@
 qtcreator-build
+build-*/
 build
 _doxygen
 _various-data

@@ -35,14 +35,17 @@
 #include <optional>
 
 #include "configure.cmake.h"
+#include "Composer/Outbox.h"
 #include "Composer/Recipients.h"
 #include "Imap/ConnectionState.h"
 #include "Imap/Model/Cache.h"
+#include "Imap/Model/ConnectionStates.h"
 #include "Imap/Model/CopyMoveOperation.h"
 #include "Imap/Model/GroupingMsgListModel.h"
 #include "Imap/Model/SpecialFolder.h"
 #include "Imap/Parser/Uids.h"
 #include "UiUtils/ActivationToken.h"
+#include "UiUtils/ActivityLog.h"
 #include "UiUtils/Agenda.h"
 #include "UiUtils/DesktopFeedback.h"
 #include "UiUtils/DestructiveActions.h"
@@ -167,6 +170,7 @@ class TaskProgressIndicator;
 class MailAutomation;
 class ActivityButton;
 class ActivityDialog;
+class OutboxDialog;
 class RulesDialog;
 
 class MainWindow: public QMainWindow
@@ -236,6 +240,18 @@ public:
     Returns false without running @p fn when the account is gone or has no connection set up.
     */
     bool withAccount(const QString &accountId, const std::function<void()> &fn);
+
+    /** @short The messages waiting to be sent */
+    Composer::Outbox *outbox() const
+    {
+        return m_outbox;
+    }
+    /** @short Whether a message from @p accountId can wait in the outbox, which needs a server of its own to send to */
+    bool canQueueMessages(const QString &accountId) const;
+    /** @short Whether sending from @p accountId needs the network, unlike a local sendmail program */
+    bool sendsOverNetwork(const QString &accountId) const;
+    /** @short Show the messages waiting to be sent */
+    void showOutbox();
 
     void enableLoggingToDisk();
 
@@ -335,6 +351,8 @@ private slots:
     void removeAccountNow(const QString &accountId);
     /** Authorize an OAuth account in the browser again, then reconnect it */
     void signInAccount(const QString &accountId);
+    /** @short Connect @p accountId again right away, or check a POP3 or JMAP account, instead of waiting */
+    void reconnectAccount(const QString &accountId);
     void slotRenameAccount();
     /** Show the menu of an account's sidebar header, with its settings, renaming and removal */
     void showAccountMenu(const QString &accountId, const QPoint &globalPos);
@@ -398,6 +416,7 @@ private slots:
     void slotShowOnlySubscribed();
     void updateMessageFlags();
     void updateMessageFlagsOf(const QModelIndex &index);
+    void scheduleMessageFlagsUpdate();
     void scrollMessageUp();
     void slotMessageModelChanged(QAbstractItemModel *model);
     void showConnectionStatus(uint parserId, Imap::ConnectionState state);
@@ -588,6 +607,20 @@ private:
     void offerRuleFromQuery(const QString &text, const QString &name);
     void showActivity();
     void configureNotifications();
+    /** @short Keep the messages waiting to be sent, and show what happens to them in the activity log */
+    void setupOutbox();
+    /** @short Let the outbox send the messages of @p accountId through its server */
+    void registerOutboxAccount(const QString &accountId);
+    void updateOutboxButton();
+    /** @short Open the draft or saved message at @p path, as one which the server refused */
+    void openSavedDraft(const QString &path);
+    bool outboxAccountOnline(const QString &accountId) const;
+    /** @short Show the outbox message @p message in the activity log; Action::Retry sends it now */
+    void recordOutboxEntry(const Composer::Outbox::Entry &message, UiUtils::ActivityLog::State state,
+        const QString &detail, const QString &error, UiUtils::ActivityLog::Action action,
+        const QString &target = QString());
+    /** @short Show the state of the outbox message @p message in the activity log */
+    void recordOutboxState(const Composer::Outbox::Entry &message);
     /** @short Apply the application settings which the window shows, after the settings dialog saved them */
     void applyApplicationSettings();
     /** @short Show the account of @p activityId's workspace, when the workspaces follow the activities */
@@ -836,18 +869,50 @@ private:
     QString deleteTrashTarget() const;
     /** @short Make the Delete action either move to Trash or toggle the \\Deleted mark */
     void updateDeleteActionMode();
-    /** @short Report the result of moving @p count messages from @p source to @p target, offering Undo if possible */
-    void trackMove(Imap::Mailbox::ImapTask *task, const QString &source, const QString &target, int count, MoveKind kind);
-    /** @short Report the result of copying @p count messages to @p target */
-    void trackCopy(Imap::Mailbox::ImapTask *task, const QString &target, int count);
+    /** @short Move @p messages from @p source to @p target and report the result, offering Undo if possible
+
+    A failure stays in the activity log, whose Retry moves the messages which are still in their folder. A retry passes
+    the key of its entry as @p retryKey, so that its result updates that entry.
+    */
+    void trackMove(const QModelIndexList &messages, const QString &source, const QString &target, MoveKind kind,
+        const QString &retryKey = QString());
+    /** @short Copy @p messages to @p target and report the result; see trackMove() */
+    void trackCopy(const QModelIndexList &messages, const QString &target, const QString &retryKey = QString());
     /** @short Show @p busyText while @p task runs for longer than a moment, until its result replaces it */
     void showBusyWhileRunning(Imap::Mailbox::ImapTask *task, const QString &busyText);
-    /** @short Report the result of changing flags of @p count messages
+    /** @short Changes the flags of messages of a model, returning the task or nullptr */
+    using FlagOperation = std::function<Imap::Mailbox::ImapTask *(Imap::Mailbox::Model *, const QModelIndexList &)>;
+    /** @short Run @p operation on @p messages and report the result of changing their flags
 
-    @p doneText is shown on success unless it is empty; @p failedText builds the error from the server's message.
+    @p doneText is shown on success unless it is empty; @p failedText builds the error from the server's message. A
+    failure stays in the activity log, whose Retry runs @p operation again on the messages which still exist; see
+    trackMove().
     */
-    void trackFlagChange(Imap::Mailbox::ImapTask *task, const QString &busyText, const QString &doneText,
-                         const std::function<QString(const QString &)> &failedText);
+    void trackFlagChange(const QModelIndexList &messages, const FlagOperation &operation, const QString &busyText,
+        const QString &doneText, const std::function<QString(const QString &)> &failedText,
+        const QString &retryKey = QString());
+    /** @short A message named by its folder and UID, which still finds it after the folder list was loaded again */
+    struct MessageRef {
+        QString mailbox;
+        uint uidValidity = 0;
+        uint uid = 0;
+    };
+    static QList<MessageRef> messageRefs(const QModelIndexList &messages);
+    /** @short The messages of @p refs which @p model still has in the same folders */
+    static QModelIndexList resolveMessageRefs(Imap::Mailbox::Model *model, const QList<MessageRef> &refs);
+    /** @short Starts a failed operation again with the key of its activity entry; false when nothing is left to do */
+    using Rerun = std::function<bool(const QString &key)>;
+    /** @short Keep the failure of @p title in the activity log for any account, with a Retry which calls @p rerun
+
+    An empty @p key makes a new entry. Retrying while the account is offline keeps the entry failed; retrying when
+    @p rerun finds nothing left to do, as when another client already moved the messages, resolves it.
+    */
+    void recordFailedOperation(
+        Imap::Mailbox::Model *model, QString key, const QString &title, const QString &error, const Rerun &rerun);
+    /** @short Mark the retried operation of the activity entry @p key as done */
+    void recordOperationDone(const QString &key);
+    /** @short Keep the failed synchronization of @p mailbox in the activity log, with a Retry which opens it again */
+    void recordFolderSyncFailed(const QString &accountId, const QString &mailbox, const QString &message);
     /** @short The actions defined in ShortcutHandler, each with the menu or the part of the window it belongs to */
     QList<UiUtils::ShortcutOverview::Entry> shortcutOverviewEntries() const;
     /** @short The folder which Archive moves messages to */
@@ -952,6 +1017,14 @@ private:
     QHash<QString, QPointer<Pop3Fetcher>> m_pop3Fetchers;
     /** Synchronize the JMAP accounts with their mail on this computer; each belongs to its account's access */
     QHash<QString, QPointer<JmapSyncer>> m_jmapSyncers;
+    /** @short When each account which lost its connection tries again; see recordSyncActivity() */
+    QHash<QString, QDateTime> m_reconnectAt;
+    /** @short The open connections of each IMAP account, which together make its connection state */
+    QHash<QString, Imap::Mailbox::ConnectionStates> m_connectionStates;
+    /** @short The connection state which the status bar showed last */
+    Imap::ConnectionState m_shownConnectionState = Imap::CONN_STATE_NONE;
+    /** @short Numbers the activity entries of failed message operations */
+    quint64 m_operationSerial = 0;
     QComboBox *m_accountSwitcher = nullptr;
     Imap::ImapAccess *m_imapAccess;
 
@@ -1173,6 +1246,9 @@ private:
     /** @short Text and icon of the Delete action while it toggles the \\Deleted mark */
     QString m_markAsDeletedText;
     QIcon m_markAsDeletedIcon;
+    /** The Trash folder which Delete moves to, empty when it marks messages; unset until the mode is first applied */
+    std::optional<QString> m_deleteActionTrash;
+    bool m_messageFlagsUpdatePending = false;
     QAction *saveWholeMessage;
     QAction *viewMsgSource;
     QAction *viewMsgHeaders;
@@ -1209,6 +1285,9 @@ private:
     MailAutomation *m_mailAutomation = nullptr;
     ActivityButton *m_activityButton = nullptr;
     QPointer<ActivityDialog> m_activityDialog;
+    Composer::Outbox *m_outbox = nullptr;
+    QToolButton *m_outboxButton = nullptr;
+    QPointer<OutboxDialog> m_outboxDialog;
     QAction *m_actionMailRules = nullptr;
     QAction *m_actionActivity = nullptr;
     QAction *m_actionConfigureNotifications = nullptr;

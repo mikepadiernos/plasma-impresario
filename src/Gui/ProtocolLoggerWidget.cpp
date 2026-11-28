@@ -267,9 +267,11 @@ void ProtocolLoggerWidget::onConnectionClosed(uint connectionId, Imap::Connectio
             it->closedTime = now;
         }
 
-        it = std::next(logs.begin(),  1); // do not ever delete log#0, that's a special one
+        // Log #0 is a special one which is never deleted. Without any logs, as after clearing them, there is no first
+        // one to skip.
+        it = logs.begin();
         while (it != logs.end()) {
-            if (it->closedTime != 0 && it->closedTime < cutoff) {
+            if (it.key() != 0 && it->closedTime != 0 && it->closedTime < cutoff) {
                 if (it->widget) {
                     it->widget->deleteLater();
                 }

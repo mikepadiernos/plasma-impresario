@@ -153,6 +153,9 @@ void SMTP::handleDone(bool ok)
         emit sent();
     } else {
         failed = true;
+        // A 5xx reply to the sender, a recipient or the data refuses this message; 530 asks to sign in first
+        const int refusal = qwwSmtp->mailRefusalCode();
+        setPermanentFailure(refusal >= 500 && refusal < 600 && refusal != 530);
         if (qwwSmtp->errorString().isEmpty())
             emit error(tr("Sending of the message failed."));
         else

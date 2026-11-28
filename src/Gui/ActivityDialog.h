@@ -17,6 +17,8 @@ namespace Gui {
 
 Each entry shows its state, what it is about, its detail or error and when it last changed. An entry which names a fix,
 such as signing in or reviewing a rule, offers it as a button; the window carries it out through actionRequested().
+Retrying runs the entry's work again through the log itself, and every failure which can be retried can be retried at
+once.
 */
 class ActivityDialog : public QDialog
 {
@@ -27,6 +29,7 @@ public:
     QTreeWidget *tree() const;
     /** Carry out the action of the selected entry, as its button does */
     void triggerSelected();
+    QPushButton *retryAllButton() const;
 
 signals:
     void actionRequested(const UiUtils::ActivityLog::Entry &entry);
@@ -38,6 +41,7 @@ private:
     UiUtils::ActivityLog *m_log;
     QTreeWidget *m_tree;
     QPushButton *m_action;
+    QPushButton *m_retryAll;
     QPushButton *m_clear;
 };
 

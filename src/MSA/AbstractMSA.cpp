@@ -79,6 +79,16 @@ void AbstractMSA::setCertificateAccepted(bool accepted)
     Q_UNUSED(accepted);
 }
 
+bool AbstractMSA::isPermanentFailure() const
+{
+    return m_permanentFailure;
+}
+
+void AbstractMSA::setPermanentFailure(bool permanent)
+{
+    m_permanentFailure = permanent;
+}
+
 MSAFactory::~MSAFactory()
 {
 }

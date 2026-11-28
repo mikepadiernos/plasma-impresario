@@ -103,7 +103,8 @@ public:
     virtual ThreadTask *createIncrementalThreadTask(Model *model, const QModelIndex &mailbox, const QByteArray &algorithm, const QStringList &searchCriteria);
     virtual NoopTask *createNoopTask(Model *model, ImapTask *parentTask);
     virtual UnSelectTask *createUnSelectTask(Model *model, ImapTask *parentTask);
-    virtual SortTask *createSortTask(Model *model, const QModelIndex &mailbox, const QStringList &searchConditions, const QStringList &sortCriteria);
+    virtual SortTask *createSortTask(Model *model, const QModelIndex &mailbox, const QStringList &searchConditions,
+        const QStringList &sortCriteria, bool wantUpdates = true);
     virtual AppendTask *createAppendTask(Model *model, const QString &targetMailbox, const QByteArray &rawMessageData,
                                          const QStringList &flags, const QDateTime &timestamp);
     virtual AppendTask *createAppendTask(Model *model, const QString &targetMailbox, const QList<CatenatePair> &data,

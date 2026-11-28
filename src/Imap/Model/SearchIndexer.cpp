@@ -3,31 +3,32 @@
 */
 #include "SearchIndexer.h"
 
-#include <algorithm>
 #include <QDataStream>
+#include <QDebug>
 #include <QElapsedTimer>
 #include <QIODevice>
 #include <QMimeDatabase>
 #include <QSet>
+#include <algorithm>
 
 #include "Imap/Encoders.h"
 #include "Imap/Exceptions.h"
 #include "Imap/Model/Cache.h"
 #include "Imap/Model/CombinedCache.h"
+#include "Imap/Model/ItemRoles.h"
 #include "Imap/Parser/Message.h"
 
-namespace Imap
-{
-namespace Mailbox
-{
+namespace Imap {
+namespace Mailbox {
 
-namespace
-{
+namespace {
 
-/** Text kept of one message; longer text is cut, as it rarely adds anything to a search */
+/** Text kept of one message; longer text is cut, as it rarely adds anything to
+ * a search */
 const int maximumText = 512 * 1024;
 
-/** A batch which reads attachments ends after this long, so that the window stays responsive */
+/** A batch which reads attachments ends after this long, so that the window
+ * stays responsive */
 const int batchBudgetMs = 100;
 
 QString addresses(const QList<Message::MailAddress> &list)
@@ -52,13 +53,14 @@ QStringList normalizedFlags(const QStringList &flags)
 
 bool hasFlag(const QStringList &flags, const QString &flag)
 {
-    return std::any_of(flags.cbegin(), flags.cend(),
-                       [&flag](const QString &f) { return f.compare(flag, Qt::CaseInsensitive) == 0; });
+    return std::any_of(
+        flags.cbegin(), flags.cend(), [&flag](const QString &f) { return f.compare(flag, Qt::CaseInsensitive) == 0; });
 }
 
-/** @short Downloaded data of a part, with its transfer encoding undone, or a null array */
-QByteArray partData(const AbstractCache &cache, const QString &mailbox, uint uid, const QByteArray &partId,
-                    const QByteArray &encoding)
+/** @short Downloaded data of a part, with its transfer encoding undone, or a
+ * null array */
+QByteArray partData(
+    const AbstractCache &cache, const QString &mailbox, uint uid, const QByteArray &partId, const QByteArray &encoding)
 {
     QByteArray data = cache.messagePart(mailbox, uid, partId);
     if (!data.isNull())
@@ -84,12 +86,14 @@ QSharedPointer<Message::AbstractMessage> bodyStructure(QByteArray serialized)
     }
 }
 
-/** @short Collects the text and the attachments of a message from its BODYSTRUCTURE and the cached parts */
+/** @short Collects the text and the attachments of a message from its
+ * BODYSTRUCTURE and the cached parts */
 struct PartWalker {
     const AbstractCache &cache;
     const QString &mailbox;
     uint uid;
-    /** Whether the text of downloaded attachments is read, up to @short limit bytes each */
+    /** Whether the text of downloaded attachments is read, up to @short limit
+     * bytes each */
     bool readAttachments = false;
     quint64 limit = 0;
     const AttachmentTextExtractor *extractor = nullptr;
@@ -160,7 +164,8 @@ struct PartWalker {
     {
         const QByteArray type = one->mediaType.toLower();
         const QByteArray subType = one->mediaSubType.toLower();
-        // Pictures, sound and video have no text to read, and keys and encrypted data none worth searching
+        // Pictures, sound and video have no text to read, and keys and encrypted
+        // data none worth searching
         if (type == "image" || type == "audio" || type == "video")
             return;
         if (type == "application" && (subType.startsWith("pgp") || subType.contains("pkcs7") || subType == "pkcs10"))
@@ -172,7 +177,8 @@ struct PartWalker {
             return;
         }
         const QString declared = QString::fromLatin1(type + '/' + subType);
-        // The size on the server is that of the encoded part, a third more than the file in base64
+        // The size on the server is that of the encoded part, a third more than the
+        // file in base64
         const quint64 size = one->bodyFldEnc.toLower() == "base64" ? one->bodyFldOctets / 4 * 3 : one->bodyFldOctets;
         if (size > limit) {
             attachmentReport << QLatin1String("large ") + declared;
@@ -192,7 +198,8 @@ struct PartWalker {
         QString text;
         AttachmentTextExtractor::Outcome outcome = AttachmentTextExtractor::Outcome::NoExtractor;
         const QMimeType mime = QMimeDatabase().mimeTypeForName(mimeType);
-        if (mime.isValid() && (mime.inherits(QStringLiteral("text/plain")) || mime.inherits(QStringLiteral("text/html")))) {
+        if (mime.isValid()
+            && (mime.inherits(QStringLiteral("text/plain")) || mime.inherits(QStringLiteral("text/html")))) {
             // Text needs no extractor
             text = decodeByteArray(data, one->bodyFldParam.value("CHARSET"));
             if (mime.inherits(QStringLiteral("text/html")))
@@ -217,7 +224,7 @@ struct PartWalker {
     }
 };
 
-}
+} // namespace
 
 SearchIndexer::SearchIndexer(const CacheSource &cache, QObject *parent)
     : QObject(parent)
@@ -244,6 +251,8 @@ bool SearchIndexer::open()
 {
     m_index.reset();
     m_connection.clear();
+    m_changed.clear();
+    m_recoveries = 0;
     const std::shared_ptr<AbstractCache> cache = m_cache ? m_cache() : nullptr;
     const auto *combined = dynamic_cast<const CombinedCache *>(cache.get());
     if (!combined) {
@@ -256,6 +265,23 @@ bool SearchIndexer::open()
     if (!index->open()) {
         m_unavailable = index->errorString();
         return false;
+    }
+    QString problem;
+    if (!index->verify(false, &problem)) {
+        if (!index->isCorrupt()) {
+            m_unavailable = problem;
+            return false;
+        }
+        qWarning() << "Search index: building the index again:" << problem;
+        // Prepared statements of the cache which are still reading would stop
+        // SQLite from dropping tables
+        if (auto writable = std::dynamic_pointer_cast<CombinedCache>(cache))
+            writable->finishQueries();
+        if (!index->recreate()) {
+            m_unavailable = index->errorString();
+            return false;
+        }
+        ++m_recoveries;
     }
     m_index = std::move(index);
     m_unavailable.clear();
@@ -271,7 +297,8 @@ QString SearchIndexer::unavailableReason() const
 {
     if (!m_unavailable.isEmpty() || isAvailable())
         return m_unavailable;
-    return tr("The offline cache of the account failed, so the index cannot be used until the account reconnects.");
+    return tr("The offline cache of the account failed, so the index cannot be "
+              "used until the account reconnects.");
 }
 
 SearchIndex *SearchIndexer::index() const
@@ -287,7 +314,8 @@ bool SearchIndexer::isRunning() const
 std::shared_ptr<AbstractCache> SearchIndexer::usableCache() const
 {
     std::shared_ptr<AbstractCache> cache = m_cache ? m_cache() : nullptr;
-    // After a failure the account switches to a cache in memory, which has a different connection or none
+    // After a failure the account switches to a cache in memory, which has a
+    // different connection or none
     const auto *combined = dynamic_cast<const CombinedCache *>(cache.get());
     if (!combined || combined->databaseConnectionName() != m_connection)
         return nullptr;
@@ -307,6 +335,62 @@ SearchIndexer::Progress SearchIndexer::progress() const
     return progress;
 }
 
+SearchIndexer::PassStatistics SearchIndexer::lastPass() const
+{
+    return m_lastPass;
+}
+
+int SearchIndexer::recoveries() const
+{
+    return m_recoveries;
+}
+
+bool SearchIndexer::recover()
+{
+    qWarning() << "Search index: the index is damaged, building it again:" << m_index->errorString();
+    m_scheduled.stop();
+    abandonPass();
+    m_changed.clear();
+    ++m_recoveries;
+    // Prepared statements of the cache which are still reading would stop SQLite
+    // from dropping tables
+    if (auto combined = std::dynamic_pointer_cast<CombinedCache>(usableCache()))
+        combined->finishQueries();
+    if (!m_index->recreate()) {
+        m_unavailable = m_index->errorString();
+        qWarning() << "Search index: cannot build the index again:" << m_unavailable;
+        m_index.reset();
+        emit progressChanged();
+        return false;
+    }
+    emit progressChanged();
+    return true;
+}
+
+void SearchIndexer::noteChange(const QModelIndex &index)
+{
+    if (!m_index || !index.isValid())
+        return;
+    // Neither role makes the model fetch anything
+    const QVariant name = index.data(RoleMailboxName);
+    QString mailbox;
+    if (index.data(RoleMessageUid).isValid())
+        mailbox = name.toString();
+    else if (!name.isValid() && index.parent().isValid())
+        mailbox = index.parent().data(RoleMailboxName).toString();
+    markChanged(mailbox);
+    scheduleUpdate();
+}
+
+void SearchIndexer::markChanged(const QString &mailbox)
+{
+    if (mailbox.isEmpty() || m_changed.contains(mailbox))
+        return;
+    m_changed.insert(mailbox);
+    if (m_index)
+        m_index->markChanged(mailbox);
+}
+
 bool SearchIndexer::isPaused() const
 {
     return m_paused;
@@ -323,7 +407,8 @@ void SearchIndexer::setPaused(bool paused)
         return;
     m_paused = paused;
     if (paused) {
-        // What was not indexed yet is indexed on resume; the folders done so far stay done
+        // What was not indexed yet is indexed on resume; the folders done so far
+        // stay done
         m_pending = m_pending || hasPendingChanges() || m_running;
         m_scheduled.stop();
         abandonPass();
@@ -416,7 +501,8 @@ void SearchIndexer::setExcludedFolders(const QStringList &mailboxes)
         return;
     m_excluded = excluded;
     if (m_index) {
-        // The folders done so far stay done; a new pass skips the excluded folders and takes in the included ones
+        // The folders done so far stay done; a new pass skips the excluded folders
+        // and takes in the included ones
         if (m_running)
             abandonPass();
         for (const QString &mailbox : std::as_const(m_excluded))
@@ -482,7 +568,8 @@ void SearchIndexer::setAttachmentIndexing(bool enabled, quint64 limit)
     m_attachmentLimit = limit;
     if (!m_index || !m_index->isOpen())
         return;
-    // The index remembers how its attachments were read, so that a change is noticed after a restart as well
+    // The index remembers how its attachments were read, so that a change is
+    // noticed after a restart as well
     const QString key = QStringLiteral("attachments");
     const QString wanted = enabled ? QString::number(limit) : QString();
     const QString built = m_index->setting(key);
@@ -491,7 +578,8 @@ void SearchIndexer::setAttachmentIndexing(bool enabled, quint64 limit)
     if (!m_index->setSetting(key, wanted))
         return;
     if (!built.isEmpty()) {
-        // Turned off, or a different limit: the messages whose attachments were read or tried are indexed again
+        // Turned off, or a different limit: the messages whose attachments were
+        // read or tried are indexed again
         m_scheduled.stop();
         abandonPass();
         m_index->forgetAttachmentText();
@@ -531,7 +619,8 @@ bool SearchIndexer::deleteIndex(QString *problem)
     m_scheduled.stop();
     abandonPass();
     m_pending = false;
-    // Prepared statements of the index and the cache which are still reading would stop SQLite from dropping tables
+    // Prepared statements of the index and the cache which are still reading
+    // would stop SQLite from dropping tables
     m_index.reset();
     if (auto combined = std::dynamic_pointer_cast<CombinedCache>(usableCache()))
         combined->finishQueries();
@@ -575,12 +664,16 @@ void SearchIndexer::update()
         m_again = true;
         return;
     }
+    if (m_index->isCorrupt() && !recover())
+        return;
     const std::shared_ptr<AbstractCache> cache = usableCache();
     if (!cache)
         return;
     m_running = true;
     m_again = false;
     m_pending = false;
+    m_pass = PassStatistics();
+    m_passTimer.start();
     beginPass(*cache);
     emit progressChanged();
     m_batch.start();
@@ -598,9 +691,11 @@ QStringList SearchIndexer::cachedFolders(const AbstractCache &cache, QSet<QStrin
             if (child.mailbox.isEmpty() || seen.contains(child.mailbox))
                 continue;
             seen.insert(child.mailbox);
-            if (!hasFlag(child.flags, QStringLiteral("\\Noselect")) && !hasFlag(child.flags, QStringLiteral("\\NonExistent")))
+            if (!hasFlag(child.flags, QStringLiteral("\\Noselect"))
+                && !hasFlag(child.flags, QStringLiteral("\\NonExistent")))
                 result << child.mailbox;
-            if (!hasFlag(child.flags, QStringLiteral("\\HasNoChildren")) && !hasFlag(child.flags, QStringLiteral("\\Noinferiors")))
+            if (!hasFlag(child.flags, QStringLiteral("\\HasNoChildren"))
+                && !hasFlag(child.flags, QStringLiteral("\\Noinferiors")))
                 pending << child.mailbox;
         }
     }
@@ -616,7 +711,8 @@ void SearchIndexer::beginPass(const AbstractCache &cache)
     m_queue = cachedFolders(cache, &listed);
     m_queue.removeIf([this](const QString &mailbox) { return m_excluded.contains(mailbox); });
     m_passFolders = int(m_queue.size());
-    // Folders which are gone from the account, or kept out of the index, are gone from the index too
+    // Folders which are gone from the account, or kept out of the index, are gone
+    // from the index too
     const QList<SearchIndex::Folder> indexed = m_index->folders();
     for (const SearchIndex::Folder &folder : indexed) {
         if (!listed.contains(folder.mailbox) || m_excluded.contains(folder.mailbox))
@@ -633,13 +729,27 @@ bool SearchIndexer::beginFolder(const AbstractCache &cache, const QString &mailb
         return false;
     SearchIndex::Folder folder = m_index->folder(mailbox);
     if (folder.uidValidity != 0 && folder.uidValidity != state.uidValidity()) {
-        // The server numbered the folder anew, so none of the indexed UIDs mean the same messages any more
+        // The server numbered the folder anew, so none of the indexed UIDs mean the
+        // same messages any more
         m_index->removeFolder(mailbox);
+    } else if (!m_changed.contains(mailbox) && folder.highestModSeq != 0
+        && folder.highestModSeq == state.highestModSeq() && folder.uidNext == state.uidNext()
+        && folder.messages == int(state.exists()) && m_index->documentCount(mailbox) == folder.indexed) {
+        // With CONDSTORE, any change of flags raises HIGHESTMODSEQ and new mail
+        // raises UIDNEXT; the model reports downloaded text, so nothing in the
+        // cache differs from the index
+        ++m_pass.skipped;
+        return false;
     }
+    // Changes from here on are looked at by the next pass
+    m_changed.remove(mailbox);
+    ++m_pass.scanned;
     m_mailbox = mailbox;
     m_folder = SearchIndex::Folder();
     m_folder.mailbox = mailbox;
     m_folder.uidValidity = state.uidValidity();
+    m_folder.highestModSeq = state.highestModSeq();
+    m_folder.uidNext = state.uidNext();
     m_uids = cache.uidMapping(mailbox);
     m_folder.messages = int(m_uids.size());
     m_position = 0;
@@ -664,7 +774,8 @@ void SearchIndexer::indexBatch(const AbstractCache &cache)
     const int start = m_position;
     const int end = std::min(int(m_uids.size()), m_position + m_batchSize);
     for (; m_position < end; ++m_position) {
-        // Reading attachments can take a while, so a slow batch stops early and goes on after a pause
+        // Reading attachments can take a while, so a slow batch stops early and
+        // goes on after a pause
         if (m_position > start && elapsed.elapsed() > batchBudgetMs)
             break;
         const uint uid = m_uids.at(m_position);
@@ -698,6 +809,8 @@ void SearchIndexer::indexBatch(const AbstractCache &cache)
         if (entry->flags != flags)
             flagChanges.insert(uid, flags);
     }
+    m_pass.messages += m_position - start;
+    m_pass.stored += int(documents.size());
     if (!documents.isEmpty())
         m_index->store(documents);
     if (!flagChanges.isEmpty())
@@ -707,6 +820,10 @@ void SearchIndexer::indexBatch(const AbstractCache &cache)
 void SearchIndexer::endFolder()
 {
     m_folder.updated = QDateTime::currentDateTimeUtc();
+    // A folder which changed while it was being indexed is looked at in full
+    // again, even after a restart
+    if (m_changed.contains(m_mailbox))
+        m_folder.highestModSeq = 0;
     m_index->setFolder(m_folder);
     m_mailbox.clear();
     m_uids.clear();
@@ -719,6 +836,9 @@ void SearchIndexer::endPass()
     m_running = false;
     m_queue.clear();
     m_passFolders = 0;
+    m_pass.finished = QDateTime::currentDateTimeUtc();
+    m_pass.elapsedMs = m_passTimer.isValid() ? m_passTimer.elapsed() : 0;
+    m_lastPass = m_pass;
     emit progressChanged();
     emit finished();
     if (m_again) {
@@ -738,14 +858,21 @@ void SearchIndexer::step()
         return;
     }
     if (m_mailbox.isEmpty()) {
-        while (!m_queue.isEmpty() && !beginFolder(*cache, m_queue.takeFirst())) {
-        }
+        while (!m_queue.isEmpty() && !beginFolder(*cache, m_queue.takeFirst())) { }
         if (m_mailbox.isEmpty()) {
             endPass();
             return;
         }
     }
     indexBatch(*cache);
+    if (m_index->isCorrupt()) {
+        // Indexing goes on with an index built anew, from the first folder
+        if (recover())
+            update();
+        else
+            emit finished();
+        return;
+    }
     if (m_position >= m_uids.size())
         endFolder();
     m_batch.start();
@@ -771,7 +898,7 @@ QString SearchIndexer::downloadedText(const AbstractCache &cache, const QString 
 }
 
 bool SearchIndexer::document(const AbstractCache &cache, const QString &mailbox, uint uid, const QStringList &flags,
-                             SearchIndex::Document *document) const
+    SearchIndex::Document *document) const
 {
     AbstractCache::MessageDataBundle data = cache.messageMetadata(mailbox, uid);
     if (data.uid != uid)
@@ -807,7 +934,8 @@ bool SearchIndexer::document(const AbstractCache &cache, const QString &mailbox,
 
     const QSharedPointer<Message::AbstractMessage> structure = bodyStructure(data.serializedBodyStructure);
     if (!structure) {
-        // Without the structure there are no parts to find; the headers are still worth indexing
+        // Without the structure there are no parts to find; the headers are still
+        // worth indexing
         d.hasText = true;
         return true;
     }
@@ -836,5 +964,5 @@ bool SearchIndexer::document(const AbstractCache &cache, const QString &mailbox,
     return true;
 }
 
-}
-}
+} // namespace Mailbox
+} // namespace Imap

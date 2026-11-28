@@ -18,8 +18,9 @@ Legend: ![Backlog][backlog] on the project board, not started
 No M14.01 work has started. Today the QtTest suites run offscreen through
 `ctest` with `QT_QPA_PLATFORM=offscreen`, the opt-in live IMAP tests run
 against a disposable Dovecot (`tools/dev-container/live-imap-accounts.sh`), and
-`tests/ubsan.supp` holds UndefinedBehaviorSanitizer suppressions for selected
-tests. Nothing has been checked in a real Plasma session; that is
+both also run under AddressSanitizer and UndefinedBehaviorSanitizer with the
+suppressions in `tests/` ([sanitizer runs](../sanitizers.md)). Nothing has been
+checked in a real Plasma session; that is
 [M15](../ROADMAP.md#m15-real-plasma-session-verification)
 ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)).
 

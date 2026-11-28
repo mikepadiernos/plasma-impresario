@@ -192,6 +192,16 @@ void CopyAndFlagTest::testCopyUidFromMove()
     QVERIFY(task);
     QSignalSpy copyUidSpy(task, &CopyMoveMessagesTask::copyUidReceived);
     QSignalSpy completedSpy(task, &ImapTask::completed);
+    // The task deletes itself once it completes, so its results are read while it does
+    uint validity = 0;
+    Imap::Uids sourceUids, destinationUids;
+    QString target;
+    connect(task, &ImapTask::completed, this, [&]() {
+        validity = task->copyUidValidity();
+        sourceUids = task->copyUidSourceUids();
+        destinationUids = task->copyUidDestinationUids();
+        target = task->targetMailboxName();
+    });
 
     cClient(t.mk("UID MOVE 2:3 b\r\n"));
     // A COPYUID for UIDs which were not part of this command must be left alone
@@ -203,10 +213,10 @@ void CopyAndFlagTest::testCopyUidFromMove()
     QCOMPARE(completedSpy.size(), 1);
     QCOMPARE(copyUidSpy.size(), 1);
     QCOMPARE(copyUidSpy.at(0).at(0).toUInt(), 77u);
-    QCOMPARE(task->copyUidValidity(), 77u);
-    QCOMPARE(task->copyUidSourceUids(), Imap::Uids() << 2 << 3);
-    QCOMPARE(task->copyUidDestinationUids(), Imap::Uids() << 10 << 11);
-    QCOMPARE(task->targetMailboxName(), QStringLiteral("b"));
+    QCOMPARE(validity, 77u);
+    QCOMPARE(sourceUids, Imap::Uids() << 2 << 3);
+    QCOMPARE(destinationUids, Imap::Uids() << 10 << 11);
+    QCOMPARE(target, QStringLiteral("b"));
     existsA = 1;
     uidMapA = Imap::Uids() << 1;
     helperCheckCache();
@@ -226,12 +236,18 @@ void CopyAndFlagTest::testCopyUidFromCopy()
     auto *task = qobject_cast<CopyMoveMessagesTask *>(model->copyMoveMessages(QStringLiteral("b"), messages, MOVE));
     QVERIFY(task);
     QSignalSpy copyUidSpy(task, &CopyMoveMessagesTask::copyUidReceived);
+    // The task deletes itself once the copy completes, so its results are read when they arrive
+    Imap::Uids sourceUids, destinationUids;
+    connect(task, &CopyMoveMessagesTask::copyUidReceived, this, [&]() {
+        sourceUids = task->copyUidSourceUids();
+        destinationUids = task->copyUidDestinationUids();
+    });
 
     cClient(t.mk("UID COPY 2 b\r\n"));
     cServer(t.last("OK [COPYUID 77 2 5] copied\r\n"));
     QCOMPARE(copyUidSpy.size(), 1);
-    QCOMPARE(task->copyUidSourceUids(), Imap::Uids() << 2);
-    QCOMPARE(task->copyUidDestinationUids(), Imap::Uids() << 5);
+    QCOMPARE(sourceUids, Imap::Uids() << 2);
+    QCOMPARE(destinationUids, Imap::Uids() << 5);
     cClient(t.mk("UID STORE 2 +FLAGS.SILENT \\Deleted\r\n"));
     cServer(t.last("OK stored\r\n"));
     cClient(t.mk("UID EXPUNGE 2\r\n"));
@@ -254,11 +270,13 @@ void CopyAndFlagTest::testMoveByUid()
                 model->copyMoveMessagesByUid(idxA, Imap::Uids() << 3 << 1 << 3, QStringLiteral("b"), MOVE, 666));
     QVERIFY(task);
     QSignalSpy completedSpy(task, &ImapTask::completed);
+    Imap::Uids destinationUids{0};
+    connect(task, &ImapTask::completed, this, [&]() { destinationUids = task->copyUidDestinationUids(); });
     cClient(t.mk("UID MOVE 1,3 b\r\n"));
     cServer("* 3 EXPUNGE\r\n* 1 EXPUNGE\r\n" + t.last("OK moved\r\n"));
     QCOMPARE(completedSpy.size(), 1);
     // No COPYUID from this server
-    QVERIFY(task->copyUidDestinationUids().isEmpty());
+    QVERIFY(destinationUids.isEmpty());
     existsA = 1;
     uidMapA = Imap::Uids() << 2;
     helperCheckCache();

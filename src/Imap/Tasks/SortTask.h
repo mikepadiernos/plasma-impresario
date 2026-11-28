@@ -36,7 +36,13 @@ class SortTask : public ImapTask
 {
     Q_OBJECT
 public:
-    SortTask(Model *model, const QModelIndex &mailbox, const QStringList &searchConditions, const QStringList &sortCriteria);
+    /** @short Search or sort @p mailbox; without @p wantUpdates, the server is asked once and keeps no search context
+
+    Work which only needs one answer should not ask for updates, which the server would otherwise keep sending until a
+    CANCELUPDATE.
+    */
+    SortTask(Model *model, const QModelIndex &mailbox, const QStringList &searchConditions,
+        const QStringList &sortCriteria, bool wantUpdates = true);
     void perform() override;
     void abort() override;
 
@@ -75,6 +81,9 @@ private:
 
     /** @short Are we supposed to run in a "persistent mode", ie. keep listening for updates? */
     bool m_persistentSearch;
+
+    /** @short Whether to ask for incremental updates when the server offers them */
+    bool m_wantUpdates;
 
     /** @short Have we received a full (non-incremental) response at first? */
     bool m_firstUntaggedReceived;

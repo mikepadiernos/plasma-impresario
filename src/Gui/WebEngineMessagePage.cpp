@@ -11,7 +11,6 @@
 
 #include <QJsonArray>
 #include <QJsonDocument>
-#include <QPointer>
 #include <QWebEngineNewWindowRequest>
 #include <QWebEngineScript>
 #include <QWebEngineScriptCollection>
@@ -138,11 +137,11 @@ void WebEngineMessagePage::applyColors()
                                     m_colors.forced ? QStringLiteral("true") : QStringLiteral("false"),
                                     jsString(forcedRules), jsString(paletteRules), jsString(pageRules),
                                     jsString(m_colors.extraCss));
-    const QPointer<WebEngineMessagePage> page(this);
-    runJavaScript(script, QWebEngineScript::ApplicationWorld, [page](const QVariant &kind) {
-        if (page)
-            emit page->colorsApplied(kind.toString());
-    });
+    runJavaScript(
+        script, QWebEngineScript::ApplicationWorld, [this, alive = std::weak_ptr<char>(m_alive)](const QVariant &kind) {
+            if (!alive.expired())
+                emit colorsApplied(kind.toString());
+        });
 }
 
 bool WebEngineMessagePage::loadMessagePart(const QUrl &url)
@@ -182,7 +181,6 @@ void WebEngineMessagePage::quoteText(const std::function<void(const QString &)> 
         return;
     }
 
-    const QPointer<WebEngineMessagePage> page(this);
     runJavaScript(QStringLiteral(R"JS((() => {
         const root = document.querySelector(".plain-text");
         if (!root)
@@ -214,13 +212,17 @@ void WebEngineMessagePage::quoteText(const std::function<void(const QString &)> 
             previousQuote = quote;
         }
         return text;
-    })())JS"), QWebEngineScript::ApplicationWorld, [page, callback](const QVariant &text) {
-        if (text.isNull() && page) {
-            page->toPlainText(callback);
-        } else {
-            callback(text.toString());
-        }
-    });
+    })())JS"),
+        QWebEngineScript::ApplicationWorld,
+        [this, alive = std::weak_ptr<char>(m_alive), callback](const QVariant &text) {
+            if (alive.expired())
+                return;
+            if (text.isNull()) {
+                toPlainText(callback);
+            } else {
+                callback(text.toString());
+            }
+        });
 }
 
 bool WebEngineMessagePage::acceptNavigationRequest(const QUrl &url, NavigationType type, bool isMainFrame)
@@ -257,11 +259,8 @@ void WebEngineMessagePage::requestExternalLink(const QUrl &url)
     if ((scheme != QLatin1String("http") && scheme != QLatin1String("https")) || url.host().isEmpty())
         return;
     // The text of the clicked link, so that a text which shows another address can be pointed out.
-    QPointer<WebEngineMessagePage> self(this);
-    linkText(url.toString(QUrl::FullyEncoded), LinkSource::Clicked, [self, url](const QString &text) {
-        if (self)
-            emit self->externalLinkRequested(url, text);
-    });
+    linkText(url.toString(QUrl::FullyEncoded), LinkSource::Clicked,
+        [this, url](const QString &text) { emit externalLinkRequested(url, text); });
 }
 
 void WebEngineMessagePage::linkText(const QString &href, LinkSource source,
@@ -279,9 +278,11 @@ void WebEngineMessagePage::linkText(const QString &href, LinkSource source,
         "for(var i=0;i<l.length;++i){if(l[i].href===u){a=l[i];break;}}}"
         "return a?String(a.innerText||a.textContent||'').substring(0,2048):'';})(%1,%2)")
         .arg(jsString(href), candidates);
-    runJavaScript(script, QWebEngineScript::ApplicationWorld, [callback](const QVariant &text) {
-        callback(text.toString());
-    });
+    runJavaScript(script, QWebEngineScript::ApplicationWorld,
+        [alive = std::weak_ptr<char>(m_alive), callback](const QVariant &text) {
+            if (!alive.expired())
+                callback(text.toString());
+        });
 }
 
 }

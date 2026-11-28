@@ -107,6 +107,74 @@ private slots:
         QCOMPARE(log.failedCount(), 0);
     }
 
+    void retryRunsTheHandlerOnce()
+    {
+        ActivityLog log;
+        QAbstractItemModelTester tester(&log, QAbstractItemModelTester::FailureReportingMode::QtTest);
+        QVERIFY(!log.setRetry(QStringLiteral("missing"), []() { }));
+        auto failed = entry(QStringLiteral("move"), ActivityLog::State::Failed, QStringLiteral("Moving 3 messages"));
+        failed.error = QStringLiteral("Server said NO");
+        log.record(failed);
+        QCOMPARE(log.entry(0).action, ActivityLog::Action::None);
+        QVERIFY(!log.canRetry(QStringLiteral("move")));
+        QCOMPARE(log.retryableCount(), 0);
+
+        int runs = 0;
+        QVERIFY(log.setRetry(QStringLiteral("move"), [&runs]() { ++runs; }));
+        QCOMPARE(log.entry(0).action, ActivityLog::Action::Retry);
+        QVERIFY(log.canRetry(QStringLiteral("move")));
+        QCOMPARE(log.retryableCount(), 1);
+
+        QVERIFY(log.retry(QStringLiteral("move")));
+        QCOMPARE(runs, 1);
+        QCOMPARE(log.entry(0).state, ActivityLog::State::Running);
+        QVERIFY(log.entry(0).error.isEmpty());
+        QCOMPARE(log.entry(0).action, ActivityLog::Action::None);
+        QVERIFY(!log.canRetry(QStringLiteral("move")));
+        // A handler runs once; the work sets a new one when it fails again
+        QVERIFY(!log.retry(QStringLiteral("move")));
+        QCOMPARE(runs, 1);
+    }
+
+    void recordingWithoutRetryForgetsTheHandler()
+    {
+        ActivityLog log;
+        auto failed = entry(QStringLiteral("sync work"), ActivityLog::State::Failed, QStringLiteral("Connection"));
+        log.record(failed);
+        QVERIFY(log.setRetry(QStringLiteral("sync work"), []() { }));
+        // Failing again in the same way keeps the handler
+        failed.action = ActivityLog::Action::Retry;
+        log.record(failed);
+        QVERIFY(log.canRetry(QStringLiteral("sync work")));
+        // Succeeding resolves the failure
+        log.record(entry(QStringLiteral("sync work"), ActivityLog::State::Done, QStringLiteral("Connection")));
+        QVERIFY(!log.canRetry(QStringLiteral("sync work")));
+        QCOMPARE(log.entry(0).action, ActivityLog::Action::None);
+    }
+
+    void retryAllAndRemoval()
+    {
+        ActivityLog log;
+        QStringList ran;
+        for (const QString &key : {QStringLiteral("a"), QStringLiteral("b"), QStringLiteral("c")}) {
+            log.record(entry(key, ActivityLog::State::Failed, key,
+                key == QStringLiteral("c") ? QStringLiteral("home") : QStringLiteral("work")));
+            log.setRetry(key, [&ran, key]() { ran << key; });
+        }
+        log.record(entry(QStringLiteral("d"), ActivityLog::State::Failed, QStringLiteral("d")));
+        QCOMPARE(log.retryableCount(), 3);
+        log.removeAccount(QStringLiteral("home"));
+        QVERIFY(!log.canRetry(QStringLiteral("c")));
+        QCOMPARE(log.retryAll(), 2);
+        ran.sort();
+        QCOMPARE(ran, (QStringList{QStringLiteral("a"), QStringLiteral("b")}));
+        QCOMPARE(log.retryableCount(), 0);
+        QCOMPARE(log.failedCount(), 1);
+        log.setRetry(QStringLiteral("d"), []() { });
+        log.clear();
+        QVERIFY(!log.canRetry(QStringLiteral("d")));
+    }
+
     void names()
     {
         QCOMPARE(ActivityLog::stateName(ActivityLog::State::Failed), QStringLiteral("Failed"));

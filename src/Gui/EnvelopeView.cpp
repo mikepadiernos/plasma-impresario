@@ -154,13 +154,14 @@ void EnvelopeView::requestListAction(int position)
 void EnvelopeView::setMessage(const QModelIndex &index)
 {
     while (QLayoutItem *item = layout()->takeAt(0)) {
-        if (item->widget()) {
-            item->widget()->deleteLater();
-        } else if (item->layout()) {
-            item->layout()->deleteLater();
-        } else {
-            delete item;
+        // A layout is its own item; a widget's item belongs to the layout and is deleted with it
+        if (QLayout *childLayout = item->layout()) {
+            childLayout->deleteLater();
+            continue;
         }
+        if (QWidget *widget = item->widget())
+            widget->deleteLater();
+        delete item;
     }
     Q_FOREACH(QWidget *w, findChildren<QWidget*>()) {
         w->deleteLater();

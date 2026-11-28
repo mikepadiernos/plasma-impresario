@@ -303,6 +303,7 @@ void Submission::slotInvokeMsaNow()
 {
     changeConnectionState(STATE_SUBMITTING);
     MSA::AbstractMSA *msa = m_msaFactory->create(this);
+    m_msa = msa;
     connect(msa, &MSA::AbstractMSA::progressMax, this, &Submission::onMsaProgressMaxChanged);
     connect(msa, &MSA::AbstractMSA::progress, this, &Submission::onMsaProgressCurrentChanged);
     connect(msa, &MSA::AbstractMSA::sent, this, &Submission::sent);
@@ -346,6 +347,7 @@ void Submission::setCertificateAccepted(bool accepted)
 void Submission::gotError(const QString &error)
 {
     emit logged(Common::LogKind::LOG_SUBMISSION, QStringLiteral("Submission"), QStringLiteral("Error: ") + error);
+    m_refused = m_msa && m_msa->isPermanentFailure();
     changeConnectionState(STATE_FAILED);
     emit failed(error);
 }
@@ -400,8 +402,19 @@ void Submission::slotAppendFailed(const QString &error)
     gotError(tr("APPEND failed: %1").arg(error));
 }
 
+bool Submission::sentCopyFiled() const
+{
+    return m_sentCopyFiled;
+}
+
+bool Submission::refused() const
+{
+    return m_refused;
+}
+
 void Submission::slotAppendSucceeded()
 {
+    m_sentCopyFiled = true;
     if (m_appendUid && m_appendUidValidity) {
         // Only ever consider valid UIDVALIDITY/UID pair
         m_appendUidReceived = true;

@@ -159,6 +159,13 @@ public:
 
     bool hasItsOwnActivity() const;
 
+    /** @short Whether the mailbox is open and nothing else waits for the connection
+
+    Work which nobody asked for, such as loading the headers of messages which are not shown yet, only starts then, so
+    that it never delays what the user does.
+    */
+    bool isIdleForBackgroundWork() const;
+
     bool handleStateHelper(const Imap::Responses::State *const resp) override;
     bool handleNumberResponse(const Imap::Responses::NumberResponse *const resp) override;
     bool handleFlags(const Imap::Responses::Flags *const resp) override;

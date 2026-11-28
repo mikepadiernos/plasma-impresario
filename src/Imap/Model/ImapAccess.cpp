@@ -36,6 +36,7 @@
 #include "Common/TrustedCertificates.h"
 #include "Imap/Model/CombinedCache.h"
 #include "Imap/Model/DummyNetworkWatcher.h"
+#include "Imap/Model/HeaderBackfill.h"
 #include "Imap/Model/MailboxModel.h"
 #include "Imap/Model/MemoryCache.h"
 #include "Imap/Model/Model.h"
@@ -436,10 +437,14 @@ void ImapAccess::doConnect()
                 m_searchIndexer->setAttachmentIndexing(
                     m_settings->value(Common::SettingsNames::searchIndexAttachmentsKey, false).toBool(),
                     quint64(limitMB) * 1024 * 1024);
-                // A burst of new messages, flags or downloaded parts leads to one pass a little later
-                connect(m_imapModel, &QAbstractItemModel::rowsInserted, m_searchIndexer, &Imap::Mailbox::SearchIndexer::scheduleUpdate);
-                connect(m_imapModel, &QAbstractItemModel::rowsRemoved, m_searchIndexer, &Imap::Mailbox::SearchIndexer::scheduleUpdate);
-                connect(m_imapModel, &QAbstractItemModel::dataChanged, m_searchIndexer, &Imap::Mailbox::SearchIndexer::scheduleUpdate);
+                // A burst of new messages, flags or downloaded parts leads to one pass a little later, which looks at
+                // the folders that changed
+                connect(m_imapModel, &QAbstractItemModel::rowsInserted, m_searchIndexer,
+                    &Imap::Mailbox::SearchIndexer::noteChange);
+                connect(m_imapModel, &QAbstractItemModel::rowsRemoved, m_searchIndexer,
+                    &Imap::Mailbox::SearchIndexer::noteChange);
+                connect(m_imapModel, &QAbstractItemModel::dataChanged, m_searchIndexer,
+                    &Imap::Mailbox::SearchIndexer::noteChange);
                 QMetaObject::invokeMethod(m_searchIndexer, &Imap::Mailbox::SearchIndexer::update, Qt::QueuedConnection);
             }
         } else {
@@ -447,6 +452,11 @@ void ImapAccess::doConnect()
             combined->finishQueries();
             Imap::Mailbox::SearchIndex::drop(combined->databaseConnectionName());
         }
+    }
+    if (!local) {
+        // Lives with the model, which it works on
+        m_headerBackfill = new Imap::Mailbox::HeaderBackfill(m_imapModel, m_imapModel);
+        m_headerBackfill->setObjectName(QStringLiteral("headerBackfill-%1").arg(m_accountName));
     }
     connect(m_imapModel, &Mailbox::Model::alertReceived, this, &ImapAccess::alertReceived);
     connect(m_imapModel, &Mailbox::Model::imapError, this, &ImapAccess::imapError);
@@ -515,6 +525,11 @@ QAbstractItemModel *ImapAccess::imapModel() const
 Imap::Mailbox::SearchIndexer *ImapAccess::searchIndexer() const
 {
     return m_searchIndexer;
+}
+
+Imap::Mailbox::HeaderBackfill *ImapAccess::headerBackfill() const
+{
+    return m_headerBackfill;
 }
 
 void ImapAccess::setSearchIndexPaused(bool paused)

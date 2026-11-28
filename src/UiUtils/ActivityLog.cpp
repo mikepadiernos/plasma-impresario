@@ -3,6 +3,8 @@
 */
 #include "UiUtils/ActivityLog.h"
 
+#include <algorithm>
+
 #include <QCoreApplication>
 
 namespace UiUtils {
@@ -29,6 +31,8 @@ void ActivityLog::record(Entry entry)
     const int runningBefore = runningCount();
     if (!entry.time.isValid())
         entry.time = QDateTime::currentDateTime();
+    if (entry.action != Action::Retry)
+        forgetRetry(entry.key);
     const int existing = entry.key.isEmpty() ? -1 : find(entry.key);
     if (existing == 0) {
         m_entries[0] = entry;
@@ -76,6 +80,7 @@ void ActivityLog::trim()
         if (drop < 0)
             drop = static_cast<int>(m_entries.size()) - 1;
         beginRemoveRows({}, drop, drop);
+        forgetRetry(m_entries.at(drop).key);
         m_entries.removeAt(drop);
         endRemoveRows();
     }
@@ -103,6 +108,7 @@ void ActivityLog::removeAccount(const QString &accountId)
         if (m_entries.at(row).accountId != accountId)
             continue;
         beginRemoveRows({}, row, row);
+        forgetRetry(m_entries.at(row).key);
         m_entries.removeAt(row);
         endRemoveRows();
     }
@@ -115,8 +121,67 @@ void ActivityLog::clear()
     const int runningBefore = runningCount();
     beginResetModel();
     m_entries.clear();
+    m_retries.clear();
     endResetModel();
     notifyCounts(failedBefore, runningBefore);
+}
+
+bool ActivityLog::setRetry(const QString &key, const std::function<void()> &handler)
+{
+    const int row = find(key);
+    if (row < 0 || !handler)
+        return false;
+    m_retries.insert(key, handler);
+    m_entries[row].action = Action::Retry;
+    emit dataChanged(index(row), index(row));
+    return true;
+}
+
+bool ActivityLog::canRetry(const QString &key) const
+{
+    return !key.isEmpty() && m_retries.contains(key);
+}
+
+bool ActivityLog::retry(const QString &key)
+{
+    const int row = find(key);
+    if (row < 0 || !m_retries.contains(key))
+        return false;
+    const std::function<void()> handler = m_retries.take(key);
+    Entry entry = m_entries.at(row);
+    entry.state = State::Running;
+    entry.error.clear();
+    entry.action = Action::None;
+    entry.detail = tr("Trying again");
+    entry.time = QDateTime();
+    record(entry);
+    handler();
+    return true;
+}
+
+int ActivityLog::retryAll()
+{
+    QStringList keys;
+    for (const Entry &entry : std::as_const(m_entries)) {
+        if (entry.state == State::Failed && m_retries.contains(entry.key))
+            keys << entry.key;
+    }
+    int retried = 0;
+    for (const QString &key : std::as_const(keys))
+        retried += retry(key) ? 1 : 0;
+    return retried;
+}
+
+int ActivityLog::retryableCount() const
+{
+    return static_cast<int>(std::count_if(m_entries.cbegin(), m_entries.cend(),
+        [this](const Entry &entry) { return entry.state == State::Failed && m_retries.contains(entry.key); }));
+}
+
+void ActivityLog::forgetRetry(const QString &key)
+{
+    if (!key.isEmpty())
+        m_retries.remove(key);
 }
 
 void ActivityLog::notifyCounts(int failedBefore, int runningBefore)
@@ -188,6 +253,10 @@ QString ActivityLog::actionName(Action action)
         return tr("Open Settings");
     case Action::OpenAccount:
         return tr("Open Account");
+    case Action::OpenDraft:
+        return tr("Open Draft");
+    case Action::OpenOutbox:
+        return tr("Show Outbox");
     }
     return {};
 }

@@ -97,12 +97,14 @@
 #include "Common/SettingsNames.h"
 #include "Composer/AccountIdentities.h"
 #include "Composer/Mailto.h"
+#include "Composer/Outbox.h"
 #include "Composer/SenderIdentitiesModel.h"
 #ifdef IMPRESARIO_HAVE_CRYPTO_MESSAGES
 #  ifdef IMPRESARIO_HAVE_GPGMEPP
 #    include "Cryptography/GpgMe++.h"
 #  endif
 #endif
+#include "Imap/Model/HeaderBackfill.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/MailboxTree.h"
 #include "Imap/Model/Model.h"
@@ -123,6 +125,7 @@
 #include "Imap/Model/GroupingMsgListModel.h"
 #include "Imap/Model/Utils.h"
 #include "Imap/Parser/MailAddress.h"
+#include "Imap/Tasks/AppendTask.h"
 #include "Imap/Tasks/CopyMoveMessagesTask.h"
 #include "Imap/Tasks/ImapTask.h"
 #include "Imap/Network/FileDownloadManager.h"
@@ -223,6 +226,7 @@
 #include "CapabilityActionGate.h"
 #include "SavedSearchFolders.h"
 #include "ActivityDialog.h"
+#include "OutboxDialog.h"
 #include "MailAutomation.h"
 #include "MailSafetyPrompt.h"
 #include "NotificationsDialog.h"
@@ -780,13 +784,13 @@ void MainWindow::createActions()
     m_actionShortcutOverview = ShortcutHandler::instance()->createAction(QStringLiteral("action_shortcut_overview"), this);
     connect(m_actionShortcutOverview, &QAction::triggered, this, &MainWindow::slotShowShortcutOverview);
 
-    netOffline = ShortcutHandler::instance()->createAction(QStringLiteral("action_network_offline"));
+    netOffline = ShortcutHandler::instance()->createAction(QStringLiteral("action_network_offline"), this);
     netOffline->setCheckable(true);
     // connect later
-    netExpensive = ShortcutHandler::instance()->createAction(QStringLiteral("action_network_expensive"));
+    netExpensive = ShortcutHandler::instance()->createAction(QStringLiteral("action_network_expensive"), this);
     netExpensive->setCheckable(true);
     // connect later
-    netOnline = ShortcutHandler::instance()->createAction(QStringLiteral("action_network_online"));
+    netOnline = ShortcutHandler::instance()->createAction(QStringLiteral("action_network_online"), this);
     netOnline->setCheckable(true);
     // connect later
 
@@ -1401,8 +1405,8 @@ void MainWindow::createActions()
     m_prettyUnifiedModel = new Imap::Mailbox::PrettyUnifiedMsgListModel(this);
     m_prettyUnifiedModel->setObjectName(QStringLiteral("prettyUnifiedMsgListModel"));
     m_prettyUnifiedModel->setSourceModel(m_unifiedModel);
-    connect(m_unifiedModel, &QAbstractItemModel::dataChanged, this, &MainWindow::updateMessageFlags);
-    connect(m_unifiedModel, &QAbstractItemModel::rowsRemoved, this, &MainWindow::updateMessageFlags);
+    connect(m_unifiedModel, &QAbstractItemModel::dataChanged, this, &MainWindow::scheduleMessageFlagsUpdate);
+    connect(m_unifiedModel, &QAbstractItemModel::rowsRemoved, this, &MainWindow::scheduleMessageFlagsUpdate);
     connect(m_prettyUnifiedModel, &QAbstractItemModel::rowsInserted, this, &MainWindow::scheduleMessageListStatus);
     connect(m_prettyUnifiedModel, &QAbstractItemModel::rowsRemoved, this, &MainWindow::scheduleMessageListStatus);
     connect(m_prettyUnifiedModel, &QAbstractItemModel::modelReset, this, &MainWindow::scheduleMessageListStatus);
@@ -1937,6 +1941,15 @@ void MainWindow::createWidgets()
     connect(m_activityButton, &QToolButton::clicked, this, &MainWindow::showActivity);
     statusBar()->insertPermanentWidget(0, m_activityButton);
 
+    m_outboxButton = new QToolButton(statusBar());
+    m_outboxButton->setObjectName(QStringLiteral("outboxButton"));
+    m_outboxButton->setAutoRaise(true);
+    m_outboxButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    m_outboxButton->setIcon(UiUtils::SymbolicIcon::fromTheme(QStringLiteral("mail-folder-outbox")));
+    connect(m_outboxButton, &QToolButton::clicked, this, &MainWindow::showOutbox);
+    statusBar()->insertPermanentWidget(0, m_outboxButton);
+    updateOutboxButton();
+
     m_oauthSignIn = new QToolButton(statusBar());
     m_oauthSignIn->setObjectName(QStringLiteral("oauthSignInButton"));
     m_oauthSignIn->setAutoRaise(true);
@@ -2291,7 +2304,7 @@ void MainWindow::setupModels(bool reconnect)
     connect(mboxTree, &MailBoxTreeView::activated,
             realMsgListModel,
             static_cast<void (Imap::Mailbox::MsgListModel::*)(const QModelIndex &)>(&Imap::Mailbox::MsgListModel::setMailbox));
-    connect(m_imapAccess->msgListModel(), &QAbstractItemModel::dataChanged, this, &MainWindow::updateMessageFlags);
+    connect(m_imapAccess->msgListModel(), &QAbstractItemModel::dataChanged, this, &MainWindow::scheduleMessageFlagsUpdate);
     // Sorting an empty list does not stick, so the folder's sorting applies once its messages are there
     connect(realMsgListModel, &Imap::Mailbox::MsgListModel::messagesAvailable, this, [this]() {
         if (!m_viewMailbox.isEmpty() && m_viewMailbox == currentMailboxName())
@@ -2309,11 +2322,11 @@ void MainWindow::setupModels(bool reconnect)
     });
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::rowsInserted, msgListWidget, &MessageListWidget::slotAutoEnableDisableSearch);
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::rowsRemoved, msgListWidget, &MessageListWidget::slotAutoEnableDisableSearch);
-    connect(m_imapAccess->msgListModel(), &QAbstractItemModel::rowsRemoved, this, &MainWindow::updateMessageFlags);
+    connect(m_imapAccess->msgListModel(), &QAbstractItemModel::rowsRemoved, this, &MainWindow::scheduleMessageFlagsUpdate);
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::layoutChanged, msgListWidget, &MessageListWidget::slotAutoEnableDisableSearch);
-    connect(m_imapAccess->msgListModel(), &QAbstractItemModel::layoutChanged, this, &MainWindow::updateMessageFlags);
+    connect(m_imapAccess->msgListModel(), &QAbstractItemModel::layoutChanged, this, &MainWindow::scheduleMessageFlagsUpdate);
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::modelReset, msgListWidget, &MessageListWidget::slotAutoEnableDisableSearch);
-    connect(m_imapAccess->msgListModel(), &QAbstractItemModel::modelReset, this, &MainWindow::updateMessageFlags);
+    connect(m_imapAccess->msgListModel(), &QAbstractItemModel::modelReset, this, &MainWindow::scheduleMessageFlagsUpdate);
     connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, this, &MainWindow::slotMailboxChanged);
     connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, this, &MainWindow::syncCurrentTab);
     // Reloading the folder list, as after going online again, replaces the shown folder with a new item
@@ -2727,6 +2740,8 @@ bool MainWindow::eventFilter(QObject *o, QEvent *e)
 #endif
     if (msgListWidget && msgListWidget->tree && o == msgListWidget->tree->header()->viewport()) {
         // installed if sorting is not really possible.
+        if (e->type() != QEvent::MouseButtonPress && e->type() != QEvent::MouseButtonRelease)
+            return false;
         QWidget *header = static_cast<QWidget*>(o);
         QMouseEvent *mouse = static_cast<QMouseEvent*>(e);
         if (e->type() == QEvent::MouseButtonPress) {
@@ -2875,13 +2890,18 @@ void MainWindow::msgListClicked(const QModelIndex &index)
                                                Imap::Mailbox::FLAG_REMOVE : Imap::Mailbox::FLAG_ADD;
         const bool read = flagOp == Imap::Mailbox::FLAG_ADD;
         actOnModel(messageModel, [&]() {
-            trackFlagChange(imapModel()->markMessagesRead(QModelIndexList() << translated, flagOp), QString(), QString(),
-                            [read](const QString &message) {
-                return read ? i18ncp("@info", "Could not mark %1 message as read: %2", "Could not mark %1 messages as read: %2", 1,
-                                     message)
-                            : i18ncp("@info", "Could not mark %1 message as unread: %2", "Could not mark %1 messages as unread: %2",
-                                     1, message);
-            });
+            trackFlagChange(
+                QModelIndexList() << translated,
+                [=](Imap::Mailbox::Model *model, const QModelIndexList &messages) {
+                    return model->markMessagesRead(messages, flagOp);
+                },
+                QString(), QString(),
+                [read](const QString &message) {
+                    return read ? i18ncp("@info", "Could not mark %1 message as read: %2",
+                                      "Could not mark %1 messages as read: %2", 1, message)
+                                : i18ncp("@info", "Could not mark %1 message as unread: %2",
+                                      "Could not mark %1 messages as unread: %2", 1, message);
+                });
         });
 
         if (translated == m_messageWidget->messageView->currentMessage()) {
@@ -2895,12 +2915,18 @@ void MainWindow::msgListClicked(const QModelIndex &index)
                                                Imap::Mailbox::FLAG_REMOVE : Imap::Mailbox::FLAG_ADD;
         const bool flagged = flagOp == Imap::Mailbox::FLAG_ADD;
         actOnModel(messageModel, [&]() {
-            trackFlagChange(imapModel()->setMessageFlags(QModelIndexList() << translated, Imap::Mailbox::FlagNames::flagged, flagOp),
-                            QString(), QString(), [flagged](const QString &message) {
-                return flagged ? i18ncp("@info", "Could not flag %1 message: %2", "Could not flag %1 messages: %2", 1, message)
-                               : i18ncp("@info", "Could not remove the flag from %1 message: %2",
-                                        "Could not remove the flag from %1 messages: %2", 1, message);
-            });
+            trackFlagChange(
+                QModelIndexList() << translated,
+                [=](Imap::Mailbox::Model *model, const QModelIndexList &messages) {
+                    return model->setMessageFlags(messages, Imap::Mailbox::FlagNames::flagged, flagOp);
+                },
+                QString(), QString(),
+                [flagged](const QString &message) {
+                    return flagged
+                        ? i18ncp("@info", "Could not flag %1 message: %2", "Could not flag %1 messages: %2", 1, message)
+                        : i18ncp("@info", "Could not remove the flag from %1 message: %2",
+                              "Could not remove the flag from %1 messages: %2", 1, message);
+                });
         });
     } else {
         if ((m_messageWidget->isVisible() && !m_messageWidget->size().isEmpty()) || m_layoutMode == LAYOUT_ONE_AT_TIME) {
@@ -3454,11 +3480,10 @@ void MainWindow::copyOrMoveToFolder(const QModelIndexList &messages, const QStri
     if (mailbox.isEmpty() || messages.isEmpty() || !model || !model->isNetworkAvailable())
         return;
     rememberRecentFolder(mailbox);
-    Imap::Mailbox::ImapTask *task = model->copyMoveMessages(mailbox, messages, op);
     if (op == Imap::Mailbox::MOVE)
-        trackMove(task, sourceMailboxName(messages), mailbox, messages.size(), MoveKind::Folder);
+        trackMove(messages, sourceMailboxName(messages), mailbox, MoveKind::Folder);
     else
-        trackCopy(task, mailbox, messages.size());
+        trackCopy(messages, mailbox);
 }
 
 /** @short Deletes a network error message box instance upon resetting of reconnect state */
@@ -4368,6 +4393,7 @@ void MainWindow::setupAccounts()
         m_settings->setValue(legacyAccountKey, accountId);
     }
     setupMailAutomation();
+    setupOutbox();
     m_imapAccess = accountAccess(m_accounts->activeAccount());
 }
 
@@ -4466,16 +4492,43 @@ void MainWindow::recordSyncActivity(const QString &accountId)
                                                                   : ActivityLog::Action::OpenAccount;
         entry.target = accountId;
         break;
-    case Kind::NetworkError:
+    case Kind::NetworkError: {
         entry.state = ActivityLog::State::Failed;
         entry.error = status.detail.isEmpty() ? entry.detail : status.detail;
-        entry.action = ActivityLog::Action::OpenAccount;
+        const QDateTime at = m_reconnectAt.value(accountId);
+        if (at.isValid() && at > QDateTime::currentDateTime())
+            entry.error = i18nc("@info %1 is an error, %2 a time", "%1 Trying again at %2.", entry.error,
+                QLocale().toString(at.time(), QLocale::ShortFormat));
+        entry.action = ActivityLog::Action::Retry;
         entry.target = accountId;
         break;
+    }
     case Kind::Idle:
         return;
     }
+    if (status.kind != Kind::NetworkError)
+        m_reconnectAt.remove(accountId);
     m_mailAutomation->activity()->record(entry);
+    if (entry.action == ActivityLog::Action::Retry)
+        m_mailAutomation->activity()->setRetry(entry.key, [this, accountId]() { reconnectAccount(accountId); });
+}
+
+void MainWindow::reconnectAccount(const QString &accountId)
+{
+    if (Pop3Fetcher *fetcher = m_pop3Fetchers.value(accountId)) {
+        fetcher->check(accountId == m_accounts->activeAccount());
+        return;
+    }
+    if (JmapSyncer *syncer = m_jmapSyncers.value(accountId)) {
+        syncer->sync(accountId == m_accounts->activeAccount());
+        return;
+    }
+    Imap::ImapAccess *access = m_accountAccess.value(accountId);
+    auto *watcher = access ? qobject_cast<Imap::Mailbox::NetworkWatcher *>(access->networkWatcher()) : nullptr;
+    if (!watcher)
+        return;
+    m_reconnectAt.remove(accountId);
+    watcher->reconnectNow();
 }
 
 void MainWindow::registerAutomationAccount(const QString &accountId, Imap::ImapAccess *access)
@@ -4599,6 +4652,14 @@ void MainWindow::showActivity()
                 signInAccount(entry.target);
                 break;
             case Action::Retry:
+                m_mailAutomation->activity()->retry(entry.key);
+                break;
+            case Action::OpenDraft:
+                openSavedDraft(entry.target);
+                break;
+            case Action::OpenOutbox:
+                showOutbox();
+                break;
             case Action::None:
                 break;
             }
@@ -4607,6 +4668,292 @@ void MainWindow::showActivity()
     m_activityDialog->show();
     m_activityDialog->raise();
     m_activityDialog->activateWindow();
+}
+
+bool MainWindow::canQueueMessages(const QString &accountId) const
+{
+    using Common::SettingsNames;
+    const QSettings *account = m_accounts->accountIds().contains(accountId) ? m_accounts->settings(accountId) : nullptr;
+    if (!account)
+        return false;
+    if (JmapSyncer::sendsThroughJmap(*account))
+        return true;
+    // Sending through IMAP needs the message on the server first, which the outbox does not do
+    const QString method = account->value(SettingsNames::msaMethodKey).toString();
+    return method == SettingsNames::methodSMTP || method == SettingsNames::methodSSMTP
+        || method == SettingsNames::methodSENDMAIL;
+}
+
+bool MainWindow::sendsOverNetwork(const QString &accountId) const
+{
+    const QSettings *account = m_accounts->accountIds().contains(accountId) ? m_accounts->settings(accountId) : nullptr;
+    return account
+        && (JmapSyncer::sendsThroughJmap(*account)
+            || account->value(Common::SettingsNames::msaMethodKey).toString() != Common::SettingsNames::methodSENDMAIL);
+}
+
+void MainWindow::openSavedDraft(const QString &path)
+{
+    if (path.endsWith(QLatin1String(".draft")))
+        ComposeWidget::warnIfMsaNotConfigured(ComposeWidget::createDraft(this, path), this);
+    else if (!path.isEmpty())
+        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+}
+
+bool MainWindow::outboxAccountOnline(const QString &accountId) const
+{
+    const Imap::ImapAccess *access = m_accountAccess.value(accountId);
+    const auto *model = access ? qobject_cast<const Imap::Mailbox::Model *>(access->imapModel()) : nullptr;
+    return model && model->isNetworkAvailable();
+}
+
+void MainWindow::recordOutboxEntry(const Composer::Outbox::Entry &message, UiUtils::ActivityLog::State state,
+    const QString &detail, const QString &error, UiUtils::ActivityLog::Action action, const QString &target)
+{
+    using UiUtils::ActivityLog;
+    if (!m_mailAutomation)
+        return;
+    ActivityLog *log = m_mailAutomation->activity();
+    ActivityLog::Entry entry;
+    entry.key = QLatin1String("outbox:") + message.id;
+    entry.kind = ActivityLog::Kind::Job;
+    entry.state = state;
+    entry.accountId = message.accountId;
+    entry.title = i18nc("@info message subject", "Sending “%1”",
+        message.subject.trimmed().isEmpty() ? i18nc("@info", "(no subject)") : message.subject.trimmed());
+    entry.detail = detail;
+    entry.error = error;
+    entry.action = action;
+    entry.target = target;
+    log->record(entry);
+    if (entry.action != ActivityLog::Action::Retry)
+        return;
+    const QString id = message.id;
+    log->setRetry(entry.key, [this, id]() {
+        const Composer::Outbox::Entry current = m_outbox->entry(id);
+        if (current.id.isEmpty())
+            return;
+        if (!outboxAccountOnline(current.accountId)) {
+            recordOutboxEntry(current, ActivityLog::State::Waiting,
+                i18nc("@info", "Waiting for the account to be online"), QString(), ActivityLog::Action::OpenOutbox);
+            return;
+        }
+        m_outbox->sendNow(id);
+    });
+}
+
+void MainWindow::recordOutboxState(const Composer::Outbox::Entry &message)
+{
+    using UiUtils::ActivityLog;
+    using State = Composer::Outbox::State;
+    const auto record = [&](ActivityLog::State state, const QString &detail, const QString &error,
+                            ActivityLog::Action action) { recordOutboxEntry(message, state, detail, error, action); };
+    switch (message.state) {
+    case State::Queued:
+        if (message.attempts > 0) {
+            record(ActivityLog::State::Failed,
+                message.nextAttempt.isValid()
+                    ? i18nc("@info time", "Trying again at %1",
+                          QLocale().toString(message.nextAttempt.toLocalTime().time(), QLocale::ShortFormat))
+                    : i18nc("@info", "Trying again soon"),
+                message.lastError, ActivityLog::Action::Retry);
+        } else {
+            record(ActivityLog::State::Waiting,
+                outboxAccountOnline(message.accountId) ? i18nc("@info", "Waiting to be sent")
+                                                       : i18nc("@info", "Waiting for the account to be online"),
+                QString(), ActivityLog::Action::OpenOutbox);
+        }
+        break;
+    case State::Sending:
+        record(ActivityLog::State::Running, i18nc("@info", "Handing the message to the outgoing server"), QString(),
+            ActivityLog::Action::None);
+        break;
+    case State::Submitted:
+        record(message.attempts > 0 ? ActivityLog::State::Failed : ActivityLog::State::Running,
+            i18nc("@info folder name", "Sent; the copy is still to be filed in %1", message.sentFolder),
+            message.lastError, message.attempts > 0 ? ActivityLog::Action::Retry : ActivityLog::Action::None);
+        break;
+    case State::Interrupted:
+        record(ActivityLog::State::Failed,
+            i18nc("@info", "The message may or may not have been sent; the outbox asks what to do"), message.lastError,
+            ActivityLog::Action::OpenOutbox);
+        break;
+    case State::Refused:
+        record(ActivityLog::State::Failed,
+            i18nc("@info", "The server refused the message, and it could not be moved to the drafts"),
+            message.lastError, ActivityLog::Action::OpenOutbox);
+        break;
+    }
+}
+
+void MainWindow::setupOutbox()
+{
+    using Composer::Outbox;
+    using UiUtils::ActivityLog;
+    const QString data = Common::writablePath(Common::LOCATION_DATA);
+    m_outbox = new Outbox(data + QLatin1String("Outbox"), data + tr("Drafts"), this);
+    m_outbox->setObjectName(QStringLiteral("outbox"));
+    ActivityLog *log = m_mailAutomation->activity();
+    connect(m_outbox, &Outbox::sending, this, [this](const QString &id) { recordOutboxState(m_outbox->entry(id)); });
+    connect(m_outbox, &Outbox::failed, this, [this](const QString &id) { recordOutboxState(m_outbox->entry(id)); });
+    connect(
+        m_outbox, &Outbox::interrupted, this, [this](const QString &id) { recordOutboxState(m_outbox->entry(id)); });
+    connect(m_outbox, &Outbox::sent, this, [log](const QString &id) {
+        const int row = log->find(QLatin1String("outbox:") + id);
+        if (row < 0)
+            return;
+        ActivityLog::Entry entry = log->entry(row);
+        entry.state = ActivityLog::State::Done;
+        entry.detail = i18nc("@info", "Sent");
+        entry.error.clear();
+        entry.action = ActivityLog::Action::None;
+        entry.time = QDateTime();
+        log->record(entry);
+    });
+    connect(m_outbox, &Outbox::refused, this,
+        [this](const Outbox::Entry &message, const QString &reason, const QString &draftPath) {
+            if (draftPath.isEmpty()) {
+                recordOutboxState(message);
+                return;
+            }
+            recordOutboxEntry(message, ActivityLog::State::Failed,
+                i18nc("@info", "The server refused the message; it is back in the drafts"), reason,
+                ActivityLog::Action::OpenDraft, draftPath);
+        });
+    connect(m_outbox, &Outbox::changed, this, [this, log]() {
+        updateOutboxButton();
+        // Messages which were just queued, or kept from the last session, show up as waiting
+        const QList<Outbox::Entry> entries = m_outbox->entries();
+        for (const Outbox::Entry &message : entries) {
+            if (log->find(QLatin1String("outbox:") + message.id) < 0)
+                recordOutboxState(message);
+        }
+    });
+    const QList<Outbox::Entry> entries = m_outbox->entries();
+    for (const Outbox::Entry &message : entries)
+        recordOutboxState(message);
+}
+
+void MainWindow::registerOutboxAccount(const QString &accountId)
+{
+    if (!m_outbox)
+        return;
+    Imap::ImapAccess *access = m_accountAccess.value(accountId);
+    QPointer<Imap::Mailbox::Model> model = access ? qobject_cast<Imap::Mailbox::Model *>(access->imapModel()) : nullptr;
+    if (Imap::Mailbox::HeaderBackfill *backfill = access ? access->headerBackfill() : nullptr) {
+        // A message to send goes first; the headers of the open folder wait for it
+        QPointer<Composer::Outbox> outbox = m_outbox;
+        backfill->setOtherWorkPending([outbox, accountId]() { return outbox && outbox->hasWorkDue(accountId); });
+    }
+    if (!model || !canQueueMessages(accountId)) {
+        m_outbox->removeTransport(accountId);
+        return;
+    }
+    Composer::Outbox::Transport transport;
+    transport.createMsa = [this, accountId](QObject *parent) -> MSA::AbstractMSA * {
+        MSA::MSAFactory *created = nullptr;
+        withAccount(accountId, [this, &created]() { created = msaFactory(); });
+        if (!created)
+            return nullptr;
+        // The factory lives as long as what it creates
+        std::shared_ptr<MSA::MSAFactory> factory(created);
+        MSA::AbstractMSA *msa = factory->create(parent);
+        if (msa)
+            connect(msa, &QObject::destroyed, [factory]() { });
+        return msa;
+    };
+    // A local sendmail program takes the message whether the account is online or not
+    if (sendsOverNetwork(accountId))
+        transport.online = [model]() { return model && model->isNetworkAvailable(); };
+    transport.fileSentCopy = [model](const QString &folder, const QByteArray &data, const QDateTime &timestamp,
+                                 const Composer::Outbox::FilingReply &reply) {
+        if (!model) {
+            reply(false, tr("The account is no longer connected."));
+            return;
+        }
+        Imap::Mailbox::ImapTask *task = model->appendIntoMailbox(folder, data, {QStringLiteral("\\Seen")}, timestamp);
+        // Exactly one of the two answers
+        auto answered = std::make_shared<bool>(false);
+        connect(task, &Imap::Mailbox::ImapTask::completed, task, [reply, answered]() {
+            if (!std::exchange(*answered, true))
+                reply(true, QString());
+        });
+        connect(task, &Imap::Mailbox::ImapTask::failed, task, [reply, answered](const QString &error) {
+            if (!std::exchange(*answered, true))
+                reply(false, error);
+        });
+    };
+    QPointer<QSettings> account = m_accounts->settings(accountId);
+    QPointer<Imap::ImapAccess> accessGuard = access;
+    QPointer<Plugins::PluginManager> plugins = pluginManager();
+    transport.password = [account, accessGuard, model, plugins](
+                             const QString &, const QString &, const Composer::Outbox::PasswordReply &reply) {
+        if (!account || !accessGuard) {
+            reply(QString());
+            return;
+        }
+        const bool jmap = JmapSyncer::sendsThroughJmap(*account);
+        if (!jmap && account->value(Common::SettingsNames::smtpAuthReuseImapCredsKey, false).toBool()) {
+            reply(model ? model->imapPassword() : QString());
+            return;
+        }
+        Plugins::PasswordPlugin *password = plugins ? plugins->password() : nullptr;
+        Plugins::PasswordJob *job = password ? password->requestPassword(accessGuard->credentialAccountId(),
+                                                   jmap ? JmapSyncer::passwordType() : QStringLiteral("smtp"))
+                                             : nullptr;
+        if (!job) {
+            reply(QString());
+            return;
+        }
+        connect(job, &Plugins::PasswordJob::passwordAvailable, job, [reply](const QString &stored) { reply(stored); });
+        connect(job, &Plugins::PasswordJob::error, job,
+            [reply](Plugins::PasswordJob::Error, const QString &) { reply(QString()); });
+        job->setAutoDelete(true);
+        job->start();
+    };
+    QPointer<QSettings> profile = m_settings;
+    QPointer<QSettings> host = account;
+    transport.certificate = [profile, host](const QList<QSslCertificate> &chain, const QList<QSslError> &) {
+        if (!profile || !host || chain.isEmpty())
+            return false;
+        const QString smtpHost = host->value(Common::SettingsNames::smtpHostKey).toString();
+        return Common::TrustedCertificates::isTrusted(*profile, smtpHost, chain.first());
+    };
+    m_outbox->setTransport(accountId, transport);
+    // Coming online sends what waited for the connection; waking twice only looks at the queue twice
+    for (auto signal : {&Imap::Mailbox::Model::networkPolicyOnline, &Imap::Mailbox::Model::networkPolicyExpensive})
+        connect(model, signal, m_outbox, [this, accountId]() { m_outbox->wake(accountId); });
+}
+
+void MainWindow::updateOutboxButton()
+{
+    if (!m_outboxButton || !m_outbox)
+        return;
+    const QList<Composer::Outbox::Entry> entries = m_outbox->entries();
+    const auto attention = std::count_if(entries.cbegin(), entries.cend(), [](const Composer::Outbox::Entry &entry) {
+        return entry.state == Composer::Outbox::State::Interrupted || entry.state == Composer::Outbox::State::Refused;
+    });
+    m_outboxButton->setText(i18ncp("@action:button", "%1 to send", "%1 to send", entries.size()));
+    m_outboxButton->setToolTip(attention > 0
+            ? i18ncp("@info:tooltip", "%1 message waiting to be sent needs your decision",
+                  "%1 messages waiting to be sent need your decision", static_cast<int>(attention))
+            : i18nc("@info:tooltip", "Show the messages waiting to be sent"));
+    m_outboxButton->setVisible(!entries.isEmpty());
+}
+
+void MainWindow::showOutbox()
+{
+    if (!m_outbox)
+        return;
+    if (!m_outboxDialog) {
+        m_outboxDialog
+            = new OutboxDialog(m_outbox, [this](const QString &accountId) { return accountName(accountId); }, this);
+        m_outboxDialog->setAttribute(Qt::WA_DeleteOnClose);
+        connect(m_outboxDialog, &OutboxDialog::draftMoved, this, &MainWindow::openSavedDraft);
+    }
+    m_outboxDialog->show();
+    m_outboxDialog->raise();
+    m_outboxDialog->activateWindow();
 }
 
 void MainWindow::configureNotifications()
@@ -5158,6 +5505,7 @@ void MainWindow::monitorAccount(const QString &accountId)
     Imap::ImapAccess *access = accountAccess(accountId);
     auto *model = qobject_cast<Imap::Mailbox::Model *>(access->imapModel());
     Q_ASSERT(model);
+    registerOutboxAccount(accountId);
     using Common::AccountStatusKind;
     if (access->protocol() != Imap::AccountProtocol::Imap) {
         // The folders are on this computer and always open; the status is that of the last visit to the server
@@ -5198,22 +5546,66 @@ void MainWindow::monitorAccount(const QString &accountId)
         }, Qt::QueuedConnection);
         return;
     }
+    // A new model numbers its connections afresh
+    m_connectionStates.remove(accountId);
     connect(model, &Imap::Mailbox::Model::connectionStateChanged, access,
-            [this, accountId](uint, const Imap::ConnectionState state) {
-        const AccountStatusKind current = m_accountStatus->status(accountId).kind;
-        if (state == Imap::CONN_STATE_NONE) {
-            if (!Common::AccountStatusTracker::needsAttention(current))
-                m_accountStatus->setStatus(accountId, AccountStatusKind::Idle);
-        } else if (state >= Imap::CONN_STATE_AUTHENTICATED) {
-            m_accountStatus->setStatus(accountId, AccountStatusKind::Connected);
-        } else {
-            m_accountStatus->setStatus(accountId, AccountStatusKind::Connecting);
-        }
-    });
+        [this, accountId](const uint connection, const Imap::ConnectionState state) {
+            using Summary = Imap::Mailbox::ConnectionStates::Summary;
+            Imap::Mailbox::ConnectionStates &states = m_connectionStates[accountId];
+            states.update(connection, state);
+            const AccountStatusKind current = m_accountStatus->status(accountId).kind;
+            switch (states.summary()) {
+            case Summary::Disconnected:
+                // Going offline and losing the connection say so themselves, and keep saying it
+                if (current != AccountStatusKind::Offline && !Common::AccountStatusTracker::needsAttention(current))
+                    m_accountStatus->setStatus(accountId, AccountStatusKind::Idle);
+                break;
+            case Summary::Connecting:
+                m_accountStatus->setStatus(accountId, AccountStatusKind::Connecting);
+                break;
+            case Summary::Connected:
+                m_accountStatus->setStatus(accountId, AccountStatusKind::Connected);
+                break;
+            }
+        });
     connect(model, &Imap::Mailbox::Model::networkPolicyOffline, access, [this, accountId]() {
         if (!Common::AccountStatusTracker::needsAttention(m_accountStatus->status(accountId).kind))
             m_accountStatus->setStatus(accountId, AccountStatusKind::Offline);
     });
+    // The activity log says when an account which lost its connection tries again
+    if (auto *watcher = qobject_cast<Imap::Mailbox::NetworkWatcher *>(access->networkWatcher())) {
+        connect(watcher, &Imap::Mailbox::NetworkWatcher::reconnectAttemptScheduled, access,
+            [this, accountId](const int timeout) {
+                m_reconnectAt.insert(accountId, QDateTime::currentDateTime().addMSecs(timeout));
+                if (m_accountStatus->status(accountId).kind == AccountStatusKind::NetworkError)
+                    recordSyncActivity(accountId);
+            });
+        connect(watcher, &Imap::Mailbox::NetworkWatcher::resetReconnectState, access,
+            [this, accountId]() { m_reconnectAt.remove(accountId); });
+    }
+    // A folder which could not be synchronized stays in the activity log until it is
+    connect(model, &Imap::Mailbox::Model::mailboxSyncFailed, access,
+        [this, accountId](
+            const QString &mailbox, const QString &message) { recordFolderSyncFailed(accountId, mailbox, message); });
+    connect(model, &Imap::Mailbox::Model::mailboxSyncingProgress, access,
+        [this, accountId](const QModelIndex &mailbox, const Imap::Mailbox::MailboxSyncingProgress state) {
+            if (state != Imap::Mailbox::STATE_DONE || !m_mailAutomation)
+                return;
+            using UiUtils::ActivityLog;
+            ActivityLog *log = m_mailAutomation->activity();
+            const QString key = QLatin1String("folder-sync:") + accountId + QLatin1Char(':')
+                + mailbox.data(Imap::Mailbox::RoleMailboxName).toString();
+            const int row = log->find(key);
+            if (row < 0 || log->entry(row).state == ActivityLog::State::Done)
+                return;
+            ActivityLog::Entry entry = log->entry(row);
+            entry.state = ActivityLog::State::Done;
+            entry.detail = i18nc("@info", "Synchronized");
+            entry.error.clear();
+            entry.action = ActivityLog::Action::None;
+            entry.time = QDateTime();
+            log->record(entry);
+        });
     // The model only connects once something reads it; without a view, list the folders so the account logs in.
     for (auto signal : {&Imap::Mailbox::Model::networkPolicyOnline, &Imap::Mailbox::Model::networkPolicyExpensive})
         connect(model, signal, model, &Imap::Mailbox::Model::reloadMailboxList, Qt::SingleShotConnection);
@@ -5659,6 +6051,19 @@ void MainWindow::removeAccountNow(const QString &accountId)
         return;
     if (accountId == m_accounts->activeAccount())
         switchAccount(remaining.first());
+    if (m_outbox) {
+        // What the account still had to send goes back to the drafts instead of waiting for a server which is gone
+        m_outbox->removeTransport(accountId);
+        const QList<Composer::Outbox::Entry> waiting = m_outbox->entries();
+        for (const Composer::Outbox::Entry &message : waiting) {
+            if (message.accountId != accountId)
+                continue;
+            if (message.state == Composer::Outbox::State::Submitted)
+                m_outbox->forget(message.id);
+            else
+                m_outbox->moveToDrafts(message.id);
+        }
+    }
     Imap::ImapAccess *access = accountAccess(accountId);
     const QSettings &removed = *m_accounts->settings(accountId);
     const bool revokeOAuth = usesOAuth(removed) && !sharesOAuthGrant(accountId);
@@ -5693,6 +6098,7 @@ void MainWindow::removeAccountNow(const QString &accountId)
     m_mailAutomation->forgetAccount(accountId);
     // Deleting the account's models also closes its cache database, so the files can be removed.
     delete m_accountAccess.take(accountId);
+    m_connectionStates.remove(accountId);
     scheduleAgendaMessages();
     if (!Imap::removeAccountCache(cacheDirectory, Common::writablePath(Common::LOCATION_CACHE))) {
         qWarning() << "Could not delete the offline cache of the removed account in" << cacheDirectory;
@@ -5951,15 +6357,20 @@ void MainWindow::handleMarkAsRead(bool value)
         const QString done = count < 2 ? QString()
             : value ? i18ncp("@info", "Marked %1 message as read", "Marked %1 messages as read", count)
                     : i18ncp("@info", "Marked %1 message as unread", "Marked %1 messages as unread", count);
-        trackFlagChange(imapModel()->markMessagesRead(translatedIndexes, value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE),
-                        value ? i18ncp("@info", "Marking %1 message as read…", "Marking %1 messages as read…", count)
-                              : i18ncp("@info", "Marking %1 message as unread…", "Marking %1 messages as unread…", count),
-                        done, [value, count](const QString &message) {
-            return value ? i18ncp("@info", "Could not mark %1 message as read: %2", "Could not mark %1 messages as read: %2", count,
-                                  message)
-                         : i18ncp("@info", "Could not mark %1 message as unread: %2", "Could not mark %1 messages as unread: %2",
-                                  count, message);
-        });
+        trackFlagChange(
+            translatedIndexes,
+            [=](Imap::Mailbox::Model *model, const QModelIndexList &messages) {
+                return model->markMessagesRead(messages, value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE);
+            },
+            value ? i18ncp("@info", "Marking %1 message as read…", "Marking %1 messages as read…", count)
+                  : i18ncp("@info", "Marking %1 message as unread…", "Marking %1 messages as unread…", count),
+            done,
+            [value, count](const QString &message) {
+                return value ? i18ncp("@info", "Could not mark %1 message as read: %2",
+                                   "Could not mark %1 messages as read: %2", count, message)
+                             : i18ncp("@info", "Could not mark %1 message as unread: %2",
+                                   "Could not mark %1 messages as unread: %2", count, message);
+            });
         if (translatedIndexes.contains(m_messageWidget->messageView->currentMessage())) {
             m_messageWidget->messageView->stopAutoMarkAsRead();
         }
@@ -6120,16 +6531,23 @@ void MainWindow::handleTag(const bool checked, const int index)
         const QString done = count < 2 ? QString()
             : checked ? i18ncp("@info", "Added the tag %2 to %1 message", "Added the tag %2 to %1 messages", count, tagName)
                       : i18ncp("@info", "Removed the tag %2 from %1 message", "Removed the tag %2 from %1 messages", count, tagName);
-        trackFlagChange(imapModel()->setMessageFlags(translatedIndexes, tagName, checked ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE),
-                        checked ? i18ncp("@info", "Adding the tag %2 to %1 message…", "Adding the tag %2 to %1 messages…", count, tagName)
-                                : i18ncp("@info", "Removing the tag %2 from %1 message…", "Removing the tag %2 from %1 messages…", count,
-                                         tagName),
-                        done, [checked, count, tagName](const QString &message) {
-            return checked ? i18ncp("@info", "Could not add the tag %2 to %1 message: %3", "Could not add the tag %2 to %1 messages: %3",
-                                    count, tagName, message)
-                           : i18ncp("@info", "Could not remove the tag %2 from %1 message: %3",
-                                    "Could not remove the tag %2 from %1 messages: %3", count, tagName, message);
-        });
+        trackFlagChange(
+            translatedIndexes,
+            [=](Imap::Mailbox::Model *model, const QModelIndexList &messages) {
+                return model->setMessageFlags(
+                    messages, tagName, checked ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE);
+            },
+            checked ? i18ncp("@info", "Adding the tag %2 to %1 message…", "Adding the tag %2 to %1 messages…", count,
+                          tagName)
+                    : i18ncp("@info", "Removing the tag %2 from %1 message…", "Removing the tag %2 from %1 messages…",
+                          count, tagName),
+            done,
+            [checked, count, tagName](const QString &message) {
+                return checked ? i18ncp("@info", "Could not add the tag %2 to %1 message: %3",
+                                     "Could not add the tag %2 to %1 messages: %3", count, tagName, message)
+                               : i18ncp("@info", "Could not remove the tag %2 from %1 message: %3",
+                                     "Could not remove the tag %2 from %1 messages: %3", count, tagName, message);
+            });
     }
 }
 
@@ -6141,8 +6559,7 @@ void MainWindow::handleMarkAsDeleted(bool value)
     if (translatedIndexes.isEmpty()) {
         qDebug() << "Model::handleMarkAsDeleted: no valid messages";
     } else if (const QString trash = deleteTrashTarget(); !trash.isEmpty()) {
-        auto task = imapModel()->copyMoveMessages(trash, translatedIndexes, Imap::Mailbox::CopyMoveOperation::MOVE);
-        trackMove(task, sourceMailboxName(translatedIndexes), trash, translatedIndexes.size(), MoveKind::Trash);
+        trackMove(translatedIndexes, sourceMailboxName(translatedIndexes), trash, MoveKind::Trash);
     } else {
         // A shortcut can fire while the action still says "Move to Trash", which is not a toggle
         if (!markAsDeleted->isCheckable())
@@ -6151,16 +6568,22 @@ void MainWindow::handleMarkAsDeleted(bool value)
         const QString done = count < 2 ? QString()
             : value ? i18ncp("@info", "Marked %1 message as deleted", "Marked %1 messages as deleted", count)
                     : i18ncp("@info", "Removed the deleted mark from %1 message", "Removed the deleted mark from %1 messages", count);
-        trackFlagChange(imapModel()->markMessagesDeleted(translatedIndexes, value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE),
-                        value ? i18ncp("@info", "Marking %1 message as deleted…", "Marking %1 messages as deleted…", count)
-                              : i18ncp("@info", "Removing the deleted mark from %1 message…",
-                                       "Removing the deleted mark from %1 messages…", count),
-                        done, [value, count](const QString &message) {
-            return value ? i18ncp("@info", "Could not mark %1 message as deleted: %2", "Could not mark %1 messages as deleted: %2",
-                                  count, message)
-                         : i18ncp("@info", "Could not remove the deleted mark from %1 message: %2",
-                                  "Could not remove the deleted mark from %1 messages: %2", count, message);
-        });
+        trackFlagChange(
+            translatedIndexes,
+            [=](Imap::Mailbox::Model *model, const QModelIndexList &messages) {
+                return model->markMessagesDeleted(
+                    messages, value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE);
+            },
+            value ? i18ncp("@info", "Marking %1 message as deleted…", "Marking %1 messages as deleted…", count)
+                  : i18ncp("@info", "Removing the deleted mark from %1 message…",
+                        "Removing the deleted mark from %1 messages…", count),
+            done,
+            [value, count](const QString &message) {
+                return value ? i18ncp("@info", "Could not mark %1 message as deleted: %2",
+                                   "Could not mark %1 messages as deleted: %2", count, message)
+                             : i18ncp("@info", "Could not remove the deleted mark from %1 message: %2",
+                                   "Could not remove the deleted mark from %1 messages: %2", count, message);
+            });
     }
 }
 
@@ -6176,15 +6599,21 @@ void MainWindow::handleMarkAsFlagged(const bool value)
         const QString done = count < 2 ? QString()
             : value ? i18ncp("@info", "Flagged %1 message", "Flagged %1 messages", count)
                     : i18ncp("@info", "Removed the flag from %1 message", "Removed the flag from %1 messages", count);
-        trackFlagChange(imapModel()->setMessageFlags(translatedIndexes, Imap::Mailbox::FlagNames::flagged,
-                                                     value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE),
-                        value ? i18ncp("@info", "Flagging %1 message…", "Flagging %1 messages…", count)
-                              : i18ncp("@info", "Removing the flag from %1 message…", "Removing the flag from %1 messages…", count),
-                        done, [value, count](const QString &message) {
-            return value ? i18ncp("@info", "Could not flag %1 message: %2", "Could not flag %1 messages: %2", count, message)
-                         : i18ncp("@info", "Could not remove the flag from %1 message: %2",
-                                  "Could not remove the flag from %1 messages: %2", count, message);
-        });
+        trackFlagChange(
+            translatedIndexes,
+            [=](Imap::Mailbox::Model *model, const QModelIndexList &messages) {
+                return model->setMessageFlags(messages, Imap::Mailbox::FlagNames::flagged,
+                    value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE);
+            },
+            value ? i18ncp("@info", "Flagging %1 message…", "Flagging %1 messages…", count)
+                  : i18ncp("@info", "Removing the flag from %1 message…", "Removing the flag from %1 messages…", count),
+            done,
+            [value, count](const QString &message) {
+                return value
+                    ? i18ncp("@info", "Could not flag %1 message: %2", "Could not flag %1 messages: %2", count, message)
+                    : i18ncp("@info", "Could not remove the flag from %1 message: %2",
+                          "Could not remove the flag from %1 messages: %2", count, message);
+            });
     }
 }
 
@@ -6204,18 +6633,27 @@ void MainWindow::handleMarkAsJunk(const bool value)
                                   "Could not remove the junk mark from %1 messages: %2", count, message);
         };
         if (value) {
-            trackFlagChange(imapModel()->setMessageFlags(translatedIndexes, Imap::Mailbox::FlagNames::notjunk, Imap::Mailbox::FLAG_REMOVE),
-                            QString(), QString(), failed);
+            trackFlagChange(
+                translatedIndexes,
+                [=](Imap::Mailbox::Model *model, const QModelIndexList &messages) {
+                    return model->setMessageFlags(
+                        messages, Imap::Mailbox::FlagNames::notjunk, Imap::Mailbox::FLAG_REMOVE);
+                },
+                QString(), QString(), failed);
         }
         const QString done = count < 2 ? QString()
             : value ? i18ncp("@info", "Marked %1 message as junk", "Marked %1 messages as junk", count)
                     : i18ncp("@info", "Removed the junk mark from %1 message", "Removed the junk mark from %1 messages", count);
-        trackFlagChange(imapModel()->setMessageFlags(translatedIndexes, Imap::Mailbox::FlagNames::junk,
-                                                     value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE),
-                        value ? i18ncp("@info", "Marking %1 message as junk…", "Marking %1 messages as junk…", count)
-                              : i18ncp("@info", "Removing the junk mark from %1 message…", "Removing the junk mark from %1 messages…",
-                                       count),
-                        done, failed);
+        trackFlagChange(
+            translatedIndexes,
+            [=](Imap::Mailbox::Model *model, const QModelIndexList &messages) {
+                return model->setMessageFlags(messages, Imap::Mailbox::FlagNames::junk,
+                    value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE);
+            },
+            value ? i18ncp("@info", "Marking %1 message as junk…", "Marking %1 messages as junk…", count)
+                  : i18ncp("@info", "Removing the junk mark from %1 message…",
+                        "Removing the junk mark from %1 messages…", count),
+            done, failed);
         if (value)
             moveAfterJunkMark(translatedIndexes, true);
     }
@@ -6237,19 +6675,27 @@ void MainWindow::handleMarkAsNotJunk(const bool value)
                                   "Could not remove the not-junk mark from %1 messages: %2", count, message);
         };
         if (value) {
-            trackFlagChange(imapModel()->setMessageFlags(translatedIndexes, Imap::Mailbox::FlagNames::junk, Imap::Mailbox::FLAG_REMOVE),
-                            QString(), QString(), failed);
+            trackFlagChange(
+                translatedIndexes,
+                [=](Imap::Mailbox::Model *model, const QModelIndexList &messages) {
+                    return model->setMessageFlags(messages, Imap::Mailbox::FlagNames::junk, Imap::Mailbox::FLAG_REMOVE);
+                },
+                QString(), QString(), failed);
         }
         const QString done = count < 2 ? QString()
             : value ? i18ncp("@info", "Marked %1 message as not junk", "Marked %1 messages as not junk", count)
                     : i18ncp("@info", "Removed the not-junk mark from %1 message", "Removed the not-junk mark from %1 messages",
                              count);
-        trackFlagChange(imapModel()->setMessageFlags(translatedIndexes, Imap::Mailbox::FlagNames::notjunk,
-                                                     value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE),
-                        value ? i18ncp("@info", "Marking %1 message as not junk…", "Marking %1 messages as not junk…", count)
-                              : i18ncp("@info", "Removing the not-junk mark from %1 message…",
-                                       "Removing the not-junk mark from %1 messages…", count),
-                        done, failed);
+        trackFlagChange(
+            translatedIndexes,
+            [=](Imap::Mailbox::Model *model, const QModelIndexList &messages) {
+                return model->setMessageFlags(messages, Imap::Mailbox::FlagNames::notjunk,
+                    value ? Imap::Mailbox::FLAG_ADD : Imap::Mailbox::FLAG_REMOVE);
+            },
+            value ? i18ncp("@info", "Marking %1 message as not junk…", "Marking %1 messages as not junk…", count)
+                  : i18ncp("@info", "Removing the not-junk mark from %1 message…",
+                        "Removing the not-junk mark from %1 messages…", count),
+            done, failed);
         if (value)
             moveAfterJunkMark(translatedIndexes, false);
     }
@@ -6272,8 +6718,7 @@ void MainWindow::moveAfterJunkMark(const QModelIndexList &messages, const bool j
     if ((source == junkFolder) == junk)
         return;
     const QString target = junk ? junkFolder : QStringLiteral("INBOX");
-    trackMove(model->copyMoveMessages(target, messages, Imap::Mailbox::CopyMoveOperation::MOVE), source, target, messages.size(),
-              MoveKind::Folder);
+    trackMove(messages, source, target, MoveKind::Folder);
 }
 
 void MainWindow::slotMoveToArchiveFailed(const QString &error, const int count)
@@ -6293,10 +6738,7 @@ void MainWindow::handleMoveToArchive()
         qDebug() << "Model::handleMoveToArchive: no valid messages";
     } else {
         const QString archiveFolderName = archiveTarget();
-        auto copyMoveMessagesTask = imapModel()->copyMoveMessages(archiveFolderName, translatedIndexes,
-                                                                  Imap::Mailbox::CopyMoveOperation::MOVE);
-        trackMove(copyMoveMessagesTask, sourceMailboxName(translatedIndexes), archiveFolderName, translatedIndexes.size(),
-                  MoveKind::Archive);
+        trackMove(translatedIndexes, sourceMailboxName(translatedIndexes), archiveFolderName, MoveKind::Archive);
     }
 }
 
@@ -6504,15 +6946,19 @@ void MainWindow::updateDeleteActionMode()
     if (!m_deleteMovesToTrash)
         return;
     const QString trash = deleteTrashTarget();
-    markAsDeleted->setCheckable(trash.isEmpty());
-    if (trash.isEmpty()) {
-        markAsDeleted->setText(m_markAsDeletedText);
-        markAsDeleted->setIcon(m_markAsDeletedIcon);
-        markAsDeleted->setToolTip(QString());
-    } else {
-        markAsDeleted->setText(i18nc("@action", "Move to &Trash"));
-        markAsDeleted->setIcon(quickActionIcon(QStringLiteral("user-trash")));
-        markAsDeleted->setToolTip(i18nc("@info:tooltip", "Move the selected messages to %1", trash));
+    // setIcon() notifies every button of the action even for the same icon, so only a new mode is applied
+    if (!m_deleteActionTrash || *m_deleteActionTrash != trash) {
+        m_deleteActionTrash = trash;
+        markAsDeleted->setCheckable(trash.isEmpty());
+        if (trash.isEmpty()) {
+            markAsDeleted->setText(m_markAsDeletedText);
+            markAsDeleted->setIcon(m_markAsDeletedIcon);
+            markAsDeleted->setToolTip(QString());
+        } else {
+            markAsDeleted->setText(i18nc("@action", "Move to &Trash"));
+            markAsDeleted->setIcon(quickActionIcon(QStringLiteral("user-trash")));
+            markAsDeleted->setToolTip(i18nc("@info:tooltip", "Move the selected messages to %1", trash));
+        }
     }
     updateReaderActions();
 }
@@ -6607,72 +7053,29 @@ QList<UiUtils::ShortcutOverview::Entry> MainWindow::shortcutOverviewEntries() co
     return entries;
 }
 
-void MainWindow::trackMove(Imap::Mailbox::ImapTask *task, const QString &source, const QString &target, const int count,
-                           const MoveKind kind)
+namespace {
+/** The title of an activity entry from the progress text of its work */
+QString withoutEllipsis(QString text)
 {
+    if (text.endsWith(QChar(0x2026)))
+        text.chop(1);
+    return text;
+}
+}
+
+void MainWindow::trackMove(const QModelIndexList &messages, const QString &source, const QString &target,
+    const MoveKind kind, const QString &retryKey)
+{
+    Imap::Mailbox::Model *current = imapModel();
+    if (!current || messages.isEmpty() || target.isEmpty())
+        return;
+    // Named before the move takes the messages away
+    const QList<MessageRef> refs = messageRefs(messages);
+    const int count = messages.size();
+    Imap::Mailbox::ImapTask *task = current->copyMoveMessages(target, messages, Imap::Mailbox::CopyMoveOperation::MOVE);
     if (!task)
         return;
-    QPointer<Imap::Mailbox::Model> model = imapModel();
-    connect(task, &Imap::Mailbox::ImapTask::completed, this,
-            [this, model, source, target, count, kind](Imap::Mailbox::ImapTask *finished) {
-        if (!showsModel(model))
-            return;
-        QString text;
-        QString openText;
-        switch (kind) {
-        case MoveKind::Trash:
-            text = i18ncp("@info", "Moved %1 message to Trash", "Moved %1 messages to Trash", count);
-            openText = i18nc("@action:button", "Open Trash");
-            break;
-        case MoveKind::Archive:
-            text = i18ncp("@info", "Archived %1 message", "Archived %1 messages", count);
-            openText = i18nc("@action:button", "Open Archive");
-            break;
-        case MoveKind::Folder:
-            text = i18ncp("@info", "Moved %1 message to %2", "Moved %1 messages to %2", count, target);
-            openText = i18nc("@action:button", "Open Folder");
-            break;
-        }
-        InlineNotificationBar::Action action;
-        auto *copyMove = qobject_cast<Imap::Mailbox::CopyMoveMessagesTask *>(finished);
-        if (copyMove && copyMove->copyUidValidity() && !copyMove->copyUidDestinationUids().isEmpty() && !source.isEmpty()) {
-            const uint uidValidity = copyMove->copyUidValidity();
-            const Imap::Uids uids = copyMove->copyUidDestinationUids();
-            action = {i18nc("@action:button", "Undo"), QStringLiteral("edit-undo"), QStringLiteral("undoMove"),
-                      [this, model, source, target, uidValidity, uids]() {
-                if (showsModel(model))
-                    actOnModel(model, [&]() { undoMove(source, target, uidValidity, uids); });
-            }};
-        } else {
-            // Without COPYUID (RFC 4315) there is no telling which messages in the target are the moved ones
-            action = {openText, QStringLiteral("go-jump"), QStringLiteral("openMoveTarget"), [this, model, target]() {
-                if (!showsModel(model))
-                    return;
-                // The folder belongs to the account of the messages, which the Unified Inbox may not show
-                if (const QString accountId = accountOfModel(model); !accountId.isEmpty() && accountId != m_accounts->activeAccount())
-                    switchAccount(accountId);
-                goToMailbox(target);
-            }};
-        }
-        m_notificationBar->showInfo(forAccountOf(model, text), {action});
-    });
-    connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, model, target, count, kind](const QString &message) {
-        if (!showsModel(model))
-            return;
-        switch (kind) {
-        case MoveKind::Archive:
-            slotMoveToArchiveFailed(forAccountOf(model, message), count);
-            break;
-        case MoveKind::Trash:
-            m_notificationBar->showError(forAccountOf(model, i18ncp("@info", "Could not move %1 message to Trash: %2",
-                                                                    "Could not move %1 messages to Trash: %2", count, message)));
-            break;
-        case MoveKind::Folder:
-            m_notificationBar->showError(forAccountOf(model, i18ncp("@info", "Could not move %1 message to %2: %3",
-                                                                    "Could not move %1 messages to %2: %3", count, target, message)));
-            break;
-        }
-    });
+    QPointer<Imap::Mailbox::Model> model = current;
     QString busy;
     switch (kind) {
     case MoveKind::Trash:
@@ -6685,15 +7088,100 @@ void MainWindow::trackMove(Imap::Mailbox::ImapTask *task, const QString &source,
         busy = i18ncp("@info", "Moving %1 message to %2…", "Moving %1 messages to %2…", count, target);
         break;
     }
+    connect(task, &Imap::Mailbox::ImapTask::completed, this,
+        [this, model, source, target, count, kind, retryKey](Imap::Mailbox::ImapTask *finished) {
+            if (!retryKey.isEmpty())
+                recordOperationDone(retryKey);
+            if (!showsModel(model))
+                return;
+            QString text;
+            QString openText;
+            switch (kind) {
+            case MoveKind::Trash:
+                text = i18ncp("@info", "Moved %1 message to Trash", "Moved %1 messages to Trash", count);
+                openText = i18nc("@action:button", "Open Trash");
+                break;
+            case MoveKind::Archive:
+                text = i18ncp("@info", "Archived %1 message", "Archived %1 messages", count);
+                openText = i18nc("@action:button", "Open Archive");
+                break;
+            case MoveKind::Folder:
+                text = i18ncp("@info", "Moved %1 message to %2", "Moved %1 messages to %2", count, target);
+                openText = i18nc("@action:button", "Open Folder");
+                break;
+            }
+            InlineNotificationBar::Action action;
+            auto *copyMove = qobject_cast<Imap::Mailbox::CopyMoveMessagesTask *>(finished);
+            if (copyMove && copyMove->copyUidValidity() && !copyMove->copyUidDestinationUids().isEmpty()
+                && !source.isEmpty()) {
+                const uint uidValidity = copyMove->copyUidValidity();
+                const Imap::Uids uids = copyMove->copyUidDestinationUids();
+                action = {i18nc("@action:button", "Undo"), QStringLiteral("edit-undo"), QStringLiteral("undoMove"),
+                    [this, model, source, target, uidValidity, uids]() {
+                        if (showsModel(model))
+                            actOnModel(model, [&]() { undoMove(source, target, uidValidity, uids); });
+                    }};
+            } else {
+                // Without COPYUID (RFC 4315) there is no telling which messages in the target are the moved ones
+                action
+                    = {openText, QStringLiteral("go-jump"), QStringLiteral("openMoveTarget"), [this, model, target]() {
+                           if (!showsModel(model))
+                               return;
+                           // The folder belongs to the account of the messages, which the Unified Inbox may not show
+                           if (const QString accountId = accountOfModel(model);
+                               !accountId.isEmpty() && accountId != m_accounts->activeAccount())
+                               switchAccount(accountId);
+                           goToMailbox(target);
+                       }};
+            }
+            m_notificationBar->showInfo(forAccountOf(model, text), {action});
+        });
+    connect(task, &Imap::Mailbox::ImapTask::failed, this,
+        [this, model, source, target, count, kind, refs, retryKey, busy](const QString &message) {
+            recordFailedOperation(model, retryKey, withoutEllipsis(busy), message,
+                [this, model, source, target, kind, refs](const QString &key) {
+                    const QModelIndexList again = resolveMessageRefs(model, refs);
+                    if (again.isEmpty())
+                        return false;
+                    trackMove(again, source, target, kind, key);
+                    return true;
+                });
+            if (!showsModel(model))
+                return;
+            switch (kind) {
+            case MoveKind::Archive:
+                slotMoveToArchiveFailed(forAccountOf(model, message), count);
+                break;
+            case MoveKind::Trash:
+                m_notificationBar->showError(forAccountOf(model,
+                    i18ncp("@info", "Could not move %1 message to Trash: %2", "Could not move %1 messages to Trash: %2",
+                        count, message)));
+                break;
+            case MoveKind::Folder:
+                m_notificationBar->showError(forAccountOf(model,
+                    i18ncp("@info", "Could not move %1 message to %2: %3", "Could not move %1 messages to %2: %3",
+                        count, target, message)));
+                break;
+            }
+        });
     showBusyWhileRunning(task, busy);
 }
 
-void MainWindow::trackCopy(Imap::Mailbox::ImapTask *task, const QString &target, const int count)
+void MainWindow::trackCopy(const QModelIndexList &messages, const QString &target, const QString &retryKey)
 {
+    Imap::Mailbox::Model *current = imapModel();
+    if (!current || messages.isEmpty() || target.isEmpty())
+        return;
+    const QList<MessageRef> refs = messageRefs(messages);
+    const int count = messages.size();
+    Imap::Mailbox::ImapTask *task = current->copyMoveMessages(target, messages, Imap::Mailbox::CopyMoveOperation::COPY);
     if (!task)
         return;
-    QPointer<Imap::Mailbox::Model> model = imapModel();
-    connect(task, &Imap::Mailbox::ImapTask::completed, this, [this, model, target, count]() {
+    QPointer<Imap::Mailbox::Model> model = current;
+    const QString busy = i18ncp("@info", "Copying %1 message to %2…", "Copying %1 messages to %2…", count, target);
+    connect(task, &Imap::Mailbox::ImapTask::completed, this, [this, model, target, count, retryKey]() {
+        if (!retryKey.isEmpty())
+            recordOperationDone(retryKey);
         if (!showsModel(model))
             return;
         const InlineNotificationBar::Action open{i18nc("@action:button", "Open Folder"), QStringLiteral("go-jump"),
@@ -6709,13 +7197,23 @@ void MainWindow::trackCopy(Imap::Mailbox::ImapTask *task, const QString &target,
                                                                count, target)),
                                     {open});
     });
-    connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, model, target, count](const QString &message) {
-        if (!showsModel(model))
-            return;
-        m_notificationBar->showError(forAccountOf(model, i18ncp("@info", "Could not copy %1 message to %2: %3",
-                                                                "Could not copy %1 messages to %2: %3", count, target, message)));
-    });
-    showBusyWhileRunning(task, i18ncp("@info", "Copying %1 message to %2…", "Copying %1 messages to %2…", count, target));
+    connect(task, &Imap::Mailbox::ImapTask::failed, this,
+        [this, model, target, count, refs, retryKey, busy](const QString &message) {
+            recordFailedOperation(
+                model, retryKey, withoutEllipsis(busy), message, [this, model, target, refs](const QString &key) {
+                    const QModelIndexList again = resolveMessageRefs(model, refs);
+                    if (again.isEmpty())
+                        return false;
+                    trackCopy(again, target, key);
+                    return true;
+                });
+            if (!showsModel(model))
+                return;
+            m_notificationBar->showError(forAccountOf(model,
+                i18ncp("@info", "Could not copy %1 message to %2: %3", "Could not copy %1 messages to %2: %3", count,
+                    target, message)));
+        });
+    showBusyWhileRunning(task, busy);
 }
 
 void MainWindow::showBusyWhileRunning(Imap::Mailbox::ImapTask *task, const QString &busyText)
@@ -6745,23 +7243,172 @@ void MainWindow::showBusyWhileRunning(Imap::Mailbox::ImapTask *task, const QStri
     delay->start();
 }
 
-void MainWindow::trackFlagChange(Imap::Mailbox::ImapTask *task, const QString &busyText, const QString &doneText,
-                                 const std::function<QString(const QString &)> &failedText)
+void MainWindow::trackFlagChange(const QModelIndexList &messages, const FlagOperation &operation,
+    const QString &busyText, const QString &doneText, const std::function<QString(const QString &)> &failedText,
+    const QString &retryKey)
 {
+    Imap::Mailbox::Model *current = imapModel();
+    if (!current || messages.isEmpty() || !operation)
+        return;
+    const QList<MessageRef> refs = messageRefs(messages);
+    Imap::Mailbox::ImapTask *task = operation(current, messages);
     if (!task)
         return;
-    QPointer<Imap::Mailbox::Model> model = imapModel();
-    if (!doneText.isEmpty()) {
-        connect(task, &Imap::Mailbox::ImapTask::completed, this, [this, model, doneText]() {
-            if (showsModel(model))
-                m_notificationBar->showInfo(forAccountOf(model, doneText));
-        });
-    }
-    connect(task, &Imap::Mailbox::ImapTask::failed, this, [this, model, failedText](const QString &message) {
-        if (showsModel(model))
-            m_notificationBar->showError(forAccountOf(model, failedText(message)));
+    QPointer<Imap::Mailbox::Model> model = current;
+    connect(task, &Imap::Mailbox::ImapTask::completed, this, [this, model, doneText, retryKey]() {
+        if (!retryKey.isEmpty())
+            recordOperationDone(retryKey);
+        if (!doneText.isEmpty() && showsModel(model))
+            m_notificationBar->showInfo(forAccountOf(model, doneText));
     });
+    connect(task, &Imap::Mailbox::ImapTask::failed, this,
+        [this, model, refs, operation, busyText, doneText, failedText, retryKey](const QString &message) {
+            // A single change shows no progress, so its error names it
+            const QString title = busyText.isEmpty() ? failedText(message) : withoutEllipsis(busyText);
+            recordFailedOperation(model, retryKey, title, busyText.isEmpty() ? QString() : message,
+                [this, model, refs, operation, busyText, doneText, failedText](const QString &key) {
+                    const QModelIndexList again = resolveMessageRefs(model, refs);
+                    if (again.isEmpty())
+                        return false;
+                    trackFlagChange(again, operation, busyText, doneText, failedText, key);
+                    return true;
+                });
+            if (showsModel(model))
+                m_notificationBar->showError(forAccountOf(model, failedText(message)));
+        });
     showBusyWhileRunning(task, busyText);
+}
+
+QList<MainWindow::MessageRef> MainWindow::messageRefs(const QModelIndexList &messages)
+{
+    QList<MessageRef> refs;
+    refs.reserve(messages.size());
+    for (const QModelIndex &message : messages) {
+        MessageRef ref;
+        ref.mailbox = message.data(Imap::Mailbox::RoleMailboxName).toString();
+        ref.uidValidity = message.data(Imap::Mailbox::RoleMailboxUidValidity).toUInt();
+        ref.uid = message.data(Imap::Mailbox::RoleMessageUid).toUInt();
+        if (!ref.mailbox.isEmpty() && ref.uid)
+            refs << ref;
+    }
+    return refs;
+}
+
+QModelIndexList MainWindow::resolveMessageRefs(Imap::Mailbox::Model *model, const QList<MessageRef> &refs)
+{
+    QModelIndexList found;
+    if (!model)
+        return found;
+    for (const MessageRef &ref : refs) {
+        const QModelIndex mailbox = model->mailboxIndexByName(ref.mailbox);
+        if (!mailbox.isValid())
+            continue;
+        // Loads what the cache knows about the folder, as after the folder list was loaded again
+        model->rowCount(model->index(0, 0, mailbox));
+        // UIDs of a folder whose UIDVALIDITY changed name other messages
+        const uint uidValidity = mailbox.data(Imap::Mailbox::RoleMailboxUidValidity).toUInt();
+        if (ref.uidValidity && uidValidity && uidValidity != ref.uidValidity)
+            continue;
+        const QModelIndex message = model->messageIndexByUid(ref.mailbox, ref.uid);
+        if (message.isValid())
+            found << message;
+    }
+    return found;
+}
+
+void MainWindow::recordFailedOperation(
+    Imap::Mailbox::Model *model, QString key, const QString &title, const QString &error, const Rerun &rerun)
+{
+    using UiUtils::ActivityLog;
+    if (!model || !m_mailAutomation)
+        return;
+    ActivityLog *log = m_mailAutomation->activity();
+    if (key.isEmpty())
+        key = QStringLiteral("operation:%1").arg(++m_operationSerial);
+    ActivityLog::Entry entry;
+    entry.key = key;
+    entry.kind = ActivityLog::Kind::Job;
+    entry.state = ActivityLog::State::Failed;
+    entry.accountId = accountOfModel(model);
+    entry.title = title;
+    entry.error = error;
+    entry.action = ActivityLog::Action::Retry;
+    log->record(entry);
+    QPointer<Imap::Mailbox::Model> guard = model;
+    log->setRetry(key, [this, guard, key, title, rerun]() {
+        if (!guard)
+            return;
+        if (!guard->isNetworkAvailable()) {
+            recordFailedOperation(guard, key, title, i18nc("@info", "The account is offline."), rerun);
+            return;
+        }
+        bool started = false;
+        actOnModel(guard, [&]() { started = rerun(key); });
+        if (started)
+            return;
+        // Another client, or the server despite the error, already did it
+        ActivityLog *log = m_mailAutomation->activity();
+        const int row = log->find(key);
+        if (row < 0)
+            return;
+        ActivityLog::Entry resolved = log->entry(row);
+        resolved.state = ActivityLog::State::Done;
+        resolved.detail = i18nc("@info", "The messages are no longer there; nothing is left to do.");
+        resolved.error.clear();
+        resolved.action = ActivityLog::Action::None;
+        resolved.time = QDateTime();
+        log->record(resolved);
+    });
+}
+
+void MainWindow::recordOperationDone(const QString &key)
+{
+    using UiUtils::ActivityLog;
+    if (!m_mailAutomation)
+        return;
+    ActivityLog *log = m_mailAutomation->activity();
+    const int row = log->find(key);
+    if (row < 0)
+        return;
+    ActivityLog::Entry entry = log->entry(row);
+    entry.state = ActivityLog::State::Done;
+    entry.detail = i18nc("@info", "Done after trying again");
+    entry.error.clear();
+    entry.action = ActivityLog::Action::None;
+    entry.time = QDateTime();
+    log->record(entry);
+}
+
+void MainWindow::recordFolderSyncFailed(const QString &accountId, const QString &mailbox, const QString &message)
+{
+    using UiUtils::ActivityLog;
+    if (!m_mailAutomation || accountId.isEmpty() || mailbox.isEmpty())
+        return;
+    ActivityLog *log = m_mailAutomation->activity();
+    ActivityLog::Entry entry;
+    entry.key = QLatin1String("folder-sync:") + accountId + QLatin1Char(':') + mailbox;
+    entry.kind = ActivityLog::Kind::Sync;
+    entry.state = ActivityLog::State::Failed;
+    entry.accountId = accountId;
+    entry.title = i18nc("@info folder name", "Opening %1", mailbox);
+    entry.error = message;
+    entry.action = ActivityLog::Action::Retry;
+    log->record(entry);
+    log->setRetry(entry.key, [this, accountId, mailbox]() {
+        Imap::ImapAccess *access = m_accountAccess.value(accountId);
+        auto *model = access ? qobject_cast<Imap::Mailbox::Model *>(access->imapModel()) : nullptr;
+        if (!model)
+            return;
+        const QModelIndex index = model->mailboxIndexByName(mailbox);
+        if (!model->isNetworkAvailable() || !index.isValid()) {
+            recordFolderSyncFailed(accountId, mailbox,
+                index.isValid() ? i18nc("@info", "The account is offline.")
+                                : i18nc("@info", "The folder no longer exists."));
+            return;
+        }
+        // The folder's synchronization reports success; see monitorAccount()
+        model->resyncMailbox(index);
+    });
 }
 
 void MainWindow::undoMove(const QString &source, const QString &target, const uint uidValidity, const Imap::Uids &uids)
@@ -7056,6 +7703,24 @@ void MainWindow::emptySpecialFolder(const Imap::Mailbox::SpecialUse kind)
 void MainWindow::updateMessageFlags()
 {
     updateMessageFlagsOf(QModelIndex());
+}
+
+/** @short Update the message actions once the current burst of model changes is over
+
+Syncing a folder changes the flags of every message one by one, and another client's removals arrive message by message;
+updating every action for each of them made opening a folder of 50,000 messages take about a minute.
+*/
+void MainWindow::scheduleMessageFlagsUpdate()
+{
+    if (std::exchange(m_messageFlagsUpdatePending, true))
+        return;
+    QMetaObject::invokeMethod(
+        this,
+        [this]() {
+            m_messageFlagsUpdatePending = false;
+            updateMessageFlags();
+        },
+        Qt::QueuedConnection);
 }
 
 void MainWindow::updateMessageFlagsOf(const QModelIndex &index)
@@ -7455,8 +8120,14 @@ void MainWindow::slotMailboxCreateFailed(const QString &mailbox, const QString &
 
 void MainWindow::slotMailboxSyncFailed(const QString &mailbox, const QString &msg)
 {
-    Gui::Util::messageBoxWarning(this, tr("Can't open mailbox"),
-                                 tr("Opening mailbox \"%1\" failed with the following message:\n%2").arg(mailbox, msg));
+    // The activity log keeps the failure with a Retry for every account; see monitorAccount()
+    const QString key = QLatin1String("folder-sync:") + m_accounts->activeAccount() + QLatin1Char(':') + mailbox;
+    InlineNotificationBar::Action retry{i18nc("@action:button", "Try Again"), QStringLiteral("view-refresh"),
+        QStringLiteral("retryFolderSync"), [this, key]() {
+            if (m_mailAutomation)
+                m_mailAutomation->activity()->retry(key);
+        }};
+    m_notificationBar->showError(i18nc("@info folder name, error", "Could not open %1: %2", mailbox, msg), {retry});
 }
 
 void MainWindow::slotMailboxRenameSucceeded(const QString &oldName, const QString &newName)
@@ -7537,8 +8208,12 @@ void MainWindow::slotMailboxChanged(const QModelIndex &mailbox)
 
 void MainWindow::showConnectionStatus(uint parserId, Imap::ConnectionState state)
 {
-    Q_UNUSED(parserId);
-    static Imap::ConnectionState previousState = Imap::ConnectionState::CONN_STATE_NONE;
+    // One connection closing while others stay open leaves the account connected
+    Imap::Mailbox::ConnectionStates &states = m_connectionStates[m_accounts->activeAccount()];
+    states.update(parserId, state);
+    if ((state == Imap::CONN_STATE_NONE || state == Imap::CONN_STATE_LOGOUT) && states.count() > 0)
+        state = states.furthest();
+    const Imap::ConnectionState previousState = m_shownConnectionState;
     QString message = connectionStateToString(state);
 
     if (netOffline->isChecked())
@@ -7552,7 +8227,7 @@ void MainWindow::showConnectionStatus(uint parserId, Imap::ConnectionState state
     } else {
         showStatusMessage(message);
     }
-    previousState = state;
+    m_shownConnectionState = state;
 }
 
 void MainWindow::slotShowLinkTarget(const QString &link)
