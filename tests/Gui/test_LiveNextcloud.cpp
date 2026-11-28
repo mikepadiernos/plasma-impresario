@@ -13,11 +13,20 @@
 #include <QTest>
 
 #include "../Nextcloud/FakePasswordPlugin.h"
+#include "../Utils/LibMailboxSync.h"
+#include "Gui/AttachmentPanel.h"
 #include "Gui/NextcloudHub.h"
 #include "Gui/NextcloudTransfers.h"
 #include "Nextcloud/Account.h"
 #include "Nextcloud/Client.h"
 #include "Nextcloud/Shares.h"
+#include "Imap/Model/ItemRoles.h"
+#include "Imap/Model/MemoryCache.h"
+#include "Imap/Model/Model.h"
+#include "Imap/Model/TaskFactory.h"
+#include "Imap/Network/MsgPartNetAccessManager.h"
+#include "LocalMail/LocalSocket.h"
+#include "LocalMail/Store.h"
 #include "UiUtils/ActivityLog.h"
 
 using Gui::NextcloudHub;
@@ -140,6 +149,68 @@ private slots:
     {
         QVERIFY(!m_account.isEmpty());
         QCOMPARE(fetch(QStringLiteral("/Team/notes.txt")), QByteArray("synthetic team notes"));
+    }
+
+    void savesAttachmentsOfLocalAccountMessages()
+    {
+        // POP3 and JMAP mail is kept in a local store which the mail model reads
+        // through an in-process IMAP session. The attachment of such a message is
+        // read the way the attachment panel reads it before saving it to Nextcloud.
+        QVERIFY(!m_account.isEmpty());
+        QString error;
+        const std::shared_ptr<LocalMail::Store> mailStore
+            = LocalMail::Store::open(m_directory->filePath(QStringLiteral("local-mail")), &error);
+        QVERIFY2(mailStore, qPrintable(error));
+        mailStore->append(QStringLiteral("INBOX"),
+            "From: Alice <alice@example.org>\r\nTo: work@example.org\r\nSubject: Local report\r\n"
+            "Date: Mon, 02 Nov 2026 08:00:00 +0000\r\nMessage-ID: <local-report@example.org>\r\n"
+            "MIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"b\"\r\n\r\n"
+            "--b\r\nContent-Type: text/plain\r\n\r\nThe report is attached.\r\n"
+            "--b\r\nContent-Type: text/plain; name=\"local-report.txt\"\r\n"
+            "Content-Disposition: attachment; filename=\"local-report.txt\"\r\n\r\n"
+            "synthetic local attachment\r\n--b--\r\n");
+
+        auto *model = new Imap::Mailbox::Model(this, std::make_shared<Imap::Mailbox::MemoryCache>(),
+            Imap::Mailbox::SocketFactoryPtr(new LocalMail::LocalSocketFactory(mailStore)),
+            Imap::Mailbox::TaskFactoryPtr(new Imap::Mailbox::TaskFactory()));
+        LibMailboxSync::setModelNetworkPolicy(model, Imap::Mailbox::NETWORK_ONLINE);
+        model->rowCount(QModelIndex());
+        const auto findInbox = [model]() {
+            for (int row = 0; row < model->rowCount(QModelIndex()); ++row) {
+                const QModelIndex index = model->index(row, 0, QModelIndex());
+                if (index.data(Imap::Mailbox::RoleMailboxName).toString() == QLatin1String("INBOX"))
+                    return index;
+            }
+            return QModelIndex();
+        };
+        QTRY_VERIFY(findInbox().isValid());
+        const QModelIndex inbox = findInbox();
+        const QModelIndex list = model->index(0, 0, inbox);
+        model->rowCount(list);
+        QTRY_COMPARE(model->rowCount(list), 1);
+        const QModelIndex message = model->index(0, 0, list);
+        QPersistentModelIndex attachment;
+        QTRY_VERIFY((attachment = findPart(model, message, QStringLiteral("local-report.txt"))).isValid());
+
+        Imap::Network::MsgPartNetAccessManager netAccess;
+        netAccess.setModelMessage(message);
+        Gui::AttachmentPanel panel;
+        panel.setNetworkAccessManager(&netAccess);
+        QString fileName;
+        QByteArray data;
+        bool read = false;
+        panel.readPart(attachment, this, [&](const QString &name, const QByteArray &bytes) {
+            fileName = name;
+            data = bytes;
+            read = true;
+        });
+        QTRY_VERIFY_WITH_TIMEOUT(read, 30000);
+        QCOMPARE(fileName, QStringLiteral("local-report.txt"));
+        QCOMPARE(data, QByteArray("synthetic local attachment"));
+
+        QCOMPARE(store(QStringLiteral("/Mail"), fileName, data), QStringLiteral("/Mail/local-report.txt"));
+        QCOMPARE(fetch(QStringLiteral("/Mail/local-report.txt")), QByteArray("synthetic local attachment"));
+        delete model;
     }
 
     void refusesSavingIntoReadOnlyShares()
@@ -381,6 +452,21 @@ private:
         else if (!failure.isEmpty())
             qWarning() << "Could not store" << name << failure;
         return path;
+    }
+
+    /** Walks the message's parts, asking the model for each, until one has @p fileName */
+    static QModelIndex findPart(QAbstractItemModel *model, const QModelIndex &parent, const QString &fileName)
+    {
+        const int rows = model->rowCount(parent);
+        for (int row = 0; row < rows; ++row) {
+            const QModelIndex part = model->index(row, 0, parent);
+            if (part.data(Imap::Mailbox::RolePartFileName).toString() == fileName)
+                return part;
+            const QModelIndex found = findPart(model, part, fileName);
+            if (found.isValid())
+                return found;
+        }
+        return {};
     }
 
     QByteArray fetch(const QString &path, QString *error = nullptr, const QString &accountId = QString())

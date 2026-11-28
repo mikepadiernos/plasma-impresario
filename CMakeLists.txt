@@ -1395,7 +1395,7 @@ if(BUILD_TESTING)
         target_link_libraries(test_NextcloudDialogs PRIVATE DesktopGui Nextcloud Plugins UiUtils Qt6::Network Qt6::Test KF6::ConfigCore KF6::I18n)
         # Opt-in, outside ctest: tools/dev-container/live-nextcloud.sh starts the server it needs
         add_executable(test_LiveNextcloud tests/Gui/test_LiveNextcloud.cpp)
-        target_link_libraries(test_LiveNextcloud PRIVATE DesktopGui Nextcloud Plugins UiUtils Qt6::Network Qt6::Test KF6::ConfigCore KF6::I18n)
+        target_link_libraries(test_LiveNextcloud PRIVATE DesktopGui Imap LocalMail test_LibMailboxSync Nextcloud Plugins UiUtils Qt6::Network Qt6::Test KF6::ConfigCore KF6::I18n)
         add_executable(test_SearchIndexDialog tests/Gui/test_SearchIndexDialog.cpp)
         target_link_libraries(test_SearchIndexDialog PRIVATE DesktopGui UiUtils Qt6::Test KF6::I18n)
         add_executable(test_TagListWidget tests/Gui/test_TagListWidget.cpp)
