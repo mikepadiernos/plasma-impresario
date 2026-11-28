@@ -150,6 +150,9 @@
 #include "MailboxPickerDialog.h"
 #include "SearchFoldersDialog.h"
 #include "SavedFilesSearchDialog.h"
+#include "NextcloudBrowserDialog.h"
+#include "NextcloudConnectDialog.h"
+#include "NextcloudHub.h"
 #include "SearchIndexDialog.h"
 #include "MessageDetailsPanel.h"
 #include "MessageListWidget.h"
@@ -260,6 +263,8 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
                                                  Common::SettingsNames::addressbookPlugin, Common::SettingsNames::passwordPlugin,
                                                  Common::SettingsNames::spellcheckerPlugin);
     connect(m_pluginManager, &Plugins::PluginManager::pluginsChanged, this, &MainWindow::slotPluginsChanged);
+    m_nextcloud = new NextcloudHub(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), m_settings,
+                                   [this]() { return m_pluginManager->password(); }, this);
     connect(m_pluginManager, &Plugins::PluginManager::pluginError, this, [this](const QString &errorMessage) {
         Gui::Util::messageBoxWarning(this, tr("Plugin Error"),
                                      //: The %1 placeholder is a full error message as provided by Qt, ready for human consumption.
@@ -906,6 +911,11 @@ void MainWindow::createActions()
     connect(m_actionFindSavedFiles, &QAction::triggered, this, [this]() {
         findSavedFiles(msgListWidget->searchField()->text());
     });
+    m_actionBrowseNextcloud = new QAction(UiUtils::loadIcon(QStringLiteral("folder-cloud")),
+                                          i18nc("@action", "Browse &Nextcloud…"), this);
+    m_actionBrowseNextcloud->setObjectName(QStringLiteral("action_browse_nextcloud"));
+    m_actionBrowseNextcloud->setToolTip(i18nc("@info:tooltip", "Browse the files of your Nextcloud accounts, or connect one"));
+    connect(m_actionBrowseNextcloud, &QAction::triggered, this, &MainWindow::browseNextcloud);
     m_clearSearchAndFilters = ShortcutHandler::instance()->createAction(QStringLiteral("action_clear_search_and_filters"), this,
             SLOT(clearSearchAndFilters()), this);
 
@@ -1797,6 +1807,7 @@ void MainWindow::createMenus()
         ADD_ACTION(mailboxMenu, m_actionFind);
         ADD_ACTION(mailboxMenu, m_searchBuilder);
         mailboxMenu->addAction(m_actionFindSavedFiles);
+        mailboxMenu->addAction(m_actionBrowseNextcloud);
         ADD_ACTION(mailboxMenu, m_actionRuleFromSearch);
         QMenu *sortMenu = mailboxMenu->addMenu(tr("S&orting"));
             ADD_ACTION(sortMenu, m_actionSortNone);
@@ -4198,8 +4209,52 @@ SettingsContext MainWindow::settingsContext()
         }
         return QString();
     };
+    context.nextcloudAccounts = [this]() {
+        QList<SettingsContext::NextcloudAccount> accounts;
+        for (const Nextcloud::Account &account : m_nextcloud->accounts())
+            accounts.append({account.id, account.title(), account.source == Nextcloud::Account::Source::OnlineAccounts});
+        return accounts;
+    };
+    context.connectNextcloud = [this](QWidget *parent, std::function<void()> changed) {
+        connectNextcloud(parent, [changed](const QString &) {
+            if (changed)
+                changed();
+        });
+    };
+    context.disconnectNextcloud = [this](QWidget *parent, const QString &id, std::function<void(const QString &)> done) {
+        m_nextcloud->removeAccount(id, parent, std::move(done));
+    };
     context.legacy = m_settings;
     return context;
+}
+
+void MainWindow::connectNextcloud(QWidget *parent, std::function<void(const QString &id)> connected)
+{
+    auto *dialog = new NextcloudConnectDialog(m_nextcloud, parent ? parent : this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &NextcloudConnectDialog::connected, this, [connected = std::move(connected)](const QString &id) {
+        if (connected)
+            connected(id);
+    });
+    dialog->open();
+}
+
+void MainWindow::browseNextcloud()
+{
+    if (!m_nextcloudBrowser) {
+        m_nextcloudBrowser = new NextcloudBrowserDialog(m_nextcloud, NextcloudBrowserDialog::Mode::Browse, this);
+        m_nextcloudBrowser->setAttribute(Qt::WA_DeleteOnClose);
+        connect(m_nextcloudBrowser, &NextcloudBrowserDialog::connectRequested, this, [this]() {
+            QPointer<NextcloudBrowserDialog> browser = m_nextcloudBrowser;
+            connectNextcloud(browser, [browser](const QString &id) {
+                if (browser)
+                    browser->setAccount(id);
+            });
+        });
+    }
+    m_nextcloudBrowser->show();
+    m_nextcloudBrowser->raise();
+    m_nextcloudBrowser->activateWindow();
 }
 
 void MainWindow::showSearchIndexOver(QWidget *parent)

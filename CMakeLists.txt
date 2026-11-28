@@ -582,6 +582,9 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/MessageSelectionRestorer.cpp
     ${path_DesktopGui}/MsgItemDelegate.cpp
     ${path_DesktopGui}/MsgListView.cpp
+    ${path_DesktopGui}/NextcloudBrowserDialog.cpp
+    ${path_DesktopGui}/NextcloudConnectDialog.cpp
+    ${path_DesktopGui}/NextcloudHub.cpp
     ${path_DesktopGui}/NotificationsDialog.cpp
     ${path_DesktopGui}/OnePanelAtTimeWidget.cpp
     ${path_DesktopGui}/OverlayWidget.cpp
@@ -1367,6 +1370,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_FileChooser PRIVATE DesktopGui Qt6::DBus Qt6::Test)
         add_executable(test_SavedFilesSearchDialog tests/Gui/test_SavedFilesSearchDialog.cpp)
         target_link_libraries(test_SavedFilesSearchDialog PRIVATE DesktopGui UiUtils Qt6::Test KF6::ConfigCore KF6::I18n)
+        add_executable(test_NextcloudDialogs tests/Gui/test_NextcloudDialogs.cpp)
+        target_link_libraries(test_NextcloudDialogs PRIVATE DesktopGui Nextcloud Plugins UiUtils Qt6::Network Qt6::Test KF6::ConfigCore KF6::I18n)
         add_executable(test_SearchIndexDialog tests/Gui/test_SearchIndexDialog.cpp)
         target_link_libraries(test_SearchIndexDialog PRIVATE DesktopGui UiUtils Qt6::Test KF6::I18n)
         add_executable(test_TagListWidget tests/Gui/test_TagListWidget.cpp)
@@ -1460,6 +1465,8 @@ if(BUILD_TESTING)
             set_tests_properties(test_FileChooser PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_SavedFilesSearchDialog COMMAND test_SavedFilesSearchDialog)
             set_tests_properties(test_SavedFilesSearchDialog PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_NextcloudDialogs COMMAND test_NextcloudDialogs)
+            set_tests_properties(test_NextcloudDialogs PROPERTIES TIMEOUT 60 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_SearchIndexDialog COMMAND test_SearchIndexDialog)
             set_tests_properties(test_SearchIndexDialog PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_TagListWidget COMMAND test_TagListWidget)
