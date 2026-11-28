@@ -11,6 +11,7 @@
 #include "Gui/ComposeWidget.h"
 #include "Gui/EmbeddedWebView.h"
 #include "Gui/InlineNotificationBar.h"
+#include "Gui/MailAutomation.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MessageDetailsPanel.h"
 #include "Gui/MsgListView.h"
@@ -21,6 +22,9 @@
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "Imap/Model/Utils.h"
+#include "UiUtils/ActivityLog.h"
+#include "UiUtils/MailRules.h"
+#include "UiUtils/NewMail.h"
 #include "configure.cmake.h"
 #ifdef IMPRESARIO_HAVE_WEBENGINE
 #include "Gui/WebEngineMessageProfile.h"
@@ -42,6 +46,7 @@
 #include <QFormLayout>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QLocale>
 #include <QMessageBox>
 #include <QMimeData>
 #include <QPointer>
@@ -121,6 +126,23 @@ QString storedFlags(const QString &folder, const QString &base)
     }
     return {};
 }
+
+/** Keeps the last new-mail notification instead of showing it on the desktop */
+class RecordingNotifier : public Gui::MailAutomation::Notifier
+{
+public:
+    void show(const QString &account, const UiUtils::NewMail::Text &text) override
+    {
+        accountId = account;
+        last = text;
+    }
+    void close(const QString &) override
+    {
+        last = UiUtils::NewMail::Text();
+    }
+    QString accountId;
+    UiUtils::NewMail::Text last;
+};
 
 QStringList autosavedDrafts()
 {
@@ -1253,6 +1275,106 @@ private slots:
         QCOMPARE(passwordPrompts, 0);
     }
 
+    /**
+     * Mail delivered while the application runs: rules archive and flag it, a rule which moves mail waits for a
+     * preview, and the new mail left in the INBOX is announced. Runs last, as it leaves new messages in the INBOX.
+     */
+    void newMailRulesAndNotifications()
+    {
+        bool ok = false;
+        const int port = qEnvironmentVariableIntValue("PLASMA_TEST_IMAPS_PORT", &ok);
+        QVERIFY(ok && port > 0 && port <= 65535);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        Profile profile(directory, port);
+        Dialogs dialogs;
+
+        Gui::MainWindow window(&profile.settings);
+        window.resize(1400, 900);
+        window.show();
+        auto *tree = window.findChild<Gui::MailBoxTreeView *>();
+        auto *messages = window.findChild<Gui::MsgListView *>(QStringLiteral("messageListView"));
+        auto *automation = window.findChild<Gui::MailAutomation *>(QStringLiteral("mailAutomation"));
+        QVERIFY(tree && messages && automation);
+        QModelIndex inbox;
+        QTRY_VERIFY_WITH_TIMEOUT((inbox = findMailbox(tree->model(), QStringLiteral("INBOX"))).isValid(), 20000);
+        tree->scrollTo(inbox);
+        QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(inbox).center());
+        QTRY_VERIFY_WITH_TIMEOUT(findMessage(messages, QStringLiteral("Lunch on Friday")).isValid(), 20000);
+
+        // Notifications as on the desktop, recorded; the window is in the background, where new mail is announced
+        auto notifier = std::make_unique<RecordingNotifier>();
+        RecordingNotifier *shown = notifier.get();
+        automation->setNotifier(std::move(notifier));
+        automation->setWindowActive(false);
+        UiUtils::NewMail::Settings announcements;
+        automation->setNotificationSettings(announcements);
+
+        using namespace UiUtils::MailRules;
+        Rule invoices;
+        invoices.id = QStringLiteral("archive-invoices");
+        invoices.name = QStringLiteral("Invoices");
+        invoices.conditions = {{Field::Subject, Comparison::Contains, QStringLiteral("Invoice")}};
+        invoices.actions = {{ActionKind::Archive, QString()}};
+        invoices.markReviewed();
+        Rule alice;
+        alice.id = QStringLiteral("flag-alice");
+        alice.name = QStringLiteral("Alice");
+        alice.conditions = {{Field::Sender, Comparison::Contains, QStringLiteral("alice@example.test")}};
+        alice.actions = {{ActionKind::Flag, QString()}};
+        // Moves mail and was never previewed, so it only asks for a preview
+        Rule receipts;
+        receipts.id = QStringLiteral("delete-receipts");
+        receipts.name = QStringLiteral("Receipts");
+        receipts.conditions = {{Field::Subject, Comparison::Contains, QStringLiteral("Receipt")}};
+        receipts.actions = {{ActionKind::Delete, QString()}};
+        QVERIFY(invoices.runsAutomatically() && alice.runsAutomatically() && receipts.needsReview());
+        automation->setRules({invoices, alice, receipts});
+
+        const int archivedBefore = storedMessages(QStringLiteral(".Archive"));
+        const QString now
+            = QLocale::c().toString(QDateTime::currentDateTimeUtc(), QStringLiteral("ddd, dd MMM yyyy hh:mm:ss +0000"));
+        const auto deliver = [&](const QString &base, const QByteArray &from, const QByteArray &subject) {
+            QFile file(qEnvironmentVariable("PLASMA_TEST_MAILDIR") + QStringLiteral("/new/") + base
+                + QStringLiteral(".synthetic"));
+            if (!file.open(QIODevice::WriteOnly))
+                return false;
+            file.write("From: " + from + "\r\nTo: Panels User <panels@example.test>\r\nSubject: " + subject
+                + "\r\nDate: " + now.toLatin1() + "\r\nMessage-ID: <" + base.toLatin1()
+                + "@example.test>\r\n\r\nSynthetic body.\r\n");
+            file.close();
+            return file.setPermissions(file.permissions() | QFileDevice::ReadOther | QFileDevice::ReadGroup);
+        };
+        QVERIFY(deliver(QStringLiteral("new-invoice"), "Billing <billing@example.test>", "Invoice 42"));
+        QVERIFY(deliver(QStringLiteral("new-picnic"), "Alice Example <alice@example.test>", "Picnic plans"));
+        QVERIFY(deliver(QStringLiteral("new-receipt"), "Shop <shop@example.test>", "Receipt for your order"));
+        auto *checkMail = window.findChild<QAction *>(QStringLiteral("action_check_mail"));
+        QVERIFY(checkMail);
+        checkMail->trigger();
+
+        // The rules acted on the server: the invoice is archived, Alice's message flagged, the receipt left alone
+        QTRY_COMPARE_WITH_TIMEOUT(storedMessages(QStringLiteral(".Archive")), archivedBefore + 1, 20000);
+        QVERIFY(newestStoredMessage(QStringLiteral(".Archive")).contains("Subject: Invoice 42"));
+        QTRY_VERIFY_WITH_TIMEOUT(
+            storedFlags(QStringLiteral("."), QStringLiteral("new-picnic")).contains(QLatin1Char('F')), 15000);
+        QTRY_VERIFY_WITH_TIMEOUT(!findMessage(messages, QStringLiteral("Invoice 42")).isValid(), 15000);
+        QVERIFY(findMessage(messages, QStringLiteral("Receipt for your order")).isValid());
+        QCOMPARE(storedFlags(QStringLiteral("."), QStringLiteral("new-receipt")).contains(QLatin1Char('T')), false);
+        const int waiting = automation->activity()->find(QStringLiteral("rule-review:delete-receipts"));
+        QVERIFY(waiting >= 0);
+        QCOMPARE(automation->activity()->entry(waiting).state, UiUtils::ActivityLog::State::Waiting);
+
+        // What stayed in the INBOX is announced; the archived invoice is not news
+        QTRY_COMPARE_WITH_TIMEOUT(shown->last.count, 2, 15000);
+        QCOMPARE(shown->accountId, QStringLiteral("account-1"));
+        QVERIFY2(shown->last.body.contains(QLatin1String("Picnic plans")), qPrintable(shown->last.body));
+        QVERIFY2(shown->last.body.contains(QLatin1String("Receipt for your order")), qPrintable(shown->last.body));
+        QVERIFY2(!shown->last.body.contains(QLatin1String("Invoice")), qPrintable(shown->last.body));
+        QVERIFY2(dialogs.errors.isEmpty(), qPrintable(dialogs.errors.join(QLatin1Char('\n'))));
+
+        // Rules are kept in the configuration shared by the tests of this process
+        automation->setRules({});
+    }
 };
 
 int main(int argc, char **argv)
