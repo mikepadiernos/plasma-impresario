@@ -567,8 +567,6 @@ src/UiUtils/ServerDiscovery.cpp
 src/UiUtils/ServerDiscovery.h
 src/UiUtils/ServerDiscoveryNetwork.cpp
 src/UiUtils/SettingsSchema.cpp
-src/UiUtils/SettingsStore.cpp
-src/UiUtils/SettingsStore.h
 src/UiUtils/ShortcutOverview.cpp
 src/UiUtils/SleepMonitor.cpp
 src/UiUtils/StyleSheets.cpp
