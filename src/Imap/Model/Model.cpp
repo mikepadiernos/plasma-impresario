@@ -2292,6 +2292,11 @@ UidSubmitTask *Model::sendMailViaUidSubmit(const QString &mailbox, const uint ui
     return m_taskFactory->createUidSubmitTask(this, mailbox, uidValidity, uid, options);
 }
 
+UidRemoveTask *Model::removeMessageByUid(const QString &mailbox, const uint uidValidity, const uint uid)
+{
+    return m_taskFactory->createUidRemoveTask(this, mailbox, uidValidity, uid);
+}
+
 #ifdef IMPRESARIO_DEBUG_TASK_TREE
 #define IMPRESARIO_DEBUG_TASK_TREE_VERBOSE
 void Model::checkTaskTreeConsistency()

@@ -772,6 +772,7 @@ set(libImap_SOURCES
     ${path_Imap}/Tasks/SubscribeUnsubscribeTask.cpp
     ${path_Imap}/Tasks/ThreadTask.cpp
     ${path_Imap}/Tasks/UidSubmitTask.cpp
+    ${path_Imap}/Tasks/UidRemoveTask.cpp
     ${path_Imap}/Tasks/UnSelectTask.cpp
     ${path_Imap}/Tasks/UpdateFlagsTask.cpp
     ${path_Imap}/Tasks/UpdateFlagsOfAllMessagesTask.cpp

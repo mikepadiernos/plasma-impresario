@@ -232,6 +232,8 @@ public:
     /** @short Send a mail through the UID SEND mechanism */
     UidSubmitTask *sendMailViaUidSubmit(const QString &mailbox, const uint uidValidity, const uint uid,
                                         const UidSubmitOptionsList &options);
+    /** @short Remove the message @arg uid from @arg mailbox without expunging other deleted messages */
+    UidRemoveTask *removeMessageByUid(const QString &mailbox, const uint uidValidity, const uint uid);
 
 
     /** @short Returns true if we are allowed to access the network */
@@ -561,6 +563,7 @@ private:
     friend class SubscribeUnsubscribeTask;
     friend class GenUrlAuthTask;
     friend class UidSubmitTask;
+    friend class UidRemoveTask;
 
     friend class TestingTaskFactory; // needs access to socketFactory
     friend class DummyNetworkWatcher; // needs access to the network policy manipulation

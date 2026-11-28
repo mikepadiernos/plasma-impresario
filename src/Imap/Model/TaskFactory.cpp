@@ -43,6 +43,7 @@
 #include "Imap/Tasks/ObtainSynchronizedMailboxTask.h"
 #include "Imap/Tasks/OpenConnectionTask.h"
 #include "Imap/Tasks/UidSubmitTask.h"
+#include "Imap/Tasks/UidRemoveTask.h"
 #include "Imap/Tasks/UpdateFlagsTask.h"
 #include "Imap/Tasks/UpdateFlagsOfAllMessagesTask.h"
 #include "Imap/Tasks/ThreadTask.h"
@@ -213,6 +214,11 @@ UidSubmitTask *TaskFactory::createUidSubmitTask(Model *model, const QString &mai
                                                 const UidSubmitOptionsList &submitOptions)
 {
     return new UidSubmitTask(model, mailbox, uidValidity, uid, submitOptions);
+}
+
+UidRemoveTask *TaskFactory::createUidRemoveTask(Model *model, const QString &mailbox, const uint uidValidity, const uint uid)
+{
+    return new UidRemoveTask(model, mailbox, uidValidity, uid);
 }
 
 TestingTaskFactory::TestingTaskFactory(): TaskFactory(), fakeOpenConnectionTask(false), fakeListChildMailboxes(false)
