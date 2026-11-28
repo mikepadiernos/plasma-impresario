@@ -45,6 +45,7 @@ from PIL import ImageGrab
 
 APP_ID = "io.github.mikepadiernos.plasma_impresario"
 DISPLAY = os.environ.get("DISPLAY", ":0")
+WINDOW_SIZE = (1560, 940)  # on the 1600x1000 display of e2e-scenarios.sh
 
 
 class Failure(Exception):
@@ -289,7 +290,6 @@ class Session:
         self.scenario = None
         self.shots = []
         self.log = None
-        self.resized = False
 
     def env(self):
         home = os.environ["E2E_HOME"]
@@ -326,7 +326,6 @@ class Session:
         self.process = subprocess.Popen([os.environ["E2E_APP"]], env=self.env(), stdout=self.log,
                                         stderr=subprocess.STDOUT, start_new_session=True)
         self.app = wait_for(self.find_app, 30, "the application to appear on the accessibility bus")
-        self.resized = False
         return self.app
 
     def find_app(self):
@@ -361,27 +360,31 @@ class Session:
     def main_window(self):
         window = wait_for(lambda: find(self.app, object_name="Gui::MainWindow", role="frame"), 20,
                           "the main window")
-        if not self.resized:
-            self.enlarge()
+        self.enlarge(window)
         return window
 
-    def enlarge(self):
-        """Gives the largest window of the application room for every pane, so rows need less scrolling"""
+    def enlarge(self, window):
+        """Gives the main window room for every pane, so rows need less scrolling.
+
+        Under Xvfb and Openbox, the main window's X window is replaced when the first message opens, and the
+        new one has the size from before; so this checks the size each time.
+        """
+        if extents(window)[2] >= WINDOW_SIZE[0]:
+            return
         found = subprocess.run(["xdotool", "search", "--onlyvisible", "--pid", str(self.process.pid)],
                                capture_output=True, text=True).stdout.split()
         best, area = None, 0
-        for window in found:
-            geometry = subprocess.run(["xdotool", "getwindowgeometry", "--shell", window],
+        for candidate in found:
+            geometry = subprocess.run(["xdotool", "getwindowgeometry", "--shell", candidate],
                                       capture_output=True, text=True).stdout
             values = dict(line.split("=", 1) for line in geometry.split() if "=" in line)
             size = int(values.get("WIDTH", 0)) * int(values.get("HEIGHT", 0))
             if size > area:
-                best, area = window, size
+                best, area = candidate, size
         if best is not None:
             xdotool("windowmove", "--sync", best, "20", "20")
-            xdotool("windowsize", "--sync", best, "1560", "940")
-            time.sleep(0.5)
-        self.resized = True
+            xdotool("windowsize", "--sync", best, *map(str, WINDOW_SIZE))
+            wait_for(lambda: extents(window)[2] >= WINDOW_SIZE[0], 5, "the main window to grow")
 
     def screenshot(self, label, accessible=None):
         """Saves the window of accessible, or the whole display, as OUT/<scenario>-<label>.png"""
@@ -389,6 +392,8 @@ class Session:
         bbox = None
         if accessible is not None:
             try:
+                if accessible_id(accessible).endswith("Gui::MainWindow"):
+                    self.enlarge(accessible)
                 x, y, width, height = extents(accessible)
                 if width > 0 and height > 0:
                     bbox = (max(x, 0), max(y, 0), x + width, y + height)
