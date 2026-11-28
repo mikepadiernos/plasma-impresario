@@ -53,7 +53,7 @@ public:
     a failure is reported through transferError().
     */
     void readPart(const QPersistentModelIndex &part, QObject *context,
-                  std::function<void(const QString &fileName, const QByteArray &data)> done);
+        std::function<void(const QString &fileName, const QByteArray &data)> done);
 
 public slots:
     /** Follow the part model of a message; nullptr, or the model being destroyed, means no message */

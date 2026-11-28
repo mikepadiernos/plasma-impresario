@@ -78,7 +78,6 @@ public slots:
 signals:
     void connected(const QString &id);
 
-
 private:
     void updateWidgets();
     void setStatus(const QString &text);
