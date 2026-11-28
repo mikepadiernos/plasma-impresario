@@ -92,6 +92,14 @@ RUN dnf -y install --setopt=install_weak_deps=False \
         xdotool \
     && dnf clean all
 
+# KDE Online Accounts, for Nextcloud accounts connected in System Settings,
+# which the app builds without.
+RUN dnf -y install --setopt=install_weak_deps=False \
+        kaccounts-integration-qt6-devel \
+        libaccounts-qt6-devel \
+        signon-qt6-devel \
+    && dnf clean all
+
 ENV CCACHE_DIR=/ccache \
     CMAKE_C_COMPILER_LAUNCHER=ccache \
     CMAKE_CXX_COMPILER_LAUNCHER=ccache \
