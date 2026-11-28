@@ -14,6 +14,7 @@
 #include "Imap/Model/Model.h"
 #include "Imap/Parser/LowLevelParser.h"
 #include "Streams/FakeSocket.h"
+#include "Utils/FakeCapabilitiesInjector.h"
 
 using namespace Imap::Mailbox;
 
@@ -212,6 +213,23 @@ void ImapHeaderBackfillTest::testFailedSearchLoadsNewestFirst()
     cClient(t.mk(fetchCommand("1:3").constData()));
     QCOMPARE(recent.size(), 1);
     QCOMPARE(backfill->recentCount(), 0);
+}
+
+/** @short With CONTEXT=SEARCH, the search still asks for one answer only, so no context stays open on the server */
+void ImapHeaderBackfillTest::testSearchKeepsNoContext()
+{
+    open(3);
+    // Before the search starts on the next pass through the event loop
+    FakeCapabilitiesInjector injector(model);
+    injector.injectCapability(QStringLiteral("ESEARCH"));
+    injector.injectCapability(QStringLiteral("CONTEXT=SEARCH"));
+    cClient(t.mk("UID SEARCH RETURN (ALL) CHARSET utf-8 SINCE 29-Oct-2026\r\n"));
+    cServer("* ESEARCH (TAG \"" + t.last() + "\") UID ALL 3\r\n" + t.last("OK searched\r\n"));
+    cClient(t.mk(fetchCommand("3").constData()));
+    cServer(helperCreateTrivialEnvelope(3, 3, QStringLiteral("three")) + t.last("OK fetched\r\n"));
+    // No CANCELUPDATE comes before the older messages
+    cClient(t.mk(fetchCommand("1:2").constData()));
+    QCOMPARE(backfill->recentCount(), 1);
 }
 
 /** @short An expensive network pauses the work until it is online again */

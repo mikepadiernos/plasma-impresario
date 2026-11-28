@@ -159,4 +159,30 @@ void ImapModelRenameMailboxTest::testRenameOffline()
     QCOMPARE(topLevelNames(), QStringList() << QStringLiteral("a") << QStringLiteral("b"));
 }
 
+/** @short The RENAME of the open folder waits until the command running on it is answered
+
+Dovecot ends the session when the selected mailbox is renamed while another command on it is still running.
+*/
+void ImapModelRenameMailboxTest::testRenameWaitsForRunningCommand()
+{
+    initWithMailboxes();
+    // This test lists its own mailboxes, so the fixture's indexes of "a" are set here
+    idxA = model->index(1, 0, QModelIndex());
+    msgListA = model->index(0, 0, idxA);
+    initialMessages(3);
+    QCOMPARE(model->index(0, 0, msgListA).data(Imap::Mailbox::RoleMessageSubject), QVariant());
+    cClient(t.mk("UID FETCH 1:3 (" FETCH_METADATA_ITEMS ")\r\n"));
+    const QByteArray fetchTag = t.last();
+
+    model->renameMailbox(QStringLiteral("a"), QStringLiteral("c"));
+    cEmpty();
+    cServer(helperCreateTrivialEnvelope(1, 1, QStringLiteral("one"))
+        + helperCreateTrivialEnvelope(2, 2, QStringLiteral("two"))
+        + helperCreateTrivialEnvelope(3, 3, QStringLiteral("three")) + fetchTag + " OK fetched\r\n");
+    cClient(t.mk("RENAME a c\r\n"));
+    cServer(t.last("OK renamed\r\n"));
+    QCOMPARE(renamedSpy->size(), 1);
+    QVERIFY(failedSpy->isEmpty());
+}
+
 QTEST_GUILESS_MAIN(ImapModelRenameMailboxTest)

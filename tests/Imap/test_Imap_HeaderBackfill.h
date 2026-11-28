@@ -26,6 +26,7 @@ private slots:
     void testWaitsForOtherWork();
     void testStopsAtTheLimit();
     void testFailedSearchLoadsNewestFirst();
+    void testSearchKeepsNoContext();
     void testPausesOnExpensiveNetwork();
     void testStopsOffline();
     void testFollowsTheOpenFolder();

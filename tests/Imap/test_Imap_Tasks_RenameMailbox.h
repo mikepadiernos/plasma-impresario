@@ -22,6 +22,7 @@ private slots:
     void testRenameFail();
     void testRenameListFails();
     void testRenameOffline();
+    void testRenameWaitsForRunningCommand();
 
 private:
     QSignalSpy *renamedSpy;
