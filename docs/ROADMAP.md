@@ -75,7 +75,7 @@ and gray before. **Board** is the parent issue's status.
 | [M08](#m08-settings-and-workspace-configuration)          | Settings and workspace configuration           | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9)     | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]: merged in [PR #500](https://github.com/mikepadiernos/plasma-impresario/pull/500) |
 | [M09](#m09-themes-and-branding-foundation)                | Themes and branding foundation                 | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)   | ![32 of 32 done](https://img.shields.io/badge/32%2F32-100%25-1a7f37) | ![Merged][merged]: merged in [PR #504](https://github.com/mikepadiernos/plasma-impresario/pull/504) |
 | [M10](#m10-reliability-sync-and-notification-quality)     | Reliability, sync and notification quality     | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11)   | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]: merged in [PR #510](https://github.com/mikepadiernos/plasma-impresario/pull/510) |
-| [M11](#m11-release-readiness-and-polish)                  | Release readiness and polish                   | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12)   | ![10 of 10 done](https://img.shields.io/badge/10%2F10-100%25-1a7f37) | ![Completed][completed]                                                                             |
+| [M11](#m11-release-readiness-and-polish)                  | Release readiness and polish                   | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12)   | ![10 of 10 done](https://img.shields.io/badge/10%2F10-100%25-1a7f37) | ![Merged][merged]: merged in [PR #513](https://github.com/mikepadiernos/plasma-impresario/pull/513) |
 | [M12](#m12-nextcloud-and-digital-asset-management)        | Nextcloud and digital asset management         | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31)   | ![0 of 7 done](https://img.shields.io/badge/0%2F7-0%25-6e7781)       | ![Backlog][backlog]                                                                                 |
 | [M13](#m13-microsoft-accounts-and-exchange)               | Microsoft accounts and Exchange                | [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388) | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781)     | ![Backlog][backlog]                                                                                 |
 | [M14](#m14-refinements)                                   | Refinements                                    | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)   | ![0 of 86 done](https://img.shields.io/badge/0%2F86-0%25-6e7781)     | ![Backlog][backlog]                                                                                 |
@@ -1095,7 +1095,7 @@ Mailbox performance [#52](https://github.com/mikepadiernos/plasma-impresario/iss
 
 ### M11: Release readiness and polish
 
-**Status:** ![Completed][completed]
+**Status:** ![Merged][merged]
 ![10 of 10 done](https://img.shields.io/badge/10%2F10-100%25-1a7f37) ·
 **Parent issue:** [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12)
 
