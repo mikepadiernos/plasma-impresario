@@ -1713,6 +1713,10 @@ void Model::killParser(Parser *parser, ParserKillingMethod method)
         return;
     }
 
+    // Whoever follows the state of the connections must not think that this one is still open
+    if (accessParser(parser).connState != CONN_STATE_LOGOUT)
+        changeConnectionState(parser, CONN_STATE_LOGOUT);
+
     Q_FOREACH(ImapTask *task, accessParser(parser).activeTasks) {
         // FIXME: now this message sucks
         task->die(tr("The connection is being killed for unspecified reason"));
