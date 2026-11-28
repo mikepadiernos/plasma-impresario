@@ -1,0 +1,8 @@
+# LeakSanitizer suppressions for builds with IMPRESARIO_SANITIZERS=address.
+# Only third-party code that allocates once per process and never frees it
+# belongs here; a leak in Plasma Impresario code is a bug to fix instead.
+# See docs/sanitizers.md.
+
+# Chromium inside Qt WebEngine keeps process-lifetime caches and singletons that
+# it never frees; every reported stack ends in a page load started by a test.
+leak:libQt6WebEngineCore.so

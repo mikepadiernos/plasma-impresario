@@ -1,3 +1,10 @@
+# UndefinedBehaviorSanitizer suppressions for builds with
+# IMPRESARIO_SANITIZERS=undefined. See docs/sanitizers.md.
+#
+# Qt's slot objects and message handler are called through function pointers of
+# a different type, which -fsanitize=function reports; this is how Qt works.
+# The vptr entries are type checks on objects whose type information comes from
+# another shared library (Qt D-Bus, Boost), which the check cannot match.
 function:QtPrivate::QSlotObjectBase::call
 function:QtPrivate::QSlotObjectBase::destroyIfLastRef
 function:qt_message_print

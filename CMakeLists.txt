@@ -196,6 +196,18 @@ else()
     set(CMAKE_CXX_FLAGS "-Wall -Wsign-compare ${CMAKE_CXX_FLAGS}")
 endif()
 
+# Sanitizer builds for testing, for example -DIMPRESARIO_SANITIZERS="address;undefined"; see docs/sanitizers.md
+set(IMPRESARIO_SANITIZERS "" CACHE STRING "Sanitizers to build with, such as address;undefined or thread (GCC or Clang)")
+if(IMPRESARIO_SANITIZERS)
+    if(MSVC)
+        message(FATAL_ERROR "IMPRESARIO_SANITIZERS needs GCC or Clang")
+    endif()
+    list(JOIN IMPRESARIO_SANITIZERS "," impresario_sanitizers)
+    add_compile_options(-fsanitize=${impresario_sanitizers} -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=${impresario_sanitizers})
+    message(STATUS "Building with sanitizers: ${impresario_sanitizers}")
+endif()
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 # The following is required so that the moc_*.cpp and ui_*.h are found
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
@@ -1318,8 +1330,6 @@ if(BUILD_TESTING)
         endif()
     endmacro()
 
-    set(UBSAN_ENV_SUPPRESSIONS "UBSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/tests/ubsan.supp")
-
     enable_testing()
     if(WITH_DESKTOP)
         add_executable(test_DensityMenu tests/Gui/test_DensityMenu.cpp)
@@ -1620,6 +1630,11 @@ if(BUILD_TESTING)
       add_library(fake-dev-random SHARED ${CMAKE_CURRENT_SOURCE_DIR}/tests/Utils/fake-dev-random.c)
       set_target_properties(fake-dev-random PROPERTIES AUTOMOC off)
       target_link_libraries(fake-dev-random ${CMAKE_DL_LIBS})
+      if(IMPRESARIO_SANITIZERS)
+          # Preloaded into the system's gpg, which has no sanitizer runtime
+          target_compile_options(fake-dev-random PRIVATE -fno-sanitize=all)
+          target_link_options(fake-dev-random PRIVATE -fno-sanitize=all)
+      endif()
 
       # FIXME: it would be nice to depend on the contents of keys/, but in my testing it produces Makefiles
       # which suffer from races (the keygen.sh is run multiple times in parallel within the CI environment).
@@ -1896,6 +1911,15 @@ if(BUILD_TESTING)
         set_tests_properties(test_ExternalExposure_${exposure_name} PROPERTIES PASS_REGULAR_EXPRESSION "${exposure_expected}")
     endforeach()
 
+    # A sanitizer report fails its test; the suppressions name third-party code only, each with its reason
+    if(IMPRESARIO_SANITIZERS)
+        get_property(impresario_tests DIRECTORY PROPERTY TESTS)
+        set_property(TEST ${impresario_tests} APPEND PROPERTY ENVIRONMENT
+            "ASAN_OPTIONS=detect_leaks=1:abort_on_error=0:strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1"
+            "LSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/tests/lsan.supp:print_suppressions=0"
+            "UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1:suppressions=${CMAKE_CURRENT_SOURCE_DIR}/tests/ubsan.supp"
+            "TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1:suppressions=${CMAKE_CURRENT_SOURCE_DIR}/tests/tsan.supp")
+    endif()
 endif()
 
 if(WIN32) # Check if we are on Windows
