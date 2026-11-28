@@ -1050,7 +1050,7 @@ Mailbox performance [#52](https://github.com/mikepadiernos/plasma-impresario/iss
 
 - [x] Harden retry behavior, offline handling, and background task reporting [#51](https://github.com/mikepadiernos/plasma-impresario/issues/51)
 - [x] Improve connection-state reporting, folder sync stability, and message consistency [#127](https://github.com/mikepadiernos/plasma-impresario/issues/127)
-- [ ] Validate performance and reliability across real-world email workloads [#52](https://github.com/mikepadiernos/plasma-impresario/issues/52)
+- [x] Validate performance and reliability across real-world email workloads [#52](https://github.com/mikepadiernos/plasma-impresario/issues/52)
 - [ ] This milestone is the stabilization gate before broader product expansion [#128](https://github.com/mikepadiernos/plasma-impresario/issues/128)
 - [x] Test intermittent connections, expired credentials, server errors, retries, and recovery without silent message loss [#129](https://github.com/mikepadiernos/plasma-impresario/issues/129)
 - [x] Verify folder and unread counts remain consistent across multiple accounts and concurrent changes [#130](https://github.com/mikepadiernos/plasma-impresario/issues/130)
