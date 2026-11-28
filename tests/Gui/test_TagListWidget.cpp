@@ -85,6 +85,19 @@ private slots:
     QVERIFY(!chip(list, QStringLiteral("Trips")));
     QVERIFY(chip(list, QStringLiteral("$home")));
   }
+
+  void serverKeywordsAreNotTags() {
+    Imap::Mailbox::FavoriteTagsModel favorites;
+    Gui::TagListWidget list(nullptr, &favorites);
+    // Dovecot's attachment detection sets these; the reader shows attachments
+    // already, and the user cannot remove them as tags
+    list.setTagList({QStringLiteral("$HasAttachment"),
+                     QStringLiteral("$hasnoattachment"),
+                     QStringLiteral("$work")});
+    QVERIFY(!chip(list, QStringLiteral("$HasAttachment")));
+    QVERIFY(!chip(list, QStringLiteral("$hasnoattachment")));
+    QVERIFY(chip(list, QStringLiteral("$work")));
+  }
 };
 
 QTEST_MAIN(TagListWidgetTest)

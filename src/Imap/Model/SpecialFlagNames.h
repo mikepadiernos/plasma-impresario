@@ -45,6 +45,9 @@ struct FlagNames {
     static const QString mdnsent;
     static const QString submitted;
     static const QString submitpending;
+    /** Set by the server's attachment detection, such as Dovecot's, not by the user */
+    static const QString hasAttachment;
+    static const QString hasNoAttachment;
 
     /** A mapping from lower-case flag names to canonical ones */
     static const QHash<QString,QString> toCanonical;
