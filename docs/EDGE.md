@@ -6,11 +6,11 @@
 **[Project board](https://github.com/users/mikepadiernos/projects/4)**
 
 This log captures boundary and failure scenarios that need validation, with
-their test coverage as of 2026-11-25. Record a reproduced and confirmed defect
+their test coverage as of 2026-11-28. Record a reproduced and confirmed defect
 in [bugs](BUGS.md) and a known limitation in [caveats](CAVEATS.md); keep
 unconfirmed scenarios here.
 
-Legend: ![Verified][verified] against a synthetic live IMAP server ·
+Legend: ![Verified][verified] against a synthetic live server ·
 ![Offscreen tests][offscreen] covered only by offscreen tests ·
 ![Limitation][limitation] known limitation, see [caveats](CAVEATS.md) ·
 ![Not validated][not-validated] no automated or live check yet
@@ -32,6 +32,7 @@ Legend: ![Verified][verified] against a synthetic live IMAP server ·
   - [OAuth sign-in](#oauth-sign-in)
   - [POP3 accounts](#pop3-accounts)
   - [JMAP accounts](#jmap-accounts)
+  - [Nextcloud files and share links](#nextcloud-files-and-share-links)
   - [Microsoft accounts and Exchange](#microsoft-accounts-and-exchange)
   - [Sending](#sending)
   - [Mail operations](#mail-operations)
@@ -209,6 +210,23 @@ Legend: ![Verified][verified] against a synthetic live IMAP server ·
 | A change made while a synchronization runs                | ![Limitation][limitation] It goes up with the next synchronization ([#488](CAVEATS.md#jmap-accounts))                                                         |
 | A local folder made before the first synchronization      | ![Limitation][limitation] It stays local; moving into it removes the message from the server ([#488](CAVEATS.md#jmap-accounts))                               |
 | Hosted JMAP providers such as Fastmail                    | ![Not validated][not-validated]                                                                                                                               |
+
+### Nextcloud files and share links
+
+| Scenario                                                                                    | Coverage                                                                                                                                                                          |
+| ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Signing in with an app password, then the user's name and free storage                      | ![Verified][verified] `test_LiveNextcloud` against Nextcloud 34; ![Offscreen tests][offscreen] `test_NextcloudDialogs` covers Login Flow v2                                       |
+| A folder shared with the user for reading only                                              | ![Verified][verified] `test_LiveNextcloud`: listed as shared and not writable; saving there is refused with **Retry**                                                             |
+| Saving an attachment whose name exists, or whose name holds `../`                           | ![Verified][verified] `test_LiveNextcloud`: the first file is kept, the copy gets a numbered name, and the file stays in the chosen folder                                        |
+| Saving the attachment of a local-account message, as POP3 and JMAP keep them                | ![Verified][verified] `test_LiveNextcloud`: read through the mail model, saved and fetched back unchanged                                                                         |
+| Storage full, or a file removed on the server                                               | ![Verified][verified] `test_LiveNextcloud`: each has its own message                                                                                                              |
+| Links with a password and expiry, without either, and one shared by another user            | ![Verified][verified] `test_LiveNextcloud`: described as the user's own or as unknown                                                                                             |
+| The server unreachable, as when offline                                                     | ![Verified][verified] `test_LiveNextcloud`: transfers say the server could not be reached and the links could not be checked ([#515](CAVEATS.md#nextcloud-files-and-share-links)) |
+| An app password revoked on the server                                                       | ![Verified][verified] `test_LiveNextcloud`: refused, and the account asks to connect again                                                                                        |
+| A window closed while its transfer runs                                                     | ![Offscreen tests][offscreen] `test_NextcloudDialogs`: the activity entry shows it stopped                                                                                        |
+| A large file, or a server that limits upload size                                           | ![Limitation][limitation] The whole file is held in memory ([#515](CAVEATS.md#nextcloud-files-and-share-links)); upload limits not validated                                      |
+| A KDE Online Accounts Nextcloud account whose login name differs from its user ID           | ![Limitation][limitation] Compile-verified only ([#515](CAVEATS.md#nextcloud-files-and-share-links))                                                                              |
+| Hosted Nextcloud providers, and a share link handed over by Plasma Opus in a Plasma session | ![Not validated][not-validated] M15                                                                                                                                               |
 
 ### Microsoft accounts and Exchange
 
