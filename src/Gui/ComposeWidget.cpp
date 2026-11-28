@@ -365,6 +365,8 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
         spellchecker->actOnEditor(ui->mailText);
     }
 
+    ui->mailText->setAccessibleName(i18nc("@label accessible name", "Message text"));
+    ui->attachmentsView->setAccessibleName(i18nc("@label accessible name", "Attachments"));
     connect(ui->mailText, &ComposerTextEdit::urlsAdded, this, &ComposeWidget::slotAttachFiles);
     connect(ui->mailText, &ComposerTextEdit::sendRequest, this, &ComposeWidget::send);
     connect(ui->mailText, &QTextEdit::textChanged, this, &ComposeWidget::setMessageUpdated);
@@ -1500,7 +1502,14 @@ void ComposeWidget::addRecipient(int position, Composer::RecipientKind kind, con
         combo->addItem(tr("Resent-Bcc"), Composer::ADDRESS_RESENT_BCC);
     }
     combo->setCurrentIndex(combo->findData(kind));
+    combo->setAccessibleName(i18nc("@label:listbox accessible name", "Recipient type"));
     LineEdit *edit = new LineEdit(address, this);
+    const auto nameAddress = [combo, edit]() {
+        edit->setAccessibleName(
+            i18nc("@label:textbox accessible name, %1 is To, Cc or Bcc", "%1 address", combo->currentText()));
+    };
+    nameAddress();
+    connect(combo, &QComboBox::currentIndexChanged, edit, nameAddress);
     slotCheckAddress(edit);
     connect(edit, &QLineEdit::textChanged, this, &ComposeWidget::slotCheckAddressOfSender);
     connect(edit, &QLineEdit::textChanged, this, &ComposeWidget::setMessageUpdated);

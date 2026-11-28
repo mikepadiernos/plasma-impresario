@@ -361,6 +361,7 @@ QWidget *ThemeGroup::colorsPage()
     m_accent = new KColorButton;
     m_accent->setObjectName(QStringLiteral("accentColor"));
     m_accent->setAlphaChannelEnabled(false);
+    m_accent->setAccessibleName(i18nc("@label accessible name", "Accent colour"));
     accentLayout->addWidget(m_accentSource);
     accentLayout->addWidget(m_accent);
     accentLayout->addStretch();
@@ -381,6 +382,9 @@ QWidget *ThemeGroup::colorsPage()
         check->setObjectName(QLatin1String("role-") + role.key);
         auto *color = new KColorButton;
         color->setObjectName(QLatin1String("roleColor-") + role.key);
+        color->setAccessibleName(i18nc("@label accessible name, %1 is a colour role", "%1 colour", role.name));
+        check->setAccessibleName(
+            i18nc("@option:check accessible name, %1 is a colour role", "Own colour for %1", role.name));
         color->setAlphaChannelEnabled(false);
         rowLayout->addWidget(check);
         rowLayout->addWidget(color);
@@ -411,6 +415,9 @@ QWidget *ThemeGroup::colorsPage()
             check->setObjectName(QLatin1String("accountColorUsed-") + account.id);
             auto *color = new KColorButton;
             color->setObjectName(QLatin1String("accountColor-") + account.id);
+            color->setAccessibleName(i18nc("@label accessible name, %1 is an account", "Colour of %1", account.name));
+            check->setAccessibleName(
+                i18nc("@option:check accessible name, %1 is an account", "Give %1 a colour", account.name));
             color->setAlphaChannelEnabled(false);
             const QColor stored = colors.accounts.value(account.id);
             check->setChecked(stored.isValid());

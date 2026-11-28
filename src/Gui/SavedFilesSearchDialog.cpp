@@ -54,6 +54,7 @@ SavedFilesSearchDialog::SavedFilesSearchDialog(QWidget *parent)
     m_text->setClearButtonEnabled(true);
     m_text->setPlaceholderText(i18nc("@info:placeholder", "Part of the name or text of a file"));
     m_folder->setObjectName(QStringLiteral("savedFilesFolder"));
+    m_folder->setAccessibleName(i18nc("@label:textbox accessible name", "Folder to search"));
     m_folder->setClearButtonEnabled(true);
     m_chooseFolder->setObjectName(QStringLiteral("savedFilesChooseFolder"));
     m_status->setObjectName(QStringLiteral("savedFilesStatus"));

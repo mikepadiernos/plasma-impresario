@@ -22,6 +22,7 @@
 
 #ifndef QT_NO_SHORTCUT
 
+#include <KLocalizedString>
 #include <QKeyEvent>
 #include <QMessageBox>
 #include <QSettings>
@@ -43,6 +44,7 @@ ShortcutConfigWidget::ShortcutConfigWidget(QWidget *parent)
     ui.shortcutTreeWidget->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     ui.shortcutTreeWidget->header()->setSectionResizeMode(1, QHeaderView::Stretch);
     ui.shortcutTreeWidget->setUniformRowHeights(true); // all rows have the same height
+    ui.shortcutTreeWidget->setAccessibleName(i18nc("@label accessible name", "Shortcuts"));
     ui.shortcutTreeWidget->installEventFilter(this);
 
     ui.gridLayout->setColumnStretch(2, 1); // make sure the buttons are not too large

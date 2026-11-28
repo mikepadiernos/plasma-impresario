@@ -845,8 +845,10 @@ void MainWindow::createActions()
     connect(m_mainToolbar, &QToolBar::visibilityChanged, m_delayedStateSaving, static_cast<void (QTimer::*)()>(&QTimer::start));
 
     configSettings = new QAction(UiUtils::loadIcon(QStringLiteral("configure")),  tr("&Settings..."), this);
+    configSettings->setObjectName(QStringLiteral("action_settings"));
     connect(configSettings, &QAction::triggered, this, &MainWindow::slotShowSettings);
     m_actionAddAccount = new QAction(UiUtils::loadIcon(QStringLiteral("list-add")), i18n("&Add Account..."), this);
+    m_actionAddAccount->setObjectName(QStringLiteral("action_add_account"));
     connect(m_actionAddAccount, &QAction::triggered, this, &MainWindow::slotAddAccount);
     m_actionAccountSettings = new QAction(UiUtils::loadIcon(QStringLiteral("configure")), i18n("A&ccount Settings..."), this);
     m_actionAccountSettings->setObjectName(QStringLiteral("action_account_settings"));
@@ -1456,6 +1458,7 @@ void MainWindow::createActions()
     connect(m_actionSubscribeMailbox, &QAction::triggered, this, &MainWindow::slotSubscribeCurrentMailbox);
 
     aboutTrojita = new QAction(tr("&About Plasma Impresario..."), this);
+    aboutTrojita->setObjectName(QStringLiteral("action_about"));
     connect(aboutTrojita, &QAction::triggered, this, &MainWindow::slotShowAboutTrojita);
 
     connectModelActions();
@@ -2153,7 +2156,8 @@ void MainWindow::createWidgets()
     m_embeddedPanels = {m_attachmentPanel, m_messageDetailsPanel, m_contactPanel, m_relatedMessagesPanel, m_searchResultsPanel,
                         m_agendaPanel};
 #else
-   m_messageWidget = new QLabel(QStringLiteral("Message Widget placeholder"));
+    m_messageWidget = new QLabel(
+        i18nc("@info reader placeholder in builds without a web engine", "Messages cannot be shown in this build."));
 #endif
 
     m_readerColumn = new QSplitter(Qt::Vertical);

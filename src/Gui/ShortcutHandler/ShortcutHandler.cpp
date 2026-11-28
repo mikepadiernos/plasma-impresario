@@ -144,6 +144,7 @@ QAction *ShortcutHandler::shortcutConfigAction()
     Q_ASSERT_X(!m_shortcutConfigWidget, "ShortcutHandler", "a shortcut configuration dialog and a shortcut configuration widget cannot exist at the same time in one application");
     if (!m_shortcutConfigAction) {
         m_shortcutConfigAction = new QAction(UiUtils::loadIcon(QStringLiteral("configure-shortcuts")), tr("Configure S&hortcuts..."), qobject_cast<QWidget*>(parent()));
+        m_shortcutConfigAction->setObjectName(QStringLiteral("action_configure_shortcuts"));
         connect(m_shortcutConfigAction.data(), &QAction::triggered, this, &ShortcutHandler::openShortcutConfigDialog);
     }
     return m_shortcutConfigAction;
