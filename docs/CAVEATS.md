@@ -1103,6 +1103,19 @@ Plasma session; that check is
   is pressed. Turning decrypted indexing off while indexing is paused leaves
   those messages out of the index until **Resume**
   ([#344](https://github.com/mikepadiernos/plasma-impresario/issues/344)).
+- ![Limitation][limitation] An update skips a folder only when its server
+  offers CONDSTORE and the folder's HIGHESTMODSEQ, UIDNEXT and message count are
+  unchanged; otherwise every cached message's flags are compared again, about
+  156 ms per 50,000 messages. Downloaded text raises no HIGHESTMODSEQ, so the
+  index learns of it from the message list; text stored in the cache by any
+  other way is found at the next change in its folder. The index is checked
+  by counting when it opens. Damage found later, by a failing search or
+  update, makes that search fail with an explanation, and the next update
+  rebuilds the whole index from the cache: until it finishes, offline searches
+  find only what is rebuilt, and decrypted text returns only as messages are
+  opened again. The full FTS5 integrity check is not run on its own
+  ([#357](https://github.com/mikepadiernos/plasma-impresario/issues/357),
+  [measurements](performance.md#search-index)).
 - ![Limitation][limitation] **Offline Search Index…** shows the shown account
   only, and lists only the folders its offline cache knows. A folder is
   **Partly indexed** while some of its cached messages have no headers on this
@@ -1213,6 +1226,9 @@ Plasma session; that check is
   clear.
 - Online, press **Search Server** when an indexed search misses older or
   undownloaded mail, or reports a renumbered folder.
+- If an offline search reports that the index is damaged, leave the account
+  open until **Offline Search Index…** shows every folder **Indexed** again,
+  then search again; **Rebuild** does the same at once.
 - To search the text of an attachment offline, open or save it once while
   online; the index reads it shortly after. For a format the index dialog
   lists as unreadable, install the distribution's KFileMetaData extractors,
@@ -1286,6 +1302,10 @@ Plasma session; that check is
   as well ([#343](https://github.com/mikepadiernos/plasma-impresario/issues/343)).
 - Search the shown folder alone when offline, and refresh the index right
   after a sync rather than after a pause.
+- Rebuild only the damaged folders, starting as soon as a search finds the
+  damage, keep decrypted text in a separate table so that a rebuild keeps
+  it, and run the full integrity check in small steps while the computer is
+  idle ([#357](https://github.com/mikepadiernos/plasma-impresario/issues/357)).
 - Show the index of every account in one place, offer to load the missing
   headers of a **Partly indexed** folder, and show the index state in the
   folder tree.

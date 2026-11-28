@@ -31,6 +31,7 @@ responsiveness budgets · ![Limitation][limitation] known limitation, see
 - [Results](#results)
 - [Four times the size](#four-times-the-size)
 - [Live server](#live-server)
+- [Search index](#search-index)
 - [Findings](#findings)
 - [Budgets](#budgets)
 - [Not measured yet](#not-measured-yet)
@@ -157,9 +158,62 @@ step is almost entirely the window applying it. The whole process uses about
 215 MiB after opening the folder. At 5,000 messages the folder opened in 0.8 s
 before the changes, so the old costs grew with the square of the folder size.
 
+## Search index
+
+The offline search index has its own workload, `testWorkload` in
+`tests/Misc/test_SearchIndex.cpp`, recorded on 2026-11-28 for
+[#357](https://github.com/mikepadiernos/plasma-impresario/issues/357). It
+fills a persistent cache with 2,000 messages, times `IMPRESARIO_WORKLOAD_SCALE`,
+a quarter of them without downloaded text, builds the index the way the
+application does, without the pause between batches, and then searches,
+updates and checks it. It reads the same variables as the IMAP workloads.
+
+```bash
+cmake --build build --target test_SearchIndex
+cd build
+IMPRESARIO_WORKLOAD_SCALE=25 IMPRESARIO_WORKLOAD_BUDGETS=1 QT_QPA_PLATFORM=offscreen ./test_SearchIndex testWorkload
+```
+
+One run in the [same environment](#environment), with the cache in a
+temporary folder:
+
+| Step                                       | 2,000 messages | 50,000 messages | Longest pass at 50,000 | Status                          |
+| ------------------------------------------ | -------------- | --------------- | ---------------------- | ------------------------------- |
+| Build the index                            | 122 ms         | 3.4 s           | 49 ms                  | ![Within budget][within-budget] |
+| Disk use                                   | 784 B/message  | 811 B/message   | —                      | ![Within budget][within-budget] |
+| Search a subject word                      | 0.2 ms         | 3.9 ms          | —                      | ![Within budget][within-budget] |
+| Search a sender                            | 0.2 ms         | 3.2 ms          | —                      | ![Within budget][within-budget] |
+| Search a word in 75% of messages           | 0.8 ms         | 22 ms           | —                      | ![Within budget][within-budget] |
+| Search a rare word                         | 0.2 ms         | 5.8 ms          | —                      | ![Within budget][within-budget] |
+| Search a flag (`UNSEEN`)                   | 0.2 ms         | 5.8 ms          | —                      | ![Within budget][within-budget] |
+| Search text, a date and a flag             | 0.3 ms         | 9.2 ms          | —                      | ![Within budget][within-budget] |
+| Update, nothing changed, with CONDSTORE    | under 1 ms     | 1 ms            | under 1 ms             | ![Within budget][within-budget] |
+| Update, nothing changed, without CONDSTORE | 5 ms           | 156 ms          | 28 ms                  | ![Within budget][within-budget] |
+| Quick check, run when the index opens      | under 1 ms     | 6 ms            | 6 ms                   | ![Within budget][within-budget] |
+| Thorough check (FTS5 `integrity-check`)    | 8 ms           | 210 ms          | 210 ms                 | ![Limitation][limitation]       |
+
+Searches are the median of five runs. Disk use is what SQLite's `dbstat`
+table reports for the index tables; a library built without it reports -1.
+With CONDSTORE, an update skips each folder whose HIGHESTMODSEQ, UIDNEXT and
+message count are unchanged and which the model did not report as changed;
+without it, every message's flags are compared again. The thorough check reads
+the whole full-text index in one pass, so it is not run on its own; the quick
+check, which compares the message and text counts, runs whenever the index is
+opened.
+
+The budgets, enforced with `IMPRESARIO_WORKLOAD_BUDGETS=1`, are 250 ms per
+event-loop pass while building or updating, 500 ms per search, a build of
+5,000 ms or 0.2 ms per message, whichever is larger, and an unchanged update
+with CONDSTORE of 100 ms.
+
+## Findings
 
 - ![Within budget][within-budget] Sync, conversations, bulk flag changes and
   attachments grow about linearly with their size.
+- ![Within budget][within-budget] The [search index](#search-index) grows
+  about linearly, at about 0.8 KB per message, and keeps each event-loop pass
+  under 50 ms while it builds. Without CONDSTORE, every update compares every
+  cached message's flags again, about 156 ms per 50,000 messages.
 - ![Limitation][limitation] **Removals grow with the square of the size.** Each
   removed message renumbers every message after it. One `EXPUNGE` at a time
   keeps the window responding, because each response is a separate pass, but
