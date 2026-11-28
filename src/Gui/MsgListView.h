@@ -59,6 +59,7 @@ public:
     int sizeHintForColumn(int column) const override;
     QHeaderView::ResizeMode resizeModeForColumn(const int column) const;
     void keyboardSearch(const QString &search) override;
+    void scrollTo(const QModelIndex &index, ScrollHint hint = EnsureVisible) override;
     QModelIndex indexAt(const QPoint &point) const override;
     QRect visualRect(const QModelIndex &index) const override;
 
@@ -124,8 +125,10 @@ private:
     QModelIndex mapFromPrettyModel(const QModelIndex &prettyIndex) const;
     /** @short Remember where the current message, or else the top row, is on the screen before the rows change */
     void captureScrollAnchor(bool insertion);
-    /** @short Scroll so that the remembered row is where it was */
+    /** @short Scroll the remembered row back once the current burst of row changes is over */
     void restoreScrollAnchor();
+    /** @short Scroll so that the remembered row is where it was */
+    void applyScrollAnchor();
 
     struct ScrollAnchor {
         QPersistentModelIndex index;
@@ -135,6 +138,7 @@ private:
     };
     std::optional<ScrollAnchor> m_scrollAnchor;
     int m_scrollAnchorDepth = 0;
+    bool m_scrollAnchorPending = false;
     QList<QMetaObject::Connection> m_scrollAnchorConnections;
 
     QSignalMapper *headerFieldsMapper;

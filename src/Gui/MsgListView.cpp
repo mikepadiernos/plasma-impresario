@@ -859,11 +859,11 @@ void MsgListView::finishRemoval()
 
 Without this, the view keeps its scroll offset, so new messages above the current one push it down and sorting again
 moves it anywhere. The current message is the anchor while it is visible, otherwise the top row is; a list which
-shows its top keeps showing it.
+shows its top keeps showing it. While a restore is pending, the place from before the whole burst of changes is kept.
 */
 void MsgListView::captureScrollAnchor(bool insertion)
 {
-    if (m_scrollAnchorDepth++ > 0)
+    if (m_scrollAnchorDepth++ > 0 || m_scrollAnchorPending)
         return;
     m_scrollAnchor.reset();
     if (!isVisible())
@@ -884,9 +884,27 @@ void MsgListView::captureScrollAnchor(bool insertion)
     m_scrollAnchor = ScrollAnchor{QPersistentModelIndex(anchor), rect.top(), insertion && atTop};
 }
 
+/** @short Restore the place once the current burst of row changes is over
+
+A filter, a sort or another client's removals change the rows in thousands of separate runs. Laying out the whole list
+again after each of them made turning a filter off on 50,000 messages take about 16 seconds, so the place is restored
+once, before the list is painted again.
+*/
 void MsgListView::restoreScrollAnchor()
 {
     if (m_scrollAnchorDepth == 0 || --m_scrollAnchorDepth > 0)
+        return;
+    if (!m_scrollAnchor || m_scrollAnchorPending)
+        return;
+    m_scrollAnchorPending = true;
+    // Queued calls run before the low-priority paint request, so the list is never painted in the wrong place
+    QMetaObject::invokeMethod(this, &MsgListView::applyScrollAnchor, Qt::QueuedConnection);
+}
+
+void MsgListView::applyScrollAnchor()
+{
+    m_scrollAnchorPending = false;
+    if (m_scrollAnchorDepth > 0)
         return;
     const std::optional<ScrollAnchor> anchor = std::exchange(m_scrollAnchor, std::nullopt);
     if (!anchor || !anchor->index.isValid())
@@ -912,6 +930,13 @@ void MsgListView::restoreScrollAnchor()
     } else if (rect.height() > 0) {
         bar->setValue(bar->value() + qRound(double(delta) / rect.height()));
     }
+}
+
+/** @short Scrolling to a row on purpose wins over keeping the previous place */
+void MsgListView::scrollTo(const QModelIndex &index, ScrollHint hint)
+{
+    m_scrollAnchor.reset();
+    QTreeView::scrollTo(index, hint);
 }
 
 void MsgListView::slotHandleSortCriteriaChanged(int column, Qt::SortOrder order)
