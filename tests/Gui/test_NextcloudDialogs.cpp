@@ -27,6 +27,7 @@
 #include "Gui/NextcloudShareReviewDialog.h"
 #include "Gui/NextcloudTransfers.h"
 #include "Nextcloud/OnlineAccounts.h"
+#include "UiUtils/ActivityLog.h"
 
 using Gui::NextcloudBrowserDialog;
 using Gui::NextcloudConnectDialog;
@@ -485,6 +486,80 @@ private slots:
         transfers.fetch(id, file, this, [](const QByteArray &) { }, [&](const QString &message) { error = message; });
         QTRY_VERIFY(!error.isEmpty());
         QVERIFY2(error.contains(QLatin1String("refused")), qPrintable(error));
+    }
+
+    void transfersShowInTheActivityLog()
+    {
+        using UiUtils::ActivityLog;
+        m_server->addFile(QStringLiteral("/report.pdf"), "pdf content");
+        m_server->addFolder(QStringLiteral("/Locked"), QStringLiteral("SRG"));
+        const QString id = addAccount();
+        ActivityLog log;
+        NextcloudTransfers transfers(m_hub.get());
+        transfers.setActivityLog(&log);
+
+        // A download shows as running, then as done
+        Nextcloud::Entry file;
+        file.path = QStringLiteral("/report.pdf");
+        file.name = QStringLiteral("report.pdf");
+        bool fetched = false;
+        transfers.fetch(id, file, this, [&](const QByteArray &) { fetched = true; }, [](const QString &) { });
+        QCOMPARE(log.count(), 1);
+        QCOMPARE(log.entry(0).state, ActivityLog::State::Running);
+        QCOMPARE(log.entry(0).kind, ActivityLog::Kind::Job);
+        QVERIFY(log.entry(0).title.contains(QLatin1String("report.pdf")));
+        QCOMPARE(log.entry(0).detail, m_hub->account(id).title());
+        QTRY_VERIFY(fetched);
+        QCOMPARE(log.entry(0).state, ActivityLog::State::Done);
+        QCOMPARE(log.entry(0).progress, -1);
+
+        // A refused upload fails with the reason and can be retried with the same data
+        QStringList stored;
+        int failures = 0;
+        transfers.store(
+            id, QStringLiteral("/Locked"), QStringLiteral("a.txt"), "retried", this,
+            [&](const QString &path) { stored << path; }, [&](const QString &) { ++failures; });
+        QCOMPARE(log.count(), 2);
+        const QString key = log.entry(0).key;
+        QVERIFY(log.entry(0).title.contains(QLatin1String("a.txt")));
+        QTRY_COMPARE(failures, 1);
+        QCOMPARE(log.entry(0).state, ActivityLog::State::Failed);
+        QVERIFY2(log.entry(0).error.contains(QLatin1String("may not create")), qPrintable(log.entry(0).error));
+        QVERIFY(log.canRetry(key));
+        QCOMPARE(log.entry(0).action, ActivityLog::Action::Retry);
+
+        m_server->nodes[QStringLiteral("/Locked")].permissions = QStringLiteral("RGDNVCK");
+        QVERIFY(log.retry(key));
+        QCOMPARE(log.count(), 2);
+        QCOMPARE(log.entry(log.find(key)).state, ActivityLog::State::Running);
+        QTRY_COMPARE(stored, QStringList{QStringLiteral("/Locked/a.txt")});
+        QCOMPARE(failures, 1);
+        QCOMPARE(log.entry(log.find(key)).state, ActivityLog::State::Done);
+        QCOMPARE(log.entry(log.find(key)).detail, QStringLiteral("/Locked/a.txt"));
+        QVERIFY(!log.canRetry(key));
+        QCOMPARE(m_server->nodes.value(QStringLiteral("/Locked/a.txt")).content, QByteArray("retried"));
+        QTRY_COMPARE(transfers.runningCount(), 0);
+    }
+
+    void transfersStopWithTheirWindow()
+    {
+        using UiUtils::ActivityLog;
+        m_server->addFolder(QStringLiteral("/Mail"));
+        const QString id = addAccount();
+        ActivityLog log;
+        NextcloudTransfers transfers(m_hub.get());
+        transfers.setActivityLog(&log);
+        auto context = std::make_unique<QObject>();
+        bool called = false;
+        transfers.store(
+            id, QStringLiteral("/Mail"), QStringLiteral("a.txt"), "a", context.get(),
+            [&](const QString &) { called = true; }, [&](const QString &) { called = true; });
+        context.reset();
+        QTRY_COMPARE(transfers.runningCount(), 0);
+        QVERIFY(!called);
+        QCOMPARE(log.count(), 1);
+        QVERIFY(log.entry(0).state != ActivityLog::State::Running);
+        QVERIFY(!log.canRetry(log.entry(0).key));
     }
 
     void transfersFindExistingLinkShares()

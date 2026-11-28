@@ -10,6 +10,7 @@
 
 #include "Gui/NextcloudHub.h"
 #include "Nextcloud/Account.h"
+#include "UiUtils/ActivityLog.h"
 
 namespace Gui {
 
@@ -52,10 +53,74 @@ int NextcloudTransfers::runningCount() const
     return m_running;
 }
 
+void NextcloudTransfers::setActivityLog(UiUtils::ActivityLog *log)
+{
+    m_log = log;
+}
+
+QString NextcloudTransfers::nextJobKey()
+{
+    return QStringLiteral("nextcloud-transfer:%1").arg(++m_lastJob);
+}
+
+void NextcloudTransfers::beginJob(const QString &job, const QString &accountId, const QString &title)
+{
+    if (!m_log)
+        return;
+    UiUtils::ActivityLog::Entry entry;
+    entry.key = job;
+    entry.kind = UiUtils::ActivityLog::Kind::Job;
+    entry.state = UiUtils::ActivityLog::State::Running;
+    entry.title = title;
+    if (m_hub)
+        entry.detail = m_hub->account(accountId).title();
+    entry.progress = 0;
+    m_log->record(entry);
+}
+
+void NextcloudTransfers::jobProgress(const QString &job, qint64 done, qint64 total)
+{
+    if (!m_log || total <= 0)
+        return;
+    const int row = m_log->find(job);
+    if (row < 0)
+        return;
+    UiUtils::ActivityLog::Entry entry = m_log->entry(row);
+    const int progress = int(qBound(qint64(0), done * 100 / total, qint64(100)));
+    if (entry.state != UiUtils::ActivityLog::State::Running || entry.progress == progress)
+        return;
+    entry.progress = progress;
+    entry.time = QDateTime();
+    m_log->record(entry);
+}
+
+void NextcloudTransfers::endJob(const QString &job, const QString &detail, const QString &error)
+{
+    if (!m_log)
+        return;
+    const int row = m_log->find(job);
+    if (row < 0)
+        return;
+    UiUtils::ActivityLog::Entry entry = m_log->entry(row);
+    entry.state = error.isEmpty() ? UiUtils::ActivityLog::State::Done : UiUtils::ActivityLog::State::Failed;
+    entry.error = error;
+    entry.action = UiUtils::ActivityLog::Action::None;
+    entry.progress = -1;
+    entry.time = QDateTime();
+    if (!detail.isEmpty())
+        entry.detail = detail;
+    m_log->record(entry);
+}
+
 QWidget *NextcloudTransfers::dialogParent(QObject *context)
 {
     auto *widget = qobject_cast<QWidget *>(context);
     return widget ? widget->window() : nullptr;
+}
+
+QString NextcloudTransfers::stoppedMessage()
+{
+    return i18nc("@info", "Stopped because the window it was for was closed.");
 }
 
 void NextcloudTransfers::run(const QString &accountId, QPointer<QObject> context, Attempt attempt, Failed failed)
@@ -110,18 +175,30 @@ void NextcloudTransfers::fetch(const QString &accountId, const Nextcloud::Entry 
     });
     QPointer<QObject> guard(context);
     const QString path = file.path;
+    const QString job = nextJobKey();
+    beginJob(job, accountId,
+        i18nc("@info %1 is a file name", "Downloading \"%1\" from Nextcloud",
+            file.name.isEmpty() ? path.section(QLatin1Char('/'), -1) : file.name));
     run(
         accountId, guard,
-        [token, guard, path, done](Client *client, Client::Failed onFailure) {
+        [self, job, token, guard, path, done](Client *client, Client::Failed onFailure) {
             client->download(
                 path,
-                [token, guard, done](const QByteArray &data) {
+                [self, job, token, guard, done](const QByteArray &data) {
+                    if (self)
+                        self->endJob(job, QString());
                     if (guard)
                         done(data);
                 },
-                onFailure);
+                onFailure,
+                [self, job](qint64 received, qint64 total) {
+                    if (self)
+                        self->jobProgress(job, received, total);
+                });
         },
-        [token, guard, failed](const QString &message) {
+        [self, job, token, guard, failed](const QString &message) {
+            if (self)
+                self->endJob(job, QString(), guard ? message : stoppedMessage());
             if (guard)
                 failed(message);
         });
@@ -129,6 +206,13 @@ void NextcloudTransfers::fetch(const QString &accountId, const Nextcloud::Entry 
 
 void NextcloudTransfers::store(const QString &accountId, const QString &folder, const QString &name,
     const QByteArray &data, QObject *context, std::function<void(const QString &path)> done, Failed failed)
+{
+    storeJob(nextJobKey(), accountId, folder, name, data, context, std::move(done), std::move(failed));
+}
+
+void NextcloudTransfers::storeJob(const QString &job, const QString &accountId, const QString &folder,
+    const QString &name, const QByteArray &data, QObject *context, std::function<void(const QString &path)> done,
+    Failed failed)
 {
     ++m_running;
     QPointer<NextcloudTransfers> self(this);
@@ -141,34 +225,55 @@ void NextcloudTransfers::store(const QString &accountId, const QString &folder, 
     QString fileName = Nextcloud::safeFileName(name);
     if (fileName.isEmpty())
         fileName = i18nc("@info a file name for an attachment without one", "attachment");
+    beginJob(job, accountId, i18nc("@info %1 is a file name", "Uploading \"%1\" to Nextcloud", fileName));
     storeAs(
         accountId, cleanFolder, fileName, data, 1, guard,
-        [token, guard, done](const QString &path) {
+        [self, job, token, guard, done](const QString &path) {
+            if (self)
+                self->endJob(job, path);
             if (guard)
                 done(path);
         },
-        [token, guard, failed](const QString &message) {
-            if (guard)
-                failed(message);
+        [self, job, token, guard, accountId, folder, name, data, done, failed](const QString &message) {
+            if (!self)
+                return;
+            if (!guard) {
+                self->endJob(job, QString(), stoppedMessage());
+                return;
+            }
+            self->endJob(job, QString(), message);
+            if (self->m_log) {
+                // The same data goes to the same folder, reporting to the same
+                // callbacks
+                self->m_log->setRetry(job, [self, job, guard, accountId, folder, name, data, done, failed]() {
+                    if (self)
+                        self->storeJob(job, accountId, folder, name, data, guard, done, failed);
+                });
+            }
+            failed(message);
+        },
+        [self, job](qint64 sent, qint64 total) {
+            if (self)
+                self->jobProgress(job, sent, total);
         });
 }
 
 void NextcloudTransfers::storeAs(const QString &accountId, const QString &folder, const QString &name,
     const QByteArray &data, int number, QPointer<QObject> context, std::function<void(const QString &path)> done,
-    Failed failed)
+    Failed failed, Client::Progress progress)
 {
     const QString path = Nextcloud::childPath(folder, number == 1 ? name : Nextcloud::numberedName(name, number));
     run(
         accountId, context,
-        [this, accountId, folder, name, data, number, context, done, failed, path](
+        [this, accountId, folder, name, data, number, context, done, failed, path, progress](
             Client *client, Client::Failed onFailure) {
             QPointer<NextcloudTransfers> self(this);
             client->upload(
                 path, data, false, [done, path]() { done(path); },
-                [self, accountId, folder, name, data, number, context, done, failed, onFailure](
+                [self, accountId, folder, name, data, number, context, done, failed, onFailure, progress](
                     Client::Failure failure, const QString &message) {
                     if (failure == Client::Failure::Exists && number < maxNumberedNames && self && context) {
-                        self->storeAs(accountId, folder, name, data, number + 1, context, done, failed);
+                        self->storeAs(accountId, folder, name, data, number + 1, context, done, failed, progress);
                         return;
                     }
                     if (failure == Client::Failure::Exists) {
@@ -184,7 +289,8 @@ void NextcloudTransfers::storeAs(const QString &accountId, const QString &folder
                         return;
                     }
                     onFailure(failure, message);
-                });
+                },
+                progress);
         },
         failed);
 }

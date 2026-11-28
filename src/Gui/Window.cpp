@@ -4573,6 +4573,7 @@ void MainWindow::setupMailAutomation()
     };
     connect(m_accountStatus, &Common::AccountStatusTracker::statusChanged, this, &MainWindow::recordSyncActivity);
     MailSafetyPrompt::setActivityLog(m_mailAutomation->activity());
+    m_nextcloudTransfers->setActivityLog(m_mailAutomation->activity());
     connect(this, &MainWindow::accountsChanged, m_mailAutomation, updateNames);
 }
 
