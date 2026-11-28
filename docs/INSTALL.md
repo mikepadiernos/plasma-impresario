@@ -3,25 +3,30 @@
 **[Application](../README.md)** · **[Documentation](README.md)** ·
 **[Roadmap](ROADMAP.md)** · **[Caveats](CAVEATS.md)** ·
 **[Compatibility](philosophy/compatibility.md)** ·
-**[Contributing](../CONTRIBUTING.md)**
+**[Security](../SECURITY.md)** · **[Contributing](../CONTRIBUTING.md)**
 
 `install.sh` installs missing build dependencies, builds Plasma Impresario with
 the WebEngine message reader and installs it to `$HOME/.local`. This guide is
 the source of truth for its options, supported distributions, installed files
-and troubleshooting, as of 2026-11-25.
+and troubleshooting, as of 2026-11-28.
 
 Legend: ![Verified][verified] · ![Needs verification][needs-verification] ·
-![Limitation][limitation]
+![Limitation][limitation] · ![Unsupported][unsupported]
 
 ## Contents
 
 - [Install](#install)
 - [Options](#options)
+- [Supported platforms](#supported-platforms)
 - [Requirements by distribution](#requirements-by-distribution)
 - [What gets installed](#what-gets-installed)
+- [Updating Plasma Impresario](#updating-plasma-impresario)
 - [Upgrading from Trojitá or Plasma
   Mail](#upgrading-from-trojitá-or-plasma-mail)
+- [Where data is stored](#where-data-is-stored)
+- [Uninstalling](#uninstalling)
 - [Launch and troubleshooting](#launch-and-troubleshooting)
+- [Security](#security)
 - [Development checks](#development-checks)
 
 ## Install
@@ -95,6 +100,27 @@ For example:
 > tests. Use `--build-dir` to keep it apart from a `build/` directory that you
 > use for development and CTest.
 
+## Supported platforms
+
+Plasma Impresario is a KDE Plasma application for Linux. Other desktops and
+operating systems are outside the [product scope](philosophy/scope.md), and no
+Flatpak, Snap or distribution package is published; build from source with the
+installer.
+
+| Platform                                    | Status                                                                                     | Notes                                                                                                                                                                                |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| KDE Plasma 6 on Wayland, Linux x86_64       | ![Verified][verified] build and install; ![Needs verification][needs-verification] session | The release target. Built, tested and installed on CachyOS; use in a real Plasma session is checked in M15 ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)).  |
+| Linux aarch64                               | ![Verified][verified] build and tests                                                      | The full test suite runs offscreen in the headless Fedora 44 [dev container](../CONTRIBUTING.md#building-outside-plasma). No desktop session has been tried.                         |
+| Arch, Debian and Ubuntu, Fedora, openSUSE   | ![Needs verification][needs-verification]                                                  | The installer has a package list for each; see [requirements by distribution](#requirements-by-distribution).                                                                        |
+| Ubuntu 24.04 and later                      | ![Needs verification][needs-verification]                                                  | These releases restrict unprivileged user namespaces, which the QtWebEngine renderer sandbox uses; tracked in [#381](https://github.com/mikepadiernos/plasma-impresario/issues/381). |
+| KDE Plasma 6 on X11                         | ![Limitation][limitation]                                                                  | Not a release target. It may work, but problems specific to X11 are not fixed.                                                                                                       |
+| KDE Plasma 5 and earlier                    | ![Unsupported][unsupported]                                                                | The build needs Qt 6 and KDE Frameworks 6.                                                                                                                                           |
+| Other Linux desktops, such as GNOME or Xfce | ![Unsupported][unsupported]                                                                | Outside the scope. Desktop integration expects Plasma services.                                                                                                                      |
+| macOS and Windows                           | ![Unsupported][unsupported]                                                                | macOS serves only as a host for the dev container. The inherited Windows installer files in `packaging/` are not maintained.                                                         |
+
+The [compatibility baseline](philosophy/compatibility.md) records the exact
+versions observed and what each check covered.
+
 ## Requirements by distribution
 
 The [compatibility baseline](philosophy/compatibility.md) records the verified
@@ -148,9 +174,35 @@ Paths are relative to the prefix.
 | `share/applications/org.kde.trojita.desktop`                            | Hidden compatibility launcher                                             |
 | `share/metainfo/io.github.mikepadiernos.plasma_impresario.metainfo.xml` | AppStream metadata                                                        |
 | `share/icons/hicolor/…`                                                 | Application icons; an existing icon cache is refreshed after installation |
+| `lib*/libtrojita_plugins.so`                                            | Shared plugin library for password storage, address books and spelling    |
+| `bin/be.contacts`                                                       | Address book editor of the built-in address book plugin                   |
+| `share/knotifications6/plasma-impresario.notifyrc`                      | Notification events, when built with KNotifications                       |
+| `share/krunner/dbusplugins/plasma-runner-plasma-impresario.desktop`     | Plasma Search provider, when built with D-Bus                             |
+| `share/plasma/plasmoids/io.github.mikepadiernos.plasma_impresario.*`    | Status and ticker Plasma widgets, with their QML module                   |
+| `share/locale/…`                                                        | Translations                                                              |
 | `share/man/man1/trojita.1` and the KDE handbook                         | Historical Trojitá documentation from [`docs/old`](old/README.md)         |
 
-The handbook is installed only when KF6 DocTools is available.
+Optional files appear only when their dependency was found at configure time;
+the CMake feature summary lists which. The handbook is installed only when KF6
+DocTools is available.
+
+## Updating Plasma Impresario
+
+Update the checkout and run the installer again with the same options:
+
+```bash
+git pull
+./install.sh
+```
+
+The installer reconfigures and rebuilds its build directory, then installs
+over the previous files. Settings, accounts, stored passwords, the cache and
+local mail are kept; quit Plasma Impresario first so the new binary starts
+cleanly. If CMake reports a stale cache after a large update, remove the
+installer's build directory (`build/` by default) and run the installer again.
+
+There are no release versions yet: `main` is the only line that receives fixes,
+as described in the [security policy](../SECURITY.md#supported-versions).
 
 ## Upgrading from Trojitá or Plasma Mail
 
@@ -175,20 +227,73 @@ if conversion fails, the installer prints a warning and leaves the files in
 place. An upstream Trojitá built from source into one of these prefixes is also
 replaced; use `--keep-legacy` to keep it.
 
+## Where data is stored
+
+Plasma Impresario keeps Trojitá's `flaska.net/trojita` locations so that
+existing data keeps working. `PROFILE` stands for the name given with
+`--profile`.
+
+| Data                                                                     | Location                                                                |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| Accounts and most settings                                               | `~/.config/flaska.net/trojita.conf`, or `trojita-PROFILE.conf`          |
+| Passwords with the cleartext plugin                                      | The same settings file                                                  |
+| Passwords with the QtKeychain plugin                                     | KWallet or the Secret Service, through QtKeychain                       |
+| Newer options, such as quick search, shared by all profiles              | `~/.config/plasma-impresariorc`                                         |
+| Window, panel and saved-search state                                     | `trojitastaterc` in the KDE state directory, normally `~/.local/state/` |
+| Message cache, offline search index, autosaved drafts and connection log | `~/.cache/flaska.net/trojita/`, or its `PROFILE/` subfolder             |
+| Copies of opened and fetched attachments                                 | `Opened Attachments/` and `Fetched Attachments/` in the cache folder    |
+| Local mail of POP3 and JMAP accounts                                     | `~/.local/share/flaska.net/trojita/local-mail/`                         |
+
+The cache can be deleted while the application is closed; it is downloaded
+again from the server. Local mail cannot: POP3 servers usually keep no copy, so
+back it up. Cache and local-mail folders are readable only by their owner; see
+[local data](CAVEATS.md#local-data-and-opened-attachments).
+
+## Uninstalling
+
+CMake records the files it installed in the build directory. With the default
+prefix and build directory:
+
+```bash
+xargs -d '\n' rm -f < build/install_manifest.txt
+rm -f ~/.local/bin/trojita
+```
+
+The `bin/trojita` compatibility link is created by an install script, so the
+manifest does not list it. Add `sudo` for a protected prefix. Then remove the
+files in [where data is stored](#where-data-is-stored) to delete settings and
+mail. Removing the accounts in the settings first also deletes their stored
+passwords; otherwise remove them with KWallet Manager. Run `kbuildsycoca6` or log out and back in if the
+launcher remains in the application menu.
+
 ## Launch and troubleshooting
 
 Start Plasma Impresario from the application menu or run `plasma-impresario`.
 
-| Problem                                                            | What to do                                                                                                                                                                                                                        |
-| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `plasma-impresario` is not found on the command line               | Add `$HOME/.local/bin` (or `PREFIX/bin`) to `PATH`. The application-menu launcher does not depend on it.                                                                                                                          |
-| The launcher is missing with a custom prefix                       | Plasma must search the prefix's `share` directory through `XDG_DATA_HOME` or `XDG_DATA_DIRS`. Configure the session environment before logging in, or use the default prefix.                                                     |
-| "Unsupported distribution" or "No supported package manager found" | Install the dependencies manually and run `./install.sh --no-deps`.                                                                                                                                                               |
-| "Root privileges or sudo are required"                             | Install `sudo`, run as root, or install the missing packages yourself and use `--no-deps`.                                                                                                                                        |
-| CMake fails after the dependency check passed                      | The check does not cover versions or CMake-only requirements. Compare the CMake error with the [compatibility baseline](philosophy/compatibility.md).                                                                             |
-| "Icon cache … may be stale" or "Could not refresh icon cache"      | Install `gtk-update-icon-cache` and run `gtk-update-icon-cache --force --ignore-theme-index "$PREFIX/share/icons/hicolor"` with `PREFIX` set to the prefix. Run `kbuildsycoca6`, or log out and back in, if the old icon remains. |
-| Messages do not display                                            | The build is renderer-free. Rebuild with the default `--with-webengine`.                                                                                                                                                          |
-| The handbook or man page describes Trojitá                         | Both come from the historical [`docs/old`](old/README.md) archive and may describe old behavior.                                                                                                                                  |
+| Problem                                                            | What to do                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `plasma-impresario` is not found on the command line               | Add `$HOME/.local/bin` (or `PREFIX/bin`) to `PATH`. The application-menu launcher does not depend on it.                                                                                                                              |
+| The launcher is missing with a custom prefix                       | Plasma must search the prefix's `share` directory through `XDG_DATA_HOME` or `XDG_DATA_DIRS`. Configure the session environment before logging in, or use the default prefix.                                                         |
+| "Unsupported distribution" or "No supported package manager found" | Install the dependencies manually and run `./install.sh --no-deps`.                                                                                                                                                                   |
+| "Root privileges or sudo are required"                             | Install `sudo`, run as root, or install the missing packages yourself and use `--no-deps`.                                                                                                                                            |
+| CMake fails after the dependency check passed                      | The check does not cover versions or CMake-only requirements. Compare the CMake error with the [compatibility baseline](philosophy/compatibility.md).                                                                                 |
+| "Icon cache … may be stale" or "Could not refresh icon cache"      | Install `gtk-update-icon-cache` and run `gtk-update-icon-cache --force --ignore-theme-index "$PREFIX/share/icons/hicolor"` with `PREFIX` set to the prefix. Run `kbuildsycoca6`, or log out and back in, if the old icon remains.     |
+| Messages do not display                                            | The build is renderer-free. Rebuild with the default `--with-webengine`.                                                                                                                                                              |
+| The handbook or man page describes Trojitá                         | Both come from the historical [`docs/old`](old/README.md) archive and may describe old behavior.                                                                                                                                      |
+| The password is asked for at every start                           | Check the password plugin in the general settings. QtKeychain, the default for new profiles, needs `qtkeychain-qt6` at build time and KWallet or the Secret Service running in the session.                                           |
+| An account fails to connect or behaves oddly                       | Start with `plasma-impresario --log-to-disk` and reproduce the problem. The log is written to `trojita-connection-log` in the cache folder. It can contain mail and personal data; delete it afterwards and redact it before sharing. |
+| A certificate warning appears                                      | Reject it unless the provider confirms the certificate; see [safe operating guidance](CAVEATS.md#safe-operating-guidance).                                                                                                            |
+| The theme or layout looks wrong after a change                     | Start with `plasma-impresario --reset-appearance`, or `--no-workspace-appearance` to skip workspace overrides.                                                                                                                        |
+| A clean configuration is needed to compare                         | Start with `plasma-impresario --profile test`. The profile has its own accounts, settings file and cache; only `plasma-impresariorc` is shared.                                                                                       |
+| The application menu still shows the old launcher                  | Run `kbuildsycoca6`, or log out and back in.                                                                                                                                                                                          |
+
+## Security
+
+Report vulnerabilities privately as described in the
+[security policy](../SECURITY.md). The
+[security summary](CAVEATS.md#security-and-data-protection) lists how
+connections, credentials, message content and cached data are protected today,
+and what is not yet protected.
 
 ## Development checks
 
@@ -217,4 +322,5 @@ workflows remain subject to
 
 [limitation]: https://img.shields.io/badge/Limitation-bc4c00
 [needs-verification]: https://img.shields.io/badge/Needs_verification-0969da
+[unsupported]: https://img.shields.io/badge/Unsupported-6e7781
 [verified]: https://img.shields.io/badge/Verified-1a7f37
