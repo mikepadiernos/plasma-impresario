@@ -45,6 +45,7 @@ Legend: ![Limitation][limitation] · ![Needs verification][needs-verification]
 | [Sanitizer runs](sanitizers.md)                                 | Sanitizer builds, findings and suppressions                        |
 | [Stabilization gate](stabilization-gate.md)                     | The M10 gate's criteria, script and latest result                  |
 | [Accessibility audit](accessibility.md)                         | The M11 accessible-name, keyboard, scaling and localization checks |
+| [End-to-end coverage](e2e-coverage.md)                          | The M11 map of user workflows to the live and offscreen tests      |
 
 The documents feed each other as work moves through the
 [project board](https://github.com/users/mikepadiernos/projects/4):
