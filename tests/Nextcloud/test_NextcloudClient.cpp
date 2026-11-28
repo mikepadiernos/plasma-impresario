@@ -8,105 +8,13 @@
 #include <QTest>
 
 #include "FakeNextcloudServer.h"
+#include "FakePasswordPlugin.h"
 #include "Nextcloud/Client.h"
 #include "Nextcloud/CredentialStore.h"
-#include "Plugins/PasswordPlugin.h"
 
 using namespace Nextcloud;
 
 namespace {
-
-class FakePasswordPlugin;
-
-class FakePasswordJob : public Plugins::PasswordJob
-{
-public:
-    enum class Operation { Read, Store, Delete };
-    FakePasswordJob(FakePasswordPlugin *plugin, Operation operation, const QString &key, const QString &value)
-        : PasswordJob(nullptr)
-        , m_plugin(plugin)
-        , m_operation(operation)
-        , m_key(key)
-        , m_value(value)
-    {
-    }
-
-protected:
-    void doStart() override;
-    void doStop() override
-    {
-        emit error(Stopped, QString());
-    }
-
-private:
-    FakePasswordPlugin *m_plugin;
-    Operation m_operation;
-    QString m_key;
-    QString m_value;
-};
-
-class FakePasswordPlugin : public Plugins::PasswordPlugin
-{
-public:
-    explicit FakePasswordPlugin(bool encrypted = true)
-        : PasswordPlugin(nullptr)
-        , m_encrypted(encrypted)
-    {
-    }
-
-    Features features() const override
-    {
-        return m_encrypted ? FeatureEncryptedStorage : Features();
-    }
-    Plugins::PasswordJob *requestPassword(const QString &accountId, const QString &accountType) override
-    {
-        return new FakePasswordJob(
-            this, FakePasswordJob::Operation::Read, accountId + QLatin1Char('/') + accountType, {});
-    }
-    Plugins::PasswordJob *storePassword(
-        const QString &accountId, const QString &accountType, const QString &password) override
-    {
-        return new FakePasswordJob(
-            this, FakePasswordJob::Operation::Store, accountId + QLatin1Char('/') + accountType, password);
-    }
-    Plugins::PasswordJob *deletePassword(const QString &accountId, const QString &accountType) override
-    {
-        return new FakePasswordJob(
-            this, FakePasswordJob::Operation::Delete, accountId + QLatin1Char('/') + accountType, {});
-    }
-
-    QMap<QString, QString> entries;
-    bool failWrites = false;
-
-private:
-    bool m_encrypted;
-};
-
-void FakePasswordJob::doStart()
-{
-    switch (m_operation) {
-    case Operation::Read:
-        if (!m_plugin->entries.contains(m_key))
-            emit error(NoSuchPassword, QString());
-        else
-            emit passwordAvailable(m_plugin->entries.value(m_key));
-        break;
-    case Operation::Store:
-        if (m_plugin->failWrites) {
-            emit error(UnknownError, QStringLiteral("The wallet is read-only"));
-        } else {
-            m_plugin->entries.insert(m_key, m_value);
-            emit passwordStored();
-        }
-        break;
-    case Operation::Delete:
-        if (m_plugin->entries.remove(m_key) == 0)
-            emit error(NoSuchPassword, QString());
-        else
-            emit passwordDeleted();
-        break;
-    }
-}
 
 /** @short What one request reported */
 template <typename T>
@@ -518,6 +426,23 @@ private slots:
         client.reset();
         QTest::qWait(50);
         QCOMPARE(fourth.reports, 0);
+    }
+
+    void revokeAppPassword()
+    {
+        signIn();
+        Outcome<bool> revoked;
+        client->revokeAppPassword([&] { revoked.done()(true); }, revoked.failed());
+        QTRY_VERIFY(revoked.finished());
+        QVERIFY2(revoked.value, qPrintable(revoked.message));
+        QVERIFY(server->appPasswordRevoked);
+        QCOMPARE(server->requests.constLast().verb, QByteArray("DELETE"));
+
+        // Revoking again finds the password no longer valid, which is what was wanted
+        Outcome<bool> again;
+        client->revokeAppPassword([&] { again.done()(true); }, again.failed());
+        QTRY_VERIFY(again.finished());
+        QVERIFY2(again.value, qPrintable(again.message));
     }
 
     void credentialStore()

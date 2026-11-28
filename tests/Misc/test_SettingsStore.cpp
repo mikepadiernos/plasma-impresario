@@ -165,6 +165,44 @@ private slots:
         QCOMPARE(SettingsStore::workspaces(*open(path)), QList<Workspaces::Workspace>{list.at(1)});
     }
 
+    void nextcloudAccountsPersist()
+    {
+        const QString path = freshPath();
+        Nextcloud::Account work;
+        work.id = QStringLiteral("nc2");
+        work.server = QUrl(QStringLiteral("https://cloud.example.com/nextcloud"));
+        work.loginName = QStringLiteral("alice@example.com");
+        work.userId = QStringLiteral("alice");
+        work.displayName = QStringLiteral("Alice Example");
+        Nextcloud::Account home = work;
+        home.id = QStringLiteral("nc1");
+        home.server = QUrl(QStringLiteral("https://home.example.net"));
+        Nextcloud::Account online = work;
+        online.id = QStringLiteral("kaccounts-7");
+        online.source = Nextcloud::Account::Source::OnlineAccounts;
+        online.onlineAccountId = 7;
+        SettingsStore::setNextcloudAccounts(*open(path), {work, home, online});
+        // Accounts from KDE Online Accounts are found again, not stored
+        QCOMPARE(SettingsStore::nextcloudAccounts(KConfig(path, KConfig::SimpleConfig)),
+                 (QList<Nextcloud::Account>{work, home}));
+        KConfig raw(path, KConfig::SimpleConfig);
+        const QStringList keys = KConfigGroup(&raw, QStringLiteral("Nextcloud")).group(QStringLiteral("nc2")).keyList();
+        for (const QString &key : keys)
+            QVERIFY2(!key.contains(QLatin1String("assword")), qPrintable(key));
+
+        {
+            KConfig edit(path, KConfig::SimpleConfig);
+            KConfigGroup(&edit, QStringLiteral("Nextcloud"))
+                .group(QStringLiteral("nc1"))
+                .writeEntry("Server", QStringLiteral("http://home.example.net"));
+        }
+        QCOMPARE(SettingsStore::nextcloudAccounts(KConfig(path, KConfig::SimpleConfig)),
+                 QList<Nextcloud::Account>{work});
+
+        SettingsStore::setNextcloudAccounts(*open(path), {});
+        QVERIFY(SettingsStore::nextcloudAccounts(*open(path)).isEmpty());
+    }
+
     void themePersists()
     {
         const QString path = freshPath();

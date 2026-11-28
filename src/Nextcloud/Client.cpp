@@ -376,6 +376,24 @@ Client::RequestId Client::shares(const QString &path, std::function<void(const Q
     return send(std::move(request));
 }
 
+Client::RequestId Client::revokeAppPassword(std::function<void()> done, Failed failed)
+{
+    Request request;
+    request.url = serverUrl(m_account.server, QStringLiteral("/ocs/v2.php/core/apppassword"));
+    request.verb = "DELETE";
+    request.headers.emplaceBack("OCS-APIRequest", "true");
+    request.failed = failed;
+    request.done = [done = std::move(done), failed](int status, const QByteArray &body) {
+        // A password which no longer signs in is as good as revoked
+        if (status == 200 || status == 401) {
+            done();
+            return;
+        }
+        failed(statusFailure(status), statusMessage(status, body));
+    };
+    return send(std::move(request));
+}
+
 void Client::abort(RequestId id)
 {
     if (QPointer<QNetworkReply> reply = m_replies.take(id)) {

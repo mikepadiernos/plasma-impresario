@@ -872,6 +872,7 @@ if(WITH_DESKTOP)
             Qt::Core
             Qt::DBus
             Imap
+            Nextcloud
             UiUtils
         PRIVATE
             KF6::ConfigCore

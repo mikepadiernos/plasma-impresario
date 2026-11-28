@@ -7,6 +7,7 @@
 #include <QString>
 #include <QStringList>
 
+#include "Nextcloud/Account.h"
 #include "UiUtils/FolderColors.h"
 #include "UiUtils/Keymap.h"
 #include "UiUtils/MailTabs.h"
@@ -44,26 +45,33 @@ Values accountValues(const KConfigBase &config, const QString &accountId);
 void setAccountValue(KConfigBase &config, const QString &accountId, const QString &key, const QVariant &value);
 
 Values folderValues(const KConfigBase &config, const QString &accountId, const QString &folder);
-void setFolderValue(KConfigBase &config, const QString &accountId, const QString &folder, const QString &key,
-                    const QVariant &value);
+void setFolderValue(
+    KConfigBase &config, const QString &accountId, const QString &folder, const QString &key, const QVariant &value);
 /** @short Folders of @arg accountId with settings of their own, sorted */
 QStringList folders(const KConfigBase &config, const QString &accountId);
 
 /** @short Forget the overrides and colours of @arg accountId, and of its folders */
 void removeAccount(KConfigBase &config, const QString &accountId);
 /** @short Move the overrides and colours of @arg from, and of its subfolders, to @arg to */
-void renameFolder(KConfigBase &config, const QString &accountId, const QString &from, const QString &to,
-                  QChar separator);
+void renameFolder(
+    KConfigBase &config, const QString &accountId, const QString &from, const QString &to, QChar separator);
 
 /** @short Every layer of the settings for @arg folder of @arg accountId; empty strings leave layers out */
-SettingsSchema::Layers layers(const KConfigBase &config, const QSettings *legacy, const QString &accountId,
-                              const QString &folder);
+SettingsSchema::Layers layers(
+    const KConfigBase &config, const QSettings *legacy, const QString &accountId, const QString &folder);
 /** @short The value of @arg key for @arg folder of @arg accountId */
 QVariant value(const KConfigBase &config, const QSettings *legacy, const QString &key, const QString &accountId = {},
-               const QString &folder = {});
+    const QString &folder = {});
 
 QList<Workspaces::Workspace> workspaces(const KConfigBase &config);
 void setWorkspaces(KConfigBase &config, const QList<Workspaces::Workspace> &workspaces);
+
+/** @short The Nextcloud accounts connected in the settings, in group Nextcloud, without their app passwords
+
+Accounts from KDE Online Accounts are not stored; they are found again at each start.
+*/
+QList<Nextcloud::Account> nextcloudAccounts(const KConfigBase &config);
+void setNextcloudAccounts(KConfigBase &config, const QList<Nextcloud::Account> &accounts);
 
 /** @short The bindings of every Vim command, defaults included */
 Keymap::Bindings bindings(const KConfigBase &config);

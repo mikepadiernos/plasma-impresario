@@ -19,6 +19,7 @@ const char overridesGroup[] = "Overrides";
 const char folderPrefix[] = "Folder ";
 const char nameEntry[] = "Name";
 const char workspacesGroup[] = "Workspaces";
+const char nextcloudGroup[] = "Nextcloud";
 const char keymapGroup[] = "Keymap";
 const char keymapBackupGroup[] = "KeymapBackup";
 const char tabsGroup[] = "MailTabs";
@@ -51,8 +52,8 @@ void storeFolderColors(KConfigGroup group, const QHash<QString, QColor> &colors)
     folders.sort();
     QStringList entries;
     for (const QString &folder : std::as_const(folders)) {
-        const QJsonObject object{{QStringLiteral("folder"), folder},
-                                 {QStringLiteral("color"), colors.value(folder).name(QColor::HexRgb)}};
+        const QJsonObject object{
+            {QStringLiteral("folder"), folder}, {QStringLiteral("color"), colors.value(folder).name(QColor::HexRgb)}};
         entries << QString::fromUtf8(QJsonDocument(object).toJson(QJsonDocument::Compact));
     }
     group.writeEntry("Colors", entries);
@@ -73,7 +74,8 @@ QString folderGroupName(const KConfigGroup &account, const QString &folder)
 {
     const QStringList names = account.groupList();
     for (const QString &name : names) {
-        if (name.startsWith(QLatin1String(folderPrefix)) && account.group(name).readEntry(nameEntry, QString()) == folder)
+        if (name.startsWith(QLatin1String(folderPrefix))
+            && account.group(name).readEntry(nameEntry, QString()) == folder)
             return name;
     }
     return QString();
@@ -95,7 +97,8 @@ Values readValues(const KConfigGroup &group, SettingsSchema::Scope scope)
     for (const QString &key : SettingsSchema::keys(scope)) {
         if (!group.hasKey(key))
             continue;
-        const QVariant value = SettingsSchema::coerce(*SettingsSchema::definition(key), group.readEntry(key, QString()));
+        const QVariant value
+            = SettingsSchema::coerce(*SettingsSchema::definition(key), group.readEntry(key, QString()));
         if (value.isValid())
             values.insert(key, value);
     }
@@ -201,8 +204,8 @@ Values folderValues(const KConfigBase &config, const QString &accountId, const Q
     return readValues(account.group(name), SettingsSchema::Scope::Folder);
 }
 
-void setFolderValue(KConfigBase &config, const QString &accountId, const QString &folder, const QString &key,
-                    const QVariant &value)
+void setFolderValue(
+    KConfigBase &config, const QString &accountId, const QString &folder, const QString &key, const QVariant &value)
 {
     if (accountId.isEmpty() || folder.isEmpty())
         return;
@@ -252,8 +255,8 @@ void removeAccount(KConfigBase &config, const QString &accountId)
     config.group(QLatin1String(folderColorsGroup)).group(accountId).deleteGroup();
 }
 
-void renameFolder(KConfigBase &config, const QString &accountId, const QString &from, const QString &to,
-                  QChar separator)
+void renameFolder(
+    KConfigBase &config, const QString &accountId, const QString &from, const QString &to, QChar separator)
 {
     if (accountId.isEmpty() || from.isEmpty() || to.isEmpty() || from == to)
         return;
@@ -286,8 +289,8 @@ void renameFolder(KConfigBase &config, const QString &accountId, const QString &
         storeFolderColors(colorsGroup, moved);
 }
 
-SettingsSchema::Layers layers(const KConfigBase &config, const QSettings *legacy, const QString &accountId,
-                              const QString &folder)
+SettingsSchema::Layers layers(
+    const KConfigBase &config, const QSettings *legacy, const QString &accountId, const QString &folder)
 {
     SettingsSchema::Layers result;
     result.application = applicationValues(config, legacy);
@@ -297,7 +300,7 @@ SettingsSchema::Layers layers(const KConfigBase &config, const QSettings *legacy
 }
 
 QVariant value(const KConfigBase &config, const QSettings *legacy, const QString &key, const QString &accountId,
-               const QString &folder)
+    const QString &folder)
 {
     return SettingsSchema::resolve(key, layers(config, legacy, accountId, folder)).value;
 }
@@ -336,6 +339,57 @@ QList<Workspaces::Workspace> workspaces(const KConfigBase &config)
     return result;
 }
 
+QList<Nextcloud::Account> nextcloudAccounts(const KConfigBase &config)
+{
+    QList<Nextcloud::Account> result;
+    const KConfigGroup group = config.group(QLatin1String(nextcloudGroup));
+    QStringList order = group.readEntry("Order", QStringList());
+    const QStringList stored = group.groupList();
+    for (const QString &id : stored) {
+        if (!order.contains(id))
+            order << id;
+    }
+    for (const QString &id : std::as_const(order)) {
+        if (!stored.contains(id))
+            continue;
+        const KConfigGroup entry = group.group(id);
+        Nextcloud::Account account;
+        account.id = id;
+        account.server = QUrl(entry.readEntry("Server", QString()));
+        account.loginName = entry.readEntry("LoginName", QString());
+        account.userId = entry.readEntry("UserId", QString());
+        account.displayName = entry.readEntry("DisplayName", QString());
+        // An address edited by hand to plain HTTP is not used, so that the app password never leaves unprotected
+        if (account.isValid() && Nextcloud::isAcceptable(account.server))
+            result << account;
+    }
+    return result;
+}
+
+void setNextcloudAccounts(KConfigBase &config, const QList<Nextcloud::Account> &accounts)
+{
+    KConfigGroup group = config.group(QLatin1String(nextcloudGroup));
+    const QStringList stored = group.groupList();
+    for (const QString &id : stored)
+        group.group(id).deleteGroup();
+    QStringList order;
+    for (const Nextcloud::Account &account : accounts) {
+        if (account.id.isEmpty() || account.source != Nextcloud::Account::Source::Manual)
+            continue;
+        KConfigGroup entry = group.group(account.id);
+        entry.writeEntry("Server", account.server.toString());
+        entry.writeEntry("LoginName", account.loginName);
+        entry.writeEntry("UserId", account.userId);
+        entry.writeEntry("DisplayName", account.displayName);
+        order << account.id;
+    }
+    if (order.isEmpty())
+        group.deleteEntry("Order");
+    else
+        group.writeEntry("Order", order);
+    group.sync();
+}
+
 void setWorkspaces(KConfigBase &config, const QList<Workspaces::Workspace> &list)
 {
     KConfigGroup group = config.group(QLatin1String(workspacesGroup));
@@ -360,14 +414,14 @@ void setWorkspaces(KConfigBase &config, const QList<Workspaces::Workspace> &list
         if (!workspace.appearanceOverrides.isEmpty()) {
             QJsonObject overrides;
             for (auto it = workspace.appearanceOverrides.constBegin(); it != workspace.appearanceOverrides.constEnd();
-                 ++it) {
+                ++it) {
                 const QVariant &value = it.value();
-                overrides.insert(it.key(), value.typeId() == QMetaType::QColor
-                                               ? QJsonValue(value.value<QColor>().name(QColor::HexRgb))
-                                               : QJsonValue::fromVariant(value));
+                overrides.insert(it.key(),
+                    value.typeId() == QMetaType::QColor ? QJsonValue(value.value<QColor>().name(QColor::HexRgb))
+                                                        : QJsonValue::fromVariant(value));
             }
-            entry.writeEntry("AppearanceOverrides",
-                             QString::fromUtf8(QJsonDocument(overrides).toJson(QJsonDocument::Compact)));
+            entry.writeEntry(
+                "AppearanceOverrides", QString::fromUtf8(QJsonDocument(overrides).toJson(QJsonDocument::Compact)));
         }
         order << workspace.id;
     }
@@ -401,7 +455,7 @@ Theme::Values theme(const KConfigBase &config)
             if (parts.size() == 3) {
                 bool ok[3] = {false, false, false};
                 const QColor color(parts.at(0).trimmed().toInt(&ok[0]), parts.at(1).trimmed().toInt(&ok[1]),
-                                   parts.at(2).trimmed().toInt(&ok[2]));
+                    parts.at(2).trimmed().toInt(&ok[2]));
                 if (ok[0] && ok[1] && ok[2] && color.isValid())
                     stored = color.name(QColor::HexRgb);
             }

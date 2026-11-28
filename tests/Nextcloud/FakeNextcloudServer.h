@@ -50,6 +50,7 @@ public:
     QString base;
     bool loginGranted = false;
     bool quotaFull = false;
+    bool appPasswordRevoked = false;
     /** Answers to the paths, such as a redirect, before anything else is looked
      * at */
     QMap<QString, QPair<int, QByteArray>> overrides;
@@ -259,6 +260,11 @@ private:
                 QJsonObject{{QStringLiteral("id"), userId}, {QStringLiteral("display-name"), displayName},
                     {QStringLiteral("email"), loginName},
                     {QStringLiteral("quota"), QJsonObject{{QStringLiteral("free"), quotaFull ? 0 : 1000000}}}});
+        }
+        if (path == base + QLatin1String("/ocs/v2.php/core/apppassword") && request.verb == "DELETE") {
+            appPasswordRevoked = true;
+            appPassword = QStringLiteral("revoked-") + appPassword;
+            return ocs(200, QJsonArray{});
         }
         if (path == base + QLatin1String("/ocs/v2.php/apps/files_sharing/api/v1/shares")) {
             const QString wanted = QUrlQuery(url).queryItemValue(QStringLiteral("path"), QUrl::FullyDecoded);

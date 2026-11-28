@@ -130,6 +130,9 @@ public:
      * for an empty path */
     RequestId shares(const QString &path, std::function<void(const QList<Share> &)> done, Failed failed);
 
+    /** @short Revoke the app password in use, so that it no longer signs in; for disconnecting the account */
+    RequestId revokeAppPassword(std::function<void()> done, Failed failed);
+
     /** @short Stop the request @arg id without reporting it */
     void abort(RequestId id);
     /** @short Stop every request without reporting them */
