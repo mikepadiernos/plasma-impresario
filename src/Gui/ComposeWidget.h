@@ -81,6 +81,7 @@ class InhibitComposerDirtying;
 
 class ComposerSaveState;
 
+class HeaderInputGuard;
 class InlineNotificationBar;
 class RemoteAttachmentFetcher;
 
@@ -293,6 +294,9 @@ private:
     InlineNotificationBar *m_handoffNotice;
     /** Reports the files being fetched from other computers to be attached */
     InlineNotificationBar *m_fetchNotice;
+    /** Points out pasted line breaks that were replaced in a header field */
+    InlineNotificationBar *m_headerNotice;
+    HeaderInputGuard *m_headerGuard;
     RemoteAttachmentFetcher *m_remoteFetcher = nullptr;
     QPushButton *m_nextcloudButton = nullptr;
     /** The private copies of the files still being downloaded from Nextcloud */

@@ -201,6 +201,8 @@ public slots:
 private:
     Composer::SenderIdentitiesModel *m_identitiesModel;
     QDataWidgetMapper *m_mapper;
+    /** Points out pasted line breaks that were replaced */
+    QLabel *m_cleanedNote;
     bool m_deleteOnReject;
 
     EditIdentity(const EditIdentity &); // don't implement

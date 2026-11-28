@@ -573,6 +573,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/FileChooser.cpp
     ${path_DesktopGui}/FlowLayout.cpp
     ${path_DesktopGui}/FromAddressProxyModel.cpp
+    ${path_DesktopGui}/HeaderInputGuard.cpp
     ${path_DesktopGui}/InlineNotificationBar.cpp
     ${path_DesktopGui}/LineEdit.cpp
     ${path_DesktopGui}/LinkTarget.cpp
