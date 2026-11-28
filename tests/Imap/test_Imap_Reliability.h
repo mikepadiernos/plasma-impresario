@@ -21,6 +21,8 @@ private slots:
     void testReconnectNowRespectsTheUser();
     void testServerByeIsALostConnection();
     void testLoginRejectedWaitsForTheUser();
+    void testConnectionStatesCombine();
+    void testBrokenConnectionReportsItsEnd();
 };
 
 #endif

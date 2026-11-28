@@ -1001,6 +1001,49 @@ private slots:
       QCOMPARE(log->entry(log->find(key)).error, QStringLiteral("Still locked"));
   }
 
+  void accountStatusCombinesItsConnections()
+  {
+      QTemporaryDir directory;
+      QVERIFY(directory.isValid());
+      QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+      seedTwoAccounts(directory, settings);
+
+      Gui::MainWindow window(&settings);
+      auto *tracker = window.findChild<Common::AccountStatusTracker *>();
+      QVERIFY(tracker);
+      Imap::Mailbox::Model *model = window.imapModel();
+      QVERIFY(model);
+      const QString account = QStringLiteral("account-1");
+      const auto kind = [&]() { return tracker->status(account).kind; };
+
+      // One connection closing while another stays logged in keeps the account
+      // connected; the last one closing does not
+      emit model->connectionStateChanged(41, Imap::CONN_STATE_AUTHENTICATED);
+      QCOMPARE(kind(), Common::AccountStatusKind::Connected);
+      emit model->connectionStateChanged(42, Imap::CONN_STATE_LOGIN);
+      QCOMPARE(kind(), Common::AccountStatusKind::Connected);
+      emit model->connectionStateChanged(42, Imap::CONN_STATE_SELECTED);
+      emit model->connectionStateChanged(41, Imap::CONN_STATE_LOGOUT);
+      QCOMPARE(kind(), Common::AccountStatusKind::Connected);
+      emit model->connectionStateChanged(42, Imap::CONN_STATE_LOGOUT);
+      QCOMPARE(kind(), Common::AccountStatusKind::Idle);
+
+      // Connections which close because the account went offline leave it offline
+      emit model->connectionStateChanged(43, Imap::CONN_STATE_SELECTED);
+      QCOMPARE(kind(), Common::AccountStatusKind::Connected);
+      emit model->networkPolicyOffline();
+      QCOMPARE(kind(), Common::AccountStatusKind::Offline);
+      emit model->connectionStateChanged(43, Imap::CONN_STATE_LOGOUT);
+      QCOMPARE(kind(), Common::AccountStatusKind::Offline);
+
+      // A lost connection keeps saying so while the account logs in again
+      tracker->setStatus(account, Common::AccountStatusKind::NetworkError, QStringLiteral("Timed out"));
+      emit model->connectionStateChanged(44, Imap::CONN_STATE_LOGOUT);
+      QCOMPARE(kind(), Common::AccountStatusKind::NetworkError);
+      emit model->connectionStateChanged(45, Imap::CONN_STATE_AUTHENTICATED);
+      QCOMPARE(kind(), Common::AccountStatusKind::Connected);
+  }
+
   void headerShowsFolderAndStatus() {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());

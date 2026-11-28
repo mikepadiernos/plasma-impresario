@@ -3,6 +3,7 @@
 */
 
 #include "test_Imap_Reliability.h"
+#include "Imap/Model/ConnectionStates.h"
 #include "Imap/Model/DummyNetworkWatcher.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Streams/FakeSocket.h"
@@ -243,6 +244,73 @@ void ImapReliabilityTest::testLoginRejectedWaitsForTheUser()
     cServer(t.last("OK listed\r\n"));
     cEmpty();
     QCOMPARE(rejected.size(), 1);
+}
+
+/** @short An account is connected while any of its connections is logged in */
+void ImapReliabilityTest::testConnectionStatesCombine()
+{
+    using Summary = ConnectionStates::Summary;
+    ConnectionStates states;
+    QCOMPARE(states.summary(), Summary::Disconnected);
+    QCOMPARE(states.furthest(), Imap::CONN_STATE_NONE);
+
+    QVERIFY(states.update(1, Imap::CONN_STATE_CONNECTING));
+    QCOMPARE(states.summary(), Summary::Connecting);
+    QVERIFY(!states.update(1, Imap::CONN_STATE_LOGIN));
+    QVERIFY(states.update(1, Imap::CONN_STATE_AUTHENTICATED));
+    QCOMPARE(states.summary(), Summary::Connected);
+
+    // A second connection logging in, then the first one selecting a folder and
+    // closing, keeps the account connected
+    QVERIFY(!states.update(2, Imap::CONN_STATE_HOST_LOOKUP));
+    QVERIFY(!states.update(1, Imap::CONN_STATE_SELECTED));
+    QCOMPARE(states.furthest(), Imap::CONN_STATE_SELECTED);
+    QCOMPARE(states.count(), 2);
+    QVERIFY(states.update(1, Imap::CONN_STATE_LOGOUT));
+    QCOMPARE(states.summary(), Summary::Connecting);
+    QCOMPARE(states.furthest(), Imap::CONN_STATE_HOST_LOOKUP);
+    QVERIFY(states.update(2, Imap::CONN_STATE_AUTHENTICATED));
+    QCOMPARE(states.summary(), Summary::Connected);
+
+    // Logging out is the end of a connection, not a state past being logged in
+    QVERIFY(states.update(2, Imap::CONN_STATE_LOGOUT));
+    QCOMPARE(states.summary(), Summary::Disconnected);
+    QCOMPARE(states.count(), 0);
+    QVERIFY(!states.update(2, Imap::CONN_STATE_NONE));
+
+    states.update(3, Imap::CONN_STATE_SELECTED);
+    states.clear();
+    QCOMPARE(states.summary(), Summary::Disconnected);
+}
+
+/** @short A connection which the server breaks, or which stops making sense,
+ * reports its end instead of looking open */
+void ImapReliabilityTest::testBrokenConnectionReportsItsEnd()
+{
+    PolicyWatcher watcher(model);
+    watcher.choose(NETWORK_ONLINE);
+    initialMessages(3);
+    cEmpty();
+    QSignalSpy changed(model, &Model::connectionStateChanged);
+    QSignalSpy fatal(model, &Model::logParserFatalError);
+
+    m_expectsError = true;
+    cServer("* 1 FETCH (UID x)\r\n");
+    settle();
+
+    QCOMPARE(fatal.size(), 1);
+    QCOMPARE(changed.size(), 1);
+    QCOMPARE(changed.first().at(0).toUInt(), fatal.first().at(0).toUInt());
+    QCOMPARE(changed.first().at(1).value<Imap::ConnectionState>(), Imap::CONN_STATE_LOGOUT);
+    ConnectionStates states;
+    states.update(changed.first().at(0).toUInt(), Imap::CONN_STATE_SELECTED);
+    states.update(changed.first().at(0).toUInt(), changed.first().at(1).value<Imap::ConnectionState>());
+    QCOMPARE(states.summary(), ConnectionStates::Summary::Disconnected);
+    // The synced messages stay readable
+    QCOMPARE(model->rowCount(msgListA), 3);
+    QVERIFY(!m_expectsError);
+    QCOMPARE(errorSpy->size(), 1);
+    errorSpy->clear();
 }
 
 QTEST_GUILESS_MAIN(ImapReliabilityTest)
