@@ -508,6 +508,7 @@ set(libNextcloud_SOURCES
     ${path_Nextcloud}/Client.cpp
     ${path_Nextcloud}/CredentialStore.cpp
     ${path_Nextcloud}/Files.cpp
+    ${path_Nextcloud}/OnlineAccounts.cpp
     ${path_Nextcloud}/Shares.cpp
 )
 

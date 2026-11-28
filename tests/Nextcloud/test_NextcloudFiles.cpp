@@ -6,6 +6,7 @@
 
 #include "Nextcloud/Account.h"
 #include "Nextcloud/Files.h"
+#include "Nextcloud/OnlineAccounts.h"
 #include "Nextcloud/Shares.h"
 
 using namespace Nextcloud;
@@ -28,6 +29,7 @@ private slots:
     void tokens();
     void linksInText();
     void descriptions();
+    void onlineAccounts();
 };
 
 void NextcloudFilesTest::serverAddresses_data()
@@ -351,6 +353,46 @@ void NextcloudFilesTest::descriptions()
     lines = describe(&share);
     QCOMPARE(lines.value(0), QStringLiteral("Anyone with the link can view the files in this folder."));
     QVERIFY(lines.contains(QStringLiteral("The download button is hidden on the share's page.")));
+}
+
+void NextcloudFilesTest::onlineAccounts()
+{
+    // As the Nextcloud provider of KDE Online Accounts stores it
+    const QVariantMap settings{{QStringLiteral("server"), QStringLiteral("https://example.com/nextcloud/")},
+        {QStringLiteral("dav/host"), QStringLiteral("example.com")},
+        {QStringLiteral("dav/storagePath"), QStringLiteral("/remote.php/dav/files/alice%40example.com")}};
+    Account account = onlineAccount(12, QStringLiteral("alice@example.com"), settings);
+    QVERIFY(account.isValid());
+    QCOMPARE(account.id, onlineAccountKey(12));
+    QCOMPARE(account.id, QStringLiteral("online-12"));
+    QCOMPARE(account.source, Account::Source::OnlineAccounts);
+    QCOMPARE(account.onlineAccountId, 12u);
+    QCOMPARE(account.server, QUrl(QStringLiteral("https://example.com/nextcloud")));
+    QCOMPARE(account.loginName, QStringLiteral("alice@example.com"));
+    QCOMPARE(account.userId, QStringLiteral("alice@example.com"));
+    QCOMPARE(account.fileUrl(QStringLiteral("/a.txt")).path(),
+        QStringLiteral("/nextcloud/remote.php/dav/files/alice@example.com/a.txt"));
+
+    // Only the host: https is assumed, and the user name stands in for the user ID
+    account
+        = onlineAccount(3, QStringLiteral("bob"), {{QStringLiteral("dav/host"), QStringLiteral("cloud.example.com")}});
+    QVERIFY(account.isValid());
+    QCOMPARE(account.server, QUrl(QStringLiteral("https://cloud.example.com")));
+    QCOMPARE(account.userId, QStringLiteral("bob"));
+
+    // A storage path below the user's folder does not name the user
+    account = onlineAccount(4, QStringLiteral("bob"),
+        {{QStringLiteral("server"), QStringLiteral("https://cloud.example.com")},
+            {QStringLiteral("dav/storagePath"), QStringLiteral("/remote.php/dav/files/carol/Documents")}});
+    QCOMPARE(account.userId, QStringLiteral("bob"));
+
+    // Nothing to sign in to, no user, or no TLS
+    QVERIFY(!onlineAccount(5, QStringLiteral("bob"), {}).isValid());
+    QVERIFY(!onlineAccount(6, QString(), {{QStringLiteral("server"), QStringLiteral("https://cloud.example.com")}})
+            .isValid());
+    QVERIFY(!onlineAccount(
+        7, QStringLiteral("bob"), {{QStringLiteral("server"), QStringLiteral("http://cloud.example.com")}})
+            .isValid());
 }
 
 QTEST_GUILESS_MAIN(NextcloudFilesTest)
