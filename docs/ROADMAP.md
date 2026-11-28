@@ -1056,7 +1056,7 @@ Mailbox performance [#52](https://github.com/mikepadiernos/plasma-impresario/iss
 - [x] Verify folder and unread counts remain consistent across multiple accounts and concurrent changes [#130](https://github.com/mikepadiernos/plasma-impresario/issues/130)
 - [x] Measure responsiveness and resource use for large mailboxes, long threads, bulk actions, and attachments [#131](https://github.com/mikepadiernos/plasma-impresario/issues/131)
 - [x] Confirm failed background operations remain visible and can be retried or resolved [#132](https://github.com/mikepadiernos/plasma-impresario/issues/132)
-- [ ] Exercise memory, lifetime, undefined-behavior, and data-race-sensitive
+- [x] Exercise memory, lifetime, undefined-behavior, and data-race-sensitive
       network, cache, and Qt background-task paths with suitable sanitizers before
       extending concurrency or sync behavior [#481](https://github.com/mikepadiernos/plasma-impresario/issues/481)
 - [ ] Keep the search index consistent with incremental updates through
