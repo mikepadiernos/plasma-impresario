@@ -18,9 +18,11 @@ responsiveness budgets · ![Limitation][limitation] known limitation, see
 
 > [!NOTE]
 >
-> These are measurements of the IMAP model against fake servers in a Debug
-> build, not of a real server or a Plasma session. Use them to compare changes
-> and to spot growth, not as user-facing timings.
+> These are measurements in a Debug configuration, which this project compiles
+> with `-O2` and assertions on, in a Linux container: of the IMAP model against
+> fake servers, and of the whole window against a local Dovecot server. They are
+> not measurements of a remote server, a Release build or a Plasma session. Use
+> them to compare changes and to spot growth, not as user-facing timings.
 
 ## Contents
 
@@ -28,6 +30,7 @@ responsiveness budgets · ![Limitation][limitation] known limitation, see
 - [Environment](#environment)
 - [Results](#results)
 - [Four times the size](#four-times-the-size)
+- [Live server](#live-server)
 - [Findings](#findings)
 - [Budgets](#budgets)
 - [Not measured yet](#not-measured-yet)
@@ -62,7 +65,7 @@ stop responding.
 | Host    | Apple M5 Pro, dev container under colima with 4 CPUs and 8 GB of memory    |
 | System  | Fedora 44, aarch64                                                         |
 | Toolkit | Qt 6.11.2, GCC 16.2.1                                                      |
-| Build   | Debug, offscreen platform                                                  |
+| Build   | Debug configuration, compiled with `-O2 -g` and assertions on; offscreen   |
 | Server  | Fake IMAP connection in the test fixture; responses are injected, not sent |
 | Method  | Median of three runs at scale 1                                            |
 
@@ -98,7 +101,62 @@ they grow. Budgets are not enforced at this scale.
 | Message with many attachments            | 800 attachments            | 5 ms   | —            | —        |
 | Large attachment opened                  | 80 MiB                     | 193 ms | 157 ms       | +83 MiB  |
 
-## Findings
+## Live server
+
+The live workloads drive the whole main window, offscreen, against a disposable
+Dovecot server in the development container, recorded on 2026-11-27 for
+[#52](https://github.com/mikepadiernos/plasma-impresario/issues/52). The
+script seeds an INBOX of 50,000 messages, every tenth one unread, a 500-message
+reply chain and messages with many attachments and with one large attachment,
+lets the server index them, and deletes the server and its data when it exits.
+
+```bash
+tools/dev-container/run.sh sh tools/dev-container/live-imap-workloads.sh build
+```
+
+| Variable                            | Default | Effect                                                    |
+| ----------------------------------- | ------- | --------------------------------------------------------- |
+| `PLASMA_TEST_WORKLOAD_MESSAGES`     | 50000   | Messages in INBOX                                         |
+| `PLASMA_TEST_WORKLOAD_CONVERSATION` | 500     | Messages in the reply chain                               |
+| `PLASMA_TEST_WORKLOAD_ATTACHMENTS`  | 200     | Attachments in one message                                |
+| `PLASMA_TEST_WORKLOAD_MIB`          | 20      | Size of the large attachment in MiB                       |
+| `PLASMA_TEST_WORKLOAD_REPORT`       | unset   | Appends one tab-separated line per step to the named file |
+
+The server is Dovecot 2.4.5 with QRESYNC on the same machine, so the times
+include the server but no network latency. The removal step deletes a fifth of
+INBOX through `doveadm` while the window is open, as another client would; the
+server then reports it as `VANISHED` ranges. The test itself is
+`tests/Gui/test_LiveImapWorkloads.cpp`; it is built with the other tests but is
+not part of `ctest`.
+
+The first profile showed three costs that the fake-server workloads could not
+see, because they do not include the window:
+
+- Every changed message updated every message action at once, and the Delete
+  action set its icon again each time, which repainted every button showing
+  it. The window now updates its actions once after each burst of changes, and
+  only changes the Delete action when its mode changes.
+- The message list restored its scroll position after each run of inserted or
+  removed rows, which laid out the whole list again each time. It now restores
+  the position once, before the list is painted again.
+
+Median of three runs, before and after these changes:
+
+| Step                            | Size                      | Before: time | Before: longest pass | After: time | After: longest pass | Memory after |
+| ------------------------------- | ------------------------- | ------------ | -------------------- | ----------- | ------------------- | ------------ |
+| Open the folder                 | 50,000 messages           | ~56 s        | ~12.6 s              | ~0.57 s     | ~75 ms              | +20 MiB      |
+| Unread quick filter             | 50,000 messages           | ~16 s        | ~16 s                | ~97 ms      | ~97 ms              | —            |
+| Mark the folder read            | 5,000 unread messages     | ~7.4 s       | ~6.8 s               | ~171 ms     | ~29 ms              | —            |
+| Another client removes messages | 10,000 of 50,000 messages | ~22 s        | ~17 s                | ~6.2 s      | ~463 ms             | —            |
+| Long conversation in threads    | 500 messages              | ~2.4 s       | ~0.44 s              | ~77 ms      | ~24 ms              | —            |
+| Message with many attachments   | 200 attachments           | ~35 ms       | —                    | ~32 ms      | ~32 ms              | +2.5 MiB     |
+| Large attachment opened         | 20 MiB                    | ~480 ms      | ~113 ms              | ~494 ms     | ~117 ms             | +7 MiB       |
+
+The server's own removal through `doveadm` takes about 0.2 s, so the removal
+step is almost entirely the window applying it. The whole process uses about
+215 MiB after opening the folder. At 5,000 messages the folder opened in 0.8 s
+before the changes, so the old costs grew with the square of the folder size.
+
 
 - ![Within budget][within-budget] Sync, conversations, bulk flag changes and
   attachments grow about linearly with their size.
@@ -108,6 +166,9 @@ they grow. Budgets are not enforced at this scale.
   takes about 14 s for 40,000 of 200,000 messages. One `VANISHED` range is
   handled in a single pass, so the window stops responding for its whole
   duration: about 0.5 s at 10,000 of 50,000 and 8 s at 40,000 of 200,000.
+  Against the [live server](#live-server), another client removing 10,000 of
+  50,000 messages takes about 6 s, and the window stops responding for up to
+  about 0.5 s at a time.
 - ![Limitation][limitation] **Quick filters re-filter the whole list in one
   pass**, which blocks the window for about 1.2 s at 200,000 messages.
 - ![Limitation][limitation] **An opened attachment stays in memory** at about
@@ -139,12 +200,12 @@ loaded CI runners pass; they catch large regressions, not small ones.
 
 ## Not measured yet
 
-| Area                                 | Status                        | Plan                                                                                                               |
-| ------------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| A live server over the network       | ![Not measured][not-measured] | Repeat against the disposable Dovecot server ([#52](https://github.com/mikepadiernos/plasma-impresario/issues/52)) |
-| A Release build                      | ![Not measured][not-measured] | Repeat the same workloads in a Release build                                                                       |
-| Painting the message list and reader | ![Not measured][not-measured] | Measure with the GUI drawing, in a Plasma session                                                                  |
-| Startup time                         | ![Not measured][not-measured] | Planned in M14 ([#145](https://github.com/mikepadiernos/plasma-impresario/issues/145))                             |
+| Area                                 | Status                        | Plan                                                                                          |
+| ------------------------------------ | ----------------------------- | --------------------------------------------------------------------------------------------- |
+| Network latency                      | ![Not measured][not-measured] | Repeat the [live workloads](#live-server) with added latency, or against a remote test server |
+| A Release build                      | ![Not measured][not-measured] | Repeat the same workloads in a Release build                                                  |
+| Painting the message list and reader | ![Not measured][not-measured] | Measure with the GUI drawing, in a Plasma session                                             |
+| Startup time                         | ![Not measured][not-measured] | Planned in M14 ([#145](https://github.com/mikepadiernos/plasma-impresario/issues/145))        |
 
 [limitation]: https://img.shields.io/badge/Limitation-bc4c00
 [not-measured]: https://img.shields.io/badge/Not_measured-6e7781

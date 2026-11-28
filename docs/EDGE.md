@@ -46,12 +46,13 @@ Legend: ![Verified][verified] against a synthetic live IMAP server ·
 
 ### Mailboxes and synchronization
 
-| Area              | Scenario                                                       | Coverage                        |
-| ----------------- | -------------------------------------------------------------- | ------------------------------- |
-| Mailboxes         | Empty folders, sparse folders and very large folders           | ![Not validated][not-validated] |
-| Account structure | Special folders, provider labels and duplicate folder names    | ![Not validated][not-validated] |
-| Synchronization   | Offline retries, expired sessions and partial server responses | ![Not validated][not-validated] |
-| Background work   | Cancellation, retry, overlapping sync and process restarts     | ![Not validated][not-validated] |
+| Area              | Scenario                                                                                          | Coverage                                                                                                                                                        |
+| ----------------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mailboxes         | Empty folders, sparse folders and very large folders                                              | ![Not validated][not-validated]                                                                                                                                 |
+| Mailboxes         | A 50,000-message folder opened, filtered, marked read and a fifth of it removed by another client | ![Verified][verified] `test_LiveImapWorkloads` ([measurements](performance.md#live-server)); removal is a [limitation](CAVEATS.md#performance-and-resource-use) |
+| Account structure | Special folders, provider labels and duplicate folder names                                       | ![Not validated][not-validated]                                                                                                                                 |
+| Synchronization   | Offline retries, expired sessions and partial server responses                                    | ![Not validated][not-validated]                                                                                                                                 |
+| Background work   | Cancellation, retry, overlapping sync and process restarts                                        | ![Not validated][not-validated]                                                                                                                                 |
 
 ### Message content and attachments
 

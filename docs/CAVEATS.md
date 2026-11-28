@@ -2102,15 +2102,23 @@ Plasma session; that check is
 - ![Limitation][limitation] Reported as one `VANISHED` range, as QRESYNC
   servers do, the same removal is applied in a single pass and the window stops
   responding for its whole duration: about 0.5 s for 10,000 of 50,000 messages
-  and 8 s for 40,000 of 200,000.
+  and 8 s for 40,000 of 200,000. Against a local Dovecot server, another client
+  removing 10,000 of 50,000 messages takes about 6 s in the window, which stops
+  responding for up to about 0.5 s at a time.
 - ![Limitation][limitation] The Unread quick filter re-filters the whole list
   in one pass, which blocks the window for about 1.2 s at 200,000 messages.
 - ![Limitation][limitation] Each synced message costs about 0.9 KiB before its
   headers load, and an opened attachment is held in memory at about 2.3 times
   its decoded size while it is open.
-- ![Limitation][limitation] The measurements use fake IMAP servers in a Debug
-  build in a Linux container, not real servers, a Release build or a Plasma
-  session.
+- ![Resolved][resolved] Against a local Dovecot server with 50,000 messages,
+  opening the folder takes about 0.6 s and the Unread quick filter about 0.1 s,
+  down from about 56 s and 16 s before the window stopped updating its actions
+  and scroll position for every changed message
+  ([live server](performance.md#live-server)).
+- ![Limitation][limitation] The measurements use fake IMAP servers and a local
+  Dovecot server in a Linux container, in a Debug configuration compiled with
+  `-O2`; network latency, a Release build and a Plasma session are not
+  measured.
 
 **Workarounds:**
 
@@ -2128,8 +2136,8 @@ Plasma session; that check is
 - Filter large lists incrementally, in chunks between event-loop passes.
 - Stream large attachments to a temporary file instead of keeping them in
   memory.
-- Repeat the measurements in a Release build against the disposable Dovecot
-  server, and in a Plasma session with the GUI painting.
+- Repeat the measurements in a Release build, with network latency, and in a
+  Plasma session with the GUI painting.
 
 ### Accessibility and theming
 
