@@ -402,7 +402,7 @@ void ImapReliabilityTest::testLostConnectionDuringFlagChangeIsReported()
     QCOMPARE(failed.size(), 1);
     QVERIFY(completed.isEmpty());
     QCOMPARE(model->rowCount(msgListA), 3);
-    // The unconfirmed change is undone, so the message shows what the server has
+    // Flags change only when the server confirms them, so the message still shows what the server has
     QVERIFY(model->index(2, 0, msgListA).data(RoleMessageIsMarkedRead).toBool());
     QVERIFY(model->cache()->msgFlags(QStringLiteral("a"), 3).contains(QStringLiteral("\\Seen")));
 }
