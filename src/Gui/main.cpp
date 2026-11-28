@@ -125,6 +125,12 @@ int main(int argc, char **argv)
                                     QObject::tr("file"));
     parser.addOption(attachOption);
 
+    QCommandLineOption nextcloudShareOption(QStringList() << QLatin1String("nextcloud-share"),
+                                            QObject::tr("Show this Nextcloud share link and who can open it, then put it "
+                                                        "into a new e-mail if accepted."),
+                                            QObject::tr("link"));
+    parser.addOption(nextcloudShareOption);
+
     QCommandLineOption resetAppearanceOption(QStringList() << QLatin1String("reset-appearance"),
                                              QObject::tr("Return the appearance options to Plasma's defaults, keeping "
                                                          "theme profiles and account and folder colours."));
@@ -172,6 +178,7 @@ int main(int argc, char **argv)
     }
     if (!attachments.isEmpty())
         showComposeWindow = true;
+    const QString nextcloudShare = parser.value(nextcloudShareOption);
     if (parser.positionalArguments().size() > 0) {
         if (parser.positionalArguments().size() == 1) {
             url = parser.positionalArguments().at(0);
@@ -189,7 +196,8 @@ int main(int argc, char **argv)
         }
     }
 
-    if (!showMainWindow && !showComposeWindow && !showAddressbookWindow && messageId.isEmpty() && !startInBackground)
+    if (!showMainWindow && !showComposeWindow && !showAddressbookWindow && messageId.isEmpty() && nextcloudShare.isEmpty()
+        && !startInBackground)
         showMainWindow = true;
 
     if (error) {
@@ -221,6 +229,8 @@ int main(int argc, char **argv)
             IPC::Instance::composeMail(url, attachments);
         if (!messageId.isEmpty())
             IPC::Instance::openMessage(messageId);
+        if (!nextcloudShare.isEmpty())
+            IPC::Instance::openNextcloudShare(nextcloudShare);
         return 0;
     }
 
@@ -259,6 +269,12 @@ int main(int argc, char **argv)
     if (showComposeWindow) {
         // Launched by the user or another application, such as the e-mail portal, which may hand over files
         win.composeMailFromOtherApplication(url.isEmpty() ? QUrl() : QUrl::fromEncoded(url.toUtf8()), attachments);
+    }
+
+    if (!nextcloudShare.isEmpty()) {
+        QTimer::singleShot(0, &win, [&win, nextcloudShare]() {
+            win.openNextcloudShare(QUrl(nextcloudShare, QUrl::StrictMode));
+        });
     }
 
     if (!messageId.isEmpty()) {

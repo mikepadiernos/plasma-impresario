@@ -63,6 +63,11 @@ void openMessage(const QString &)
     Q_ASSERT(false);
 }
 
+void openNextcloudShare(const QString &)
+{
+    Q_ASSERT(false);
+}
+
 } //namespace Instance
 
 bool registerInstance(Gui::MainWindow *, QString &)

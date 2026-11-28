@@ -65,4 +65,9 @@ void MainWindowBridge::openMessage(const QString &messageId)
     m_window->openMessageById(messageId);
 }
 
+void MainWindowBridge::openNextcloudShare(const QString &url)
+{
+    m_window->openNextcloudShare(QUrl(url, QUrl::StrictMode));
+}
+
 }

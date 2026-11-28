@@ -48,6 +48,9 @@ public slots:
     /** Compose from a mailto: @arg url, or a blank message, attaching @arg files given on the command line */
     void composeMailWithFiles(const QString &url, const QStringList &files);
     void openMessage(const QString &messageId);
+    /** Show a Nextcloud share link handed over by another application, such as Plasma Opus, for review; only after
+     * the user accepts does it go into a new draft */
+    void openNextcloudShare(const QString &url);
 
 private:
     Gui::MainWindow *m_window;

@@ -14,6 +14,7 @@
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MsgListView.h"
 #include "Gui/NextcloudBrowserDialog.h"
+#include "Gui/NextcloudShareReviewDialog.h"
 #include "Gui/ShellHeader.h"
 #include "Gui/Window.h"
 #include "UiUtils/BackgroundRunning.h"
@@ -44,6 +45,7 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QSettings>
+#include <QTextEdit>
 #include <QSignalSpy>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -923,6 +925,66 @@ private slots:
       links = links || candidate->text().contains(QLatin1String("Links"));
     QVERIFY(links);
     browser->close();
+    delete composer;
+  }
+
+  void handedOverShareLinksAreReviewedBeforeTheDraft() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                       QSettings::IniFormat);
+    configureOffline(settings, QStringLiteral("work.example.test"));
+    settings.setValue(Common::SettingsNames::settingsVersion, 2);
+    settings.setValue(Common::SettingsNames::guiShowSystray, false);
+    Gui::MainWindow window(&settings);
+    window.accountSettings()->setValue(Common::SettingsNames::msaMethodKey,
+                                       Common::SettingsNames::methodSENDMAIL);
+    window.accountSettings()->setValue(Common::SettingsNames::sendmailKey,
+                                       QStringLiteral("/bin/false"));
+    auto *bridge = new IPC::MainWindowBridge(&window);
+    auto composers = []() {
+      QList<Gui::ComposeWidget *> found;
+      for (QWidget *widget : QApplication::topLevelWidgets()) {
+        if (auto *composer = qobject_cast<Gui::ComposeWidget *>(widget))
+          found << composer;
+      }
+      return found;
+    };
+    const QList<Gui::ComposeWidget *> earlier = composers();
+    const int before = earlier.size();
+
+    // Anything but a share link is refused before reaching a draft
+    bridge->openNextcloudShare(QStringLiteral("https://cloud.example.test/apps/files/"));
+    auto *refused = window.findChild<Gui::NextcloudShareReviewDialog *>();
+    QVERIFY(refused);
+    QVERIFY(!refused->canInsert());
+    refused->reject();
+    QTRY_VERIFY(!window.findChild<Gui::NextcloudShareReviewDialog *>());
+
+    // A link of no connected account is shown as unknown, and opens a draft only when accepted
+    const QString link = QStringLiteral("https://cloud.example.test/s/AbCdEfGh1234");
+    bridge->openNextcloudShare(link);
+    auto *dialog = window.findChild<Gui::NextcloudShareReviewDialog *>();
+    QVERIFY(dialog);
+    QTRY_VERIFY(!dialog->isBusy());
+    QVERIFY(dialog->accountId().isEmpty());
+    QVERIFY(dialog->detailsText().contains(QLatin1String("unknown")));
+    QCOMPARE(composers().size(), before);
+    auto *insert = dialog->findChild<QPushButton *>(QStringLiteral("nextcloudShareInsert"));
+    QVERIFY(insert);
+    QVERIFY(insert->isEnabled());
+    insert->click();
+    QTRY_COMPARE(composers().size(), before + 1);
+    Gui::ComposeWidget *composer = nullptr;
+    for (Gui::ComposeWidget *candidate : composers()) {
+      if (!earlier.contains(candidate))
+        composer = candidate;
+    }
+    QVERIFY(composer);
+    bool inBody = false;
+    for (auto *text : composer->findChildren<QTextEdit *>())
+      inBody = inBody || text->toPlainText().contains(link);
+    QVERIFY(inBody);
     delete composer;
   }
 
