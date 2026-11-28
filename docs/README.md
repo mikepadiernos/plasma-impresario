@@ -24,13 +24,14 @@ Legend: ![Limitation][limitation] · ![Needs verification][needs-verification]
 
 ## Start here
 
-| Guide                                         | What it covers                                                       |
-| --------------------------------------------- | -------------------------------------------------------------------- |
-| [Project README](../README.md)                | What works today, screenshots, quick start and product direction     |
-| [Project status](../README.md#project-status) | Milestone progress and the branch each milestone lives on            |
-| [Installation](INSTALL.md)                    | Installer options, distribution packages and troubleshooting         |
-| [Contributing](../CONTRIBUTING.md)            | Development workflow, documentation style and the headless container |
-| [Project instructions](../CLAUDE.md)          | Conventions for code, roadmap, board and branches                    |
+| Guide                                         | What it covers                                                                      |
+| --------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [Project README](../README.md)                | What works today, screenshots, quick start and product direction                    |
+| [Project status](../README.md#project-status) | Milestone progress and the branch each milestone lives on                           |
+| [Installation](INSTALL.md)                    | Supported platforms, installer options, updates, data locations and troubleshooting |
+| [Security policy](../SECURITY.md)             | Supported versions, private vulnerability reports and security posture              |
+| [Contributing](../CONTRIBUTING.md)            | Development workflow, documentation style and the headless container                |
+| [Project instructions](../CLAUDE.md)          | Conventions for code, roadmap, board and branches                                   |
 
 ## Plan and track
 

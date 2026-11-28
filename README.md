@@ -22,7 +22,8 @@
 **[Screenshots](#screenshots)** · **[Status](#project-status)** ·
 **[Features](#implemented-today)** · **[Build and run](#build-and-run)** ·
 **[Roadmap](docs/ROADMAP.md)** · **[Documentation](docs/README.md)** ·
-**[Security and limitations](docs/CAVEATS.md#security-and-data-protection)**
+**[Security](SECURITY.md)** ·
+**[Limitations](docs/CAVEATS.md#security-and-data-protection)**
 
 Plasma Impresario turns the Trojitá IMAP client into a Plasma-native mail
 application for focused reading, account management and desktop integration.
@@ -797,8 +798,9 @@ Run `plasma-impresario --help` for the full list.
 > ./install.sh
 > ```
 >
-> The [installation guide](docs/INSTALL.md) covers per-distribution packages,
-> custom prefixes, build-only mode and troubleshooting.
+> The [installation guide](docs/INSTALL.md) covers supported platforms,
+> per-distribution packages, custom prefixes, updating, uninstalling and
+> troubleshooting.
 
 **Requirements:** CMake, Ninja, a C++20 compiler, Qt 6.7 or later and KDE
 Frameworks 6.26 or later (ItemModels, Config and I18n). Qt WebEngine Widgets is
@@ -861,15 +863,16 @@ boundaries.
 
 ## Documentation
 
-| Start with                                          | For                                                             |
-| --------------------------------------------------- | --------------------------------------------------------------- |
-| [Documentation index](docs/README.md)               | Every guide, grouped by purpose                                 |
-| [Installation](docs/INSTALL.md)                     | Installer options, prerequisites and troubleshooting            |
-| [Roadmap](docs/ROADMAP.md)                          | Milestones, status and issue links                              |
-| [Interface design](docs/philosophy/designs.md)      | The current shell and the planned Plasma Impresario design      |
-| [Pending tasks](docs/TODO.md)                       | Blockers, verification records and handoffs                     |
-| [Bugs](docs/BUGS.md) and [caveats](docs/CAVEATS.md) | Reported issues, limitations and security guidance              |
-| [Contributing](CONTRIBUTING.md)                     | Development workflow, documentation style and the dev container |
+| Start with                                          | For                                                                                 |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [Documentation index](docs/README.md)               | Every guide, grouped by purpose                                                     |
+| [Installation](docs/INSTALL.md)                     | Supported platforms, installer options, updates, data locations and troubleshooting |
+| [Security policy](SECURITY.md)                      | Supported versions, private vulnerability reports and security posture              |
+| [Roadmap](docs/ROADMAP.md)                          | Milestones, status and issue links                                                  |
+| [Interface design](docs/philosophy/designs.md)      | The current shell and the planned Plasma Impresario design                          |
+| [Pending tasks](docs/TODO.md)                       | Blockers, verification records and handoffs                                         |
+| [Bugs](docs/BUGS.md) and [caveats](docs/CAVEATS.md) | Reported issues, limitations and security guidance                                  |
+| [Contributing](CONTRIBUTING.md)                     | Development workflow, documentation style and the dev container                     |
 
 ## Application icon
 

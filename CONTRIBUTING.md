@@ -3,7 +3,7 @@
 **[Documentation](docs/README.md)** · **[Roadmap](docs/ROADMAP.md)** ·
 **[Pending tasks](docs/TODO.md)** · **[Bugs](docs/BUGS.md)** ·
 **[Caveats](docs/CAVEATS.md)** · **[Installation](docs/INSTALL.md)** ·
-**[Project instructions](CLAUDE.md)** ·
+**[Security](SECURITY.md)** · **[Project instructions](CLAUDE.md)** ·
 **[Project board](https://github.com/users/mikepadiernos/projects/4)**
 
 Contributions are welcome for application code, tests, documentation and bug
@@ -237,6 +237,11 @@ Push the branch to
 [mikepadiernos/plasma-impresario](https://github.com/mikepadiernos/plasma-impresario)
 and open a pull request into `main`. Describe what changed, why and the
 verification you actually ran, and reference the issue, such as `Closes #123`.
+
+> [!IMPORTANT]
+>
+> Report suspected vulnerabilities privately, as described in the
+> [security policy](SECURITY.md), rather than in an issue or pull request.
 
 Plasma Impresario is a fork of KDE's
 [Trojitá](https://invent.kde.org/pim/trojita), whose merge requests are reviewed
