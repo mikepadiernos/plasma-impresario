@@ -927,8 +927,8 @@ void ComposerSubmissionTest::testBccOnlyInSentCopy()
     cEmpty();
 }
 
-/** @short With BURL the server delivers the Sent copy itself, so that copy must not list Bcc */
-void ComposerSubmissionTest::testBccOmittedFromBurlCopy()
+/** @short BURL would deliver the Sent copy itself, which cannot list Bcc, so the message is sent whole instead */
+void ComposerSubmissionTest::testBccSkipsBurl()
 {
     FakeCapabilitiesInjector injector(model);
     injector.injectCapability(QStringLiteral("CATENATE"));
@@ -942,7 +942,6 @@ void ComposerSubmissionTest::testBccOmittedFromBurlCopy()
     m_submission->setSmtpOptions(true, QStringLiteral("smtpUser"));
     m_msaFactory->setBurlSupport(true);
 
-    helperAttachImapPart(0, "/0");
     m_submission->send();
 
     for (int i=0; i<5; ++i)
@@ -955,26 +954,109 @@ void ComposerSubmissionTest::testBccOmittedFromBurlCopy()
     QString headers;
     EXTRACT_OCTETS(octets, headers, sentSoFar);
     QVERIFY(headers.startsWith(QLatin1String("From: ")));
-    QVERIFY(!headers.contains(QLatin1String("hidden@example.net")));
-    QVERIFY(!headers.contains(QLatin1String("\r\nBcc:")));
-    expected = QStringLiteral(" URL \"/a;UIDVALIDITY=333666/;UID=10/;SECTION=1\" TEXT {");
-    EXTRACT_TARILING_NUMBER(octets);
-    cServer("+ carry on\r\n");
-    EAT_OCTETS(octets, sentSoFar);
+    QVERIFY(headers.contains(QLatin1String("\r\nBcc: <hidden@example.net>\r\n")));
     QCOMPARE(sentSoFar, QString::fromUtf8(")\r\n"));
     cServer(t.last("OK [APPENDUID 666333666 123] append done\r\n"));
-    cClient(t.mk("GENURLAUTH \"imap://usr@host/meh;UIDVALIDITY=666333666/;UID=123;urlauth=submit+smtpUser\" INTERNAL\r\n"));
-    const QString genAuthUrl = QStringLiteral("imap://joe@example.com/INBOX/;uid=20/;section=1.2;urlauth=submit+fred:internal:91354a473744909de610943775f92038");
-    cServer("* GENURLAUTH \"" + genAuthUrl.toUtf8() + "\"\r\n");
-    cServer(t.last("OK genurlauth\r\n"));
     cEmpty();
-    QCOMPARE(requestedBurlSendingSpy->size(), 1);
-    QCOMPARE(requestedBurlSendingSpy->at(0)[1].value<QList<QByteArray>>(), QList<QByteArray>{"hidden@example.net"});
+
+    QCOMPARE(requestedBurlSendingSpy->size(), 0);
+    QCOMPARE(requestedSendingSpy->size(), 1);
+    const QByteArray delivered = requestedSendingSpy->at(0)[2].toByteArray();
+    QVERIFY(delivered.startsWith("From: "));
+    QVERIFY(!delivered.contains("hidden@example.net"));
+    QCOMPARE(requestedSendingSpy->at(0)[1].value<QList<QByteArray>>(), QList<QByteArray>{"hidden@example.net"});
     m_msaFactory->doEmitSending();
     m_msaFactory->doEmitSent();
     QCOMPARE(submissionSucceededSpy->size(), 1);
+    QCOMPARE(submissionFailedSpy->size(), 0);
     cEmpty();
     justKeepTask();
+}
+
+/** @short The IMAP SENDMAIL Extension delivers the Sent copy, which is then replaced by one listing Bcc */
+void ComposerSubmissionTest::testBccRefiledAfterImapSendmail()
+{
+    FakeCapabilitiesInjector injector(model);
+    injector.injectCapability(QStringLiteral("UIDPLUS"));
+    injector.injectCapability(QStringLiteral("LITERAL+"));
+    helperSetupProperHeaders();
+    m_composer->setRecipients({
+        qMakePair(Composer::ADDRESS_TO, Imap::Message::MailAddress(QString(), QString(), QStringLiteral("to"),
+                                                                   QStringLiteral("example.net"))),
+        qMakePair(Composer::ADDRESS_BCC, Imap::Message::MailAddress(QString(), QString(), QStringLiteral("hidden"),
+                                                                    QStringLiteral("example.net"))),
+    });
+    m_submission->setImapOptions(true, QStringLiteral("a"), QStringLiteral("host"), QStringLiteral("usr"), true);
+    m_msaFactory->setImapSupport(true);
+    QSignalSpy imapSendingSpy(m_msaFactory, &MSA::FakeFactory::requestedImapSending);
+
+    m_submission->send();
+
+    for (int i=0; i<5; ++i)
+        QCoreApplication::processEvents();
+    const QByteArray delivered = SOCK->writtenStuff();
+    QVERIFY(delivered.startsWith(t.mk("APPEND a (\\Seen) ")));
+    QVERIFY(delivered.contains("\r\nTo: <to@example.net>\r\n"));
+    QVERIFY(!delivered.contains("hidden@example.net"));
+    cServer(t.last("OK [APPENDUID 333666 15] append done\r\n"));
+    cEmpty();
+
+    QCOMPARE(requestedSendingSpy->size(), 0);
+    QCOMPARE(imapSendingSpy.size(), 1);
+    QCOMPARE(imapSendingSpy.at(0)[0].toString(), QStringLiteral("a"));
+    QCOMPARE(imapSendingSpy.at(0)[1].toUInt(), 333666u);
+    QCOMPARE(imapSendingSpy.at(0)[2].toUInt(), 15u);
+    m_msaFactory->doEmitSending();
+    m_msaFactory->doEmitSent();
+
+    for (int i=0; i<5; ++i)
+        QCoreApplication::processEvents();
+    const QByteArray filed = SOCK->writtenStuff();
+    QVERIFY(filed.startsWith(t.mk("APPEND a (\\Seen) ")));
+    QVERIFY(filed.contains("\r\nBcc: <hidden@example.net>\r\n"));
+    QCOMPARE(submissionSucceededSpy->size(), 0);
+    cServer(t.last("OK [APPENDUID 333666 16] append done\r\n"));
+    cClient(t.mk("UID STORE 15 +FLAGS.SILENT (\\Deleted)\r\n"));
+    QCOMPARE(submissionSucceededSpy->size(), 0);
+    cServer(t.last("OK stored\r\n"));
+    cClient(t.mk("UID EXPUNGE 15\r\n"));
+    cServer(t.last("OK expunged\r\n"));
+    QCOMPARE(submissionSucceededSpy->size(), 1);
+    QCOMPARE(submissionFailedSpy->size(), 0);
+    cEmpty();
+}
+
+/** @short Failing to list Bcc in Sent after delivery does not fail the submission */
+void ComposerSubmissionTest::testBccRefileFailureKeepsDelivery()
+{
+    FakeCapabilitiesInjector injector(model);
+    injector.injectCapability(QStringLiteral("UIDPLUS"));
+    injector.injectCapability(QStringLiteral("LITERAL+"));
+    helperSetupProperHeaders();
+    m_composer->setRecipients({
+        qMakePair(Composer::ADDRESS_BCC, Imap::Message::MailAddress(QString(), QString(), QStringLiteral("hidden"),
+                                                                    QStringLiteral("example.net"))),
+    });
+    m_submission->setImapOptions(true, QStringLiteral("a"), QStringLiteral("host"), QStringLiteral("usr"), true);
+    m_msaFactory->setImapSupport(true);
+
+    m_submission->send();
+
+    for (int i=0; i<5; ++i)
+        QCoreApplication::processEvents();
+    QVERIFY(SOCK->writtenStuff().startsWith(t.mk("APPEND a (\\Seen) ")));
+    cServer(t.last("OK [APPENDUID 333666 15] append done\r\n"));
+    cEmpty();
+    m_msaFactory->doEmitSending();
+    m_msaFactory->doEmitSent();
+
+    for (int i=0; i<5; ++i)
+        QCoreApplication::processEvents();
+    QVERIFY(SOCK->writtenStuff().startsWith(t.mk("APPEND a (\\Seen) ")));
+    cServer(t.last("NO [OVERQUOTA] mailbox full\r\n"));
+    QCOMPARE(submissionSucceededSpy->size(), 1);
+    QCOMPARE(submissionFailedSpy->size(), 0);
+    cEmpty();
 }
 
 QTEST_GUILESS_MAIN(ComposerSubmissionTest)
