@@ -20,6 +20,7 @@
 #include "UiUtils/SettingsStore.h"
 #include "Imap/Model/AccountCapabilities.h"
 #include "Imap/Model/ImapAccess.h"
+#include "Imap/Model/Model.h"
 #include "Imap/Model/SystemNetworkWatcher.h"
 #include "IPC/MainWindowBridge.h"
 #include "configure.cmake.h"
@@ -531,8 +532,8 @@ private slots:
     QVERIFY(window.findChild<QToolButton *>(QStringLiteral("activityButton")));
     QVERIFY(action(window, QStringLiteral("action_notify_folder"))->isCheckable());
 
-    // Connection problems of any account show up in the activity log, with a
-    // way to the account
+    // Connection problems of any account show up in the activity log: a lost
+    // connection can be retried, rejected credentials lead to the account
     auto *tracker = window.findChild<Common::AccountStatusTracker *>();
     QVERIFY(tracker);
     tracker->setStatus(QStringLiteral("account-2"),
@@ -548,6 +549,16 @@ private slots:
     QCOMPARE(log->entry(row).kind, UiUtils::ActivityLog::Kind::Sync);
     QCOMPARE(log->entry(row).state, UiUtils::ActivityLog::State::Failed);
     QCOMPARE(log->entry(row).error, QStringLiteral("Timed out"));
+    QCOMPARE(log->entry(row).action, UiUtils::ActivityLog::Action::Retry);
+    QCOMPARE(log->entry(row).target, QStringLiteral("account-2"));
+    QVERIFY(log->canRetry(QStringLiteral("sync:account-2")));
+
+    tracker->setStatus(
+        QStringLiteral("account-2"), Common::AccountStatusKind::AuthFailed, QStringLiteral("Wrong password"));
+    row = log->find(QStringLiteral("sync:account-2"));
+    QVERIFY(row >= 0);
+    QCOMPARE(log->entry(row).state, UiUtils::ActivityLog::State::Failed);
+    QCOMPARE(log->entry(row).error, QStringLiteral("Wrong password"));
     QCOMPARE(log->entry(row).action, UiUtils::ActivityLog::Action::OpenAccount);
     QCOMPARE(log->entry(row).target, QStringLiteral("account-2"));
 
@@ -944,6 +955,51 @@ private slots:
   void closingQuitsByDefault() { verifyClose(false); }
 
   void closingHidesWhenRunningInBackground() { verifyClose(true); }
+
+  void failedFolderSyncStaysInTheActivityLog()
+  {
+      QTemporaryDir directory;
+      QVERIFY(directory.isValid());
+      QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+      seedTwoAccounts(directory, settings);
+
+      Gui::MainWindow window(&settings);
+      auto *automation = window.findChild<Gui::MailAutomation *>(QStringLiteral("mailAutomation"));
+      QVERIFY(automation);
+      QVERIFY(window.imapModel());
+      UiUtils::ActivityLog *log = automation->activity();
+      const QString key = QStringLiteral("folder-sync:account-1:INBOX");
+
+      // A folder which could not be opened is not a modal box: the failure stays
+      // in the activity log with a Retry, and the window offers to try again
+      emit window.imapModel()->mailboxSyncFailed(QStringLiteral("INBOX"), QStringLiteral("Mailbox locked"));
+      int row = log->find(key);
+      QVERIFY(row >= 0);
+      QCOMPARE(log->entry(row).kind, UiUtils::ActivityLog::Kind::Sync);
+      QCOMPARE(log->entry(row).state, UiUtils::ActivityLog::State::Failed);
+      QCOMPARE(log->entry(row).accountId, QStringLiteral("account-1"));
+      QCOMPARE(log->entry(row).error, QStringLiteral("Mailbox locked"));
+      QCOMPARE(log->entry(row).action, UiUtils::ActivityLog::Action::Retry);
+      QVERIFY(log->canRetry(key));
+      QVERIFY(!QApplication::activeModalWidget());
+
+      // Retrying an offline account keeps the failure, with the reason why
+      auto *tryAgain = window.findChild<QAbstractButton *>(QStringLiteral("retryFolderSync"));
+      QVERIFY(tryAgain);
+      tryAgain->click();
+      row = log->find(key);
+      QVERIFY(row >= 0);
+      QCOMPARE(log->entry(row).state, UiUtils::ActivityLog::State::Failed);
+      QVERIFY(!log->entry(row).error.isEmpty());
+      QVERIFY(log->entry(row).error != QStringLiteral("Mailbox locked"));
+      QVERIFY(log->canRetry(key));
+
+      // Another failure of the same folder updates its entry instead of adding one
+      const int count = log->count();
+      emit window.imapModel()->mailboxSyncFailed(QStringLiteral("INBOX"), QStringLiteral("Still locked"));
+      QCOMPARE(log->count(), count);
+      QCOMPARE(log->entry(log->find(key)).error, QStringLiteral("Still locked"));
+  }
 
   void headerShowsFolderAndStatus() {
     QTemporaryDir directory;

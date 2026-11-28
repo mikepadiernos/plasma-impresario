@@ -1494,7 +1494,10 @@ if(BUILD_TESTING)
                     sidebarShowsHeadersOnlyForSeveralAccounts sidebarGroupsAccountsInTheWindow sidebarHeaderMenuActsOnItsAccount
                     headerRegionIsOptional headerShowsFolderAndStatus legacyCompactPaneSizesCarryOver
                     legacyWidePaneSizesCarryOver closingQuitsByDefault closingHidesWhenRunningInBackground
-                    requestsBringTheirWindowForward sessionEndSavesUnsentMessages)
+                    requestsBringTheirWindowForward sessionEndSavesUnsentMessages
+                    sidebarShowsUnreadCounts mailAutomationFollowsTheWindow taskManagerShowsTheUnreadCount
+                    mailToNotesNeedsANotesFolder everyVisibleControlHasAnAccessibleName
+                    failedFolderSyncStaysInTheActivityLog)
                 add_test(NAME test_MainWindowShell_${shell_case} COMMAND test_MainWindowShell ${shell_case})
                 set_tests_properties(test_MainWindowShell_${shell_case} PROPERTIES
                     TIMEOUT 60
