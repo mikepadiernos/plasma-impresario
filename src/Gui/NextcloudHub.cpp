@@ -4,12 +4,15 @@
 
 #include "Gui/NextcloudHub.h"
 
+#include <memory>
+
 #include <KLocalizedString>
 #include <QCryptographicHash>
 #include <QMessageBox>
 #include <QSettings>
 
 #include "Common/TrustedCertificates.h"
+#include "Nextcloud/Shares.h"
 #include "UiUtils/SettingsStore.h"
 
 namespace Gui {
@@ -398,6 +401,102 @@ void NextcloudHub::saveAccounts()
 {
     UiUtils::SettingsStore::setNextcloudAccounts(*m_config, m_accounts);
     emit accountsChanged();
+}
+
+void NextcloudHub::lookUpShares(
+    const QList<QUrl> &links, QObject *context, std::function<void(const QList<LinkShare> &shares)> done)
+{
+    struct State {
+        QList<LinkShare> shares;
+        QStringList accounts;
+        std::function<void(int)> next;
+    };
+    auto state = std::make_shared<State>();
+    for (const QUrl &link : links)
+        state->shares.append(LinkShare{link, {}, {}, {}, false});
+    for (const Nextcloud::Account &account : accounts()) {
+        for (LinkShare &share : state->shares) {
+            if (Nextcloud::shareToken(share.link, account.server).isEmpty())
+                continue;
+            share.knownServer = true;
+            if (!state->accounts.contains(account.id))
+                state->accounts << account.id;
+        }
+    }
+
+    QPointer<NextcloudHub> self(this);
+    QPointer<QObject> guard(context);
+    // The step keeps the state only weakly; the pending request keeps it, so
+    // that it goes away with a request which never reports
+    std::weak_ptr<State> weak = state;
+    state->next = [self, guard, weak, done](int index) {
+        const std::shared_ptr<State> state = weak.lock();
+        if (!state || !self || !guard)
+            return;
+        // The accounts are asked one after another, so that a link found by one
+        // is not looked up by the next
+        while (index < state->accounts.size()) {
+            const Nextcloud::Account account = self->account(state->accounts.at(index));
+            bool wanted = false;
+            for (const LinkShare &share : std::as_const(state->shares)) {
+                wanted = wanted
+                    || (share.accountId.isEmpty() && !Nextcloud::shareToken(share.link, account.server).isEmpty());
+            }
+            if (wanted)
+                break;
+            ++index;
+        }
+        if (index >= state->accounts.size()) {
+            for (LinkShare &share : state->shares) {
+                if (share.accountId.isEmpty())
+                    share.details = Nextcloud::describe(nullptr);
+            }
+            done(state->shares);
+            return;
+        }
+        const QString id = state->accounts.at(index);
+        const Nextcloud::Account account = self->account(id);
+        auto failed = [state, index, account](const QString &message) {
+            for (LinkShare &share : state->shares) {
+                if (share.accountId.isEmpty() && !Nextcloud::shareToken(share.link, account.server).isEmpty()) {
+                    share.problems << i18nc(
+                        "@info %1 is an account, %2 an error message", "%1: %2", account.title(), message);
+                }
+            }
+            state->next(index + 1);
+        };
+        self->withClient(
+            id, guard,
+            [self, state, index, id, account, failed](Nextcloud::Client *client) {
+                client->shares(
+                    QString(),
+                    [state, index, id, account](const QList<Nextcloud::Share> &found) {
+                        for (LinkShare &share : state->shares) {
+                            if (!share.accountId.isEmpty())
+                                continue;
+                            const QString token = Nextcloud::shareToken(share.link, account.server);
+                            if (token.isEmpty())
+                                continue;
+                            if (const Nextcloud::Share *match = Nextcloud::findLinkShare(found, token)) {
+                                share.accountId = id;
+                                share.details = Nextcloud::describe(match);
+                            }
+                        }
+                        state->next(index + 1);
+                    },
+                    [self, id, failed](Nextcloud::Client::Failure failure, const QString &message) {
+                        if (failure == Nextcloud::Client::Failure::Authentication && self) {
+                            const QString refused = self->refusedMessage(id);
+                            self->forgetClient(id);
+                            failed(refused);
+                            return;
+                        }
+                        failed(message);
+                    });
+            },
+            failed);
+    };
+    state->next(0);
 }
 
 } // namespace Gui

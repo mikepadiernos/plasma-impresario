@@ -76,22 +76,18 @@ NextcloudShareReviewDialog::NextcloudShareReviewDialog(NextcloudHub *hub, const 
             "it is not put into a message."));
         return;
     }
-    if (m_hub) {
-        for (const Nextcloud::Account &account : m_hub->accounts()) {
-            if (!Nextcloud::shareToken(link, account.server).isEmpty())
-                m_candidates << account.id;
-        }
-    }
     m_busy = true;
     m_accountLabel->setText(i18nc("@info", "Looking up the share…"));
-    lookUp(0);
+    if (!m_hub) {
+        finish(NextcloudHub::LinkShare{link, {}, Nextcloud::describe(nullptr), {}, false});
+        return;
+    }
+    m_hub->lookUpShares({link}, this, [this, link](const QList<NextcloudHub::LinkShare> &shares) {
+        finish(shares.value(0, NextcloudHub::LinkShare{link, {}, Nextcloud::describe(nullptr), {}, false}));
+    });
 }
 
-NextcloudShareReviewDialog::~NextcloudShareReviewDialog()
-{
-    if (auto *client = qobject_cast<Nextcloud::Client *>(m_client.data()); client && m_request)
-        client->abort(m_request);
-}
+NextcloudShareReviewDialog::~NextcloudShareReviewDialog() = default;
 
 QUrl NextcloudShareReviewDialog::link() const
 {
@@ -124,83 +120,28 @@ bool NextcloudShareReviewDialog::isShareLink(const QUrl &link)
     return found.size() == 1 && found.constFirst() == link;
 }
 
-void NextcloudShareReviewDialog::lookUp(int index)
-{
-    if (index >= m_candidates.size() || !m_hub) {
-        finish();
-        return;
-    }
-    const QString id = m_candidates.at(index);
-    const QString title = m_hub->account(id).title();
-    const QString token = Nextcloud::shareToken(m_link, m_hub->account(id).server);
-    QPointer<NextcloudShareReviewDialog> self(this);
-    auto next = [self, index, title](const QString &problem) {
-        if (!self)
-            return;
-        self->m_client = nullptr;
-        self->m_request = 0;
-        if (!problem.isEmpty())
-            self->m_problems << i18nc("@info %1 is an account, %2 an error message", "%1: %2", title, problem);
-        self->lookUp(index + 1);
-    };
-    m_hub->withClient(
-        id, this,
-        [self, id, token, next](Nextcloud::Client *client) {
-            if (!self)
-                return;
-            self->m_client = client;
-            // Only the user's own shares are read; nothing is created or changed
-            self->m_request = client->shares(
-                QString(),
-                [self, id, token, next](const QList<Nextcloud::Share> &shares) {
-                    if (!self)
-                        return;
-                    if (const Nextcloud::Share *share = Nextcloud::findLinkShare(shares, token)) {
-                        self->m_client = nullptr;
-                        self->m_request = 0;
-                        self->m_accountId = id;
-                        self->m_detailLines = Nextcloud::describe(share);
-                        self->finish();
-                        return;
-                    }
-                    next(QString());
-                },
-                [self, id, next](Nextcloud::Client::Failure failure, const QString &message) {
-                    if (failure == Nextcloud::Client::Failure::Authentication && self && self->m_hub) {
-                        const QString refused = self->m_hub->refusedMessage(id);
-                        self->m_hub->forgetClient(id);
-                        next(refused);
-                        return;
-                    }
-                    next(message);
-                });
-        },
-        next);
-}
-
-void NextcloudShareReviewDialog::finish()
+void NextcloudShareReviewDialog::finish(const NextcloudHub::LinkShare &share)
 {
     m_busy = false;
+    m_accountId = share.accountId;
     QStringList status;
     if (m_accountId.isEmpty()) {
-        m_detailLines = Nextcloud::describe(nullptr);
-        m_accountLabel->setText(m_candidates.isEmpty()
-                ? i18nc("@info", "No connected Nextcloud account is on this server.")
-                : i18nc("@info",
-                      "Not one of the shares of your connected "
-                      "Nextcloud accounts."));
+        m_accountLabel->setText(!share.knownServer ? i18nc("@info", "No connected Nextcloud account is on this server.")
+                                                   : i18nc("@info",
+                                                         "Not one of the shares of your connected "
+                                                         "Nextcloud accounts."));
         status << i18nc("@info",
             "Insert the link only when you trust where it "
             "came from; the people you send it to can "
             "open whatever it leads to.");
-        if (!m_problems.isEmpty()) {
+        if (!share.problems.isEmpty()) {
             status << i18nc("@info %1 is a list of error messages", "The shares could not be checked: %1",
-                m_problems.join(QLatin1Char(' ')));
+                share.problems.join(QLatin1Char(' ')));
         }
     } else {
         m_accountLabel->setText(m_hub ? m_hub->account(m_accountId).title() : QString());
     }
-    m_detailsLabel->setText(m_detailLines.join(QLatin1Char('\n')));
+    m_detailsLabel->setText(share.details.join(QLatin1Char('\n')));
     m_status->setText(status.join(QLatin1Char('\n')));
     m_status->setVisible(!status.isEmpty());
     m_insert->setEnabled(true);

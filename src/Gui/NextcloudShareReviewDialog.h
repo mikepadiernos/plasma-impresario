@@ -7,13 +7,13 @@
 #include <QPointer>
 #include <QUrl>
 
+#include "Gui/NextcloudHub.h"
+
 class QDialogButtonBox;
 class QLabel;
 class QPushButton;
 
 namespace Gui {
-
-class NextcloudHub;
 
 /**
  * @short Shows a Nextcloud share link handed over by another application before
@@ -51,22 +51,16 @@ signals:
     void insertRequested(const QUrl &link);
 
 private:
-    void lookUp(int index);
-    void finish();
+    void finish(const NextcloudHub::LinkShare &share);
 
     QPointer<NextcloudHub> m_hub;
     QUrl m_link;
-    QStringList m_candidates;
-    QStringList m_problems;
     QString m_accountId;
-    QStringList m_detailLines;
     bool m_busy = false;
     QLabel *m_linkLabel;
     QLabel *m_accountLabel;
     QLabel *m_detailsLabel;
     QLabel *m_status;
-    QPointer<QObject> m_client;
-    quint64 m_request = 0;
     QDialogButtonBox *m_buttons;
     QPushButton *m_insert;
 };

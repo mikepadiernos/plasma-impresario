@@ -8,6 +8,7 @@
 #include <KSharedConfig>
 #include <QHash>
 #include <QObject>
+#include <QUrl>
 #include <QPointer>
 #include <QSslCertificate>
 #include <QSslError>
@@ -105,6 +106,29 @@ public:
     bool askTrust(Nextcloud::Client *client, QWidget *parent);
     /** @short How the hub asks; a message box unless replaced, as in tests */
     void setConfirm(Confirm confirm);
+
+    /** @short What is known about a Nextcloud share link */
+    struct LinkShare {
+        QUrl link;
+        /** The account whose share the link is, or an empty string */
+        QString accountId;
+        /** Who can open the link, what they can do, its password and its expiry */
+        QStringList details;
+        /** Why the shares of an account on the link's server could not be read */
+        QStringList problems;
+        /** Whether a connected account is on the link's server */
+        bool knownServer = false;
+    };
+    /**
+     * @short Look @arg links up among the user's own shares of the connected
+     * accounts
+     *
+     * Each account on the server of a link is asked once. Shares are only read:
+     * nothing is created, changed or revoked. @arg done gets the links in their
+     * order, only while @arg context exists.
+     */
+    void lookUpShares(
+        const QList<QUrl> &links, QObject *context, std::function<void(const QList<LinkShare> &shares)> done);
 
 signals:
     void accountsChanged();

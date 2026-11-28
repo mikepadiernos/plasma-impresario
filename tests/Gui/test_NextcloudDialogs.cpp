@@ -753,6 +753,61 @@ private slots:
             QVERIFY2(request.verb == "GET" || request.verb == "PROPFIND", request.verb.constData());
     }
 
+    void hubLooksUpTheLinksOfAMessageAtOnce()
+    {
+        m_server->addFile(QStringLiteral("/shared.pdf"), "s");
+        const QString token
+            = m_server->addLinkShare(QStringLiteral("/shared.pdf"), 1, false, QStringLiteral("2099-01-01"));
+        const QString id = addAccount();
+        const QUrl mine(m_server->address() + QStringLiteral("/s/") + token);
+        const QUrl notMine(m_server->address() + QStringLiteral("/s/NotMine12345"));
+        const QUrl elsewhere(QStringLiteral("https://elsewhere.example.test/s/AbCdEfGh1234"));
+        const int before = m_server->requests.size();
+        QList<NextcloudHub::LinkShare> found;
+        bool called = false;
+        m_hub->lookUpShares({mine, notMine, elsewhere}, this, [&](const QList<NextcloudHub::LinkShare> &shares) {
+            found = shares;
+            called = true;
+        });
+        QTRY_VERIFY(called);
+        QCOMPARE(found.size(), 3);
+        QCOMPARE(found[0].link, mine);
+        QCOMPARE(found[0].accountId, id);
+        QVERIFY(found[0].knownServer);
+        QVERIFY2(found[0].details.join(QLatin1Char(' ')).contains(QLatin1String("2099")),
+            qPrintable(found[0].details.join(QLatin1Char(' '))));
+        QVERIFY(found[1].accountId.isEmpty());
+        QVERIFY(found[1].knownServer);
+        QVERIFY(found[1].details.join(QLatin1Char(' ')).contains(QLatin1String("unknown")));
+        QVERIFY(found[2].accountId.isEmpty());
+        QVERIFY(!found[2].knownServer);
+        QVERIFY(found[2].problems.isEmpty());
+        // The account's shares are read once, and only read
+        int shareRequests = 0;
+        for (int i = before; i < m_server->requests.size(); ++i) {
+            const FakeNextcloudServer::Request &request = m_server->requests.at(i);
+            QVERIFY2(request.verb == "GET" || request.verb == "PROPFIND", request.verb.constData());
+            if (request.path.contains(QLatin1String("files_sharing")))
+                ++shareRequests;
+        }
+        QCOMPARE(shareRequests, 1);
+
+        // Without links or accounts on their servers, the answer comes right away
+        called = false;
+        m_hub->lookUpShares(
+            {elsewhere}, this, [&](const QList<NextcloudHub::LinkShare> &shares) { called = shares.size() == 1; });
+        QVERIFY(called);
+
+        // Nothing is reported once the context is gone
+        called = false;
+        {
+            QObject context;
+            m_hub->lookUpShares({mine}, &context, [&](const QList<NextcloudHub::LinkShare> &) { called = true; });
+        }
+        QTest::qWait(200);
+        QVERIFY(!called);
+    }
+
     void shareReviewWarnsAboutUnknownLinks()
     {
         addAccount();
