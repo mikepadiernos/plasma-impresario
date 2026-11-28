@@ -20,7 +20,7 @@ Legend: ![Verified][verified] against a synthetic live server ·
 > No scenario below has been checked in a real Plasma session. Live checks use
 > the synthetic Dovecot servers described in the
 > [M02 handoff](TODO.md#m02-shell-and-account-foundation); real-session checks
-> are planned in [M15](ROADMAP.md#m15-real-plasma-session-verification).
+> are planned in [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 ## Contents
 
@@ -83,7 +83,7 @@ Legend: ![Verified][verified] against a synthetic live server ·
 | Local data       | A profile's cache inside the application's cache, which holds the other profiles                                                                                                | ![Not validated][not-validated]                                                                          |
 | Reader colors    | Plain text, HTML with and without its own background, and forced black on white in dark and light schemes                                                                       | ![Offscreen tests][offscreen] `test_WebEngineMessageProfile`; message scripts never run                  |
 | Reader colors    | HTML that sets only a light text color on the body, or dark backgrounds only on inner tables                                                                                    | ![Not validated][not-validated] Shown on a white page in a dark scheme                                   |
-| Reader colors    | Switching the Plasma color scheme with a message open                                                                                                                           | ![Not validated][not-validated] M15                                                                      |
+| Reader colors    | Switching the Plasma color scheme with a message open                                                                                                                           | ![Not validated][not-validated] M14                                                                      |
 | Search highlight | A body search on a live server: the term is found in the reader, the focus stays in the list                                                                                    | ![Verified][verified] `test_LiveImapPanels`                                                              |
 | Search highlight | Sender, recipient, list and raw searches without a body key highlight nothing                                                                                                   | ![Offscreen tests][offscreen] `test_Relevance`                                                           |
 | Search highlight | The term only in an HTML part's hidden text, in a nested message, or split by markup                                                                                            | ![Not validated][not-validated]                                                                          |
@@ -120,7 +120,7 @@ Legend: ![Verified][verified] against a synthetic live server ·
 | Inline PGP armor in loaded text, in an attachment or quoted mid-line           | ![Offscreen tests][offscreen] `test_MessageSecurity`; ![Limitation][limitation] not verified ([#442](CAVEATS.md#message-security)) |
 | A signature inside an attached message or a second signed part                 | ![Limitation][limitation] only the outermost result ([#442](CAVEATS.md#message-security))                                          |
 | An expired or revoked signing key, or an S/MIME certificate chain              | ![Not validated][not-validated]                                                                                                    |
-| A screen reader announcing the Security row                                    | ![Not validated][not-validated] M15                                                                                                |
+| A screen reader announcing the Security row                                    | ![Not validated][not-validated] M14                                                                                                |
 
 ### Multiple accounts
 
@@ -134,7 +134,7 @@ Legend: ![Verified][verified] against a synthetic live server ·
 | Removing the migrated first account, whose cache shares the cache root | ![Offscreen tests][offscreen] `test_AccountCache`: drafts and other accounts' caches are kept                                                                                                               |
 | A background account with a rejected password                          | ![Verified][verified] `test_LiveImapAccounts`                                                                                                                                                               |
 | A background account fails repeatedly before reconnecting              | ![Offscreen tests][offscreen] `test_AccountStatus`: one notification until it connects again                                                                                                                |
-| The background-account notification in a Plasma session                | ![Not validated][not-validated] [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315) in M15                                                                                                |
+| The background-account notification in a Plasma session                | ![Not validated][not-validated] [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315) in M14                                                                                                |
 | Switching accounts during synchronization                              | ![Not validated][not-validated]                                                                                                                                                                             |
 | Saved searches and folder counts after switching                       | ![Verified][verified] `test_LiveImapAccounts`                                                                                                                                                               |
 | Mailbox and message selection after switching                          | ![Verified][verified] `test_LiveImapAccounts`                                                                                                                                                               |
@@ -228,11 +228,11 @@ Legend: ![Verified][verified] against a synthetic live server ·
 | A window closed while its transfer runs                                                     | ![Offscreen tests][offscreen] `test_NextcloudDialogs`: the activity entry shows it stopped                                                                                        |
 | A large file, or a server that limits upload size                                           | ![Limitation][limitation] The whole file is held in memory ([#515](CAVEATS.md#nextcloud-files-and-share-links)); upload limits not validated                                      |
 | A KDE Online Accounts Nextcloud account whose login name differs from its user ID           | ![Limitation][limitation] Compile-verified only ([#515](CAVEATS.md#nextcloud-files-and-share-links))                                                                              |
-| Hosted Nextcloud providers, and a share link handed over by Plasma Opus in a Plasma session | ![Not validated][not-validated] M15                                                                                                                                               |
+| Hosted Nextcloud providers, and a share link handed over by Plasma Opus in a Plasma session | ![Not validated][not-validated] M14                                                                                                                                               |
 
 ### Microsoft accounts and Exchange
 
-Planned in [M13](ROADMAP.md#m13-microsoft-accounts-and-exchange); see the
+Planned in [M15](ROADMAP.md#m15-microsoft-accounts-and-exchange); see the
 [Microsoft guide](integrations/microsoft.md).
 
 | Scenario                                                                            | Coverage                        |
@@ -598,7 +598,7 @@ parentheses are the expected behavior.
 | Login             | `--background` from an entry left after running in the background was turned off shows the window                                                                                                                     | ![Not validated][not-validated]                                                                                                                                 |
 | Login             | Two profiles that both turn on starting after login                                                                                                                                                                   | ![Not validated][not-validated] ([caveat](CAVEATS.md#desktop-integration))                                                                                      |
 | Login             | A Flatpak or Snap sandbox, with the portal accepting, refusing or missing                                                                                                                                             | ![Not validated][not-validated] Request options only: `test_BackgroundRunning`                                                                                  |
-| Login             | Logging in to a real Plasma session with the entry in place                                                                                                                                                           | ![Not validated][not-validated] [M15](ROADMAP.md#m15-real-plasma-session-verification)                                                                          |
+| Login             | Logging in to a real Plasma session with the entry in place                                                                                                                                                           | ![Not validated][not-validated] [M14](ROADMAP.md#m14-real-plasma-session-verification)                                                                          |
 | Window activation | Tokens from `XDG_ACTIVATION_TOKEN` or `DESKTOP_STARTUP_ID`; empty, overlong and space or control-character tokens ignored                                                                                             | ![Offscreen tests][offscreen] `test_ActivationToken`                                                                                                            |
 | Window activation | A token used once, replaced by a newer one, dropped after 20 seconds, and dropped when the clock is set back                                                                                                          | ![Offscreen tests][offscreen] `test_ActivationToken`                                                                                                            |
 | Window activation | Plasma Search's token handed over before `Run`, directly and over a peer-to-peer D-Bus connection                                                                                                                     | ![Offscreen tests][offscreen] `test_KRunnerBridge`                                                                                                              |

@@ -1,6 +1,6 @@
 # Settings and notifications refinement
 
-**[Documentation](../README.md)** · **[Roadmap: M14](../ROADMAP.md#m14-refinements)** ·
+**[Documentation](../README.md)** · **[Roadmap: M13](../ROADMAP.md#m13-refinements)** ·
 **[Refinements](README.md)** ·
 **[Previous: Security and privacy](06-security-and-privacy.md)** ·
 **[Next: Desktop, services and assets](08-desktop-services-and-assets.md)**
@@ -13,7 +13,7 @@ Legend: ![Backlog][backlog] on the project board, not started
 
 | Roadmap subsection                                                  | Issue                                                               | Board               |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------- |
-| [M14.08: Settings and notifications](../ROADMAP.md#m14-refinements) | [#27](https://github.com/mikepadiernos/plasma-impresario/issues/27) | ![Backlog][backlog] |
+| [M13.08: Settings and notifications](../ROADMAP.md#m13-refinements) | [#27](https://github.com/mikepadiernos/plasma-impresario/issues/27) | ![Backlog][backlog] |
 
 ## Current state
 

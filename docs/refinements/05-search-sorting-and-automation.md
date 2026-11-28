@@ -1,6 +1,6 @@
 # Search, sorting, and automation refinement
 
-**[Documentation](../README.md)** · **[Roadmap: M14](../ROADMAP.md#m14-refinements)** ·
+**[Documentation](../README.md)** · **[Roadmap: M13](../ROADMAP.md#m13-refinements)** ·
 **[Refinements](README.md)** ·
 **[Previous: Reading, composition and attachments](04-reading-composition-and-attachments.md)** ·
 **[Next: Security and privacy](06-security-and-privacy.md)**
@@ -12,7 +12,7 @@ Legend: ![Backlog][backlog] on the project board, not started
 
 | Roadmap subsection                                                       | Issue                                                               | Board               |
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------- | ------------------- |
-| [M14.06: Search, sorting, and automation](../ROADMAP.md#m14-refinements) | [#25](https://github.com/mikepadiernos/plasma-impresario/issues/25) | ![Backlog][backlog] |
+| [M13.06: Search, sorting, and automation](../ROADMAP.md#m13-refinements) | [#25](https://github.com/mikepadiernos/plasma-impresario/issues/25) | ![Backlog][backlog] |
 
 ## Current state
 

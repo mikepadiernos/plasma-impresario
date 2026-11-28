@@ -1,6 +1,6 @@
 # Desktop, services, and assets refinement
 
-**[Documentation](../README.md)** · **[Roadmap: M14](../ROADMAP.md#m14-refinements)** ·
+**[Documentation](../README.md)** · **[Roadmap: M13](../ROADMAP.md#m13-refinements)** ·
 **[Refinements](README.md)** ·
 **[Previous: Settings and notifications](07-settings-and-notifications.md)** ·
 **[Next: Calendar and contacts](09-calendar-and-contacts.md)**
@@ -12,7 +12,7 @@ Legend: ![Backlog][backlog] on the project board, not started
 
 | Roadmap subsection                                                     | Issue                                                               | Board               |
 | ---------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------- |
-| [M14.09: Desktop, services, and assets](../ROADMAP.md#m14-refinements) | [#28](https://github.com/mikepadiernos/plasma-impresario/issues/28) | ![Backlog][backlog] |
+| [M13.09: Desktop, services, and assets](../ROADMAP.md#m13-refinements) | [#28](https://github.com/mikepadiernos/plasma-impresario/issues/28) | ![Backlog][backlog] |
 
 ## Current state
 

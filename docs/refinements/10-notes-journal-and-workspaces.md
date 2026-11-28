@@ -1,6 +1,6 @@
 # Notes, journal, and workspaces refinement
 
-**[Documentation](../README.md)** · **[Roadmap: M14](../ROADMAP.md#m14-refinements)** ·
+**[Documentation](../README.md)** · **[Roadmap: M13](../ROADMAP.md#m13-refinements)** ·
 **[Refinements](README.md)** ·
 **[Previous: Calendar and contacts](09-calendar-and-contacts.md)**
 
@@ -11,7 +11,7 @@ Legend: ![Backlog][backlog] on the project board, not started
 
 | Roadmap subsection                                                      | Issue                                                               | Board               |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------- |
-| [M14.11: Notes, journal, and workspaces](../ROADMAP.md#m14-refinements) | [#30](https://github.com/mikepadiernos/plasma-impresario/issues/30) | ![Backlog][backlog] |
+| [M13.11: Notes, journal, and workspaces](../ROADMAP.md#m13-refinements) | [#30](https://github.com/mikepadiernos/plasma-impresario/issues/30) | ![Backlog][backlog] |
 
 ## Current state
 

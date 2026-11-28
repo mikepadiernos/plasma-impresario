@@ -146,7 +146,7 @@ files from this section.
   receives only the domain, and `test_OAuth` checks the sign-in request.
 - ![Needs verification][needs-verification] What notifications, Plasma
   Search and the portals show in a real Plasma session belongs to
-  [M15](../ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](../ROADMAP.md#m14-real-plasma-session-verification).
 - ![Limitation][limitation] The check works per file, and libraries such as
   GnuPG follow their own settings. See
   [External services and outbound calls](../CAVEATS.md#external-services-and-outbound-calls).

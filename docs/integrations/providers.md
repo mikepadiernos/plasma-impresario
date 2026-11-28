@@ -13,7 +13,7 @@ the current build, as of 2026-11-27. Planned provider work is tracked in
 [M06.05](../ROADMAP.md#m06-desktop-integration-and-provider-support)
 ([#43](https://github.com/mikepadiernos/plasma-impresario/issues/43)), and
 Microsoft accounts beyond IMAP and SMTP in
-[M13](../ROADMAP.md#m13-microsoft-accounts-and-exchange).
+[M15](../ROADMAP.md#m15-microsoft-accounts-and-exchange).
 
 Legend: ![Done][done] · ![Needs verification][needs-verification] ·
 ![Limitation][limitation] · ![Planned][planned]
@@ -43,9 +43,9 @@ Legend: ![Done][done] · ![Needs verification][needs-verification] ·
 | ------------------------------ | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | Finding server settings        | ![Needs verification][needs-verification] | **Find Settings** in **Add Account** looks up the servers from the email address ([#372](https://github.com/mikepadiernos/plasma-impresario/issues/372)); not tried against real providers                                                                  | M06.05                                                                       |
 | Passwords and app passwords    | ![Done][done]                             | IMAP and SMTP sign in with the account or app password, kept by the password plugin                                                                                                                                                                         | —                                                                            |
-| OAuth for Google and Microsoft | ![Needs verification][needs-verification] | Browser sign-in with PKCE; XOAUTH2 or OAUTHBEARER for IMAP and SMTP ([#218](https://github.com/mikepadiernos/plasma-impresario/issues/218)); no client ID is built in                                                                                       | M13.01                                                                       |
+| OAuth for Google and Microsoft | ![Needs verification][needs-verification] | Browser sign-in with PKCE; XOAUTH2 or OAUTHBEARER for IMAP and SMTP ([#218](https://github.com/mikepadiernos/plasma-impresario/issues/218)); no client ID is built in                                                                                       | M15.01                                                                       |
 | Gmail                          | ![Needs verification][needs-verification] | Works over IMAP and SMTP; Gmail search keys are offered. Labels show as chips on the open message, **Archive** uses **All Mail**, and sent messages are not uploaded twice. Not tried against real Gmail ([caveat](../CAVEATS.md#provider-setup-and-gmail)) | M06.05 [#43](https://github.com/mikepadiernos/plasma-impresario/issues/43)   |
-| Outlook.com and Microsoft 365  | ![Needs verification][needs-verification] | IMAP and SMTP with OAuth only; see the [Microsoft guide](microsoft.md)                                                                                                                                                                                      | [M13](../ROADMAP.md#m13-microsoft-accounts-and-exchange)                     |
+| Outlook.com and Microsoft 365  | ![Needs verification][needs-verification] | IMAP and SMTP with OAuth only; see the [Microsoft guide](microsoft.md)                                                                                                                                                                                      | [M15](../ROADMAP.md#m15-microsoft-accounts-and-exchange)                     |
 | Generic IMAP and SMTP          | ![Done][done]                             | Any server with IMAP4rev1 and SMTP submission; optional extensions are used when offered                                                                                                                                                                    | —                                                                            |
 | POP3                           | ![Needs verification][needs-verification] | Downloads into a store on this computer over TLS or STLS, with a chosen server retention; sends through SMTP. Tried against Dovecot only ([caveat](../CAVEATS.md#pop3-accounts))                                                                            | M06.05 [#216](https://github.com/mikepadiernos/plasma-impresario/issues/216) |
 | JMAP                           | ![Needs verification][needs-verification] | Keeps a copy of the server's folders and messages on this computer, synchronized both ways; sends through the JMAP server or SMTP. Tried against Stalwart only ([caveat](../CAVEATS.md#jmap-accounts))                                                      | M06.05 [#217](https://github.com/mikepadiernos/plasma-impresario/issues/217) |
@@ -165,7 +165,7 @@ The limitations are in [OAuth sign-in](../CAVEATS.md#oauth-sign-in).
 - Only the `common` tenant is supported. Organizations that allow only their
   own tenant need an app registration that accepts it.
 - Calendar, contacts, tasks, Graph mail and Exchange Server are planned in
-  [M13](../ROADMAP.md#m13-microsoft-accounts-and-exchange). See the
+  [M15](../ROADMAP.md#m15-microsoft-accounts-and-exchange). See the
   [Microsoft guide](microsoft.md).
 
 ## Generic IMAP and SMTP
@@ -314,7 +314,7 @@ synchronization stay on this computer. See
   account, removal and a wrong password.
 - **Not yet tried:** real Gmail, Outlook.com, Microsoft 365, Yahoo, iCloud,
   AOL, GMX, WEB.DE and Posteo accounts, and OAuth against the real providers.
-  That is [M15](../ROADMAP.md#m15-real-plasma-session-verification) and the
+  That is [M14](../ROADMAP.md#m14-real-plasma-session-verification) and the
   [provider caveat](../CAVEATS.md#provider-setup-and-gmail).
 
 [done]: https://img.shields.io/badge/Done-1a7f37

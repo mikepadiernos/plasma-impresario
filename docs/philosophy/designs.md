@@ -59,7 +59,7 @@ Legend: ![Done][done] · ![Needs verification][needs-verification] ·
 > The shell described in this section was built in M02 and extended in M03 and
 > M04. Offscreen tests and opt-in live IMAP tests against a synthetic Dovecot
 > server in `tools/dev-container/` cover it; it has not been verified in a real
-> Plasma session, which M15
+> Plasma session, which M14
 > ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319))
 > tracks.
 
@@ -132,9 +132,9 @@ check is [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315).
 | Address-book names, photos and organizations in Contacts                                                   | ![Done][done]               | M06.04    | [#305](https://github.com/mikepadiernos/plasma-impresario/issues/305)                                                                                                                                           |
 | Optional mail workspace tabs                                                                               | ![Done][done]               | M08       | [#246](https://github.com/mikepadiernos/plasma-impresario/issues/246)                                                                                                                                           |
 | Themes and appearance                                                                                      | ![In progress][in-progress] | M09       | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10); [roadmap](../ROADMAP.md#m09-themes-and-branding-foundation)                                                                                |
-| Designed header with search, compose, account switcher and status                                          | ![Planned][planned]         | M14.02    | [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306)                                                                                                                                           |
-| Sliding and floating panels; rearranging panels in customization mode                                      | ![Planned][planned]         | M14.02    | [#307](https://github.com/mikepadiernos/plasma-impresario/issues/307)                                                                                                                                           |
-| Toolbar customization and the navigation icon toolbar                                                      | ![Planned][planned]         | M14.02    | [#151](https://github.com/mikepadiernos/plasma-impresario/issues/151)                                                                                                                                           |
+| Designed header with search, compose, account switcher and status                                          | ![Planned][planned]         | M13.02    | [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306)                                                                                                                                           |
+| Sliding and floating panels; rearranging panels in customization mode                                      | ![Planned][planned]         | M13.02    | [#307](https://github.com/mikepadiernos/plasma-impresario/issues/307)                                                                                                                                           |
+| Toolbar customization and the navigation icon toolbar                                                      | ![Planned][planned]         | M13.02    | [#151](https://github.com/mikepadiernos/plasma-impresario/issues/151)                                                                                                                                           |
 
 ### Layouts and regions
 
@@ -181,7 +181,7 @@ account, the current folder and the account's status when it needs attention.
 It is off by default, saved as `ShowHeader` in the `Appearance` group of
 `plasma-impresariorc`, and is the first region in the <kbd>F6</kbd> focus cycle
 while shown. The designed header with search, compose and the account switcher
-remains planned for M14.02
+remains planned for M13.02
 ([#306](https://github.com/mikepadiernos/plasma-impresario/issues/306)).
 
 Actions the active account's protocol cannot perform are hidden rather than
@@ -793,8 +793,8 @@ of supporting panels.
 | Sidebar panels       | Account groups, folder navigation, saved views and similar navigation panels in either side column.                                                                                    | ![Done][done] folder sidebar ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)) and account groups ([#80](https://github.com/mikepadiernos/plasma-impresario/issues/80))                                                      |
 | Main content panes   | Message list and reading pane in the main column, side by side or stacked, preserving account, folder and message context when the arrangement changes.                                | ![Done][done] [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                                                                                                |
 | Embedded panels      | Message metadata, attachments, contacts and similar tools in a side column, below the reader or in the footer. Panels in main-column space preserve the message-list and reader state. | ![Done][done] [#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)                                                                                                                                                                |
-| Sliding and floating | Additional configurable placements outside the five fixed regions, following the Plasma Opus design, with panels rearranged in the customization mode.                                 | ![Planned][planned] M14.02 [#307](https://github.com/mikepadiernos/plasma-impresario/issues/307)                                                                                                                                                 |
-| Header               | Global actions, search, compose, account switcher and connection context.                                                                                                              | ![Done][done] account, folder and status ([#74](https://github.com/mikepadiernos/plasma-impresario/issues/74)); ![Planned][planned] search, compose and switcher in M14.02 [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306) |
+| Sliding and floating | Additional configurable placements outside the five fixed regions, following the Plasma Opus design, with panels rearranged in the customization mode.                                 | ![Planned][planned] M13.02 [#307](https://github.com/mikepadiernos/plasma-impresario/issues/307)                                                                                                                                                 |
+| Header               | Global actions, search, compose, account switcher and connection context.                                                                                                              | ![Done][done] account, folder and status ([#74](https://github.com/mikepadiernos/plasma-impresario/issues/74)); ![Planned][planned] search, compose and switcher in M13.02 [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306) |
 | Footer and status    | Sync progress, errors and background-work status.                                                                                                                                      | ![Done][done] connection status ([#79](https://github.com/mikepadiernos/plasma-impresario/issues/79)); ![Planned][planned] sync and task status                                                                                                  |
 
 ### Embedded panels
@@ -881,7 +881,7 @@ single-workspace shell without a tab bar.
 
 > [!NOTE]
 >
-> Planned for M14.02
+> Planned for M13.02
 > ([#151](https://github.com/mikepadiernos/plasma-impresario/issues/151)). Today
 > the existing Navigation toolbar docks at the left window edge and the menu bar
 > is hidden by default.
@@ -1056,7 +1056,7 @@ completion criteria:
 
 > [!NOTE]
 >
-> Tracked in M14.07
+> Tracked in M13.07
 > ([#185](https://github.com/mikepadiernos/plasma-impresario/issues/185)); not
 > implemented beyond the inherited Trojitá actions **Mark as Junk**
 > (<kbd>J</kbd>) and **Mark as Not Junk** (<kbd>Shift</kbd>+<kbd>J</kbd>),
@@ -1152,7 +1152,7 @@ otherwise.
 The **Compact**, **Wide** and **One At a Time** layouts arrange panes; the
 separate **Row Density** menu sets compact or comfortable row spacing. A
 **Focus** layout preset in the settings hides the side regions to focus on
-reading (M08); it is validated in M14.02.
+reading (M08); it is validated in M13.02.
 
 Prototype each density with realistic mail data and long folder names. Preserve
 saved splitter sizes where practical, and test keyboard navigation and message
@@ -1164,7 +1164,7 @@ selection while switching layouts.
 | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1. Record the current main-window behavior and its acceptance tests              | ![Done][done] Offscreen QtTest suites such as `test_EmbeddedPanels`, `test_MainWindowDensity` and `test_SessionRestart`                                                                                               |
 | 2. Build the new shell without changing IMAP, cache or composition behavior      | ![Done][done] Merged in M02 ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35))                                                                                                                     |
-| 3. Validate layouts, accessibility and navigation with representative data       | ![In progress][in-progress] Synthetic Dovecot checks (`test_LiveImapPanels`) pass; a real Plasma session (M15, [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)) and accessibility review remain |
+| 3. Validate layouts, accessibility and navigation with representative data       | ![In progress][in-progress] Synthetic Dovecot checks (`test_LiveImapPanels`) pass; a real Plasma session (M14, [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)) and accessibility review remain |
 | 4. Migrate settings and saved window state only after the new behavior is tested | ![Done][done] Pane sizes saved before the shell carry over the first time each layout opens ([#422](https://github.com/mikepadiernos/plasma-impresario/pull/422))                                                     |
 
 [decided]: https://img.shields.io/badge/Decided-1a7f37
