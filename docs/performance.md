@@ -32,6 +32,7 @@ responsiveness budgets · ![Limitation][limitation] known limitation, see
 - [Four times the size](#four-times-the-size)
 - [Live server](#live-server)
 - [Search index](#search-index)
+- [Background header loading](#background-header-loading)
 - [Findings](#findings)
 - [Budgets](#budgets)
 - [Not measured yet](#not-measured-yet)
@@ -206,6 +207,25 @@ event-loop pass while building or updating, 500 ms per search, a build of
 5,000 ms or 0.2 ms per message, whichever is larger, and an unchanged update
 with CONDSTORE of 100 ms.
 
+## Background header loading
+
+Measured on 2026-11-28 for
+[#379](https://github.com/mikepadiernos/plasma-impresario/issues/379): a folder
+of 50,000 messages, 500 of them from the last 30 days, is synchronized, and the
+background loader then asks for headers while the fake server answers at once.
+The loader stops at its default limit of 5,000 messages. Run it with
+`test_Imap_Workloads testHeaderBackfill`; the median of three runs is shown.
+
+| Step                      | Headers | Time    | Longest pass | Memory   | Status                          |
+| ------------------------- | ------- | ------- | ------------ | -------- | ------------------------------- |
+| Recent messages, 100 each | 500     | ~321 ms | ~15 ms       | +0.8 MiB | ![Within budget][within-budget] |
+| Older messages, 50 each   | 4,500   | ~4.45 s | ~22 ms       | +2 MiB   | ![Within budget][within-budget] |
+
+Most of the time is the 50 ms the loader waits before it looks again whether the
+connection is free, once per batch: 90 batches of older messages take about
+4.5 s of waiting. Against a real server, each batch also waits for the server's
+answer, and anything the user asks for in the meantime goes first.
+
 ## Findings
 
 - ![Within budget][within-budget] Sync, conversations, bulk flag changes and
@@ -214,6 +234,10 @@ with CONDSTORE of 100 ms.
   about linearly, at about 0.8 KB per message, and keeps each event-loop pass
   under 50 ms while it builds. Without CONDSTORE, every update compares every
   cached message's flags again, about 156 ms per 50,000 messages.
+- ![Within budget][within-budget] [Background header
+  loading](#background-header-loading) keeps each event-loop pass under 25 ms
+  and loads the 500 recent headers of a 50,000-message folder in about 0.3 s
+  after the folder is open.
 - ![Limitation][limitation] **Removals grow with the square of the size.** Each
   removed message renumbers every message after it. One `EXPUNGE` at a time
   keeps the window responding, because each response is a separate pass, but
@@ -238,16 +262,18 @@ budget, and no single event-loop pass may take longer than 250 ms. The
 exception is the `VANISHED` workload, which is allowed 1,500 ms per pass
 because of the limitation above; lower it when removals are batched.
 
-| Workload              | Time budget | Pass budget  |
-| --------------------- | ----------- | ------------ |
-| `sync-large-folder`   | 3,000 ms    | not measured |
-| `filter-large-folder` | 1,500 ms    | 250 ms       |
-| `long-conversation`   | 500 ms      | 250 ms       |
-| `bulk-mark-read`      | 1,000 ms    | 250 ms       |
-| `bulk-expunge`        | 8,000 ms    | 250 ms       |
-| `bulk-vanished`       | 3,000 ms    | 1,500 ms     |
-| `many-attachments`    | 500 ms      | 250 ms       |
-| `large-attachment`    | 2,000 ms    | 250 ms       |
+| Workload                  | Time budget | Pass budget  |
+| ------------------------- | ----------- | ------------ |
+| `sync-large-folder`       | 3,000 ms    | not measured |
+| `filter-large-folder`     | 1,500 ms    | 250 ms       |
+| `long-conversation`       | 500 ms      | 250 ms       |
+| `bulk-mark-read`          | 1,000 ms    | 250 ms       |
+| `bulk-expunge`            | 8,000 ms    | 250 ms       |
+| `bulk-vanished`           | 3,000 ms    | 1,500 ms     |
+| `many-attachments`        | 500 ms      | 250 ms       |
+| `large-attachment`        | 2,000 ms    | 250 ms       |
+| `backfill-recent-headers` | 3,000 ms    | 250 ms       |
+| `backfill-older-headers`  | 60,000 ms   | 250 ms       |
 
 The budgets are several times the measured values so that slower machines and
 loaded CI runners pass; they catch large regressions, not small ones.

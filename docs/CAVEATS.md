@@ -53,6 +53,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Performance and resource use](#performance-and-resource-use)
   - [Sanitizers and data races](#sanitizers-and-data-races)
   - [Persistent outbox](#persistent-outbox)
+  - [Background header loading](#background-header-loading)
   - [Accessibility and theming](#accessibility-and-theming)
   - [Provider setup and Gmail](#provider-setup-and-gmail)
   - [Junk and attachment safety](#junk-and-attachment-safety)
@@ -2252,6 +2253,52 @@ Plasma session; that check is
   online.
 - Keep attachments with drafts, which also lifts the composing caveat
   ([#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)).
+
+### Background header loading
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                        |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| [#509](https://github.com/mikepadiernos/plasma-impresario/issues/509) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/509#issuecomment-7235460254) | Background header loading ([#379](https://github.com/mikepadiernos/plasma-impresario/issues/379)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] While the connection has nothing else to do, the open
+  folder's headers load in the background: first the messages the server
+  received during the last 30 days, newest first, then the rest from the
+  newest down. Anything the user asks for, and a message waiting in the
+  outbox, goes first. Each event-loop pass stays under 25 ms
+  ([measurements](performance.md#background-header-loading)).
+- ![Limitation][limitation] Only the folder that is open in each account is
+  filled; other folders load their headers when they are opened, as before.
+- ![Limitation][limitation] Loading waits while network access is set to
+  expensive and resumes when it is set back to online. Going offline stops
+  it; it starts over once the folder is synchronized again.
+- ![Limitation][limitation] At most 5,000 headers are loaded each time a
+  folder is synchronized, to bound memory use, and headers already in the
+  offline cache count toward that limit.
+- ![Limitation][limitation] "Recent" follows the server's `SINCE` search,
+  which uses the date the server received a message, not its `Date` header,
+  so messages imported or moved recently count as recent.
+- ![Limitation][limitation] A message that the server leaves out of its answer
+  stays shown as loading until the folder is synchronized again, as for any
+  header fetch.
+- ![Limitation][limitation] There is no setting to turn it off or change the
+  limit, and no progress is shown.
+
+**Workarounds:**
+
+- Scroll through a folder once to load headers past the limit.
+- On a metered connection, set network access to online briefly so that the
+  recent headers load, then back to expensive.
+- Reload a folder whose messages stay shown as loading.
+
+**Proposed improvements:**
+
+- Ask once more for headers the server left out of its answer.
+- Add an account setting to turn background loading off and choose the limit.
+- Fill the other cached folders too, one at a time, while nothing else is open.
+- Show progress in the account's status.
+- Count only headers fetched from the server toward the limit.
 
 ### Accessibility and theming
 
