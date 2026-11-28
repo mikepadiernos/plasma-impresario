@@ -73,7 +73,7 @@ ContactPanel::ContactPanel(QWidget *parent)
     setContentWidget(m_list);
     setPreferredRows(4);
 
-    refresh();
+    ContactPanel::refresh();
 }
 
 bool ContactPanel::hasContent() const
