@@ -8463,10 +8463,25 @@ void MainWindow::slotSaveCurrentMessageBody()
 
 void MainWindow::slotDownloadTransferError(const QString &errorString)
 {
-    // Reported both when the data cannot be downloaded, for example offline, and when the file cannot be written
-    Gui::Util::messageBoxCritical(this, i18nc("@title:window", "Could Not Save File"),
-                                  i18nc("@info %1 is an error message", "The file could not be downloaded or saved.\n%1",
-                                        errorString));
+    // Reported both when the data cannot be downloaded, for example offline, and when the file cannot be written.
+    // Neither needs an answer, so it is reported without a dialog and kept in the activity.
+    const QString title = i18nc("@info", "The file could not be downloaded or saved");
+    if (m_mailAutomation) {
+        UiUtils::ActivityLog::Entry entry;
+        entry.kind = UiUtils::ActivityLog::Kind::Job;
+        entry.state = UiUtils::ActivityLog::State::Failed;
+        entry.title = title;
+        entry.error = errorString;
+        m_mailAutomation->activity()->record(entry);
+    }
+    const QString text = i18nc("@info %1 is what failed, %2 the reason", "%1: %2", title, errorString);
+    if (!m_notificationBar) {
+        showStatusMessage(text);
+        return;
+    }
+    m_notificationBar->showMessage(InlineNotificationBar::Kind::Error, text,
+        {{i18nc("@action:button", "Show Activity…"), QStringLiteral("view-history"),
+          QStringLiteral("showDownloadActivity"), [this]() { showActivity(); }}});
 }
 
 void MainWindow::slotDownloadMessageFileNameRequested(QString *fileName)
