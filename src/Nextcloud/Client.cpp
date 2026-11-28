@@ -512,7 +512,7 @@ void Client::start(RequestId id, Request request)
             request.failed(Failure::Network,
                 reply->error() == QNetworkReply::OperationCanceledError
                     ? tr("The Nextcloud server did not answer in time.")
-                    : reply->errorString());
+                    : tr("The Nextcloud server could not be reached (%1).").arg(reply->errorString()));
             return;
         }
         request.done(status, body);
