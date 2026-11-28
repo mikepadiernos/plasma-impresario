@@ -147,7 +147,7 @@ QStringList auditOpenedWindow(const std::function<void()> &open, QString *title)
     });
     poll.start();
     open();
-    QTest::qWaitFor([&] { return seen; }, 5000);
+    (void)QTest::qWaitFor([&] { return seen; }, 5000);
     poll.stop();
     if (!seen)
         found.append(QStringLiteral("no window opened"));
