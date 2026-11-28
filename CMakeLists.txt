@@ -450,6 +450,7 @@ set(libComposer_SOURCES
     ${path_Composer}/HeaderSafety.cpp
     ${path_Composer}/Mailto.cpp
     ${path_Composer}/MessageComposer.cpp
+    ${path_Composer}/Outbox.cpp
     ${path_Composer}/QuoteText.cpp
     ${path_Composer}/Recipients.cpp
     ${path_Composer}/ReplaceSignature.cpp
@@ -1572,6 +1573,7 @@ if(BUILD_TESTING)
         endif()
     endif()
     impresario_test(Composer Composer_Submission)
+    impresario_test(Composer Composer_Outbox)
     impresario_test(Composer Composer_Existing)
     impresario_test(Composer Composer_AttachmentRequests)
     impresario_test(Composer Composer_HeaderSafety)

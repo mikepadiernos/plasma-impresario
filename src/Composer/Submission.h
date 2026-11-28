@@ -39,6 +39,7 @@ class Model;
 }
 
 namespace MSA {
+class AbstractMSA;
 class MSAFactory;
 }
 
@@ -70,6 +71,11 @@ public:
     void setForeignSource(const bool foreign);
 
     void send();
+
+    /** @short Whether the copy for the Sent folder has already been stored */
+    bool sentCopyFiled() const;
+    /** @short Whether the server permanently refused the message, so retrying it cannot help */
+    bool refused() const;
 
     /** @short Progress of the current submission */
     enum SubmissionProgress {
@@ -146,6 +152,9 @@ private:
     QString m_smtpUsername;
     bool m_useImapSubmit;
     bool m_foreignSource = false;
+    bool m_sentCopyFiled = false;
+    bool m_refused = false;
+    QPointer<MSA::AbstractMSA> m_msa;
 
     SubmissionProgress m_state;
     QByteArray m_rawMessageData;
