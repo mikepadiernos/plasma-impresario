@@ -30,6 +30,11 @@ notes
 
 - [Workflows](#workflows)
 - [Live test slots](#live-test-slots)
+- [Desktop scenarios](#desktop-scenarios)
+  - [Scenarios](#scenarios)
+  - [Running the scenarios](#running-the-scenarios)
+  - [Screenshots](#screenshots)
+  - [Found while running the scenarios](#found-while-running-the-scenarios)
 - [How to run](#how-to-run)
 - [What is not covered](#what-is-not-covered)
 
@@ -94,6 +99,86 @@ Maildir while the window runs:
 The recording notifier then receives one notification for the two messages
 left in the INBOX. The archived invoice is not announced.
 
+## Desktop scenarios
+
+The live slots above drive `MainWindow` from inside a test. The desktop
+scenarios drive the installed application from outside, as a person and a
+screen reader would
+([#380](https://github.com/mikepadiernos/plasma-impresario/issues/380)):
+`tools/e2e/scenarios.py` finds controls through AT-SPI, clicks and types with
+`xdotool`, and checks the server's Maildir, the sendmail stand-in and the
+desktop services. Each scenario leaves screenshots and a line in
+`build-e2e/report.md` and `report.tsv`; a failing one also leaves a dump of the
+accessible tree.
+
+> [!NOTE]
+>
+> The scenarios run on Xvfb with Openbox and plain Qt, not in a Plasma session.
+> `tools/e2e/desktop_mocks.py` stands in for Plasma's notification server and
+> tray host and records what the application sends them. The screenshots show
+> Qt's Fusion style, not Breeze.
+
+### Scenarios
+
+Recorded on 2026-11-28: 9 of 9 pass.
+
+| Scenario        | What it does                                                                                                                                | Status        |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `setup`         | Starts with an empty profile; fills an identity and the IMAP and SMTP pages from the keyboard, accepts the new certificate, and opens INBOX | ![Pass][pass] |
+| `reading`       | Opens a message with two attachments; checks the attachments panel and the reader's attachment button                                       | ![Pass][pass] |
+| `hostile`       | Opens HTML mail with a remote image and a misleading link; checks that remote content is blocked and **Load Remote Content** is offered     | ![Pass][pass] |
+| `search`        | Narrows INBOX with the quick search and clears it again                                                                                     | ![Pass][pass] |
+| `delete-undo`   | Moves a message to Trash from the reader and restores it with **Undo**                                                                      | ![Pass][pass] |
+| `compose`       | Writes a message from <kbd>Ctrl</kbd>+<kbd>N</kbd> and sends it; checks the sendmail stand-in and the copy in Sent                          | ![Pass][pass] |
+| `tray`          | Checks that the tray icon registers, its tooltip shows the unread count, and activating it hides and shows the window                       | ![Pass][pass] |
+| `notifications` | Delivers mail while the window is hidden and checks the desktop notification                                                                | ![Pass][pass] |
+| `restart`       | Quits with <kbd>Ctrl</kbd>+<kbd>Q</kbd>, starts again and checks that the last folder reopens                                               | ![Pass][pass] |
+
+### Running the scenarios
+
+Build first, then:
+
+```sh
+tools/dev-container/run.sh sh tools/dev-container/e2e-scenarios.sh build
+tools/dev-container/run.sh sh tools/dev-container/e2e-scenarios.sh build reading,compose
+```
+
+The script installs the build into the throwaway container, seeds a synthetic
+Dovecot with invented `example.test` mail, prepares a profile, and starts Xvfb,
+Openbox, the session and accessibility buses and the stand-ins. Every scenario
+except `setup` starts from that profile. Output goes to `build-e2e/`, or to
+`PLASMA_E2E_OUT`.
+
+### Screenshots
+
+Taken by the scenarios from invented mail; plain Qt, not Plasma.
+
+| Reading with the attachments panel                     | Remote content blocked                                                     |
+| ------------------------------------------------------ | -------------------------------------------------------------------------- |
+| ![Reading a message](screenshots/scenario-reading.png) | ![Remote content blocked](screenshots/scenario-remote-content-blocked.png) |
+| **Quick search**                                       | **Composer**                                                               |
+| ![Quick search](screenshots/scenario-search.png)       | ![Composer](screenshots/scenario-composer.png)                             |
+
+### Found while running the scenarios
+
+- ![Pass][pass] **The English tray tooltip ran together.** The English
+  catalog dropped the separator, so the tooltip read "Plasma Impresario4
+  unread messages". Fixed in `poqm/en`; the `tray` scenario checks for it.
+- ![Pass][pass] **Server keywords showed as tags.** Dovecot's attachment
+  detection sets `$HasAttachment` and `$HasNoAttachment`, and the reader
+  listed them as removable tags. They are now treated like the other server
+  keywords: hidden from the tags and refused as new tags. Covered by
+  `test_TagListWidget`.
+- ![Not covered][not-covered] **The reader overflows sideways.** It shows a
+  horizontal scroll bar and clips the right end of the header at both window
+  sizes used. Recorded in [edge cases](EDGE.md#interface-and-embedded-panels)
+  to check with Breeze in a Plasma session.
+- ![Not covered][not-covered] **The window returns to its earlier size** when
+  the first message opens after a resize, under Xvfb and Openbox. The runner
+  resizes it again; recorded in
+  [edge cases](EDGE.md#interface-and-embedded-panels) to check in a Plasma
+  session.
+
 ## How to run
 
 Each script starts its own throwaway server in the development container and
@@ -114,12 +199,14 @@ its own.
   [M15 Plasma session verification](TODO.md#m15-real-plasma-session-verification).
 - SMTP delivery. The live tests send through a local sendmail script; see
   [#450](https://github.com/mikepadiernos/plasma-impresario/issues/450).
-- Desktop notifications and KWallet. The live test replaces desktop
-  notifications with a recording notifier, and the container has no Secret
-  Service. Both need a Plasma session.
+- Plasma's notification server, tray and KWallet. The live test replaces
+  desktop notifications with a recording notifier, the desktop scenarios use
+  stand-ins on the session bus, and the container has no Secret Service. All
+  three need a Plasma session.
 - The **Review Rule…** button in the notification bar. The test checks the
   activity entry that the button opens, but does not click the button.
 
 [live]: https://img.shields.io/badge/Live-2da44e
 [not-covered]: https://img.shields.io/badge/Not_covered-6e7781
 [offscreen]: https://img.shields.io/badge/Offscreen-0969da
+[pass]: https://img.shields.io/badge/Pass-1a7f37
