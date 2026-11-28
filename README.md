@@ -871,6 +871,7 @@ boundaries.
 | [Roadmap](docs/ROADMAP.md)                          | Milestones, status and issue links                                                  |
 | [Interface design](docs/philosophy/designs.md)      | The current shell and the planned Plasma Impresario design                          |
 | [Pending tasks](docs/TODO.md)                       | Blockers, verification records and handoffs                                         |
+| [Release readiness](docs/RELEASE.md)                | Release criteria, known issues and the caveat triage                                |
 | [Bugs](docs/BUGS.md) and [caveats](docs/CAVEATS.md) | Reported issues, limitations and security guidance                                  |
 | [Contributing](CONTRIBUTING.md)                     | Development workflow, documentation style and the dev container                     |
 
