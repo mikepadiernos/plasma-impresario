@@ -1064,7 +1064,7 @@ Mailbox performance [#52](https://github.com/mikepadiernos/plasma-impresario/iss
       measure indexing time, disk use and query latency. See
       [M05](#m05-search-and-indexing).
       [#357](https://github.com/mikepadiernos/plasma-impresario/issues/357)
-- [ ] Queue sending and draft saves in a persistent outbox that survives
+- [x] Queue sending and draft saves in a persistent outbox that survives
       restarts and offline periods, never sends a message twice even if filing it in
       Sent fails, and turns a refused message back into a draft. See
       [E-Mail](philosophy/inspirations.md#e-mail).
