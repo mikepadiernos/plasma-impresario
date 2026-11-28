@@ -174,9 +174,10 @@ UnSelectTask *TaskFactory::createUnSelectTask(Model *model, ImapTask *parentTask
     return new UnSelectTask(model, parentTask);
 }
 
-SortTask *TaskFactory::createSortTask(Model *model, const QModelIndex &mailbox, const QStringList &searchConditions, const QStringList &sortCriteria)
+SortTask *TaskFactory::createSortTask(Model *model, const QModelIndex &mailbox, const QStringList &searchConditions,
+    const QStringList &sortCriteria, bool wantUpdates)
 {
-    return new SortTask(model, mailbox, searchConditions, sortCriteria);
+    return new SortTask(model, mailbox, searchConditions, sortCriteria, wantUpdates);
 }
 
 AppendTask *TaskFactory::createAppendTask(Model *model, const QString &targetMailbox, const QByteArray &rawMessageData,

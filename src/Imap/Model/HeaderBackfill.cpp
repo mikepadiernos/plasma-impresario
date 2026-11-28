@@ -194,9 +194,10 @@ void HeaderBackfill::search()
     const QDate today = m_referenceDate.isValid() ? m_referenceDate : QDate::currentDate();
     const quint64 generation = m_generation;
     m_phase = Phase::Searching;
-    // SINCE looks at the date when the server received a message, which is what the list is sorted by
+    // SINCE looks at the date when the server received a message, which is what the list is sorted by. One answer is
+    // enough, so no search context stays open on the server.
     m_task = m_model->m_taskFactory->createSortTask(
-        m_model, m_mailbox, {QStringLiteral("SINCE"), imapDate(today.addDays(-m_recentDays))}, QStringList());
+        m_model, m_mailbox, {QStringLiteral("SINCE"), imapDate(today.addDays(-m_recentDays))}, QStringList(), false);
     connect(m_task.data(), &SortTask::sortingAvailable, this,
         [this, generation](const Imap::Uids &uids) { searchAnswered(generation, uids); });
     // Without an answer, the recent messages simply come with the rest

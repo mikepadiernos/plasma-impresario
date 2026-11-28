@@ -34,10 +34,16 @@ namespace Imap
 namespace Mailbox
 {
 
-
-SortTask::SortTask(Model *model, const QModelIndex &mailbox, const QStringList &searchConditions, const QStringList &sortCriteria):
-    ImapTask(model), mailboxIndex(mailbox), searchConditions(searchConditions), sortCriteria(sortCriteria),
-    m_persistentSearch(false), m_firstUntaggedReceived(false), m_firstCommandCompleted(false)
+SortTask::SortTask(Model *model, const QModelIndex &mailbox, const QStringList &searchConditions,
+    const QStringList &sortCriteria, bool wantUpdates)
+    : ImapTask(model)
+    , mailboxIndex(mailbox)
+    , searchConditions(searchConditions)
+    , sortCriteria(sortCriteria)
+    , m_persistentSearch(false)
+    , m_wantUpdates(wantUpdates)
+    , m_firstUntaggedReceived(false)
+    , m_firstCommandCompleted(false)
 {
     conn = model->findTaskResponsibleFor(mailbox);
     conn->addDependentTask(this);
@@ -75,7 +81,7 @@ void SortTask::perform()
         if (model->accessParser(parser).capabilitiesFresh &&
                 model->accessParser(parser).capabilities.contains(QStringLiteral("ESEARCH"))) {
             // We always prefer ESEARCH over SEARCH, if only for its embedded reference to the command tag
-            if (model->accessParser(parser).capabilities.contains(QStringLiteral("CONTEXT=SEARCH"))) {
+            if (m_wantUpdates && model->accessParser(parser).capabilities.contains(QStringLiteral("CONTEXT=SEARCH"))) {
                 // Hurray, this IMAP server supports incremental ESEARCH updates
                 m_persistentSearch = true;
                 sortTag = parser->uidESearch("utf-8", searchConditions,
@@ -100,7 +106,7 @@ void SortTask::perform()
         if (model->accessParser(parser).capabilitiesFresh &&
                 model->accessParser(parser).capabilities.contains(QStringLiteral("ESORT"))) {
             // ESORT's better than regular SORT, if only for its embedded reference to the command tag
-            if (model->accessParser(parser).capabilities.contains(QStringLiteral("CONTEXT=SORT"))) {
+            if (m_wantUpdates && model->accessParser(parser).capabilities.contains(QStringLiteral("CONTEXT=SORT"))) {
                 // Hurray, this IMAP server supports incremental SORT updates
                 m_persistentSearch = true;
                 sortTag = parser->uidESort(sortCriteria, "utf-8", searchConditions,
