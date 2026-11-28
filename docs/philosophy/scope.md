@@ -26,8 +26,8 @@ Legend: ![Decided][decided] · ![Done][done] ·
 ```mermaid
 flowchart TD
     F["Foundations: compatibility, shell and accounts, mail operations, reading (M01–M04, merged)"]
-    X["Expansion: search, desktop and providers (M05–M06, merged), rules, settings, themes, reliability, release, Nextcloud, Microsoft, refinements (M05–M14)"]
-    V["Real Plasma session checks (M15, runs alongside)"]
+    X["Expansion: search, desktop and providers (M05–M06, merged), rules, settings, themes, reliability, release, Nextcloud, refinements (M05–M13), Microsoft (M15)"]
+    V["Real Plasma session checks (M14, runs alongside)"]
     F --> X
     F --> V
 ```
@@ -44,7 +44,7 @@ limitations.
 
 M01 through M06 are merged into `main`. Live checks so far run against a
 synthetic Dovecot server in `tools/dev-container/`; nothing has been checked in
-a real Plasma session, which M15
+a real Plasma session, which M14
 ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)) tracks.
 
 | Capability                                                    | Status                                    | Notes                                                                                                                                                                                                                                                                                           |
@@ -61,7 +61,7 @@ a real Plasma session, which M15
 | POP3 retrieval with SMTP submission                           | ![Done][done]                             | Merged in M06.05 ([#216](https://github.com/mikepadiernos/plasma-impresario/issues/216)). Mail is downloaded into a store on this computer and shown as a single inbox, with no server folder synchronization; see [caveats](../CAVEATS.md#pop3-accounts).                                      |
 | JMAP accounts                                                 | ![Done][done]                             | Merged in M06.05 ([#217](https://github.com/mikepadiernos/plasma-impresario/issues/217)). Mail is kept in a store on this computer and synchronized both ways; sending goes through the JMAP server or SMTP. There is no push yet; see [caveats](../CAVEATS.md#jmap-accounts).                  |
 | Themes and branding                                           | ![Done][done]                             | M09 ([#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)) is merged in [PR #504](https://github.com/mikepadiernos/plasma-impresario/pull/504): app-local themes and theme profiles, exchange with Plasma Opus, workspace appearance and Plasma Impresario names in project code |
-| Consumer Outlook, Exchange Online and Exchange Server         | ![Planned][planned]                       | M13; see the [Microsoft guide](../integrations/microsoft.md). Exchange Online and on-premises Exchange Server differ in interfaces, authentication options and administrator policies.                                                                                                          |
+| Consumer Outlook, Exchange Online and Exchange Server         | ![Planned][planned]                       | M15; see the [Microsoft guide](../integrations/microsoft.md). Exchange Online and on-premises Exchange Server differ in interfaces, authentication options and administrator policies.                                                                                                          |
 
 ## Target experience
 
@@ -85,7 +85,7 @@ the validation in the right-hand column before it is claimed for a release.
 | ------------------------------------------------------------ | -------------------------------------------------------------------------- |
 | KDE Plasma desktop with Qt Widgets and KDE Frameworks        | Supported distributions, Plasma versions, sessions and dependencies        |
 | IMAP, POP3, JMAP and SMTP workflows                          | Protocol and provider authentication, capabilities and storage differences |
-| OAuth sign-in; planned Microsoft and Exchange accounts (M13) | Provider consent, supported interfaces and administrator policies          |
+| OAuth sign-in; planned Microsoft and Exchange accounts (M15) | Provider consent, supported interfaces and administrator policies          |
 | Local cache and optional Maildir organization                | Cache retention, storage limits and migration behavior                     |
 | Plasma and KDE desktop services                              | Session, notification and service availability                             |
 | Accessibility, localization and keyboard workflows           | Screen-reader and scaled-display coverage                                  |

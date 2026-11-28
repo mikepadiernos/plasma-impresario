@@ -1,6 +1,6 @@
 # Navigation toolbar
 
-**[Documentation](../../README.md)** · **[Roadmap: M14](../../ROADMAP.md#m14-refinements)** ·
+**[Documentation](../../README.md)** · **[Roadmap: M13](../../ROADMAP.md#m13-refinements)** ·
 **[Refinements](../README.md)** · **[Toolbars](README.md)** ·
 **[Menus](../menus/README.md)** · **[Interface design](../../philosophy/designs.md)**
 
@@ -13,7 +13,7 @@ Plasma session · ![Planned][planned] not implemented yet
 
 | Roadmap subsection                                                | Issue                                                                 |
 | ----------------------------------------------------------------- | --------------------------------------------------------------------- |
-| [M14.02: Shell and interaction](../../ROADMAP.md#m14-refinements) | [#151](https://github.com/mikepadiernos/plasma-impresario/issues/151) |
+| [M13.02: Shell and interaction](../../ROADMAP.md#m13-refinements) | [#151](https://github.com/mikepadiernos/plasma-impresario/issues/151) |
 
 ## Purpose
 
@@ -75,7 +75,7 @@ account selector, **Expunge** and the expanding space.
 | Main menu button    | —                                                                                                | ![Exists][exists] While the menu bar is hidden   | Opens the Application, View, Mailbox, Message and Help menus and **Show Main Menu Bar**                                                                                                                                     |
 | Customization mode  | —                                                                                                | ![Planned][planned]                              | See [toolbars and customization](../../philosophy/designs.md#toolbars-and-customization)                                                                                                                                    |
 | Side-column docking | —                                                                                                | ![Planned][planned]                              | Docking inside a side column or at full app height                                                                                                                                                                          |
-| Menu corner markers | —                                                                                                | ![Planned][planned]                              | Introduced in [M09](../../ROADMAP.md#m09-themes-and-branding-foundation), refined for every placement in [M14.02](../../ROADMAP.md#m14-refinements) ([#486](https://github.com/mikepadiernos/plasma-impresario/issues/486)) |
+| Menu corner markers | —                                                                                                | ![Planned][planned]                              | Introduced in [M09](../../ROADMAP.md#m09-themes-and-branding-foundation), refined for every placement in [M13.02](../../ROADMAP.md#m13-refinements) ([#486](https://github.com/mikepadiernos/plasma-impresario/issues/486)) |
 
 > [!NOTE]
 >

@@ -1,6 +1,6 @@
 # Shell and interaction refinement
 
-**[Documentation](../README.md)** · **[Roadmap: M14](../ROADMAP.md#m14-refinements)** ·
+**[Documentation](../README.md)** · **[Roadmap: M13](../ROADMAP.md#m13-refinements)** ·
 **[Refinements](README.md)** ·
 **[Previous: Cross-product quality](00-cross-product-quality.md)** ·
 **[Next: Accounts, sync and storage](02-accounts-sync-and-storage.md)** ·
@@ -13,7 +13,7 @@ Legend: ![Backlog][backlog] on the project board, not started
 
 | Roadmap subsection                                             | Issue                                                               | Board               |
 | -------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------- |
-| [M14.02: Shell and interaction](../ROADMAP.md#m14-refinements) | [#21](https://github.com/mikepadiernos/plasma-impresario/issues/21) | ![Backlog][backlog] |
+| [M13.02: Shell and interaction](../ROADMAP.md#m13-refinements) | [#21](https://github.com/mikepadiernos/plasma-impresario/issues/21) | ![Backlog][backlog] |
 
 ## Current state
 
@@ -52,11 +52,11 @@ recorded only in this plan.
 
 ## Recommendations for overlapping items
 
-The two M14.02 refinements build on M09 items that come first. These
-recommendations shape the M09 work so that M14 tunes it instead of redoing it.
+The two M13.02 refinements build on M09 items that come first. These
+recommendations shape the M09 work so that M13 tunes it instead of redoing it.
 They are proposals, not implemented behavior.
 
-| M09 foundation                                                                                                                                                  | M14.02 refinement                                                     | Shared concern                          |
+| M09 foundation                                                                                                                                                  | M13.02 refinement                                                     | Shared concern                          |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------- |
 | Shell styling and corner markers ([#123](https://github.com/mikepadiernos/plasma-impresario/issues/123))                                                        | [#486](https://github.com/mikepadiernos/plasma-impresario/issues/486) | How icon menus are marked and opened    |
 | Text and spacing ([#290](https://github.com/mikepadiernos/plasma-impresario/issues/290), [#292](https://github.com/mikepadiernos/plasma-impresario/issues/292)) | [#487](https://github.com/mikepadiernos/plasma-impresario/issues/487) | One spacing scale matching Plasma Opus  |
@@ -68,7 +68,7 @@ They are proposals, not implemented behavior.
   same one that will scale spacing, rather than in each button. Plasma Opus
   uses this design (`AppearanceStyle`, a `QProxyStyle` installed only when an
   option differs from the widget style). Every menu button then changes at
-  once, and M14 only adjusts placement.
+  once, and M13 only adjusts placement.
 - **Decide the interaction once, in M09.** A click runs the default action;
   a press and hold, a right click, <kbd>Alt</kbd>+<kbd>Down</kbd> or the
   <kbd>Menu</kbd> key opens the menu. Buttons without a default action, such as

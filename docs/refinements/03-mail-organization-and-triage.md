@@ -1,6 +1,6 @@
 # Mail organization and triage refinement
 
-**[Documentation](../README.md)** · **[Roadmap: M14](../ROADMAP.md#m14-refinements)** ·
+**[Documentation](../README.md)** · **[Roadmap: M13](../ROADMAP.md#m13-refinements)** ·
 **[Refinements](README.md)** ·
 **[Previous: Accounts, sync and storage](02-accounts-sync-and-storage.md)** ·
 **[Next: Reading, composition and attachments](04-reading-composition-and-attachments.md)**
@@ -12,7 +12,7 @@ Legend: ![Backlog][backlog] on the project board, not started
 
 | Roadmap subsection                                                    | Issue                                                               | Board               |
 | --------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------- |
-| [M14.04: Mail organization and triage](../ROADMAP.md#m14-refinements) | [#23](https://github.com/mikepadiernos/plasma-impresario/issues/23) | ![Backlog][backlog] |
+| [M13.04: Mail organization and triage](../ROADMAP.md#m13-refinements) | [#23](https://github.com/mikepadiernos/plasma-impresario/issues/23) | ![Backlog][backlog] |
 
 ## Current state
 

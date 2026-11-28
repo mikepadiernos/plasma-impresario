@@ -33,7 +33,7 @@ Legend: ![Backlog][backlog] · ![Defined][defined] ·
 > M01–M06 are merged into `main` and verified with offscreen tests and a
 > synthetic Dovecot server. Nothing has been checked in a real Plasma session
 > yet; those checks are
-> [M15](#m15-real-plasma-session-verification).
+> [M14](#m14-real-plasma-session-verification).
 
 ## Contents
 
@@ -52,9 +52,9 @@ Legend: ![Backlog][backlog] · ![Defined][defined] ·
   - [M10: Reliability, sync, and notification quality](#m10-reliability-sync-and-notification-quality)
   - [M11: Release readiness and polish](#m11-release-readiness-and-polish)
   - [M12: Nextcloud and digital asset management](#m12-nextcloud-and-digital-asset-management)
-  - [M13: Microsoft accounts and Exchange](#m13-microsoft-accounts-and-exchange)
-  - [M14: Refinements](#m14-refinements)
-  - [M15: Real Plasma session verification](#m15-real-plasma-session-verification)
+  - [M13: Refinements](#m13-refinements)
+  - [M14: Real Plasma session verification](#m14-real-plasma-session-verification)
+  - [M15: Microsoft accounts and Exchange](#m15-microsoft-accounts-and-exchange)
 - [Keeping the roadmap current](#keeping-the-roadmap-current)
 
 ## Milestones at a glance
@@ -77,18 +77,18 @@ and gray before. **Board** is the parent issue's status.
 | [M10](#m10-reliability-sync-and-notification-quality)     | Reliability, sync and notification quality     | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11)   | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]: merged in [PR #510](https://github.com/mikepadiernos/plasma-impresario/pull/510) |
 | [M11](#m11-release-readiness-and-polish)                  | Release readiness and polish                   | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12)   | ![10 of 10 done](https://img.shields.io/badge/10%2F10-100%25-1a7f37) | ![Merged][merged]: merged in [PR #513](https://github.com/mikepadiernos/plasma-impresario/pull/513) |
 | [M12](#m12-nextcloud-and-digital-asset-management)        | Nextcloud and digital asset management         | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31)   | ![7 of 7 done](https://img.shields.io/badge/7%2F7-100%25-1a7f37)      | ![Merged][merged]                                                                         |
-| [M13](#m13-microsoft-accounts-and-exchange)               | Microsoft accounts and Exchange                | [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388) | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781)     | ![Backlog][backlog]                                                                                 |
-| [M14](#m14-refinements)                                   | Refinements                                    | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)   | ![0 of 86 done](https://img.shields.io/badge/0%2F86-0%25-6e7781)     | ![Backlog][backlog]                                                                                 |
-| [M15](#m15-real-plasma-session-verification)              | Real Plasma session verification               | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ![0 of 5 done](https://img.shields.io/badge/0%2F5-0%25-6e7781)       | ![Defined][defined]                                                                                 |
+| [M13](#m13-refinements)                                   | Refinements                                    | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)   | ![0 of 86 done](https://img.shields.io/badge/0%2F86-0%25-6e7781)     | ![Backlog][backlog]                                                                                 |
+| [M14](#m14-real-plasma-session-verification)              | Real Plasma session verification               | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ![0 of 5 done](https://img.shields.io/badge/0%2F5-0%25-6e7781)       | ![Defined][defined]                                                                                 |
+| [M15](#m15-microsoft-accounts-and-exchange)               | Microsoft accounts and Exchange                | [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388) | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781)     | ![Backlog][backlog]                                                                                 |
 
 ## Recommended priority
 
 | Priority | Focus                            | Recommended next work                                                                                                                                                                                 | Where it stands (2026-11-28)                                                                                                                                                                                                                                                                                                                                                                                        |
 | -------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **P0**   | Reproducible, safe baseline      | Confirm product identity and supported build matrix; establish verified TLS and safe credential defaults; document cache and logging behavior; add focused connection/security and launch smoke tests | Build matrix, installer and launch smoke tests merged with M01 ([#1](https://github.com/mikepadiernos/plasma-impresario/issues/1)); the product rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) is merged. Other distribution families and protected prefixes are [pending](TODO.md#m01-release-gate-and-integration)                                                                  |
-| **P1**   | Rendering and account boundaries | Verify live reader workflows; design stable per-account settings, cache and credentials before adding simultaneous accounts                                                                           | Per-account settings, cache and credentials merged with M02 ([#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)), together with simultaneous accounts ([#222](https://github.com/mikepadiernos/plasma-impresario/issues/222)); live reader workflows verified against synthetic Dovecot in M04 ([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)). Real-session checks are in M15 |
-| **P2**   | Shell and reliability            | Prototype the Plasma Impresario layout over existing mailbox/list/reader behavior; validate accessibility, keyboard use, responsive layouts and partial-failure recovery                              | Shell merged with M02 ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); recovery merged with M10 ([#11](https://github.com/mikepadiernos/plasma-impresario/issues/11)); accessibility and responsive layouts continue in M11 and M14                                                                                                                                                           |
-| **P3**   | Optional productivity features   | Add provider APIs, rules, Nextcloud, calendar/contacts and workspace features only after core reliability, permissions and privacy behavior are defined                                               | M05 through M08, settings and workspaces, are merged; planned in M12 and M13, whose parent issues are in the Backlog                                                                                                                                                                                                                                                                                                |
+| **P1**   | Rendering and account boundaries | Verify live reader workflows; design stable per-account settings, cache and credentials before adding simultaneous accounts                                                                           | Per-account settings, cache and credentials merged with M02 ([#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)), together with simultaneous accounts ([#222](https://github.com/mikepadiernos/plasma-impresario/issues/222)); live reader workflows verified against synthetic Dovecot in M04 ([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)). Real-session checks are in M14 |
+| **P2**   | Shell and reliability            | Prototype the Plasma Impresario layout over existing mailbox/list/reader behavior; validate accessibility, keyboard use, responsive layouts and partial-failure recovery                              | Shell merged with M02 ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); recovery merged with M10 ([#11](https://github.com/mikepadiernos/plasma-impresario/issues/11)); accessibility and responsive layouts continue in M11 and M13                                                                                                                                                           |
+| **P3**   | Optional productivity features   | Add provider APIs, rules, Nextcloud, calendar/contacts and workspace features only after core reliability, permissions and privacy behavior are defined                                               | M05 through M08, settings and workspaces, are merged; planned in M12 and M15, whose parent issues are in the Backlog                                                                                                                                                                                                                                                                                                |
 
 These are sequencing priorities, not issue statuses or completion markers.
 Follow the [board workflow](../CONTRIBUTING.md#board-statuses) before updating
@@ -119,7 +119,7 @@ merged. The deferred live account and message-reading checks were since
 completed against a disposable Dovecot server in M02
 ([#479](https://github.com/mikepadiernos/plasma-impresario/issues/479)) and M04
 ([#480](https://github.com/mikepadiernos/plasma-impresario/issues/480)).
-Plasma-session checks remain deferred to M15. See
+Plasma-session checks remain deferred to M14. See
 [TODO](TODO.md#m01-release-gate-and-integration).
 
 Work through the supported environment, renderer, installer, and verification
@@ -263,7 +263,7 @@ Later milestone parent issues are blocked by
 same gate when starting their feature issues.
 
 Checks that need a real Plasma session moved to
-[M15](#m15-real-plasma-session-verification) so they do not block M02.
+[M14](#m14-real-plasma-session-verification) so they do not block M02.
 
 Pending: [M02 handoff](TODO.md#m02-shell-and-account-foundation).
 
@@ -299,7 +299,7 @@ Sorting and triage [#38](https://github.com/mikepadiernos/plasma-impresario/issu
 - [x] Define folder actions and confirmation or recovery behavior for destructive message operations [#89](https://github.com/mikepadiernos/plasma-impresario/issues/89)
 - [x] Support account and folder scoped views and preserve selection and sort state during message updates [#90](https://github.com/mikepadiernos/plasma-impresario/issues/90)
 
-The parent issues of M04, M05, M06, M07, M10, M12 and M13, whose features
+The parent issues of M04, M05, M06, M07, M10, M12 and M15, whose features
 read, search or act on real mailboxes, are blocked by
 [#5](https://github.com/mikepadiernos/plasma-impresario/issues/5). Apply the
 same gate when starting their feature issues.
@@ -353,7 +353,7 @@ Composition and sending [#41](https://github.com/mikepadiernos/plasma-impresario
       [#370](https://github.com/mikepadiernos/plasma-impresario/issues/370)
 
 Checks in a real Plasma session are in
-[M15](#m15-real-plasma-session-verification).
+[M14](#m14-real-plasma-session-verification).
 
 **Caveats:**
 
@@ -493,7 +493,7 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
         its folder
         [#348](https://github.com/mikepadiernos/plasma-impresario/issues/348)
   - [x] Provide a toolbar search field with keyboard access and F6 focus cycling
-        until the designed header (M14.02) hosts search
+        until the designed header (M13.02) hosts search
         [#349](https://github.com/mikepadiernos/plasma-impresario/issues/349)
 
 - **M05.06: Plasma Opus and desktop search**
@@ -589,7 +589,7 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
   **Project:** Mail providers [#43](https://github.com/mikepadiernos/plasma-impresario/issues/43)
 
   Microsoft accounts, Microsoft 365 and Exchange are planned in
-  [M13](#m13-microsoft-accounts-and-exchange).
+  [M15](#m15-microsoft-accounts-and-exchange).
 
   - [x] Add provider support for Gmail, Outlook, and other major mail services alongside IMAP. See
         [Mail providers](integrations/providers.md#gmail).
@@ -1121,7 +1121,7 @@ Release guidance and triage [#54](https://github.com/mikepadiernos/plasma-impres
 - [x] Install a minimal AppArmor profile from the installer when the system
       restricts unprivileged user namespaces, as Ubuntu 24.04 and later do, so the
       QtWebEngine renderer sandbox stays on instead of being disabled; verifying it
-      on Ubuntu moved to M15 ([#512](https://github.com/mikepadiernos/plasma-impresario/issues/512)). See
+      on Ubuntu moved to M14 ([#512](https://github.com/mikepadiernos/plasma-impresario/issues/512)). See
       [E-Mail](philosophy/inspirations.md#e-mail).
       [#381](https://github.com/mikepadiernos/plasma-impresario/issues/381)
 
@@ -1143,193 +1143,19 @@ Permissions and transfers [#56](https://github.com/mikepadiernos/plasma-impresar
 - [x] Respect access permissions and make shared-link visibility explicit before sending [#140](https://github.com/mikepadiernos/plasma-impresario/issues/140)
 - [x] Validate asset workflows with local and provider-backed mail accounts and document offline limitations [#141](https://github.com/mikepadiernos/plasma-impresario/issues/141)
 
-### M13: Microsoft accounts and Exchange
-
-**Status:** ![Backlog][backlog]
-![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781) ·
-**Parent issue:** [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388)
-
-**Project:** M13 milestone [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388)
-
-Make Outlook.com, Microsoft 365 and Exchange Server accounts work properly, from
-sign-in to mail, calendar, contacts, tasks and files. IMAP and SMTP with OAuth
-stay the default; Microsoft Graph covers what IMAP does not expose, and EWS is
-used only for on-premises Exchange Server because Microsoft announced that it
-would start blocking EWS in Exchange Online on October 1, 2026. Graph mail
-ships in the first M13 release, and KDE PIM's EWS and Graph code is reused;
-see the [Microsoft guide](integrations/microsoft.md) and its
-[decisions](integrations/microsoft.md#decisions).
-
-- **M13.01: Microsoft sign-in and consent**
-
-  **Project:** Subsection [#389](https://github.com/mikepadiernos/plasma-impresario/issues/389)
-
-  - [ ] Register a Plasma Impresario Microsoft Entra app for work, school and
-        personal accounts, build its client ID into release packages, seek
-        publisher verification once an organization such as KDE e.V. can hold
-        it, request permissions only for the features in use, and let users
-        and administrators replace the client ID, tenant and redirect settings
-        in the account settings or through system-wide KConfig defaults
-        [#396](https://github.com/mikepadiernos/plasma-impresario/issues/396)
-  - [ ] Choose personal accounts, any work or school account, or a specific
-        tenant instead of the fixed `common` tenant, and explain admin consent,
-        Conditional Access and multi-factor authentication errors (AADSTS codes)
-        with next steps
-        [#397](https://github.com/mikepadiernos/plasma-impresario/issues/397)
-  - [ ] Share one Microsoft token session per account across IMAP, SMTP and
-        Microsoft Graph: reuse access tokens until they expire, add permissions by
-        incremental consent when a feature is turned on, handle refresh-token
-        rotation and ask once to sign in again after a grant is revoked
-        [#398](https://github.com/mikepadiernos/plasma-impresario/issues/398)
-
-- **M13.02: Outlook.com and Microsoft 365 mail**
-
-  **Project:** Subsection [#390](https://github.com/mikepadiernos/plasma-impresario/issues/390)
-
-  - [ ] Add Microsoft Graph as an optional mail protocol in the account model in
-        the first M13 release, reusing KDE PIM's Graph client, with delta sync,
-        sending through Graph when SMTP AUTH is turned off (first, if the M06.05
-        protocol layer is not ready) and Retry-After handling for throttling,
-        register its capabilities with `CapabilityActionGate` and apply the
-        lessons of KDE's Graph resource
-        [#400](https://github.com/mikepadiernos/plasma-impresario/issues/400)
-  - [ ] Support consumer Outlook.com, Hotmail, and Live accounts using
-        provider-supported OAuth and mail interfaces
-        [#219](https://github.com/mikepadiernos/plasma-impresario/issues/219)
-  - [ ] Set up Outlook.com, Microsoft 365 and Exchange accounts from the email
-        address through M06.05 discovery and Autodiscover, explain when IMAP, POP or
-        SMTP AUTH is turned off for the mailbox, and never fall back to a password
-        where Microsoft has disabled Basic authentication
-        [#399](https://github.com/mikepadiernos/plasma-impresario/issues/399)
-  - [ ] Map Outlook categories to tags with their colors, keep follow-up flags
-        and due dates in step, and offer Focused and Other as a message-list filter,
-        using Graph where IMAP does not expose them
-        [#401](https://github.com/mikepadiernos/plasma-impresario/issues/401)
-  - [ ] Open shared mailboxes through IMAP with OAuth or Graph shared-mail
-        permissions, and send as or on behalf of another mailbox with clear errors
-        when the permission is missing
-        [#402](https://github.com/mikepadiernos/plasma-impresario/issues/402)
-  - [ ] Manage automatic replies and server-side inbox rules through Graph
-        mailbox settings and message rules, keep them distinct from local M07 rules
-        and show rules with unsupported conditions read-only
-        [#403](https://github.com/mikepadiernos/plasma-impresario/issues/403)
-  - [ ] Report unsupported Microsoft features instead of failing silently,
-        including protected `.rpmsg` messages, sensitivity labels, archive mailboxes
-        without a supported interface, public folders and servers that offer only
-        ActiveSync or MAPI
-        [#404](https://github.com/mikepadiernos/plasma-impresario/issues/404)
-
-- **M13.03: Exchange Server and hybrid deployments**
-
-  **Project:** Subsection [#391](https://github.com/mikepadiernos/plasma-impresario/issues/391)
-
-  - [ ] Support Exchange Online and on-premises Exchange Server mail accounts
-        using supported interfaces and authentication, subject to server and tenant
-        policies
-        [#220](https://github.com/mikepadiernos/plasma-impresario/issues/220)
-  - [ ] Discover Exchange settings with Autodiscover v2 (JSON), POX Autodiscover
-        and its SRV record, apply the confirmation rules of M06.05 discovery and
-        never send credentials to an unconfirmed host
-        [#405](https://github.com/mikepadiernos/plasma-impresario/issues/405)
-  - [ ] Sync on-premises Exchange Server through IMAP and SMTP when they are
-        enabled and otherwise through EWS, reusing KDE PIM's EWS client, using OAuth
-        with hybrid modern authentication, Kerberos, NTLM or, with a warning, Basic
-        authentication over TLS; use EWS only for on-premises servers, test with
-        Exchange Server Subscription Edition and document older versions as untested
-        [#406](https://github.com/mikepadiernos/plasma-impresario/issues/406)
-
-- **M13.04: Calendar and scheduling**
-
-  **Project:** Subsection [#392](https://github.com/mikepadiernos/plasma-impresario/issues/392)
-
-  - [ ] Show Outlook and Exchange calendars in the M06.04 agenda panel through
-        KDE PIM's Microsoft 365 (Graph) or EWS Akonadi resource when installed and
-        Graph or EWS otherwise, read-only at first, cached for offline use, with
-        Windows time zones converted and no duplicate events
-        [#407](https://github.com/mikepadiernos/plasma-impresario/issues/407)
-  - [ ] Accept, tentatively accept or decline meeting invitations, or propose a
-        new time, from the reader, updating the Exchange calendar, with iTIP and
-        iMIP (RFC 5546 and 6047) as the fallback and conflicts shown before
-        answering
-        [#408](https://github.com/mikepadiernos/plasma-impresario/issues/408)
-  - [ ] Create events from messages and check attendees' availability through
-        Graph `getSchedule` or EWS GetUserAvailability, and offer the KDE calendar
-        app for full editing
-        [#409](https://github.com/mikepadiernos/plasma-impresario/issues/409)
-
-- **M13.05: Contacts and address book**
-
-  **Project:** Subsection [#393](https://github.com/mikepadiernos/plasma-impresario/issues/393)
-
-  - [ ] Use Outlook and Exchange contacts for recipient completion and the
-        contacts panel through KDE PIM first and Graph or EWS otherwise, with
-        photos, delta sync and an offline cache; add a sender to contacts only on
-        request
-        [#410](https://github.com/mikepadiernos/plasma-impresario/issues/410)
-  - [ ] Look up people in the organization directory and global address list
-        while typing, expand distribution lists and Microsoft 365 groups with member
-        counts, respect hidden address-list entries and offer directory lookup only
-        for work or school accounts
-        [#411](https://github.com/mikepadiernos/plasma-impresario/issues/411)
-
-- **M13.06: Tasks and files**
-
-  **Project:** Subsection [#394](https://github.com/mikepadiernos/plasma-impresario/issues/394)
-
-  - [ ] Turn a message into a Microsoft To Do task that links back to it through
-        a `mid:` URL (M05), show due tasks in the agenda panel and keep the message
-        flag in step with the task
-        [#412](https://github.com/mikepadiernos/plasma-impresario/issues/412)
-  - [ ] Attach OneDrive and SharePoint files as sharing links with the link
-        scope confirmed before sending, offer a link for attachments that exceed the
-        size limit and save received attachments to OneDrive, following the M12
-        Nextcloud flow
-        [#413](https://github.com/mikepadiernos/plasma-impresario/issues/413)
-
-- **M13.07: KDE integration, privacy and verification**
-
-  **Project:** Subsection [#395](https://github.com/mikepadiernos/plasma-impresario/issues/395)
-
-  - [ ] Reuse Microsoft accounts already set up in KDE PIM's EWS resource or
-        Graph resource (`akonadi_graph_resource`, from KDE Gear 26.12 or the
-        standalone akonadi-microsoft365 build; KDE Online Accounts has no
-        Microsoft provider), and offer to add Outlook calendars and contacts to
-        KDE PIM so Merkuro and Plasma Opus can use them
-        [#414](https://github.com/mikepadiernos/plasma-impresario/issues/414)
-  - [ ] Show the Microsoft permissions granted for each feature, let users turn
-        features off per account and remove their cached data, and send no telemetry
-        [#415](https://github.com/mikepadiernos/plasma-impresario/issues/415)
-  - [ ] Test Microsoft interfaces offline against local fake Graph, EWS (reusing
-        KDE PIM's fake EWS server and Graph tests), Autodiscover and OAuth
-        servers with anonymized recordings, covering throttling, consent errors
-        and delta resets, and run opt-in live tests, adapted from
-        akonadi-microsoft365's tools, with a disposable Outlook.com account, a
-        Microsoft 365 test tenant and an Exchange Server; real-session checks
-        belong in M15
-        [#416](https://github.com/mikepadiernos/plasma-impresario/issues/416)
-  - [ ] Document Microsoft account setup for users and administrators, including
-        turning on IMAP and SMTP AUTH, app consent and Conditional Access, with
-        troubleshooting by error
-        [#417](https://github.com/mikepadiernos/plasma-impresario/issues/417)
-
-This milestone is blocked by M02 and builds on OAuth sign-in
-([#218](https://github.com/mikepadiernos/plasma-impresario/issues/218)), the
-M06.04 agenda and contacts panels and M06.05 account discovery. Pending tasks:
-[M13 handoff](TODO.md#m13-microsoft-milestone-insertion).
-
-### M14: Refinements
+### M13: Refinements
 
 **Status:** ![Backlog][backlog]
 ![0 of 86 done](https://img.shields.io/badge/0%2F86-0%25-6e7781) ·
 **Parent issue:** [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)
 
-**Project:** M14 milestone [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)
+**Project:** M13 milestone [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)
 
 Adapt the menu, layout, interaction, settings, performance, and testing principles
 from [Plasma Opus refinements](https://github.com/mikepadiernos/plasma-opus/blob/main/docs/ROADMAP.md#m32-refinements)
 to mail workflows without blocking this milestone on unavailable features.
 
-- **M14.01: Cross-product quality**
+- **M13.01: Cross-product quality**
 
   **Project:** Subsection [#60](https://github.com/mikepadiernos/plasma-impresario/issues/60) · Workflow friction [#16](https://github.com/mikepadiernos/plasma-impresario/issues/16) ·
   Usability and accessibility [#17](https://github.com/mikepadiernos/plasma-impresario/issues/17) ·
@@ -1354,7 +1180,7 @@ to mail workflows without blocking this milestone on unavailable features.
         licensing and host support allow. Report every analyzer limitation
         explicitly. [#483](https://github.com/mikepadiernos/plasma-impresario/issues/483)
 
-- **M14.02: Shell and interaction**
+- **M13.02: Shell and interaction**
 
   **Project:** Shell and interaction [#21](https://github.com/mikepadiernos/plasma-impresario/issues/21)
 
@@ -1386,7 +1212,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Restore windows to a usable visible position after display changes without overriding window-manager placement [#156](https://github.com/mikepadiernos/plasma-impresario/issues/156)
   - [ ] Keep controls usable with long translations, right-to-left layouts, and reduced-motion preferences [#157](https://github.com/mikepadiernos/plasma-impresario/issues/157)
 
-- **M14.03: Accounts, sync, and storage**
+- **M13.03: Accounts, sync, and storage**
 
   **Project:** Accounts, sync, and storage [#22](https://github.com/mikepadiernos/plasma-impresario/issues/22)
 
@@ -1408,7 +1234,7 @@ to mail workflows without blocking this milestone on unavailable features.
         shares the OAuth grant
         [#429](https://github.com/mikepadiernos/plasma-impresario/issues/429)
 
-- **M14.04: Mail organization and triage**
+- **M13.04: Mail organization and triage**
 
   **Project:** Mail organization and triage [#23](https://github.com/mikepadiernos/plasma-impresario/issues/23)
 
@@ -1425,7 +1251,7 @@ to mail workflows without blocking this milestone on unavailable features.
         [E-Mail](philosophy/inspirations.md#e-mail).
         [#383](https://github.com/mikepadiernos/plasma-impresario/issues/383)
 
-- **M14.05: Reading, composition, and attachments**
+- **M13.05: Reading, composition, and attachments**
 
   **Project:** Reading, composition, and attachments [#24](https://github.com/mikepadiernos/plasma-impresario/issues/24)
 
@@ -1436,7 +1262,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Validate reply, reply-all, and forward behavior, including recipient visibility and attachment handling [#174](https://github.com/mikepadiernos/plasma-impresario/issues/174)
   - [ ] Prevent delayed message or attachment results from replacing the current view after selection changes or cancellation [#175](https://github.com/mikepadiernos/plasma-impresario/issues/175)
 
-- **M14.06: Search, sorting, and automation**
+- **M13.06: Search, sorting, and automation**
 
   **Project:** Search, sorting, and automation [#25](https://github.com/mikepadiernos/plasma-impresario/issues/25)
 
@@ -1448,7 +1274,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Allow users to inspect rule order and test matches before applying potentially destructive actions [#179](https://github.com/mikepadiernos/plasma-impresario/issues/179)
   - [ ] Define how potential tags and advanced automation would interact with folders, search, and existing rules [#180](https://github.com/mikepadiernos/plasma-impresario/issues/180)
 
-- **M14.07: Security and privacy**
+- **M13.07: Security and privacy**
 
   **Project:** Security and privacy [#26](https://github.com/mikepadiernos/plasma-impresario/issues/26)
 
@@ -1460,7 +1286,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Test untrusted message content, attachment names, links, and imported data across validation, permissions, and error boundaries [#186](https://github.com/mikepadiernos/plasma-impresario/issues/186)
   - [ ] Check that settings, logs, temporary files, and backups do not inadvertently expose credentials or message contents [#187](https://github.com/mikepadiernos/plasma-impresario/issues/187)
 
-- **M14.08: Settings and notifications**
+- **M13.08: Settings and notifications**
 
   **Project:** Settings and notifications [#27](https://github.com/mikepadiernos/plasma-impresario/issues/27)
 
@@ -1474,7 +1300,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Confirm page-specific or global resets and distinguish app-owned settings from shared KDE data and credentials [#195](https://github.com/mikepadiernos/plasma-impresario/issues/195)
   - [ ] Keep settings search, keyboard navigation, and unsaved edits responsive while loading larger account or provider lists [#196](https://github.com/mikepadiernos/plasma-impresario/issues/196)
 
-- **M14.09: Desktop, services, and assets**
+- **M13.09: Desktop, services, and assets**
 
   **Project:** Desktop, services, and assets [#28](https://github.com/mikepadiernos/plasma-impresario/issues/28)
 
@@ -1486,7 +1312,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Review mail integration with KDE Plasma services such as notifications, KIO, file handling, session integration, account storage, and desktop-level actions [#202](https://github.com/mikepadiernos/plasma-impresario/issues/202)
   - [ ] Define the user-facing contract for Plasma Opus-aware mail flows: calendar handoff, notes capture, contact lookup, workspace-aware context, and graceful fallback when a companion app is unavailable [#203](https://github.com/mikepadiernos/plasma-impresario/issues/203)
 
-- **M14.10: Calendar and contacts**
+- **M13.10: Calendar and contacts**
 
   **Project:** Calendar and contacts [#29](https://github.com/mikepadiernos/plasma-impresario/issues/29)
 
@@ -1496,7 +1322,7 @@ to mail workflows without blocking this milestone on unavailable features.
   - [ ] Define privacy, permissions, and error expectations for provider-backed event and contact data [#207](https://github.com/mikepadiernos/plasma-impresario/issues/207)
   - [ ] Describe how potential mail-to-event and contact-to-compose workflows should preserve context [#208](https://github.com/mikepadiernos/plasma-impresario/issues/208)
 
-- **M14.11: Notes, journal, and workspaces**
+- **M13.11: Notes, journal, and workspaces**
 
   **Project:** Notes, journal, and workspaces [#30](https://github.com/mikepadiernos/plasma-impresario/issues/30)
 
@@ -1509,13 +1335,13 @@ to mail workflows without blocking this milestone on unavailable features.
 This milestone follows the core app and Nextcloud integration. Refine
 implemented features here and document criteria for potential future work.
 
-### M15: Real Plasma session verification
+### M14: Real Plasma session verification
 
 **Status:** ![Defined][defined]
 ![0 of 5 done](https://img.shields.io/badge/0%2F5-0%25-6e7781) ·
 **Parent issue:** [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)
 
-**Project:** M15 milestone [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)
+**Project:** M14 milestone [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)
 
 Checks that need a real KDE Plasma session, KWallet, a real provider
 account or an Ubuntu system, and cannot be completed in the headless environment. They moved here
@@ -1538,7 +1364,181 @@ verifies a feature that is already implemented and tested headless.
       [#512](https://github.com/mikepadiernos/plasma-impresario/issues/512)
 
 This milestone is blocked by M02 but does not block later milestones. Pending
-checks: [M15 handoff](TODO.md#m15-real-plasma-session-verification).
+checks: [M14 handoff](TODO.md#m14-real-plasma-session-verification).
+
+### M15: Microsoft accounts and Exchange
+
+**Status:** ![Backlog][backlog]
+![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781) ·
+**Parent issue:** [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388)
+
+**Project:** M15 milestone [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388)
+
+Make Outlook.com, Microsoft 365 and Exchange Server accounts work properly, from
+sign-in to mail, calendar, contacts, tasks and files. IMAP and SMTP with OAuth
+stay the default; Microsoft Graph covers what IMAP does not expose, and EWS is
+used only for on-premises Exchange Server because Microsoft announced that it
+would start blocking EWS in Exchange Online on October 1, 2026. Graph mail
+ships in the first M15 release, and KDE PIM's EWS and Graph code is reused;
+see the [Microsoft guide](integrations/microsoft.md) and its
+[decisions](integrations/microsoft.md#decisions).
+
+- **M15.01: Microsoft sign-in and consent**
+
+  **Project:** Subsection [#389](https://github.com/mikepadiernos/plasma-impresario/issues/389)
+
+  - [ ] Register a Plasma Impresario Microsoft Entra app for work, school and
+        personal accounts, build its client ID into release packages, seek
+        publisher verification once an organization such as KDE e.V. can hold
+        it, request permissions only for the features in use, and let users
+        and administrators replace the client ID, tenant and redirect settings
+        in the account settings or through system-wide KConfig defaults
+        [#396](https://github.com/mikepadiernos/plasma-impresario/issues/396)
+  - [ ] Choose personal accounts, any work or school account, or a specific
+        tenant instead of the fixed `common` tenant, and explain admin consent,
+        Conditional Access and multi-factor authentication errors (AADSTS codes)
+        with next steps
+        [#397](https://github.com/mikepadiernos/plasma-impresario/issues/397)
+  - [ ] Share one Microsoft token session per account across IMAP, SMTP and
+        Microsoft Graph: reuse access tokens until they expire, add permissions by
+        incremental consent when a feature is turned on, handle refresh-token
+        rotation and ask once to sign in again after a grant is revoked
+        [#398](https://github.com/mikepadiernos/plasma-impresario/issues/398)
+
+- **M15.02: Outlook.com and Microsoft 365 mail**
+
+  **Project:** Subsection [#390](https://github.com/mikepadiernos/plasma-impresario/issues/390)
+
+  - [ ] Add Microsoft Graph as an optional mail protocol in the account model in
+        the first M15 release, reusing KDE PIM's Graph client, with delta sync,
+        sending through Graph when SMTP AUTH is turned off (first, if the M06.05
+        protocol layer is not ready) and Retry-After handling for throttling,
+        register its capabilities with `CapabilityActionGate` and apply the
+        lessons of KDE's Graph resource
+        [#400](https://github.com/mikepadiernos/plasma-impresario/issues/400)
+  - [ ] Support consumer Outlook.com, Hotmail, and Live accounts using
+        provider-supported OAuth and mail interfaces
+        [#219](https://github.com/mikepadiernos/plasma-impresario/issues/219)
+  - [ ] Set up Outlook.com, Microsoft 365 and Exchange accounts from the email
+        address through M06.05 discovery and Autodiscover, explain when IMAP, POP or
+        SMTP AUTH is turned off for the mailbox, and never fall back to a password
+        where Microsoft has disabled Basic authentication
+        [#399](https://github.com/mikepadiernos/plasma-impresario/issues/399)
+  - [ ] Map Outlook categories to tags with their colors, keep follow-up flags
+        and due dates in step, and offer Focused and Other as a message-list filter,
+        using Graph where IMAP does not expose them
+        [#401](https://github.com/mikepadiernos/plasma-impresario/issues/401)
+  - [ ] Open shared mailboxes through IMAP with OAuth or Graph shared-mail
+        permissions, and send as or on behalf of another mailbox with clear errors
+        when the permission is missing
+        [#402](https://github.com/mikepadiernos/plasma-impresario/issues/402)
+  - [ ] Manage automatic replies and server-side inbox rules through Graph
+        mailbox settings and message rules, keep them distinct from local M07 rules
+        and show rules with unsupported conditions read-only
+        [#403](https://github.com/mikepadiernos/plasma-impresario/issues/403)
+  - [ ] Report unsupported Microsoft features instead of failing silently,
+        including protected `.rpmsg` messages, sensitivity labels, archive mailboxes
+        without a supported interface, public folders and servers that offer only
+        ActiveSync or MAPI
+        [#404](https://github.com/mikepadiernos/plasma-impresario/issues/404)
+
+- **M15.03: Exchange Server and hybrid deployments**
+
+  **Project:** Subsection [#391](https://github.com/mikepadiernos/plasma-impresario/issues/391)
+
+  - [ ] Support Exchange Online and on-premises Exchange Server mail accounts
+        using supported interfaces and authentication, subject to server and tenant
+        policies
+        [#220](https://github.com/mikepadiernos/plasma-impresario/issues/220)
+  - [ ] Discover Exchange settings with Autodiscover v2 (JSON), POX Autodiscover
+        and its SRV record, apply the confirmation rules of M06.05 discovery and
+        never send credentials to an unconfirmed host
+        [#405](https://github.com/mikepadiernos/plasma-impresario/issues/405)
+  - [ ] Sync on-premises Exchange Server through IMAP and SMTP when they are
+        enabled and otherwise through EWS, reusing KDE PIM's EWS client, using OAuth
+        with hybrid modern authentication, Kerberos, NTLM or, with a warning, Basic
+        authentication over TLS; use EWS only for on-premises servers, test with
+        Exchange Server Subscription Edition and document older versions as untested
+        [#406](https://github.com/mikepadiernos/plasma-impresario/issues/406)
+
+- **M15.04: Calendar and scheduling**
+
+  **Project:** Subsection [#392](https://github.com/mikepadiernos/plasma-impresario/issues/392)
+
+  - [ ] Show Outlook and Exchange calendars in the M06.04 agenda panel through
+        KDE PIM's Microsoft 365 (Graph) or EWS Akonadi resource when installed and
+        Graph or EWS otherwise, read-only at first, cached for offline use, with
+        Windows time zones converted and no duplicate events
+        [#407](https://github.com/mikepadiernos/plasma-impresario/issues/407)
+  - [ ] Accept, tentatively accept or decline meeting invitations, or propose a
+        new time, from the reader, updating the Exchange calendar, with iTIP and
+        iMIP (RFC 5546 and 6047) as the fallback and conflicts shown before
+        answering
+        [#408](https://github.com/mikepadiernos/plasma-impresario/issues/408)
+  - [ ] Create events from messages and check attendees' availability through
+        Graph `getSchedule` or EWS GetUserAvailability, and offer the KDE calendar
+        app for full editing
+        [#409](https://github.com/mikepadiernos/plasma-impresario/issues/409)
+
+- **M15.05: Contacts and address book**
+
+  **Project:** Subsection [#393](https://github.com/mikepadiernos/plasma-impresario/issues/393)
+
+  - [ ] Use Outlook and Exchange contacts for recipient completion and the
+        contacts panel through KDE PIM first and Graph or EWS otherwise, with
+        photos, delta sync and an offline cache; add a sender to contacts only on
+        request
+        [#410](https://github.com/mikepadiernos/plasma-impresario/issues/410)
+  - [ ] Look up people in the organization directory and global address list
+        while typing, expand distribution lists and Microsoft 365 groups with member
+        counts, respect hidden address-list entries and offer directory lookup only
+        for work or school accounts
+        [#411](https://github.com/mikepadiernos/plasma-impresario/issues/411)
+
+- **M15.06: Tasks and files**
+
+  **Project:** Subsection [#394](https://github.com/mikepadiernos/plasma-impresario/issues/394)
+
+  - [ ] Turn a message into a Microsoft To Do task that links back to it through
+        a `mid:` URL (M05), show due tasks in the agenda panel and keep the message
+        flag in step with the task
+        [#412](https://github.com/mikepadiernos/plasma-impresario/issues/412)
+  - [ ] Attach OneDrive and SharePoint files as sharing links with the link
+        scope confirmed before sending, offer a link for attachments that exceed the
+        size limit and save received attachments to OneDrive, following the M12
+        Nextcloud flow
+        [#413](https://github.com/mikepadiernos/plasma-impresario/issues/413)
+
+- **M15.07: KDE integration, privacy and verification**
+
+  **Project:** Subsection [#395](https://github.com/mikepadiernos/plasma-impresario/issues/395)
+
+  - [ ] Reuse Microsoft accounts already set up in KDE PIM's EWS resource or
+        Graph resource (`akonadi_graph_resource`, from KDE Gear 26.12 or the
+        standalone akonadi-microsoft365 build; KDE Online Accounts has no
+        Microsoft provider), and offer to add Outlook calendars and contacts to
+        KDE PIM so Merkuro and Plasma Opus can use them
+        [#414](https://github.com/mikepadiernos/plasma-impresario/issues/414)
+  - [ ] Show the Microsoft permissions granted for each feature, let users turn
+        features off per account and remove their cached data, and send no telemetry
+        [#415](https://github.com/mikepadiernos/plasma-impresario/issues/415)
+  - [ ] Test Microsoft interfaces offline against local fake Graph, EWS (reusing
+        KDE PIM's fake EWS server and Graph tests), Autodiscover and OAuth
+        servers with anonymized recordings, covering throttling, consent errors
+        and delta resets, and run opt-in live tests, adapted from
+        akonadi-microsoft365's tools, with a disposable Outlook.com account, a
+        Microsoft 365 test tenant and an Exchange Server; real-session checks
+        belong in M14
+        [#416](https://github.com/mikepadiernos/plasma-impresario/issues/416)
+  - [ ] Document Microsoft account setup for users and administrators, including
+        turning on IMAP and SMTP AUTH, app consent and Conditional Access, with
+        troubleshooting by error
+        [#417](https://github.com/mikepadiernos/plasma-impresario/issues/417)
+
+This milestone is blocked by M02 and builds on OAuth sign-in
+([#218](https://github.com/mikepadiernos/plasma-impresario/issues/218)), the
+M06.04 agenda and contacts panels and M06.05 account discovery. Pending tasks:
+[M15 handoff](TODO.md#m15-microsoft-milestone).
 
 ## Keeping the roadmap current
 

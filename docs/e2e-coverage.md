@@ -208,7 +208,7 @@ passwords, then deletes the server when the test ends.
 
 - Real providers. Server discovery, OAuth sign-in and provider quirks are
   tested offscreen only; checks with real accounts wait for the
-  [M15 Plasma session verification](TODO.md#m15-real-plasma-session-verification).
+  [M14 Plasma session verification](TODO.md#m14-real-plasma-session-verification).
 - Hosted Nextcloud providers and the KDE Online Accounts backend. The live
   test uses a disposable Nextcloud 34 server and accounts connected with app
   passwords; see

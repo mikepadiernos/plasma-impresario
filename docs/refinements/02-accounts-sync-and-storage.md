@@ -1,6 +1,6 @@
 # Accounts, sync, and storage refinement
 
-**[Documentation](../README.md)** · **[Roadmap: M14](../ROADMAP.md#m14-refinements)** ·
+**[Documentation](../README.md)** · **[Roadmap: M13](../ROADMAP.md#m13-refinements)** ·
 **[Refinements](README.md)** ·
 **[Previous: Shell and interaction](01-shell-and-interaction.md)** ·
 **[Next: Mail organization and triage](03-mail-organization-and-triage.md)**
@@ -13,7 +13,7 @@ Legend: ![Backlog][backlog] on the project board, not started ·
 
 | Roadmap subsection                                                   | Issue                                                               | Board               |
 | -------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------- |
-| [M14.03: Accounts, sync, and storage](../ROADMAP.md#m14-refinements) | [#22](https://github.com/mikepadiernos/plasma-impresario/issues/22) | ![Backlog][backlog] |
+| [M13.03: Accounts, sync, and storage](../ROADMAP.md#m13-refinements) | [#22](https://github.com/mikepadiernos/plasma-impresario/issues/22) | ![Backlog][backlog] |
 
 ## Current state
 

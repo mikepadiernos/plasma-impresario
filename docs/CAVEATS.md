@@ -135,7 +135,7 @@ issue comment that holds the current recommendation.
 | ![Security][security]     | Transport          | Cleartext IMAP remains selectable; account configuration determines whether TLS is used ([details](#security-and-data-protection))                                                                                                                                                                                                                                                                                                                    | —                                                                                                                                            |
 | ![Security][security]     | Local data         | The cache and opened attachments are kept user-only, and opened copies are removed after a day, but the application does not encrypt the cache, and files created between starts are tightened at the next start ([details](#local-data-and-opened-attachments))                                                                                                                                                                                      | [#458](https://github.com/mikepadiernos/plasma-impresario/issues/458)                                                                        |
 | ![Security][security]     | Outgoing headers   | Header input is cleaned and Bcc is left out of delivered mail, but Sent copies delivered through BURL or the IMAP SENDMAIL Extension also omit Bcc, and cleaned input is not pointed out ([details](#outgoing-headers-and-bcc))                                                                                                                                                                                                                       | [#459](https://github.com/mikepadiernos/plasma-impresario/issues/459)                                                                        |
-| ![Planned][planned]       | Integrations       | Microsoft accounts and Exchange ([M13](ROADMAP.md#m13-microsoft-accounts-and-exchange)) and cross-app workspace refinements ([M14](ROADMAP.md#m14-refinements)) remain planned                                                                                                                                                                                                                                                                        | —                                                                                                                                            |
+| ![Planned][planned]       | Integrations       | Microsoft accounts and Exchange ([M15](ROADMAP.md#m15-microsoft-accounts-and-exchange)) and cross-app workspace refinements ([M13](ROADMAP.md#m13-refinements)) remain planned                                                                                                                                                                                                                                                                        | —                                                                                                                                            |
 | ![Limitation][limitation] | Compatibility      | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                                                                                                                                                                                                                                                          | —                                                                                                                                            |
 | ![Limitation][limitation] | Quality evidence   | Workloads are measured only against fake servers in a Debug build ([performance](performance.md)); accessibility is [audited offscreen](accessibility.md) but not with a screen reader; nothing has been checked in a real Plasma session yet                                                                                                                                                                                                         | —                                                                                                                                            |
 
@@ -177,7 +177,7 @@ All five limitations recorded in #262 are resolved, and the issue is closed.
 The notification popup and its action have not yet been checked in a real
 Plasma session; that check is
 [#315](https://github.com/mikepadiernos/plasma-impresario/issues/315) in
-[M15](ROADMAP.md#m15-real-plasma-session-verification).
+[M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 ### Related messages and message details panels
 
@@ -316,7 +316,7 @@ Plasma session; that check is
 
 - Compare sites with the public suffix list.
 - Remember remote-content consent per sender, with a way to review and revoke
-  it (M14.07).
+  it (M13.07).
 - Show the target of the focused link in the status bar, so that keyboard
   users see it without opening a menu.
 - Ask before writing to a mailto: address that differs from the link text.
@@ -508,21 +508,21 @@ Plasma session; that check is
 
 **Proposed improvements:**
 
-- Build a Plasma Impresario Microsoft client ID into release packages (M13.01,
+- Build a Plasma Impresario Microsoft client ID into release packages (M15.01,
   [#396](https://github.com/mikepadiernos/plasma-impresario/issues/396)).
-- Add a tenant choice for Microsoft accounts (M13.01,
+- Add a tenant choice for Microsoft accounts (M15.01,
   [#397](https://github.com/mikepadiernos/plasma-impresario/issues/397)).
 - Share one token session between IMAP and SMTP per account, and reuse the
-  access token until it expires (M13.01,
+  access token until it expires (M15.01,
   [#398](https://github.com/mikepadiernos/plasma-impresario/issues/398), for
   Microsoft accounts).
 - Keep the previous grant until a dialog that signed in with another provider
-  or client is saved, then revoke it (M14.03,
+  or client is saved, then revoke it (M13.03,
   [#428](https://github.com/mikepadiernos/plasma-impresario/issues/428)).
 - Skip revocation when signing out in Account Settings if another account
-  shares the grant (M14.03,
+  shares the grant (M13.03,
   [#429](https://github.com/mikepadiernos/plasma-impresario/issues/429)).
-- Verify sign-in and revocation with a real provider account (M15,
+- Verify sign-in and revocation with a real provider account (M14,
   [#317](https://github.com/mikepadiernos/plasma-impresario/issues/317)).
 
 ### Mail operations
@@ -1052,7 +1052,7 @@ Plasma session; that check is
   shown folder arrive once the search is over
   ([#348](https://github.com/mikepadiernos/plasma-impresario/issues/348)).
 - ![Limitation][limitation] The quick search stays above the message list
-  until the designed header (M14.02,
+  until the designed header (M13.02,
   [#306](https://github.com/mikepadiernos/plasma-impresario/issues/306)) can
   host it. From an embedded panel, such as Message Details,
   <kbd>Ctrl</kbd>+<kbd>F</kbd> moves to the quick search rather than finding
@@ -1346,7 +1346,7 @@ Plasma session; that check is
   the panel its own filters and facets, and search on a separate connection
   so that the shown folder keeps updating
   ([#348](https://github.com/mikepadiernos/plasma-impresario/issues/348)).
-- Move the quick search into the designed header with M14.02, and offer
+- Move the quick search into the designed header with M13.02, and offer
   **Find in Message** in the reader's action bar and from the embedded panels
   ([#349](https://github.com/mikepadiernos/plasma-impresario/issues/349)).
 - Ask File Search over D-Bus for its indexing progress and whether a folder
@@ -1406,7 +1406,7 @@ Plasma session; that check is
 - ![Limitation][limitation] Starting after login, a hidden start with
   `--background` and the tray icon of a hidden start have not been checked in a
   real Plasma session; that is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -1555,7 +1555,7 @@ Plasma session; that check is
   error, replaces the offer.
 - ![Limitation][limitation] It has not been checked with Dolphin or Plasma Opus
   in a real Plasma session; tests replace the file manager. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -1605,7 +1605,7 @@ Plasma session; that check is
 - ![Limitation][limitation] It has not been checked with the XDG Email portal,
   Dolphin or Plasma Opus in a real Plasma session; tests build the URLs the way
   KDE's e-mail launcher does and call the D-Bus entry point directly. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -1650,7 +1650,7 @@ Plasma session; that check is
 - ![Limitation][limitation] Not checked in a real Plasma session: drags from
   Dolphin or Plasma Opus, browsing remote places from **Attach**, and KIO's
   password prompts. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -1696,7 +1696,7 @@ Plasma session; that check is
 - ![Limitation][limitation] Not checked with KRunner itself or in a Plasma
   session: the plugin's metadata under KF6, the second line with the sender and
   date, and whether the window comes to the front on Wayland. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -1744,7 +1744,7 @@ Plasma session; that check is
   server.
 - ![Limitation][limitation] Not checked in a Plasma session: photo size, theme
   icons and how Akonadi's dialogs are parented on Wayland. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -1799,7 +1799,7 @@ Plasma session; that check is
   but has not been run against an Akonadi server. Opening messages from the
   panel and the calendar hand-off have no direct automated test, and nothing is
   checked in a Plasma session. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -1865,7 +1865,7 @@ Plasma session; that check is
 - ![Limitation][limitation] Automated tests use a fake network, apart from
   probes and fetches against local servers. Nothing is tried against real
   providers, a validating resolver or in a Plasma session. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -1922,7 +1922,7 @@ Plasma session; that check is
 - ![Limitation][limitation] Automated tests run on Qt's offscreen platform,
   where no token is applied, and do not cover the session-bus hand-over or the
   notification token. Nothing is tried in a Plasma session on Wayland or X11.
-  That is [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  That is [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -1970,7 +1970,7 @@ Plasma session; that check is
 - ![Limitation][limitation] Only composers come back; Plasma's session restore
   is not used. The test saves directly and exercises neither the session
   manager's request nor `SIGTERM`, and nothing is tried in a Plasma session.
-  That is [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  That is [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -2018,7 +2018,7 @@ Plasma session; that check is
 - ![Limitation][limitation] On Wayland, handing the window to the portal needs
   KDE Frameworks 6.28 or later. The tests use a fake portal on a private D-Bus
   connection; nothing is tried in a Plasma session or with Plasma Opus. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -2062,7 +2062,7 @@ Plasma session; that check is
 - ![Limitation][limitation] The tests receive the signal over a private D-Bus
   connection and check a live total with two Dovecot accounts; nothing is tried
   in a Plasma session. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -2401,7 +2401,7 @@ Plasma session; that check is
 - ![Limitation][limitation] The tests use Qt's accessibility interfaces
   offscreen. Nothing is tried with a screen reader such as Orca, with Breeze
   High Contrast, in right-to-left languages or in a Plasma session. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -2453,7 +2453,7 @@ Plasma session; that check is
   [JMAP accounts](#jmap-accounts).
 - ![Limitation][limitation] Nothing in the guide is tried with real provider
   accounts; the tests use a fake network and local Dovecot servers. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -2543,7 +2543,7 @@ Plasma session; that check is
   **Undo**.
 - Show the scan's progress, and offer the socket in the settings dialog.
 - Check the scan with ClamAV's own signatures in a Plasma session
-  ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
+  ([M14](ROADMAP.md#m14-real-plasma-session-verification)).
 
 ### External services and outbound calls
 
@@ -2591,7 +2591,7 @@ Plasma session; that check is
   server with a marker in a message, and fails if the marker appears in any
   request.
 - Check notifications, Plasma Search and the portals in a real Plasma session
-  ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
+  ([M14](ROADMAP.md#m14-real-plasma-session-verification)).
 
 ### System sleep and account notifications
 
@@ -2647,7 +2647,7 @@ Plasma session; that check is
 - Add new-mail notifications
   ([M07](ROADMAP.md#m07-output-notifications-and-rules-automation)).
 - Check sleep, wake and notifications in a real Plasma session
-  ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
+  ([M14](ROADMAP.md#m14-real-plasma-session-verification)).
 
 ### Plasma widgets
 
@@ -2679,7 +2679,7 @@ Plasma session; that check is
 - ![Limitation][limitation] The shared views and the D-Bus client are tested
   outside Plasma; the widgets have not been loaded on a panel or the desktop
   of a real Plasma session. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -2693,7 +2693,7 @@ Plasma session; that check is
 **Proposed improvements:**
 
 - Load and check both widgets in a real Plasma 6 session, on the panel and the
-  desktop ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
+  desktop ([M14](ROADMAP.md#m14-real-plasma-session-verification)).
 - Update the index's flags when messages are read in the application, so that
   the ticker follows at once.
 - Offer counts for folders other than INBOX.
@@ -2742,7 +2742,7 @@ Plasma session; that check is
   across restarts.
 - ![Limitation][limitation] Tested against Dovecot in the development
   container, not against real providers or in a Plasma session. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -2812,7 +2812,7 @@ Plasma session; that check is
 - ![Limitation][limitation] Tested against Stalwart in the development
   container (`live-jmap.sh`), not against hosted providers such as Fastmail
   or in a Plasma session. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -2880,7 +2880,7 @@ Plasma session; that check is
 - ![Limitation][limitation] Rules are tested without a server; moves and
   refusals on a real server are not exercised, and nothing is checked in a
   Plasma session. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -2937,7 +2937,7 @@ Plasma session; that check is
   connection state is still in the activity log.
 - ![Limitation][limitation] The decisions are tested without a desktop; the
   notification and its actions are untried in a Plasma session. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -2989,7 +2989,7 @@ Plasma session; that check is
   window switches to the account, not when the application starts.
 - ![Limitation][limitation] The settings are tested offscreen; the Activity
   Manager and a Plasma session are not exercised. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -3010,7 +3010,7 @@ Plasma session; that check is
 - Apply the start folder of the shown account at startup when no folder is
   restored.
 - Try activities and workspaces in a Plasma 6 session
-  ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
+  ([M14](ROADMAP.md#m14-real-plasma-session-verification)).
 
 ### Mail tabs
 
@@ -3040,7 +3040,7 @@ Plasma session; that check is
   starts; after those shortcuts are changed in the shortcut settings, the
   extra keys are gone until the next start.
 - ![Limitation][limitation] Tabs are tested offscreen, not in a Plasma
-  session. That is [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  session. That is [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -3058,7 +3058,7 @@ Plasma session; that check is
   in Appearance.
 - Keep Ctrl+Tab as a fixed alternate, independent of the configured shortcut.
 - Try tab placement in a Plasma 6 session
-  ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
+  ([M14](ROADMAP.md#m14-real-plasma-session-verification)).
 
 ### Vim mode and shared shortcuts
 
@@ -3087,7 +3087,7 @@ Plasma session; that check is
   shown in the status bar only.
 - ![Limitation][limitation] Vim mode is tested offscreen with simulated keys,
   not in a Plasma session. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -3103,7 +3103,7 @@ Plasma session; that check is
 - Expose Vim commands as actions so the shortcut settings can show them.
 - Offer the pending keys in the hint popup when the status bar is hidden.
 - Try Vim mode and keymap following in a Plasma 6 session
-  ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
+  ([M14](ROADMAP.md#m14-real-plasma-session-verification)).
 
 ### Messages to calendar and notes
 
@@ -3134,7 +3134,7 @@ Plasma session; that check is
   not a selection of several messages.
 - ![Limitation][limitation] The hand-off is tested offscreen; the calendar
   application and Marknote are not exercised in a Plasma session. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -3152,7 +3152,7 @@ Plasma session; that check is
 - Hand events over with Akonadi when it is available instead of a file.
 - Save each selected message as a note or event.
 - Try both hand-offs in a Plasma 6 session
-  ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
+  ([M14](ROADMAP.md#m14-real-plasma-session-verification)).
 
 ### Themes and appearance
 
@@ -3195,7 +3195,7 @@ Plasma session; that check is
   count is in its tooltip.
 - ![Limitation][limitation] Appearance is tested offscreen; KWin blur, Breeze
   and Breeze High Contrast are not tried in a Plasma session. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -3216,7 +3216,7 @@ Plasma session; that check is
 - Add an account color dot to unified single-line columns.
 - Draw an unread badge on the symbolic tray icon in the panel's text color.
 - Try blur, Breeze and Breeze High Contrast in a Plasma 6 session
-  ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
+  ([M14](ROADMAP.md#m14-real-plasma-session-verification)).
 
 ### Nextcloud files and share links
 
@@ -3270,7 +3270,7 @@ Plasma session; that check is
 - ![Limitation][limitation] Tested against Nextcloud 34.0.6 in the
   development container (`live-nextcloud.sh`), not against hosted Nextcloud
   providers or in a Plasma session. That is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 
 **Workarounds:**
 
@@ -3298,7 +3298,7 @@ Plasma session; that check is
   reading it from the storage path.
 - Try hosted Nextcloud providers and the KDE Online Accounts backend in a
   Plasma 6 session
-  ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
+  ([M14](ROADMAP.md#m14-real-plasma-session-verification)).
 
 ### Project naming and compatibility
 

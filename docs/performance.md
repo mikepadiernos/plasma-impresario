@@ -285,7 +285,7 @@ loaded CI runners pass; they catch large regressions, not small ones.
 | Network latency                      | ![Not measured][not-measured] | Repeat the [live workloads](#live-server) with added latency, or against a remote test server |
 | A Release build                      | ![Not measured][not-measured] | Repeat the same workloads in a Release build                                                  |
 | Painting the message list and reader | ![Not measured][not-measured] | Measure with the GUI drawing, in a Plasma session                                             |
-| Startup time                         | ![Not measured][not-measured] | Planned in M14 ([#145](https://github.com/mikepadiernos/plasma-impresario/issues/145))        |
+| Startup time                         | ![Not measured][not-measured] | Planned in M13 ([#145](https://github.com/mikepadiernos/plasma-impresario/issues/145))        |
 
 [limitation]: https://img.shields.io/badge/Limitation-bc4c00
 [not-measured]: https://img.shields.io/badge/Not_measured-6e7781
