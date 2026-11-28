@@ -1,6 +1,6 @@
 # Security and privacy refinement
 
-**[Documentation](../README.md)** · **[Roadmap: M14](../ROADMAP.md#m14-refinements)** ·
+**[Documentation](../README.md)** · **[Roadmap: M13](../ROADMAP.md#m13-refinements)** ·
 **[Refinements](README.md)** ·
 **[Previous: Search, sorting and automation](05-search-sorting-and-automation.md)** ·
 **[Next: Settings and notifications](07-settings-and-notifications.md)** ·
@@ -14,7 +14,7 @@ Legend: ![Backlog][backlog] on the project board, not started
 
 | Roadmap subsection                                            | Issue                                                               | Board               |
 | ------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------- |
-| [M14.07: Security and privacy](../ROADMAP.md#m14-refinements) | [#26](https://github.com/mikepadiernos/plasma-impresario/issues/26) | ![Backlog][backlog] |
+| [M13.07: Security and privacy](../ROADMAP.md#m13-refinements) | [#26](https://github.com/mikepadiernos/plasma-impresario/issues/26) | ![Backlog][backlog] |
 
 ## Current state
 

@@ -45,7 +45,7 @@ keys; this page does not repeat them.
 > M04 added mail operations, the unified inbox and the reading flow. All four
 > milestones are merged into `main`. Offscreen tests and opt-in live IMAP tests
 > against a disposable synthetic Dovecot (`tools/dev-container/`) cover them; a
-> real Plasma session has not been verified. M15
+> real Plasma session has not been verified. M14
 > ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)) tracks
 > that check.
 
@@ -154,11 +154,11 @@ Parity expectations:
 
 | Area                                  | Status                                    | Current state                                                                                                                                                                                                                      |
 | ------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Message list and reader behavior      | ![Needs verification][needs-verification] | The list and reader were reworked in [M03](../ROADMAP.md#m03-mail-operations-sorting-and-folder-management) and [M04](../ROADMAP.md#m04-reading-and-conversation-flow), both merged; a real Plasma session check is pending in M15 |
+| Message list and reader behavior      | ![Needs verification][needs-verification] | The list and reader were reworked in [M03](../ROADMAP.md#m03-mail-operations-sorting-and-folder-management) and [M04](../ROADMAP.md#m04-reading-and-conversation-flow), both merged; a real Plasma session check is pending in M14 |
 | Folder and account layout             | ![Needs verification][needs-verification] | Sidebar placement, the account selector and per-account headers in the folder sidebar exist                                                                                                                                        |
 | Search and filter UI                  | ![Planned][planned]                       | Inherited search and saved searches exist; cross-account search, virtual folders and a local index are planned in [M05](../ROADMAP.md#m05-search-and-indexing)                                                                     |
 | Notifications and status feedback     | ![Planned][planned]                       | Footer connection status and background-account notifications exist; new-mail notifications are planned in M06.01 and M07                                                                                                          |
-| Theme and contrast support            | ![Needs verification][needs-verification] | Follows Plasma's palette, accent and icon theme by default; M09 adds app-local schemes, accent, tints, effects, fonts, spacing and theme profiles, with layouts tested offscreen at 200% scale. Plasma-session checks are M15      |
+| Theme and contrast support            | ![Needs verification][needs-verification] | Follows Plasma's palette, accent and icon theme by default; M09 adds app-local schemes, accent, tints, effects, fonts, spacing and theme profiles, with layouts tested offscreen at 200% scale. Plasma-session checks are M14      |
 | Keyboard navigation and focus clarity | ![Needs verification][needs-verification] | <kbd>F6</kbd> region cycling and M04 desktop-heavy keyboard navigation ([#92](https://github.com/mikepadiernos/plasma-impresario/issues/92)) exist; not checked in Plasma                                                          |
 | KDE and Plasma integration            | ![Planned][planned]                       | See the [KDE Plasma integration guide](../integrations/kde-plasma.md)                                                                                                                                                              |
 

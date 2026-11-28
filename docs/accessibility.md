@@ -44,7 +44,7 @@ outside this audit, see the notes
 | Localizable strings          | ![Fixed][fixed]             | Source sweep; one literal fixed                                                                                                  |
 | Menu ellipses                | ![Limitation][limitation]   | Mixed `...` and `…`; see [caveat #472](CAVEATS.md#accessibility-and-theming)                                                     |
 | Translations                 | ![Limitation][limitation]   | No `.po` catalog yet; see [caveat #472](CAVEATS.md#accessibility-and-theming)                                                    |
-| Screen reader and Plasma     | ![Not covered][not-covered] | [#380](https://github.com/mikepadiernos/plasma-impresario/issues/380) and [M15](ROADMAP.md#m15-real-plasma-session-verification) |
+| Screen reader and Plasma     | ![Not covered][not-covered] | [#380](https://github.com/mikepadiernos/plasma-impresario/issues/380) and [M14](ROADMAP.md#m14-real-plasma-session-verification) |
 
 ## What was checked
 
@@ -114,7 +114,7 @@ control Tab cannot reach, with the path of object names leading to it.
   Driving the installed app through AT-SPI in a headless session is
   [#380](https://github.com/mikepadiernos/plasma-impresario/issues/380); a real
   Plasma 6 session with Orca, Breeze High Contrast and fractional scaling is
-  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](ROADMAP.md#m14-real-plasma-session-verification).
 - ![Not covered][not-covered] Shortcuts of actions that are disabled at
   startup, such as those that need an open folder or a selected message. The
   shortcut configuration dialog refuses a sequence that is already taken, and

@@ -1,6 +1,6 @@
 # Cross-product quality refinement
 
-**[Documentation](../README.md)** · **[Roadmap: M14](../ROADMAP.md#m14-refinements)** ·
+**[Documentation](../README.md)** · **[Roadmap: M13](../ROADMAP.md#m13-refinements)** ·
 **[Refinements](README.md)** ·
 **[Next: Shell and interaction](01-shell-and-interaction.md)**
 
@@ -11,17 +11,17 @@ Legend: ![Backlog][backlog] on the project board, not started
 
 | Roadmap subsection                                             | Issue                                                               | Board               |
 | -------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------- |
-| [M14.01: Cross-product quality](../ROADMAP.md#m14-refinements) | [#60](https://github.com/mikepadiernos/plasma-impresario/issues/60) | ![Backlog][backlog] |
+| [M13.01: Cross-product quality](../ROADMAP.md#m13-refinements) | [#60](https://github.com/mikepadiernos/plasma-impresario/issues/60) | ![Backlog][backlog] |
 
 ## Current state
 
-No M14.01 work has started. Today the QtTest suites run offscreen through
+No M13.01 work has started. Today the QtTest suites run offscreen through
 `ctest` with `QT_QPA_PLATFORM=offscreen`, the opt-in live IMAP tests run
 against a disposable Dovecot (`tools/dev-container/live-imap-accounts.sh`), and
 both also run under AddressSanitizer and UndefinedBehaviorSanitizer with the
 suppressions in `tests/` ([sanitizer runs](../sanitizers.md)). Nothing has been
 checked in a real Plasma session; that is
-[M15](../ROADMAP.md#m15-real-plasma-session-verification)
+[M14](../ROADMAP.md#m14-real-plasma-session-verification)
 ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)).
 
 ## Focus

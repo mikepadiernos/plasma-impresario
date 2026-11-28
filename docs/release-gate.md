@@ -149,7 +149,7 @@ message, without the line number, which moves with edits.
 | 763 inherited files are outside the formatting check                                        | ![Residual risk][risk] | [#511](https://github.com/mikepadiernos/plasma-impresario/issues/511) |
 | `test_Cryptography_PGP` is left out in the container                                        | ![Residual risk][risk] | [#511](https://github.com/mikepadiernos/plasma-impresario/issues/511) |
 | Data races are not checked; ThreadSanitizer needs a Qt built for it                         | ![Residual risk][risk] | [#507](https://github.com/mikepadiernos/plasma-impresario/issues/507) |
-| Nothing here runs in a Plasma session                                                       | ![Residual risk][risk] | [M15](ROADMAP.md#m15-real-plasma-session-verification)                |
+| Nothing here runs in a Plasma session                                                       | ![Residual risk][risk] | [M14](ROADMAP.md#m14-real-plasma-session-verification)                |
 
 [baseline]: https://img.shields.io/badge/Baseline-0969da
 [excluded]: https://img.shields.io/badge/Excluded-6e7781

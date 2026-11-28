@@ -12,7 +12,7 @@ companion application. The work is spread across file handoff in
 [M05](../ROADMAP.md#m05-search-and-indexing), workspace settings in
 [M08](../ROADMAP.md#m08-settings-and-workspace-configuration), themes in
 [M09](../ROADMAP.md#m09-themes-and-branding-foundation) and refinements in
-[M14](../ROADMAP.md#m14-refinements).
+[M13](../ROADMAP.md#m13-refinements).
 
 Legend for Plasma Opus features: ![Done][done] in Plasma Opus ·
 ![Planned][planned] in Plasma Opus or proposed
@@ -230,7 +230,7 @@ first and **Reset to Plasma Defaults** undoes it; see the
   unsupported.
 - **Verify:** Test import, export, following changes, invalid and missing
   profiles, and use without Plasma Opus installed, with isolated configuration.
-- **Spacing:** M14.02 ([#487](https://github.com/mikepadiernos/plasma-impresario/issues/487)) keeps spacing and theme in step
+- **Spacing:** M13.02 ([#487](https://github.com/mikepadiernos/plasma-impresario/issues/487)) keeps spacing and theme in step
   with Plasma Opus. Plasma Impresario uses the same spacing scale (50 to 200
   percent of Plasma's widget style, default 100) and the same accent color,
   corner radius and divider choices, so one value looks the same in both

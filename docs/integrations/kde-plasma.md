@@ -16,7 +16,7 @@ Legend: ![Tested][tested] · ![Needs verification][needs-verification] ·
 >
 > Verify service availability, privacy and recovery in a real Plasma session. No
 > integration below has been verified in one yet; those checks belong to
-> [M15](../ROADMAP.md#m15-real-plasma-session-verification)
+> [M14](../ROADMAP.md#m14-real-plasma-session-verification)
 > ([#319](https://github.com/mikepadiernos/plasma-impresario/issues/319)).
 
 ## Contents
@@ -213,7 +213,7 @@ reflects mail without interrupting reading.
 - **Verify:** In a Plasma 6 session, check that no surface takes the focus
   while typing in the composer or reading, that the task manager count matches
   the inboxes, and that Do Not Disturb holds the account notifications
-  ([M15](../ROADMAP.md#m15-real-plasma-session-verification)).
+  ([M14](../ROADMAP.md#m14-real-plasma-session-verification)).
 
 ## Plasma widgets
 
@@ -263,7 +263,7 @@ Part of **M06.02** (Plasma widgets and desktop feedback,
   failed and late answers; and `test_PlasmaWidgetViews` the shared views with
   a fake client. Loading the widgets on a panel and the desktop of a real
   Plasma 6 session belongs to
-  [M15](../ROADMAP.md#m15-real-plasma-session-verification).
+  [M14](../ROADMAP.md#m14-real-plasma-session-verification).
 - **Caveat:** Untried in Plasma, senders and subjects only from indexed
   accounts, INBOX counts only; see
   [Plasma widgets](../CAVEATS.md#plasma-widgets)
@@ -345,7 +345,7 @@ sender and date of matching messages
     would add a dependency, a translation layer and an attack surface without
     making searches faster or more complete; speed and coverage come from FTS5,
     IMAP `SEARCH` and merging their results. Microsoft Graph in
-    [M13](../ROADMAP.md#m13-microsoft-accounts-and-exchange) is an unrelated
+    [M15](../ROADMAP.md#m15-microsoft-accounts-and-exchange) is an unrelated
     REST API for Microsoft accounts.
 
 ## Settings and credentials
@@ -394,7 +394,7 @@ sender and date of matching messages
 
 - **Verify:** Check keyboard focus, screen-reader names, localized labels,
   scaling and light, dark and high-contrast themes in a Plasma 6 session
-  ([M15](../ROADMAP.md#m15-real-plasma-session-verification)).
+  ([M14](../ROADMAP.md#m14-real-plasma-session-verification)).
 
 ## Desktop actions and availability
 

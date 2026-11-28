@@ -1,6 +1,6 @@
 # Calendar and contacts refinement
 
-**[Documentation](../README.md)** · **[Roadmap: M14](../ROADMAP.md#m14-refinements)** ·
+**[Documentation](../README.md)** · **[Roadmap: M13](../ROADMAP.md#m13-refinements)** ·
 **[Refinements](README.md)** ·
 **[Previous: Desktop, services and assets](08-desktop-services-and-assets.md)** ·
 **[Next: Notes, journal and workspaces](10-notes-journal-and-workspaces.md)**
@@ -12,7 +12,7 @@ Legend: ![Backlog][backlog] on the project board, not started
 
 | Roadmap subsection                                             | Issue                                                               | Board               |
 | -------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------- |
-| [M14.10: Calendar and contacts](../ROADMAP.md#m14-refinements) | [#29](https://github.com/mikepadiernos/plasma-impresario/issues/29) | ![Backlog][backlog] |
+| [M13.10: Calendar and contacts](../ROADMAP.md#m13-refinements) | [#29](https://github.com/mikepadiernos/plasma-impresario/issues/29) | ![Backlog][backlog] |
 
 ## Current state
 

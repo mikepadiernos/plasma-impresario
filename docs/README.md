@@ -95,7 +95,7 @@ flowchart TD
 
 | Guide                                                                  | What it covers                                                 |
 | ---------------------------------------------------------------------- | -------------------------------------------------------------- |
-| [Refinement plans](refinements/README.md)                              | Release-quality review areas and acceptance criteria (M14)     |
+| [Refinement plans](refinements/README.md)                              | Release-quality review areas and acceptance criteria (M13)     |
 | ![Planned][planned] [Menu specifications](refinements/menus/README.md) | Application and context-menu behavior                          |
 | [Toolbar specifications](refinements/toolbars/README.md)               | Main, list, reader, attachment and compose toolbars            |
 | [Backend parity](parity/backend.md)                                    | Current IMAP, sync and account behavior against parity targets |
