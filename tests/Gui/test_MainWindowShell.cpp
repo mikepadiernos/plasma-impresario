@@ -13,6 +13,7 @@
 #include "Gui/CapabilityActionGate.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MsgListView.h"
+#include "Gui/NextcloudBrowserDialog.h"
 #include "Gui/ShellHeader.h"
 #include "Gui/Window.h"
 #include "UiUtils/BackgroundRunning.h"
@@ -890,6 +891,39 @@ private slots:
     QVERIFY(newDrafts().isEmpty());
     delete edited;
     delete untouched;
+  }
+
+  void composerAttachesFromNextcloud() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                       QSettings::IniFormat);
+    configureOffline(settings, QStringLiteral("work.example.test"));
+    settings.setValue(Common::SettingsNames::settingsVersion, 2);
+    settings.setValue(Common::SettingsNames::guiShowSystray, false);
+    Gui::MainWindow window(&settings);
+    QVERIFY(window.nextcloudTransfers());
+    window.accountSettings()->setValue(Common::SettingsNames::msaMethodKey,
+                                       Common::SettingsNames::methodSENDMAIL);
+    window.accountSettings()->setValue(Common::SettingsNames::sendmailKey,
+                                       QStringLiteral("/bin/false"));
+    auto *composer = Gui::ComposeWidget::createBlank(&window);
+    QVERIFY(composer);
+    auto *button = composer->findChild<QPushButton *>(
+        QStringLiteral("composerFromNextcloud"));
+    QVERIFY(button);
+    QVERIFY(!button->toolTip().isEmpty());
+    button->click();
+    auto *browser = composer->findChild<Gui::NextcloudBrowserDialog *>();
+    QVERIFY(browser);
+    QCOMPARE(browser->mode(), Gui::NextcloudBrowserDialog::Mode::ChooseFiles);
+    // Links are inserted only for files which are already shared
+    bool links = false;
+    for (auto *candidate : browser->findChildren<QPushButton *>())
+      links = links || candidate->text().contains(QLatin1String("Links"));
+    QVERIFY(links);
+    browser->close();
+    delete composer;
   }
 
   void taskManagerShowsTheUnreadCount() {

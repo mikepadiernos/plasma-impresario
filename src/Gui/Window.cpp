@@ -153,6 +153,7 @@
 #include "NextcloudBrowserDialog.h"
 #include "NextcloudConnectDialog.h"
 #include "NextcloudHub.h"
+#include "NextcloudTransfers.h"
 #include "SearchIndexDialog.h"
 #include "MessageDetailsPanel.h"
 #include "MessageListWidget.h"
@@ -265,6 +266,7 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     connect(m_pluginManager, &Plugins::PluginManager::pluginsChanged, this, &MainWindow::slotPluginsChanged);
     m_nextcloud = new NextcloudHub(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), m_settings,
                                    [this]() { return m_pluginManager->password(); }, this);
+    m_nextcloudTransfers = new NextcloudTransfers(m_nextcloud, this);
     connect(m_pluginManager, &Plugins::PluginManager::pluginError, this, [this](const QString &errorMessage) {
         Gui::Util::messageBoxWarning(this, tr("Plugin Error"),
                                      //: The %1 placeholder is a full error message as provided by Qt, ready for human consumption.
@@ -2113,6 +2115,7 @@ void MainWindow::createWidgets()
     connect(m_attachmentPanel, &AttachmentPanel::transferError, this, &MainWindow::slotDownloadTransferError);
     connect(m_attachmentPanel, &AttachmentPanel::fileSaved, this, &MainWindow::slotFileSaved);
     connect(m_attachmentPanel, &AttachmentPanel::findSavedCopiesRequested, this, &MainWindow::findSavedFiles);
+    connect(m_attachmentPanel, &AttachmentPanel::saveToNextcloudRequested, this, &MainWindow::saveAttachmentToNextcloud);
 
     m_messageDetailsPanel = new MessageDetailsPanel();
     m_messageDetailsPanel->setAccountResolver(accountName);
@@ -4239,22 +4242,56 @@ void MainWindow::connectNextcloud(QWidget *parent, std::function<void(const QStr
     dialog->open();
 }
 
+NextcloudBrowserDialog *MainWindow::createNextcloudBrowser(int mode, QWidget *parent)
+{
+    auto *browser = new NextcloudBrowserDialog(m_nextcloud, NextcloudBrowserDialog::Mode(mode), parent ? parent : this);
+    browser->setAttribute(Qt::WA_DeleteOnClose);
+    connect(browser, &NextcloudBrowserDialog::connectRequested, this, [this, browser]() {
+        QPointer<NextcloudBrowserDialog> guard(browser);
+        connectNextcloud(browser, [guard](const QString &id) {
+            if (guard)
+                guard->setAccount(id);
+        });
+    });
+    return browser;
+}
+
 void MainWindow::browseNextcloud()
 {
-    if (!m_nextcloudBrowser) {
-        m_nextcloudBrowser = new NextcloudBrowserDialog(m_nextcloud, NextcloudBrowserDialog::Mode::Browse, this);
-        m_nextcloudBrowser->setAttribute(Qt::WA_DeleteOnClose);
-        connect(m_nextcloudBrowser, &NextcloudBrowserDialog::connectRequested, this, [this]() {
-            QPointer<NextcloudBrowserDialog> browser = m_nextcloudBrowser;
-            connectNextcloud(browser, [browser](const QString &id) {
-                if (browser)
-                    browser->setAccount(id);
-            });
-        });
-    }
+    if (!m_nextcloudBrowser)
+        m_nextcloudBrowser = createNextcloudBrowser(int(NextcloudBrowserDialog::Mode::Browse), this);
     m_nextcloudBrowser->show();
     m_nextcloudBrowser->raise();
     m_nextcloudBrowser->activateWindow();
+}
+
+void MainWindow::saveAttachmentToNextcloud(const QPersistentModelIndex &part)
+{
+    if (!part.isValid())
+        return;
+    auto *browser = createNextcloudBrowser(int(NextcloudBrowserDialog::Mode::ChooseFolder), this);
+    browser->setWindowTitle(i18nc("@title:window", "Save Attachment to Nextcloud"));
+    connect(browser, &NextcloudBrowserDialog::folderChosen, this, [this, part](const QString &accountId, const QString &folder) {
+        m_attachmentPanel->readPart(part, this, [this, accountId, folder](const QString &fileName, const QByteArray &data) {
+            m_nextcloudTransfers->store(
+                accountId, folder, fileName, data, this,
+                [this, accountId, folder](const QString &path) {
+                    const QUrl page = m_nextcloud->account(accountId).webFolderUrl(folder);
+                    m_notificationBar->showInfo(
+                        i18nc("@info %1 is a file name, %2 a folder in Nextcloud", "Saved \"%1\" to %2 in Nextcloud.",
+                              path.section(QLatin1Char('/'), -1),
+                              folder),
+                        {{i18nc("@action:button", "Open in Browser"), QStringLiteral("internet-services"),
+                          QStringLiteral("openNextcloudFolder"), [page]() { QDesktopServices::openUrl(page); }}});
+                },
+                [this, fileName](const QString &message) {
+                    m_notificationBar->showError(
+                        i18nc("@info %1 is a file name, %2 an error message", "Could not save \"%1\" to Nextcloud: %2",
+                              fileName, message));
+                });
+        });
+    });
+    browser->open();
 }
 
 void MainWindow::showSearchIndexOver(QWidget *parent)

@@ -23,6 +23,7 @@
 #define COMPOSEWIDGET_H
 
 #include <memory>
+#include <QSet>
 
 #include <QList>
 #include <QMap>
@@ -36,6 +37,7 @@
 #include "Common/Logging.h"
 #include "Composer/Recipients.h"
 #include "Composer/MessageComposer.h"
+#include "Nextcloud/Files.h"
 #include "Plugins/AddressbookPlugin.h"
 
 
@@ -155,6 +157,8 @@ private slots:
 
     void slotAskForFileAttachment();
     void slotAttachFiles(QList<QUrl> urls);
+    /** @short Choose files in Nextcloud, to attach them or to insert links to them */
+    void attachFromNextcloud();
 
     void slotUpdateSignature();
     void updateWindowTitle();
@@ -180,6 +184,9 @@ signals:
     void logged(const Common::LogKind kind, const QString& source, const QString& message);
 
 private:
+    void attachNextcloudFiles(const QString &accountId, const QList<Nextcloud::Entry> &files);
+    void insertNextcloudLinks(const QString &accountId, const QList<Nextcloud::Entry> &files);
+
     ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::AbstractComposer> messageComposer, MSA::MSAFactory *msaFactory);
     void setResponseData(const QList<QPair<Composer::RecipientKind, QString> > &recipients, const QString &subject,
                          const QString &body, const QList<QByteArray> &inReplyTo, const QList<QByteArray> &references,
@@ -281,6 +288,9 @@ private:
     /** Reports the files being fetched from other computers to be attached */
     InlineNotificationBar *m_fetchNotice;
     RemoteAttachmentFetcher *m_remoteFetcher = nullptr;
+    QPushButton *m_nextcloudButton = nullptr;
+    /** The private copies of the files still being downloaded from Nextcloud */
+    QSet<QString> m_nextcloudCopies;
 
     std::shared_ptr<Composer::AbstractComposer> m_composer;
     Composer::Submission *m_submission;

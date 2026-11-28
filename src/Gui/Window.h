@@ -144,6 +144,7 @@ class SearchFoldersDialog;
 class SavedFilesSearchDialog;
 class NextcloudBrowserDialog;
 class NextcloudHub;
+class NextcloudTransfers;
 class SearchIndexDialog;
 class CapabilityActionGate;
 class ShellHeader;
@@ -238,10 +239,16 @@ public:
     void showSearchIndexOver(QWidget *parent);
     /** @short The connected Nextcloud accounts */
     NextcloudHub *nextcloud() const { return m_nextcloud; }
+    /** @short Files moved between the mail and the connected Nextcloud accounts */
+    NextcloudTransfers *nextcloudTransfers() const { return m_nextcloudTransfers; }
     /** @short Ask for a Nextcloud account to connect, above @p parent; @p connected runs with its ID once it is */
     void connectNextcloud(QWidget *parent, std::function<void(const QString &id)> connected);
     /** @short Open the Nextcloud file browser, which offers to connect an account when there is none */
     void browseNextcloud();
+    /** @short A Nextcloud file browser above @p parent, deleted when closed, which connects an account when asked */
+    NextcloudBrowserDialog *createNextcloudBrowser(int mode, QWidget *parent);
+    /** @short Ask for a Nextcloud folder, then upload the attachment @p part there */
+    void saveAttachmentToNextcloud(const QPersistentModelIndex &part);
     /** @short Run @p fn while accountSettings(), imapAccess(), imapModel(), senderIdentitiesModel() and msaFactory()
     refer to @p accountId
 
@@ -1305,6 +1312,7 @@ private:
     QPointer<SavedFilesSearchDialog> m_savedFilesDialog;
     QAction *m_actionFindSavedFiles = nullptr;
     NextcloudHub *m_nextcloud = nullptr;
+    NextcloudTransfers *m_nextcloudTransfers = nullptr;
     QPointer<NextcloudBrowserDialog> m_nextcloudBrowser;
     QAction *m_actionBrowseNextcloud = nullptr;
     QAction *m_actionFilterUnread = nullptr;
