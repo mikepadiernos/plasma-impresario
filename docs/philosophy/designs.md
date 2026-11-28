@@ -632,14 +632,18 @@ blank:
 - Offline, an error bar above the message says that part of the message is not
   available offline and loads when the network is back. It does so on its own.
 - When the server does not send a part, the bar says that it could not be
-  loaded and offers **Try Again**.
-- When the message's structure itself cannot be fetched, the reader shows a
-  page saying that the message is not available offline, or could not be
-  loaded, with **Try Again** when online. Before this, the reader waited
-  without end.
+  loaded and tries once more on its own after a few seconds. If that fails
+  too, the bar offers **Try Again**.
+- When the message's structure itself cannot be fetched, because the server
+  refuses or ignores the request, the reader shows a page saying that the
+  message is not available offline, or could not be loaded. Online, the page
+  also tries once more on its own, then offers **Try Again**. Before this, the
+  reader waited without end.
 - Chromium's own error page is turned off; the bar is the only report.
-- Saving an attachment that cannot be downloaded or written reports
-  **Could Not Save File** with the reason.
+- Saving an attachment that cannot be downloaded or written reports the
+  reason in the window's notification bar, with **Show Activity…**, and keeps
+  it in the activity. Offline, an attachment that was never downloaded is
+  reported before a file name is asked for.
 
 On an expensive connection, large parts still wait behind a **Load** button
 with their type and size. See

@@ -88,7 +88,7 @@ issue comment that holds the current recommendation.
 | ![Resolved][resolved]     | Accounts           | One window holds several IMAP accounts, grouped by account in the folder sidebar; the limitations recorded for them are resolved ([details](#multiple-accounts))                                                                                                                                                                                                                                                                                      | [#262](https://github.com/mikepadiernos/plasma-impresario/issues/262)                                                                        |
 | ![Limitation][limitation] | Embedded panels    | Related messages search only loaded messages unless the bounded server search is turned on ([details](#related-messages-and-message-details-panels)); message details do not verify inline PGP ([details](#message-security))                                                                                                                                                                                                                         | [#264](https://github.com/mikepadiernos/plasma-impresario/issues/264), [#442](https://github.com/mikepadiernos/plasma-impresario/issues/442) |
 | ![Limitation][limitation] | Reading privacy    | Link warnings are heuristic, a link reached with the keyboard shows no tooltip, and remote content consent applies to the open message only ([details](#reading-privacy))                                                                                                                                                                                                                                                                             | [#443](https://github.com/mikepadiernos/plasma-impresario/issues/443)                                                                        |
-| ![Limitation][limitation] | Loading on demand  | Parts that failed after a server error load again only on Try Again; the unavailable-message page is not verified live ([details](#loading-on-demand))                                                                                                                                                                                                                                                                                                | [#444](https://github.com/mikepadiernos/plasma-impresario/issues/444)                                                                        |
+| ![Resolved][resolved]     | Loading on demand  | Refused parts and messages are tried once more on their own, the unavailable-message page is tested, and failed attachment saves go to the notification bar; the limitations recorded for them are resolved ([details](#loading-on-demand))                                                                                                                                                                                                           | [#444](https://github.com/mikepadiernos/plasma-impresario/issues/444)                                                                        |
 | ![Limitation][limitation] | Reader actions     | The action bar is in the main window only, zoom is not saved, and Archive and Trash from the bar are not verified live ([details](#reader-actions))                                                                                                                                                                                                                                                                                                   | [#445](https://github.com/mikepadiernos/plasma-impresario/issues/445)                                                                        |
 | ![Limitation][limitation] | Conversations      | A search in a threaded list splits threads, conversations cover the loaded messages of the current folder only, and the Unified Inbox has no conversation steps ([details](#conversations))                                                                                                                                                                                                                                                           | [#449](https://github.com/mikepadiernos/plasma-impresario/issues/449)                                                                        |
 | ![Limitation][limitation] | OAuth sign-in      | Microsoft uses the `common` tenant only and cannot revoke grants from the app, IMAP and SMTP refresh tokens independently, and switching provider replaces a grant without revoking it ([details](#oauth-sign-in))                                                                                                                                                                                                                                    | [#362](https://github.com/mikepadiernos/plasma-impresario/issues/362)                                                                        |
@@ -323,36 +323,35 @@ Plasma session; that check is
 
 ### Loading on demand
 
-| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                      |
-| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| [#444](https://github.com/mikepadiernos/plasma-impresario/issues/444) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/444#issuecomment-7175640115) | Messages and parts the reader cannot load ([#94](https://github.com/mikepadiernos/plasma-impresario/issues/94)) |
+| Caveat issue                                                          | Board             | Recommendation                                                                                         | Applies to                                                                                                      | Verified with                                                                         |
+| --------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| [#444](https://github.com/mikepadiernos/plasma-impresario/issues/444) | ![Merged][merged] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/444#issuecomment-7175640115) | Messages and parts the reader cannot load ([#94](https://github.com/mikepadiernos/plasma-impresario/issues/94)) | A synthetic server that refuses FETCH in `test_MessageView` and `test_Imap_BodyParts` |
+
+All three limitations recorded in #444 are resolved, and the issue is closed.
 
 **Current behavior:**
 
 - ![Resolved][resolved] Parts that cannot be loaded are reported in an error
   bar above the message instead of a blank or a Chromium error page. Offline,
   they load on their own when the network returns (#94).
-- ![Limitation][limitation] After a server error, a part loads again only on
-  **Try Again** or when the message is reopened.
-- ![Limitation][limitation] The page for a message whose structure cannot be
-  fetched is covered by code review only; the message list fetches the
-  structure first, so no live scenario reaches it yet.
-- ![Limitation][limitation] Saving an attachment that cannot be downloaded, for
-  example offline, still reports the failure in a dialog.
+- ![Resolved][resolved] After a server error, the reader tries a part once more
+  on its own after a few seconds, while online. If that fails too, the bar
+  offers **Try Again**.
+- ![Resolved][resolved] A refused or ignored metadata `FETCH` marks the message
+  unavailable instead of leaving it loading, so the reader reaches the
+  unavailable-message page. Online, the page also tries once more on its own,
+  then offers **Try Again**. A synthetic server that refuses `FETCH` covers
+  both the page and the part retry.
+- ![Resolved][resolved] Saving an attachment that cannot be downloaded or
+  written reports the reason in the window's notification bar, with **Show
+  Activity…**, and keeps it in the activity, instead of a dialog. Offline, an
+  attachment that was never downloaded is reported before a file name is asked
+  for.
 
 **Workarounds:**
 
-- Offline, go online to load the missing parts.
-- After a server error, use **Try Again** in the bar, or reopen the message.
 - To read a folder offline, enable offline caching for the account and open its
   messages while online.
-
-**Proposed improvements:**
-
-- Retry a failed part once on its own after a short delay before asking.
-- Report failed attachment downloads in the attachments panel.
-- Cover the unavailable page and online refusals with a synthetic server that
-  refuses FETCH.
 
 ### Reader actions
 
