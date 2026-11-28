@@ -38,6 +38,7 @@
 #include "Composer/Recipients.h"
 #include "Imap/ConnectionState.h"
 #include "Imap/Model/Cache.h"
+#include "Imap/Model/ConnectionStates.h"
 #include "Imap/Model/CopyMoveOperation.h"
 #include "Imap/Model/GroupingMsgListModel.h"
 #include "Imap/Model/SpecialFolder.h"
@@ -988,6 +989,10 @@ private:
     QHash<QString, QPointer<JmapSyncer>> m_jmapSyncers;
     /** @short When each account which lost its connection tries again; see recordSyncActivity() */
     QHash<QString, QDateTime> m_reconnectAt;
+    /** @short The open connections of each IMAP account, which together make its connection state */
+    QHash<QString, Imap::Mailbox::ConnectionStates> m_connectionStates;
+    /** @short The connection state which the status bar showed last */
+    Imap::ConnectionState m_shownConnectionState = Imap::CONN_STATE_NONE;
     /** @short Numbers the activity entries of failed message operations */
     quint64 m_operationSerial = 0;
     QComboBox *m_accountSwitcher = nullptr;

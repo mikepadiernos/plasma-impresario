@@ -5237,18 +5237,28 @@ void MainWindow::monitorAccount(const QString &accountId)
         }, Qt::QueuedConnection);
         return;
     }
+    // A new model numbers its connections afresh
+    m_connectionStates.remove(accountId);
     connect(model, &Imap::Mailbox::Model::connectionStateChanged, access,
-            [this, accountId](uint, const Imap::ConnectionState state) {
-        const AccountStatusKind current = m_accountStatus->status(accountId).kind;
-        if (state == Imap::CONN_STATE_NONE) {
-            if (!Common::AccountStatusTracker::needsAttention(current))
-                m_accountStatus->setStatus(accountId, AccountStatusKind::Idle);
-        } else if (state >= Imap::CONN_STATE_AUTHENTICATED) {
-            m_accountStatus->setStatus(accountId, AccountStatusKind::Connected);
-        } else {
-            m_accountStatus->setStatus(accountId, AccountStatusKind::Connecting);
-        }
-    });
+        [this, accountId](const uint connection, const Imap::ConnectionState state) {
+            using Summary = Imap::Mailbox::ConnectionStates::Summary;
+            Imap::Mailbox::ConnectionStates &states = m_connectionStates[accountId];
+            states.update(connection, state);
+            const AccountStatusKind current = m_accountStatus->status(accountId).kind;
+            switch (states.summary()) {
+            case Summary::Disconnected:
+                // Going offline and losing the connection say so themselves, and keep saying it
+                if (current != AccountStatusKind::Offline && !Common::AccountStatusTracker::needsAttention(current))
+                    m_accountStatus->setStatus(accountId, AccountStatusKind::Idle);
+                break;
+            case Summary::Connecting:
+                m_accountStatus->setStatus(accountId, AccountStatusKind::Connecting);
+                break;
+            case Summary::Connected:
+                m_accountStatus->setStatus(accountId, AccountStatusKind::Connected);
+                break;
+            }
+        });
     connect(model, &Imap::Mailbox::Model::networkPolicyOffline, access, [this, accountId]() {
         if (!Common::AccountStatusTracker::needsAttention(m_accountStatus->status(accountId).kind))
             m_accountStatus->setStatus(accountId, AccountStatusKind::Offline);
@@ -5766,6 +5776,7 @@ void MainWindow::removeAccountNow(const QString &accountId)
     m_mailAutomation->forgetAccount(accountId);
     // Deleting the account's models also closes its cache database, so the files can be removed.
     delete m_accountAccess.take(accountId);
+    m_connectionStates.remove(accountId);
     scheduleAgendaMessages();
     if (!Imap::removeAccountCache(cacheDirectory, Common::writablePath(Common::LOCATION_CACHE))) {
         qWarning() << "Could not delete the offline cache of the removed account in" << cacheDirectory;
@@ -7853,8 +7864,12 @@ void MainWindow::slotMailboxChanged(const QModelIndex &mailbox)
 
 void MainWindow::showConnectionStatus(uint parserId, Imap::ConnectionState state)
 {
-    Q_UNUSED(parserId);
-    static Imap::ConnectionState previousState = Imap::ConnectionState::CONN_STATE_NONE;
+    // One connection closing while others stay open leaves the account connected
+    Imap::Mailbox::ConnectionStates &states = m_connectionStates[m_accounts->activeAccount()];
+    states.update(parserId, state);
+    if ((state == Imap::CONN_STATE_NONE || state == Imap::CONN_STATE_LOGOUT) && states.count() > 0)
+        state = states.furthest();
+    const Imap::ConnectionState previousState = m_shownConnectionState;
     QString message = connectionStateToString(state);
 
     if (netOffline->isChecked())
@@ -7868,7 +7883,7 @@ void MainWindow::showConnectionStatus(uint parserId, Imap::ConnectionState state
     } else {
         showStatusMessage(message);
     }
-    previousState = state;
+    m_shownConnectionState = state;
 }
 
 void MainWindow::slotShowLinkTarget(const QString &link)
