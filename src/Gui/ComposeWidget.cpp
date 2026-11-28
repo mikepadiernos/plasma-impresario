@@ -68,6 +68,7 @@
 #include "Gui/ComposeWidget.h"
 #include "Gui/FileChooser.h"
 #include "Gui/FromAddressProxyModel.h"
+#include "Gui/HeaderInputGuard.h"
 #include "Gui/InlineNotificationBar.h"
 #include "Gui/LineEdit.h"
 #include "Gui/MessageView.h"
@@ -255,6 +256,13 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
     m_fetchNotice->setAutoHideTimeout(0);
     ui->verticalLayout_2->insertWidget(1, m_fetchNotice);
 
+    m_headerNotice = new InlineNotificationBar(this);
+    m_headerNotice->setObjectName(QStringLiteral("composerHeaderNotice"));
+    ui->verticalLayout_2->insertWidget(2, m_headerNotice);
+    m_headerGuard = new HeaderInputGuard(this);
+    connect(m_headerGuard, &HeaderInputGuard::cleaned, m_headerNotice,
+            [this](QLineEdit *, const QString &notice) { m_headerNotice->showInfo(notice); });
+
     if (interactiveComposer()) {
         interactiveComposer()->setReportImpresarioVersions(m_settings->value(Common::SettingsNames::interopRevealVersions, true).toBool());
         ui->attachmentsView->setComposer(interactiveComposer());
@@ -386,6 +394,7 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
     connect(ui->mailText, &ComposerTextEdit::urlsAdded, this, &ComposeWidget::slotAttachFiles);
     connect(ui->mailText, &ComposerTextEdit::sendRequest, this, &ComposeWidget::send);
     connect(ui->mailText, &QTextEdit::textChanged, this, &ComposeWidget::setMessageUpdated);
+    m_headerGuard->watch(ui->subject, i18nc("@label the field name in a notice", "Subject"));
     connect(ui->subject, &QLineEdit::textChanged, this, &ComposeWidget::updateWindowTitle);
     connect(ui->subject, &QLineEdit::textChanged, this, &ComposeWidget::setMessageUpdated);
     connect(ui->subject, &QLineEdit::returnPressed, this, [this]() { ui->mailText->setFocus(); });
@@ -397,6 +406,7 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
 
     connect(ui->sender, static_cast<void (QComboBox::*)(const int)>(&QComboBox::currentIndexChanged), this, &ComposeWidget::slotUpdateSignature);
     connect(ui->sender, &QComboBox::editTextChanged, this, &ComposeWidget::setMessageUpdated);
+    m_headerGuard->watch(ui->sender->lineEdit(), i18nc("@label the field name in a notice", "From"));
     connect(ui->sender->lineEdit(), &QLineEdit::textChanged, this, &ComposeWidget::slotCheckAddressOfSender);
     connect(ui->sender, &QComboBox::editTextChanged, this, &ComposeWidget::updateAccountWarning);
     populateAccounts();
@@ -1604,6 +1614,7 @@ void ComposeWidget::addRecipient(int position, Composer::RecipientKind kind, con
     };
     nameAddress();
     connect(combo, &QComboBox::currentIndexChanged, edit, nameAddress);
+    m_headerGuard->watch(edit);
     slotCheckAddress(edit);
     connect(edit, &QLineEdit::textChanged, this, &ComposeWidget::slotCheckAddressOfSender);
     connect(edit, &QLineEdit::textChanged, this, &ComposeWidget::setMessageUpdated);

@@ -80,6 +80,7 @@ public:
     QList<QByteArray> references() const;
     QByteArray rawFromAddress() const override;
     QList<QByteArray> rawRecipientAddresses() const override;
+    bool hasBlindCopyRecipients() const override;
     QModelIndex replyingToMessage() const override;
     QModelIndex forwardingMessage() const override;
 

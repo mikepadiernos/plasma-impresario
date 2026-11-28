@@ -40,7 +40,9 @@ private slots:
     void testUserAgentIdentity();
     void testSimpleSubmission();
     void testBccOnlyInSentCopy();
-    void testBccOmittedFromBurlCopy();
+    void testBccSkipsBurl();
+    void testBccRefiledAfterImapSendmail();
+    void testBccRefileFailureKeepsDelivery();
     void testSimpleSubmissionWithAppendFailed();
     void testSimpleSubmissionWithAppendNoAppenduid();
     void testSimpleSubmissionWithAppendAppenduid();

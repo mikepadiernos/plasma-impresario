@@ -573,6 +573,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/FileChooser.cpp
     ${path_DesktopGui}/FlowLayout.cpp
     ${path_DesktopGui}/FromAddressProxyModel.cpp
+    ${path_DesktopGui}/HeaderInputGuard.cpp
     ${path_DesktopGui}/InlineNotificationBar.cpp
     ${path_DesktopGui}/LineEdit.cpp
     ${path_DesktopGui}/LinkTarget.cpp
@@ -772,6 +773,7 @@ set(libImap_SOURCES
     ${path_Imap}/Tasks/SubscribeUnsubscribeTask.cpp
     ${path_Imap}/Tasks/ThreadTask.cpp
     ${path_Imap}/Tasks/UidSubmitTask.cpp
+    ${path_Imap}/Tasks/UidRemoveTask.cpp
     ${path_Imap}/Tasks/UnSelectTask.cpp
     ${path_Imap}/Tasks/UpdateFlagsTask.cpp
     ${path_Imap}/Tasks/UpdateFlagsOfAllMessagesTask.cpp
@@ -1460,6 +1462,10 @@ if(BUILD_TESTING)
         target_link_libraries(test_LiveImapSearch PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Network Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
         add_executable(test_LiveImapWorkloads tests/Gui/test_LiveImapWorkloads.cpp)
         target_link_libraries(test_LiveImapWorkloads PRIVATE AppVersion DesktopGui IPC UiUtils Qt6::Test KF6::ConfigCore KF6::I18n ${STATIC_PLUGINS})
+        add_executable(test_HeaderInputGuard tests/Gui/test_HeaderInputGuard.cpp)
+        target_link_libraries(test_HeaderInputGuard PRIVATE DesktopGui Qt6::Test KF6::I18n)
+        add_dependencies(test_HeaderInputGuard DesktopGui)
+        target_include_directories(test_HeaderInputGuard PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/DesktopGui_autogen/include ${path_DesktopGui})
         add_executable(test_InlineNotificationBar tests/Gui/test_InlineNotificationBar.cpp)
         target_link_libraries(test_InlineNotificationBar PRIVATE DesktopGui Qt6::Test KF6::I18n)
         add_executable(test_AddAccountDialog tests/Gui/test_AddAccountDialog.cpp)
@@ -1530,6 +1536,8 @@ if(BUILD_TESTING)
             add_test(NAME test_ClearTextPassword COMMAND test_ClearTextPassword)
             add_test(NAME test_PasswordBackend COMMAND test_PasswordBackend)
             set_tests_properties(test_PasswordBackend PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_HeaderInputGuard COMMAND test_HeaderInputGuard)
+            set_tests_properties(test_HeaderInputGuard PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_InlineNotificationBar COMMAND test_InlineNotificationBar)
             set_tests_properties(test_InlineNotificationBar PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_AddAccountDialog COMMAND test_AddAccountDialog)
@@ -1569,7 +1577,8 @@ if(BUILD_TESTING)
                     requestsBringTheirWindowForward sessionEndSavesUnsentMessages
                     sidebarShowsUnreadCounts mailAutomationFollowsTheWindow taskManagerShowsTheUnreadCount
                     mailToNotesNeedsANotesFolder everyVisibleControlHasAnAccessibleName
-                    failedFolderSyncStaysInTheActivityLog accountStatusCombinesItsConnections)
+                    failedFolderSyncStaysInTheActivityLog accountStatusCombinesItsConnections
+                    composerPointsOutCleanedHeaders)
                 add_test(NAME test_MainWindowShell_${shell_case} COMMAND test_MainWindowShell ${shell_case})
                 set_tests_properties(test_MainWindowShell_${shell_case} PROPERTIES
                     TIMEOUT 60

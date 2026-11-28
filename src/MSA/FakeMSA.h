@@ -37,6 +37,9 @@ public:
     ~Fake() override;
     void sendMail(const QByteArray &from, const QList<QByteArray> &to, const QByteArray &data) override;
     void sendBurl(const QByteArray &from, const QList<QByteArray> &to, const QByteArray &imapUrl) override;
+    bool supportsImapSending() const override;
+    void sendImap(const QString &mailbox, const uint uidValidity, const uint uid,
+                  const Imap::Mailbox::UidSubmitOptionsList options) override;
     /** @short Report an error which sending again does not change */
     void refuse(const QString &message);
 public slots:
@@ -77,6 +80,7 @@ public slots:
 signals:
     void requestedSending(const QByteArray &from, const QList<QByteArray> &to, const QByteArray &data);
     void requestedBurlSending(const QByteArray &from, const QList<QByteArray> &to, const QByteArray &imapUrl);
+    void requestedImapSending(const QString &mailbox, const uint uidValidity, const uint uid);
     void requestedCancelling();
 
     // forwarded from AbstractMSA

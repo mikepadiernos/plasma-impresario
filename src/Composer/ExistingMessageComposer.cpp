@@ -101,6 +101,13 @@ QList<QByteArray> ExistingMessageComposer::rawRecipientAddresses() const
     return res;
 }
 
+bool ExistingMessageComposer::hasBlindCopyRecipients() const
+{
+    return std::any_of(m_recipients.cbegin(), m_recipients.cend(), [](const auto &recipient) {
+        return recipient.first == Composer::ADDRESS_BCC || recipient.first == Composer::ADDRESS_RESENT_BCC;
+    });
+}
+
 void ExistingMessageComposer::setRecipients(const QList<QPair<Composer::RecipientKind, Imap::Message::MailAddress>> &recipients)
 {
     m_recipients.clear();

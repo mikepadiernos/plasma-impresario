@@ -8,6 +8,7 @@
 #include "Common/SettingsNames.h"
 #include "Gui/AccountSidebar.h"
 #include "Gui/ComposeWidget.h"
+#include "Gui/InlineNotificationBar.h"
 #include "Gui/MailAutomation.h"
 #include "UiUtils/ActivityLog.h"
 #include "Gui/CapabilityActionGate.h"
@@ -40,6 +41,7 @@
 #include <QAccessible>
 #include <QAction>
 #include <QComboBox>
+#include <QClipboard>
 #include <QApplication>
 #include <QScreen>
 #include <QMenu>
@@ -926,6 +928,52 @@ private slots:
       links = links || candidate->text().contains(QLatin1String("Links"));
     QVERIFY(links);
     browser->close();
+    delete composer;
+  }
+
+  void composerPointsOutCleanedHeaders() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                       QSettings::IniFormat);
+    configureOffline(settings, QStringLiteral("work.example.test"));
+    settings.setValue(Common::SettingsNames::settingsVersion, 2);
+    settings.setValue(Common::SettingsNames::guiShowSystray, false);
+    Gui::MainWindow window(&settings);
+    window.accountSettings()->setValue(Common::SettingsNames::msaMethodKey,
+                                       Common::SettingsNames::methodSENDMAIL);
+    window.accountSettings()->setValue(Common::SettingsNames::sendmailKey,
+                                       QStringLiteral("/bin/false"));
+    auto *composer = Gui::ComposeWidget::createBlank(&window);
+    QVERIFY(composer);
+    auto *notice = composer->findChild<Gui::InlineNotificationBar *>(
+        QStringLiteral("composerHeaderNotice"));
+    QVERIFY(notice);
+    QVERIFY(!notice->isVisibleTo(composer));
+
+    auto *subject = composer->findChild<QLineEdit *>(QStringLiteral("subject"));
+    QVERIFY(subject);
+    QApplication::clipboard()->setText(
+        QStringLiteral("Minutes\r\nBcc: everyone@example.org"));
+    subject->paste();
+    QCOMPARE(subject->text(),
+             QStringLiteral("Minutes Bcc: everyone@example.org"));
+    QTRY_VERIFY(notice->isVisibleTo(composer));
+    QVERIFY(notice->text().contains(QLatin1String("Subject")));
+
+    QLineEdit *recipient = nullptr;
+    for (auto *edit : composer->findChildren<QLineEdit *>()) {
+      if (edit->accessibleName() == QLatin1String("To address"))
+        recipient = edit;
+    }
+    QVERIFY(recipient);
+    notice->dismiss();
+    QApplication::clipboard()->setText(
+        QStringLiteral("a@example.org\nb@example.org"));
+    recipient->paste();
+    QCOMPARE(recipient->text(), QStringLiteral("a@example.org b@example.org"));
+    QTRY_VERIFY(notice->isVisibleTo(composer));
+    QVERIFY(notice->text().contains(QLatin1String("To address")));
     delete composer;
   }
 

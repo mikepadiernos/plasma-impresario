@@ -51,6 +51,7 @@
 #include "Common/PortNumbers.h"
 #include "Common/SettingsNames.h"
 #include "Composer/AccountIdentities.h"
+#include "Gui/HeaderInputGuard.h"
 #include "Gui/StartAfterLogin.h"
 #include "Gui/ThemeGroup.h"
 #include "Gui/Util.h"
@@ -876,6 +877,24 @@ EditIdentity::EditIdentity(QWidget *parent, Composer::SenderIdentitiesModel *ide
     connect(this, &QDialog::rejected, this, &EditIdentity::onReject);
     setModal(true);
     signaturePlainTextEdit->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+
+    m_cleanedNote = new QLabel(this);
+    m_cleanedNote->setObjectName(QStringLiteral("identityCleanedNote"));
+    m_cleanedNote->setWordWrap(true);
+    m_cleanedNote->setTextFormat(Qt::PlainText);
+    m_cleanedNote->hide();
+    int buttonRow = -1;
+    QFormLayout::ItemRole buttonRole;
+    formLayout->getWidgetPosition(buttonBox, &buttonRow, &buttonRole);
+    formLayout->insertRow(buttonRow, m_cleanedNote);
+    auto *guard = new HeaderInputGuard(this);
+    guard->watch(realNameLineEdit, i18nc("@label the field name in a notice", "Name"));
+    guard->watch(emailLineEdit, i18nc("@label the field name in a notice", "Email"));
+    guard->watch(organisationLineEdit, i18nc("@label the field name in a notice", "Organization"));
+    connect(guard, &HeaderInputGuard::cleaned, m_cleanedNote, [this](QLineEdit *, const QString &notice) {
+        m_cleanedNote->setText(notice);
+        m_cleanedNote->show();
+    });
 }
 
 void EditIdentity::enableButton()

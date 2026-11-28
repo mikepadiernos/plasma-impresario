@@ -65,6 +65,7 @@ class SortTask;
 class SubscribeUnsubscribeTask;
 class GenUrlAuthTask;
 class UidSubmitTask;
+class UidRemoveTask;
 
 class Model;
 class TreeItemMailbox;
@@ -117,6 +118,7 @@ public:
                                                  const uint uidValidity, const uint uid, const QString &part, const QString &access);
     virtual UidSubmitTask *createUidSubmitTask(Model *model, const QString &mailbox, const uint uidValidity, const uint uid,
                                                const UidSubmitOptionsList &submitOptions);
+    virtual UidRemoveTask *createUidRemoveTask(Model *model, const QString &mailbox, const uint uidValidity, const uint uid);
 };
 
 class TestingTaskFactory: public TaskFactory

@@ -51,6 +51,7 @@ public:
     QDateTime timestamp() const override;
     QByteArray rawFromAddress() const override;
     QList<QByteArray> rawRecipientAddresses() const override;
+    bool hasBlindCopyRecipients() const override;
     void setRecipients(const QList<QPair<Composer::RecipientKind, Imap::Message::MailAddress>> &recipients) override;
     void setFrom(const Imap::Message::MailAddress &from) override;
     void setPreloadEnabled(const bool preload) override;
