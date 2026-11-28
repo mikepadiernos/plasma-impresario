@@ -1401,8 +1401,8 @@ void MainWindow::createActions()
     m_prettyUnifiedModel = new Imap::Mailbox::PrettyUnifiedMsgListModel(this);
     m_prettyUnifiedModel->setObjectName(QStringLiteral("prettyUnifiedMsgListModel"));
     m_prettyUnifiedModel->setSourceModel(m_unifiedModel);
-    connect(m_unifiedModel, &QAbstractItemModel::dataChanged, this, &MainWindow::updateMessageFlags);
-    connect(m_unifiedModel, &QAbstractItemModel::rowsRemoved, this, &MainWindow::updateMessageFlags);
+    connect(m_unifiedModel, &QAbstractItemModel::dataChanged, this, &MainWindow::scheduleMessageFlagsUpdate);
+    connect(m_unifiedModel, &QAbstractItemModel::rowsRemoved, this, &MainWindow::scheduleMessageFlagsUpdate);
     connect(m_prettyUnifiedModel, &QAbstractItemModel::rowsInserted, this, &MainWindow::scheduleMessageListStatus);
     connect(m_prettyUnifiedModel, &QAbstractItemModel::rowsRemoved, this, &MainWindow::scheduleMessageListStatus);
     connect(m_prettyUnifiedModel, &QAbstractItemModel::modelReset, this, &MainWindow::scheduleMessageListStatus);
@@ -2291,7 +2291,7 @@ void MainWindow::setupModels(bool reconnect)
     connect(mboxTree, &MailBoxTreeView::activated,
             realMsgListModel,
             static_cast<void (Imap::Mailbox::MsgListModel::*)(const QModelIndex &)>(&Imap::Mailbox::MsgListModel::setMailbox));
-    connect(m_imapAccess->msgListModel(), &QAbstractItemModel::dataChanged, this, &MainWindow::updateMessageFlags);
+    connect(m_imapAccess->msgListModel(), &QAbstractItemModel::dataChanged, this, &MainWindow::scheduleMessageFlagsUpdate);
     // Sorting an empty list does not stick, so the folder's sorting applies once its messages are there
     connect(realMsgListModel, &Imap::Mailbox::MsgListModel::messagesAvailable, this, [this]() {
         if (!m_viewMailbox.isEmpty() && m_viewMailbox == currentMailboxName())
@@ -2309,11 +2309,11 @@ void MainWindow::setupModels(bool reconnect)
     });
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::rowsInserted, msgListWidget, &MessageListWidget::slotAutoEnableDisableSearch);
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::rowsRemoved, msgListWidget, &MessageListWidget::slotAutoEnableDisableSearch);
-    connect(m_imapAccess->msgListModel(), &QAbstractItemModel::rowsRemoved, this, &MainWindow::updateMessageFlags);
+    connect(m_imapAccess->msgListModel(), &QAbstractItemModel::rowsRemoved, this, &MainWindow::scheduleMessageFlagsUpdate);
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::layoutChanged, msgListWidget, &MessageListWidget::slotAutoEnableDisableSearch);
-    connect(m_imapAccess->msgListModel(), &QAbstractItemModel::layoutChanged, this, &MainWindow::updateMessageFlags);
+    connect(m_imapAccess->msgListModel(), &QAbstractItemModel::layoutChanged, this, &MainWindow::scheduleMessageFlagsUpdate);
     connect(m_imapAccess->msgListModel(), &QAbstractItemModel::modelReset, msgListWidget, &MessageListWidget::slotAutoEnableDisableSearch);
-    connect(m_imapAccess->msgListModel(), &QAbstractItemModel::modelReset, this, &MainWindow::updateMessageFlags);
+    connect(m_imapAccess->msgListModel(), &QAbstractItemModel::modelReset, this, &MainWindow::scheduleMessageFlagsUpdate);
     connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, this, &MainWindow::slotMailboxChanged);
     connect(realMsgListModel, &Imap::Mailbox::MsgListModel::mailboxChanged, this, &MainWindow::syncCurrentTab);
     // Reloading the folder list, as after going online again, replaces the shown folder with a new item
@@ -6624,15 +6624,19 @@ void MainWindow::updateDeleteActionMode()
     if (!m_deleteMovesToTrash)
         return;
     const QString trash = deleteTrashTarget();
-    markAsDeleted->setCheckable(trash.isEmpty());
-    if (trash.isEmpty()) {
-        markAsDeleted->setText(m_markAsDeletedText);
-        markAsDeleted->setIcon(m_markAsDeletedIcon);
-        markAsDeleted->setToolTip(QString());
-    } else {
-        markAsDeleted->setText(i18nc("@action", "Move to &Trash"));
-        markAsDeleted->setIcon(quickActionIcon(QStringLiteral("user-trash")));
-        markAsDeleted->setToolTip(i18nc("@info:tooltip", "Move the selected messages to %1", trash));
+    // setIcon() notifies every button of the action even for the same icon, so only a new mode is applied
+    if (!m_deleteActionTrash || *m_deleteActionTrash != trash) {
+        m_deleteActionTrash = trash;
+        markAsDeleted->setCheckable(trash.isEmpty());
+        if (trash.isEmpty()) {
+            markAsDeleted->setText(m_markAsDeletedText);
+            markAsDeleted->setIcon(m_markAsDeletedIcon);
+            markAsDeleted->setToolTip(QString());
+        } else {
+            markAsDeleted->setText(i18nc("@action", "Move to &Trash"));
+            markAsDeleted->setIcon(quickActionIcon(QStringLiteral("user-trash")));
+            markAsDeleted->setToolTip(i18nc("@info:tooltip", "Move the selected messages to %1", trash));
+        }
     }
     updateReaderActions();
 }
@@ -7377,6 +7381,24 @@ void MainWindow::emptySpecialFolder(const Imap::Mailbox::SpecialUse kind)
 void MainWindow::updateMessageFlags()
 {
     updateMessageFlagsOf(QModelIndex());
+}
+
+/** @short Update the message actions once the current burst of model changes is over
+
+Syncing a folder changes the flags of every message one by one, and another client's removals arrive message by message;
+updating every action for each of them made opening a folder of 50,000 messages take about a minute.
+*/
+void MainWindow::scheduleMessageFlagsUpdate()
+{
+    if (std::exchange(m_messageFlagsUpdatePending, true))
+        return;
+    QMetaObject::invokeMethod(
+        this,
+        [this]() {
+            m_messageFlagsUpdatePending = false;
+            updateMessageFlags();
+        },
+        Qt::QueuedConnection);
 }
 
 void MainWindow::updateMessageFlagsOf(const QModelIndex &index)

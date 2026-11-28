@@ -401,6 +401,7 @@ private slots:
     void slotShowOnlySubscribed();
     void updateMessageFlags();
     void updateMessageFlagsOf(const QModelIndex &index);
+    void scheduleMessageFlagsUpdate();
     void scrollMessageUp();
     void slotMessageModelChanged(QAbstractItemModel *model);
     void showConnectionStatus(uint parserId, Imap::ConnectionState state);
@@ -1216,6 +1217,9 @@ private:
     /** @short Text and icon of the Delete action while it toggles the \\Deleted mark */
     QString m_markAsDeletedText;
     QIcon m_markAsDeletedIcon;
+    /** The Trash folder which Delete moves to, empty when it marks messages; unset until the mode is first applied */
+    std::optional<QString> m_deleteActionTrash;
+    bool m_messageFlagsUpdatePending = false;
     QAction *saveWholeMessage;
     QAction *viewMsgSource;
     QAction *viewMsgHeaders;
