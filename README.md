@@ -551,8 +551,9 @@ before it is sent.
   private copy, with progress and **Cancel**, and a notice lists what was
   fetched and what failed. Web links dropped into the text stay links. See
   [fetched files](docs/CAVEATS.md#files-fetched-from-other-computers).
-- Line breaks pasted into a subject or name become spaces. Bcc recipients are
-  hidden from everyone who receives the message but kept in Sent and drafts,
+- Line breaks pasted into a subject, name or address become spaces at once,
+  and a note names the field. Bcc recipients are hidden from everyone who
+  receives the message but kept in Sent and drafts, however it is sent,
   and Message-IDs use your mail domain rather than the computer's name. See
   [outgoing headers](docs/CAVEATS.md#outgoing-headers-and-bcc).
 

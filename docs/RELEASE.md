@@ -87,12 +87,12 @@ Every open bug and caveat was checked against the
 | Result                          | Count | Meaning                                                                                      |
 | ------------------------------- | ----- | -------------------------------------------------------------------------------------------- |
 | ![Blocker][blocker]             | 0     | Breaks a criterion; must be fixed before a release.                                          |
-| ![Known issue][known-issue]     | 46    | Meets the criteria; documented, with the main ones in the [known issues](#known-issues).     |
+| ![Known issue][known-issue]     | 45    | Meets the criteria; documented, with the main ones in the [known issues](#known-issues).     |
 | ![Session check][session-check] | 18    | Also a known issue, and part of it can be confirmed only in a real Plasma session (R7, M14). |
 
 **Bugs:** none open. All 9 reported bugs are closed; see [reported bugs](BUGS.md).
 
-**Caveats:** 46 open, all known issues.
+**Caveats:** 45 open, all known issues.
 
 <details>
 <summary>Verdict for each open caveat</summary>
@@ -110,7 +110,6 @@ Every open bug and caveat was checked against the
 | [#454](https://github.com/mikepadiernos/plasma-impresario/issues/454) | [Search](CAVEATS.md#search)                                                                   |                                 | R3       | Date and folder limits are documented; results are complete within them.                                           |
 | [#457](https://github.com/mikepadiernos/plasma-impresario/issues/457) | [Running in the background](CAVEATS.md#desktop-integration)                                   | ![Session check][session-check] | R7       | Behavior is tested offscreen; the session check is M14.                                                            |
 | [#458](https://github.com/mikepadiernos/plasma-impresario/issues/458) | [Local data and opened attachments](CAVEATS.md#local-data-and-opened-attachments)             |                                 | R2       | User-only permissions; encryption at rest is left to the disk.                                                     |
-| [#459](https://github.com/mikepadiernos/plasma-impresario/issues/459) | [Outgoing headers and Bcc](CAVEATS.md#outgoing-headers-and-bcc)                               |                                 | R2       | Bcc never reaches recipients; only the Sent copy omits it with BURL.                                               |
 | [#460](https://github.com/mikepadiernos/plasma-impresario/issues/460) | [Saved files in the file manager](CAVEATS.md#saved-files-in-the-file-manager)                 | ![Session check][session-check] | R7       | Needs Dolphin and Plasma Opus in a session.                                                                        |
 | [#461](https://github.com/mikepadiernos/plasma-impresario/issues/461) | [Files handed over by file managers](CAVEATS.md#files-handed-over-by-file-managers)           | ![Session check][session-check] | R7       | Needs the portal and file managers in a session.                                                                   |
 | [#462](https://github.com/mikepadiernos/plasma-impresario/issues/462) | [Files fetched from other computers](CAVEATS.md#files-fetched-from-other-computers)           | ![Session check][session-check] | R7       | Only HTTP is tested; other KIO workers need a session.                                                             |

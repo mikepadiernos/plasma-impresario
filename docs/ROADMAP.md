@@ -637,9 +637,6 @@ Recommendations for other milestones are in M04, M06.01, M07, M08 and M10.
 - [Local data and opened attachments](CAVEATS.md#local-data-and-opened-attachments)
   ([#458](https://github.com/mikepadiernos/plasma-impresario/issues/458))
   ![Backlog][backlog]
-- [Outgoing headers and Bcc](CAVEATS.md#outgoing-headers-and-bcc)
-  ([#459](https://github.com/mikepadiernos/plasma-impresario/issues/459))
-  ![Backlog][backlog]
 - [Saved files in the file manager](CAVEATS.md#saved-files-in-the-file-manager)
   ([#460](https://github.com/mikepadiernos/plasma-impresario/issues/460))
   ![Backlog][backlog]
