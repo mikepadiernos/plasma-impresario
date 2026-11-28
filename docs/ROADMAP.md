@@ -74,7 +74,7 @@ and gray before. **Board** is the parent issue's status.
 | [M07](#m07-output-notifications-and-rules-automation)     | Output, notifications and rules automation     | [#8](https://github.com/mikepadiernos/plasma-impresario/issues/8)     | ![11 of 11 done](https://img.shields.io/badge/11%2F11-100%25-1a7f37) | ![Merged][merged]: merged in [PR #493](https://github.com/mikepadiernos/plasma-impresario/pull/493) |
 | [M08](#m08-settings-and-workspace-configuration)          | Settings and workspace configuration           | [#9](https://github.com/mikepadiernos/plasma-impresario/issues/9)     | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]: merged in [PR #500](https://github.com/mikepadiernos/plasma-impresario/pull/500) |
 | [M09](#m09-themes-and-branding-foundation)                | Themes and branding foundation                 | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)   | ![32 of 32 done](https://img.shields.io/badge/32%2F32-100%25-1a7f37) | ![Merged][merged]: merged in [PR #504](https://github.com/mikepadiernos/plasma-impresario/pull/504) |
-| [M10](#m10-reliability-sync-and-notification-quality)     | Reliability, sync and notification quality     | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11)   | ![0 of 12 done](https://img.shields.io/badge/0%2F12-0%25-6e7781)     | ![Backlog][backlog]                                                                                 |
+| [M10](#m10-reliability-sync-and-notification-quality)     | Reliability, sync and notification quality     | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11)   | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]: merged in [PR #510](https://github.com/mikepadiernos/plasma-impresario/pull/510) |
 | [M11](#m11-release-readiness-and-polish)                  | Release readiness and polish                   | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12)   | ![0 of 10 done](https://img.shields.io/badge/0%2F10-0%25-6e7781)     | ![Backlog][backlog]                                                                                 |
 | [M12](#m12-nextcloud-and-digital-asset-management)        | Nextcloud and digital asset management         | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31)   | ![0 of 7 done](https://img.shields.io/badge/0%2F7-0%25-6e7781)       | ![Backlog][backlog]                                                                                 |
 | [M13](#m13-microsoft-accounts-and-exchange)               | Microsoft accounts and Exchange                | [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388) | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781)     | ![Backlog][backlog]                                                                                 |
@@ -83,11 +83,11 @@ and gray before. **Board** is the parent issue's status.
 
 ## Recommended priority
 
-| Priority | Focus                            | Recommended next work                                                                                                                                                                                 | Where it stands (2026-11-27)                                                                                                                                                                                                                                                                                                                                                                                        |
+| Priority | Focus                            | Recommended next work                                                                                                                                                                                 | Where it stands (2026-11-28)                                                                                                                                                                                                                                                                                                                                                                                        |
 | -------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **P0**   | Reproducible, safe baseline      | Confirm product identity and supported build matrix; establish verified TLS and safe credential defaults; document cache and logging behavior; add focused connection/security and launch smoke tests | Build matrix, installer and launch smoke tests merged with M01 ([#1](https://github.com/mikepadiernos/plasma-impresario/issues/1)); the product rename [#221](https://github.com/mikepadiernos/plasma-impresario/issues/221) is merged. Other distribution families and protected prefixes are [pending](TODO.md#m01-release-gate-and-integration)                                                                  |
 | **P1**   | Rendering and account boundaries | Verify live reader workflows; design stable per-account settings, cache and credentials before adding simultaneous accounts                                                                           | Per-account settings, cache and credentials merged with M02 ([#4](https://github.com/mikepadiernos/plasma-impresario/issues/4)), together with simultaneous accounts ([#222](https://github.com/mikepadiernos/plasma-impresario/issues/222)); live reader workflows verified against synthetic Dovecot in M04 ([#93](https://github.com/mikepadiernos/plasma-impresario/issues/93)). Real-session checks are in M15 |
-| **P2**   | Shell and reliability            | Prototype the Plasma Impresario layout over existing mailbox/list/reader behavior; validate accessibility, keyboard use, responsive layouts and partial-failure recovery                              | Shell merged with M02 ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); accessibility, responsive layouts and recovery continue in M09, M10, M11 and M14                                                                                                                                                                                                                                       |
+| **P2**   | Shell and reliability            | Prototype the Plasma Impresario layout over existing mailbox/list/reader behavior; validate accessibility, keyboard use, responsive layouts and partial-failure recovery                              | Shell merged with M02 ([#35](https://github.com/mikepadiernos/plasma-impresario/issues/35)); recovery merged with M10 ([#11](https://github.com/mikepadiernos/plasma-impresario/issues/11)); accessibility and responsive layouts continue in M11 and M14                                                                                                                                                           |
 | **P3**   | Optional productivity features   | Add provider APIs, rules, Nextcloud, calendar/contacts and workspace features only after core reliability, permissions and privacy behavior are defined                                               | M05 through M08, settings and workspaces, are merged; planned in M12 and M13, whose parent issues are in the Backlog                                                                                                                                                                                                                                                                                                |
 
 These are sequencing priorities, not issue statuses or completion markers.
@@ -1040,9 +1040,10 @@ policy.
 
 ### M10: Reliability, sync, and notification quality
 
-**Status:** ![Backlog][backlog]
-![0 of 12 done](https://img.shields.io/badge/0%2F12-0%25-6e7781) ·
-**Parent issue:** [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11)
+**Status:** ![Merged][merged]
+![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) ·
+**Parent issue:** [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11) ·
+merged in [PR #510](https://github.com/mikepadiernos/plasma-impresario/pull/510) · gate result in [stabilization gate](stabilization-gate.md)
 
 **Project:** M10 milestone [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11) ·
 Connection and recovery [#51](https://github.com/mikepadiernos/plasma-impresario/issues/51) ·
@@ -1051,7 +1052,7 @@ Mailbox performance [#52](https://github.com/mikepadiernos/plasma-impresario/iss
 - [x] Harden retry behavior, offline handling, and background task reporting [#51](https://github.com/mikepadiernos/plasma-impresario/issues/51)
 - [x] Improve connection-state reporting, folder sync stability, and message consistency [#127](https://github.com/mikepadiernos/plasma-impresario/issues/127)
 - [x] Validate performance and reliability across real-world email workloads [#52](https://github.com/mikepadiernos/plasma-impresario/issues/52)
-- [ ] This milestone is the stabilization gate before broader product expansion [#128](https://github.com/mikepadiernos/plasma-impresario/issues/128)
+- [x] This milestone is the stabilization gate before broader product expansion [#128](https://github.com/mikepadiernos/plasma-impresario/issues/128)
 - [x] Test intermittent connections, expired credentials, server errors, retries, and recovery without silent message loss [#129](https://github.com/mikepadiernos/plasma-impresario/issues/129)
 - [x] Verify folder and unread counts remain consistent across multiple accounts and concurrent changes [#130](https://github.com/mikepadiernos/plasma-impresario/issues/130)
 - [x] Measure responsiveness and resource use for large mailboxes, long threads, bulk actions, and attachments [#131](https://github.com/mikepadiernos/plasma-impresario/issues/131)
@@ -1069,10 +1070,28 @@ Mailbox performance [#52](https://github.com/mikepadiernos/plasma-impresario/iss
       Sent fails, and turns a refused message back into a draft. See
       [E-Mail](philosophy/inspirations.md#e-mail).
       [#378](https://github.com/mikepadiernos/plasma-impresario/issues/378)
-- [ ] Sync the last 30 days of headers first and older headers in small
+- [x] Sync the last 30 days of headers first and older headers in small
       background batches, always sending the user's changes and the outbox before
       sync work. See [E-Mail](philosophy/inspirations.md#e-mail).
       [#379](https://github.com/mikepadiernos/plasma-impresario/issues/379)
+
+**Caveats:**
+
+- [Read state and unread counts](CAVEATS.md#read-state-and-unread-counts)
+  ([#505](https://github.com/mikepadiernos/plasma-impresario/issues/505))
+  ![Backlog][backlog]
+- [Performance and resource use](CAVEATS.md#performance-and-resource-use)
+  ([#506](https://github.com/mikepadiernos/plasma-impresario/issues/506))
+  ![Backlog][backlog]
+- [Sanitizers and data races](CAVEATS.md#sanitizers-and-data-races)
+  ([#507](https://github.com/mikepadiernos/plasma-impresario/issues/507))
+  ![Backlog][backlog]
+- [Persistent outbox](CAVEATS.md#persistent-outbox)
+  ([#508](https://github.com/mikepadiernos/plasma-impresario/issues/508))
+  ![Backlog][backlog]
+- [Background header loading](CAVEATS.md#background-header-loading)
+  ([#509](https://github.com/mikepadiernos/plasma-impresario/issues/509))
+  ![Backlog][backlog]
 
 ### M11: Release readiness and polish
 

@@ -89,7 +89,7 @@ show the container's default Qt style rather than a Plasma theme.
 
 ## Project status
 
-As of 2026-11-27. **Done** counts roadmap features whose issues are
+As of 2026-11-28. **Done** counts roadmap features whose issues are
 ![Completed][completed] or ![Merged][merged] on the
 [project board](https://github.com/users/mikepadiernos/projects/4); **Board**
 is the milestone's parent issue.
@@ -105,7 +105,8 @@ is the milestone's parent issue.
 | [M07](docs/ROADMAP.md#m07-output-notifications-and-rules-automation) Rules and notifications | `main` | ![11 of 11 done](https://img.shields.io/badge/11%2F11-100%25-1a7f37) | ![Merged][merged]   | Merged in [PR #493](https://github.com/mikepadiernos/plasma-impresario/pull/493) |
 | [M08](docs/ROADMAP.md#m08-settings-and-workspace-configuration) Settings and workspaces      | `main` | ![15 of 15 done](https://img.shields.io/badge/15%2F15-100%25-1a7f37) | ![Merged][merged]   | Merged in [PR #500](https://github.com/mikepadiernos/plasma-impresario/pull/500) |
 | [M09](docs/ROADMAP.md#m09-themes-and-branding-foundation) Themes and branding                | `main` | ![32 of 32 done](https://img.shields.io/badge/32%2F32-100%25-1a7f37) | ![Merged][merged]   | Merged in [PR #504](https://github.com/mikepadiernos/plasma-impresario/pull/504) |
-| M10–M14: reliability, release, Nextcloud, Microsoft, refinements                             | —      | —                                                                    | ![Backlog][backlog] | Not started                                                                      |
+| [M10](docs/ROADMAP.md#m10-reliability-sync-and-notification-quality) Reliability and sync    | `main` | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]   | Merged in [PR #510](https://github.com/mikepadiernos/plasma-impresario/pull/510) |
+| M11–M14: release, Nextcloud, Microsoft, refinements                                          | —      | —                                                                    | ![Backlog][backlog] | Not started                                                                      |
 | [M15](docs/ROADMAP.md#m15-real-plasma-session-verification) Real Plasma session checks       | —      | ![0 of 4 done](https://img.shields.io/badge/0%2F4-0%25-6e7781)       | ![Defined][defined] | Needs a real Plasma session                                                      |
 
 The [roadmap overview](docs/ROADMAP.md#milestones-at-a-glance) tracks every
@@ -114,7 +115,7 @@ is waiting on.
 
 ## Implemented today
 
-What works in `main` after M01–M08, as of 2026-11-27.
+What works in `main` after M01–M10, as of 2026-11-28.
 
 Legend: ![Verified][verified] against a disposable Dovecot server ·
 ![Offscreen tests][offscreen] covered by automated tests without a live server
@@ -350,6 +351,34 @@ Themes and branding foundation
 > Blur, Breeze and high-contrast schemes have not been tried in a Plasma
 > session. See the [Themes and appearance](docs/CAVEATS.md#themes-and-appearance) and
 > [Project naming and compatibility](docs/CAVEATS.md#project-naming-and-compatibility) caveats.
+
+### Added in M10
+
+Reliability, sync and notification quality
+([#11](https://github.com/mikepadiernos/plasma-impresario/issues/11)), the
+[stabilization gate](docs/stabilization-gate.md) before broader product
+expansion.
+
+| Area           | What works                                                                                                                           | Status                        |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
+| Recovery       | Retries with a growing delay, offline handling, expired sign-ins and server errors recover without silently losing messages          | ![Verified][verified]         |
+| Counts         | Folder and unread counts stay consistent across accounts and concurrent changes                                                      | ![Verified][verified]         |
+| Activity       | Failed background work stays in the activity log with **Retry** or **Retry All Failed** until resolved                               | ![Offscreen tests][offscreen] |
+| Outbox         | Unsent messages wait in a persistent outbox across restarts and offline periods, are never sent twice and refused ones become drafts | ![Offscreen tests][offscreen] |
+| Header loading | The last 30 days of headers load first; older headers follow in small batches that wait for your actions and the outbox              | ![Verified][verified]         |
+| Search index   | The offline search index follows CONDSTORE and QRESYNC updates and rebuilds after UIDVALIDITY changes or corruption                  | ![Offscreen tests][offscreen] |
+| Performance    | Large folders, long threads, bulk actions and attachments are measured against [workload budgets](docs/performance.md#budgets)       | ![Verified][verified]         |
+| Sanitizers     | The test suite and live scripts run clean under [AddressSanitizer and UndefinedBehaviorSanitizer](docs/sanitizers.md)                | ![Verified][verified]         |
+
+> [!WARNING]
+>
+> The gate runs headless against fake and disposable local servers, not real
+> providers, and ThreadSanitizer is not run. See the
+> [Read state and unread counts](docs/CAVEATS.md#read-state-and-unread-counts),
+> [Performance and resource use](docs/CAVEATS.md#performance-and-resource-use),
+> [Sanitizers and data races](docs/CAVEATS.md#sanitizers-and-data-races),
+> [Persistent outbox](docs/CAVEATS.md#persistent-outbox) and
+> [Background header loading](docs/CAVEATS.md#background-header-loading) caveats.
 
 ## Using it
 
@@ -681,6 +710,18 @@ and announcements, newest first, with **Retry**, **Sign In** or **Review
 Rule** where they help. See
 [New-mail notifications and activity](docs/CAVEATS.md#new-mail-notifications-and-activity).
 
+### Sending and the outbox
+
+When an account is offline, the composer puts the message in the outbox;
+after a failed send, **Send Later** does the same. The status bar shows how
+many messages wait; its button opens the **Outbox** window, where a message
+can be sent, sent again after a confirmation, moved to the drafts or
+forgotten. Messages are sent oldest first once their account is online, also
+after a restart. A message whose send was interrupted is never sent again on
+its own: the outbox asks whether to **Send Again…** or **Move to Drafts**. A
+message the server refuses returns to the drafts with the server's reason.
+See [Persistent outbox](docs/CAVEATS.md#persistent-outbox).
+
 ### Settings, tabs and Vim mode
 
 **Settings...** in the application menu shows every group in a page list and
@@ -786,6 +827,14 @@ container under `tools/dev-container/`; see
 [building outside Plasma](CONTRIBUTING.md#building-outside-plasma). Desktop
 integration still needs a real Plasma session.
 
+The [stabilization gate](docs/stabilization-gate.md) runs the build, the test
+suite, the workload budgets, the roadmap link check and the live server tests
+in that container, and the sanitizer run on request:
+
+```bash
+tools/dev-container/run.sh sh tools/dev-container/stabilization-gate.sh build -E Cryptography_PGP
+```
+
 ## Product direction
 
 The [roadmap](docs/ROADMAP.md) puts reliable mail and account boundaries first,
@@ -796,13 +845,15 @@ release quality. Real Plasma session checks run alongside as M15.
 flowchart TD
     A[M01-M04 foundations: baseline, shell and accounts, operations, reading] --> B[M05-M08 search, desktop integration, providers, automation and settings, merged]
     B --> C[M09 themes and branding, merged]
-    C --> D[M10-M11 reliability, release readiness]
-    D --> E[M12-M13 Nextcloud, Microsoft accounts and Exchange]
+    C --> D[M10 reliability and the stabilization gate, merged]
+    D --> H[M11 release readiness]
+    H --> E[M12-M13 Nextcloud, Microsoft accounts and Exchange]
     E --> F[M14 refinements]
     A -.-> G[M15 real Plasma session checks]
 ```
 
-Vim mode and workspaces arrived in M08, and themes and theme profiles in M09.
+Vim mode and workspaces arrived in M08, themes and theme profiles in M09, and
+the outbox and background header loading in M10.
 [Plasma Opus](docs/integrations/plasma-opus.md) is the companion file manager;
 the two apps share Vim mode settings through a keymap file and themes through
 theme profiles, and are planned to share file dialogs and workspace context. The [scope](docs/philosophy/scope.md) sets the product
