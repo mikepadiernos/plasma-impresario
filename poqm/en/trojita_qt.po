@@ -21,8 +21,8 @@ msgstr[1] "Attempting to reconnect in %n seconds"
 msgctxt "Gui::MainWindow|"
 msgid " - %n unread message(s)"
 msgid_plural " - %n unread message(s)"
-msgstr[0] "%n unread message"
-msgstr[1] "%n unread messages"
+msgstr[0] " - %n unread message"
+msgstr[1] " - %n unread messages"
 
 #: ../src/Gui/Window.cpp:2596
 #, qt-format
