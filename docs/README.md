@@ -41,6 +41,7 @@ Legend: ![Limitation][limitation] · ![Needs verification][needs-verification]
 | [Reported bugs](BUGS.md)                                        | User-visible bugs and their resolution status             |
 | ![Limitation][limitation] [Caveats and security](CAVEATS.md)    | Current limitations, security posture and recommendations |
 | ![Needs verification][needs-verification] [Edge cases](EDGE.md) | Boundary scenarios and the tests that cover them          |
+| [Performance and resource use](performance.md)                  | Workload measurements, budgets and how to repeat them     |
 
 The documents feed each other as work moves through the
 [project board](https://github.com/users/mikepadiernos/projects/4):
