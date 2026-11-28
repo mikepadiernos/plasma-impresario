@@ -86,6 +86,9 @@ public:
     AuthModes supportedAuthModes() const;
     Options options() const;
     QString errorString() const;
+    /*! The reply code with which the server turned down the sender, a recipient or the contents of the last
+        message, or 0 */
+    int mailRefusalCode() const;
     /*! The certificate chain the server presented during the TLS handshake */
     QList<QSslCertificate> peerCertificateChain() const;
 public slots:

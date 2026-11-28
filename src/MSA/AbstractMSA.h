@@ -44,6 +44,12 @@ public:
     virtual void sendBurl(const QByteArray &from, const QList<QByteArray> &to, const QByteArray &imapUrl);
     virtual void sendImap(const QString &mailbox, const uint uidValidity, const uint uid,
                           const Imap::Mailbox::UidSubmitOptionsList options);
+    /** @short Whether the last error() means that the server refused the message itself
+
+    Such as an unknown recipient or a message which is too large. Sending the same message again fails the same way,
+    whereas other errors, such as a lost connection, may go away.
+    */
+    bool isPermanentFailure() const;
 public slots:
     virtual void cancel() = 0;
     virtual void setPassword(const QString &password);
@@ -60,6 +66,13 @@ signals:
     void progressMax(int max);
     void progress(int num);
     void logged(const Common::LogKind kind, const QString& source, const QString& message);
+
+protected:
+    /** @short Call before emitting error() for a refusal which another attempt does not change */
+    void setPermanentFailure(bool permanent);
+
+private:
+    bool m_permanentFailure = false;
 };
 
 /** @short Factory producing AbstractMSA instances */

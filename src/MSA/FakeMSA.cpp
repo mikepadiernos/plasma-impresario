@@ -43,6 +43,12 @@ void Fake::sendBurl(const QByteArray &from, const QList<QByteArray> &to, const Q
     emit m_factory->requestedBurlSending(from, to, imapUrl);
 }
 
+void Fake::refuse(const QString &message)
+{
+    setPermanentFailure(true);
+    emit error(message);
+}
+
 void Fake::cancel()
 {
     emit m_factory->requestedCancelling();
@@ -91,6 +97,11 @@ void FakeFactory::doEmitSent()
 void FakeFactory::doEmitError(const QString &message)
 {
     emit lastMSA()->error(message);
+}
+
+void FakeFactory::doEmitRefusal(const QString &message)
+{
+    lastMSA()->refuse(message);
 }
 
 void FakeFactory::doEmitProgressMax(int max)

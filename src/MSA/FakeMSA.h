@@ -37,6 +37,8 @@ public:
     ~Fake() override;
     void sendMail(const QByteArray &from, const QList<QByteArray> &to, const QByteArray &data) override;
     void sendBurl(const QByteArray &from, const QList<QByteArray> &to, const QByteArray &imapUrl) override;
+    /** @short Report an error which sending again does not change */
+    void refuse(const QString &message);
 public slots:
     void cancel() override;
 private:
@@ -69,6 +71,7 @@ public slots:
     void doEmitSending();
     void doEmitSent();
     void doEmitError(const QString &message);
+    void doEmitRefusal(const QString &message);
     void doEmitProgressMax(int max);
     void doEmitProgress(int num);
 signals:
