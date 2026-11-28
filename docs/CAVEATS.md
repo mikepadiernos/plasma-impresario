@@ -52,6 +52,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Read state and unread counts](#read-state-and-unread-counts)
   - [Performance and resource use](#performance-and-resource-use)
   - [Sanitizers and data races](#sanitizers-and-data-races)
+  - [Persistent outbox](#persistent-outbox)
   - [Accessibility and theming](#accessibility-and-theming)
   - [Provider setup and Gmail](#provider-setup-and-gmail)
   - [Junk and attachment safety](#junk-and-attachment-safety)
@@ -104,6 +105,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Read state         | Read and flag changes, and the unread counts, change only once the server confirms them; a change cut off by a lost connection is not replayed ([details](#read-state-and-unread-counts))                                                                                                                                                                                                                                                             | [#505](https://github.com/mikepadiernos/plasma-impresario/issues/505)                                                                        |
 | ![Limitation][limitation] | Performance        | Removing many messages at once slows down with folder size, and a single `VANISHED` report blocks the window while it is applied; quick filters on very large folders and open large attachments are costly ([details](#performance-and-resource-use))                                                                                                                                                                                                | [#506](https://github.com/mikepadiernos/plasma-impresario/issues/506)                                                                        |
 | ![Limitation][limitation] | Sanitizers         | The suite and live tests run clean under ASan, LSan and UBSan, but ThreadSanitizer has not been run, so data races in work on other threads are not checked ([details](#sanitizers-and-data-races))                                                                                                                                                                                                                                                   | [#507](https://github.com/mikepadiernos/plasma-impresario/issues/507)                                                                        |
+| ![Limitation][limitation] | Outbox             | Offline and failed sends wait in a persistent outbox and are never submitted twice, but queued replies set no answered flag, no password is asked for, refused drafts lose attachments, only SMTP refusals count as permanent and IMAP SENDMAIL accounts cannot queue ([details](#persistent-outbox))                                                                                                                                                 | [#508](https://github.com/mikepadiernos/plasma-impresario/issues/508)                                                                        |
 | ![Limitation][limitation] | File chooser       | Files are chosen through the XDG portal file chooser, falling back to the KDE dialog, but nothing is checked in a Plasma session or with Plasma Opus; save dialogs still use the KDE dialog, and remote locations in the portal depend on kio-fuse ([details](#portal-file-chooser))                                                                                                                                                                  | [#470](https://github.com/mikepadiernos/plasma-impresario/issues/470)                                                                        |
 | ![Limitation][limitation] | Task manager       | The task manager entry shows the unread messages in every account's INBOX, but nothing is checked in a Plasma session; the tray icon counts other folders, and accounts not yet connected add nothing ([details](#unread-count-on-the-task-manager))                                                                                                                                                                                                  | [#471](https://github.com/mikepadiernos/plasma-impresario/issues/471)                                                                        |
 | ![Limitation][limitation] | Accessibility      | Icons, state colors and contrast follow Plasma's theme and the main controls have accessible names, but nothing is checked with a screen reader, a high-contrast scheme or in a Plasma session, and there are no translations yet ([details](#accessibility-and-theming))                                                                                                                                                                             | [#472](https://github.com/mikepadiernos/plasma-impresario/issues/472)                                                                        |
@@ -2190,6 +2192,66 @@ Plasma session; that check is
 - Build Qt 6 with ThreadSanitizer in a separate container image, add
   `libtsan`, and run `tools/dev-container/sanitizers.sh` with
   `PLASMA_SANITIZERS=thread`, starting with the crypto and cache code.
+
+### Persistent outbox
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| [#508](https://github.com/mikepadiernos/plasma-impresario/issues/508) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/508#issuecomment-7235111012) | Persistent outbox ([#378](https://github.com/mikepadiernos/plasma-impresario/issues/378)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] Sending while the account is offline, or choosing
+  **Send Later** after a failure, keeps the message in the outbox under the
+  profile's data folder. It is sent once the account comes online, after a
+  restart too, and the status bar shows how many messages wait; **Show Outbox**
+  lists them.
+- ![Resolved][resolved] A message is recorded as sent as soon as the server
+  accepts it, so a failure to file the Sent copy only retries filing and never
+  submits the message again.
+- ![Limitation][limitation] A message sent from the outbox does not set
+  `\Answered` or `$Forwarded` on the message it replies to or forwards.
+- ![Limitation][limitation] The outbox never asks for a password. Without a
+  stored password, or before the IMAP password is known, the attempt fails and
+  is retried later.
+- ![Limitation][limitation] A refused message comes back as a draft with the
+  server's reason but without its attachments, as every local draft does
+  ([composing](#composing-and-sending)).
+- ![Limitation][limitation] Only SMTP replies of 5xx other than 530 count as
+  permanent refusals. JMAP and sendmail errors are retried with a growing
+  delay of up to 30 minutes, even when another attempt cannot help.
+- ![Limitation][limitation] Accounts that send through the IMAP SENDMAIL
+  extension cannot queue messages; an offline send fails as before, with no
+  **Send Later**.
+- ![Limitation][limitation] A message that was being sent when the application
+  ended, or whose server gave no answer, waits as **Interrupted** until the
+  user chooses **Send Again** or **Move to Drafts**, because it may already have
+  been delivered.
+- ![Limitation][limitation] A message whose attachments are still on the
+  server cannot be queued while offline.
+
+**Workarounds:**
+
+- Store the outgoing password in the keyring, or connect the account once,
+  before relying on the outbox.
+- Mark the original message as answered by hand after a queued reply is sent.
+- Before working offline, open the messages whose attachments you will forward
+  so that they download.
+- For an **Interrupted** message, check the Sent folder or ask a recipient
+  before choosing **Send Again**.
+- Use SMTP instead of IMAP SENDMAIL when you often send while offline.
+
+**Proposed improvements:**
+
+- Record the replied-to and forwarded message with the outbox entry and set the
+  flags after it is sent.
+- Ask for a missing password once, from the outbox.
+- Classify JMAP `EmailSubmission` errors such as `invalidEmail` and
+  `forbiddenToSend`, and sendmail's exit codes, as permanent refusals.
+- Upload a queued message for IMAP SENDMAIL accounts once the account is
+  online.
+- Keep attachments with drafts, which also lifts the composing caveat
+  ([#450](https://github.com/mikepadiernos/plasma-impresario/issues/450)).
 
 ### Accessibility and theming
 
