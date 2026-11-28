@@ -132,6 +132,11 @@ public:
     Entry entry(const QString &id) const;
     /** Whether @p id is being sent or filed right now */
     bool isBusy(const QString &id) const;
+    /** @short Whether a message of @p accountId is being sent or filed, or is due and its transport is online
+
+    Background work of the account waits meanwhile, so that it does not slow the message down.
+    */
+    bool hasWorkDue(const QString &accountId) const;
 
     /** @short Try the messages of @p accountId, or of all accounts, now instead of after their delay */
     void wake(const QString &accountId = QString());

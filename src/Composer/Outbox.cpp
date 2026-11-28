@@ -195,6 +195,25 @@ bool Outbox::isBusy(const QString &id) const
     return !id.isEmpty() && id == m_current;
 }
 
+bool Outbox::hasWorkDue(const QString &accountId) const
+{
+    const QDateTime now = QDateTime::currentDateTimeUtc();
+    for (const Entry &entry : m_entries) {
+        if (entry.accountId != accountId)
+            continue;
+        if (entry.id == m_current)
+            return true;
+        if (entry.state != State::Queued && entry.state != State::Submitted)
+            continue;
+        if (entry.nextAttempt.isValid() && entry.nextAttempt > now)
+            continue;
+        const auto transport = m_transports.constFind(accountId);
+        if (transport != m_transports.constEnd() && (!transport->online || transport->online()))
+            return true;
+    }
+    return false;
+}
+
 void Outbox::load()
 {
     const QDir root(m_folder);
