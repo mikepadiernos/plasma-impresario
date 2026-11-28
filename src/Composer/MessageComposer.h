@@ -87,10 +87,11 @@ public:
     /** @short Attach the file at @arg source on another computer, once it has been fetched
 
     A private, empty local copy is created at once, and the attachment shows in the list, unavailable until
-    setRemoteFileFetched() reports that the copy is complete. remoteFileAttachmentAdded() asks for it to be fetched.
+    setRemoteFileFetched() reports that the copy is complete. remoteFileAttachmentAdded() asks for it to be fetched,
+    unless @arg announce is false because the caller fetches it, as from Nextcloud.
     Returns the copy's path, or an empty string after setting @arg error.
     */
-    QString addRemoteFileAttachment(const QUrl &source, QString *error = nullptr);
+    QString addRemoteFileAttachment(const QUrl &source, QString *error = nullptr, bool announce = true);
     /** @short The local copy at @arg localCopy is complete; returns false when its attachment was removed meanwhile */
     bool setRemoteFileFetched(const QString &localCopy);
     /** @short Remove the attachment whose local copy is @arg localCopy, as when fetching it failed or was cancelled */

@@ -36,6 +36,7 @@ private slots:
     void duplicatesDropped();
     void remoteAttachmentCopies();
     void remoteAttachmentRemoved();
+    void remoteAttachmentFetchedByCaller();
 
 private:
     QString makeFile(const QString &relativePath, const QByteArray &content = "data");
