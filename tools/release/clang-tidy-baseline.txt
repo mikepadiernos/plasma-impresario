@@ -1,0 +1,12 @@
+# clang-tidy findings reviewed for the release gate, one per line:
+# file<TAB>check<TAB>message. The gate fails on findings not listed here.
+# See docs/release-gate.md for the review of each group.
+src/Gui/AppearanceStyle.cpp	clang-analyzer-cplusplus.NewDeleteLeaks	Potential memory leak
+src/Gui/FlowLayout.cpp	clang-analyzer-optin.cplusplus.VirtualCall	Call to virtual method 'FlowLayout::takeAt' during destruction bypasses virtual dispatch
+src/Gui/MessageRowsMenu.cpp	clang-analyzer-cplusplus.NewDeleteLeaks	Potential leak of memory pointed to by 'group'
+src/Gui/SimplePartWidget.cpp	clang-analyzer-cplusplus.NewDeleteLeaks	Potential leak of memory pointed to by 'ag'
+src/Imap/Tasks/CopyMoveMessagesTask.cpp	clang-analyzer-cplusplus.NewDeleteLeaks	Potential leak of memory pointed to by 'flagTask'
+src/Imap/Tasks/ObtainSynchronizedMailboxTask.cpp	clang-analyzer-optin.cplusplus.VirtualCall	Call to virtual method 'ObtainSynchronizedMailboxTask::addDependentTask' during construction bypasses virtual dispatch
+src/PlasmaWidgets/MailStatusClient.cpp	clang-analyzer-cplusplus.NewDeleteLeaks	Potential leak of memory pointed to by 'accountsCall'
+src/PlasmaWidgets/MailStatusClient.cpp	clang-analyzer-cplusplus.NewDeleteLeaks	Potential leak of memory pointed to by 'sharingCall'
+src/Streams/IODeviceSocket.cpp	clang-analyzer-optin.cplusplus.VirtualCall	Call to virtual method 'ProcessSocket::close' during destruction bypasses virtual dispatch

@@ -75,6 +75,11 @@ RUN dnf -y install --setopt=install_weak_deps=False \
         clamd \
     && dnf clean all
 
+# gcovr summarizes the coverage build of the release gate, release-gate.sh.
+RUN dnf -y install --setopt=install_weak_deps=False \
+        gcovr \
+    && dnf clean all
+
 ENV CCACHE_DIR=/ccache \
     CMAKE_C_COMPILER_LAUNCHER=ccache \
     CMAKE_CXX_COMPILER_LAUNCHER=ccache \
