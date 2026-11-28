@@ -76,17 +76,16 @@ summary of each check, and exits non-zero if one failed. A full run takes about
 
 ## Result
 
-Recorded on 2026-11-28 on `feature/m11-release` at `eaeceee5`, in the dev
+Recorded on 2026-11-28 on `feature/m11-release` at `860f7662`, in the dev
 container on an Apple M5 Pro under colima: Fedora 44, aarch64, GCC 16.2.1,
 CMake 4.3.0, Ninja 1.13.2, clang-format and clang-tidy 22.1.8, gcovr 8.6.
-Later commits on the branch change no C++ source.
 
 | Check                   | Result                                                                                                                                              | Status                |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
 | Formatting              | 223 files checked, all formatted; 763 in the baseline, none formatted since                                                                         | ![Pass][pass]         |
 | Dependency versions     | Qt 6.11.2, KDE Frameworks and ECM 6.32.0, Gpgmepp and QGpgme 2.0.0, KPim 6.8.3, Qt6Keychain 0.16.0; all at or above their minimums                  | ![Pass][pass]         |
 | Reproducible build      | 7 binaries identical in both builds                                                                                                                 | ![Pass][pass]         |
-| Tests with coverage     | 236 of 236 in 91.85 s. Lines 72.0% (50,478 of 70,146), functions 74.8% (5,522 of 7,381), branches 40.6% (60,493 of 148,850)                         | ![Pass][pass]         |
+| Tests with coverage     | 236 of 236 in 94.39 s. Lines 72.0% (50,482 of 70,148), functions 74.8% (5,522 of 7,381), branches 40.6% (60,496 of 148,854)                         | ![Pass][pass]         |
 | Static analysis         | 9 findings, all in the reviewed baseline; none new                                                                                                  | ![Pass][pass]         |
 | `test_Cryptography_PGP` | Two decryption rows fail in this container because GpgME reports decryption as failed, as in the [stabilization gate](stabilization-gate.md#result) | ![Excluded][excluded] |
 
@@ -117,7 +116,7 @@ message, without the line number, which moves with edits.
 | `NewDeleteLeaks` in `AppearanceStyle.cpp`                                                       | ![Baseline][baseline] | `QApplication::setStyle()` takes ownership of the style; the analyzer does not model it.                                                             |
 | `NewDeleteLeaks` for `group` in `MessageRowsMenu.cpp` and `ag` in `SimplePartWidget.cpp`        | ![Baseline][baseline] | Each `QActionGroup` gets a parent `QObject`, which deletes it.                                                                                       |
 | `NewDeleteLeaks` for `accountsCall` and `sharingCall` in `MailStatusClient.cpp`                 | ![Baseline][baseline] | Each D-Bus call watcher deletes itself with `deleteLater()` when its reply arrives.                                                                  |
-| `NewDeleteLeaks` for `flagTask` in `CopyMoveMessagesTask.cpp`                                   | ![Baseline][baseline] | Inherited from Trojitá: every task is a child of the IMAP model, which deletes it when it finishes.                                                              |
+| `NewDeleteLeaks` for `flagTask` in `CopyMoveMessagesTask.cpp`                                   | ![Baseline][baseline] | Inherited from Trojitá: every task is a child of the IMAP model, which deletes it when it finishes.                                                  |
 | `VirtualCall` in `FlowLayout.cpp`, `ObtainSynchronizedMailboxTask.cpp` and `IODeviceSocket.cpp` | ![Baseline][baseline] | Inherited code that calls its own class's override during construction or destruction, which is the intended target; no subclass overrides it there. |
 
 ## Found while running the gate
