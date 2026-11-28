@@ -76,16 +76,16 @@ summary of each check, and exits non-zero if one failed. A full run takes about
 
 ## Result
 
-Recorded on 2026-11-28 on `feature/m11-release` at `860f7662`, in the dev
+Recorded on 2026-11-28 on `feature/m12-nextcloud` at `0ebbdbf6`, in the dev
 container on an Apple M5 Pro under colima: Fedora 44, aarch64, GCC 16.2.1,
 CMake 4.3.0, Ninja 1.13.2, clang-format and clang-tidy 22.1.8, gcovr 8.6.
 
 | Check                   | Result                                                                                                                                              | Status                |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
-| Formatting              | 223 files checked, all formatted; 763 in the baseline, none formatted since                                                                         | ![Pass][pass]         |
+| Formatting              | 255 files checked, all formatted; 761 in the baseline, none formatted since                                                                         | ![Pass][pass]         |
 | Dependency versions     | Qt 6.11.2, KDE Frameworks and ECM 6.32.0, Gpgmepp and QGpgme 2.0.0, KPim 6.8.3, Qt6Keychain 0.16.0; all at or above their minimums                  | ![Pass][pass]         |
 | Reproducible build      | 7 binaries identical in both builds                                                                                                                 | ![Pass][pass]         |
-| Tests with coverage     | 236 of 236 in 94.39 s. Lines 72.0% (50,482 of 70,148), functions 74.8% (5,522 of 7,381), branches 40.6% (60,496 of 148,854)                         | ![Pass][pass]         |
+| Tests with coverage     | 239 of 239 in 98.20 s. Lines 72.2% (52,621 of 72,871), functions 74.9% (5,783 of 7,717), branches 40.7% (63,407 of 155,622)                         | ![Pass][pass]         |
 | Static analysis         | 9 findings, all in the reviewed baseline; none new                                                                                                  | ![Pass][pass]         |
 | `test_Cryptography_PGP` | Two decryption rows fail in this container because GpgME reports decryption as failed, as in the [stabilization gate](stabilization-gate.md#result) | ![Excluded][excluded] |
 
@@ -100,7 +100,7 @@ no longer applies, so the lists only shrink.
 
 ### Formatting baseline
 
-`format-baseline.txt` lists the 763 C++ files, mostly inherited from Trojitá,
+`format-baseline.txt` lists the 761 C++ files, mostly inherited from Trojitá,
 that the project style would still change. Reformatting them in one commit
 would bury the history of every inherited line, so they stay as they are. A
 file is formatted in a commit of its own when it is next edited heavily, and
@@ -133,6 +133,12 @@ message, without the line number, which moves with edits.
   pattern that extracts findings rejected check names with capitals, such as
   `NewDeleteLeaks`, so the first analysis reported nothing. The pattern was
   fixed and the gate rerun.
+
+- ![Pass][pass] **A settings handler hid a label after guarding itself.**
+  In M12, the Nextcloud **Connect…** handler in `SettingsGroups.cpp`
+  created a `QPointer` guard of the group before hiding the status label,
+  so the analyzer treated the group as possibly null. The label is now hidden
+  first.
 
 ## Residual risk
 

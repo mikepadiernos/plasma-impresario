@@ -13,6 +13,8 @@
 #include "Gui/CapabilityActionGate.h"
 #include "Gui/MailBoxTreeView.h"
 #include "Gui/MsgListView.h"
+#include "Gui/NextcloudBrowserDialog.h"
+#include "Gui/NextcloudShareReviewDialog.h"
 #include "Gui/ShellHeader.h"
 #include "Gui/Window.h"
 #include "UiUtils/BackgroundRunning.h"
@@ -42,7 +44,9 @@
 #include <QScreen>
 #include <QMenu>
 #include <QMenuBar>
+#include <QDialogButtonBox>
 #include <QSettings>
+#include <QTextEdit>
 #include <QSignalSpy>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -890,6 +894,177 @@ private slots:
     QVERIFY(newDrafts().isEmpty());
     delete edited;
     delete untouched;
+  }
+
+  void composerAttachesFromNextcloud() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                       QSettings::IniFormat);
+    configureOffline(settings, QStringLiteral("work.example.test"));
+    settings.setValue(Common::SettingsNames::settingsVersion, 2);
+    settings.setValue(Common::SettingsNames::guiShowSystray, false);
+    Gui::MainWindow window(&settings);
+    QVERIFY(window.nextcloudTransfers());
+    window.accountSettings()->setValue(Common::SettingsNames::msaMethodKey,
+                                       Common::SettingsNames::methodSENDMAIL);
+    window.accountSettings()->setValue(Common::SettingsNames::sendmailKey,
+                                       QStringLiteral("/bin/false"));
+    auto *composer = Gui::ComposeWidget::createBlank(&window);
+    QVERIFY(composer);
+    auto *button = composer->findChild<QPushButton *>(
+        QStringLiteral("composerFromNextcloud"));
+    QVERIFY(button);
+    QVERIFY(!button->toolTip().isEmpty());
+    button->click();
+    auto *browser = composer->findChild<Gui::NextcloudBrowserDialog *>();
+    QVERIFY(browser);
+    QCOMPARE(browser->mode(), Gui::NextcloudBrowserDialog::Mode::ChooseFiles);
+    // Links are inserted only for files which are already shared
+    bool links = false;
+    for (auto *candidate : browser->findChildren<QPushButton *>())
+      links = links || candidate->text().contains(QLatin1String("Links"));
+    QVERIFY(links);
+    browser->close();
+    delete composer;
+  }
+
+  void handedOverShareLinksAreReviewedBeforeTheDraft() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                       QSettings::IniFormat);
+    configureOffline(settings, QStringLiteral("work.example.test"));
+    settings.setValue(Common::SettingsNames::settingsVersion, 2);
+    settings.setValue(Common::SettingsNames::guiShowSystray, false);
+    Gui::MainWindow window(&settings);
+    window.accountSettings()->setValue(Common::SettingsNames::msaMethodKey,
+                                       Common::SettingsNames::methodSENDMAIL);
+    window.accountSettings()->setValue(Common::SettingsNames::sendmailKey,
+                                       QStringLiteral("/bin/false"));
+    auto *bridge = new IPC::MainWindowBridge(&window);
+    auto composers = []() {
+      QList<Gui::ComposeWidget *> found;
+      for (QWidget *widget : QApplication::topLevelWidgets()) {
+        if (auto *composer = qobject_cast<Gui::ComposeWidget *>(widget))
+          found << composer;
+      }
+      return found;
+    };
+    const QList<Gui::ComposeWidget *> earlier = composers();
+    const int before = earlier.size();
+
+    // Anything but a share link is refused before reaching a draft
+    bridge->openNextcloudShare(QStringLiteral("https://cloud.example.test/apps/files/"));
+    auto *refused = window.findChild<Gui::NextcloudShareReviewDialog *>();
+    QVERIFY(refused);
+    QVERIFY(!refused->canInsert());
+    refused->reject();
+    QTRY_VERIFY(!window.findChild<Gui::NextcloudShareReviewDialog *>());
+
+    // A link of no connected account is shown as unknown, and opens a draft only when accepted
+    const QString link = QStringLiteral("https://cloud.example.test/s/AbCdEfGh1234");
+    bridge->openNextcloudShare(link);
+    auto *dialog = window.findChild<Gui::NextcloudShareReviewDialog *>();
+    QVERIFY(dialog);
+    QTRY_VERIFY(!dialog->isBusy());
+    QVERIFY(dialog->accountId().isEmpty());
+    QVERIFY(dialog->detailsText().contains(QLatin1String("unknown")));
+    QCOMPARE(composers().size(), before);
+    auto *insert = dialog->findChild<QPushButton *>(QStringLiteral("nextcloudShareInsert"));
+    QVERIFY(insert);
+    QVERIFY(insert->isEnabled());
+    insert->click();
+    QTRY_COMPARE(composers().size(), before + 1);
+    Gui::ComposeWidget *composer = nullptr;
+    for (Gui::ComposeWidget *candidate : composers()) {
+      if (!earlier.contains(candidate))
+        composer = candidate;
+    }
+    QVERIFY(composer);
+    bool inBody = false;
+    for (auto *text : composer->findChildren<QTextEdit *>())
+      inBody = inBody || text->toPlainText().contains(link);
+    QVERIFY(inBody);
+    delete composer;
+  }
+
+  void composerConfirmsShareLinksBeforeSending() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                       QSettings::IniFormat);
+    configureOffline(settings, QStringLiteral("work.example.test"));
+    settings.setValue(Common::SettingsNames::settingsVersion, 2);
+    settings.setValue(Common::SettingsNames::guiShowSystray, false);
+    Gui::MainWindow window(&settings);
+    window.accountSettings()->setValue(Common::SettingsNames::msaMethodKey,
+                                       Common::SettingsNames::methodSENDMAIL);
+    window.accountSettings()->setValue(Common::SettingsNames::sendmailKey,
+                                       QStringLiteral("/bin/false"));
+    const QString link = QStringLiteral("https://cloud.example.test/s/AbCdEfGh1234");
+    QUrl mailto(QStringLiteral("mailto:someone@example.test"));
+    mailto.setQuery(QStringLiteral("subject=Report&body=See ") + link);
+    auto *composer = Gui::ComposeWidget::createFromUrl(&window, mailto);
+    QVERIFY(composer);
+    auto *sender = composer->findChild<QComboBox *>(QStringLiteral("sender"));
+    QVERIFY(sender);
+    sender->setEditText(QStringLiteral("Me <me@example.test>"));
+    auto *buttons = composer->findChild<QDialogButtonBox *>(QStringLiteral("buttonBox"));
+    QVERIFY(buttons);
+    QAbstractButton *send = nullptr;
+    for (QAbstractButton *candidate : buttons->buttons()) {
+      if (buttons->buttonRole(candidate) == QDialogButtonBox::AcceptRole)
+        send = candidate;
+    }
+    QVERIFY(send);
+    auto confirmation = [composer]() {
+      for (auto *box : composer->findChildren<QMessageBox *>(QStringLiteral("nextcloudShareConfirm"))) {
+        if (box->isVisible())
+          return box;
+      }
+      return static_cast<QMessageBox *>(nullptr);
+    };
+
+    // Errors, and whatever sendmail answers, are dismissed
+    QStringList dismissed;
+    QTimer dismiss;
+    QObject::connect(&dismiss, &QTimer::timeout, [&dismissed]() {
+      if (auto *modal = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+        dismissed << modal->text();
+        modal->reject();
+      }
+    });
+    dismiss.start(20);
+
+    // Who can open the link is shown first, and cancelling leaves the draft as it was
+    send->click();
+    QTRY_VERIFY2(confirmation(), qPrintable(dismissed.join(QLatin1Char('|'))));
+    QMessageBox *box = confirmation();
+    QVERIFY(box->informativeText().contains(link));
+    QVERIFY(box->informativeText().contains(QLatin1String("could not be checked")));
+    QVERIFY(!buttons->isEnabled());
+    box->button(QMessageBox::Cancel)->click();
+    QTRY_VERIFY(!confirmation());
+    QVERIFY(buttons->isEnabled());
+
+    // Until confirmed, every attempt asks again
+    send->click();
+    QTRY_VERIFY(confirmation());
+    box = confirmation();
+    auto *sendButton = box->findChild<QPushButton *>(QStringLiteral("nextcloudShareSend"));
+    QVERIFY(sendButton);
+    QVERIFY(dismissed.isEmpty());
+    sendButton->click();
+    QTRY_VERIFY(!confirmation());
+    // The message went on to sendmail, which refused it, without asking again
+    QTRY_VERIFY(!dismissed.isEmpty());
+    QVERIFY(!confirmation());
+    delete composer;
+    // Sending saved the draft first, which the next window would recover
+    QDir drafts(Common::writablePath(Common::LOCATION_CACHE) + QLatin1String("Drafts/"));
+    for (const QString &draft : drafts.entryList({QStringLiteral("*.draft*")}, QDir::Files))
+      QVERIFY(drafts.remove(draft));
   }
 
   void taskManagerShowsTheUnreadCount() {

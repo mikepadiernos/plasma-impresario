@@ -51,6 +51,8 @@ namespace IPC {
         void composeMail(const QString &url, const QStringList &files);
         /** Open the message with a Message-ID, or named by a mid: URL */
         void openMessage(const QString &messageId);
+        /** Show the Nextcloud share link @arg url for review before it goes into a new draft */
+        void openNextcloudShare(const QString &url);
     }
 
     /**

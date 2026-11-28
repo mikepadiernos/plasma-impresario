@@ -786,7 +786,7 @@ bool MessageComposer::addFileAttachment(const QString &path)
     return true;
 }
 
-QString MessageComposer::addRemoteFileAttachment(const QUrl &source, QString *error)
+QString MessageComposer::addRemoteFileAttachment(const QUrl &source, QString *error, bool announce)
 {
     const QString folder = Common::PrivateFiles::fetchedAttachmentsFolder();
     QString name = QUrl::fromPercentEncoding(source.adjusted(QUrl::StripTrailingSlash).fileName().toUtf8());
@@ -798,7 +798,8 @@ QString MessageComposer::addRemoteFileAttachment(const QUrl &source, QString *er
     beginInsertRows(QModelIndex(), m_attachments.size(), m_attachments.size());
     m_attachments << new RemoteFileAttachmentItem(source, copy, folder);
     endInsertRows();
-    emit remoteFileAttachmentAdded(source, copy);
+    if (announce)
+        emit remoteFileAttachmentAdded(source, copy);
     return copy;
 }
 

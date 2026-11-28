@@ -52,7 +52,10 @@ Plasma Impresario opens files through the XDG portal file chooser, falling
 back to the KDE dialog, attaches dropped local files
 and fetches remote ones through KIO, opens Plasma's file search through KIO,
 shows a saved file through `org.freedesktop.FileManager1`, and attaches files
-handed over in a `mailto:` URL or with `--attach`.
+handed over in a `mailto:` URL or with `--attach`. It lists the Nextcloud
+accounts of KDE Online Accounts, and shows a Nextcloud share link handed over
+with `--nextcloud-share` and who can open it before putting it into a draft
+([M12](../ROADMAP.md#m12-nextcloud-and-digital-asset-management)).
 
 | Plasma Opus feature                                                                                                         | Plasma Opus status                                        | Use in Plasma Impresario                                                       | Tracking                                                                                                                                                                                                                                                             |
 | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

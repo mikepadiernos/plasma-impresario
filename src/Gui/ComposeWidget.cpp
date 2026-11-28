@@ -26,6 +26,7 @@
 #include <QActionGroup>
 #include <QBuffer>
 #include <QFileDialog>
+#include <QFile>
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QGraphicsOpacityEffect>
@@ -70,6 +71,10 @@
 #include "Gui/InlineNotificationBar.h"
 #include "Gui/LineEdit.h"
 #include "Gui/MessageView.h"
+#include "Gui/NextcloudBrowserDialog.h"
+#include "Gui/NextcloudHub.h"
+#include "Gui/NextcloudTransfers.h"
+#include "Nextcloud/Shares.h"
 #include "Gui/OverlayWidget.h"
 #include "Gui/PasswordDialog.h"
 #include "Gui/RemoteAttachmentFetcher.h"
@@ -263,6 +268,17 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, std::shared_ptr<Composer::A
     cancelButton->setIcon(UiUtils::loadIcon(QStringLiteral("dialog-cancel")));
     connect(cancelButton, &QAbstractButton::clicked, this, &QWidget::close);
     connect(ui->attachButton, &QAbstractButton::clicked, this, &ComposeWidget::slotAskForFileAttachment);
+    if (interactiveComposer()) {
+        m_nextcloudButton = new QPushButton(UiUtils::SymbolicIcon::fromTheme(QStringLiteral("folder-cloud")),
+                                            i18nc("@action:button", "From &Nextcloud…"), this);
+        m_nextcloudButton->setObjectName(QStringLiteral("composerFromNextcloud"));
+        m_nextcloudButton->setToolTip(i18nc("@info:tooltip", "Attach files from Nextcloud, or insert links to files "
+                                                             "already shared there"));
+        ui->verticalLayout->insertWidget(1, m_nextcloudButton);
+        connect(m_nextcloudButton, &QAbstractButton::clicked, this, &ComposeWidget::attachFromNextcloud);
+        connect(interactiveComposer().get(), &Composer::MessageComposer::remoteFileAttachmentRemoved, this,
+                [this](const QString &copy) { m_nextcloudCopies.remove(copy); });
+    }
 
     m_saveState = std::unique_ptr<ComposerSaveState>(new ComposerSaveState(this));
 
@@ -1202,6 +1218,11 @@ bool ComposeWidget::buildMessageData()
                     "are fetched, or cancel fetching them."));
         return false;
     }
+    if (!m_nextcloudCopies.isEmpty()) {
+        gotError(i18nc("@info", "Some attached files are still being downloaded from Nextcloud. Send the message once "
+                                "they are, or remove them from the attachments."));
+        return false;
+    }
 
     if (!m_composer->isReadyForSerialization()) {
         gotError(tr("Cannot prepare this e-mail for sending: some parts are not available"));
@@ -1209,6 +1230,76 @@ bool ComposeWidget::buildMessageData()
     }
 
     return true;
+}
+
+bool ComposeWidget::shareLinksConfirmed()
+{
+    if (!interactiveComposer())
+        return true;
+    const QList<QUrl> links = Nextcloud::findShareLinks(ui->mailText->toPlainText());
+    if (links.isEmpty() || links == m_confirmedShareLinks)
+        return true;
+    if (m_checkingShareLinks)
+        return false;
+    m_checkingShareLinks = true;
+    setUiWidgetsEnabled(false);
+    const quint64 busy = m_fetchNotice->showBusy(i18ncp("@info", "Checking who can open the Nextcloud link…",
+                                                        "Checking who can open the %1 Nextcloud links…",
+                                                        int(links.size())));
+    NextcloudHub *hub = m_mainWindow->nextcloud();
+    auto ask = [this, links, busy, hub](const QList<NextcloudHub::LinkShare> &shares) {
+        m_fetchNotice->dismissBusy(busy);
+        m_checkingShareLinks = false;
+        QStringList described;
+        for (const NextcloudHub::LinkShare &share : shares) {
+            QStringList lines{share.link.toDisplayString()};
+            if (!share.accountId.isEmpty() && hub)
+                lines << i18nc("@info %1 is a Nextcloud account", "Shared from %1.", hub->account(share.accountId).title());
+            else if (share.knownServer)
+                lines << i18nc("@info", "Not one of the shares of your connected Nextcloud accounts.");
+            else
+                lines << i18nc("@info", "No connected Nextcloud account is on its server, so it could not be checked.");
+            lines << share.details;
+            if (!share.problems.isEmpty())
+                lines << i18nc("@info %1 is a list of error messages", "The shares could not be checked: %1",
+                               share.problems.join(QLatin1Char(' ')));
+            described << lines.join(QLatin1Char('\n'));
+        }
+        auto *box = new QMessageBox(QMessageBox::Warning, i18nc("@title:window", "Send Nextcloud Links?"),
+                                    i18ncp("@info",
+                                           "This message contains a Nextcloud share link. Everyone who gets the "
+                                           "message can open it as described below.",
+                                           "This message contains %1 Nextcloud share links. Everyone who gets the "
+                                           "message can open them as described below.",
+                                           int(shares.size())),
+                                    QMessageBox::NoButton, this);
+        box->setObjectName(QStringLiteral("nextcloudShareConfirm"));
+        box->setAttribute(Qt::WA_DeleteOnClose);
+        box->setTextFormat(Qt::PlainText);
+        box->setInformativeText(described.join(QLatin1String("\n\n")));
+        QPushButton *sendButton = box->addButton(i18nc("@action:button", "Send"), QMessageBox::AcceptRole);
+        sendButton->setObjectName(QStringLiteral("nextcloudShareSend"));
+        box->addButton(QMessageBox::Cancel);
+        box->setDefaultButton(sendButton);
+        connect(box, &QMessageBox::finished, this, [this, box, sendButton, links]() {
+            if (box->clickedButton() == sendButton) {
+                m_confirmedShareLinks = links;
+                send();
+                return;
+            }
+            setUiWidgetsEnabled(true);
+        });
+        box->open();
+    };
+    if (hub) {
+        hub->lookUpShares(links, this, ask);
+    } else {
+        QList<NextcloudHub::LinkShare> shares;
+        for (const QUrl &link : links)
+            shares.append(NextcloudHub::LinkShare{link, {}, Nextcloud::describe(nullptr), {}, false});
+        ask(shares);
+    }
+    return false;
 }
 
 void ComposeWidget::send()
@@ -1230,6 +1321,9 @@ void ComposeWidget::send()
     }
 
     if (!buildMessageData()) {
+        return;
+    }
+    if (!shareLinksConfirmed()) {
         return;
     }
 
@@ -2117,6 +2211,109 @@ void ComposeWidget::slotAskForFileAttachment()
         return;
     directory = urls.constFirst().adjusted(QUrl::RemoveFilename);
     slotAttachFiles(urls);
+}
+
+void ComposeWidget::attachFromNextcloud()
+{
+    auto *browser = m_mainWindow->createNextcloudBrowser(int(NextcloudBrowserDialog::Mode::ChooseFiles), this);
+    browser->setWindowTitle(i18nc("@title:window", "Attach from Nextcloud"));
+    connect(browser, &NextcloudBrowserDialog::filesChosen, this, &ComposeWidget::attachNextcloudFiles);
+    browser->addChooseButton(UiUtils::SymbolicIcon::fromTheme(QStringLiteral("insert-link")),
+                             i18nc("@action:button", "Insert &Links"),
+                             [this](const QString &accountId, const QList<Nextcloud::Entry> &files) {
+                                 insertNextcloudLinks(accountId, files);
+                             });
+    browser->open();
+}
+
+void ComposeWidget::attachNextcloudFiles(const QString &accountId, const QList<Nextcloud::Entry> &files)
+{
+    auto composer = interactiveComposer();
+    NextcloudTransfers *transfers = m_mainWindow->nextcloudTransfers();
+    if (!composer || !transfers)
+        return;
+    const Nextcloud::Account account = m_mainWindow->nextcloud()->account(accountId);
+    QStringList refused;
+    for (const Nextcloud::Entry &file : files) {
+        QString error;
+        // The copy shows in the list as being fetched, and is not sent before it is complete
+        const QString copy = composer->addRemoteFileAttachment(account.fileUrl(file.path), &error, false);
+        if (copy.isEmpty()) {
+            refused << i18nc("@info %1 is a file name, %2 the reason", "%1: %2", file.name, error);
+            continue;
+        }
+        m_nextcloudCopies.insert(copy);
+        const QString name = file.name;
+        auto fail = [this, copy, name](const QString &message) {
+            if (auto composer = interactiveComposer())
+                composer->removeRemoteFileAttachment(copy);
+            m_fetchNotice->showError(
+                i18nc("@info %1 is a file name, %2 an error message", "Could not attach \"%1\" from Nextcloud: %2",
+                      name, message));
+        };
+        transfers->fetch(
+            accountId, file, this,
+            [this, copy, fail](const QByteArray &data) {
+                // Removed from the attachments meanwhile
+                if (!m_nextcloudCopies.remove(copy))
+                    return;
+                QFile out(copy);
+                if (!out.open(QIODevice::WriteOnly | QIODevice::ExistingOnly) || out.write(data) != data.size()) {
+                    fail(out.errorString());
+                    return;
+                }
+                out.close();
+                if (auto composer = interactiveComposer())
+                    composer->setRemoteFileFetched(copy);
+            },
+            [this, copy, fail](const QString &message) {
+                if (!m_nextcloudCopies.remove(copy))
+                    return;
+                fail(message);
+            });
+    }
+    if (!refused.isEmpty())
+        m_fetchNotice->showError(i18nc("@info %1 is a list of files with reasons", "Could not attach from Nextcloud: %1",
+                                       refused.join(QLatin1String("; "))));
+}
+
+void ComposeWidget::insertNextcloudLinks(const QString &accountId, const QList<Nextcloud::Entry> &files)
+{
+    NextcloudTransfers *transfers = m_mainWindow->nextcloudTransfers();
+    if (!transfers)
+        return;
+    transfers->linkShares(accountId, files, this, [this](const QList<NextcloudTransfers::Link> &links) {
+        QStringList urls;
+        QStringList unshared;
+        QStringList failed;
+        for (const NextcloudTransfers::Link &link : links) {
+            if (!link.url.isEmpty())
+                urls << link.url.toString();
+            else if (link.error.isEmpty())
+                unshared << link.file.name;
+            else
+                failed << i18nc("@info %1 is a file name, %2 the reason", "%1: %2", link.file.name, link.error);
+        }
+        if (!urls.isEmpty()) {
+            ui->mailText->insertPlainText(urls.join(QLatin1Char('\n')) + QLatin1Char('\n'));
+            ui->mailText->setFocus();
+        }
+        QStringList problems;
+        if (!unshared.isEmpty()) {
+            // Sharing stays a decision made in Nextcloud, where its audience and expiry are set
+            problems << i18ncp("@info %2 is a list of file names",
+                               "%2 has no public link, and none was created. Share it in Nextcloud first, then insert "
+                               "its link again.",
+                               "These files have no public link, and none was created: %2. Share them in Nextcloud "
+                               "first, then insert their links again.",
+                               unshared.size(), unshared.join(QLatin1String(", ")));
+        }
+        if (!failed.isEmpty())
+            problems << i18nc("@info %1 is a list of files with reasons", "Could not read the shares of %1",
+                              failed.join(QLatin1String("; ")));
+        if (!problems.isEmpty())
+            m_fetchNotice->showWarning(problems.join(QLatin1Char(' ')));
+    });
 }
 
 void ComposeWidget::slotAttachFiles(QList<QUrl> urls)

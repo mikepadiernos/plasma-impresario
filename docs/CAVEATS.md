@@ -7,7 +7,7 @@
 
 This page is the source of truth for known limitations of implemented
 features, including security and privacy behavior, as verified in the current
-source; caveat statuses match the project board as of 2026-11-27. The
+source; caveat statuses match the project board as of 2026-11-28. The
 [backend](parity/backend.md) and [UI](parity/ui.md) parity references describe
 the implemented baseline alongside recommended parity goals.
 
@@ -70,6 +70,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Vim mode and shared shortcuts](#vim-mode-and-shared-shortcuts)
   - [Messages to calendar and notes](#messages-to-calendar-and-notes)
   - [Themes and appearance](#themes-and-appearance)
+  - [Nextcloud files and share links](#nextcloud-files-and-share-links)
   - [Project naming and compatibility](#project-naming-and-compatibility)
 - [Before reporting results](#before-reporting-results)
 - [Security and data protection](#security-and-data-protection)
@@ -126,6 +127,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Vim mode           | Vim keys cannot tell editable content in the HTML reader, Vim bindings are not KActions and the pending keys show in the status bar ([details](#vim-mode-and-shared-shortcuts))                                                                                                                                                                                                                                                                       | [#498](https://github.com/mikepadiernos/plasma-impresario/issues/498)                                                                        |
 | ![Limitation][limitation] | Calendar and notes | The notes folder is chosen by hand, encrypted messages are saved without text, events stay in the cache for a day and only the message in the reader is used ([details](#messages-to-calendar-and-notes))                                                                                                                                                                                                                                             | [#499](https://github.com/mikepadiernos/plasma-impresario/issues/499)                                                                        |
 | ![Limitation][limitation] | Themes             | Turning translucency on or off applies when the window next opens, a widget style change drops the appearance proxy until restart, cards need the two-line layout and the symbolic tray icon has no count ([details](#themes-and-appearance))                                                                                                                                                                                                         | [#502](https://github.com/mikepadiernos/plasma-impresario/issues/502)                                                                        |
+| ![Limitation][limitation] | Nextcloud          | File actions and the share check before sending need the server to be reachable, transfers are held in memory while their window is open, **Insert Links** uses existing public links only, and the KDE Online Accounts backend is compile-verified only ([details](#nextcloud-files-and-share-links))                                                                                                                                                | [#515](https://github.com/mikepadiernos/plasma-impresario/issues/515)                                                                        |
 | ![Limitation][limitation] | Naming             | Settings location, launcher, plugin IDs, MIME types, cache keys, translations and `TROJITA_PROFILE` keep their Trojitá names for compatibility ([details](#project-naming-and-compatibility))                                                                                                                                                                                                                                                         | [#503](https://github.com/mikepadiernos/plasma-impresario/issues/503)                                                                        |
 | ![Limitation][limitation] | Product identity   | The product is renamed to Plasma Impresario ([#221](https://github.com/mikepadiernos/plasma-impresario/issues/221)), but the application remains based on Trojitá and the product redesign is not complete                                                                                                                                                                                                                                            | —                                                                                                                                            |
 | ![Limitation][limitation] | Message rendering  | Qt WebEngine is required for the default reader; a renderer-free build cannot display message contents                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                            |
@@ -133,7 +135,7 @@ issue comment that holds the current recommendation.
 | ![Security][security]     | Transport          | Cleartext IMAP remains selectable; account configuration determines whether TLS is used ([details](#security-and-data-protection))                                                                                                                                                                                                                                                                                                                    | —                                                                                                                                            |
 | ![Security][security]     | Local data         | The cache and opened attachments are kept user-only, and opened copies are removed after a day, but the application does not encrypt the cache, and files created between starts are tightened at the next start ([details](#local-data-and-opened-attachments))                                                                                                                                                                                      | [#458](https://github.com/mikepadiernos/plasma-impresario/issues/458)                                                                        |
 | ![Security][security]     | Outgoing headers   | Header input is cleaned and Bcc is left out of delivered mail, but Sent copies delivered through BURL or the IMAP SENDMAIL Extension also omit Bcc, and cleaned input is not pointed out ([details](#outgoing-headers-and-bcc))                                                                                                                                                                                                                       | [#459](https://github.com/mikepadiernos/plasma-impresario/issues/459)                                                                        |
-| ![Planned][planned]       | Integrations       | Plasma new-mail notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                                                                                                                                                                                                                                                                                       | —                                                                                                                                            |
+| ![Planned][planned]       | Integrations       | Microsoft accounts and Exchange ([M13](ROADMAP.md#m13-microsoft-accounts-and-exchange)) and cross-app workspace refinements ([M14](ROADMAP.md#m14-refinements)) remain planned                                                                                                                                                                                                                                                                        | —                                                                                                                                            |
 | ![Limitation][limitation] | Compatibility      | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                                                                                                                                                                                                                                                          | —                                                                                                                                            |
 | ![Limitation][limitation] | Quality evidence   | Workloads are measured only against fake servers in a Debug build ([performance](performance.md)); accessibility is [audited offscreen](accessibility.md) but not with a screen reader; nothing has been checked in a real Plasma session yet                                                                                                                                                                                                         | —                                                                                                                                            |
 
@@ -2615,8 +2617,10 @@ Plasma session; that check is
   and the normal reconnect.
 - ![Limitation][limitation] Account notifications close when the application
   quits.
-- ![Limitation][limitation] KDE Online Accounts (KAccounts) is not used;
-  accounts are not shared with the system or other applications.
+- ![Limitation][limitation] KDE Online Accounts (KAccounts) is not used for
+  mail accounts, which are not shared with the system or other applications.
+  It is used only for Nextcloud accounts
+  ([details](#nextcloud-files-and-share-links)).
 - ![Limitation][limitation] New-mail notifications are not part of this item;
   they come with
   [M07](ROADMAP.md#m07-output-notifications-and-rules-automation).
@@ -2638,7 +2642,8 @@ Plasma session; that check is
   once they close or after a short limit.
 - Follow `org.freedesktop.login1` appearing and disappearing on the bus, so
   that a restarted logind is noticed.
-- Offer KDE Online Accounts as an account source.
+- Offer KDE Online Accounts as a source of mail accounts, as it already is
+  for Nextcloud accounts.
 - Add new-mail notifications
   ([M07](ROADMAP.md#m07-output-notifications-and-rules-automation)).
 - Check sleep, wake and notifications in a real Plasma session
@@ -3211,6 +3216,88 @@ Plasma session; that check is
 - Add an account color dot to unified single-line columns.
 - Draw an unread badge on the symbolic tray icon in the panel's text color.
 - Try blur, Breeze and Breeze High Contrast in a Plasma 6 session
+  ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
+
+### Nextcloud files and share links
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                                   |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#515](https://github.com/mikepadiernos/plasma-impresario/issues/515) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/515#issuecomment-7239196694) | [M12 Nextcloud](ROADMAP.md#m12-nextcloud-and-digital-asset-management) ([#31](https://github.com/mikepadiernos/plasma-impresario/issues/31)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] **Settings › Integrations › Nextcloud › Connect…**
+  signs in through Login Flow v2 in the browser or with an app password. The
+  app password is kept in encrypted password storage, and only HTTPS is used,
+  or HTTP to this computer for testing. **Disconnect** revokes the app
+  password on the server.
+- ![Resolved][resolved] With KDE Online Accounts available, its Nextcloud
+  accounts are listed as well, signed in with the desktop's credentials and
+  managed in System Settings.
+- ![Resolved][resolved] The composer's **From Nextcloud…** attaches files or
+  inserts links to them; the attachment panel's **Save to Nextcloud…** saves
+  an attachment to a folder the user may write to. Saving never replaces a
+  file: a second copy gets a numbered name. Folders show their access, and
+  read-only shares cannot be chosen.
+- ![Resolved][resolved] Every download and upload shows in the activity log
+  with its progress, and a failed upload offers **Retry**. Refused
+  passwords, missing files, full storage and missing permissions each have
+  their own message.
+- ![Resolved][resolved] Before sending, every Nextcloud public link in the
+  message is listed with who can open it: whether it has a password and when
+  it expires, or that it is not one of the user's shares. A link handed over
+  by Plasma Opus with `--nextcloud-share` is reviewed the same way before it
+  goes into a draft.
+- ![Resolved][resolved] The workflows do not depend on the mail account
+  type. The live test saves the attachment of a local-account message, as
+  POP3 and JMAP accounts keep them, to Nextcloud.
+- ![Limitation][limitation] Without a connection to the server, browsing,
+  attaching, saving and **Insert Links** fail with "The Nextcloud server could
+  not be reached". The send confirmation still lists every link but says that
+  its shares could not be checked.
+- ![Limitation][limitation] Transfers hold the whole file in memory and run
+  only while the window that started them is open; closing it stops them.
+  Activity entries and **Retry** are not kept when the application quits.
+- ![Limitation][limitation] **Insert Links** uses a file's existing public
+  link and does not create one. Only public links (`/s/…`) are recognized in
+  a message. Links shared by other users or on servers without a connected
+  account are shown as not the user's, without their password or expiry.
+- ![Limitation][limitation] The KDE Online Accounts backend
+  (`WITH_KACCOUNTS`) is compile-verified only. It takes the user ID from the
+  account's WebDAV storage path, or else from the login name, so files are
+  not found when the login name differs from the user ID and no storage path
+  is set.
+- ![Limitation][limitation] Tested against Nextcloud 34.0.6 in the
+  development container (`live-nextcloud.sh`), not against hosted Nextcloud
+  providers or in a Plasma session. That is
+  [M15](ROADMAP.md#m15-real-plasma-session-verification).
+
+**Workarounds:**
+
+- Attach from Nextcloud and insert links while online; when offline, attach
+  a local copy instead or send later.
+- If the send confirmation says the shares could not be checked, open the
+  link in the browser to check its password and expiry before sending.
+- Keep the window open until large transfers finish, and use **Retry** in
+  the activity log for a failed one.
+- Create or change a public link in Nextcloud first, then use **Insert
+  Links**.
+- If a KDE Online Accounts Nextcloud account lists no files, connect the
+  server in **Settings › Integrations › Nextcloud** with an app password
+  instead.
+
+**Proposed improvements:**
+
+- Stream transfers to and from temporary files, and use Nextcloud's chunked
+  upload for large files.
+- Keep failed transfers across restarts with the persistent outbox
+  ([#378](https://github.com/mikepadiernos/plasma-impresario/issues/378)).
+- Offer to create a public link, with a password and expiry, from **Insert
+  Links**.
+- Ask the server for the user ID of a KDE Online Accounts account instead of
+  reading it from the storage path.
+- Try hosted Nextcloud providers and the KDE Online Accounts backend in a
+  Plasma 6 session
   ([M15](ROADMAP.md#m15-real-plasma-session-verification)).
 
 ### Project naming and compatibility

@@ -7,6 +7,7 @@
 #include <QAbstractItemModel>
 #include <QDesktopServices>
 #include <QDir>
+#include <QFile>
 #include <QFileDialog>
 #include <QListWidget>
 #include <QMenu>
@@ -254,6 +255,11 @@ void AttachmentPanel::showContextMenu(const QPoint &pos)
                                       i18nc("@action:inmenu", "Find Saved Copies…"), this,
                                       &AttachmentPanel::findSavedCopiesOfCurrent);
     findCopies->setObjectName(QStringLiteral("findSavedCopies"));
+    auto *toNextcloud = menu.addAction(themedIcon(QStringLiteral("folder-cloud")),
+                                       i18nc("@action:inmenu", "Save to Nextcloud…"), this,
+                                       &AttachmentPanel::saveCurrentToNextcloud);
+    toNextcloud->setObjectName(QStringLiteral("saveToNextcloud"));
+    toNextcloud->setEnabled(!m_netAccess.isNull());
     menu.exec(m_list->viewport()->mapToGlobal(pos));
 }
 
@@ -262,6 +268,55 @@ void AttachmentPanel::findSavedCopiesOfCurrent()
     const QPersistentModelIndex part = currentPart();
     if (part.isValid())
         emit findSavedCopiesRequested(Imap::Network::FileDownloadManager::toRealFileName(part));
+}
+
+void AttachmentPanel::saveCurrentToNextcloud()
+{
+    const QPersistentModelIndex part = currentPart();
+    if (part.isValid())
+        emit saveToNextcloudRequested(part);
+}
+
+void AttachmentPanel::readPart(const QPersistentModelIndex &part, QObject *context,
+                               std::function<void(const QString &fileName, const QByteArray &data)> done)
+{
+    if (!part.isValid() || !m_netAccess)
+        return;
+    const QString name = Imap::Network::FileDownloadManager::toRealFileName(part);
+    const QString folder = Common::PrivateFiles::openedAttachmentsFolder();
+    QPointer<QObject> guard(context);
+    auto *manager = new Imap::Network::FileDownloadManager(this, m_netAccess, part);
+    auto fileName = std::make_shared<QString>();
+    connect(manager, &Imap::Network::FileDownloadManager::fileNameRequested, manager, [this, fileName, folder](QString *requested) {
+        QString error;
+        *requested = Common::PrivateFiles::createOpenedAttachment(folder, *requested, &error);
+        if (requested->isEmpty())
+            emit transferError(i18nc("@info", "Cannot prepare a copy of the attachment: %1", error));
+        *fileName = *requested;
+    });
+    connect(manager, &Imap::Network::FileDownloadManager::succeeded, manager, [this, manager, fileName, folder, guard, name, done]() {
+        QFile file(*fileName);
+        const bool opened = file.open(QIODevice::ReadOnly);
+        const QByteArray data = opened ? file.readAll() : QByteArray();
+        const QString error = file.errorString();
+        file.close();
+        Common::PrivateFiles::removeOpenedAttachment(folder, *fileName);
+        manager->deleteLater();
+        if (!opened) {
+            emit transferError(error);
+            return;
+        }
+        if (guard)
+            done(name, data);
+    });
+    connect(manager, &Imap::Network::FileDownloadManager::transferError, this, [this, manager, fileName, folder](const QString &error) {
+        if (!fileName->isEmpty())
+            Common::PrivateFiles::removeOpenedAttachment(folder, *fileName);
+        emit transferError(error);
+        manager->deleteLater();
+    });
+    connect(manager, &Imap::Network::FileDownloadManager::cancelled, manager, &QObject::deleteLater);
+    manager->downloadPart();
 }
 
 void AttachmentPanel::openCurrent()

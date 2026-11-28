@@ -76,7 +76,7 @@ and gray before. **Board** is the parent issue's status.
 | [M09](#m09-themes-and-branding-foundation)                | Themes and branding foundation                 | [#10](https://github.com/mikepadiernos/plasma-impresario/issues/10)   | ![32 of 32 done](https://img.shields.io/badge/32%2F32-100%25-1a7f37) | ![Merged][merged]: merged in [PR #504](https://github.com/mikepadiernos/plasma-impresario/pull/504) |
 | [M10](#m10-reliability-sync-and-notification-quality)     | Reliability, sync and notification quality     | [#11](https://github.com/mikepadiernos/plasma-impresario/issues/11)   | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]: merged in [PR #510](https://github.com/mikepadiernos/plasma-impresario/pull/510) |
 | [M11](#m11-release-readiness-and-polish)                  | Release readiness and polish                   | [#12](https://github.com/mikepadiernos/plasma-impresario/issues/12)   | ![10 of 10 done](https://img.shields.io/badge/10%2F10-100%25-1a7f37) | ![Merged][merged]: merged in [PR #513](https://github.com/mikepadiernos/plasma-impresario/pull/513) |
-| [M12](#m12-nextcloud-and-digital-asset-management)        | Nextcloud and digital asset management         | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31)   | ![0 of 7 done](https://img.shields.io/badge/0%2F7-0%25-6e7781)       | ![Backlog][backlog]                                                                                 |
+| [M12](#m12-nextcloud-and-digital-asset-management)        | Nextcloud and digital asset management         | [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31)   | ![7 of 7 done](https://img.shields.io/badge/7%2F7-100%25-1a7f37)      | ![Completed][completed]                                                                         |
 | [M13](#m13-microsoft-accounts-and-exchange)               | Microsoft accounts and Exchange                | [#388](https://github.com/mikepadiernos/plasma-impresario/issues/388) | ![0 of 24 done](https://img.shields.io/badge/0%2F24-0%25-6e7781)     | ![Backlog][backlog]                                                                                 |
 | [M14](#m14-refinements)                                   | Refinements                                    | [#15](https://github.com/mikepadiernos/plasma-impresario/issues/15)   | ![0 of 86 done](https://img.shields.io/badge/0%2F86-0%25-6e7781)     | ![Backlog][backlog]                                                                                 |
 | [M15](#m15-real-plasma-session-verification)              | Real Plasma session verification               | [#319](https://github.com/mikepadiernos/plasma-impresario/issues/319) | ![0 of 5 done](https://img.shields.io/badge/0%2F5-0%25-6e7781)       | ![Defined][defined]                                                                                 |
@@ -1127,21 +1127,21 @@ Release guidance and triage [#54](https://github.com/mikepadiernos/plasma-impres
 
 ### M12: Nextcloud and digital asset management
 
-**Status:** ![Backlog][backlog]
-![0 of 7 done](https://img.shields.io/badge/0%2F7-0%25-6e7781) ·
+**Status:** ![Completed][completed]
+![7 of 7 done](https://img.shields.io/badge/7%2F7-100%25-1a7f37) ·
 **Parent issue:** [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31)
 
 **Project:** M12 milestone [#31](https://github.com/mikepadiernos/plasma-impresario/issues/31) ·
 Nextcloud assets [#55](https://github.com/mikepadiernos/plasma-impresario/issues/55) ·
 Permissions and transfers [#56](https://github.com/mikepadiernos/plasma-impresario/issues/56)
 
-- [ ] Nextcloud and digital asset management [#138](https://github.com/mikepadiernos/plasma-impresario/issues/138)
-- [ ] Connect accounts securely and browse authorized Nextcloud files without interrupting mail workflows [#55](https://github.com/mikepadiernos/plasma-impresario/issues/55)
-- [ ] Attach or link existing files, and save received attachments to a user-selected Nextcloud location [#139](https://github.com/mikepadiernos/plasma-impresario/issues/139)
-- [ ] Reuse the KDE Online Accounts Nextcloud identities that Plasma Opus also uses, and accept Nextcloud share links handed off from Plasma Opus for a draft after the user reviews the link and its permissions [#267](https://github.com/mikepadiernos/plasma-impresario/issues/267)
-- [ ] Show upload, download, sharing permissions, failures, and retry states before completing file actions [#56](https://github.com/mikepadiernos/plasma-impresario/issues/56)
-- [ ] Respect access permissions and make shared-link visibility explicit before sending [#140](https://github.com/mikepadiernos/plasma-impresario/issues/140)
-- [ ] Validate asset workflows with local and provider-backed mail accounts and document offline limitations [#141](https://github.com/mikepadiernos/plasma-impresario/issues/141)
+- [x] Nextcloud and digital asset management [#138](https://github.com/mikepadiernos/plasma-impresario/issues/138)
+- [x] Connect accounts securely and browse authorized Nextcloud files without interrupting mail workflows [#55](https://github.com/mikepadiernos/plasma-impresario/issues/55)
+- [x] Attach or link existing files, and save received attachments to a user-selected Nextcloud location [#139](https://github.com/mikepadiernos/plasma-impresario/issues/139)
+- [x] Reuse the KDE Online Accounts Nextcloud identities that Plasma Opus also uses, and accept Nextcloud share links handed off from Plasma Opus for a draft after the user reviews the link and its permissions [#267](https://github.com/mikepadiernos/plasma-impresario/issues/267)
+- [x] Show upload, download, sharing permissions, failures, and retry states before completing file actions [#56](https://github.com/mikepadiernos/plasma-impresario/issues/56)
+- [x] Respect access permissions and make shared-link visibility explicit before sending [#140](https://github.com/mikepadiernos/plasma-impresario/issues/140)
+- [x] Validate asset workflows with local and provider-backed mail accounts and document offline limitations [#141](https://github.com/mikepadiernos/plasma-impresario/issues/141)
 
 ### M13: Microsoft accounts and Exchange
 

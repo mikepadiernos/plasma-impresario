@@ -184,6 +184,16 @@ found in the configured repositories are skipped with a warning. With `paru`,
 verify package versions or CMake-only requirements, so CMake can still fail
 after a successful check.
 
+> [!NOTE]
+>
+> Nextcloud accounts from **System Settings › Online Accounts** need KDE
+> Online Accounts at build time (`kaccounts-integration` on Arch,
+> `kaccounts-integration-qt6-devel` on Fedora). The installer does not install
+> it; CMake uses it when found (`-DWITH_KACCOUNTS=AUTO`, the default), and
+> `-DWITH_KACCOUNTS=OFF` leaves it out. Nextcloud accounts connected in
+> **Settings › Integrations › Nextcloud** work without it. See
+> [Nextcloud files and share links](CAVEATS.md#nextcloud-files-and-share-links).
+
 <details>
 <summary>Packages checked for each package manager</summary>
 
@@ -325,6 +335,8 @@ Start Plasma Impresario from the application menu or run `plasma-impresario`.
 | The password is asked for at every start                           | Check the password plugin in the general settings. QtKeychain, the default for new profiles, needs `qtkeychain-qt6` at build time and KWallet or the Secret Service running in the session.                                                                       |
 | An account fails to connect or behaves oddly                       | Start with `plasma-impresario --log-to-disk` and reproduce the problem. The log is written to `trojita-connection-log` in the cache folder. It can contain mail and personal data; delete it afterwards and redact it before sharing.                             |
 | A certificate warning appears                                      | Reject it unless the provider confirms the certificate; see [safe operating guidance](CAVEATS.md#safe-operating-guidance).                                                                                                                                        |
+| **Connect…** for Nextcloud is disabled                             | Nextcloud app passwords are kept only in encrypted password storage. Choose QtKeychain as the password plugin in the general settings, with KWallet or the Secret Service running.                                                                                |
+| Nextcloud accounts from System Settings are not listed             | The build has no KDE Online Accounts support; see the note under [requirements](#requirements-by-distribution), or connect the server in **Settings › Integrations › Nextcloud**.                                                                                 |
 | The theme or layout looks wrong after a change                     | Start with `plasma-impresario --reset-appearance`, or `--no-workspace-appearance` to skip workspace overrides.                                                                                                                                                    |
 | A clean configuration is needed to compare                         | Start with `plasma-impresario --profile test`. The profile has its own accounts, settings file and cache; only `plasma-impresariorc` is shared.                                                                                                                   |
 | The application menu still shows the old launcher                  | Run `kbuildsycoca6`, or log out and back in.                                                                                                                                                                                                                      |
@@ -358,7 +370,9 @@ On hosts without Plasma, use the headless dev container described in
 [building outside Plasma](../CONTRIBUTING.md#building-outside-plasma).
 
 The [compatibility baseline](philosophy/compatibility.md) records tested
-environments and reproducible component checks. Live account and desktop
+environments and reproducible component checks. The live tests against
+disposable IMAP, POP3, JMAP and Nextcloud servers are described in
+[end-to-end coverage](e2e-coverage.md#how-to-run). Live account and desktop
 workflows remain subject to
 [pending verification](TODO.md#pending-verification).
 

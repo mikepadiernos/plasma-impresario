@@ -818,6 +818,12 @@ void SearchGroup::saveSettings()
 
 IntegrationsGroup::IntegrationsGroup(const SettingsContext &context, QWidget *parent)
     : SettingsGroupPage(Group::Integrations, context, parent)
+    , m_nextcloud(new QListWidget)
+    , m_connectNextcloud(new QPushButton(SymbolicIcon::fromTheme(QStringLiteral("list-add")),
+                                         i18nc("@action:button", "Connect…")))
+    , m_disconnectNextcloud(new QPushButton(SymbolicIcon::fromTheme(QStringLiteral("list-remove")),
+                                            i18nc("@action:button", "Disconnect")))
+    , m_nextcloudStatus(new QLabel)
     , m_calendar(new QCheckBox(i18nc("@option:check", "Offer to turn messages into calendar events")))
     , m_calendarReason(new QLabel)
     , m_notes(new QCheckBox(i18nc("@option:check", "Offer to save messages as notes")))
@@ -868,6 +874,37 @@ IntegrationsGroup::IntegrationsGroup(const SettingsContext &context, QWidget *pa
             i18nc("@info",
                   "Workspaces and their notes folders are "
                   "set up on the Workspaces page."));
+
+    m_nextcloud->setObjectName(QStringLiteral("nextcloudAccountList"));
+    m_nextcloud->setAccessibleName(i18nc("@label:listbox accessible name", "Nextcloud accounts"));
+    m_nextcloud->setMaximumHeight(m_nextcloud->fontMetrics().height() * 6);
+    m_connectNextcloud->setObjectName(QStringLiteral("connectNextcloud"));
+    m_disconnectNextcloud->setObjectName(QStringLiteral("disconnectNextcloud"));
+    m_nextcloudStatus->setObjectName(QStringLiteral("nextcloudStatus"));
+    m_nextcloudStatus->setWordWrap(true);
+    m_nextcloudStatus->setTextFormat(Qt::PlainText);
+    m_nextcloudStatus->hide();
+    QFormLayout *nextcloud = addSection(i18nc("@title:group", "Nextcloud"));
+    nextcloud->addRow(m_nextcloud);
+    auto *nextcloudButtons = new QWidget;
+    auto *nextcloudButtonsLayout = new QHBoxLayout(nextcloudButtons);
+    nextcloudButtonsLayout->setContentsMargins(0, 0, 0, 0);
+    nextcloudButtonsLayout->addWidget(m_connectNextcloud);
+    nextcloudButtonsLayout->addWidget(m_disconnectNextcloud);
+    nextcloudButtonsLayout->addStretch();
+    nextcloud->addRow(nextcloudButtons);
+    nextcloud->addRow(m_nextcloudStatus);
+    addNote(nextcloud,
+            i18nc("@info",
+                  "Connected accounts let you attach files from Nextcloud, save attachments there and "
+                  "insert links to files you shared. Changes here take effect at once."));
+    addNote(nextcloud, m_context.nextcloudOnlineAccounts
+                           ? i18nc("@info",
+                                   "Nextcloud accounts added in Online Accounts in System Settings are listed too; "
+                                   "their passwords stay there.")
+                           : i18nc("@info",
+                                   "Online Accounts in System Settings is not available, so only the accounts "
+                                   "connected here are listed."));
     contents()->addStretch();
 
     m_calendar->setChecked(application(QStringLiteral("Integrations/MailToCalendar")).toBool());
@@ -884,6 +921,88 @@ IntegrationsGroup::IntegrationsGroup(const SettingsContext &context, QWidget *pa
             m_notesFolder->setText(folder);
     });
     updateAvailability();
+
+    connect(m_nextcloud, &QListWidget::currentRowChanged, this, &IntegrationsGroup::updateNextcloud);
+    connect(m_connectNextcloud, &QPushButton::clicked, this, [this]() {
+        if (!m_context.connectNextcloud)
+            return;
+        m_nextcloudStatus->hide();
+        QPointer<IntegrationsGroup> self(this);
+        m_context.connectNextcloud(this, [self]() {
+            if (self)
+                self->loadNextcloud();
+        });
+    });
+    connect(m_disconnectNextcloud, &QPushButton::clicked, this, &IntegrationsGroup::disconnectNextcloud);
+    loadNextcloud();
+}
+
+void IntegrationsGroup::loadNextcloud()
+{
+    const QString current = m_nextcloud->currentItem() ? m_nextcloud->currentItem()->data(Qt::UserRole).toString()
+                                                       : QString();
+    m_nextcloud->clear();
+    const QList<SettingsContext::NextcloudAccount> accounts =
+        m_context.nextcloudAccounts ? m_context.nextcloudAccounts() : QList<SettingsContext::NextcloudAccount>();
+    for (const SettingsContext::NextcloudAccount &account : accounts) {
+        auto *item = new QListWidgetItem(SymbolicIcon::fromTheme(QStringLiteral("folder-cloud")), account.title,
+                                         m_nextcloud);
+        item->setData(Qt::UserRole, account.id);
+        item->setData(Qt::UserRole + 1, account.onlineAccount);
+        if (account.onlineAccount) {
+            item->setToolTip(i18nc("@info:tooltip", "This account comes from Online Accounts in System Settings, "
+                                                    "where it can be removed."));
+        }
+        if (account.id == current)
+            m_nextcloud->setCurrentItem(item);
+    }
+    if (!m_nextcloud->currentItem() && m_nextcloud->count() > 0)
+        m_nextcloud->setCurrentRow(0);
+    if (accounts.isEmpty()) {
+        auto *item = new QListWidgetItem(i18nc("@info", "No account is connected."), m_nextcloud);
+        item->setFlags(Qt::NoItemFlags);
+    }
+    updateNextcloud();
+}
+
+void IntegrationsGroup::updateNextcloud()
+{
+    const QListWidgetItem *item = m_nextcloud->currentItem();
+    const bool removable = item && !item->data(Qt::UserRole).toString().isEmpty()
+        && !item->data(Qt::UserRole + 1).toBool();
+    m_connectNextcloud->setEnabled(bool(m_context.connectNextcloud));
+    m_disconnectNextcloud->setEnabled(removable && m_context.disconnectNextcloud);
+    m_disconnectNextcloud->setToolTip(item && item->data(Qt::UserRole + 1).toBool()
+                                          ? i18nc("@info:tooltip", "Remove this account in Online Accounts in System Settings")
+                                          : i18nc("@info:tooltip", "Forget the account and revoke its app password on the server"));
+}
+
+void IntegrationsGroup::disconnectNextcloud()
+{
+    const QListWidgetItem *item = m_nextcloud->currentItem();
+    if (!item || !m_context.disconnectNextcloud)
+        return;
+    const QString id = item->data(Qt::UserRole).toString();
+    if (id.isEmpty() || item->data(Qt::UserRole + 1).toBool())
+        return;
+    if (m_context.confirm
+        && !m_context.confirm(this, i18nc("@title:window", "Disconnect Nextcloud Account"),
+                              i18nc("@info",
+                                    "Disconnect %1? Its app password is revoked on the server, and messages "
+                                    "you already sent keep their links.",
+                                    item->text()))) {
+        return;
+    }
+    QPointer<IntegrationsGroup> self(this);
+    m_disconnectNextcloud->setEnabled(false);
+    m_nextcloudStatus->hide();
+    m_context.disconnectNextcloud(this, id, [self](const QString &warning) {
+        if (!self)
+            return;
+        self->loadNextcloud();
+        self->m_nextcloudStatus->setText(warning);
+        self->m_nextcloudStatus->setVisible(!warning.isEmpty());
+    });
 }
 
 void IntegrationsGroup::updateAvailability()

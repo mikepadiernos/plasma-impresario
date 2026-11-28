@@ -144,6 +144,24 @@ private slots:
         QCOMPARE(requested.size(), 1);
     }
 
+    void asksToSaveTheCurrentAttachmentToNextcloud()
+    {
+        Host host;
+        QStandardItemModel model;
+        mixedWithTwoFiles(model);
+        host.panel->setMessageModel(&model);
+        QSignalSpy requested(host.panel, &Gui::AttachmentPanel::saveToNextcloudRequested);
+        child<QListWidget>(host.panel, "attachmentPanelList")->setCurrentRow(1);
+        host.panel->saveCurrentToNextcloud();
+        QCOMPARE(requested.size(), 1);
+        const auto part = requested.first().first().value<QPersistentModelIndex>();
+        QCOMPARE(Imap::Network::FileDownloadManager::toRealFileName(part), QStringLiteral("photo.png"));
+
+        host.panel->setMessageModel(nullptr);
+        host.panel->saveCurrentToNextcloud();
+        QCOMPARE(requested.size(), 1);
+    }
+
     void junkMessageAsksBeforeOpening()
     {
         Host host;

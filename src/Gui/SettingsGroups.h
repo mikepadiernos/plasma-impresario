@@ -74,6 +74,21 @@ struct SettingsContext {
     /** @short Ask for a file or a folder; empty when cancelled */
     std::function<QString(QWidget *parent, const QString &title, FileMode mode, const QString &start)> chooseFile;
 
+    struct NextcloudAccount {
+        QString id;
+        QString title;
+        /** Whether it comes from KDE Online Accounts, which disconnects it */
+        bool onlineAccount = false;
+    };
+    std::function<QList<NextcloudAccount>()> nextcloudAccounts;
+    /** Whether the Nextcloud accounts of KDE Online Accounts are listed too */
+    bool nextcloudOnlineAccounts = false;
+    /** @short Ask for a Nextcloud account to connect; @arg changed runs once one is */
+    std::function<void(QWidget *parent, std::function<void()> changed)> connectNextcloud;
+    /** @short Disconnect a Nextcloud account and revoke its app password; @arg done gets a warning or nothing */
+    std::function<void(QWidget *parent, const QString &id, std::function<void(const QString &warning)> done)>
+        disconnectNextcloud;
+
     /** @short The profile's settings, where settings which predate KConfig keep
      * their application value */
     QSettings *legacy = nullptr;
@@ -262,7 +277,14 @@ protected:
 
 private:
     void updateAvailability();
+    void loadNextcloud();
+    void updateNextcloud();
+    void disconnectNextcloud();
 
+    QListWidget *m_nextcloud;
+    QPushButton *m_connectNextcloud;
+    QPushButton *m_disconnectNextcloud;
+    QLabel *m_nextcloudStatus;
     QCheckBox *m_calendar;
     QLabel *m_calendarReason;
     QCheckBox *m_notes;

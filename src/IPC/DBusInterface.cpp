@@ -96,6 +96,11 @@ void openMessage(const QString &messageId)
     interface().call(QDBus::NoBlock, QStringLiteral("openMessage"), messageId);
 }
 
+void openNextcloudShare(const QString &url)
+{
+    interface().call(QDBus::NoBlock, QStringLiteral("openNextcloudShare"), url);
+}
+
 } //namespace Instance
 
 bool registerInstance(Gui::MainWindow *window, QString &error)

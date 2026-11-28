@@ -31,12 +31,14 @@ Other desktop environments are outside the supported scope.
 
 > [!IMPORTANT]
 >
-> Plasma Impresario is in development. The four foundation milestones (M01–M04:
-> the KDE / Qt 6 baseline, the shell and accounts, mail operations, and
-> reading), M05, search and indexing, M06, desktop integration and provider
-> support, M07, rules and notifications, and M08, settings and workspaces, are
-> merged into `main`. They are verified with offscreen tests and disposable
-> mail servers, but nothing has been checked in a real Plasma session yet. See [project status](#project-status).
+> Plasma Impresario is in development. Milestones M01–M12 are merged into
+> `main`: the KDE / Qt 6 baseline, the shell and accounts, mail operations,
+> reading, search, desktop integration and providers, rules and notifications,
+> settings and workspaces, themes, reliability, release readiness and
+> Nextcloud. They are verified with offscreen tests and disposable mail and
+> Nextcloud servers, but nothing has been checked in a real Plasma session
+> yet, and the release is [not ready](docs/RELEASE.md#release-decision). See
+> [project status](#project-status).
 
 ## Contents
 
@@ -108,7 +110,8 @@ is the milestone's parent issue.
 | [M09](docs/ROADMAP.md#m09-themes-and-branding-foundation) Themes and branding                | `main` | ![32 of 32 done](https://img.shields.io/badge/32%2F32-100%25-1a7f37) | ![Merged][merged]   | Merged in [PR #504](https://github.com/mikepadiernos/plasma-impresario/pull/504) |
 | [M10](docs/ROADMAP.md#m10-reliability-sync-and-notification-quality) Reliability and sync    | `main` | ![12 of 12 done](https://img.shields.io/badge/12%2F12-100%25-1a7f37) | ![Merged][merged]   | Merged in [PR #510](https://github.com/mikepadiernos/plasma-impresario/pull/510) |
 | [M11](docs/ROADMAP.md#m11-release-readiness-and-polish) Release readiness                    | `main` | ![10 of 10 done](https://img.shields.io/badge/10%2F10-100%25-1a7f37) | ![Merged][merged]   | Merged in [PR #513](https://github.com/mikepadiernos/plasma-impresario/pull/513) |
-| M12–M14: Nextcloud, Microsoft, refinements                                                   | —      | —                                                                    | ![Backlog][backlog] | Not started                                                                      |
+| [M12](docs/ROADMAP.md#m12-nextcloud-and-digital-asset-management) Nextcloud                  | `main` | ![7 of 7 done](https://img.shields.io/badge/7%2F7-100%25-1a7f37)     | ![Merged][merged]   | Merged in [PR #516](https://github.com/mikepadiernos/plasma-impresario/pull/516) |
+| M13–M14: Microsoft, refinements                                                              | —      | —                                                                    | ![Backlog][backlog] | Not started                                                                      |
 | [M15](docs/ROADMAP.md#m15-real-plasma-session-verification) Real Plasma session checks       | —      | ![0 of 5 done](https://img.shields.io/badge/0%2F5-0%25-6e7781)       | ![Defined][defined] | Needs a real Plasma session                                                      |
 
 The [roadmap overview](docs/ROADMAP.md#milestones-at-a-glance) tracks every
@@ -117,7 +120,7 @@ is waiting on.
 
 ## Implemented today
 
-What works in `main` after M01–M11, as of 2026-11-28.
+What works in `main` after M01–M12, as of 2026-11-28.
 
 Legend: ![Verified][verified] against a disposable Dovecot server ·
 ![Offscreen tests][offscreen] covered by automated tests without a live server
@@ -404,6 +407,33 @@ guidance that decide whether a release can ship. It is
 > the AppArmor profile is untried on Ubuntu; both are checked in
 > [M15](docs/ROADMAP.md#m15-real-plasma-session-verification). See the
 > [Release gate scope](docs/CAVEATS.md#release-gate-scope) caveat.
+
+### Added in M12
+
+Nextcloud and digital asset management
+([#31](https://github.com/mikepadiernos/plasma-impresario/issues/31)): files on a Nextcloud server
+can be attached, linked and saved to, with the access of every link shown
+before it is sent.
+
+| Area             | What works                                                                                                                                                                                         | Status                        |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Accounts         | **Settings › Integrations › Nextcloud › Connect…** signs in through the browser or with an app password kept in encrypted password storage; **Disconnect** revokes it                              | ![Verified][verified]         |
+| Browsing         | Folders and files are browsed without blocking mail, and each folder shows whether it is shared and whether it can be written to                                                                   | ![Verified][verified]         |
+| Attach and link  | The composer's **From Nextcloud…** attaches files or, with **Insert Links**, inserts their existing public links                                                                                   | ![Verified][verified]         |
+| Save attachments | The attachment panel's **Save to Nextcloud…** saves to a writable folder and never replaces a file; a second copy gets a numbered name                                                             | ![Verified][verified]         |
+| Transfers        | Downloads and uploads show their progress in the activity log; a failed upload offers **Retry**, and each kind of failure has its own message                                                      | ![Verified][verified]         |
+| Share check      | **Send Nextcloud Links?** lists every public link in a message with its password and expiry, or says it is not one of the user's shares                                                            | ![Verified][verified]         |
+| Online Accounts  | Nextcloud accounts from KDE Online Accounts are listed, and a link handed over by [Plasma Opus](docs/integrations/plasma-opus.md) with `--nextcloud-share` is reviewed before it goes into a draft | ![Offscreen tests][offscreen] |
+| Validation       | A live test runs every workflow against a disposable Nextcloud server, including saving the attachments of a local-account message                                                                 | ![Verified][verified]         |
+
+> [!WARNING]
+>
+> Nextcloud needs a connection: offline, browsing, attaching and saving fail,
+> and the send check cannot verify shares. Transfers stop when their window
+> closes, **Insert Links** does not create links, and the KDE Online Accounts
+> backend is compile-verified only. See the
+> [Nextcloud files and share links](docs/CAVEATS.md#nextcloud-files-and-share-links)
+> caveat.
 
 ## Using it
 
@@ -747,6 +777,20 @@ its own: the outbox asks whether to **Send Again…** or **Move to Drafts**. A
 message the server refuses returns to the drafts with the server's reason.
 See [Persistent outbox](docs/CAVEATS.md#persistent-outbox).
 
+### Nextcloud
+
+**Settings › Integrations › Nextcloud › Connect…** adds a Nextcloud server.
+It signs in through the browser, or with an app password, and needs
+QtKeychain as the password plugin; Nextcloud accounts from KDE Online
+Accounts are listed there too. In the composer, **From Nextcloud…** browses
+the server and attaches the chosen files, or **Insert Links** puts their
+public links into the message. In the reader, the attachment panel's **Save
+to Nextcloud…** saves an attachment to a folder the account can write to.
+Transfers show in the **Activity** window, where a failed upload can be
+retried. Before a message with Nextcloud links is sent, **Send Nextcloud
+Links?** lists who can open each one. See
+[Nextcloud files and share links](docs/CAVEATS.md#nextcloud-files-and-share-links).
+
 ### Settings, tabs and Vim mode
 
 **Settings...** in the application menu shows every group in a page list and
@@ -795,19 +839,20 @@ See [Themes and appearance](docs/CAVEATS.md#themes-and-appearance).
 
 ### Command line
 
-| Option                      | Effect                                                         |
-| --------------------------- | -------------------------------------------------------------- |
-| `-p`, `--profile`           | Use a separate configuration with its own accounts             |
-| `-c`, `--compose`           | Open the composer                                              |
-| `mailto:…`                  | Open the composer with the address and fields prefilled        |
-| `--message-id <id>`         | Open the message with this Message-ID                          |
-| `mid:…`                     | Open the message named by a `mid:` URL                         |
-| `-a`, `--addressbook`       | Open the address book, when a plugin provides one              |
-| `-l`, `--log-to-disk`       | Log IMAP traffic to disk from startup                          |
-| `--background`              | Start without the window, when running in the background is on |
-| `--reset-appearance`        | Reset the theme options to Plasma's defaults before starting   |
-| `--no-workspace-appearance` | Start without workspaces' theme profiles and overrides         |
-| `-v`, `--version`           | Print the version                                              |
+| Option                      | Effect                                                                                     |
+| --------------------------- | ------------------------------------------------------------------------------------------ |
+| `-p`, `--profile`           | Use a separate configuration with its own accounts                                         |
+| `-c`, `--compose`           | Open the composer                                                                          |
+| `mailto:…`                  | Open the composer with the address and fields prefilled                                    |
+| `--message-id <id>`         | Open the message with this Message-ID                                                      |
+| `--nextcloud-share <link>`  | Show a Nextcloud share link and who can open it, then put it into a new e-mail if accepted |
+| `mid:…`                     | Open the message named by a `mid:` URL                                                     |
+| `-a`, `--addressbook`       | Open the address book, when a plugin provides one                                          |
+| `-l`, `--log-to-disk`       | Log IMAP traffic to disk from startup                                                      |
+| `--background`              | Start without the window, when running in the background is on                             |
+| `--reset-appearance`        | Reset the theme options to Plasma's defaults before starting                               |
+| `--no-workspace-appearance` | Start without workspaces' theme profiles and overrides                                     |
+| `-v`, `--version`           | Print the version                                                                          |
 
 Run `plasma-impresario --help` for the full list.
 
@@ -873,13 +918,16 @@ flowchart TD
     B --> C[M09 themes and branding, merged]
     C --> D[M10 reliability and the stabilization gate, merged]
     D --> H[M11 release readiness and the release gate, merged]
-    H --> E[M12-M13 Nextcloud, Microsoft accounts and Exchange]
+    H --> I[M12 Nextcloud files and share links, merged]
+    I --> E[M13 Microsoft accounts and Exchange]
     E --> F[M14 refinements]
     A -.-> G[M15 real Plasma session checks]
 ```
 
-Vim mode and workspaces arrived in M08, themes and theme profiles in M09, and
-the outbox and background header loading in M10, and the release gate in M11.
+Vim mode and workspaces arrived in M08, themes and theme profiles in M09, the
+outbox and background header loading in M10, the release gate in M11, and
+Nextcloud files and share links in M12. M13 waits on a
+[Microsoft app registration](docs/TODO.md#m13-microsoft-milestone-insertion).
 [Plasma Opus](docs/integrations/plasma-opus.md) is the companion file manager;
 the two apps share Vim mode settings through a keymap file and themes through
 theme profiles, and are planned to share file dialogs and workspace context. The [scope](docs/philosophy/scope.md) sets the product

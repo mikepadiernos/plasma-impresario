@@ -480,4 +480,22 @@ void ComposerAttachmentRequestsTest::remoteAttachmentRemoved()
     QVERIFY(QFile::exists(local));
 }
 
+void ComposerAttachmentRequestsTest::remoteAttachmentFetchedByCaller()
+{
+    // Files from Nextcloud are fetched by the window, not through the URL
+    auto composer = makeComposer();
+    QSignalSpy added(composer.get(), &Composer::MessageComposer::remoteFileAttachmentAdded);
+    QSignalSpy removed(composer.get(), &Composer::MessageComposer::remoteFileAttachmentRemoved);
+    const QString copy = composer->addRemoteFileAttachment(
+        QUrl(QStringLiteral("https://cloud.example.org/remote.php/dav/files/alice/report.pdf")), nullptr, false);
+    QVERIFY(!copy.isEmpty());
+    QCOMPARE(added.size(), 0);
+    QCOMPARE(composer->rowCount(), 1);
+    QVERIFY(!composer->isReadyForSerialization());
+    composer->removeRemoteFileAttachment(copy);
+    QCOMPARE(removed.size(), 1);
+    QVERIFY(!QFile::exists(copy));
+    QVERIFY(!composer->setRemoteFileFetched(copy));
+}
+
 QTEST_GUILESS_MAIN(ComposerAttachmentRequestsTest)

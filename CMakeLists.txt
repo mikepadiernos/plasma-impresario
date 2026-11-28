@@ -102,6 +102,7 @@ impresario_plugin_option(WITH_SONNET_PLUGIN "Build a plugin for spellchecking vi
 impresario_option(WITH_KNOTIFICATIONS "Report background account errors as desktop notifications" AUTO "WITH_DESKTOP")
 impresario_option(WITH_KFILEMETADATA "Index the text of downloaded attachments through KFileMetaData" AUTO)
 impresario_option(WITH_AKONADI_CALENDAR "Show KDE PIM events and tasks in the My Day panel" AUTO "WITH_DESKTOP")
+impresario_option(WITH_KACCOUNTS "Use the Nextcloud accounts of KDE Online Accounts" AUTO "WITH_DESKTOP")
 impresario_option(WITH_PLASMA_WIDGETS "Build the optional Plasma widgets" AUTO "WITH_DESKTOP;WITH_DBUS")
 
 impresario_find_package(Git "" "" "" "")
@@ -139,6 +140,7 @@ impresario_find_package(KF6Sonnet ${SONNET_LIB_VERSION} "https://projects.kde.or
 impresario_find_package(KF6Notifications "" "https://invent.kde.org/frameworks/knotifications" "KDE desktop notifications" "Report background account errors as desktop notifications" WITH_KNOTIFICATIONS)
 impresario_find_package(KF6FileMetaData "" "https://invent.kde.org/frameworks/kfilemetadata" "KDE file metadata and text extraction" "Index the text of downloaded attachments" WITH_KFILEMETADATA)
 impresario_find_package(KPim6AkonadiCalendar "" "https://invent.kde.org/pim/akonadi-calendar" "KDE PIM calendars" "Events and tasks in My Day" WITH_AKONADI_CALENDAR)
+impresario_find_package(KAccounts6 "" "https://invent.kde.org/network/kaccounts-integration" "KDE Online Accounts" "Nextcloud accounts connected in System Settings" WITH_KACCOUNTS)
 impresario_find_package(Qt6Quick "" "https://doc.qt.io/qt-6/qtquick-index.html" "Qt Quick" "The Plasma widgets' shared views" WITH_PLASMA_WIDGETS)
 impresario_find_package(Qt6QuickTest "" "https://doc.qt.io/qt-6/qtquicktest-index.html" "Qt Quick Test" "Tests for the Plasma widgets' views")
 impresario_find_package(KF6Service "" "https://invent.kde.org/frameworks/kservice" "KDE service lookup" "Starting the application from the Plasma widgets" WITH_PLASMA_WIDGETS)
@@ -291,6 +293,12 @@ else()
     set(IMPRESARIO_HAVE_AKONADI_CALENDAR False)
 endif()
 
+if(WITH_KACCOUNTS)
+    set(IMPRESARIO_HAVE_KACCOUNTS True)
+else()
+    set(IMPRESARIO_HAVE_KACCOUNTS False)
+endif()
+
 if (WITH_WEBENGINE)
     set(IMPRESARIO_HAVE_WEBENGINE True)
     message(STATUS "Support for viewing mails via Qt WebEngine is enabled")
@@ -428,6 +436,13 @@ if(WITH_AKONADI_CALENDAR)
     )
 endif()
 
+if(WITH_KACCOUNTS)
+    set(libDesktopServices_SOURCES
+        ${libDesktopServices_SOURCES}
+        ${path_UiUtils}/KAccountsNextcloud.cpp
+    )
+endif()
+
 set(path_IPC ${CMAKE_CURRENT_SOURCE_DIR}/src/IPC)
 
 if(WITH_DBUS)
@@ -502,6 +517,16 @@ set(libJmap_SOURCES
     ${path_Jmap}/SyncJob.cpp
 )
 
+set(path_Nextcloud ${CMAKE_CURRENT_SOURCE_DIR}/src/Nextcloud)
+set(libNextcloud_SOURCES
+    ${path_Nextcloud}/Account.cpp
+    ${path_Nextcloud}/Client.cpp
+    ${path_Nextcloud}/CredentialStore.cpp
+    ${path_Nextcloud}/Files.cpp
+    ${path_Nextcloud}/OnlineAccounts.cpp
+    ${path_Nextcloud}/Shares.cpp
+)
+
 set(path_Cryptography ${CMAKE_CURRENT_SOURCE_DIR}/src/Cryptography)
 set(libCryptography_SOURCES
     ${path_Cryptography}/MessageModel.cpp
@@ -573,6 +598,11 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/MessageSelectionRestorer.cpp
     ${path_DesktopGui}/MsgItemDelegate.cpp
     ${path_DesktopGui}/MsgListView.cpp
+    ${path_DesktopGui}/NextcloudBrowserDialog.cpp
+    ${path_DesktopGui}/NextcloudConnectDialog.cpp
+    ${path_DesktopGui}/NextcloudHub.cpp
+    ${path_DesktopGui}/NextcloudShareReviewDialog.cpp
+    ${path_DesktopGui}/NextcloudTransfers.cpp
     ${path_DesktopGui}/NotificationsDialog.cpp
     ${path_DesktopGui}/OnePanelAtTimeWidget.cpp
     ${path_DesktopGui}/OverlayWidget.cpp
@@ -863,12 +893,16 @@ if(WITH_DESKTOP)
             Qt::Core
             Qt::DBus
             Imap
+            Nextcloud
             UiUtils
         PRIVATE
             KF6::ConfigCore
     )
     if(WITH_AKONADI_CALENDAR)
         target_link_libraries(DesktopServices PRIVATE KPim6::AkonadiCalendar KF6::CalendarCore KPim6::AkonadiCore)
+    endif()
+    if(WITH_KACCOUNTS)
+        target_link_libraries(DesktopServices PRIVATE KAccounts6 KF6::CoreAddons)
     endif()
 endif()
 
@@ -945,6 +979,15 @@ target_link_libraries(Jmap
         MSA
     PRIVATE
         Common
+)
+
+add_library(Nextcloud STATIC ${libNextcloud_SOURCES})
+set_property(TARGET Nextcloud APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
+target_link_libraries(Nextcloud
+    PUBLIC
+        Qt::Core
+        Qt::Network
+        Plugins
 )
 
 add_library(MSA STATIC ${libMSA_SOURCES})
@@ -1164,6 +1207,7 @@ if(WITH_DESKTOP)
             Jmap
             Pop3
             MSA
+            Nextcloud
             OAuth
             UiUtils
     )
@@ -1347,6 +1391,11 @@ if(BUILD_TESTING)
         target_link_libraries(test_FileChooser PRIVATE DesktopGui Qt6::DBus Qt6::Test)
         add_executable(test_SavedFilesSearchDialog tests/Gui/test_SavedFilesSearchDialog.cpp)
         target_link_libraries(test_SavedFilesSearchDialog PRIVATE DesktopGui UiUtils Qt6::Test KF6::ConfigCore KF6::I18n)
+        add_executable(test_NextcloudDialogs tests/Gui/test_NextcloudDialogs.cpp)
+        target_link_libraries(test_NextcloudDialogs PRIVATE DesktopGui Nextcloud Plugins UiUtils Qt6::Network Qt6::Test KF6::ConfigCore KF6::I18n)
+        # Opt-in, outside ctest: tools/dev-container/live-nextcloud.sh starts the server it needs
+        add_executable(test_LiveNextcloud tests/Gui/test_LiveNextcloud.cpp)
+        target_link_libraries(test_LiveNextcloud PRIVATE DesktopGui Imap LocalMail test_LibMailboxSync Nextcloud Plugins UiUtils Qt6::Network Qt6::Test KF6::ConfigCore KF6::I18n)
         add_executable(test_SearchIndexDialog tests/Gui/test_SearchIndexDialog.cpp)
         target_link_libraries(test_SearchIndexDialog PRIVATE DesktopGui UiUtils Qt6::Test KF6::I18n)
         add_executable(test_TagListWidget tests/Gui/test_TagListWidget.cpp)
@@ -1440,6 +1489,8 @@ if(BUILD_TESTING)
             set_tests_properties(test_FileChooser PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_SavedFilesSearchDialog COMMAND test_SavedFilesSearchDialog)
             set_tests_properties(test_SavedFilesSearchDialog PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+            add_test(NAME test_NextcloudDialogs COMMAND test_NextcloudDialogs)
+            set_tests_properties(test_NextcloudDialogs PROPERTIES TIMEOUT 60 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_SearchIndexDialog COMMAND test_SearchIndexDialog)
             set_tests_properties(test_SearchIndexDialog PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
             add_test(NAME test_TagListWidget COMMAND test_TagListWidget)
@@ -1681,6 +1732,10 @@ if(BUILD_TESTING)
     # Opt-in, outside ctest: tools/dev-container/live-jmap.sh starts the server it needs
     add_executable(test_LiveJmap tests/Jmap/test_LiveJmap.cpp)
     target_link_libraries(test_LiveJmap PRIVATE Jmap LocalMail Qt6::Network Qt6::Test)
+    impresario_test(Nextcloud NextcloudFiles)
+    target_link_libraries(test_NextcloudFiles PRIVATE Nextcloud)
+    impresario_test(Nextcloud NextcloudClient)
+    target_link_libraries(test_NextcloudClient PRIVATE Nextcloud)
     impresario_test(Misc Rfc5322)
     impresario_test(Misc ApplicationProfile)
     impresario_test(Misc RingBuffer)
@@ -1864,7 +1919,7 @@ if(BUILD_TESTING)
     endif()
 
     # The mail core neither includes nor links KDE desktop services; see docs/integrations/kde-plasma.md
-    set(boundary_core_targets AppVersion Common Composer Cryptography Imap Jmap LocalMail MSA OAuth Plugins Pop3 Streams UiUtils
+    set(boundary_core_targets AppVersion Common Composer Cryptography Imap Jmap LocalMail MSA Nextcloud OAuth Plugins Pop3 Streams UiUtils
         qwwsmtpclient)
     set(boundary_links "")
     foreach(boundary_target ${boundary_core_targets})

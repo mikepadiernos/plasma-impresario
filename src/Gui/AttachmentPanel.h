@@ -3,6 +3,8 @@
 */
 #pragma once
 
+#include <functional>
+
 #include <QPersistentModelIndex>
 #include <QPointer>
 
@@ -45,6 +47,14 @@ public:
     bool hasContent() const override;
     QWidget *focusTarget() const override;
 
+    /** @short Read the attachment @arg part into memory, for as long as @arg context exists
+
+    The data goes through a private copy, removed at once. @arg done gets the attachment's file name and its data;
+    a failure is reported through transferError().
+    */
+    void readPart(const QPersistentModelIndex &part, QObject *context,
+        std::function<void(const QString &fileName, const QByteArray &data)> done);
+
 public slots:
     /** Follow the part model of a message; nullptr, or the model being destroyed, means no message */
     void setMessageModel(QAbstractItemModel *model);
@@ -52,6 +62,8 @@ public slots:
     void saveCurrent();
     /** Ask to find the copies of the current attachment which the user saved, by its file name */
     void findSavedCopiesOfCurrent();
+    /** Ask to save the current attachment to Nextcloud */
+    void saveCurrentToNextcloud();
 
 signals:
     void transferError(const QString &errorString);
@@ -59,6 +71,8 @@ signals:
     void fileSaved(const QString &fileName);
     /** The user wants to find saved copies of an attachment named @arg fileName */
     void findSavedCopiesRequested(const QString &fileName);
+    /** The user wants to save the attachment @arg part to Nextcloud */
+    void saveToNextcloudRequested(const QPersistentModelIndex &part);
     /** The number of attachments of the shown message changed, for example when its structure arrived */
     void attachmentCountChanged(int count);
 

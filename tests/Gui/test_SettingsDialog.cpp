@@ -161,6 +161,52 @@ private slots:
         QVERIFY(child<QCheckBox>(&available, QStringLiteral("mailToCalendar"))->isEnabled());
     }
 
+    void integrationsConnectAndDisconnectNextcloud()
+    {
+        QList<SettingsContext::NextcloudAccount> accounts{{QStringLiteral("cloud"), QStringLiteral("Alice on cloud.example.com"), false},
+                                                          {QStringLiteral("online"), QStringLiteral("Bob on example.org"), true}};
+        int connects = 0;
+        QStringList disconnected;
+        bool confirmed = false;
+        m_context.nextcloudAccounts = [&]() { return accounts; };
+        m_context.connectNextcloud = [&](QWidget *, std::function<void()> changed) {
+            ++connects;
+            accounts.append({QStringLiteral("new"), QStringLiteral("Carol on cloud.example.com"), false});
+            changed();
+        };
+        m_context.disconnectNextcloud = [&](QWidget *, const QString &id, std::function<void(const QString &)> done) {
+            disconnected << id;
+            accounts.removeIf([&id](const SettingsContext::NextcloudAccount &account) { return account.id == id; });
+            done(QStringLiteral("The app password could not be revoked on the server."));
+        };
+        m_context.confirm = [&](QWidget *, const QString &, const QString &) { return confirmed; };
+
+        IntegrationsGroup group(m_context, nullptr);
+        auto *list = child<QListWidget>(&group, QStringLiteral("nextcloudAccountList"));
+        auto *disconnect = child<QPushButton>(&group, QStringLiteral("disconnectNextcloud"));
+        auto *status = child<QLabel>(&group, QStringLiteral("nextcloudStatus"));
+        QVERIFY(list && disconnect && status);
+        QCOMPARE(list->count(), 2);
+        QCOMPARE(list->currentRow(), 0);
+        QVERIFY(disconnect->isEnabled());
+        list->setCurrentRow(1);
+        QVERIFY(!disconnect->isEnabled());
+
+        child<QPushButton>(&group, QStringLiteral("connectNextcloud"))->click();
+        QCOMPARE(connects, 1);
+        QCOMPARE(list->count(), 3);
+
+        list->setCurrentRow(0);
+        disconnect->click();
+        QVERIFY(disconnected.isEmpty());
+        confirmed = true;
+        disconnect->click();
+        QCOMPARE(disconnected, QStringList{QStringLiteral("cloud")});
+        QCOMPARE(list->count(), 2);
+        QVERIFY(!status->isHidden());
+        QVERIFY(status->text().contains(QLatin1String("revoked")));
+    }
+
     void searchHooksAndIndexedAccounts()
     {
         int cleared = 0;

@@ -150,6 +150,11 @@
 #include "MailboxPickerDialog.h"
 #include "SearchFoldersDialog.h"
 #include "SavedFilesSearchDialog.h"
+#include "NextcloudBrowserDialog.h"
+#include "NextcloudConnectDialog.h"
+#include "NextcloudHub.h"
+#include "NextcloudShareReviewDialog.h"
+#include "NextcloudTransfers.h"
 #include "SearchIndexDialog.h"
 #include "MessageDetailsPanel.h"
 #include "MessageListWidget.h"
@@ -216,6 +221,9 @@
 #ifdef IMPRESARIO_HAVE_AKONADI_CALENDAR
 #include "UiUtils/AkonadiAgendaSource.h"
 #endif
+#ifdef IMPRESARIO_HAVE_KACCOUNTS
+#include "UiUtils/KAccountsNextcloud.h"
+#endif
 
 #include <QVBoxLayout>
 #include "Imap/Model/AccountCapabilities.h"
@@ -260,6 +268,13 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
                                                  Common::SettingsNames::addressbookPlugin, Common::SettingsNames::passwordPlugin,
                                                  Common::SettingsNames::spellcheckerPlugin);
     connect(m_pluginManager, &Plugins::PluginManager::pluginsChanged, this, &MainWindow::slotPluginsChanged);
+    m_nextcloud = new NextcloudHub(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), m_settings,
+                                   [this]() { return m_pluginManager->password(); }, this);
+#ifdef IMPRESARIO_HAVE_KACCOUNTS
+    // Nextcloud accounts added in System Settings, whose credentials stay with KDE Online Accounts
+    m_nextcloud->setOnlineAccounts(new UiUtils::KAccountsNextcloud(m_nextcloud));
+#endif
+    m_nextcloudTransfers = new NextcloudTransfers(m_nextcloud, this);
     connect(m_pluginManager, &Plugins::PluginManager::pluginError, this, [this](const QString &errorMessage) {
         Gui::Util::messageBoxWarning(this, tr("Plugin Error"),
                                      //: The %1 placeholder is a full error message as provided by Qt, ready for human consumption.
@@ -906,6 +921,11 @@ void MainWindow::createActions()
     connect(m_actionFindSavedFiles, &QAction::triggered, this, [this]() {
         findSavedFiles(msgListWidget->searchField()->text());
     });
+    m_actionBrowseNextcloud = new QAction(UiUtils::loadIcon(QStringLiteral("folder-cloud")),
+                                          i18nc("@action", "Browse &Nextcloud…"), this);
+    m_actionBrowseNextcloud->setObjectName(QStringLiteral("action_browse_nextcloud"));
+    m_actionBrowseNextcloud->setToolTip(i18nc("@info:tooltip", "Browse the files of your Nextcloud accounts, or connect one"));
+    connect(m_actionBrowseNextcloud, &QAction::triggered, this, &MainWindow::browseNextcloud);
     m_clearSearchAndFilters = ShortcutHandler::instance()->createAction(QStringLiteral("action_clear_search_and_filters"), this,
             SLOT(clearSearchAndFilters()), this);
 
@@ -1797,6 +1817,7 @@ void MainWindow::createMenus()
         ADD_ACTION(mailboxMenu, m_actionFind);
         ADD_ACTION(mailboxMenu, m_searchBuilder);
         mailboxMenu->addAction(m_actionFindSavedFiles);
+        mailboxMenu->addAction(m_actionBrowseNextcloud);
         ADD_ACTION(mailboxMenu, m_actionRuleFromSearch);
         QMenu *sortMenu = mailboxMenu->addMenu(tr("S&orting"));
             ADD_ACTION(sortMenu, m_actionSortNone);
@@ -2102,6 +2123,7 @@ void MainWindow::createWidgets()
     connect(m_attachmentPanel, &AttachmentPanel::transferError, this, &MainWindow::slotDownloadTransferError);
     connect(m_attachmentPanel, &AttachmentPanel::fileSaved, this, &MainWindow::slotFileSaved);
     connect(m_attachmentPanel, &AttachmentPanel::findSavedCopiesRequested, this, &MainWindow::findSavedFiles);
+    connect(m_attachmentPanel, &AttachmentPanel::saveToNextcloudRequested, this, &MainWindow::saveAttachmentToNextcloud);
 
     m_messageDetailsPanel = new MessageDetailsPanel();
     m_messageDetailsPanel->setAccountResolver(accountName);
@@ -4198,8 +4220,99 @@ SettingsContext MainWindow::settingsContext()
         }
         return QString();
     };
+    context.nextcloudAccounts = [this]() {
+        QList<SettingsContext::NextcloudAccount> accounts;
+        for (const Nextcloud::Account &account : m_nextcloud->accounts())
+            accounts.append({account.id, account.title(), account.source == Nextcloud::Account::Source::OnlineAccounts});
+        return accounts;
+    };
+    context.nextcloudOnlineAccounts = m_nextcloud->hasOnlineAccounts();
+    context.connectNextcloud = [this](QWidget *parent, std::function<void()> changed) {
+        connectNextcloud(parent, [changed](const QString &) {
+            if (changed)
+                changed();
+        });
+    };
+    context.disconnectNextcloud = [this](QWidget *parent, const QString &id, std::function<void(const QString &)> done) {
+        m_nextcloud->removeAccount(id, parent, std::move(done));
+    };
     context.legacy = m_settings;
     return context;
+}
+
+void MainWindow::connectNextcloud(QWidget *parent, std::function<void(const QString &id)> connected)
+{
+    auto *dialog = new NextcloudConnectDialog(m_nextcloud, parent ? parent : this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &NextcloudConnectDialog::connected, this, [connected = std::move(connected)](const QString &id) {
+        if (connected)
+            connected(id);
+    });
+    dialog->open();
+}
+
+void MainWindow::openNextcloudShare(const QUrl &link)
+{
+    auto *dialog = new NextcloudShareReviewDialog(m_nextcloud, link, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &NextcloudShareReviewDialog::insertRequested, this, [this](const QUrl &url) {
+        const QByteArray body = QUrl::toPercentEncoding(url.toString(QUrl::FullyEncoded) + QLatin1Char('\n'));
+        composeMailFromOtherApplication(QUrl::fromEncoded(QByteArray("mailto:?body=").append(body)), {});
+    });
+    dialog->open();
+    activateForRequest(dialog);
+}
+
+NextcloudBrowserDialog *MainWindow::createNextcloudBrowser(int mode, QWidget *parent)
+{
+    auto *browser = new NextcloudBrowserDialog(m_nextcloud, NextcloudBrowserDialog::Mode(mode), parent ? parent : this);
+    browser->setAttribute(Qt::WA_DeleteOnClose);
+    connect(browser, &NextcloudBrowserDialog::connectRequested, this, [this, browser]() {
+        QPointer<NextcloudBrowserDialog> guard(browser);
+        connectNextcloud(browser, [guard](const QString &id) {
+            if (guard)
+                guard->setAccount(id);
+        });
+    });
+    return browser;
+}
+
+void MainWindow::browseNextcloud()
+{
+    if (!m_nextcloudBrowser)
+        m_nextcloudBrowser = createNextcloudBrowser(int(NextcloudBrowserDialog::Mode::Browse), this);
+    m_nextcloudBrowser->show();
+    m_nextcloudBrowser->raise();
+    m_nextcloudBrowser->activateWindow();
+}
+
+void MainWindow::saveAttachmentToNextcloud(const QPersistentModelIndex &part)
+{
+    if (!part.isValid())
+        return;
+    auto *browser = createNextcloudBrowser(int(NextcloudBrowserDialog::Mode::ChooseFolder), this);
+    browser->setWindowTitle(i18nc("@title:window", "Save Attachment to Nextcloud"));
+    connect(browser, &NextcloudBrowserDialog::folderChosen, this, [this, part](const QString &accountId, const QString &folder) {
+        m_attachmentPanel->readPart(part, this, [this, accountId, folder](const QString &fileName, const QByteArray &data) {
+            m_nextcloudTransfers->store(
+                accountId, folder, fileName, data, this,
+                [this, accountId, folder](const QString &path) {
+                    const QUrl page = m_nextcloud->account(accountId).webFolderUrl(folder);
+                    m_notificationBar->showInfo(
+                        i18nc("@info %1 is a file name, %2 a folder in Nextcloud", "Saved \"%1\" to %2 in Nextcloud.",
+                              path.section(QLatin1Char('/'), -1),
+                              folder),
+                        {{i18nc("@action:button", "Open in Browser"), QStringLiteral("internet-services"),
+                          QStringLiteral("openNextcloudFolder"), [page]() { QDesktopServices::openUrl(page); }}});
+                },
+                [this, fileName](const QString &message) {
+                    m_notificationBar->showError(
+                        i18nc("@info %1 is a file name, %2 an error message", "Could not save \"%1\" to Nextcloud: %2",
+                              fileName, message));
+                });
+        });
+    });
+    browser->open();
 }
 
 void MainWindow::showSearchIndexOver(QWidget *parent)
@@ -4460,6 +4573,7 @@ void MainWindow::setupMailAutomation()
     };
     connect(m_accountStatus, &Common::AccountStatusTracker::statusChanged, this, &MainWindow::recordSyncActivity);
     MailSafetyPrompt::setActivityLog(m_mailAutomation->activity());
+    m_nextcloudTransfers->setActivityLog(m_mailAutomation->activity());
     connect(this, &MainWindow::accountsChanged, m_mailAutomation, updateNames);
 }
 
