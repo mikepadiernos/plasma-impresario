@@ -1059,7 +1059,7 @@ Mailbox performance [#52](https://github.com/mikepadiernos/plasma-impresario/iss
 - [x] Exercise memory, lifetime, undefined-behavior, and data-race-sensitive
       network, cache, and Qt background-task paths with suitable sanitizers before
       extending concurrency or sync behavior [#481](https://github.com/mikepadiernos/plasma-impresario/issues/481)
-- [ ] Keep the search index consistent with incremental updates through
+- [x] Keep the search index consistent with incremental updates through
       CONDSTORE and QRESYNC, rebuild it after UIDVALIDITY changes or corruption, and
       measure indexing time, disk use and query latency. See
       [M05](#m05-search-and-indexing).
