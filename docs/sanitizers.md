@@ -9,7 +9,7 @@ How to build and test Plasma Impresario with AddressSanitizer (ASan),
 LeakSanitizer (LSan) and UndefinedBehaviorSanitizer (UBSan), what the first
 full run on 2026-11-27 found, and which reports are suppressed and why. This is
 [#481](https://github.com/mikepadiernos/plasma-impresario/issues/481) in
-[M10](ROADMAP.md#m10-reliability-and-performance).
+[M10](ROADMAP.md#m10-reliability-sync-and-notification-quality).
 
 Legend: ![Fixed][fixed] found and fixed · ![Suppressed][suppressed]
 third-party report, suppressed with a reason · ![Limitation][limitation]

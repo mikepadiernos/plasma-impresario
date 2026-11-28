@@ -43,6 +43,7 @@ Legend: ![Limitation][limitation] · ![Needs verification][needs-verification]
 | ![Needs verification][needs-verification] [Edge cases](EDGE.md) | Boundary scenarios and the tests that cover them          |
 | [Performance and resource use](performance.md)                  | Workload measurements, budgets and how to repeat them     |
 | [Sanitizer runs](sanitizers.md)                                 | Sanitizer builds, findings and suppressions               |
+| [Stabilization gate](stabilization-gate.md)                     | The M10 gate's criteria, script and latest result         |
 
 The documents feed each other as work moves through the
 [project board](https://github.com/users/mikepadiernos/projects/4):

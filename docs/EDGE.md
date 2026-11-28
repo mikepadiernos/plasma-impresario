@@ -276,6 +276,12 @@ parentheses are the expected behavior.
   renaming the archive or Sent folder (settings keep the old name), renaming
   while offline, and emptying an empty Trash, a Junk folder with an unknown
   count or a very large folder.
+- **Renaming a busy open folder:** ![Verified][verified]
+  `test_LiveImapOperations` against Dovecot 2.4.5 and ![Offscreen
+  tests][offscreen] `test_Imap_Tasks_RenameMailbox`. The RENAME waits until the
+  command running on the folder, such as background header loading, is
+  answered; otherwise Dovecot ends the session
+  ([gate](stabilization-gate.md#found-while-running-the-gate)).
 - **Deleting:** ![Not validated][not-validated]. No Trash folder, deleting
   inside Trash, Move Deleted Messages to Trash turned off for one account only,
   a server without UIDPLUS for Delete Permanently (messages stay marked until
