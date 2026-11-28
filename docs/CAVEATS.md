@@ -665,6 +665,9 @@ Plasma session; that check is
   no inline forward.
 - ![Limitation][limitation] **Save Draft?** writes a local `.draft` file with
   the recipients, subject and text, but not the attachments.
+- ![Limitation][limitation] A reply quotes the text the reader is showing. A
+  reply started while a newly opened message is still loading quotes nothing,
+  leaving only the "wrote:" line.
 - ![Limitation][limitation] The live test,
   `tools/dev-container/live-imap-compose.sh`, sends through a local sendmail
   script; SMTP delivery is covered by offscreen tests only.
@@ -676,6 +679,8 @@ Plasma session; that check is
   press **Send** again.
 - To forward inline, copy the text into a new message.
 - Attach files again after opening a draft.
+- Wait for the message text to appear before replying, or paste the quote into
+  the reply.
 
 **Proposed improvements:**
 
@@ -684,6 +689,8 @@ Plasma session; that check is
 - Wait for attachments to download when **Send** is pressed, with progress,
   instead of refusing.
 - Add an inline forward mode.
+- Build the reply's quote from the message part instead of the reader, or wait
+  for the reader to finish loading.
 - Store drafts in the account's Drafts folder on the server, attachments
   included.
 - Exercise SMTP delivery in the live test with a local SMTP server.
