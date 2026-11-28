@@ -49,6 +49,9 @@ TagListWidget::TagListWidget(QWidget *parent, Imap::Mailbox::FavoriteTagsModel *
     setLayout(parentLayout);
 
     addButton = TagWidget::addingWidget();
+    // Owned by the list even before the first rebuild() lays it out, which might never happen
+    addButton->setParent(this);
+    addButton->hide();
     connect(addButton, &TagWidget::addingClicked, this, &TagListWidget::newTagsRequested);
 
     unsupportedReservedKeywords.insert(Imap::Mailbox::FlagNames::mdnsent.toLower());
@@ -125,6 +128,7 @@ void TagListWidget::rebuild()
     }
 
     parentLayout->addWidget(addButton);
+    addButton->show();
 }
 
 void TagListWidget::empty()

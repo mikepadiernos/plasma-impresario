@@ -780,13 +780,13 @@ void MainWindow::createActions()
     m_actionShortcutOverview = ShortcutHandler::instance()->createAction(QStringLiteral("action_shortcut_overview"), this);
     connect(m_actionShortcutOverview, &QAction::triggered, this, &MainWindow::slotShowShortcutOverview);
 
-    netOffline = ShortcutHandler::instance()->createAction(QStringLiteral("action_network_offline"));
+    netOffline = ShortcutHandler::instance()->createAction(QStringLiteral("action_network_offline"), this);
     netOffline->setCheckable(true);
     // connect later
-    netExpensive = ShortcutHandler::instance()->createAction(QStringLiteral("action_network_expensive"));
+    netExpensive = ShortcutHandler::instance()->createAction(QStringLiteral("action_network_expensive"), this);
     netExpensive->setCheckable(true);
     // connect later
-    netOnline = ShortcutHandler::instance()->createAction(QStringLiteral("action_network_online"));
+    netOnline = ShortcutHandler::instance()->createAction(QStringLiteral("action_network_online"), this);
     netOnline->setCheckable(true);
     // connect later
 
@@ -2727,6 +2727,8 @@ bool MainWindow::eventFilter(QObject *o, QEvent *e)
 #endif
     if (msgListWidget && msgListWidget->tree && o == msgListWidget->tree->header()->viewport()) {
         // installed if sorting is not really possible.
+        if (e->type() != QEvent::MouseButtonPress && e->type() != QEvent::MouseButtonRelease)
+            return false;
         QWidget *header = static_cast<QWidget*>(o);
         QMouseEvent *mouse = static_cast<QMouseEvent*>(e);
         if (e->type() == QEvent::MouseButtonPress) {

@@ -55,9 +55,14 @@ void MessageSelectionRestorer::cancel()
 
 bool MessageSelectionRestorer::eventFilter(QObject *watched, QEvent *event)
 {
-    if (m_view && ((watched == m_view && event->type() == QEvent::KeyPress) ||
-                   (watched == m_view->viewport() && event->type() == QEvent::MouseButtonPress &&
-                    m_view->indexAt(static_cast<QMouseEvent *>(event)->position().toPoint()).isValid()))) {
+    // The view is only looked at for these events; while it is being destroyed, it is no longer a QTreeView
+    const QEvent::Type type = event->type();
+    if (type != QEvent::KeyPress && type != QEvent::MouseButtonPress)
+        return QObject::eventFilter(watched, event);
+    if (m_view
+        && ((watched == m_view && type == QEvent::KeyPress)
+            || (watched == m_view->viewport() && type == QEvent::MouseButtonPress
+                && m_view->indexAt(static_cast<QMouseEvent *>(event)->position().toPoint()).isValid()))) {
         m_pending = false;
     }
     return QObject::eventFilter(watched, event);

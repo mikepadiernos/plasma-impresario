@@ -330,16 +330,18 @@ void MsgListView::keyReleaseEvent(QKeyEvent *ke)
 
 bool MsgListView::event(QEvent *event)
 {
-    const bool hasNaviActivationBlocker = std::find(gs_naviActivationBlockers.begin(),
-                                                    gs_naviActivationBlockers.end(),
-                                                    static_cast<QKeyEvent *>(event)->key()) != gs_naviActivationBlockers.end();
-
-    if (event->type() == QEvent::ShortcutOverride
-            && !hasNaviActivationBlocker
-            && m_naviActivationTimer->isActive()) {
-        // Make sure that the delayed timer is broken ASAP when the key looks like something which might possibly be a shortcut
-        m_naviActivationTimer->stop();
-        slotCurrentActivated();
+    // Only a ShortcutOverride is a key event here, so the key is read after checking the type
+    if (event->type() == QEvent::ShortcutOverride && m_naviActivationTimer->isActive()) {
+        const int key = static_cast<QKeyEvent *>(event)->key();
+        const bool hasNaviActivationBlocker
+            = std::find(gs_naviActivationBlockers.begin(), gs_naviActivationBlockers.end(), key)
+            != gs_naviActivationBlockers.end();
+        if (!hasNaviActivationBlocker) {
+            // Make sure that the delayed timer is broken ASAP when the key looks like something which might possibly be
+            // a shortcut
+            m_naviActivationTimer->stop();
+            slotCurrentActivated();
+        }
     }
     return QTreeView::event(event);
 }
