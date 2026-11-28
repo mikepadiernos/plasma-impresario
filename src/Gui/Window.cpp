@@ -104,6 +104,7 @@
 #    include "Cryptography/GpgMe++.h"
 #  endif
 #endif
+#include "Imap/Model/HeaderBackfill.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/MailboxTree.h"
 #include "Imap/Model/Model.h"
@@ -4839,6 +4840,11 @@ void MainWindow::registerOutboxAccount(const QString &accountId)
         return;
     Imap::ImapAccess *access = m_accountAccess.value(accountId);
     QPointer<Imap::Mailbox::Model> model = access ? qobject_cast<Imap::Mailbox::Model *>(access->imapModel()) : nullptr;
+    if (Imap::Mailbox::HeaderBackfill *backfill = access ? access->headerBackfill() : nullptr) {
+        // A message to send goes first; the headers of the open folder wait for it
+        QPointer<Composer::Outbox> outbox = m_outbox;
+        backfill->setOtherWorkPending([outbox, accountId]() { return outbox && outbox->hasWorkDue(accountId); });
+    }
     if (!model || !canQueueMessages(accountId)) {
         m_outbox->removeTransport(accountId);
         return;
