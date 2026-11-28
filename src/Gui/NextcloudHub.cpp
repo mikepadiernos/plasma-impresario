@@ -41,16 +41,75 @@ NextcloudHub::~NextcloudHub() = default;
 
 QList<Nextcloud::Account> NextcloudHub::accounts() const
 {
-    return m_accounts;
+    return m_accounts + m_online;
 }
 
 Nextcloud::Account NextcloudHub::account(const QString &id) const
 {
-    for (const Nextcloud::Account &account : m_accounts) {
-        if (account.id == id)
-            return account;
+    for (const QList<Nextcloud::Account> *list : {&m_accounts, &m_online}) {
+        for (const Nextcloud::Account &account : *list) {
+            if (account.id == id)
+                return account;
+        }
     }
     return {};
+}
+
+void NextcloudHub::setOnlineAccounts(Nextcloud::OnlineAccounts *onlineAccounts)
+{
+    if (m_onlineAccounts)
+        disconnect(m_onlineAccounts, nullptr, this, nullptr);
+    m_onlineAccounts = onlineAccounts;
+    if (m_onlineAccounts) {
+        connect(
+            m_onlineAccounts, &Nextcloud::OnlineAccounts::accountsChanged, this, &NextcloudHub::reloadOnlineAccounts);
+        connect(m_onlineAccounts, &QObject::destroyed, this, &NextcloudHub::reloadOnlineAccounts);
+    }
+    reloadOnlineAccounts();
+}
+
+bool NextcloudHub::hasOnlineAccounts() const
+{
+    return m_onlineAccounts && m_onlineAccounts->isAvailable();
+}
+
+void NextcloudHub::reloadOnlineAccounts()
+{
+    QList<Nextcloud::Account> online;
+    if (hasOnlineAccounts()) {
+        const QList<Nextcloud::Account> listed = m_onlineAccounts->accounts();
+        for (const Nextcloud::Account &account : listed) {
+            // Connected in the settings too: that one has its own app password and stays
+            if (account.isValid() && account.source == Nextcloud::Account::Source::OnlineAccounts
+                && findAccount(account.server, account.userId).isEmpty() && !this->account(account.id).isValid()) {
+                online.append(account);
+            }
+        }
+    }
+    if (online == m_online)
+        return;
+    // Removed or changed in the desktop's settings: the next request asks for the credentials again
+    for (const Nextcloud::Account &old : std::as_const(m_online)) {
+        if (!online.contains(old))
+            forgetClient(old.id);
+    }
+    m_online = online;
+    emit accountsChanged();
+}
+
+QString NextcloudHub::refusedMessage(const QString &id) const
+{
+    if (account(id).source == Nextcloud::Account::Source::OnlineAccounts) {
+        return i18nc("@info",
+            "The server refused the sign-in of this Nextcloud account. Its "
+            "authorization may have expired or been revoked; sign in to it again "
+            "in Online Accounts in System Settings.");
+    }
+    return i18nc("@info",
+        "The server refused the app password of this "
+        "Nextcloud account. If it was revoked, "
+        "connect the account again on the "
+        "Integrations page of the settings.");
 }
 
 bool NextcloudHub::canStoreCredentials() const
@@ -60,7 +119,7 @@ bool NextcloudHub::canStoreCredentials() const
 
 QString NextcloudHub::findAccount(const QUrl &server, const QString &userId) const
 {
-    for (const Nextcloud::Account &account : m_accounts) {
+    for (const Nextcloud::Account &account : accounts()) {
         if (account.userId == userId && account.server.matches(server, QUrl::StripTrailingSlash))
             return account.id;
     }
@@ -101,6 +160,19 @@ void NextcloudHub::removeAccount(const QString &id, QObject *context, std::funct
 {
     QPointer<NextcloudHub> self(this);
     QPointer<QObject> guard(context);
+    if (account(id).source == Nextcloud::Account::Source::OnlineAccounts) {
+        // Its credentials belong to the desktop, so it is not revoked or forgotten from here
+        QMetaObject::invokeMethod(
+            this,
+            [guard, done] {
+                if (guard)
+                    done(i18nc("@info",
+                        "This account comes from Online Accounts in "
+                        "System Settings; remove it there."));
+            },
+            Qt::QueuedConnection);
+        return;
+    }
     auto forget = [self, guard, id, done](const QString &warning) {
         if (!self)
             return;
@@ -169,6 +241,61 @@ void NextcloudHub::withClient(const QString &id, QObject *context, Ready ready, 
         return;
     }
     QPointer<NextcloudHub> self(this);
+    if (found.source == Nextcloud::Account::Source::OnlineAccounts) {
+        if (!hasOnlineAccounts()) {
+            QMetaObject::invokeMethod(
+                this,
+                [guard, failed] {
+                    if (guard)
+                        failed(i18nc("@info",
+                            "Online Accounts is not available, so this "
+                            "Nextcloud account cannot sign in."));
+                },
+                Qt::QueuedConnection);
+            return;
+        }
+        m_onlineAccounts->credentials(
+            found.onlineAccountId, this,
+            [self, guard, id, ready, failed](const QString &loginName, const QString &password) {
+                if (!self || !guard)
+                    return;
+                if (!self->account(id).isValid()) {
+                    failed(i18nc("@info", "The Nextcloud account is no longer connected."));
+                    return;
+                }
+                self->signIn(id, loginName, password);
+                ready(self->client(id));
+            },
+            [self, guard, failed](Nextcloud::OnlineAccounts::Problem problem, const QString &detail) {
+                if (!self || !guard)
+                    return;
+                QString message;
+                switch (problem) {
+                case Nextcloud::OnlineAccounts::Problem::Removed:
+                    message = i18nc("@info",
+                        "This Nextcloud account was removed or turned off "
+                        "in Online Accounts in System Settings.");
+                    break;
+                case Nextcloud::OnlineAccounts::Problem::Expired:
+                    message = i18nc("@info",
+                        "The authorization of this Nextcloud account has "
+                        "expired. Sign in to it again in Online Accounts in "
+                        "System Settings.");
+                    break;
+                case Nextcloud::OnlineAccounts::Problem::Unavailable:
+                    message = detail.isEmpty() ? i18nc("@info",
+                                                     "Online Accounts did not answer, so this "
+                                                     "Nextcloud account cannot sign in.")
+                                               : i18nc("@info %1 is an error message",
+                                                     "Online Accounts did not answer, so this "
+                                                     "Nextcloud account cannot sign in: %1",
+                                                     detail);
+                    break;
+                }
+                failed(message);
+            });
+        return;
+    }
     m_credentials.load(
         id, this, [self, guard, id, ready, failed](Nextcloud::CredentialStore::Error error, const QString &password) {
             if (!self || !guard)
@@ -190,14 +317,25 @@ void NextcloudHub::withClient(const QString &id, QObject *context, Ready ready, 
                 return;
             }
             if (self->account(id).isValid()) {
-                Nextcloud::Client *client = self->client(id);
-                client->setAppPassword(password);
-                self->m_signedIn.insert(id, true);
-                ready(client);
+                self->signIn(id, QString(), password);
+                ready(self->client(id));
             } else {
                 failed(i18nc("@info", "The Nextcloud account is no longer connected."));
             }
         });
+}
+
+void NextcloudHub::signIn(const QString &id, const QString &loginName, const QString &password)
+{
+    Nextcloud::Client *client = this->client(id);
+    if (!loginName.isEmpty() && loginName != client->account().loginName) {
+        // The desktop knows what the user signs in with, which may differ from the user ID
+        Nextcloud::Account account = client->account();
+        account.loginName = loginName;
+        client->setAccount(account);
+    }
+    client->setAppPassword(password);
+    m_signedIn.insert(id, true);
 }
 
 void NextcloudHub::forgetClient(const QString &id)

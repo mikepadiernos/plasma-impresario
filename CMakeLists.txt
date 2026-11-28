@@ -102,6 +102,7 @@ impresario_plugin_option(WITH_SONNET_PLUGIN "Build a plugin for spellchecking vi
 impresario_option(WITH_KNOTIFICATIONS "Report background account errors as desktop notifications" AUTO "WITH_DESKTOP")
 impresario_option(WITH_KFILEMETADATA "Index the text of downloaded attachments through KFileMetaData" AUTO)
 impresario_option(WITH_AKONADI_CALENDAR "Show KDE PIM events and tasks in the My Day panel" AUTO "WITH_DESKTOP")
+impresario_option(WITH_KACCOUNTS "Use the Nextcloud accounts of KDE Online Accounts" AUTO "WITH_DESKTOP")
 impresario_option(WITH_PLASMA_WIDGETS "Build the optional Plasma widgets" AUTO "WITH_DESKTOP;WITH_DBUS")
 
 impresario_find_package(Git "" "" "" "")
@@ -139,6 +140,7 @@ impresario_find_package(KF6Sonnet ${SONNET_LIB_VERSION} "https://projects.kde.or
 impresario_find_package(KF6Notifications "" "https://invent.kde.org/frameworks/knotifications" "KDE desktop notifications" "Report background account errors as desktop notifications" WITH_KNOTIFICATIONS)
 impresario_find_package(KF6FileMetaData "" "https://invent.kde.org/frameworks/kfilemetadata" "KDE file metadata and text extraction" "Index the text of downloaded attachments" WITH_KFILEMETADATA)
 impresario_find_package(KPim6AkonadiCalendar "" "https://invent.kde.org/pim/akonadi-calendar" "KDE PIM calendars" "Events and tasks in My Day" WITH_AKONADI_CALENDAR)
+impresario_find_package(KAccounts6 "" "https://invent.kde.org/network/kaccounts-integration" "KDE Online Accounts" "Nextcloud accounts connected in System Settings" WITH_KACCOUNTS)
 impresario_find_package(Qt6Quick "" "https://doc.qt.io/qt-6/qtquick-index.html" "Qt Quick" "The Plasma widgets' shared views" WITH_PLASMA_WIDGETS)
 impresario_find_package(Qt6QuickTest "" "https://doc.qt.io/qt-6/qtquicktest-index.html" "Qt Quick Test" "Tests for the Plasma widgets' views")
 impresario_find_package(KF6Service "" "https://invent.kde.org/frameworks/kservice" "KDE service lookup" "Starting the application from the Plasma widgets" WITH_PLASMA_WIDGETS)
@@ -291,6 +293,12 @@ else()
     set(IMPRESARIO_HAVE_AKONADI_CALENDAR False)
 endif()
 
+if(WITH_KACCOUNTS)
+    set(IMPRESARIO_HAVE_KACCOUNTS True)
+else()
+    set(IMPRESARIO_HAVE_KACCOUNTS False)
+endif()
+
 if (WITH_WEBENGINE)
     set(IMPRESARIO_HAVE_WEBENGINE True)
     message(STATUS "Support for viewing mails via Qt WebEngine is enabled")
@@ -425,6 +433,13 @@ if(WITH_AKONADI_CALENDAR)
     set(libDesktopServices_SOURCES
         ${libDesktopServices_SOURCES}
         ${path_UiUtils}/AkonadiAgendaSource.cpp
+    )
+endif()
+
+if(WITH_KACCOUNTS)
+    set(libDesktopServices_SOURCES
+        ${libDesktopServices_SOURCES}
+        ${path_UiUtils}/KAccountsNextcloud.cpp
     )
 endif()
 
@@ -586,6 +601,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/NextcloudBrowserDialog.cpp
     ${path_DesktopGui}/NextcloudConnectDialog.cpp
     ${path_DesktopGui}/NextcloudHub.cpp
+    ${path_DesktopGui}/NextcloudShareReviewDialog.cpp
     ${path_DesktopGui}/NextcloudTransfers.cpp
     ${path_DesktopGui}/NotificationsDialog.cpp
     ${path_DesktopGui}/OnePanelAtTimeWidget.cpp
@@ -884,6 +900,9 @@ if(WITH_DESKTOP)
     )
     if(WITH_AKONADI_CALENDAR)
         target_link_libraries(DesktopServices PRIVATE KPim6::AkonadiCalendar KF6::CalendarCore KPim6::AkonadiCore)
+    endif()
+    if(WITH_KACCOUNTS)
+        target_link_libraries(DesktopServices PRIVATE KAccounts6 KF6::CoreAddons)
     endif()
 endif()
 

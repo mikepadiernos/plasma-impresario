@@ -375,14 +375,10 @@ void NextcloudBrowserDialog::navigate(const QString &path)
                     if (failure == Client::Failure::Authentication && m_hub) {
                         // The app password was revoked or changed; read it again next
                         // time
+                        const QString refused = m_hub->refusedMessage(id);
                         m_hub->forgetClient(id);
                         m_client = nullptr;
-                        showFailure(i18nc("@info",
-                            "The server refused the app password of this "
-                            "account. If it was "
-                            "revoked, connect the account again on the "
-                            "Integrations page of "
-                            "the settings."));
+                        showFailure(refused);
                         return;
                     }
                     if (failure == Client::Failure::NotFound && m_path != QLatin1String("/")) {

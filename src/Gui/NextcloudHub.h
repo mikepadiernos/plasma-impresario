@@ -15,6 +15,7 @@
 #include "Nextcloud/Account.h"
 #include "Nextcloud/Client.h"
 #include "Nextcloud/CredentialStore.h"
+#include "Nextcloud/OnlineAccounts.h"
 
 class QSettings;
 class QWidget;
@@ -29,6 +30,11 @@ namespace Gui {
  * KConfig and their app passwords in encrypted password storage; each account
  * gets one client, made when it is first needed. Certificates the user accepts
  * are remembered in the profile, as for mail servers.
+ *
+ * Accounts of the desktop, such as those of KDE Online Accounts, are listed
+ * too when setOnlineAccounts() was called. The desktop keeps their credentials,
+ * which are asked for when a client signs in and never stored here; they are
+ * removed in the desktop's settings rather than here.
  */
 class NextcloudHub : public QObject
 {
@@ -43,6 +49,8 @@ public:
         QObject *parent = nullptr);
     ~NextcloudHub() override;
 
+    /** @short The accounts connected in the settings, then those of the desktop
+     */
     QList<Nextcloud::Account> accounts() const;
     /** @short The account @arg id; invalid when there is none */
     Nextcloud::Account account(const QString &id) const;
@@ -53,6 +61,15 @@ public:
      * empty string */
     QString findAccount(const QUrl &server, const QString &userId) const;
 
+    /** @short List the accounts of @arg onlineAccounts too, which may be nullptr
+     * when the desktop has none; not owned */
+    void setOnlineAccounts(Nextcloud::OnlineAccounts *onlineAccounts);
+    /** @short Whether the accounts of the desktop are listed */
+    bool hasOnlineAccounts() const;
+    /** @short What to tell the user after the server refused the credentials of
+     * account @arg id */
+    QString refusedMessage(const QString &id) const;
+
     /** @short Keep @arg account and its app password; @arg done gets an empty
      * string, or why it failed */
     void addAccount(Nextcloud::Account account, const QString &appPassword, QObject *context,
@@ -62,7 +79,9 @@ public:
      * delete it here
      *
      * The account is removed here even when the server cannot be reached; @arg
-     * done then gets a warning that the app password may still be valid.
+     * done then gets a warning that the app password may still be valid. An
+     * account of the desktop is left alone, and @arg done gets where to remove
+     * it.
      */
     void removeAccount(const QString &id, QObject *context, std::function<void(const QString &warning)> done);
 
@@ -98,11 +117,15 @@ private:
 
     Nextcloud::Client *client(const QString &id);
     void saveAccounts();
+    void reloadOnlineAccounts();
+    void signIn(const QString &id, const QString &loginName, const QString &password);
 
     KSharedConfig::Ptr m_config;
     QPointer<QSettings> m_profile;
     Nextcloud::CredentialStore m_credentials;
     QList<Nextcloud::Account> m_accounts;
+    QPointer<Nextcloud::OnlineAccounts> m_onlineAccounts;
+    QList<Nextcloud::Account> m_online;
     QHash<QString, Nextcloud::Client *> m_clients;
     /** Accounts whose client has its app password */
     QHash<QString, bool> m_signedIn;

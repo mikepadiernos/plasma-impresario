@@ -249,6 +249,9 @@ public:
     NextcloudBrowserDialog *createNextcloudBrowser(int mode, QWidget *parent);
     /** @short Ask for a Nextcloud folder, then upload the attachment @p part there */
     void saveAttachmentToNextcloud(const QPersistentModelIndex &part);
+    /** @short Show the Nextcloud share link @p link, handed over by another application, with who can open it; a new
+     * draft gets it only when the user accepts */
+    void openNextcloudShare(const QUrl &link);
     /** @short Run @p fn while accountSettings(), imapAccess(), imapModel(), senderIdentitiesModel() and msaFactory()
     refer to @p accountId
 

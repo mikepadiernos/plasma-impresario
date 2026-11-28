@@ -898,6 +898,13 @@ IntegrationsGroup::IntegrationsGroup(const SettingsContext &context, QWidget *pa
             i18nc("@info",
                   "Connected accounts let you attach files from Nextcloud, save attachments there and "
                   "insert links to files you shared. Changes here take effect at once."));
+    addNote(nextcloud, m_context.nextcloudOnlineAccounts
+                           ? i18nc("@info",
+                                   "Nextcloud accounts added in Online Accounts in System Settings are listed too; "
+                                   "their passwords stay there.")
+                           : i18nc("@info",
+                                   "Online Accounts in System Settings is not available, so only the accounts "
+                                   "connected here are listed."));
     contents()->addStretch();
 
     m_calendar->setChecked(application(QStringLiteral("Integrations/MailToCalendar")).toBool());

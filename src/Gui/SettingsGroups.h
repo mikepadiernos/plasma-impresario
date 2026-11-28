@@ -81,6 +81,8 @@ struct SettingsContext {
         bool onlineAccount = false;
     };
     std::function<QList<NextcloudAccount>()> nextcloudAccounts;
+    /** Whether the Nextcloud accounts of KDE Online Accounts are listed too */
+    bool nextcloudOnlineAccounts = false;
     /** @short Ask for a Nextcloud account to connect; @arg changed runs once one is */
     std::function<void(QWidget *parent, std::function<void()> changed)> connectNextcloud;
     /** @short Disconnect a Nextcloud account and revoke its app password; @arg done gets a warning or nothing */

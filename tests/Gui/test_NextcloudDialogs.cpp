@@ -3,15 +3,18 @@
 */
 
 #include <memory>
+#include <optional>
 
 #include <KLocalizedString>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QSettings>
+#include <QSignalSpy>
 #include <QStackedWidget>
 #include <QStandardPaths>
 #include <QTemporaryDir>
+#include <QTimer>
 #include <QTest>
 #include <QToolButton>
 #include <QTreeWidget>
@@ -21,12 +24,53 @@
 #include "Gui/NextcloudBrowserDialog.h"
 #include "Gui/NextcloudConnectDialog.h"
 #include "Gui/NextcloudHub.h"
+#include "Gui/NextcloudShareReviewDialog.h"
 #include "Gui/NextcloudTransfers.h"
+#include "Nextcloud/OnlineAccounts.h"
 
 using Gui::NextcloudBrowserDialog;
 using Gui::NextcloudConnectDialog;
 using Gui::NextcloudHub;
+using Gui::NextcloudShareReviewDialog;
 using Gui::NextcloudTransfers;
+
+/** @short KDE Online Accounts as the hub sees it */
+class FakeOnlineAccounts : public Nextcloud::OnlineAccounts
+{
+public:
+    bool available = true;
+    QList<Nextcloud::Account> listed;
+    QString loginName;
+    QString password;
+    std::optional<Problem> problem;
+    int asked = 0;
+
+    bool isAvailable() const override
+    {
+        return available;
+    }
+    QList<Nextcloud::Account> accounts() const override
+    {
+        return available ? listed : QList<Nextcloud::Account>();
+    }
+    void credentials(quint32, QObject *context, Credentials done, Failed failed) override
+    {
+        ++asked;
+        QPointer<QObject> guard(context);
+        QTimer::singleShot(0, this, [this, guard, done, failed] {
+            if (!guard)
+                return;
+            if (problem)
+                failed(*problem, QString());
+            else
+                done(loginName, password);
+        });
+    }
+    void change()
+    {
+        emit accountsChanged();
+    }
+};
 
 class NextcloudDialogsTest : public QObject
 {
@@ -493,7 +537,184 @@ private slots:
         QCOMPARE(calls, 0);
     }
 
+    void onlineAccountsSignInWithTheDesktopsCredentials()
+    {
+        m_server->addFile(QStringLiteral("/a.txt"), "a");
+        FakeOnlineAccounts online;
+        online.listed = {onlineAccount(7)};
+        online.loginName = m_server->loginName;
+        online.password = m_server->appPassword;
+        QSignalSpy changed(m_hub.get(), &NextcloudHub::accountsChanged);
+        m_hub->setOnlineAccounts(&online);
+        QVERIFY(m_hub->hasOnlineAccounts());
+        QCOMPARE(changed.size(), 1);
+        QCOMPARE(m_hub->accounts().size(), 1);
+        const Nextcloud::Account account = m_hub->accounts().constFirst();
+        QCOMPARE(account.source, Nextcloud::Account::Source::OnlineAccounts);
+        QCOMPARE(account.onlineAccountId, 7u);
+        QCOMPARE(account.userId, m_server->userId);
+
+        NextcloudTransfers transfers(m_hub.get());
+        Nextcloud::Entry file;
+        file.path = QStringLiteral("/a.txt");
+        QByteArray fetched;
+        QString error;
+        transfers.fetch(
+            account.id, file, this, [&](const QByteArray &data) { fetched = data; },
+            [&](const QString &message) { error = message; });
+        QTRY_COMPARE(fetched, QByteArray("a"));
+        QVERIFY(error.isEmpty());
+        QCOMPARE(online.asked, 1);
+        // The credentials stay with the desktop
+        QVERIFY(m_plugin->entries.isEmpty());
+        QFile rc(m_directory->filePath(QStringLiteral("rc")));
+        QVERIFY(!rc.open(QIODevice::ReadOnly) || !rc.readAll().contains(m_server->appPassword.toUtf8()));
+
+        // Removed in System Settings rather than here
+        bool done = false;
+        QString warning;
+        m_hub->removeAccount(account.id, this, [&](const QString &text) {
+            warning = text;
+            done = true;
+        });
+        QTRY_VERIFY(done);
+        QVERIFY2(warning.contains(QLatin1String("System Settings")), qPrintable(warning));
+        QCOMPARE(m_hub->accounts().size(), 1);
+        QVERIFY(!m_server->appPasswordRevoked);
+
+        online.listed.clear();
+        online.change();
+        QCOMPARE(changed.size(), 2);
+        QVERIFY(m_hub->accounts().isEmpty());
+        error.clear();
+        transfers.fetch(
+            account.id, file, this, [](const QByteArray &) { }, [&](const QString &message) { error = message; });
+        QTRY_VERIFY(!error.isEmpty());
+        QVERIFY2(error.contains(QLatin1String("no longer connected")), qPrintable(error));
+        m_hub->setOnlineAccounts(nullptr);
+    }
+
+    void onlineAccountProblemsAreReported()
+    {
+        m_server->addFile(QStringLiteral("/a.txt"), "a");
+        FakeOnlineAccounts online;
+        online.listed = {onlineAccount(7)};
+        online.loginName = m_server->loginName;
+        online.password = m_server->appPassword;
+        m_hub->setOnlineAccounts(&online);
+        const QString id = Nextcloud::onlineAccountKey(7);
+        NextcloudTransfers transfers(m_hub.get());
+        Nextcloud::Entry file;
+        file.path = QStringLiteral("/a.txt");
+        auto fetchError = [&]() {
+            QString error;
+            bool fetched = false;
+            transfers.fetch(
+                id, file, this, [&](const QByteArray &) { fetched = true; },
+                [&](const QString &message) { error = message; });
+            [&] { QTRY_VERIFY(fetched || !error.isEmpty()); }();
+            return error;
+        };
+        using Problem = Nextcloud::OnlineAccounts::Problem;
+        const QList<QPair<Problem, QLatin1String>> problems{{Problem::Removed, QLatin1String("removed")},
+            {Problem::Expired, QLatin1String("expired")}, {Problem::Unavailable, QLatin1String("did not answer")}};
+        for (const auto &[problem, text] : problems) {
+            online.problem = problem;
+            const QString error = fetchError();
+            QVERIFY2(error.contains(text), qPrintable(error));
+        }
+
+        // The server refuses an authorization revoked there: sign in again in System Settings
+        online.problem.reset();
+        online.password = QStringLiteral("revoked");
+        QString error = fetchError();
+        QVERIFY2(error.contains(QLatin1String("Online Accounts")), qPrintable(error));
+        // Asked for again after a refusal, so a new sign-in is used at once
+        online.password = m_server->appPassword;
+        QVERIFY2(fetchError().isEmpty(), qPrintable(error));
+
+        // Without the service the accounts disappear, and those connected here stay
+        const QString manual = addAccount();
+        online.available = false;
+        online.change();
+        QVERIFY(!m_hub->hasOnlineAccounts());
+        QCOMPARE(m_hub->accounts().size(), 1);
+        QCOMPARE(m_hub->accounts().constFirst().id, manual);
+        m_hub->setOnlineAccounts(nullptr);
+    }
+
+    void onlineAccountsDoNotRepeatConnectedOnes()
+    {
+        const QString manual = addAccount();
+        FakeOnlineAccounts online;
+        online.listed = {onlineAccount(7)};
+        m_hub->setOnlineAccounts(&online);
+        QCOMPARE(m_hub->accounts().size(), 1);
+        QCOMPARE(m_hub->accounts().constFirst().id, manual);
+        m_hub->setOnlineAccounts(nullptr);
+    }
+
+    void shareReviewShowsWhoCanOpenTheLink()
+    {
+        m_server->addFile(QStringLiteral("/shared.pdf"), "s");
+        const QString token = m_server->addLinkShare(QStringLiteral("/shared.pdf"), 1, true);
+        const QString id = addAccount();
+        const auto shares = m_server->shares;
+        const QUrl link(m_server->address() + QStringLiteral("/s/") + token);
+        NextcloudShareReviewDialog dialog(m_hub.get(), link);
+        QVERIFY(dialog.isBusy());
+        QVERIFY(!dialog.canInsert());
+        QTRY_VERIFY(!dialog.isBusy());
+        QCOMPARE(dialog.accountId(), id);
+        QVERIFY2(dialog.detailsText().contains(QLatin1String("password")), qPrintable(dialog.detailsText()));
+        QVERIFY(dialog.canInsert());
+        QSignalSpy inserted(&dialog, &NextcloudShareReviewDialog::insertRequested);
+        dialog.findChild<QPushButton *>(QStringLiteral("nextcloudShareInsert"))->click();
+        QCOMPARE(inserted.size(), 1);
+        QCOMPARE(inserted.constFirst().constFirst().toUrl(), link);
+        // Only read
+        QCOMPARE(m_server->shares, shares);
+        for (const FakeNextcloudServer::Request &request : std::as_const(m_server->requests))
+            QVERIFY2(request.verb == "GET" || request.verb == "PROPFIND", request.verb.constData());
+    }
+
+    void shareReviewWarnsAboutUnknownLinks()
+    {
+        addAccount();
+        // Not one of the user's shares
+        NextcloudShareReviewDialog unknown(m_hub.get(), QUrl(m_server->address() + QStringLiteral("/s/NotMine12345")));
+        QTRY_VERIFY(!unknown.isBusy());
+        QVERIFY(unknown.accountId().isEmpty());
+        QVERIFY(unknown.detailsText().contains(QLatin1String("unknown")));
+        QVERIFY(unknown.canInsert());
+
+        // The account's sign-in is refused: the link is still shown as unknown, with why
+        m_server->appPassword = QStringLiteral("changed");
+        NextcloudShareReviewDialog refused(m_hub.get(), QUrl(m_server->address() + QStringLiteral("/s/NotMine12345")));
+        QTRY_VERIFY(!refused.isBusy());
+        auto *status = refused.findChild<QLabel *>(QStringLiteral("nextcloudShareStatus"));
+        QVERIFY(status);
+        QVERIFY2(status->text().contains(QLatin1String("refused")), qPrintable(status->text()));
+
+        for (const QString &text :
+            {QStringLiteral("https://cloud.example.test/apps/files/"), QStringLiteral("mailto:someone@example.test"),
+                QStringLiteral("https://user:secret@cloud.example.test/s/AbCdEfGh1234")}) {
+            NextcloudShareReviewDialog notShare(m_hub.get(), QUrl(text));
+            QVERIFY(!notShare.isBusy());
+            QVERIFY2(!notShare.canInsert(), qPrintable(text));
+        }
+    }
+
 private:
+    Nextcloud::Account onlineAccount(quint32 id) const
+    {
+        // As the Nextcloud provider of KDE Online Accounts stores it, named after the login
+        return Nextcloud::onlineAccount(id, m_server->loginName,
+            {{QStringLiteral("server"), m_server->address()},
+                {QStringLiteral("dav/storagePath"),
+                    QString(QStringLiteral("/remote.php/dav/files/") + m_server->userId)}});
+    }
+
     std::unique_ptr<NextcloudHub> makeHub(FakePasswordPlugin *plugin)
     {
         auto config = KSharedConfig::openConfig(m_directory->filePath(QStringLiteral("rc")), KConfig::SimpleConfig);

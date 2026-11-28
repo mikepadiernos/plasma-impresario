@@ -153,6 +153,7 @@
 #include "NextcloudBrowserDialog.h"
 #include "NextcloudConnectDialog.h"
 #include "NextcloudHub.h"
+#include "NextcloudShareReviewDialog.h"
 #include "NextcloudTransfers.h"
 #include "SearchIndexDialog.h"
 #include "MessageDetailsPanel.h"
@@ -220,6 +221,9 @@
 #ifdef IMPRESARIO_HAVE_AKONADI_CALENDAR
 #include "UiUtils/AkonadiAgendaSource.h"
 #endif
+#ifdef IMPRESARIO_HAVE_KACCOUNTS
+#include "UiUtils/KAccountsNextcloud.h"
+#endif
 
 #include <QVBoxLayout>
 #include "Imap/Model/AccountCapabilities.h"
@@ -266,6 +270,10 @@ MainWindow::MainWindow(QSettings *settings): QMainWindow(), m_imapAccess(nullptr
     connect(m_pluginManager, &Plugins::PluginManager::pluginsChanged, this, &MainWindow::slotPluginsChanged);
     m_nextcloud = new NextcloudHub(KSharedConfig::openConfig(QStringLiteral("plasma-impresariorc")), m_settings,
                                    [this]() { return m_pluginManager->password(); }, this);
+#ifdef IMPRESARIO_HAVE_KACCOUNTS
+    // Nextcloud accounts added in System Settings, whose credentials stay with KDE Online Accounts
+    m_nextcloud->setOnlineAccounts(new UiUtils::KAccountsNextcloud(m_nextcloud));
+#endif
     m_nextcloudTransfers = new NextcloudTransfers(m_nextcloud, this);
     connect(m_pluginManager, &Plugins::PluginManager::pluginError, this, [this](const QString &errorMessage) {
         Gui::Util::messageBoxWarning(this, tr("Plugin Error"),
@@ -4218,6 +4226,7 @@ SettingsContext MainWindow::settingsContext()
             accounts.append({account.id, account.title(), account.source == Nextcloud::Account::Source::OnlineAccounts});
         return accounts;
     };
+    context.nextcloudOnlineAccounts = m_nextcloud->hasOnlineAccounts();
     context.connectNextcloud = [this](QWidget *parent, std::function<void()> changed) {
         connectNextcloud(parent, [changed](const QString &) {
             if (changed)
@@ -4240,6 +4249,18 @@ void MainWindow::connectNextcloud(QWidget *parent, std::function<void(const QStr
             connected(id);
     });
     dialog->open();
+}
+
+void MainWindow::openNextcloudShare(const QUrl &link)
+{
+    auto *dialog = new NextcloudShareReviewDialog(m_nextcloud, link, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &NextcloudShareReviewDialog::insertRequested, this, [this](const QUrl &url) {
+        const QByteArray body = QUrl::toPercentEncoding(url.toString(QUrl::FullyEncoded) + QLatin1Char('\n'));
+        composeMailFromOtherApplication(QUrl::fromEncoded(QByteArray("mailto:?body=").append(body)), {});
+    });
+    dialog->open();
+    activateForRequest(dialog);
 }
 
 NextcloudBrowserDialog *MainWindow::createNextcloudBrowser(int mode, QWidget *parent)

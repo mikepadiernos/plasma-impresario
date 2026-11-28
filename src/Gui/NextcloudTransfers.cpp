@@ -87,13 +87,10 @@ void NextcloudTransfers::run(const QString &accountId, QPointer<QObject> context
                         return;
                     }
                     if (failure == Client::Failure::Authentication) {
+                        const QString refused = m_hub ? m_hub->refusedMessage(accountId) : message;
                         if (m_hub)
                             m_hub->forgetClient(accountId);
-                        failed(i18nc("@info",
-                            "The server refused the app password of this "
-                            "Nextcloud account. If it was revoked, "
-                            "connect the account again on the "
-                            "Integrations page of the settings."));
+                        failed(refused);
                         return;
                     }
                     failed(message);
