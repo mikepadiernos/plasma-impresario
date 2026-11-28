@@ -6,6 +6,8 @@
 #include "Imap/Model/ConnectionStates.h"
 #include "Imap/Model/DummyNetworkWatcher.h"
 #include "Imap/Model/ItemRoles.h"
+#include "Imap/Tasks/ImapTask.h"
+#include "Utils/FakeCapabilitiesInjector.h"
 #include "Streams/FakeSocket.h"
 
 using namespace Imap::Mailbox;
@@ -311,6 +313,117 @@ void ImapReliabilityTest::testBrokenConnectionReportsItsEnd()
     QVERIFY(!m_expectsError);
     QCOMPARE(errorSpy->size(), 1);
     errorSpy->clear();
+}
+
+/** @short A server which refuses to copy, as when the target is over quota,
+ * leaves the message where it was and says why */
+void ImapReliabilityTest::testRefusedCopyKeepsTheMessage()
+{
+    initialMessages(3);
+    const QModelIndex message = model->index(1, 0, msgListA);
+    ImapTask *task = model->copyMoveMessages(QStringLiteral("b"), {message}, MOVE);
+    QVERIFY(task);
+    QSignalSpy failed(task, &ImapTask::failed);
+
+    cClient(t.mk("UID COPY 2 b\r\n"));
+    cServer(t.last("NO [OVERQUOTA] Quota exceeded\r\n"));
+    // Nothing is marked as deleted after a copy which did not happen
+    cEmpty();
+    QCOMPARE(failed.size(), 1);
+    QVERIFY(failed.first().first().toString().contains(QLatin1String("Quota exceeded")));
+    QCOMPARE(model->rowCount(msgListA), 3);
+    QVERIFY(!model->cache()->msgFlags(QStringLiteral("a"), 2).contains(QStringLiteral("\\Deleted")));
+    QVERIFY(!model->index(1, 0, msgListA).data(RoleMessageIsMarkedDeleted).toBool());
+    justKeepTask();
+}
+
+/** @short A refused UID MOVE leaves the message where it was */
+void ImapReliabilityTest::testRefusedMoveKeepsTheMessage()
+{
+    FakeCapabilitiesInjector injector(model);
+    injector.injectCapability(QStringLiteral("MOVE"));
+    initialMessages(3);
+    ImapTask *task = model->copyMoveMessages(QStringLiteral("b"), {model->index(2, 0, msgListA)}, MOVE);
+    QVERIFY(task);
+    QSignalSpy failed(task, &ImapTask::failed);
+
+    cClient(t.mk("UID MOVE 3 b\r\n"));
+    cServer(t.last("NO [TRYCREATE] No such mailbox\r\n"));
+    cEmpty();
+    QCOMPARE(failed.size(), 1);
+    QVERIFY(failed.first().first().toString().contains(QLatin1String("No such mailbox")));
+    QCOMPARE(model->rowCount(msgListA), 3);
+    QCOMPARE(model->index(2, 0, msgListA).data(RoleMessageUid).toUInt(), 3u);
+    justKeepTask();
+}
+
+/** @short A connection lost after the copy but before the original is removed
+ * leaves the message in both folders rather than in neither */
+void ImapReliabilityTest::testLostConnectionDuringMoveKeepsTheMessage()
+{
+    PolicyWatcher watcher(model);
+    watcher.choose(NETWORK_ONLINE);
+    initialMessages(3);
+    ImapTask *task = model->copyMoveMessages(QStringLiteral("b"), {model->index(0, 0, msgListA)}, MOVE);
+    QVERIFY(task);
+
+    cClient(t.mk("UID COPY 1 b\r\n"));
+    cServer(t.last("OK copied\r\n"));
+    cClient(t.mk("UID STORE 1 +FLAGS.SILENT \\Deleted\r\n"));
+    SOCK->fakeDisconnect(QStringLiteral("Connection reset by peer"));
+    settle();
+
+    QCOMPARE(netErrorSpy->size(), 1);
+    // The message was not expunged, so it is still in its folder
+    QCOMPARE(model->rowCount(msgListA), 3);
+    QCOMPARE(model->index(0, 0, msgListA).data(RoleMessageUid).toUInt(), 1u);
+    QVERIFY(watcher.isReconnectScheduled());
+}
+
+/** @short A flag change cut off by a lost connection is reported, and the
+ * message keeps the state which the server confirmed */
+void ImapReliabilityTest::testLostConnectionDuringFlagChangeIsReported()
+{
+    PolicyWatcher watcher(model);
+    watcher.choose(NETWORK_ONLINE);
+    initialMessages(3);
+    const QModelIndex message = model->index(2, 0, msgListA);
+    QVERIFY(message.data(RoleMessageIsMarkedRead).toBool());
+    ImapTask *task = model->markMessagesRead({message}, FLAG_REMOVE);
+    QVERIFY(task);
+    QSignalSpy failed(task, &ImapTask::failed);
+    QSignalSpy completed(task, &ImapTask::completed);
+
+    cClient(t.mk("UID STORE 3 -FLAGS (\\Seen)\r\n"));
+    SOCK->fakeDisconnect(QStringLiteral("Connection timed out"));
+    settle();
+
+    QCOMPARE(netErrorSpy->size(), 1);
+    QCOMPARE(failed.size(), 1);
+    QVERIFY(completed.isEmpty());
+    QCOMPARE(model->rowCount(msgListA), 3);
+    // The unconfirmed change is undone, so the message shows what the server has
+    QVERIFY(model->index(2, 0, msgListA).data(RoleMessageIsMarkedRead).toBool());
+    QVERIFY(model->cache()->msgFlags(QStringLiteral("a"), 3).contains(QStringLiteral("\\Seen")));
+}
+
+/** @short A folder which the server refuses to open says so through
+ * mailboxSyncFailed, and the messages known before stay */
+void ImapReliabilityTest::testRefusedSelectIsReported()
+{
+    initialMessages(3);
+    QSignalSpy syncFailed(model, &Model::mailboxSyncFailed);
+    const QModelIndex idxB = model->index(2, 0, QModelIndex());
+    QCOMPARE(idxB.data(RoleMailboxName).toString(), QStringLiteral("b"));
+    model->switchToMailbox(idxB);
+    cClient(t.mk("SELECT b\r\n"));
+    cServer(t.last("NO [UNAVAILABLE] Mailbox is locked\r\n"));
+    settle();
+
+    QCOMPARE(syncFailed.size(), 1);
+    QCOMPARE(syncFailed.first().at(0).toString(), QStringLiteral("b"));
+    QVERIFY(syncFailed.first().at(1).toString().contains(QLatin1String("Mailbox is locked")));
+    QCOMPARE(model->rowCount(msgListA), 3);
 }
 
 QTEST_GUILESS_MAIN(ImapReliabilityTest)

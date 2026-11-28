@@ -23,6 +23,11 @@ private slots:
     void testLoginRejectedWaitsForTheUser();
     void testConnectionStatesCombine();
     void testBrokenConnectionReportsItsEnd();
+    void testRefusedCopyKeepsTheMessage();
+    void testRefusedMoveKeepsTheMessage();
+    void testLostConnectionDuringMoveKeepsTheMessage();
+    void testLostConnectionDuringFlagChangeIsReported();
+    void testRefusedSelectIsReported();
 };
 
 #endif
