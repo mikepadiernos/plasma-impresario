@@ -46,6 +46,8 @@ public:
     QVariant taskData(const int role) const override;
     bool needsMailbox() const override {return true;}
 private:
+    void markPendingItemsUnavailable(const bool failed);
+
     CommandHandle tag;
     ImapTask *conn;
     QPersistentModelIndex mailbox;

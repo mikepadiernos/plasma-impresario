@@ -22,6 +22,7 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <algorithm>
 #include <KLocalizedString>
 #include <QIcon>
 #include <QKeyEvent>
@@ -214,6 +215,11 @@ MessageView::MessageView(QWidget *parent, QSettings *settings, Plugins::PluginMa
     markAsReadTimer->setSingleShot(true);
     connect(markAsReadTimer, &QTimer::timeout, this, &MessageView::markAsRead);
 
+    // A server error is often brief, so a failed load is tried once more on its own before the user is asked
+    m_autoRetryTimer = new QTimer(this);
+    m_autoRetryTimer->setSingleShot(true);
+    connect(m_autoRetryTimer, &QTimer::timeout, this, &MessageView::autoRetry);
+
     m_loadingSpinner = new Spinner(this);
     m_loadingSpinner->setText(tr("Fetching\nMessage"));
     m_loadingSpinner->setType(Spinner::Sun);
@@ -236,6 +242,9 @@ void MessageView::unsetPreviousMessage()
     m_loadingItems.clear();
     m_highlightPart = nullptr;
     m_failedParts.clear();
+    m_autoRetryTimer->stop();
+    m_autoRetriedParts.clear();
+    m_messageAutoRetried = false;
     m_partErrors->hide();
     m_junkBanner->hide();
     m_junkBannerClosed = false;
@@ -316,6 +325,17 @@ void MessageView::setMessage(const QModelIndex &index)
             } else if (message.data(Imap::Mailbox::RoleIsUnavailable).toBool()) {
                 showMessageUnavailable();
             }
+        }));
+        // The message model reports nothing before the structure arrives, so a refusal is noticed on the message itself
+        m_waitingMessageConns.emplace_back(
+                    connect(message.model(), &QAbstractItemModel::dataChanged, this,
+                            [this](const QModelIndex &topLeft, const QModelIndex &bottomRight) {
+            if (!message.isValid() || topLeft.parent() != message.parent()
+                    || message.row() < topLeft.row() || message.row() > bottomRight.row())
+                return;
+            if (!message.data(Imap::Mailbox::RoleIsFetched).toBool()
+                    && message.data(Imap::Mailbox::RoleIsUnavailable).toBool())
+                showMessageUnavailable();
         }));
         if (message.data(Imap::Mailbox::RoleIsUnavailable).toBool()) {
             showMessageUnavailable();
@@ -586,7 +606,12 @@ void MessageView::showMessageUnavailable()
         m_unavailableText->setText(i18nc("@info", "It has not been downloaded yet. It loads when you go online."));
     } else {
         m_unavailableTitle->setText(i18nc("@info", "This message could not be loaded"));
-        m_unavailableText->setText(i18nc("@info", "The server did not send it. Try again, or check the connection."));
+        if (m_messageAutoRetried) {
+            m_unavailableText->setText(i18nc("@info", "The server did not send it. Try again, or check the connection."));
+        } else {
+            m_unavailableText->setText(i18nc("@info", "The server did not send it. Trying again…"));
+            scheduleAutoRetry();
+        }
     }
     m_retryMessage->setVisible(!offline);
     m_stack->setCurrentWidget(m_unavailablePage);
@@ -642,18 +667,67 @@ void MessageView::updateFailedParts()
         return;
     }
     const int count = m_failedParts.size();
+    const bool retrying = std::any_of(m_failedParts.cbegin(), m_failedParts.cend(),
+                                      [this](const QPointer<SimplePartWidget> &part) { return !m_autoRetriedParts.contains(part); });
     if (isOffline()) {
         m_partErrors->showError(i18ncp("@info",
                                        "Part of this message is not available offline. It loads when you go online.",
                                        "%1 parts of this message are not available offline. They load when you go online.",
                                        count));
     } else {
-        m_partErrors->showError(i18ncp("@info",
-                                       "Part of this message could not be loaded.",
-                                       "%1 parts of this message could not be loaded.",
-                                       count),
+        if (retrying)
+            scheduleAutoRetry();
+        m_partErrors->showError(retrying ? i18ncp("@info",
+                                                  "Part of this message could not be loaded. Trying again…",
+                                                  "%1 parts of this message could not be loaded. Trying again…",
+                                                  count)
+                                         : i18ncp("@info",
+                                                  "Part of this message could not be loaded.",
+                                                  "%1 parts of this message could not be loaded.",
+                                                  count),
                                 {{i18nc("@action:button", "Try Again"), QStringLiteral("view-refresh"),
                                   QStringLiteral("retryParts"), [this]() { retryLoading(); }}});
+    }
+}
+
+void MessageView::scheduleAutoRetry()
+{
+    if (m_autoRetryTimer->isActive())
+        return;
+    // Tests shorten the delay
+    const QVariant delay = property("impresario-auto-retry-ms");
+    m_autoRetryTimer->start(delay.isValid() ? delay.toInt() : 3000);
+}
+
+void MessageView::autoRetry()
+{
+    // Offline, everything loads again when the network returns
+    if (!message.isValid() || isOffline())
+        return;
+
+    if (m_stack->currentWidget() == m_unavailablePage) {
+        if (!m_messageAutoRetried) {
+            m_messageAutoRetried = true;
+            retryLoading();
+        }
+        return;
+    }
+
+    QList<QPointer<SimplePartWidget>> parts;
+    for (const auto &part : std::as_const(m_failedParts)) {
+        if (part && !m_autoRetriedParts.contains(part))
+            parts << part;
+    }
+    if (parts.isEmpty())
+        return;
+    for (const auto &part : std::as_const(parts)) {
+        m_autoRetriedParts << part;
+        m_failedParts.removeAll(part);
+    }
+    updateFailedParts();
+    for (const auto &part : std::as_const(parts)) {
+        if (part)
+            part->retryLoading();
     }
 }
 

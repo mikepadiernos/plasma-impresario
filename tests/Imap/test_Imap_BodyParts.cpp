@@ -28,6 +28,8 @@
 #include "Streams/FakeSocket.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/MailboxTree.h"
+#include "Imap/Network/FileDownloadManager.h"
+#include "Imap/Network/MsgPartNetAccessManager.h"
 
 struct Data {
     QString key;
@@ -568,6 +570,114 @@ void BodyPartsTest::testBinaryFallback()
         QVERIFY(part4.data(RoleRetryIfUnavailable).toBool());
         QTest::qWait(15);
         cEmpty();
+    }
+}
+
+/** @short A server which refuses the metadata, or answers without it, leaves the message unavailable, not loading */
+void BodyPartsTest::testRefusedMetadataFetch()
+{
+    helperSyncBNoMessages();
+    cServer("* 1 EXISTS\r\n");
+    cClient(t.mk("UID FETCH 1:* (FLAGS)\r\n"));
+    cServer("* 1 FETCH (UID 333 FLAGS ())\r\n" + t.last("OK fetched\r\n"));
+    QPersistentModelIndex msg = msgListB.model()->index(0, 0, msgListB);
+    QVERIFY(msg.isValid());
+    QSignalSpy dataChangedSpy(model, &QAbstractItemModel::dataChanged);
+    const auto changedMessage = [&dataChangedSpy, &msg]() {
+        return std::any_of(dataChangedSpy.cbegin(), dataChangedSpy.cend(),
+                           [&msg](const QList<QVariant> &args) { return args[0].toModelIndex() == msg; });
+    };
+
+    QCOMPARE(model->rowCount(msg), 0);
+    cClient(t.mk("UID FETCH 333 (" FETCH_METADATA_ITEMS ")\r\n"));
+    QVERIFY(!msg.data(RoleIsUnavailable).toBool());
+    dataChangedSpy.clear();
+    cServer(t.last("NO refused\r\n"));
+    QVERIFY(msg.data(RoleIsUnavailable).toBool());
+    QVERIFY(!msg.data(RoleIsFetched).toBool());
+    QVERIFY(changedMessage());
+    // Looking at it again does not ask again
+    QCOMPARE(model->rowCount(msg), 0);
+    cEmpty();
+
+    // A retry asks again; a reply without the data leaves it unavailable, too
+    QVERIFY(msg.data(RoleRetryIfUnavailable).toBool());
+    QVERIFY(!msg.data(RoleIsUnavailable).toBool());
+    cClient(t.mk("UID FETCH 333 (" FETCH_METADATA_ITEMS ")\r\n"));
+    dataChangedSpy.clear();
+    cServer(t.last("OK nothing to see\r\n"));
+    QVERIFY(msg.data(RoleIsUnavailable).toBool());
+    QVERIFY(changedMessage());
+    cEmpty();
+
+    // Another retry loads it
+    QVERIFY(msg.data(RoleRetryIfUnavailable).toBool());
+    cClient(t.mk("UID FETCH 333 (" FETCH_METADATA_ITEMS ")\r\n"));
+    cServer("* 1 FETCH (UID 333 ENVELOPE (NIL \"subject\" NIL NIL NIL NIL NIL NIL NIL NIL) "
+            "INTERNALDATE \"17-Jul-1996 02:44:25 -0700\" RFC822.SIZE 89 BODYSTRUCTURE (" + bsPlaintext + "))\r\n"
+            + t.last("OK fetched\r\n"));
+    QVERIFY(msg.data(RoleIsFetched).toBool());
+    QVERIFY(!msg.data(RoleIsUnavailable).toBool());
+    QCOMPARE(model->rowCount(msg), 1);
+    cEmpty();
+}
+
+/** @short Offline, saving a part which was never downloaded fails before a file name is asked for */
+void BodyPartsTest::testDownloadOffline()
+{
+    helperSyncBNoMessages();
+    cServer("* 1 EXISTS\r\n");
+    cClient(t.mk("UID FETCH 1:* (FLAGS)\r\n"));
+    cServer("* 1 FETCH (UID 333 FLAGS ())\r\n" + t.last("OK fetched\r\n"));
+    QPersistentModelIndex msg = msgListB.model()->index(0, 0, msgListB);
+    QCOMPARE(model->rowCount(msg), 0);
+    cClient(t.mk("UID FETCH 333 (" FETCH_METADATA_ITEMS ")\r\n"));
+    cServer("* 1 FETCH (UID 333 BODYSTRUCTURE (" + bsManyPlaintexts + "))\r\n" + t.last("OK fetched\r\n"));
+    const QModelIndex rootMultipart = msg.model()->index(0, 0, msg);
+    const QPersistentModelIndex part1 = rootMultipart.model()->index(0, 0, rootMultipart);
+    const QPersistentModelIndex part2 = rootMultipart.model()->index(1, 0, rootMultipart);
+    QVERIFY(part1.isValid());
+    QVERIFY(part2.isValid());
+
+    LibMailboxSync::setModelNetworkPolicy(model, NETWORK_OFFLINE);
+    cClient(t.mk("LOGOUT\r\n"));
+    cServer(t.last("OK logged out\r\n") + "* BYE see ya\r\n");
+
+    // Part 2 was looked for while offline, and arrives in the cache later, for example from another window
+    part2.data(RolePartData);
+    QVERIFY(part2.data(RoleIsUnavailable).toBool());
+    model->cache()->setMsgPart(QStringLiteral("b"), 333, "2", "cached text");
+
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    Imap::Network::MsgPartNetAccessManager netAccess;
+    netAccess.setModelMessage(msg);
+
+    {
+        Imap::Network::FileDownloadManager download(nullptr, &netAccess, part1);
+        QSignalSpy nameSpy(&download, &Imap::Network::FileDownloadManager::fileNameRequested);
+        QSignalSpy failSpy(&download, &Imap::Network::FileDownloadManager::transferError);
+        download.downloadPart();
+        QCOMPARE(nameSpy.size(), 0);
+        QCOMPARE(failSpy.size(), 1);
+        QVERIFY(!failSpy[0][0].toString().isEmpty());
+        QVERIFY(part1.data(RoleIsUnavailable).toBool());
+    }
+
+    {
+        Imap::Network::FileDownloadManager download(nullptr, &netAccess, part2);
+        const QString target = dir.filePath(QStringLiteral("part2.txt"));
+        connect(&download, &Imap::Network::FileDownloadManager::fileNameRequested, this,
+                [&target](QString *fileName) { *fileName = target; });
+        QSignalSpy failSpy(&download, &Imap::Network::FileDownloadManager::transferError);
+        QSignalSpy savedSpy(&download, &Imap::Network::FileDownloadManager::succeeded);
+        download.downloadPart();
+        QVERIFY(part2.data(RoleIsFetched).toBool());
+        QVERIFY(savedSpy.wait(1000));
+        QCOMPARE(failSpy.size(), 0);
+        QFile saved(target);
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        QCOMPARE(saved.readAll(), QByteArray("cached text"));
     }
 }
 

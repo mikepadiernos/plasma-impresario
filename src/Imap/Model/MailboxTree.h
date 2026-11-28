@@ -57,6 +57,7 @@ class TreeItem
     friend class ThreadingMsgListModel; // for direct access to m_children
     friend class UpdateFlagsOfAllMessagesTask; // for direct access to m_children
     friend class FetchMsgPartTask; // for direct access to m_children
+    friend class FetchMsgMetadataTask; // marks messages UNAVAILABLE when no metadata arrives
 
 protected:
     /** @short Availability of an item */
@@ -305,6 +306,7 @@ class TreeItemMessage: public TreeItem
     friend class ThreadingMsgListModel; // needs access to m_flags
     friend class UpdateFlagsTask; // needs access to m_flags
     friend class UpdateFlagsOfAllMessagesTask; // needs access to m_flags
+    friend class FetchMsgMetadataTask; // needs to know which data arrived
     int m_offset;
     uint m_uid;
     mutable MessageDataPayload *m_data;

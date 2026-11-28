@@ -38,6 +38,8 @@ FetchMsgMetadataTask::FetchMsgMetadataTask(Model *model, const QModelIndex &mail
     Q_ASSERT(!uids.isEmpty());
     conn = model->findTaskResponsibleFor(mailbox);
     conn->addDependentTask(this);
+    connect(this, &ImapTask::completed, this, [this]() { markPendingItemsUnavailable(false); });
+    connect(this, &ImapTask::failed, this, [this]() { markPendingItemsUnavailable(true); });
 }
 
 void FetchMsgMetadataTask::perform()
@@ -83,6 +85,32 @@ bool FetchMsgMetadataTask::handleStateHelper(const Imap::Responses::State *const
         return true;
     } else {
         return false;
+    }
+}
+
+/** @short The data which has not arrived so far won't arrive unless someone asks again
+
+A server which refuses the FETCH, or answers it without any data for a message, would otherwise leave the messages
+loading for good. Marking them unavailable lets the reader say so and lets RoleRetryIfUnavailable ask again.
+After a successful FETCH, a message with only some of the data is left as it was.
+*/
+void FetchMsgMetadataTask::markPendingItemsUnavailable(const bool failed)
+{
+    if (!mailbox.isValid())
+        return;
+    TreeItemMailbox *mailboxPtr = dynamic_cast<TreeItemMailbox *>(static_cast<TreeItem *>(mailbox.internalPointer()));
+    Q_ASSERT(mailboxPtr);
+    const auto messages = model->findMessagesByUids(mailboxPtr, uids);
+    for (TreeItemMessage *message : messages) {
+        if (!message->loading())
+            continue;
+        const MessageDataPayload *data = message->data();
+        if (!failed && (data->gotEnvelope() || data->gotSize() || data->gotRemeberedBodyStructure()))
+            continue;
+        log(QStringLiteral("Received no metadata for UID %1").arg(message->uid()), Common::LOG_MESSAGES);
+        message->setFetchStatus(TreeItem::UNAVAILABLE);
+        const QModelIndex idx = message->toIndex(model);
+        emit model->dataChanged(idx, idx);
     }
 }
 

@@ -160,6 +160,9 @@ private:
     void findHighlightTerm(EmbeddedWebView *view, int retries);
     void showMessageUnavailable();
     void updateFailedParts();
+    /** @short Try the failed message or parts once more on their own, after a short delay */
+    void scheduleAutoRetry();
+    void autoRetry();
     /** @short Show the junk banner while the current message is marked as junk */
     void updateJunkBanner();
     /** @short Override the junk mark of the current message */
@@ -182,6 +185,12 @@ private:
     /** The user closed the junk banner of the shown message */
     bool m_junkBannerClosed = false;
     QList<QPointer<SimplePartWidget>> m_failedParts;
+    /** Waits before a failed load is tried once more on its own */
+    QTimer *m_autoRetryTimer;
+    /** Parts of the shown message which have been tried again on their own */
+    QList<QPointer<SimplePartWidget>> m_autoRetriedParts;
+    /** The shown message has been tried again on its own */
+    bool m_messageAutoRetried = false;
 
     QWidget *m_messageWidget;
     QBoxLayout *m_msgLayout;
