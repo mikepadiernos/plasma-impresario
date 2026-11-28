@@ -2551,6 +2551,69 @@ private slots:
         delete composer;
     }
 
+    void composerQueuesOfflineMessageInOutbox()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QSettings settings(directory.filePath(QStringLiteral("main.ini")), QSettings::IniFormat);
+        seedTwoAccounts(directory, settings);
+        {
+            QSettings work(directory.filePath(QStringLiteral("main-account-1.conf")), QSettings::IniFormat);
+            work.setValue(Common::SettingsNames::msaMethodKey, Common::SettingsNames::methodSMTP);
+            work.setValue(Common::SettingsNames::smtpHostKey, QStringLiteral("smtp.work.example.test"));
+            work.setValue(Common::SettingsNames::smtpPortKey, 587);
+            work.setValue(Common::SettingsNames::composerSaveToImapKey, true);
+            work.setValue(Common::SettingsNames::composerImapSentKey, QStringLiteral("Sent"));
+        }
+
+        QString outboxFolder;
+        {
+            Gui::MainWindow window(&settings);
+            QVERIFY(window.outbox());
+            outboxFolder = window.outbox()->folder();
+            QCOMPARE(window.outbox()->count(), 0);
+            auto *button = window.findChild<QToolButton *>(QStringLiteral("outboxButton"));
+            QVERIFY(button);
+            QVERIFY(button->isHidden());
+
+            QStringList errors;
+            QTimer dialogs;
+            connect(&dialogs, &QTimer::timeout, this, [&errors] {
+                if (auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+                    errors << box->text();
+                    box->reject();
+                }
+            });
+            dialogs.start(20);
+
+            // The account is offline, so the message waits in the outbox and the composer closes
+            QPointer<Gui::ComposeWidget> composer = openComposer(window);
+            QVERIFY(composer);
+            QVERIFY(QMetaObject::invokeMethod(composer, "send"));
+            QTRY_VERIFY2_WITH_TIMEOUT(!composer, qPrintable(errors.join(QLatin1Char('\n'))), 10000);
+            QVERIFY2(errors.isEmpty(), qPrintable(errors.join(QLatin1Char('\n'))));
+            QCOMPARE(window.outbox()->count(QStringLiteral("account-1")), 1);
+            const Composer::Outbox::Entry entry = window.outbox()->entries().constFirst();
+            QCOMPARE(entry.subject, QStringLiteral("Synthetic"));
+            QCOMPARE(entry.state, Composer::Outbox::State::Queued);
+            QCOMPARE(entry.sentFolder, QStringLiteral("Sent"));
+            QVERIFY(entry.hasDraft);
+            QVERIFY(!button->isHidden());
+        }
+
+        // The message is still there after a restart
+        {
+            Gui::MainWindow window(&settings);
+            QCOMPARE(window.outbox()->count(QStringLiteral("account-1")), 1);
+            const QString id = window.outbox()->entries().constFirst().id;
+            const QString draft = window.outbox()->moveToDrafts(id);
+            QVERIFY(!draft.isEmpty());
+            QVERIFY(QFile::remove(draft));
+            QCOMPARE(window.outbox()->count(), 0);
+        }
+        QDir(outboxFolder).removeRecursively();
+    }
+
     void composerChoosesItsAccount()
     {
         QTemporaryDir directory;

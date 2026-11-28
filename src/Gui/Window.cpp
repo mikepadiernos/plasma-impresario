@@ -97,6 +97,7 @@
 #include "Common/SettingsNames.h"
 #include "Composer/AccountIdentities.h"
 #include "Composer/Mailto.h"
+#include "Composer/Outbox.h"
 #include "Composer/SenderIdentitiesModel.h"
 #ifdef IMPRESARIO_HAVE_CRYPTO_MESSAGES
 #  ifdef IMPRESARIO_HAVE_GPGMEPP
@@ -123,6 +124,7 @@
 #include "Imap/Model/GroupingMsgListModel.h"
 #include "Imap/Model/Utils.h"
 #include "Imap/Parser/MailAddress.h"
+#include "Imap/Tasks/AppendTask.h"
 #include "Imap/Tasks/CopyMoveMessagesTask.h"
 #include "Imap/Tasks/ImapTask.h"
 #include "Imap/Network/FileDownloadManager.h"
@@ -223,6 +225,7 @@
 #include "CapabilityActionGate.h"
 #include "SavedSearchFolders.h"
 #include "ActivityDialog.h"
+#include "OutboxDialog.h"
 #include "MailAutomation.h"
 #include "MailSafetyPrompt.h"
 #include "NotificationsDialog.h"
@@ -1936,6 +1939,15 @@ void MainWindow::createWidgets()
     m_activityButton->setObjectName(QStringLiteral("activityButton"));
     connect(m_activityButton, &QToolButton::clicked, this, &MainWindow::showActivity);
     statusBar()->insertPermanentWidget(0, m_activityButton);
+
+    m_outboxButton = new QToolButton(statusBar());
+    m_outboxButton->setObjectName(QStringLiteral("outboxButton"));
+    m_outboxButton->setAutoRaise(true);
+    m_outboxButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    m_outboxButton->setIcon(UiUtils::SymbolicIcon::fromTheme(QStringLiteral("mail-folder-outbox")));
+    connect(m_outboxButton, &QToolButton::clicked, this, &MainWindow::showOutbox);
+    statusBar()->insertPermanentWidget(0, m_outboxButton);
+    updateOutboxButton();
 
     m_oauthSignIn = new QToolButton(statusBar());
     m_oauthSignIn->setObjectName(QStringLiteral("oauthSignInButton"));
@@ -4380,6 +4392,7 @@ void MainWindow::setupAccounts()
         m_settings->setValue(legacyAccountKey, accountId);
     }
     setupMailAutomation();
+    setupOutbox();
     m_imapAccess = accountAccess(m_accounts->activeAccount());
 }
 
@@ -4640,6 +4653,12 @@ void MainWindow::showActivity()
             case Action::Retry:
                 m_mailAutomation->activity()->retry(entry.key);
                 break;
+            case Action::OpenDraft:
+                openSavedDraft(entry.target);
+                break;
+            case Action::OpenOutbox:
+                showOutbox();
+                break;
             case Action::None:
                 break;
             }
@@ -4648,6 +4667,287 @@ void MainWindow::showActivity()
     m_activityDialog->show();
     m_activityDialog->raise();
     m_activityDialog->activateWindow();
+}
+
+bool MainWindow::canQueueMessages(const QString &accountId) const
+{
+    using Common::SettingsNames;
+    const QSettings *account = m_accounts->accountIds().contains(accountId) ? m_accounts->settings(accountId) : nullptr;
+    if (!account)
+        return false;
+    if (JmapSyncer::sendsThroughJmap(*account))
+        return true;
+    // Sending through IMAP needs the message on the server first, which the outbox does not do
+    const QString method = account->value(SettingsNames::msaMethodKey).toString();
+    return method == SettingsNames::methodSMTP || method == SettingsNames::methodSSMTP
+        || method == SettingsNames::methodSENDMAIL;
+}
+
+bool MainWindow::sendsOverNetwork(const QString &accountId) const
+{
+    const QSettings *account = m_accounts->accountIds().contains(accountId) ? m_accounts->settings(accountId) : nullptr;
+    return account
+        && (JmapSyncer::sendsThroughJmap(*account)
+            || account->value(Common::SettingsNames::msaMethodKey).toString() != Common::SettingsNames::methodSENDMAIL);
+}
+
+void MainWindow::openSavedDraft(const QString &path)
+{
+    if (path.endsWith(QLatin1String(".draft")))
+        ComposeWidget::warnIfMsaNotConfigured(ComposeWidget::createDraft(this, path), this);
+    else if (!path.isEmpty())
+        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+}
+
+bool MainWindow::outboxAccountOnline(const QString &accountId) const
+{
+    const Imap::ImapAccess *access = m_accountAccess.value(accountId);
+    const auto *model = access ? qobject_cast<const Imap::Mailbox::Model *>(access->imapModel()) : nullptr;
+    return model && model->isNetworkAvailable();
+}
+
+void MainWindow::recordOutboxEntry(const Composer::Outbox::Entry &message, UiUtils::ActivityLog::State state,
+    const QString &detail, const QString &error, UiUtils::ActivityLog::Action action, const QString &target)
+{
+    using UiUtils::ActivityLog;
+    if (!m_mailAutomation)
+        return;
+    ActivityLog *log = m_mailAutomation->activity();
+    ActivityLog::Entry entry;
+    entry.key = QLatin1String("outbox:") + message.id;
+    entry.kind = ActivityLog::Kind::Job;
+    entry.state = state;
+    entry.accountId = message.accountId;
+    entry.title = i18nc("@info message subject", "Sending “%1”",
+        message.subject.trimmed().isEmpty() ? i18nc("@info", "(no subject)") : message.subject.trimmed());
+    entry.detail = detail;
+    entry.error = error;
+    entry.action = action;
+    entry.target = target;
+    log->record(entry);
+    if (entry.action != ActivityLog::Action::Retry)
+        return;
+    const QString id = message.id;
+    log->setRetry(entry.key, [this, id]() {
+        const Composer::Outbox::Entry current = m_outbox->entry(id);
+        if (current.id.isEmpty())
+            return;
+        if (!outboxAccountOnline(current.accountId)) {
+            recordOutboxEntry(current, ActivityLog::State::Waiting,
+                i18nc("@info", "Waiting for the account to be online"), QString(), ActivityLog::Action::OpenOutbox);
+            return;
+        }
+        m_outbox->sendNow(id);
+    });
+}
+
+void MainWindow::recordOutboxState(const Composer::Outbox::Entry &message)
+{
+    using UiUtils::ActivityLog;
+    using State = Composer::Outbox::State;
+    const auto record = [&](ActivityLog::State state, const QString &detail, const QString &error,
+                            ActivityLog::Action action) { recordOutboxEntry(message, state, detail, error, action); };
+    switch (message.state) {
+    case State::Queued:
+        if (message.attempts > 0) {
+            record(ActivityLog::State::Failed,
+                message.nextAttempt.isValid()
+                    ? i18nc("@info time", "Trying again at %1",
+                          QLocale().toString(message.nextAttempt.toLocalTime().time(), QLocale::ShortFormat))
+                    : i18nc("@info", "Trying again soon"),
+                message.lastError, ActivityLog::Action::Retry);
+        } else {
+            record(ActivityLog::State::Waiting,
+                outboxAccountOnline(message.accountId) ? i18nc("@info", "Waiting to be sent")
+                                                       : i18nc("@info", "Waiting for the account to be online"),
+                QString(), ActivityLog::Action::OpenOutbox);
+        }
+        break;
+    case State::Sending:
+        record(ActivityLog::State::Running, i18nc("@info", "Handing the message to the outgoing server"), QString(),
+            ActivityLog::Action::None);
+        break;
+    case State::Submitted:
+        record(message.attempts > 0 ? ActivityLog::State::Failed : ActivityLog::State::Running,
+            i18nc("@info folder name", "Sent; the copy is still to be filed in %1", message.sentFolder),
+            message.lastError, message.attempts > 0 ? ActivityLog::Action::Retry : ActivityLog::Action::None);
+        break;
+    case State::Interrupted:
+        record(ActivityLog::State::Failed,
+            i18nc("@info", "The message may or may not have been sent; the outbox asks what to do"), message.lastError,
+            ActivityLog::Action::OpenOutbox);
+        break;
+    case State::Refused:
+        record(ActivityLog::State::Failed,
+            i18nc("@info", "The server refused the message, and it could not be moved to the drafts"),
+            message.lastError, ActivityLog::Action::OpenOutbox);
+        break;
+    }
+}
+
+void MainWindow::setupOutbox()
+{
+    using Composer::Outbox;
+    using UiUtils::ActivityLog;
+    const QString data = Common::writablePath(Common::LOCATION_DATA);
+    m_outbox = new Outbox(data + QLatin1String("Outbox"), data + tr("Drafts"), this);
+    m_outbox->setObjectName(QStringLiteral("outbox"));
+    ActivityLog *log = m_mailAutomation->activity();
+    connect(m_outbox, &Outbox::sending, this, [this](const QString &id) { recordOutboxState(m_outbox->entry(id)); });
+    connect(m_outbox, &Outbox::failed, this, [this](const QString &id) { recordOutboxState(m_outbox->entry(id)); });
+    connect(
+        m_outbox, &Outbox::interrupted, this, [this](const QString &id) { recordOutboxState(m_outbox->entry(id)); });
+    connect(m_outbox, &Outbox::sent, this, [log](const QString &id) {
+        const int row = log->find(QLatin1String("outbox:") + id);
+        if (row < 0)
+            return;
+        ActivityLog::Entry entry = log->entry(row);
+        entry.state = ActivityLog::State::Done;
+        entry.detail = i18nc("@info", "Sent");
+        entry.error.clear();
+        entry.action = ActivityLog::Action::None;
+        entry.time = QDateTime();
+        log->record(entry);
+    });
+    connect(m_outbox, &Outbox::refused, this,
+        [this](const Outbox::Entry &message, const QString &reason, const QString &draftPath) {
+            if (draftPath.isEmpty()) {
+                recordOutboxState(message);
+                return;
+            }
+            recordOutboxEntry(message, ActivityLog::State::Failed,
+                i18nc("@info", "The server refused the message; it is back in the drafts"), reason,
+                ActivityLog::Action::OpenDraft, draftPath);
+        });
+    connect(m_outbox, &Outbox::changed, this, [this, log]() {
+        updateOutboxButton();
+        // Messages which were just queued, or kept from the last session, show up as waiting
+        const QList<Outbox::Entry> entries = m_outbox->entries();
+        for (const Outbox::Entry &message : entries) {
+            if (log->find(QLatin1String("outbox:") + message.id) < 0)
+                recordOutboxState(message);
+        }
+    });
+    const QList<Outbox::Entry> entries = m_outbox->entries();
+    for (const Outbox::Entry &message : entries)
+        recordOutboxState(message);
+}
+
+void MainWindow::registerOutboxAccount(const QString &accountId)
+{
+    if (!m_outbox)
+        return;
+    Imap::ImapAccess *access = m_accountAccess.value(accountId);
+    QPointer<Imap::Mailbox::Model> model = access ? qobject_cast<Imap::Mailbox::Model *>(access->imapModel()) : nullptr;
+    if (!model || !canQueueMessages(accountId)) {
+        m_outbox->removeTransport(accountId);
+        return;
+    }
+    Composer::Outbox::Transport transport;
+    transport.createMsa = [this, accountId](QObject *parent) -> MSA::AbstractMSA * {
+        MSA::MSAFactory *created = nullptr;
+        withAccount(accountId, [this, &created]() { created = msaFactory(); });
+        if (!created)
+            return nullptr;
+        // The factory lives as long as what it creates
+        std::shared_ptr<MSA::MSAFactory> factory(created);
+        MSA::AbstractMSA *msa = factory->create(parent);
+        if (msa)
+            connect(msa, &QObject::destroyed, [factory]() { });
+        return msa;
+    };
+    // A local sendmail program takes the message whether the account is online or not
+    if (sendsOverNetwork(accountId))
+        transport.online = [model]() { return model && model->isNetworkAvailable(); };
+    transport.fileSentCopy = [model](const QString &folder, const QByteArray &data, const QDateTime &timestamp,
+                                 const Composer::Outbox::FilingReply &reply) {
+        if (!model) {
+            reply(false, tr("The account is no longer connected."));
+            return;
+        }
+        Imap::Mailbox::ImapTask *task = model->appendIntoMailbox(folder, data, {QStringLiteral("\\Seen")}, timestamp);
+        // Exactly one of the two answers
+        auto answered = std::make_shared<bool>(false);
+        connect(task, &Imap::Mailbox::ImapTask::completed, task, [reply, answered]() {
+            if (!std::exchange(*answered, true))
+                reply(true, QString());
+        });
+        connect(task, &Imap::Mailbox::ImapTask::failed, task, [reply, answered](const QString &error) {
+            if (!std::exchange(*answered, true))
+                reply(false, error);
+        });
+    };
+    QPointer<QSettings> account = m_accounts->settings(accountId);
+    QPointer<Imap::ImapAccess> accessGuard = access;
+    QPointer<Plugins::PluginManager> plugins = pluginManager();
+    transport.password = [account, accessGuard, model, plugins](
+                             const QString &, const QString &, const Composer::Outbox::PasswordReply &reply) {
+        if (!account || !accessGuard) {
+            reply(QString());
+            return;
+        }
+        const bool jmap = JmapSyncer::sendsThroughJmap(*account);
+        if (!jmap && account->value(Common::SettingsNames::smtpAuthReuseImapCredsKey, false).toBool()) {
+            reply(model ? model->imapPassword() : QString());
+            return;
+        }
+        Plugins::PasswordPlugin *password = plugins ? plugins->password() : nullptr;
+        Plugins::PasswordJob *job = password ? password->requestPassword(accessGuard->credentialAccountId(),
+                                                   jmap ? JmapSyncer::passwordType() : QStringLiteral("smtp"))
+                                             : nullptr;
+        if (!job) {
+            reply(QString());
+            return;
+        }
+        connect(job, &Plugins::PasswordJob::passwordAvailable, job, [reply](const QString &stored) { reply(stored); });
+        connect(job, &Plugins::PasswordJob::error, job,
+            [reply](Plugins::PasswordJob::Error, const QString &) { reply(QString()); });
+        job->setAutoDelete(true);
+        job->start();
+    };
+    QPointer<QSettings> profile = m_settings;
+    QPointer<QSettings> host = account;
+    transport.certificate = [profile, host](const QList<QSslCertificate> &chain, const QList<QSslError> &) {
+        if (!profile || !host || chain.isEmpty())
+            return false;
+        const QString smtpHost = host->value(Common::SettingsNames::smtpHostKey).toString();
+        return Common::TrustedCertificates::isTrusted(*profile, smtpHost, chain.first());
+    };
+    m_outbox->setTransport(accountId, transport);
+    // Coming online sends what waited for the connection; waking twice only looks at the queue twice
+    for (auto signal : {&Imap::Mailbox::Model::networkPolicyOnline, &Imap::Mailbox::Model::networkPolicyExpensive})
+        connect(model, signal, m_outbox, [this, accountId]() { m_outbox->wake(accountId); });
+}
+
+void MainWindow::updateOutboxButton()
+{
+    if (!m_outboxButton || !m_outbox)
+        return;
+    const QList<Composer::Outbox::Entry> entries = m_outbox->entries();
+    const auto attention = std::count_if(entries.cbegin(), entries.cend(), [](const Composer::Outbox::Entry &entry) {
+        return entry.state == Composer::Outbox::State::Interrupted || entry.state == Composer::Outbox::State::Refused;
+    });
+    m_outboxButton->setText(i18ncp("@action:button", "%1 to send", "%1 to send", entries.size()));
+    m_outboxButton->setToolTip(attention > 0
+            ? i18ncp("@info:tooltip", "%1 message waiting to be sent needs your decision",
+                  "%1 messages waiting to be sent need your decision", static_cast<int>(attention))
+            : i18nc("@info:tooltip", "Show the messages waiting to be sent"));
+    m_outboxButton->setVisible(!entries.isEmpty());
+}
+
+void MainWindow::showOutbox()
+{
+    if (!m_outbox)
+        return;
+    if (!m_outboxDialog) {
+        m_outboxDialog
+            = new OutboxDialog(m_outbox, [this](const QString &accountId) { return accountName(accountId); }, this);
+        m_outboxDialog->setAttribute(Qt::WA_DeleteOnClose);
+        connect(m_outboxDialog, &OutboxDialog::draftMoved, this, &MainWindow::openSavedDraft);
+    }
+    m_outboxDialog->show();
+    m_outboxDialog->raise();
+    m_outboxDialog->activateWindow();
 }
 
 void MainWindow::configureNotifications()
@@ -5199,6 +5499,7 @@ void MainWindow::monitorAccount(const QString &accountId)
     Imap::ImapAccess *access = accountAccess(accountId);
     auto *model = qobject_cast<Imap::Mailbox::Model *>(access->imapModel());
     Q_ASSERT(model);
+    registerOutboxAccount(accountId);
     using Common::AccountStatusKind;
     if (access->protocol() != Imap::AccountProtocol::Imap) {
         // The folders are on this computer and always open; the status is that of the last visit to the server
@@ -5744,6 +6045,19 @@ void MainWindow::removeAccountNow(const QString &accountId)
         return;
     if (accountId == m_accounts->activeAccount())
         switchAccount(remaining.first());
+    if (m_outbox) {
+        // What the account still had to send goes back to the drafts instead of waiting for a server which is gone
+        m_outbox->removeTransport(accountId);
+        const QList<Composer::Outbox::Entry> waiting = m_outbox->entries();
+        for (const Composer::Outbox::Entry &message : waiting) {
+            if (message.accountId != accountId)
+                continue;
+            if (message.state == Composer::Outbox::State::Submitted)
+                m_outbox->forget(message.id);
+            else
+                m_outbox->moveToDrafts(message.id);
+        }
+    }
     Imap::ImapAccess *access = accountAccess(accountId);
     const QSettings &removed = *m_accounts->settings(accountId);
     const bool revokeOAuth = usesOAuth(removed) && !sharesOAuthGrant(accountId);

@@ -552,6 +552,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/MailAutomation.cpp
     ${path_DesktopGui}/MailBoxTreeView.cpp
     ${path_DesktopGui}/MailboxPickerDialog.cpp
+    ${path_DesktopGui}/OutboxDialog.cpp
     ${path_DesktopGui}/RemoteAttachmentFetcher.cpp
     ${path_DesktopGui}/RuleEditDialog.cpp
     ${path_DesktopGui}/RulesDialog.cpp
@@ -1845,6 +1846,8 @@ if(BUILD_TESTING)
         target_link_libraries(test_RulesDialog PRIVATE DesktopGui UiUtils KF6::I18n)
         impresario_test(Gui ActivityDialog)
         target_link_libraries(test_ActivityDialog PRIVATE DesktopGui UiUtils KF6::I18n)
+        impresario_test(Gui OutboxDialog)
+        target_link_libraries(test_OutboxDialog PRIVATE DesktopGui UiUtils KF6::I18n)
         impresario_test(Gui NotificationsDialog)
         target_link_libraries(test_NotificationsDialog PRIVATE DesktopGui UiUtils KF6::I18n)
     endif()

@@ -79,6 +79,7 @@
 #include "Gui/Window.h"
 #include "Imap/Model/ImapAccess.h"
 #include "Imap/Model/ItemRoles.h"
+#include "Composer/Outbox.h"
 #include "Imap/Model/Model.h"
 #include "Imap/Parser/MailAddress.h"
 #include "MSA/AbstractMSA.h"
@@ -428,7 +429,7 @@ void ComposeWidget::createSubmission(Imap::Mailbox::Model *model, const QString 
     // Replies, forwards and attachments refer to messages of the account the composer opened for
     m_submission->setForeignSource(model != m_sourceModel);
     connect(m_submission, &Composer::Submission::succeeded, this, &ComposeWidget::sent);
-    connect(m_submission, &Composer::Submission::failed, this, &ComposeWidget::gotError);
+    connect(m_submission, &Composer::Submission::failed, this, &ComposeWidget::submissionFailed);
     connect(m_submission, &Composer::Submission::failed, this, [this](const QString& message) {
         emit logged(Common::LogKind::LOG_SUBMISSION, QStringLiteral("ComposeWidget"), message);
     });
@@ -558,6 +559,8 @@ void ComposeWidget::updateAccountWarning()
     if (!m_accountWarning)
         return;
     QStringList problems;
+    if (!m_refusalProblem.isEmpty())
+        problems << m_refusalProblem;
     if (!m_accountProblem.isEmpty())
         problems << m_accountProblem;
     if (!m_accountSettings || !m_imapAccess)
@@ -1126,8 +1129,11 @@ void ComposeWidget::closeEvent(QCloseEvent *ce)
             return;
         }
     }
-    if (m_sentMail || !m_explicitDraft) // is the mail has been sent or the user does not want to store it
+    if (m_sentMail || !m_explicitDraft) { // is the mail has been sent or the user does not want to store it
         QFile::remove(m_autoSavePath); // get rid of draft
+        // with the server's reason for refusing it, should the outbox have brought it back
+        QFile::remove(m_autoSavePath + QLatin1String(Composer::Outbox::reasonSuffix));
+    }
     ce->accept(); // ultimately close the window
 }
 
@@ -1225,23 +1231,22 @@ void ComposeWidget::send()
         return;
     }
 
+    // Offline, the outbox keeps the message until the account can reach its server again
+    const auto *model = qobject_cast<const Imap::Mailbox::Model *>(m_imapAccess->imapModel());
+    if (model && !model->isNetworkAvailable() && m_mainWindow->sendsOverNetwork(m_accountId)
+        && m_mainWindow->canQueueMessages(m_accountId)) {
+        queueInOutbox(true);
+        return;
+    }
+
     // Send with the account this composer was opened from, even if another account is active now.
     QSettings &account = *m_accountSettings;
     const bool reuseImapCreds = account.value(Common::SettingsNames::smtpAuthReuseImapCredsKey, false).toBool();
-    const QString method = account.value(Common::SettingsNames::msaMethodKey).toString();
-    // Gmail's SMTP server files every message it sends into Sent Mail; a second copy would show up twice
-    const bool serverKeepsCopy = (method == Common::SettingsNames::methodSMTP || method == Common::SettingsNames::methodSSMTP)
-        && UiUtils::ServerDiscovery::keepsSentCopies(account.value(Common::SettingsNames::smtpHostKey).toString());
-    // A POP3 account has only its inbox, so there is no Sent folder to keep a copy in
-    const bool hasSentFolder = Imap::AccountCapabilities::forAccount(account).supports(Imap::AccountOperation::ServerFolders);
-    // A JMAP server files what it sends in Sent itself, and the next synchronization brings that copy here
-    const bool jmapKeepsCopy = JmapSyncer::sendsThroughJmap(account);
-    m_submission->setImapOptions(account.value(Common::SettingsNames::composerSaveToImapKey, true).toBool() && !serverKeepsCopy
-                                     && hasSentFolder && !jmapKeepsCopy,
-                                 account.value(Common::SettingsNames::composerImapSentKey, QStringLiteral("Sent")).toString(),
-                                 account.value(Common::SettingsNames::imapHostKey).toString(),
-                                 account.value(Common::SettingsNames::imapUserKey).toString(),
-                                 account.value(Common::SettingsNames::msaMethodKey).toString() == Common::SettingsNames::methodImapSendmail);
+    m_submission->setImapOptions(!sentCopyFolder().isEmpty(),
+        account.value(Common::SettingsNames::composerImapSentKey, QStringLiteral("Sent")).toString(),
+        account.value(Common::SettingsNames::imapHostKey).toString(),
+        account.value(Common::SettingsNames::imapUserKey).toString(),
+        account.value(Common::SettingsNames::msaMethodKey).toString() == Common::SettingsNames::methodImapSendmail);
     m_submission->setSmtpOptions(account.value(Common::SettingsNames::smtpUseBurlKey, false).toBool(),
                                  reuseImapCreds ?
                                      m_imapAccess->username() :
@@ -1777,6 +1782,99 @@ void ComposeWidget::gotError(const QString &error)
     setUiWidgetsEnabled(true);
 }
 
+void ComposeWidget::submissionFailed(const QString &error)
+{
+    // A refused message gets the same answer every time, and without a server of its own the outbox cannot send it
+    if (m_submission->refused() || !m_mainWindow->outbox() || !m_mainWindow->canQueueMessages(m_accountId)) {
+        gotError(error);
+        return;
+    }
+    QMessageBox box(QMessageBox::Critical, tr("Failed to Send Mail"), error, QMessageBox::NoButton, this);
+    box.setObjectName(QStringLiteral("sendFailedBox"));
+    box.setInformativeText(
+        i18nc("@info", "The outbox can keep the message and send it once the server answers again."));
+    QPushButton *later = box.addButton(i18nc("@action:button", "Send Later"), QMessageBox::AcceptRole);
+    later->setObjectName(QStringLiteral("sendLater"));
+    box.addButton(QMessageBox::Close);
+    box.setDefaultButton(later);
+    box.exec();
+    // The copy in Sent is not filed twice
+    if (box.clickedButton() == later && queueInOutbox(!m_submission->sentCopyFiled()))
+        return;
+    setUiWidgetsEnabled(true);
+}
+
+QString ComposeWidget::sentCopyFolder() const
+{
+    if (!m_accountSettings)
+        return QString();
+    const QSettings &account = *m_accountSettings;
+    const QString method = account.value(Common::SettingsNames::msaMethodKey).toString();
+    // Gmail's SMTP server files every message it sends into Sent Mail; a second copy would show up twice
+    const bool serverKeepsCopy
+        = (method == Common::SettingsNames::methodSMTP || method == Common::SettingsNames::methodSSMTP)
+        && UiUtils::ServerDiscovery::keepsSentCopies(account.value(Common::SettingsNames::smtpHostKey).toString());
+    // A POP3 account has only its inbox, so there is no Sent folder to keep a copy in
+    const bool hasSentFolder
+        = Imap::AccountCapabilities::forAccount(account).supports(Imap::AccountOperation::ServerFolders);
+    // A JMAP server files what it sends in Sent itself, and the next synchronization brings that copy here
+    const bool jmapKeepsCopy = JmapSyncer::sendsThroughJmap(account);
+    if (!account.value(Common::SettingsNames::composerSaveToImapKey, true).toBool() || serverKeepsCopy || !hasSentFolder
+        || jmapKeepsCopy)
+        return QString();
+    return account.value(Common::SettingsNames::composerImapSentKey, QStringLiteral("Sent")).toString();
+}
+
+bool ComposeWidget::queueInOutbox(bool fileCopy)
+{
+    Composer::Outbox *outbox = m_mainWindow->outbox();
+    if (!outbox)
+        return false;
+    if (!m_composer->isReadyForSerialization()) {
+        gotError(i18nc("@info",
+            "Some attachments are still on the server, so the message cannot wait in the outbox. "
+            "Send it once the account is online."));
+        return false;
+    }
+    Composer::Outbox::Message message;
+    QString error;
+    {
+        QBuffer buffer(&message.data);
+        buffer.open(QIODevice::WriteOnly);
+        if (!m_composer->asRawMessage(&buffer, &error, Composer::BccMode::Omit)) {
+            gotError(error);
+            return false;
+        }
+    }
+    message.sentFolder = fileCopy ? sentCopyFolder() : QString();
+    if (!message.sentFolder.isEmpty()) {
+        // The copy in Sent keeps the Bcc recipients, as one filed right away does
+        QBuffer buffer(&message.sentCopy);
+        buffer.open(QIODevice::WriteOnly);
+        if (!m_composer->asRawMessage(&buffer, &error, Composer::BccMode::Keep)) {
+            gotError(error);
+            return false;
+        }
+        if (message.sentCopy == message.data)
+            message.sentCopy.clear();
+    }
+    message.accountId = m_accountId;
+    message.subject = ui->subject->text();
+    message.from = m_composer->rawFromAddress();
+    message.recipients = m_composer->rawRecipientAddresses();
+    message.timestamp = m_composer->timestamp();
+    // Should the server refuse the message, the draft comes back to be edited; it stays until it is sent or removed
+    if (interactiveComposer())
+        message.draft = draftData(true);
+    if (outbox->enqueue(message, &error).isEmpty()) {
+        gotError(error);
+        return false;
+    }
+    m_sentMail = true;
+    QTimer::singleShot(0, this, &QWidget::close);
+    return true;
+}
+
 void ComposeWidget::sent()
 {
     // FIXME: move back to the currently selected mailbox
@@ -2126,14 +2224,22 @@ bool ComposeWidget::setReplyMode(const Composer::ReplyMode mode)
 
 void ComposeWidget::saveDraft(const QString &path)
 {
-    constexpr int impresarioDraftVersion = 5;
-
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly))
         return; // TODO: error message?
-    QDataStream stream(&file);
+    file.write(draftData(m_explicitDraft));
+    file.close();
+    file.setPermissions(QFile::ReadOwner | QFile::WriteOwner);
+}
+
+QByteArray ComposeWidget::draftData(bool explicitDraft)
+{
+    constexpr int impresarioDraftVersion = 5;
+
+    QByteArray data;
+    QDataStream stream(&data, QIODevice::WriteOnly);
     stream.setVersion(QDataStream::Qt_4_6);
-    stream << impresarioDraftVersion << m_explicitDraft << ui->sender->currentText() << m_accountId;
+    stream << impresarioDraftVersion << explicitDraft << ui->sender->currentText() << m_accountId;
     stream << (qint32)m_recipients.count();
     for (auto i = 0; i < m_recipients.count(); ++i) {
         stream << m_recipients.at(i).first->itemData(m_recipients.at(i).first->currentIndex()).toInt();
@@ -2148,8 +2254,7 @@ void ComposeWidget::saveDraft(const QString &path)
     // b) storing urls only works for urls
     // c) the data behind the url or the url validity might have changed
     // d) nasty part is writing mails - DnD a file into it is not a problem
-    file.close();
-    file.setPermissions(QFile::ReadOwner|QFile::WriteOwner);
+    return data;
 }
 
 /**
@@ -2256,6 +2361,12 @@ void ComposeWidget::loadDraft(const QString &path)
     ui->mailText->setPlainText(string);
     m_saveState->setMessageUpdated(false); // this is now the most up-to-date one
     file.close();
+    // The outbox brought this message back because the server refused it
+    QFile reason(path + QLatin1String(Composer::Outbox::reasonSuffix));
+    m_refusalProblem = reason.open(QIODevice::ReadOnly)
+        ? i18nc("@info server's reason", "The server refused this message: %1",
+              QString::fromUtf8(reason.readAll()).trimmed())
+        : QString();
     updateAccountWarning();
 }
 

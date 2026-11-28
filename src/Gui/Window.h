@@ -35,6 +35,7 @@
 #include <optional>
 
 #include "configure.cmake.h"
+#include "Composer/Outbox.h"
 #include "Composer/Recipients.h"
 #include "Imap/ConnectionState.h"
 #include "Imap/Model/Cache.h"
@@ -44,6 +45,7 @@
 #include "Imap/Model/SpecialFolder.h"
 #include "Imap/Parser/Uids.h"
 #include "UiUtils/ActivationToken.h"
+#include "UiUtils/ActivityLog.h"
 #include "UiUtils/Agenda.h"
 #include "UiUtils/DesktopFeedback.h"
 #include "UiUtils/DestructiveActions.h"
@@ -168,6 +170,7 @@ class TaskProgressIndicator;
 class MailAutomation;
 class ActivityButton;
 class ActivityDialog;
+class OutboxDialog;
 class RulesDialog;
 
 class MainWindow: public QMainWindow
@@ -237,6 +240,18 @@ public:
     Returns false without running @p fn when the account is gone or has no connection set up.
     */
     bool withAccount(const QString &accountId, const std::function<void()> &fn);
+
+    /** @short The messages waiting to be sent */
+    Composer::Outbox *outbox() const
+    {
+        return m_outbox;
+    }
+    /** @short Whether a message from @p accountId can wait in the outbox, which needs a server of its own to send to */
+    bool canQueueMessages(const QString &accountId) const;
+    /** @short Whether sending from @p accountId needs the network, unlike a local sendmail program */
+    bool sendsOverNetwork(const QString &accountId) const;
+    /** @short Show the messages waiting to be sent */
+    void showOutbox();
 
     void enableLoggingToDisk();
 
@@ -592,6 +607,20 @@ private:
     void offerRuleFromQuery(const QString &text, const QString &name);
     void showActivity();
     void configureNotifications();
+    /** @short Keep the messages waiting to be sent, and show what happens to them in the activity log */
+    void setupOutbox();
+    /** @short Let the outbox send the messages of @p accountId through its server */
+    void registerOutboxAccount(const QString &accountId);
+    void updateOutboxButton();
+    /** @short Open the draft or saved message at @p path, as one which the server refused */
+    void openSavedDraft(const QString &path);
+    bool outboxAccountOnline(const QString &accountId) const;
+    /** @short Show the outbox message @p message in the activity log; Action::Retry sends it now */
+    void recordOutboxEntry(const Composer::Outbox::Entry &message, UiUtils::ActivityLog::State state,
+        const QString &detail, const QString &error, UiUtils::ActivityLog::Action action,
+        const QString &target = QString());
+    /** @short Show the state of the outbox message @p message in the activity log */
+    void recordOutboxState(const Composer::Outbox::Entry &message);
     /** @short Apply the application settings which the window shows, after the settings dialog saved them */
     void applyApplicationSettings();
     /** @short Show the account of @p activityId's workspace, when the workspaces follow the activities */
@@ -1256,6 +1285,9 @@ private:
     MailAutomation *m_mailAutomation = nullptr;
     ActivityButton *m_activityButton = nullptr;
     QPointer<ActivityDialog> m_activityDialog;
+    Composer::Outbox *m_outbox = nullptr;
+    QToolButton *m_outboxButton = nullptr;
+    QPointer<OutboxDialog> m_outboxDialog;
     QAction *m_actionMailRules = nullptr;
     QAction *m_actionActivity = nullptr;
     QAction *m_actionConfigureNotifications = nullptr;
