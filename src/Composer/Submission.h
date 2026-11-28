@@ -85,6 +85,7 @@ public:
         STATE_PREPARING_URLAUTH, /**< Making the resulting message available via IMAP's URLAUTH */
         STATE_SUBMITTING, /**< Submitting the message via an MSA */
         STATE_UPDATING_FLAGS, /**< Updating flags of the relevant message(s) */
+        STATE_FILING_SENT_COPY, /**< Replacing the delivered Sent copy with one that lists Bcc */
         STATE_SENT, /**< All done, succeeded */
         STATE_FAILED /**< Unable to send */
     };
@@ -111,6 +112,11 @@ private slots:
     void slotAskForUrl();
     void slotInvokeMsaNow();
 
+    void fileSentCopyWithBcc();
+    void removeDeliveredSentCopy();
+    void keepDeliveredSentCopy(const QString &error);
+    void finishDelivery();
+
     void onMsaProgressMaxChanged(const int max);
     void onMsaProgressCurrentChanged(const int value);
 
@@ -131,6 +137,11 @@ signals:
 
 private:
     bool shouldBuildMessageLocally() const;
+    /** @short Whether the server delivers the Sent copy through BURL
+
+    Not with Bcc recipients: the delivered copy cannot list them, while the Sent copy should.
+    */
+    bool burlEnabled() const;
     bool canCatenate() const;
     /** @short The model of @p message, which may belong to another account than the one the message is sent from */
     Imap::Mailbox::Model *modelOf(const QModelIndex &message) const;
@@ -154,6 +165,8 @@ private:
     bool m_foreignSource = false;
     bool m_sentCopyFiled = false;
     bool m_refused = false;
+    /** The server delivered the copy filed in Sent through the IMAP SENDMAIL Extension */
+    bool m_deliveredStoredCopy = false;
     QPointer<MSA::AbstractMSA> m_msa;
 
     SubmissionProgress m_state;

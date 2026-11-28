@@ -28,6 +28,7 @@
 #include "Imap/Model/Model.h"
 #include "Imap/Tasks/AppendTask.h"
 #include "Imap/Tasks/GenUrlAuthTask.h"
+#include "Imap/Tasks/UidRemoveTask.h"
 #include "Imap/Tasks/UidSubmitTask.h"
 #include "MSA/Sendmail.h"
 #include "MSA/SMTP.h"
@@ -61,6 +62,8 @@ QString submissionProgressToString(const Submission::SubmissionProgress progress
         return QStringLiteral("SUBMITTING");
     case Submission::STATE_UPDATING_FLAGS:
         return QStringLiteral("UPDATING_FLAGS");
+    case Submission::STATE_FILING_SENT_COPY:
+        return QStringLiteral("FILING_SENT_COPY");
     case Submission::STATE_SENT:
         return QStringLiteral("SENT");
     case Submission::STATE_FAILED:
@@ -137,6 +140,11 @@ void Submission::changeConnectionState(const SubmissionProgress state)
         emit progress(PROGRESS_DELIVERY_DONE);
         emit updateStatusMessage(tr("Updating message keywords"));
         break;
+    case STATE_FILING_SENT_COPY:
+        emit progressMax(PROGRESS_MAX);
+        emit progress(PROGRESS_DELIVERY_DONE);
+        emit updateStatusMessage(tr("Saving to the sent folder"));
+        break;
     case STATE_SENT:
         emit progressMax(PROGRESS_MAX);
         emit progress(PROGRESS_MAX);
@@ -203,6 +211,12 @@ void Submission::send()
         return;
     }
 
+    if (m_useBurl && m_source->hasBlindCopyRecipients()) {
+        emit logged(Common::LOG_SUBMISSION, QStringLiteral("Submission"),
+                    QStringLiteral("Not using BURL: the copy filed in Sent lists Bcc, so it cannot be delivered"));
+        m_source->setPreloadEnabled(shouldBuildMessageLocally());
+    }
+
     // this double-updating is needed in case the same Submission attempts to send a message more than once
     changeConnectionState(STATE_INIT);
     changeConnectionState(STATE_BUILDING_MESSAGE);
@@ -225,9 +239,9 @@ void Submission::slotMessageDataAvailable()
     QString errorMessage;
     QList<Imap::Mailbox::CatenatePair> catenateable;
 
-    // Recipients never see Bcc. The Sent copy keeps it, unless the server delivers that very copy through BURL or
-    // the IMAP SUBMIT extension.
-    const BccMode sentCopyBcc = (m_useBurl || m_useImapSubmit) ? BccMode::Omit : BccMode::Keep;
+    // Recipients never see Bcc. The Sent copy keeps it, unless the server delivers that very copy through the IMAP
+    // SENDMAIL Extension; fileSentCopyWithBcc() then replaces it after delivery. BURL is not used with Bcc.
+    const BccMode sentCopyBcc = (burlEnabled() || m_useImapSubmit) ? BccMode::Omit : BccMode::Keep;
 
     if (shouldBuildMessageLocally() && !m_source->asRawMessage(&buf, &errorMessage, BccMode::Omit)) {
         gotError(tr("Cannot send right now -- saving failed:\n %1").arg(errorMessage));
@@ -285,7 +299,7 @@ void Submission::slotMessageDataAvailable()
 
 void Submission::slotAskForUrl()
 {
-    Q_ASSERT(m_appendUidReceived && m_useBurl);
+    Q_ASSERT(m_appendUidReceived && burlEnabled());
     changeConnectionState(STATE_PREPARING_URLAUTH);
     Imap::Mailbox::GenUrlAuthTask *genUrlAuthTask = QPointer<Imap::Mailbox::GenUrlAuthTask>(
                 m_model->generateUrlAuthForMessage(m_imapHostname,
@@ -315,14 +329,16 @@ void Submission::slotInvokeMsaNow()
     connect(this, &Submission::gotCertificateDecision, msa, &MSA::AbstractMSA::setCertificateAccepted);
     connect(this, &Submission::canceled, msa, &MSA::AbstractMSA::cancel);
 
+    m_deliveredStoredCopy = false;
     if (m_useImapSubmit && msa->supportsImapSending() && m_appendUidReceived) {
+        m_deliveredStoredCopy = true;
         Imap::Mailbox::UidSubmitOptionsList options;
         options.append(qMakePair(QByteArrayLiteral("FROM"), m_source->rawFromAddress()));
         Q_FOREACH(const QByteArray &recipient, m_source->rawRecipientAddresses()) {
             options.append(qMakePair(QByteArrayLiteral("RECIPIENT"), recipient));
         }
         msa->sendImap(m_sentFolderName, m_appendUidValidity, m_appendUid, options);
-    } else if (m_genUrlAuthReceived && m_useBurl) {
+    } else if (m_genUrlAuthReceived && burlEnabled()) {
         msa->sendBurl(m_source->rawFromAddress(), m_source->rawRecipientAddresses(), m_urlauth.toUtf8());
     } else {
         msa->sendMail(m_source->rawFromAddress(), m_source->rawRecipientAddresses(), m_rawMessageData);
@@ -353,6 +369,73 @@ void Submission::gotError(const QString &error)
 }
 
 void Submission::sent()
+{
+    if (m_deliveredStoredCopy && m_saveToSentFolder && m_source->hasBlindCopyRecipients()) {
+        fileSentCopyWithBcc();
+        return;
+    }
+    finishDelivery();
+}
+
+/** @short File a Sent copy that lists Bcc in place of the one the server delivered */
+void Submission::fileSentCopyWithBcc()
+{
+    if (!m_model) {
+        keepDeliveredSentCopy(tr("The IMAP connection has disappeared"));
+        return;
+    }
+    changeConnectionState(STATE_FILING_SENT_COPY);
+    QString errorMessage;
+    QPointer<Imap::Mailbox::AppendTask> appendTask;
+    if (canCatenate()) {
+        QList<Imap::Mailbox::CatenatePair> data;
+        if (!m_source->asCatenateData(data, &errorMessage, BccMode::Keep)) {
+            keepDeliveredSentCopy(errorMessage);
+            return;
+        }
+        appendTask = m_model->appendIntoMailbox(m_sentFolderName, data, QStringList() << QStringLiteral("\\Seen"),
+                                                m_source->timestamp());
+    } else {
+        QByteArray data;
+        QBuffer buf(&data);
+        buf.open(QIODevice::WriteOnly);
+        if (!m_source->asRawMessage(&buf, &errorMessage, BccMode::Keep)) {
+            keepDeliveredSentCopy(errorMessage);
+            return;
+        }
+        appendTask = m_model->appendIntoMailbox(m_sentFolderName, data, QStringList() << QStringLiteral("\\Seen"),
+                                                m_source->timestamp());
+    }
+    Q_ASSERT(appendTask);
+    connect(appendTask.data(), &Imap::Mailbox::ImapTask::completed, this, &Submission::removeDeliveredSentCopy);
+    connect(appendTask.data(), &Imap::Mailbox::ImapTask::failed, this, &Submission::keepDeliveredSentCopy);
+}
+
+/** @short Remove only the delivered copy, which omits Bcc, now that a copy listing Bcc is filed */
+void Submission::removeDeliveredSentCopy()
+{
+    if (!m_model) {
+        finishDelivery();
+        return;
+    }
+    auto *task = m_model->removeMessageByUid(m_sentFolderName, m_appendUidValidity, m_appendUid);
+    connect(task, &Imap::Mailbox::ImapTask::completed, this, &Submission::finishDelivery);
+    connect(task, &Imap::Mailbox::ImapTask::failed, this, [this](const QString &error) {
+        emit logged(Common::LOG_SUBMISSION, QStringLiteral("Submission"),
+                    QStringLiteral("Sent holds two copies; the one without Bcc could not be removed: %1").arg(error));
+        finishDelivery();
+    });
+}
+
+/** @short The message is delivered, so failing to list Bcc in Sent does not fail the submission */
+void Submission::keepDeliveredSentCopy(const QString &error)
+{
+    emit logged(Common::LOG_SUBMISSION, QStringLiteral("Submission"),
+                QStringLiteral("The copy filed in Sent does not list Bcc: %1").arg(error));
+    finishDelivery();
+}
+
+void Submission::finishDelivery()
 {
     if (m_source->replyingToMessage().isValid()) {
         m_updateReplyingToMessageFlagsTask = modelOf(m_source->replyingToMessage())->setMessageFlags(QModelIndexList() << m_source->replyingToMessage(),
@@ -419,7 +502,7 @@ void Submission::slotAppendSucceeded()
         // Only ever consider valid UIDVALIDITY/UID pair
         m_appendUidReceived = true;
 
-        if (m_useBurl) {
+        if (burlEnabled()) {
             slotAskForUrl();
         } else {
             slotInvokeMsaNow();
@@ -444,6 +527,11 @@ void Submission::slotGenUrlAuthReceived(const QString &url)
     }
 }
 
+bool Submission::burlEnabled() const
+{
+    return m_useBurl && !m_source->hasBlindCopyRecipients();
+}
+
 /** @short Remove the "@domain" from a string */
 QString Submission::killDomainPartFromString(const QString &s)
 {
@@ -456,7 +544,7 @@ bool Submission::shouldBuildMessageLocally() const
     if (!m_useImapSubmit) {
         // sending via SMTP or Sendmail
         // Unless all of URLAUTH, CATENATE and BURL is present and enabled, we will still have to download the data in the end
-        return ! (m_useBurl && canCatenate() && m_model->isGenUrlAuthSupported());
+        return ! (burlEnabled() && canCatenate() && m_model->isGenUrlAuthSupported());
     } else {
         return ! canCatenate();
     }

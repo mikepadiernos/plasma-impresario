@@ -54,6 +54,8 @@ public:
     virtual QDateTime timestamp() const = 0;
     virtual QByteArray rawFromAddress() const = 0;
     virtual QList<QByteArray> rawRecipientAddresses() const = 0;
+    /** @short Whether a Bcc or Resent-Bcc recipient is among the recipients */
+    virtual bool hasBlindCopyRecipients() const;
     virtual void setRecipients(const QList<QPair<Composer::RecipientKind, Imap::Message::MailAddress> > &recipients) = 0;
     virtual void setFrom(const Imap::Message::MailAddress &from) = 0;
 

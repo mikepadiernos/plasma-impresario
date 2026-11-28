@@ -34,6 +34,11 @@ void AbstractComposer::setPreloadEnabled(const bool preload)
 {
 }
 
+bool AbstractComposer::hasBlindCopyRecipients() const
+{
+    return false;
+}
+
 QModelIndex AbstractComposer::replyingToMessage() const
 {
     return QModelIndex();

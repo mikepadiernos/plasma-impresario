@@ -43,6 +43,18 @@ void Fake::sendBurl(const QByteArray &from, const QList<QByteArray> &to, const Q
     emit m_factory->requestedBurlSending(from, to, imapUrl);
 }
 
+bool Fake::supportsImapSending() const
+{
+    return m_supportsImap;
+}
+
+void Fake::sendImap(const QString &mailbox, const uint uidValidity, const uint uid,
+                    const Imap::Mailbox::UidSubmitOptionsList options)
+{
+    Q_UNUSED(options);
+    emit m_factory->requestedImapSending(mailbox, uidValidity, uid);
+}
+
 void Fake::refuse(const QString &message)
 {
     setPermanentFailure(true);

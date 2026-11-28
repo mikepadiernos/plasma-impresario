@@ -21,6 +21,7 @@
 */
 
 #include "MessageComposer.h"
+#include <algorithm>
 #include <QBuffer>
 #include <QMimeData>
 #include <QMimeDatabase>
@@ -769,6 +770,13 @@ QList<QByteArray> MessageComposer::rawRecipientAddresses() const
     }
 
     return res;
+}
+
+bool MessageComposer::hasBlindCopyRecipients() const
+{
+    return std::any_of(m_recipients.cbegin(), m_recipients.cend(), [](const auto &recipient) {
+        return recipient.first == Composer::ADDRESS_BCC || recipient.first == Composer::ADDRESS_RESENT_BCC;
+    });
 }
 
 bool MessageComposer::addFileAttachment(const QString &path)
