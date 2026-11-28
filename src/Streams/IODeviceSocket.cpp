@@ -40,7 +40,7 @@ IODeviceSocket::IODeviceSocket(QIODevice *device): d(device), m_compressor(nullp
 {
     connect(d, &QIODevice::readyRead, this, &IODeviceSocket::handleReadyRead);
     connect(d, &QIODevice::readChannelFinished, this, &IODeviceSocket::handleStateChanged);
-    delayedDisconnect = new QTimer();
+    delayedDisconnect = new QTimer(this);
     delayedDisconnect->setSingleShot(true);
     connect(delayedDisconnect, &QTimer::timeout, this, &IODeviceSocket::emitError);
     EMIT_LATER_NOARG(this, delayedStart);
