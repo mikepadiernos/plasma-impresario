@@ -616,8 +616,11 @@ issues themselves, and each item is checked when its card moves to Completed.
   became M15, after Refinements (now M13) and Real Plasma session
   verification (now M14). The three GitHub milestones were renamed, issue
   titles and `Milestone:` lines were retitled, and milestone references in
-  issue bodies and the docs were shifted. The entries above keep the numbers
-  in use when they were written.
+  issue bodies and the docs were shifted: 136 titles, 139 issue bodies and the
+  26 caveat recommendation comments that mention these milestones. #512 joined
+  the M14 milestone. Historical #322 and #385, and dated progress comments,
+  were left as written. The entries above keep the numbers in use when they
+  were written.
 - ![Blocked][blocked] **Microsoft app registration,
   [#396](https://github.com/mikepadiernos/plasma-impresario/issues/396):**
   needs the maintainer's Microsoft account, so it cannot be done here. The
