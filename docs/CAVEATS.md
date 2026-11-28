@@ -49,6 +49,7 @@ Legend: ![Limitation][limitation] current limitation ·
   - [Saving unsent messages at session end](#saving-unsent-messages-at-session-end)
   - [Portal file chooser](#portal-file-chooser)
   - [Unread count on the task manager](#unread-count-on-the-task-manager)
+  - [Read state and unread counts](#read-state-and-unread-counts)
   - [Accessibility and theming](#accessibility-and-theming)
   - [Provider setup and Gmail](#provider-setup-and-gmail)
   - [Junk and attachment safety](#junk-and-attachment-safety)
@@ -98,6 +99,7 @@ issue comment that holds the current recommendation.
 | ![Limitation][limitation] | Add Account        | Found servers are not tried against real providers, guessed servers are only probed for a connection, and most resolvers do not validate DNSSEC, so servers outside the mail domain usually need confirmation ([details](#server-settings-discovery))                                                                                                                                                                                                 | [#466](https://github.com/mikepadiernos/plasma-impresario/issues/466)                                                                        |
 | ![Limitation][limitation] | Window activation  | Requests pass Plasma's activation token to the window they open, but nothing is checked in a Plasma session; a composer opened by a first launch and the address book window may only be marked as wanting attention ([details](#window-activation-for-requests))                                                                                                                                                                                     | [#467](https://github.com/mikepadiernos/plasma-impresario/issues/467)                                                                        |
 | ![Limitation][limitation] | Session end        | Open composers save unsent messages as drafts when the session ends, but nothing is checked in a Plasma session; attachments are not saved, and on Wayland **Save Draft?** may hold up logging out ([details](#saving-unsent-messages-at-session-end))                                                                                                                                                                                                | [#468](https://github.com/mikepadiernos/plasma-impresario/issues/468)                                                                        |
+| ![Limitation][limitation] | Read state         | Read and flag changes, and the unread counts, change only once the server confirms them; a change cut off by a lost connection is not replayed ([details](#read-state-and-unread-counts))                                                                                                                                                                                                                                                             | [#505](https://github.com/mikepadiernos/plasma-impresario/issues/505)                                                                        |
 | ![Limitation][limitation] | File chooser       | Files are chosen through the XDG portal file chooser, falling back to the KDE dialog, but nothing is checked in a Plasma session or with Plasma Opus; save dialogs still use the KDE dialog, and remote locations in the portal depend on kio-fuse ([details](#portal-file-chooser))                                                                                                                                                                  | [#470](https://github.com/mikepadiernos/plasma-impresario/issues/470)                                                                        |
 | ![Limitation][limitation] | Task manager       | The task manager entry shows the unread messages in every account's INBOX, but nothing is checked in a Plasma session; the tray icon counts other folders, and accounts not yet connected add nothing ([details](#unread-count-on-the-task-manager))                                                                                                                                                                                                  | [#471](https://github.com/mikepadiernos/plasma-impresario/issues/471)                                                                        |
 | ![Limitation][limitation] | Accessibility      | Icons, state colors and contrast follow Plasma's theme and the main controls have accessible names, but nothing is checked with a screen reader, a high-contrast scheme or in a Plasma session, and there are no translations yet ([details](#accessibility-and-theming))                                                                                                                                                                             | [#472](https://github.com/mikepadiernos/plasma-impresario/issues/472)                                                                        |
@@ -2038,6 +2040,46 @@ Plasma session; that check is
 - Count the same folders for the tray icon and the task manager entry, with one
   setting for both.
 - Let the count include other watched folders or only selected accounts.
+
+### Read state and unread counts
+
+| Caveat issue                                                          | Board               | Recommendation                                                                                         | Applies to                                                                                                                   |
+| --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| [#505](https://github.com/mikepadiernos/plasma-impresario/issues/505) | ![Backlog][backlog] | [Issue comment](https://github.com/mikepadiernos/plasma-impresario/issues/505#issuecomment-7232160785) | Unread counts across accounts and concurrent changes ([#130](https://github.com/mikepadiernos/plasma-impresario/issues/130)) |
+
+**Current behavior:**
+
+- ![Resolved][resolved] For each account, the folder counter, the message
+  list, the Unified Inbox, the sidebar header and the task manager entry agree.
+  Changes on one account's server leave the other accounts' counts alone.
+- ![Resolved][resolved] A change from another client that arrives while the
+  user's own change is on its way is counted once. Removed and newly arrived
+  messages update the count of their account only, and an account that loses
+  its connection keeps its last count.
+- ![Limitation][limitation] Read and flag changes show only once the server
+  confirms them, so on a slow connection the message and the counts change
+  late.
+- ![Limitation][limitation] A change cut off by a lost connection is not
+  replayed after reconnecting; it stays in the activity log with **Retry**.
+  Read and flag actions are disabled while offline.
+- ![Limitation][limitation] These cases are tested with two fake IMAP servers,
+  not with several real servers at once.
+
+**Workarounds:**
+
+- On a slow server, wait for the message to change; the counts catch up once
+  the server answers.
+- After a dropped connection, use **Retry** in the activity log.
+
+**Proposed improvements:**
+
+- Show pending changes at once with a pending marker, and roll them back if the
+  server refuses them.
+- Queue changes made offline or cut off by a lost connection and replay them
+  after reconnecting, alongside the persistent outbox
+  ([#378](https://github.com/mikepadiernos/plasma-impresario/issues/378)).
+- Check the counts with several accounts on the disposable Dovecot server,
+  changing flags from a second client.
 
 ### Accessibility and theming
 
