@@ -44,6 +44,7 @@
 #include <QScreen>
 #include <QMenu>
 #include <QMenuBar>
+#include <QDialogButtonBox>
 #include <QSettings>
 #include <QTextEdit>
 #include <QSignalSpy>
@@ -986,6 +987,84 @@ private slots:
       inBody = inBody || text->toPlainText().contains(link);
     QVERIFY(inBody);
     delete composer;
+  }
+
+  void composerConfirmsShareLinksBeforeSending() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QSettings settings(directory.filePath(QStringLiteral("main.ini")),
+                       QSettings::IniFormat);
+    configureOffline(settings, QStringLiteral("work.example.test"));
+    settings.setValue(Common::SettingsNames::settingsVersion, 2);
+    settings.setValue(Common::SettingsNames::guiShowSystray, false);
+    Gui::MainWindow window(&settings);
+    window.accountSettings()->setValue(Common::SettingsNames::msaMethodKey,
+                                       Common::SettingsNames::methodSENDMAIL);
+    window.accountSettings()->setValue(Common::SettingsNames::sendmailKey,
+                                       QStringLiteral("/bin/false"));
+    const QString link = QStringLiteral("https://cloud.example.test/s/AbCdEfGh1234");
+    QUrl mailto(QStringLiteral("mailto:someone@example.test"));
+    mailto.setQuery(QStringLiteral("subject=Report&body=See ") + link);
+    auto *composer = Gui::ComposeWidget::createFromUrl(&window, mailto);
+    QVERIFY(composer);
+    auto *sender = composer->findChild<QComboBox *>(QStringLiteral("sender"));
+    QVERIFY(sender);
+    sender->setEditText(QStringLiteral("Me <me@example.test>"));
+    auto *buttons = composer->findChild<QDialogButtonBox *>(QStringLiteral("buttonBox"));
+    QVERIFY(buttons);
+    QAbstractButton *send = nullptr;
+    for (QAbstractButton *candidate : buttons->buttons()) {
+      if (buttons->buttonRole(candidate) == QDialogButtonBox::AcceptRole)
+        send = candidate;
+    }
+    QVERIFY(send);
+    auto confirmation = [composer]() {
+      for (auto *box : composer->findChildren<QMessageBox *>(QStringLiteral("nextcloudShareConfirm"))) {
+        if (box->isVisible())
+          return box;
+      }
+      return static_cast<QMessageBox *>(nullptr);
+    };
+
+    // Errors, and whatever sendmail answers, are dismissed
+    QStringList dismissed;
+    QTimer dismiss;
+    QObject::connect(&dismiss, &QTimer::timeout, [&dismissed]() {
+      if (auto *modal = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+        dismissed << modal->text();
+        modal->reject();
+      }
+    });
+    dismiss.start(20);
+
+    // Who can open the link is shown first, and cancelling leaves the draft as it was
+    send->click();
+    QTRY_VERIFY2(confirmation(), qPrintable(dismissed.join(QLatin1Char('|'))));
+    QMessageBox *box = confirmation();
+    QVERIFY(box->informativeText().contains(link));
+    QVERIFY(box->informativeText().contains(QLatin1String("could not be checked")));
+    QVERIFY(!buttons->isEnabled());
+    box->button(QMessageBox::Cancel)->click();
+    QTRY_VERIFY(!confirmation());
+    QVERIFY(buttons->isEnabled());
+
+    // Until confirmed, every attempt asks again
+    send->click();
+    QTRY_VERIFY(confirmation());
+    box = confirmation();
+    auto *sendButton = box->findChild<QPushButton *>(QStringLiteral("nextcloudShareSend"));
+    QVERIFY(sendButton);
+    QVERIFY(dismissed.isEmpty());
+    sendButton->click();
+    QTRY_VERIFY(!confirmation());
+    // The message went on to sendmail, which refused it, without asking again
+    QTRY_VERIFY(!dismissed.isEmpty());
+    QVERIFY(!confirmation());
+    delete composer;
+    // Sending saved the draft first, which the next window would recover
+    QDir drafts(Common::writablePath(Common::LOCATION_CACHE) + QLatin1String("Drafts/"));
+    for (const QString &draft : drafts.entryList({QStringLiteral("*.draft*")}, QDir::Files))
+      QVERIFY(drafts.remove(draft));
   }
 
   void taskManagerShowsTheUnreadCount() {

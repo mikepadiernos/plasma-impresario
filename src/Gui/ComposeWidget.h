@@ -209,6 +209,12 @@ private:
     QString removedAccountText() const;
 
     bool buildMessageData();
+    /** @short Whether the Nextcloud share links in the text may be sent
+
+    Links which the user has not confirmed yet are looked up, and who can open them is shown; sending starts again once
+    the user confirms. Until then, false.
+    */
+    bool shareLinksConfirmed();
     bool shouldBuildMessageLocally() const;
 
     void saveDraft(const QString &path);
@@ -291,6 +297,9 @@ private:
     QPushButton *m_nextcloudButton = nullptr;
     /** The private copies of the files still being downloaded from Nextcloud */
     QSet<QString> m_nextcloudCopies;
+    /** The share links the user confirmed for sending, in their order */
+    QList<QUrl> m_confirmedShareLinks;
+    bool m_checkingShareLinks = false;
 
     std::shared_ptr<Composer::AbstractComposer> m_composer;
     Composer::Submission *m_submission;

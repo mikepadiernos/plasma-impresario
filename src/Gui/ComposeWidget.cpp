@@ -74,6 +74,7 @@
 #include "Gui/NextcloudBrowserDialog.h"
 #include "Gui/NextcloudHub.h"
 #include "Gui/NextcloudTransfers.h"
+#include "Nextcloud/Shares.h"
 #include "Gui/OverlayWidget.h"
 #include "Gui/PasswordDialog.h"
 #include "Gui/RemoteAttachmentFetcher.h"
@@ -1231,6 +1232,76 @@ bool ComposeWidget::buildMessageData()
     return true;
 }
 
+bool ComposeWidget::shareLinksConfirmed()
+{
+    if (!interactiveComposer())
+        return true;
+    const QList<QUrl> links = Nextcloud::findShareLinks(ui->mailText->toPlainText());
+    if (links.isEmpty() || links == m_confirmedShareLinks)
+        return true;
+    if (m_checkingShareLinks)
+        return false;
+    m_checkingShareLinks = true;
+    setUiWidgetsEnabled(false);
+    const quint64 busy = m_fetchNotice->showBusy(i18ncp("@info", "Checking who can open the Nextcloud link…",
+                                                        "Checking who can open the %1 Nextcloud links…",
+                                                        int(links.size())));
+    NextcloudHub *hub = m_mainWindow->nextcloud();
+    auto ask = [this, links, busy, hub](const QList<NextcloudHub::LinkShare> &shares) {
+        m_fetchNotice->dismissBusy(busy);
+        m_checkingShareLinks = false;
+        QStringList described;
+        for (const NextcloudHub::LinkShare &share : shares) {
+            QStringList lines{share.link.toDisplayString()};
+            if (!share.accountId.isEmpty() && hub)
+                lines << i18nc("@info %1 is a Nextcloud account", "Shared from %1.", hub->account(share.accountId).title());
+            else if (share.knownServer)
+                lines << i18nc("@info", "Not one of the shares of your connected Nextcloud accounts.");
+            else
+                lines << i18nc("@info", "No connected Nextcloud account is on its server, so it could not be checked.");
+            lines << share.details;
+            if (!share.problems.isEmpty())
+                lines << i18nc("@info %1 is a list of error messages", "The shares could not be checked: %1",
+                               share.problems.join(QLatin1Char(' ')));
+            described << lines.join(QLatin1Char('\n'));
+        }
+        auto *box = new QMessageBox(QMessageBox::Warning, i18nc("@title:window", "Send Nextcloud Links?"),
+                                    i18ncp("@info",
+                                           "This message contains a Nextcloud share link. Everyone who gets the "
+                                           "message can open it as described below.",
+                                           "This message contains %1 Nextcloud share links. Everyone who gets the "
+                                           "message can open them as described below.",
+                                           int(shares.size())),
+                                    QMessageBox::NoButton, this);
+        box->setObjectName(QStringLiteral("nextcloudShareConfirm"));
+        box->setAttribute(Qt::WA_DeleteOnClose);
+        box->setTextFormat(Qt::PlainText);
+        box->setInformativeText(described.join(QLatin1String("\n\n")));
+        QPushButton *sendButton = box->addButton(i18nc("@action:button", "Send"), QMessageBox::AcceptRole);
+        sendButton->setObjectName(QStringLiteral("nextcloudShareSend"));
+        box->addButton(QMessageBox::Cancel);
+        box->setDefaultButton(sendButton);
+        connect(box, &QMessageBox::finished, this, [this, box, sendButton, links]() {
+            if (box->clickedButton() == sendButton) {
+                m_confirmedShareLinks = links;
+                send();
+                return;
+            }
+            setUiWidgetsEnabled(true);
+        });
+        box->open();
+    };
+    if (hub) {
+        hub->lookUpShares(links, this, ask);
+    } else {
+        QList<NextcloudHub::LinkShare> shares;
+        for (const QUrl &link : links)
+            shares.append(NextcloudHub::LinkShare{link, {}, Nextcloud::describe(nullptr), {}, false});
+        ask(shares);
+    }
+    return false;
+}
+
 void ComposeWidget::send()
 {
     if (interactiveComposer()) {
@@ -1250,6 +1321,9 @@ void ComposeWidget::send()
     }
 
     if (!buildMessageData()) {
+        return;
+    }
+    if (!shareLinksConfirmed()) {
         return;
     }
 
