@@ -133,7 +133,7 @@ issue comment that holds the current recommendation.
 | ![Security][security]     | Outgoing headers   | Header input is cleaned and Bcc is left out of delivered mail, but Sent copies delivered through BURL or the IMAP SENDMAIL Extension also omit Bcc, and cleaned input is not pointed out ([details](#outgoing-headers-and-bcc))                                                                                                                                                                                                                       | [#459](https://github.com/mikepadiernos/plasma-impresario/issues/459)                                                                        |
 | ![Planned][planned]       | Integrations       | Plasma new-mail notifications, session integration, Gmail/Outlook APIs, Nextcloud, rules and cross-app workflows remain planned                                                                                                                                                                                                                                                                                                                       | —                                                                                                                                            |
 | ![Limitation][limitation] | Compatibility      | The [baseline](philosophy/compatibility.md) records an initial CachyOS target and partial build evidence; no full reader or desktop-session support matrix has been verified                                                                                                                                                                                                                                                                          | —                                                                                                                                            |
-| ![Limitation][limitation] | Quality evidence   | Workloads are measured only against fake servers in a Debug build ([performance](performance.md)); broad accessibility, screen-reader, high-DPI and RTL verification are not recorded; nothing has been checked in a real Plasma session yet                                                                                                                                                                                                          | —                                                                                                                                            |
+| ![Limitation][limitation] | Quality evidence   | Workloads are measured only against fake servers in a Debug build ([performance](performance.md)); accessibility is [audited offscreen](accessibility.md) but not with a screen reader; nothing has been checked in a real Plasma session yet                                                                                                                                                                                                         | —                                                                                                                                            |
 
 ### Multiple accounts
 
@@ -2321,6 +2321,17 @@ Plasma session; that check is
   keyboard. The message list, quick search, folder tree, network access and
   main menu controls have accessible names, and a test checks that every
   visible focusable control in the main window has one.
+- ![Resolved][resolved] The [M11 audit](accessibility.md) extends that check
+  to every settings page and tab and to 13 other dialogs, and names the
+  controls it found unnamed. It also checks that no enabled shortcut is
+  ambiguous, that Tab reaches every visible control, and that the checks pass
+  at 150% and 200% scale.
+- ![Limitation][limitation] The audit sees only what is open without a live
+  account: shortcuts of actions disabled at startup and windows that need a
+  connected account, such as the reader with a message open, are not audited.
+- ![Limitation][limitation] Menu items and buttons mix `...` (49 strings) and
+  `…` (93). Changing them would break matching translations, so they are left
+  as they are for now.
 - ![Limitation][limitation] Every source file is scanned for translatable
   strings, but no `.po` catalog exists for the `plasma-impresario` domain, so
   the interface is in English only.
@@ -2352,7 +2363,10 @@ Plasma session; that check is
 - Add `SymbolicIcon::wrap` for icons built from other sources, and escape the
   protocol log's source label.
 - Start translations for the `plasma-impresario` domain once the strings
-  settle.
+  settle, and switch the remaining `...` to `…` in the same pass, before the
+  first catalog is published.
+- Run the audit against a live account as well, so that the reader, account
+  settings and selection-dependent shortcuts are covered.
 
 ### Provider setup and Gmail
 
