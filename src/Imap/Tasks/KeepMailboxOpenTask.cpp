@@ -984,6 +984,22 @@ bool KeepMailboxOpenTask::isReadyToTerminate() const
     return shouldExit && !hasPendingInternalActions() && (!synchronizeConn || synchronizeConn->isFinished());
 }
 
+bool KeepMailboxOpenTask::isIdleForBackgroundWork() const
+{
+    if (isRunning != Running::RUNNING || shouldExit || !waitingObtainTasks.isEmpty() || hasPendingInternalActions()
+        || !fetchMetadataTasks.isEmpty() || !fetchPartTasks.isEmpty() || m_deleteCurrentMailboxTask || unSelectTask)
+        return false;
+    const QList<ImapTask *> &active = model->accessParser(parser).activeTasks;
+    if (active.isEmpty() || active.front() != this)
+        return false;
+    // Like canRunIdleRightNow(), a search which only listens for updates does not count
+    if (active.size() == 2) {
+        auto *sort = dynamic_cast<SortTask *>(active[1]);
+        return sort && sort->isJustUpdatingNow();
+    }
+    return active.size() == 1;
+}
+
 /** @short Return true if we're configured to run IDLE and if there's no ongoing activity */
 bool KeepMailboxOpenTask::canRunIdleRightNow() const
 {

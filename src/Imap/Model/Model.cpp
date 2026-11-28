@@ -1477,6 +1477,20 @@ bool Model::isMailboxOpen(const QModelIndex &mailbox) const
     return parser->connState >= CONN_STATE_SELECTED && parser->connState < CONN_STATE_LOGOUT;
 }
 
+bool Model::isMailboxIdle(const QModelIndex &mailbox) const
+{
+    if (!isMailboxOpen(mailbox))
+        return false;
+    auto *mailboxPtr = static_cast<TreeItemMailbox *>(realTreeItem(mailbox));
+    return mailboxPtr->maintainingTask->isIdleForBackgroundWork();
+}
+
+bool Model::isMailboxMaintained(const QModelIndex &mailbox) const
+{
+    auto *mailboxPtr = dynamic_cast<TreeItemMailbox *>(realTreeItem(mailbox));
+    return mailboxPtr && mailboxPtr->maintainingTask;
+}
+
 void Model::handleMailboxRowsChanged(const QModelIndex &parent)
 {
     // Message lists and message parts live in the same model; only the mailbox tree matters here

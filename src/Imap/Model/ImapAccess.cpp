@@ -36,6 +36,7 @@
 #include "Common/TrustedCertificates.h"
 #include "Imap/Model/CombinedCache.h"
 #include "Imap/Model/DummyNetworkWatcher.h"
+#include "Imap/Model/HeaderBackfill.h"
 #include "Imap/Model/MailboxModel.h"
 #include "Imap/Model/MemoryCache.h"
 #include "Imap/Model/Model.h"
@@ -452,6 +453,11 @@ void ImapAccess::doConnect()
             Imap::Mailbox::SearchIndex::drop(combined->databaseConnectionName());
         }
     }
+    if (!local) {
+        // Lives with the model, which it works on
+        m_headerBackfill = new Imap::Mailbox::HeaderBackfill(m_imapModel, m_imapModel);
+        m_headerBackfill->setObjectName(QStringLiteral("headerBackfill-%1").arg(m_accountName));
+    }
     connect(m_imapModel, &Mailbox::Model::alertReceived, this, &ImapAccess::alertReceived);
     connect(m_imapModel, &Mailbox::Model::imapError, this, &ImapAccess::imapError);
     connect(m_imapModel, &Mailbox::Model::networkError, this, &ImapAccess::networkError);
@@ -519,6 +525,11 @@ QAbstractItemModel *ImapAccess::imapModel() const
 Imap::Mailbox::SearchIndexer *ImapAccess::searchIndexer() const
 {
     return m_searchIndexer;
+}
+
+Imap::Mailbox::HeaderBackfill *ImapAccess::headerBackfill() const
+{
+    return m_headerBackfill;
 }
 
 void ImapAccess::setSearchIndexPaused(bool paused)
