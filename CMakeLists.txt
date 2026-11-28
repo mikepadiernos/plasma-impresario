@@ -7,7 +7,7 @@ set(KF_MIN_VERSION "6.26.0")
 
 set(SONNET_LIB_VERSION "6.21.0")
 
-find_package(ECM REQUIRED NO_MODULE)
+find_package(ECM ${KF_MIN_VERSION} REQUIRED NO_MODULE)
 
 set(CMAKE_MODULE_PATH
     ${CMAKE_MODULE_PATH}
@@ -77,13 +77,13 @@ find_package(Qt6 ${QT_REQUIRED_VERSION} REQUIRED
         Widgets
 )
 
-find_package(KF6 REQUIRED
+find_package(KF6 ${KF_MIN_VERSION} REQUIRED
     COMPONENTS
         ItemModels
 )
 
 if(WITH_DESKTOP)
-    find_package(KF6 REQUIRED COMPONENTS ColorScheme Config CoreAddons I18n KIO WidgetsAddons WindowSystem)
+    find_package(KF6 ${KF_MIN_VERSION} REQUIRED COMPONENTS ColorScheme Config CoreAddons I18n KIO WidgetsAddons WindowSystem)
     ki18n_install(po)
 endif()
 
@@ -305,6 +305,9 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/configure-plugins.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/configure-plugins.cmake.h)
 
 feature_summary(FATAL_ON_MISSING_REQUIRED_PACKAGES INCLUDE_QUIET_PACKAGES DESCRIPTION "\n" WHAT ALL)
+
+include(DependencyVersions)
+impresario_write_dependency_versions()
 
 set(path_Common ${CMAKE_CURRENT_SOURCE_DIR}/src/Common)
 set(libCommon_SOURCES
