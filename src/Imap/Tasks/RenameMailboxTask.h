@@ -27,6 +27,10 @@ public:
     bool handleStateHelper(const Imap::Responses::State *const resp) override;
     QVariant taskData(const int role) const override;
     bool needsMailbox() const override {return false;}
+
+private slots:
+    void sendRenameWhenQuiet();
+
 private:
     void removeOldMailboxItem();
 
