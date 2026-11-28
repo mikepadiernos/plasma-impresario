@@ -585,6 +585,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/NextcloudBrowserDialog.cpp
     ${path_DesktopGui}/NextcloudConnectDialog.cpp
     ${path_DesktopGui}/NextcloudHub.cpp
+    ${path_DesktopGui}/NextcloudTransfers.cpp
     ${path_DesktopGui}/NotificationsDialog.cpp
     ${path_DesktopGui}/OnePanelAtTimeWidget.cpp
     ${path_DesktopGui}/OverlayWidget.cpp

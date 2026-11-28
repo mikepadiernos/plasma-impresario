@@ -21,10 +21,12 @@
 #include "Gui/NextcloudBrowserDialog.h"
 #include "Gui/NextcloudConnectDialog.h"
 #include "Gui/NextcloudHub.h"
+#include "Gui/NextcloudTransfers.h"
 
 using Gui::NextcloudBrowserDialog;
 using Gui::NextcloudConnectDialog;
 using Gui::NextcloudHub;
+using Gui::NextcloudTransfers;
 
 class NextcloudDialogsTest : public QObject
 {
@@ -356,6 +358,139 @@ private slots:
         QVERIFY(m_hub->accounts().isEmpty());
         QVERIFY(m_plugin->entries.isEmpty());
         m_server = std::make_unique<FakeNextcloudServer>();
+    }
+
+    void transfersFetchFiles()
+    {
+        m_server->addFile(QStringLiteral("/report.pdf"), "pdf content");
+        const QString id = addAccount();
+        NextcloudTransfers transfers(m_hub.get());
+        Nextcloud::Entry file;
+        file.path = QStringLiteral("/report.pdf");
+        file.name = QStringLiteral("report.pdf");
+        QByteArray data;
+        QString error = QStringLiteral("not called");
+        transfers.fetch(
+            id, file, this,
+            [&](const QByteArray &bytes) {
+                data = bytes;
+                error.clear();
+            },
+            [&](const QString &message) { error = message; });
+        QCOMPARE(transfers.runningCount(), 1);
+        QTRY_COMPARE(data, QByteArray("pdf content"));
+        QVERIFY(error.isEmpty());
+        QTRY_COMPARE(transfers.runningCount(), 0);
+    }
+
+    void transfersStoreWithoutReplacing()
+    {
+        m_server->addFolder(QStringLiteral("/Mail"));
+        m_server->addFile(QStringLiteral("/Mail/a.txt"), "original");
+        const QString id = addAccount();
+        NextcloudTransfers transfers(m_hub.get());
+        QStringList stored;
+        QString error;
+        for (int i = 0; i < 2; ++i) {
+            transfers.store(
+                id, QStringLiteral("/Mail/"), QStringLiteral("a.txt"), "copy", this,
+                [&](const QString &path) { stored << path; }, [&](const QString &message) { error = message; });
+            QTRY_COMPARE(stored.size(), i + 1);
+        }
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        QCOMPARE(stored, (QStringList{QStringLiteral("/Mail/a (2).txt"), QStringLiteral("/Mail/a (3).txt")}));
+        QCOMPARE(m_server->nodes.value(QStringLiteral("/Mail/a.txt")).content, QByteArray("original"));
+        QCOMPARE(m_server->nodes.value(QStringLiteral("/Mail/a (3).txt")).content, QByteArray("copy"));
+
+        // A name with a slash stays one file in the chosen folder
+        stored.clear();
+        transfers.store(
+            id, QStringLiteral("/Mail"), QStringLiteral("../b/c.txt"), "c", this,
+            [&](const QString &path) { stored << path; }, [&](const QString &message) { error = message; });
+        QTRY_COMPARE(stored.size(), 1);
+        QVERIFY(stored.first().startsWith(QLatin1String("/Mail/")));
+        QCOMPARE(stored.first().count(QLatin1Char('/')), 2);
+        QTRY_COMPARE(transfers.runningCount(), 0);
+    }
+
+    void transfersReportFoldersWithoutPermission()
+    {
+        m_server->addFolder(QStringLiteral("/ReadOnly"), QStringLiteral("SRG"));
+        const QString id = addAccount();
+        NextcloudTransfers transfers(m_hub.get());
+        QString error;
+        bool stored = false;
+        transfers.store(
+            id, QStringLiteral("/ReadOnly"), QStringLiteral("a.txt"), "a", this,
+            [&](const QString &) { stored = true; }, [&](const QString &message) { error = message; });
+        QTRY_VERIFY(!error.isEmpty());
+        QVERIFY(!stored);
+        QVERIFY2(error.contains(QLatin1String("may not create")), qPrintable(error));
+        QVERIFY(!m_server->nodes.contains(QStringLiteral("/ReadOnly/a.txt")));
+    }
+
+    void transfersReportRefusedAppPasswords()
+    {
+        m_server->addFile(QStringLiteral("/a.txt"), "a");
+        const QString id = addAccount();
+        m_server->appPassword = QStringLiteral("changed");
+        NextcloudTransfers transfers(m_hub.get());
+        Nextcloud::Entry file;
+        file.path = QStringLiteral("/a.txt");
+        QString error;
+        transfers.fetch(id, file, this, [](const QByteArray &) { }, [&](const QString &message) { error = message; });
+        QTRY_VERIFY(!error.isEmpty());
+        QVERIFY2(error.contains(QLatin1String("refused")), qPrintable(error));
+    }
+
+    void transfersFindExistingLinkShares()
+    {
+        m_server->addFile(QStringLiteral("/shared.pdf"), "s");
+        m_server->addFile(QStringLiteral("/private.pdf"), "p");
+        m_server->addLinkShare(QStringLiteral("/shared.pdf"));
+        const QString id = addAccount();
+        NextcloudTransfers transfers(m_hub.get());
+        Nextcloud::Entry shared;
+        shared.path = QStringLiteral("/shared.pdf");
+        Nextcloud::Entry unshared;
+        unshared.path = QStringLiteral("/private.pdf");
+        Nextcloud::Entry missing;
+        missing.path = QStringLiteral("/gone.pdf");
+        QList<NextcloudTransfers::Link> links;
+        bool done = false;
+        transfers.linkShares(id, {shared, unshared, missing}, this, [&](const QList<NextcloudTransfers::Link> &found) {
+            links = found;
+            done = true;
+        });
+        QTRY_VERIFY(done);
+        QCOMPARE(links.size(), 3);
+        QCOMPARE(links[0].file.path, shared.path);
+        QVERIFY(links[0].url.isValid());
+        QVERIFY(links[0].url.path().contains(QLatin1String("/s/")));
+        QVERIFY(links[1].url.isEmpty());
+        QVERIFY(links[1].error.isEmpty());
+        QVERIFY(links[2].url.isEmpty());
+        QVERIFY(!links[2].error.isEmpty());
+        // Only read: no share was created
+        QCOMPARE(m_server->shares.size(), 1);
+        QTRY_COMPARE(transfers.runningCount(), 0);
+    }
+
+    void transfersStopReportingWithoutTheirContext()
+    {
+        m_server->addFile(QStringLiteral("/a.txt"), "a");
+        const QString id = addAccount();
+        NextcloudTransfers transfers(m_hub.get());
+        Nextcloud::Entry file;
+        file.path = QStringLiteral("/a.txt");
+        int calls = 0;
+        auto context = std::make_unique<QObject>();
+        transfers.fetch(
+            id, file, context.get(), [&](const QByteArray &) { ++calls; }, [&](const QString &) { ++calls; });
+        context.reset();
+        QTRY_COMPARE(transfers.runningCount(), 0);
+        QTest::qWait(50);
+        QCOMPARE(calls, 0);
     }
 
 private:
