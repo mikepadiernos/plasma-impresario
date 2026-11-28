@@ -345,7 +345,7 @@ void ImapWorkloadsTest::testLargeAttachment()
 
     QByteArray content(size, Qt::Uninitialized);
     for (int i = 0; i < size; ++i)
-        content[i] = char((i * 131) & 0xff);
+        content[i] = char((unsigned(i) * 131u) & 0xffu);
     // The data arrives as the server sends it; it is prepared first so that the
     // memory measured is the application's own
     QByteArray wire = "* 1 FETCH (UID 333 BODY[2] " + asLiteral(content.toBase64()) + ")\r\n";
