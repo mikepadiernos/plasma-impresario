@@ -6,7 +6,9 @@
 
 #include <QFile>
 #include <QMap>
+#include <QSignalSpy>
 
+#include "Imap/Model/HeaderBackfill.h"
 #include "Imap/Model/ItemRoles.h"
 #include "Imap/Model/MailboxTree.h"
 #include "Imap/Model/MsgListModel.h"
@@ -60,6 +62,49 @@ QByteArray attachmentStructure(int attachments)
             + "\") NIL NIL \"base64\" 40000 NIL (\"attachment\" (\"filename\" \"" + name + "\")) NIL NIL)";
     }
     return out + " \"mixed\" (\"boundary\" \"sep\") NIL NIL NIL";
+}
+
+/** @short Answer the searches and header requests of the background loading as a server would
+
+The newest @p recent messages count as recent; every UID is its own sequence number, as in the fixture.
+*/
+void serveBackfill(Streams::FakeSocket *socket, uint newest, uint recent)
+{
+    const QByteArray written = socket->writtenStuff();
+    if (written.isEmpty())
+        return;
+    QByteArray answer;
+    for (const QByteArray &line : written.split('\n')) {
+        if (line.trimmed().isEmpty())
+            continue;
+        const int space = line.indexOf(' ');
+        const QByteArray tag = line.left(space);
+        const QByteArray command = line.mid(space + 1).trimmed();
+        if (command.startsWith("UID SEARCH")) {
+            answer += "* SEARCH";
+            for (uint uid = newest - recent + 1; uid <= newest; ++uid)
+                answer += ' ' + QByteArray::number(uid);
+            answer += "\r\n";
+        } else if (command.startsWith("UID FETCH ")) {
+            const QByteArray set = command.mid(10, command.indexOf(' ', 10) - 10);
+            for (const QByteArray &range : set.split(',')) {
+                const int colon = range.indexOf(':');
+                const uint first = range.left(colon < 0 ? range.size() : colon).toUInt();
+                const uint last = colon < 0 ? first : range.mid(colon + 1).toUInt();
+                for (uint uid = first; uid <= last; ++uid) {
+                    const QByteArray number = QByteArray::number(uid);
+                    answer += "* " + number + " FETCH (UID " + number
+                        + " RFC822.SIZE 89 INTERNALDATE \"20-Nov-2026 10:00:00 +0000\" ENVELOPE (NIL \"Message "
+                        + number
+                        + "\" NIL NIL NIL NIL NIL NIL NIL NIL) BODYSTRUCTURE (\"text\" \"plain\" () NIL NIL NIL 19 2 "
+                          "NIL "
+                          "NIL NIL NIL))\r\n";
+                }
+            }
+        }
+        answer += tag + " OK done\r\n";
+    }
+    socket->fakeReading(answer);
 }
 
 } // namespace
@@ -361,6 +406,46 @@ void ImapWorkloadsTest::testLargeAttachment()
     finish("large-attachment", mib, 2000);
     QCOMPARE(decoded.size(), size);
     QVERIFY(decoded == content);
+    cEmpty();
+}
+
+/** @short The headers of a large folder loading in the background: how soon the recent ones are there, and how long
+ * the rest up to the limit takes, while the event loop stays free */
+void ImapWorkloadsTest::testHeaderBackfill()
+{
+    const int size = scaled(50000);
+    const int recent = std::min(500, size / 10);
+    HeaderBackfill backfill(model);
+    // The fixture expects a quiet connection right after the synchronization
+    bool held = true;
+    backfill.setOtherWorkPending([&held]() { return held; });
+    initialMessages(size);
+    cEmpty();
+    QSignalSpy recentLoaded(&backfill, &HeaderBackfill::recentLoaded);
+    QSignalSpy finished(&backfill, &HeaderBackfill::finished);
+    auto *socket = SOCK;
+
+    begin();
+    held = false;
+    QVERIFY(pump([&]() {
+        serveBackfill(socket, size, recent);
+        return !recentLoaded.isEmpty();
+    }));
+    finish("backfill-recent-headers", recent, 3000);
+    QCOMPARE(backfill.recentCount(), recent);
+    QVERIFY(model->index(size - 1, 0, msgListA).data(RoleIsFetched).toBool());
+
+    begin();
+    QVERIFY(pump([&]() {
+        serveBackfill(socket, size, recent);
+        return !finished.isEmpty();
+    }));
+    finish("backfill-older-headers", backfill.requestedCount() - recent, 60000);
+    QCOMPARE(backfill.requestedCount(), std::min(size, backfill.messageLimit()));
+    QVERIFY(pump([&]() {
+        serveBackfill(socket, size, recent);
+        return model->index(size - backfill.requestedCount(), 0, msgListA).data(RoleIsFetched).toBool();
+    }));
     cEmpty();
 }
 

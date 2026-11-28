@@ -36,6 +36,7 @@ private slots:
     void testBulkVanished();
     void testManyAttachments();
     void testLargeAttachment();
+    void testHeaderBackfill();
 
 private:
     struct Sample {
